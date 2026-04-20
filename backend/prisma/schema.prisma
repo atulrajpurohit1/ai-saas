@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        String     @id @default(uuid())
+  name      String
+  slug      String     @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  deals     Deal[]
+  leads     Lead[]
+  proposals Proposal[]
+  users     User[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  password     String
+  name         String?
+  refreshToken String?
+  tenantId     String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model Lead {
+  id        String     @id @default(uuid())
+  name      String
+  company   String
+  status    String     @default("new")
+  tenantId  String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  email     String?
+  deals     Deal[]
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  proposals Proposal[]
+
+  @@index([tenantId])
+}
+
+model Deal {
+  id        String   @id @default(uuid())
+  name      String
+  stage     String   @default("New")
+  tenantId  String
+  leadId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lead      Lead     @relation(fields: [leadId], references: [id])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([leadId])
+}
+
+model Proposal {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  status    String   @default("draft")
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  leadId    String?
+  lead      Lead?    @relation(fields: [leadId], references: [id])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([leadId])
+}
