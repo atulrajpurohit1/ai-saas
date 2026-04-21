@@ -10,66 +10,66 @@ export declare class ProposalsService {
     constructor(prisma: PrismaService, aiService: AiService, auditService: AuditService);
     create(tenantId: string, createProposalDto: CreateProposalDto, userId?: string): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
+        tenantId: string;
+        status: string;
+        leadId: string | null;
         title: string;
         content: string;
         dealId: string | null;
-        leadId: string | null;
     }>;
     findAll(tenantId: string): Promise<({
-        lead: {
-            name: string;
-            id: string;
-            company: string;
-            status: string;
-            tenantId: string;
-            createdAt: Date;
-            updatedAt: Date;
-            email: string | null;
-        } | null;
         _count: {
             versions: number;
         };
-        deal: {
-            name: string;
+        lead: {
             id: string;
-            tenantId: string;
+            name: string;
             createdAt: Date;
             updatedAt: Date;
+            email: string | null;
+            tenantId: string;
+            company: string;
+            status: string;
+        } | null;
+        deal: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
             leadId: string;
             stage: string;
         } | null;
     } & {
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
+        tenantId: string;
+        status: string;
+        leadId: string | null;
         title: string;
         content: string;
         dealId: string | null;
-        leadId: string | null;
     })[]>;
     findOne(tenantId: string, id: string): Promise<{
         lead: {
-            name: string;
             id: string;
-            company: string;
-            status: string;
-            tenantId: string;
+            name: string;
             createdAt: Date;
             updatedAt: Date;
             email: string | null;
+            tenantId: string;
+            company: string;
+            status: string;
         } | null;
         deal: {
-            name: string;
             id: string;
-            tenantId: string;
+            name: string;
             createdAt: Date;
             updatedAt: Date;
+            tenantId: string;
             leadId: string;
             stage: string;
         } | null;
@@ -82,36 +82,36 @@ export declare class ProposalsService {
         }[];
     } & {
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
+        tenantId: string;
+        status: string;
+        leadId: string | null;
         title: string;
         content: string;
         dealId: string | null;
-        leadId: string | null;
     }>;
     update(tenantId: string, id: string, updateProposalDto: UpdateProposalDto, userId?: string): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
+        tenantId: string;
+        status: string;
+        leadId: string | null;
         title: string;
         content: string;
         dealId: string | null;
-        leadId: string | null;
     }>;
     duplicate(tenantId: string, id: string, userId?: string): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
+        tenantId: string;
+        status: string;
+        leadId: string | null;
         title: string;
         content: string;
         dealId: string | null;
-        leadId: string | null;
     }>;
     export(tenantId: string, id: string, userId?: string): Promise<{
         content: string;
@@ -119,14 +119,14 @@ export declare class ProposalsService {
     }>;
     generateForLead(tenantId: string, leadId: string, userId?: string): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
+        tenantId: string;
+        status: string;
+        leadId: string | null;
         title: string;
         content: string;
         dealId: string | null;
-        leadId: string | null;
     }>;
     generateBulkProposals(tenantId: string, userId?: string): Promise<{
         generatedCount: number;

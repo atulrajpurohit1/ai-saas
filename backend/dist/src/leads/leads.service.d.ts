@@ -10,90 +10,90 @@ export declare class LeadsService {
     private auditService;
     constructor(prisma: PrismaService, aiService: AiService, auditService: AuditService);
     create(createLeadDto: CreateLeadDto, tenantId: string, userId?: string): Promise<{
-        name: string;
         id: string;
-        company: string;
-        status: string;
-        tenantId: string;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
         email: string | null;
+        tenantId: string;
+        company: string;
+        status: string;
     }>;
     findAll(tenantId: string): Promise<({
         deals: {
-            name: string;
             id: string;
-            tenantId: string;
+            name: string;
             createdAt: Date;
             updatedAt: Date;
+            tenantId: string;
             leadId: string;
             stage: string;
         }[];
         notes: {
             id: string;
-            tenantId: string;
             createdAt: Date;
+            tenantId: string;
+            leadId: string | null;
             content: string;
             dealId: string | null;
-            leadId: string | null;
         }[];
     } & {
-        name: string;
         id: string;
-        company: string;
-        status: string;
-        tenantId: string;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
         email: string | null;
+        tenantId: string;
+        company: string;
+        status: string;
     })[]>;
     findOne(id: string, tenantId: string): Promise<{
         deals: {
-            name: string;
             id: string;
-            tenantId: string;
+            name: string;
             createdAt: Date;
             updatedAt: Date;
+            tenantId: string;
             leadId: string;
             stage: string;
         }[];
         notes: {
             id: string;
-            tenantId: string;
             createdAt: Date;
+            tenantId: string;
+            leadId: string | null;
             content: string;
             dealId: string | null;
-            leadId: string | null;
         }[];
     } & {
-        name: string;
         id: string;
-        company: string;
-        status: string;
-        tenantId: string;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
         email: string | null;
+        tenantId: string;
+        company: string;
+        status: string;
     }>;
     update(id: string, updateLeadDto: UpdateLeadDto, tenantId: string, userId?: string): Promise<{
-        name: string;
         id: string;
-        company: string;
-        status: string;
-        tenantId: string;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
         email: string | null;
+        tenantId: string;
+        company: string;
+        status: string;
     }>;
     updateStatus(id: string, updateLeadStatusDto: UpdateLeadStatusDto, tenantId: string, userId?: string): Promise<{
-        name: string;
         id: string;
-        company: string;
-        status: string;
-        tenantId: string;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
         email: string | null;
+        tenantId: string;
+        company: string;
+        status: string;
     }>;
     remove(id: string, tenantId: string, userId?: string): Promise<{
         success: boolean;
@@ -103,14 +103,14 @@ export declare class LeadsService {
     }>;
     exportLeads(tenantId: string): Promise<string>;
     processPdfLead(buffer: Buffer, tenantId: string): Promise<{
-        name: string;
         id: string;
-        company: string;
-        status: string;
-        tenantId: string;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
         email: string | null;
+        tenantId: string;
+        company: string;
+        status: string;
     }>;
     analyzePdf(buffer: Buffer): Promise<{
         name: string;
