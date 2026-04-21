@@ -24,7 +24,13 @@ export class DealsController {
   @Post()
   create(@Body() createDealDto: CreateDealDto, @Req() req: Request) {
     const user = req.user as unknown as ActiveUser;
-    return this.dealsService.create(createDealDto, user.tenantId);
+    return this.dealsService.create(createDealDto, user.tenantId, user.sub);
+  }
+
+  @Post('convert/:leadId')
+  convert(@Param('leadId') leadId: string, @Req() req: Request) {
+    const user = req.user as unknown as ActiveUser;
+    return this.dealsService.convertLeadToDeal(leadId, user.tenantId, user.sub);
   }
 
   @Get()
@@ -46,12 +52,12 @@ export class DealsController {
     @Req() req: Request,
   ) {
     const user = req.user as unknown as ActiveUser;
-    return this.dealsService.updateStage(id, updateDealStageDto, user.tenantId);
+    return this.dealsService.updateStage(id, updateDealStageDto, user.tenantId, user.sub);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string, @Req() req: Request) {
     const user = req.user as unknown as ActiveUser;
-    return this.dealsService.remove(id, user.tenantId);
+    return this.dealsService.remove(id, user.tenantId, user.sub);
   }
 }

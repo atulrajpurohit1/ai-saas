@@ -10,6 +10,7 @@ exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
+const config_1 = require("@nestjs/config");
 const prisma_module_1 = require("./prisma/prisma.module");
 const users_module_1 = require("./users/users.module");
 const auth_module_1 = require("./auth/auth.module");
@@ -18,12 +19,16 @@ const deals_module_1 = require("./deals/deals.module");
 const proposals_module_1 = require("./proposals/proposals.module");
 const ai_module_1 = require("./ai/ai.module");
 const email_module_1 = require("./email/email.module");
+const audit_module_1 = require("./audit/audit.module");
+const notes_module_1 = require("./notes/notes.module");
+const activities_module_1 = require("./activities/activities.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            config_1.ConfigModule.forRoot({ isGlobal: true }),
             prisma_module_1.PrismaModule,
             users_module_1.UsersModule,
             auth_module_1.AuthModule,
@@ -32,6 +37,9 @@ exports.AppModule = AppModule = __decorate([
             proposals_module_1.ProposalsModule,
             ai_module_1.AiModule,
             email_module_1.EmailModule,
+            audit_module_1.AuditModule,
+            notes_module_1.NotesModule,
+            activities_module_1.ActivitiesModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

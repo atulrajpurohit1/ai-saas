@@ -7,6 +7,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  ADMIN
+}
+
 model Tenant {
   id        String     @id @default(uuid())
   name      String
@@ -17,6 +21,9 @@ model Tenant {
   leads     Lead[]
   proposals Proposal[]
   users     User[]
+  activities Activity[]
+  notes      Note[]
+  auditLogs  AuditLog[]
 }
 
 model User {
@@ -25,6 +32,7 @@ model User {
   password     String
   name         String?
   refreshToken String?
+  role         UserRole @default(ADMIN)
   tenantId     String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -45,6 +53,7 @@ model Lead {
   deals     Deal[]
   tenant    Tenant     @relation(fields: [tenantId], references: [id])
   proposals Proposal[]
+  notes     Note[]
 
   @@index([tenantId])
 }
@@ -52,16 +61,49 @@ model Lead {
 model Deal {
   id        String   @id @default(uuid())
   name      String
-  stage     String   @default("New")
+  stage     String   @default("new")
   tenantId  String
   leadId    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   lead      Lead     @relation(fields: [leadId], references: [id])
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  activities Activity[]
+  notes      Note[]
+  proposals  Proposal[]
 
   @@index([tenantId])
   @@index([leadId])
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  content   String
+  leadId    String?
+  lead      Lead?    @relation(fields: [leadId], references: [id])
+  dealId    String?
+  deal      Deal?    @relation(fields: [dealId], references: [id])
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model Activity {
+  id          String   @id @default(uuid())
+  type        String   // call, meeting, task
+  subject     String
+  description String?
+  status      String   @default("pending") // pending, completed
+  dueDate     DateTime?
+  dealId      String?
+  deal        Deal?    @relation(fields: [dealId], references: [id])
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
 }
 
 model Proposal {
@@ -70,12 +112,42 @@ model Proposal {
   content   String
   status    String   @default("draft")
   tenantId  String
+  dealId    String?
+  leadId    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  leadId    String?
   lead      Lead?    @relation(fields: [leadId], references: [id])
+  deal      Deal?    @relation(fields: [dealId], references: [id])
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  versions  ProposalVersion[]
 
   @@index([tenantId])
   @@index([leadId])
+  @@index([dealId])
 }
+
+model ProposalVersion {
+  id            String   @id @default(uuid())
+  proposalId    String
+  proposal      Proposal @relation(fields: [proposalId], references: [id])
+  content       String
+  versionNumber Int
+  createdAt     DateTime @default(now())
+
+  @@index([proposalId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  details    String?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId])
+}
+

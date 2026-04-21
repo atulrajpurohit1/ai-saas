@@ -16,7 +16,6 @@ const generative_ai_1 = require("@google/generative-ai");
 let AiService = class AiService {
     configService;
     genAI;
-    model;
     isPlaceholderKey;
     constructor(configService) {
         this.configService = configService;
@@ -26,11 +25,10 @@ let AiService = class AiService {
             console.warn('GEMINI_API_KEY is missing or set to placeholder. AI features will be disabled until a valid key is provided in .env');
         }
         this.genAI = new generative_ai_1.GoogleGenerativeAI(apiKey || '');
-        this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     }
     checkApiKey() {
         if (this.isPlaceholderKey) {
-            throw new common_1.BadRequestException('Gemini API Key is missing or invalid. Please update GEMINI_API_KEY in your backend .env file with a key from https://aistudio.google.com/');
+            throw new common_1.BadRequestException('Gemini API Key is missing or set to placeholder. Please update GEMINI_API_KEY in your backend .env file with a valid key from https://aistudio.google.com/');
         }
     }
     async generateProposalDraft(dto) {
@@ -56,19 +54,20 @@ let AiService = class AiService {
       Keep the tone professional, authoritative, and reliable.
     `;
         try {
-            const result = await this.model.generateContent(prompt);
+            const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+            const result = await model.generateContent(prompt);
             const response = await result.response;
             const text = response.text();
             return {
-                draft: text,
+                draft: text || '',
             };
         }
         catch (error) {
             console.error('Gemini API Error:', error.message || error);
             const isKeyError = error.message?.includes('API_KEY_INVALID') ||
-                error.message?.includes('400');
+                error.message?.includes('400') || error.message?.includes('403');
             if (isKeyError) {
-                throw new common_1.BadRequestException('Gemini API Key is invalid or expired. Please check your backend .env file.');
+                throw new common_1.BadRequestException('Gemini API Key is invalid or expired. Please check your backend .env file and ensure the key has access to the Generative Language API.');
             }
             throw new common_1.InternalServerErrorException(`AI Generation failed: ${error.message || 'Unknown error'}`);
         }
@@ -76,24 +75,32 @@ let AiService = class AiService {
     async generateForLead(lead) {
         this.checkApiKey();
         const prompt = `
-      You are a professional security consultant for a premier security guard company.
-      Your task is to draft a structured, persuasive, and professional security proposal for a prospective client.
+      Context: Security Services Sales Proposal
+      Role: Expert Security Solutions Architect
       
-      Client/Lead Information:
-      - Contact Name: ${lead.name}
-      - Company Name: ${lead.company}
-      - Current Status: ${lead.status}
+      Objective: Create a highly customized, professional, and persuasive security proposal based on the following Lead intelligence:
       
-      Please write a full proposal tailored for this company. Include these sections:
-      1. Executive Summary
-      2. Security Strategy
-      3. Recommended Services
-      4. Why Choose Us
+      Lead Intelligence:
+      - Customer Name: ${lead.name}
+      - Organization: ${lead.company}
+      - Current Lifecycle Status: ${lead.status}
+      - Primary Vertical: To be inferred from company name (${lead.company})
       
-      Keep the tone professional, authoritative, and engaging. Do not include placeholders if possible, fabricate realistic professional security standards.
+      Structure:
+      1. Executive Introduction: Address ${lead.name} and the specific security needs of ${lead.company}.
+      2. Threat Landscape: Analyze risks specific to their ${lead.status} status and industry.
+      3. Operational Strategy: Outline a custom deployment of security personnel and technology.
+      4. Service Tiers: Recommend specific security services (Armed/Unarmed Guards, Video Surveillance, Mobile Patrol).
+      5. Value Proposition: Why our firm is the best fit for ${lead.company}.
+      
+      Constraints:
+      - Tone: Professional, authoritative, yet approachable.
+      - Detail: Be specific and avoid generic filler.
+      - Formatting: Use Markdown for headers and lists.
     `;
         try {
-            const result = await this.model.generateContent(prompt);
+            const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+            const result = await model.generateContent(prompt);
             const response = await result.response;
             const text = response.text();
             return text || '';
@@ -101,11 +108,57 @@ let AiService = class AiService {
         catch (error) {
             console.error('Gemini API Error (Lead):', error.message || error);
             const isKeyError = error.message?.includes('API_KEY_INVALID') ||
-                error.message?.includes('400');
+                error.message?.includes('400') || error.message?.includes('403');
             if (isKeyError) {
-                throw new common_1.BadRequestException('Gemini API Key is invalid or expired. Please check your backend .env file.');
+                throw new common_1.BadRequestException('Gemini API Key is invalid or expired. The request failed because the key in your .env was rejected by Google.');
             }
             throw new common_1.InternalServerErrorException(`AI Generation failed: ${error.message || 'Unknown error'}`);
+        }
+    }
+    async generateEmailDraft(subject, context) {
+        this.checkApiKey();
+        const prompt = `
+      You are a professional security consultant for a premier security guard company.
+      Your task is to write a professional follow-up email based on the following:
+      
+      Original Subject: ${subject}
+      Context/Points to cover: ${context}
+      
+      The email should be professional, polite, persuasive, and encourage the client to take the next step.
+      Do not include placeholders like [Your Name], just write the body.
+    `;
+        try {
+            const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text();
+            return text || '';
+        }
+        catch (error) {
+            console.error('Gemini Email Draft Error:', error.message || error);
+            throw new common_1.InternalServerErrorException(`AI Email generation failed: ${error.message || 'Unknown error'}`);
+        }
+    }
+    async summarizeNotes(notes) {
+        this.checkApiKey();
+        const prompt = `
+      You are a professional security consultant. Summarize the following site visit/meeting notes into a concise, professional summary suitable for a business proposal.
+      
+      Notes:
+      ${notes.join('\n- ')}
+      
+      Focus on key security concerns, client requirements, and specific site challenges identified.
+    `;
+        try {
+            const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text();
+            return text || '';
+        }
+        catch (error) {
+            console.error('Gemini Summarization Error:', error.message || error);
+            throw new common_1.InternalServerErrorException(`AI Summarization failed: ${error.message || 'Unknown error'}`);
         }
     }
     async extractLeadFromText(text) {
@@ -124,9 +177,11 @@ let AiService = class AiService {
       Respond only with a valid JSON object.
     `;
         try {
-            const result = await this.model.generateContent(prompt);
+            const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+            const result = await model.generateContent(prompt);
             const response = await result.response;
-            let rawText = response.text();
+            const text = response.text();
+            let rawText = text || '';
             rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
             return JSON.parse(rawText);
         }

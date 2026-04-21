@@ -5,6 +5,8 @@ class CreateProposalDto {
     title;
     content;
     status;
+    leadId;
+    dealId;
 }
 exports.CreateProposalDto = CreateProposalDto;
 //# sourceMappingURL=create-proposal.dto.js.map

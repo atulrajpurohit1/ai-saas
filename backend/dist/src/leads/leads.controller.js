@@ -27,7 +27,7 @@ let LeadsController = class LeadsController {
     }
     create(createLeadDto, req) {
         const user = req.user;
-        return this.leadsService.create(createLeadDto, user.tenantId);
+        return this.leadsService.create(createLeadDto, user.tenantId, user.sub);
     }
     findAll(req) {
         const user = req.user;
@@ -61,15 +61,15 @@ let LeadsController = class LeadsController {
     }
     update(id, updateLeadDto, req) {
         const user = req.user;
-        return this.leadsService.update(id, updateLeadDto, user.tenantId);
+        return this.leadsService.update(id, updateLeadDto, user.tenantId, user.sub);
     }
     updateStatus(id, updateLeadStatusDto, req) {
         const user = req.user;
-        return this.leadsService.updateStatus(id, updateLeadStatusDto, user.tenantId);
+        return this.leadsService.updateStatus(id, updateLeadStatusDto, user.tenantId, user.sub);
     }
     remove(id, req) {
         const user = req.user;
-        return this.leadsService.remove(id, user.tenantId);
+        return this.leadsService.remove(id, user.tenantId, user.sub);
     }
 };
 exports.LeadsController = LeadsController;

@@ -25,7 +25,35 @@ export declare class DealsController {
         leadId: string;
         stage: string;
     }>;
+    convert(leadId: string, req: Request): Promise<{
+        id: string;
+        name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        leadId: string;
+        stage: string;
+    }>;
     findAll(req: Request): Promise<({
+        activities: {
+            id: string;
+            createdAt: Date;
+            tenantId: string;
+            status: string;
+            dealId: string | null;
+            subject: string;
+            type: string;
+            description: string | null;
+            dueDate: Date | null;
+        }[];
+        notes: {
+            id: string;
+            createdAt: Date;
+            tenantId: string;
+            leadId: string | null;
+            content: string;
+            dealId: string | null;
+        }[];
         lead: {
             id: string;
             name: string;
@@ -46,6 +74,25 @@ export declare class DealsController {
         stage: string;
     })[]>;
     findOne(id: string, req: Request): Promise<{
+        activities: {
+            id: string;
+            createdAt: Date;
+            tenantId: string;
+            status: string;
+            dealId: string | null;
+            subject: string;
+            type: string;
+            description: string | null;
+            dueDate: Date | null;
+        }[];
+        notes: {
+            id: string;
+            createdAt: Date;
+            tenantId: string;
+            leadId: string | null;
+            content: string;
+            dealId: string | null;
+        }[];
         lead: {
             id: string;
             name: string;
@@ -75,12 +122,6 @@ export declare class DealsController {
         stage: string;
     }>;
     remove(id: string, req: Request): Promise<{
-        id: string;
-        name: string;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string;
-        leadId: string;
-        stage: string;
+        success: boolean;
     }>;
 }

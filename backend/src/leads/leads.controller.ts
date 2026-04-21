@@ -32,7 +32,7 @@ export class LeadsController {
   @Post()
   create(@Body() createLeadDto: CreateLeadDto, @Req() req: Request) {
     const user = req.user as unknown as ActiveUser;
-    return this.leadsService.create(createLeadDto, user.tenantId);
+    return this.leadsService.create(createLeadDto, user.tenantId, user.sub);
   }
 
   @Get()
@@ -89,7 +89,7 @@ export class LeadsController {
     @Req() req: Request,
   ) {
     const user = req.user as unknown as ActiveUser;
-    return this.leadsService.update(id, updateLeadDto, user.tenantId);
+    return this.leadsService.update(id, updateLeadDto, user.tenantId, user.sub);
   }
 
   @Patch(':id/status')
@@ -99,12 +99,12 @@ export class LeadsController {
     @Req() req: Request,
   ) {
     const user = req.user as unknown as ActiveUser;
-    return this.leadsService.updateStatus(id, updateLeadStatusDto, user.tenantId);
+    return this.leadsService.updateStatus(id, updateLeadStatusDto, user.tenantId, user.sub);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string, @Req() req: Request) {
     const user = req.user as unknown as ActiveUser;
-    return this.leadsService.remove(id, user.tenantId);
+    return this.leadsService.remove(id, user.tenantId, user.sub);
   }
 }

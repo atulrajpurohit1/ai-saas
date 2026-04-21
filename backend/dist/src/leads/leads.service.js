@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LeadsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const audit_service_1 = require("../audit/audit.service");
 const csv_parser_1 = __importDefault(require("csv-parser"));
 const fast_csv_1 = require("fast-csv");
 const stream_1 = require("stream");
@@ -22,51 +23,89 @@ const ai_service_1 = require("../ai/ai.service");
 let LeadsService = class LeadsService {
     prisma;
     aiService;
-    constructor(prisma, aiService) {
+    auditService;
+    constructor(prisma, aiService, auditService) {
         this.prisma = prisma;
         this.aiService = aiService;
+        this.auditService = auditService;
     }
-    async create(createLeadDto, tenantId) {
-        return this.prisma.lead.create({
+    async create(createLeadDto, tenantId, userId) {
+        const lead = await this.prisma.lead.create({
             data: {
                 ...createLeadDto,
                 tenantId,
             },
         });
+        await this.auditService.log({
+            tenantId,
+            userId,
+            action: 'CREATE',
+            entityType: 'LEAD',
+            entityId: lead.id,
+            details: `Created lead for ${lead.company}`,
+        });
+        return lead;
     }
     async findAll(tenantId) {
         return this.prisma.lead.findMany({
             where: { tenantId },
+            include: { notes: true, deals: true },
         });
     }
     async findOne(id, tenantId) {
         const lead = await this.prisma.lead.findFirst({
             where: { id, tenantId },
+            include: { notes: true, deals: true },
         });
         if (!lead) {
             throw new common_1.NotFoundException(`Lead with ID ${id} not found for this tenant`);
         }
         return lead;
     }
-    async update(id, updateLeadDto, tenantId) {
+    async update(id, updateLeadDto, tenantId, userId) {
         await this.findOne(id, tenantId);
-        return this.prisma.lead.update({
+        const lead = await this.prisma.lead.update({
             where: { id },
             data: updateLeadDto,
         });
+        await this.auditService.log({
+            tenantId,
+            userId,
+            action: 'UPDATE',
+            entityType: 'LEAD',
+            entityId: id,
+        });
+        return lead;
     }
-    async updateStatus(id, updateLeadStatusDto, tenantId) {
+    async updateStatus(id, updateLeadStatusDto, tenantId, userId) {
         await this.findOne(id, tenantId);
-        return this.prisma.lead.update({
+        const lead = await this.prisma.lead.update({
             where: { id },
             data: { status: updateLeadStatusDto.status },
         });
+        await this.auditService.log({
+            tenantId,
+            userId,
+            action: 'UPDATE_STATUS',
+            entityType: 'LEAD',
+            entityId: id,
+            details: `Status changed to ${updateLeadStatusDto.status}`,
+        });
+        return lead;
     }
-    async remove(id, tenantId) {
+    async remove(id, tenantId, userId) {
         await this.findOne(id, tenantId);
-        return this.prisma.lead.delete({
+        await this.prisma.lead.delete({
             where: { id },
         });
+        await this.auditService.log({
+            tenantId,
+            userId,
+            action: 'DELETE',
+            entityType: 'LEAD',
+            entityId: id,
+        });
+        return { success: true };
     }
     async importLeads(buffer, tenantId) {
         const results = [];
@@ -159,6 +198,7 @@ exports.LeadsService = LeadsService;
 exports.LeadsService = LeadsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        ai_service_1.AiService])
+        ai_service_1.AiService,
+        audit_service_1.AuditService])
 ], LeadsService);
 //# sourceMappingURL=leads.service.js.map

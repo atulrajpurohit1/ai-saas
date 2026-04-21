@@ -3,37 +3,51 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { UpdateLeadStatusDto } from './dto/update-lead-status.dto';
+import { AuditService } from '../audit/audit.service';
 import csv from 'csv-parser';
 import { format } from 'fast-csv';
 import { Readable } from 'stream';
-// pdf-parse is loaded dynamically inside methods to avoid DOMMatrix crash at startup
 import { AiService } from '../ai/ai.service';
-// Type update trigger 
+
 @Injectable()
 export class LeadsService {
   constructor(
     private prisma: PrismaService,
     private aiService: AiService,
+    private auditService: AuditService,
   ) {}
 
-  async create(createLeadDto: CreateLeadDto, tenantId: string) {
-    return this.prisma.lead.create({
+  async create(createLeadDto: CreateLeadDto, tenantId: string, userId?: string) {
+    const lead = await this.prisma.lead.create({
       data: {
         ...createLeadDto,
         tenantId,
       },
     });
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'CREATE',
+      entityType: 'LEAD',
+      entityId: lead.id,
+      details: `Created lead for ${lead.company}`,
+    });
+
+    return lead;
   }
 
   async findAll(tenantId: string) {
     return this.prisma.lead.findMany({
       where: { tenantId },
+      include: { notes: true, deals: true },
     });
   }
 
   async findOne(id: string, tenantId: string) {
     const lead = await this.prisma.lead.findFirst({
       where: { id, tenantId },
+      include: { notes: true, deals: true },
     });
 
     if (!lead) {
@@ -45,32 +59,61 @@ export class LeadsService {
     return lead;
   }
 
-  async update(id: string, updateLeadDto: UpdateLeadDto, tenantId: string) {
-    // Ensure the lead belongs to the tenant before updating
+  async update(id: string, updateLeadDto: UpdateLeadDto, tenantId: string, userId?: string) {
     await this.findOne(id, tenantId);
 
-    return this.prisma.lead.update({
+    const lead = await this.prisma.lead.update({
       where: { id },
       data: updateLeadDto,
     });
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'UPDATE',
+      entityType: 'LEAD',
+      entityId: id,
+    });
+
+    return lead;
   }
 
-  async updateStatus(id: string, updateLeadStatusDto: UpdateLeadStatusDto, tenantId: string) {
+  async updateStatus(id: string, updateLeadStatusDto: UpdateLeadStatusDto, tenantId: string, userId?: string) {
     await this.findOne(id, tenantId);
 
-    return this.prisma.lead.update({
+    const lead = await this.prisma.lead.update({
       where: { id },
       data: { status: updateLeadStatusDto.status },
     });
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'UPDATE_STATUS',
+      entityType: 'LEAD',
+      entityId: id,
+      details: `Status changed to ${updateLeadStatusDto.status}`,
+    });
+
+    return lead;
   }
 
-  async remove(id: string, tenantId: string) {
-    // Ensure the lead belongs to the tenant before removing
+  async remove(id: string, tenantId: string, userId?: string) {
     await this.findOne(id, tenantId);
 
-    return this.prisma.lead.delete({
+    await this.prisma.lead.delete({
       where: { id },
     });
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'DELETE',
+      entityType: 'LEAD',
+      entityId: id,
+    });
+
+    return { success: true };
   }
 
   async importLeads(buffer: Buffer, tenantId: string): Promise<{ count: number }> {

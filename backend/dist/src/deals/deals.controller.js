@@ -25,7 +25,11 @@ let DealsController = class DealsController {
     }
     create(createDealDto, req) {
         const user = req.user;
-        return this.dealsService.create(createDealDto, user.tenantId);
+        return this.dealsService.create(createDealDto, user.tenantId, user.sub);
+    }
+    convert(leadId, req) {
+        const user = req.user;
+        return this.dealsService.convertLeadToDeal(leadId, user.tenantId, user.sub);
     }
     findAll(req) {
         const user = req.user;
@@ -37,11 +41,11 @@ let DealsController = class DealsController {
     }
     updateStage(id, updateDealStageDto, req) {
         const user = req.user;
-        return this.dealsService.updateStage(id, updateDealStageDto, user.tenantId);
+        return this.dealsService.updateStage(id, updateDealStageDto, user.tenantId, user.sub);
     }
     remove(id, req) {
         const user = req.user;
-        return this.dealsService.remove(id, user.tenantId);
+        return this.dealsService.remove(id, user.tenantId, user.sub);
     }
 };
 exports.DealsController = DealsController;
@@ -53,6 +57,14 @@ __decorate([
     __metadata("design:paramtypes", [create_deal_dto_1.CreateDealDto, Object]),
     __metadata("design:returntype", void 0)
 ], DealsController.prototype, "create", null);
+__decorate([
+    (0, common_1.Post)('convert/:leadId'),
+    __param(0, (0, common_1.Param)('leadId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], DealsController.prototype, "convert", null);
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, common_1.Req)()),
