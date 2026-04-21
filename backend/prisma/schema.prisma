@@ -24,6 +24,9 @@ model Tenant {
   activities Activity[]
   notes      Note[]
   auditLogs  AuditLog[]
+  sites      Site[]
+  guards     Guard[]
+  shifts     Shift[]
 }
 
 model User {
@@ -151,3 +154,57 @@ model AuditLog {
   @@index([tenantId])
 }
 
+model Site {
+  id           String   @id @default(uuid())
+  name         String
+  address      String
+  instructions String?
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  shifts       Shift[]
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model Guard {
+  id          String       @id @default(uuid())
+  name        String
+  phone       String?
+  tenantId    String
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  assignments Assignment[]
+  createdAt   DateTime     @default(now())
+
+  @@index([tenantId])
+}
+
+model Shift {
+  id             String       @id @default(uuid())
+  siteId         String
+  site           Site         @relation(fields: [siteId], references: [id])
+  startTime      DateTime
+  endTime        DateTime
+  requiredGuards Int
+  status         String       @default("open")
+  tenantId       String
+  tenant         Tenant       @relation(fields: [tenantId], references: [id])
+  assignments    Assignment[]
+  createdAt      DateTime     @default(now())
+
+  @@index([tenantId])
+  @@index([siteId])
+}
+
+model Assignment {
+  id        String   @id @default(uuid())
+  shiftId   String
+  shift     Shift    @relation(fields: [shiftId], references: [id])
+  guardId   String
+  guard     Guard    @relation(fields: [guardId], references: [id])
+  status    String   @default("pending") // pending, confirmed...
+  createdAt DateTime @default(now())
+
+  @@index([shiftId])
+  @@index([guardId])
+}

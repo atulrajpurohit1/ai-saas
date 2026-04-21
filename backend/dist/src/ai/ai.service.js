@@ -11,189 +11,96 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AiService = void 0;
 const common_1 = require("@nestjs/common");
-const config_1 = require("@nestjs/config");
-const generative_ai_1 = require("@google/generative-ai");
 let AiService = class AiService {
-    configService;
-    genAI;
-    isPlaceholderKey;
-    constructor(configService) {
-        this.configService = configService;
-        const apiKey = this.configService.get('GEMINI_API_KEY');
-        this.isPlaceholderKey = !apiKey || apiKey === 'your-gemini-api-key-here';
-        if (this.isPlaceholderKey) {
-            console.warn('GEMINI_API_KEY is missing or set to placeholder. AI features will be disabled until a valid key is provided in .env');
-        }
-        this.genAI = new generative_ai_1.GoogleGenerativeAI(apiKey || '');
-    }
-    checkApiKey() {
-        if (this.isPlaceholderKey) {
-            throw new common_1.BadRequestException('Gemini API Key is missing or set to placeholder. Please update GEMINI_API_KEY in your backend .env file with a valid key from https://aistudio.google.com/');
-        }
+    constructor() {
+        console.warn('AI Service is running in MANUAL/MOCK mode because the Gemini API is unavailable.');
     }
     async generateProposalDraft(dto) {
-        this.checkApiKey();
         const { siteName, guardCount, requirements, additionalNotes } = dto;
-        const prompt = `
-      You are a professional security consultant for a premier security guard company.
-      Your task is to draft a professional, persuasive, and structured security proposal for a client.
-      
-      Client/Site Information:
-      - Site Name: ${siteName}
-      - Proposed Guard Count: ${guardCount}
-      - Key Requirements: ${requirements}
-      - Additional Notes: ${additionalNotes || 'N/A'}
-      
-      The proposal should include the following sections:
-      1. Executive Summary
-      2. Security Strategy (Address the specific requirements)
-      3. Manpower and Deployment (Explain the guard count of ${guardCount})
-      4. Technology and Equipment (Mention standard security tools plus anything relevant to requirements)
-      5. Why Choose Us (General professional closing)
-      
-      Keep the tone professional, authoritative, and reliable.
-    `;
-        try {
-            const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            const text = response.text();
-            return {
-                draft: text || '',
-            };
-        }
-        catch (error) {
-            console.error('Gemini API Error:', error.message || error);
-            const isKeyError = error.message?.includes('API_KEY_INVALID') ||
-                error.message?.includes('400') || error.message?.includes('403');
-            if (isKeyError) {
-                throw new common_1.BadRequestException('Gemini API Key is invalid or expired. Please check your backend .env file and ensure the key has access to the Generative Language API.');
-            }
-            throw new common_1.InternalServerErrorException(`AI Generation failed: ${error.message || 'Unknown error'}`);
-        }
+        return {
+            draft: `
+# Security Proposal for ${siteName}
+**Proposed Guards**: ${guardCount}
+**Key Requirements**: ${requirements}
+**Additional Notes**: ${additionalNotes || 'N/A'}
+
+## 1. Executive Summary
+This is a comprehensive security framework customized specifically for ${siteName}. We deploy highly trained personnel equipped with the latest technology to ensure optimal safety.
+
+## 2. Security Strategy
+To directly address your needs (${requirements}), our tailored plan integrates vigilant physical guarding with robust reporting procedures.
+
+## 3. Manpower and Deployment
+We recommend **${guardCount} security personnel** to ensure complete coverage, deterrence, and rapid response times.
+
+## 4. Technology and Equipment
+Standard deployment includes two-way radios, body cameras, mobile reporting tools, and high-visibility uniforms.
+
+## 5. Why Choose Us
+We provide professional, reliable, and premium protection services. Let us handle the security so you can focus entirely on your core business operations.
+      `.trim(),
+        };
     }
     async generateForLead(lead) {
-        this.checkApiKey();
-        const prompt = `
-      Context: Security Services Sales Proposal
-      Role: Expert Security Solutions Architect
-      
-      Objective: Create a highly customized, professional, and persuasive security proposal based on the following Lead intelligence:
-      
-      Lead Intelligence:
-      - Customer Name: ${lead.name}
-      - Organization: ${lead.company}
-      - Current Lifecycle Status: ${lead.status}
-      - Primary Vertical: To be inferred from company name (${lead.company})
-      
-      Structure:
-      1. Executive Introduction: Address ${lead.name} and the specific security needs of ${lead.company}.
-      2. Threat Landscape: Analyze risks specific to their ${lead.status} status and industry.
-      3. Operational Strategy: Outline a custom deployment of security personnel and technology.
-      4. Service Tiers: Recommend specific security services (Armed/Unarmed Guards, Video Surveillance, Mobile Patrol).
-      5. Value Proposition: Why our firm is the best fit for ${lead.company}.
-      
-      Constraints:
-      - Tone: Professional, authoritative, yet approachable.
-      - Detail: Be specific and avoid generic filler.
-      - Formatting: Use Markdown for headers and lists.
-    `;
-        try {
-            const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            const text = response.text();
-            return text || '';
-        }
-        catch (error) {
-            console.error('Gemini API Error (Lead):', error.message || error);
-            const isKeyError = error.message?.includes('API_KEY_INVALID') ||
-                error.message?.includes('400') || error.message?.includes('403');
-            if (isKeyError) {
-                throw new common_1.BadRequestException('Gemini API Key is invalid or expired. The request failed because the key in your .env was rejected by Google.');
-            }
-            throw new common_1.InternalServerErrorException(`AI Generation failed: ${error.message || 'Unknown error'}`);
-        }
+        return `
+# Security Services Proposal - ${lead.company}
+For: ${lead.name} · ${lead.company}
+
+---
+
+## 1. Executive Introduction
+Thank you for considering our firm as the primary security provider for ${lead.company}. We are excited to present this customized security solution.
+
+## 2. Threat Landscape & Risk Analysis
+Based on your current status (${lead.status}), we have identified key operational risks that our specialized guarding protocols will mitigate effectively.
+
+## 3. Operational Strategy
+Our operational strategy includes a custom deployment of guards uniquely trained for your specific operational challenges and site layout.
+
+## 4. Recommended Service Tiers
+- Uniformed Guard Presence (Deterrence)
+- Specialized Access Control
+- 24/7 Incident Response and Reporting
+
+## 5. Value Proposition
+As a premier security provider, we guarantee a secure environment. Our guards undergo rigorous training to ensure ${lead.company} receives only the highest quality service.
+    `.trim();
     }
     async generateEmailDraft(subject, context) {
-        this.checkApiKey();
-        const prompt = `
-      You are a professional security consultant for a premier security guard company.
-      Your task is to write a professional follow-up email based on the following:
-      
-      Original Subject: ${subject}
-      Context/Points to cover: ${context}
-      
-      The email should be professional, polite, persuasive, and encourage the client to take the next step.
-      Do not include placeholders like [Your Name], just write the body.
-    `;
-        try {
-            const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            const text = response.text();
-            return text || '';
-        }
-        catch (error) {
-            console.error('Gemini Email Draft Error:', error.message || error);
-            throw new common_1.InternalServerErrorException(`AI Email generation failed: ${error.message || 'Unknown error'}`);
-        }
+        return `
+Subject: Following up regarding ${subject}
+
+Hi,
+
+I hope this email finds you well. I wanted to follow up based on our recent discussions and outline the key points:
+
+${context}
+
+Please let me know a good time this week to connect and solidify our next steps. Our team is ready to deploy and secure your assets.
+
+Best regards,
+Security Consultation Team
+    `.trim();
     }
     async summarizeNotes(notes) {
-        this.checkApiKey();
-        const prompt = `
-      You are a professional security consultant. Summarize the following site visit/meeting notes into a concise, professional summary suitable for a business proposal.
-      
-      Notes:
-      ${notes.join('\n- ')}
-      
-      Focus on key security concerns, client requirements, and specific site challenges identified.
-    `;
-        try {
-            const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            const text = response.text();
-            return text || '';
-        }
-        catch (error) {
-            console.error('Gemini Summarization Error:', error.message || error);
-            throw new common_1.InternalServerErrorException(`AI Summarization failed: ${error.message || 'Unknown error'}`);
-        }
+        return `
+**Summary from Site Visit/Meeting:**
+- ${notes.join('\n- ')}
+
+**Key Takeaway:** The client requires a tailored approach focusing heavily on the points above. Our team is fully capable of handling this environment and exceeding expectations.
+    `.trim();
     }
     async extractLeadFromText(text) {
-        this.checkApiKey();
-        const prompt = `
-      Extract the following contact information from this text into a JSON format:
-      - name (The full name of the contact person)
-      - company (The name of the company/business)
-      - email (The email address, if present, otherwise null)
-      
-      If you cannot find a specific field, use "Unknown" for name/company and null for email.
-      
-      Text to analyze:
-      ${text}
-      
-      Respond only with a valid JSON object.
-    `;
-        try {
-            const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            const text = response.text();
-            let rawText = text || '';
-            rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-            return JSON.parse(rawText);
-        }
-        catch (error) {
-            console.error('Gemini extraction error:', error.message);
-            return { name: 'Unknown', company: 'Unknown', email: null };
-        }
+        return {
+            name: "Mocked Client Name",
+            company: "Mocked Company Ltd",
+            email: "mocked@example.com"
+        };
     }
 };
 exports.AiService = AiService;
 exports.AiService = AiService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [config_1.ConfigService])
+    __metadata("design:paramtypes", [])
 ], AiService);
 //# sourceMappingURL=ai.service.js.map

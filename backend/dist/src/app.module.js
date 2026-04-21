@@ -22,6 +22,10 @@ const email_module_1 = require("./email/email.module");
 const audit_module_1 = require("./audit/audit.module");
 const notes_module_1 = require("./notes/notes.module");
 const activities_module_1 = require("./activities/activities.module");
+const sites_module_1 = require("./sites/sites.module");
+const guards_module_1 = require("./guards/guards.module");
+const shifts_module_1 = require("./shifts/shifts.module");
+const assignments_module_1 = require("./assignments/assignments.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -40,6 +44,10 @@ exports.AppModule = AppModule = __decorate([
             audit_module_1.AuditModule,
             notes_module_1.NotesModule,
             activities_module_1.ActivitiesModule,
+            sites_module_1.SitesModule,
+            guards_module_1.GuardsModule,
+            shifts_module_1.ShiftsModule,
+            assignments_module_1.AssignmentsModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

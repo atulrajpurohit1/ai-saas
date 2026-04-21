@@ -13,6 +13,10 @@ import { EmailModule } from './email/email.module';
 import { AuditModule } from './audit/audit.module';
 import { NotesModule } from './notes/notes.module';
 import { ActivitiesModule } from './activities/activities.module';
+import { SitesModule } from './sites/sites.module';
+import { GuardsModule } from './guards/guards.module';
+import { ShiftsModule } from './shifts/shifts.module';
+import { AssignmentsModule } from './assignments/assignments.module';
 
 @Module({
   imports: [
@@ -28,6 +32,10 @@ import { ActivitiesModule } from './activities/activities.module';
     AuditModule,
     NotesModule,
     ActivitiesModule,
+    SitesModule,
+    GuardsModule,
+    ShiftsModule,
+    AssignmentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
