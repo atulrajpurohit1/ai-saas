@@ -9,22 +9,22 @@ export declare class GuardsService {
     create(userId: string, tenantId: string, dto: CreateGuardDto): Promise<{
         id: string;
         name: string;
-        phone: string | null;
         createdAt: Date;
         tenantId: string;
+        phone: string | null;
     }>;
     findAll(tenantId: string): Promise<{
         id: string;
         name: string;
-        phone: string | null;
         createdAt: Date;
         tenantId: string;
+        phone: string | null;
     }[]>;
     update(userId: string, tenantId: string, id: string, dto: UpdateGuardDto): Promise<{
         id: string;
         name: string;
-        phone: string | null;
         createdAt: Date;
         tenantId: string;
+        phone: string | null;
     }>;
 }

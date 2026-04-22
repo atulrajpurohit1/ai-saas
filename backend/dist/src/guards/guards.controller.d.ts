@@ -8,22 +8,22 @@ export declare class GuardsController {
     create(user: ActiveUser, createGuardDto: CreateGuardDto): Promise<{
         id: string;
         name: string;
-        phone: string | null;
         createdAt: Date;
         tenantId: string;
+        phone: string | null;
     }>;
     findAll(user: ActiveUser): Promise<{
         id: string;
         name: string;
-        phone: string | null;
         createdAt: Date;
         tenantId: string;
+        phone: string | null;
     }[]>;
     update(user: ActiveUser, id: string, updateGuardDto: UpdateGuardDto): Promise<{
         id: string;
         name: string;
-        phone: string | null;
         createdAt: Date;
         tenantId: string;
+        phone: string | null;
     }>;
 }
