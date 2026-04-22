@@ -30,7 +30,7 @@ export default function LeadsPage() {
     formData.append('file', file);
 
     try {
-      const res = await api.post('/leads/analyze-pdf', formData, {
+      const res = await api.post('leads/analyze-pdf', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
@@ -50,7 +50,7 @@ export default function LeadsPage() {
 
   const handleStatusChange = async (leadId: string, newStatus: string) => {
     try {
-      await api.patch(`/leads/${leadId}/status`, { status: newStatus });
+      await api.patch(`leads/${leadId}/status`, { status: newStatus });
       fetchLeads();
     } catch (err) {
       console.error(err);
@@ -70,7 +70,7 @@ export default function LeadsPage() {
 
   const fetchLeads = async () => {
     try {
-      const res = await api.get('/leads');
+      const res = await api.get('leads');
       setLeads(res.data);
     } catch (err) {
       console.error(err);
@@ -86,7 +86,7 @@ export default function LeadsPage() {
   const handleAddLead = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post('/leads', newLead);
+      await api.post('leads', newLead);
       setShowModal(false);
       setNewLead({ name: '', email: '', company: '' });
       fetchLeads();
@@ -187,7 +187,7 @@ export default function LeadsPage() {
                          onClick={async () => {
                            if (confirm('Convert this lead to a deal?')) {
                              try {
-                               await api.post(`/deals/convert/${lead.id}`);
+                               await api.post(`deals/convert/${lead.id}`);
                                fetchLeads();
                              } catch (err) {
                                console.error(err);

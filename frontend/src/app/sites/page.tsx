@@ -22,7 +22,7 @@ export default function SitesPage() {
   
   const fetchSites = async () => {
     try {
-      const res = await api.get('/sites');
+      const res = await api.get('sites');
       setSites(res.data);
     } catch (err) {
       console.error(err);
@@ -39,9 +39,9 @@ export default function SitesPage() {
     e.preventDefault();
     try {
       if (isEditing) {
-        await api.put(`/sites/${isEditing}`, formData);
+        await api.put(`sites/${isEditing}`, formData);
       } else {
-        await api.post('/sites', formData);
+        await api.post('sites', formData);
       }
       setShowModal(false);
       resetForm();

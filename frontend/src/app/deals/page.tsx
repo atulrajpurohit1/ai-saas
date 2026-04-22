@@ -23,8 +23,8 @@ export default function DealsPage() {
   const fetchData = async () => {
     try {
       const [dealsRes, leadsRes] = await Promise.all([
-        api.get('/deals'),
-        api.get('/leads')
+        api.get('deals'),
+        api.get('leads')
       ]);
       setDeals(dealsRes.data);
       setLeads(leadsRes.data);
@@ -42,7 +42,7 @@ export default function DealsPage() {
   const handleAddDeal = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post('/deals', newDeal);
+      await api.post('deals', newDeal);
       setShowModal(false);
       setNewDeal({ name: '', leadId: '' });
       fetchData();

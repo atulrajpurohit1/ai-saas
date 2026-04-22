@@ -21,7 +21,7 @@ export default function GuardsPage() {
   
   const fetchGuards = async () => {
     try {
-      const res = await api.get('/guards');
+      const res = await api.get('guards');
       setGuards(res.data);
     } catch (err: any) {
       console.error('Fetch Guards Error:', err);
@@ -39,9 +39,9 @@ export default function GuardsPage() {
     e.preventDefault();
     try {
       if (isEditing) {
-        await api.put(`/guards/${isEditing}`, formData);
+        await api.put(`guards/${isEditing}`, formData);
       } else {
-        await api.post('/guards', formData);
+        await api.post('guards', formData);
       }
       setShowModal(false);
       resetForm();

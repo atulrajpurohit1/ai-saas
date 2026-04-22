@@ -25,9 +25,9 @@ export default function DashboardPage() {
     const fetchStats = async () => {
       try {
         const [leadsRes, dealsRes, proposalsRes] = await Promise.all([
-          api.get('/leads'),
-          api.get('/deals'),
-          api.get('/proposals'),
+          api.get('leads'),
+          api.get('deals'),
+          api.get('proposals'),
         ]);
         setStats({
           leads: leadsRes.data.length,

@@ -20,7 +20,7 @@ export default function LoginPage() {
     
     try {
       if (isRegister) {
-        const res = await api.post('/auth/register', {
+        const res = await api.post('auth/register', {
           name: 'Admin',
           email,
           password,
@@ -34,7 +34,7 @@ export default function LoginPage() {
           tenantName 
         });
       } else {
-        const res = await api.post('/auth/login', { email, password });
+        const res = await api.post('auth/login', { email, password });
         login(res.data.access_token, { 
           email, 
           role: 'admin',

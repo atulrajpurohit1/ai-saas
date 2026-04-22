@@ -20,7 +20,7 @@ export default function AuditLogsPage() {
 
   const fetchLogs = async () => {
     try {
-      const res = await api.get('/audit'); // I need to implement this controller in backend
+      const res = await api.get('audit'); // I need to implement this controller in backend
       setLogs(res.data);
     } catch (err) {
       console.error(err);

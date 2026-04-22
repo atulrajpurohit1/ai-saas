@@ -60,8 +60,8 @@ export default function ProposalsPage() {
   const fetchData = async () => {
     try {
       const [pRes, lRes] = await Promise.all([
-        api.get('/proposals'),
-        api.get('/leads')
+        api.get('proposals'),
+        api.get('leads')
       ]);
       setProposals(pRes.data);
       setLeads(lRes.data);
@@ -84,7 +84,7 @@ export default function ProposalsPage() {
     }
     setIsGenerating(true);
     try {
-      await api.post('/proposals/generate', { leadId: selectedLeadId });
+      await api.post('proposals/generate', { leadId: selectedLeadId });
       showToast('AI Proposal generated successfully!', 'success');
       setShowModal(false);
       setSelectedLeadId('');
@@ -102,7 +102,7 @@ export default function ProposalsPage() {
     if (!confirm('This will generate AI proposals for all leads that don\'t have one yet. Continue?')) return;
     setIsBulkGenerating(true);
     try {
-      const res = await api.post('/proposals/generate-bulk');
+      const res = await api.post('proposals/generate-bulk');
       showToast(`Generated ${res.data.generatedCount} proposals out of ${res.data.totalProcessed} leads.`, 'success');
       fetchData();
     } catch (err: any) {
@@ -117,7 +117,7 @@ export default function ProposalsPage() {
   const handleSendEmail = async (leadId: string) => {
     setSendingEmailId(leadId);
     try {
-      const res = await api.post('/email/send', { leadId });
+      const res = await api.post('email/send', { leadId });
       showToast(`Email sent! ${res.data.previewUrl ? 'Preview: ' + res.data.previewUrl : ''}`, 'success');
     } catch (err: any) {
       console.error(err);
@@ -132,7 +132,7 @@ export default function ProposalsPage() {
     if (!confirm('This will send proposal emails to ALL leads with email addresses and proposals. Are you sure?')) return;
     setIsSendingBulk(true);
     try {
-      const res = await api.post('/email/send-bulk');
+      const res = await api.post('email/send-bulk');
       showToast(`Sent ${res.data.sentCount} emails out of ${res.data.totalProcessed} eligible leads.`, 'success');
     } catch (err: any) {
       console.error(err);
