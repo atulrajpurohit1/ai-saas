@@ -1,10 +1,13 @@
 import axios from 'axios';
 
 const getBaseUrl = () => {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL;
-  const defaultUrl = 'http://127.0.0.1:5000/api';
+  const envUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000/api';
   
-  const finalUrl = envUrl ? envUrl.replace(/\/+$/, '') + '/' : defaultUrl + '/';
+  // 1. Remove ANY existing /api or /api/ suffix
+  // 2. Remove ANY trailing slashes
+  // 3. Append /api/
+  const cleanUrl = envUrl.split('/api')[0].replace(/\/+$/, '');
+  const finalUrl = `${cleanUrl}/api/`;
   
   if (typeof window !== 'undefined') {
     console.log('API Base URL:', finalUrl);
