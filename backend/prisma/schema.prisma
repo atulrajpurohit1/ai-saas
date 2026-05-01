@@ -27,6 +27,9 @@ model Tenant {
   sites      Site[]
   guards     Guard[]
   shifts     Shift[]
+  availabilities Availability[]
+  clients     Client[]
+  clientUsers ClientUser[]
 }
 
 model User {
@@ -74,9 +77,12 @@ model Deal {
   activities Activity[]
   notes      Note[]
   proposals  Proposal[]
+  clientId   String?
+  client     Client?   @relation(fields: [clientId], references: [id])
 
   @@index([tenantId])
   @@index([leadId])
+  @@index([clientId])
 }
 
 model Note {
@@ -121,12 +127,15 @@ model Proposal {
   updatedAt DateTime @updatedAt
   lead      Lead?    @relation(fields: [leadId], references: [id])
   deal      Deal?    @relation(fields: [dealId], references: [id])
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
   versions  ProposalVersion[]
+  clientId  String?
+  client    Client?    @relation(fields: [clientId], references: [id])
 
   @@index([tenantId])
   @@index([leadId])
   @@index([dealId])
+  @@index([clientId])
 }
 
 model ProposalVersion {
@@ -174,6 +183,7 @@ model Guard {
   tenantId    String
   tenant      Tenant       @relation(fields: [tenantId], references: [id])
   assignments Assignment[]
+  availability Availability?
   createdAt   DateTime     @default(now())
 
   @@index([tenantId])
@@ -207,4 +217,53 @@ model Assignment {
 
   @@index([shiftId])
   @@index([guardId])
+}
+
+model Availability {
+  id        String    @id @default(uuid())
+  guardId   String    @unique
+  guard     Guard     @relation(fields: [guardId], references: [id])
+  status    String    @default("available") // available, unavailable
+  startDate DateTime?
+  endDate   DateTime?
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([guardId])
+  @@index([tenantId])
+}
+
+model Client {
+  id          String   @id @default(uuid())
+  name        String
+  companyName String?
+  email       String
+  phone       String?
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  users       ClientUser[]
+  deals       Deal[]
+  proposals   Proposal[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model ClientUser {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  password     String
+  refreshToken String?
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id])
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([tenantId])
 }

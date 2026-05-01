@@ -21,6 +21,7 @@ const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const create_guard_dto_1 = require("./dto/create-guard.dto");
 const update_guard_dto_1 = require("./dto/update-guard.dto");
+const update_availability_dto_1 = require("./dto/update-availability.dto");
 let GuardsController = class GuardsController {
     guardsService;
     constructor(guardsService) {
@@ -34,6 +35,12 @@ let GuardsController = class GuardsController {
     }
     update(user, id, updateGuardDto) {
         return this.guardsService.update(user.sub, user.tenantId, id, updateGuardDto);
+    }
+    getAvailability(user, id) {
+        return this.guardsService.getAvailability(user.tenantId, id);
+    }
+    updateAvailability(user, id, dto) {
+        return this.guardsService.updateAvailability(user.sub, user.tenantId, id, dto);
     }
 };
 exports.GuardsController = GuardsController;
@@ -61,8 +68,25 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, update_guard_dto_1.UpdateGuardDto]),
     __metadata("design:returntype", void 0)
 ], GuardsController.prototype, "update", null);
+__decorate([
+    (0, common_1.Get)(':id/availability'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], GuardsController.prototype, "getAvailability", null);
+__decorate([
+    (0, common_1.Put)(':id/availability'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, update_availability_dto_1.UpdateAvailabilityDto]),
+    __metadata("design:returntype", void 0)
+], GuardsController.prototype, "updateAvailability", null);
 exports.GuardsController = GuardsController = __decorate([
-    (0, common_1.Controller)('guards'),
+    (0, common_1.Controller)('v2/guards'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)('admin'),
     __metadata("design:paramtypes", [guards_service_1.GuardsService])

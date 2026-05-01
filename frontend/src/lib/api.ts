@@ -1,12 +1,10 @@
 import axios from 'axios';
 
 const getBaseUrl = () => {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-  // 1. Remove ANY existing /api or /api/ suffix
-  // 2. Remove ANY trailing slashes
-  // 3. Append /api/
-  const cleanUrl = envUrl.split('/api')[0].replace(/\/+$/, '');
-  const finalUrl = `${cleanUrl}/api/`;
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  const defaultUrl = 'http://127.0.0.1:5000/api';
+  
+  const finalUrl = envUrl ? envUrl.replace(/\/+$/, '') + '/' : defaultUrl + '/';
   
   if (typeof window !== 'undefined') {
     console.log('API Base URL:', finalUrl);
@@ -32,6 +30,18 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (typeof window !== 'undefined') {
+      console.error('API Error:', {
+        message: error.message,
+        code: error.code,
+        config: error.config,
+        response: error.response ? {
+          status: error.response.status,
+          data: error.response.data
+        } : 'No response'
+      });
+    }
+    
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
         localStorage.removeItem('token');

@@ -17,6 +17,9 @@ import { SitesModule } from './sites/sites.module';
 import { GuardsModule } from './guards/guards.module';
 import { ShiftsModule } from './shifts/shifts.module';
 import { AssignmentsModule } from './assignments/assignments.module';
+import { ClientsModule } from './clients/clients.module';
+import { ClientAuthModule } from './client-auth/client-auth.module';
+import { ClientPortalModule } from './client-portal/client-portal.module';
 
 @Module({
   imports: [
@@ -24,6 +27,8 @@ import { AssignmentsModule } from './assignments/assignments.module';
     PrismaModule,
     UsersModule,
     AuthModule,
+    ClientAuthModule,
+    ClientPortalModule,
     LeadsModule,
     DealsModule,
     ProposalsModule,
@@ -36,6 +41,7 @@ import { AssignmentsModule } from './assignments/assignments.module';
     GuardsModule,
     ShiftsModule,
     AssignmentsModule,
+    ClientsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -15,6 +15,7 @@ export declare class ProposalsService {
         tenantId: string;
         status: string;
         leadId: string | null;
+        clientId: string | null;
         title: string;
         content: string;
         dealId: string | null;
@@ -41,6 +42,17 @@ export declare class ProposalsService {
             tenantId: string;
             leadId: string;
             stage: string;
+            clientId: string | null;
+        } | null;
+        client: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            email: string;
+            tenantId: string;
+            phone: string | null;
+            companyName: string | null;
         } | null;
     } & {
         id: string;
@@ -49,6 +61,7 @@ export declare class ProposalsService {
         tenantId: string;
         status: string;
         leadId: string | null;
+        clientId: string | null;
         title: string;
         content: string;
         dealId: string | null;
@@ -72,6 +85,17 @@ export declare class ProposalsService {
             tenantId: string;
             leadId: string;
             stage: string;
+            clientId: string | null;
+        } | null;
+        client: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            email: string;
+            tenantId: string;
+            phone: string | null;
+            companyName: string | null;
         } | null;
         versions: {
             id: string;
@@ -87,6 +111,7 @@ export declare class ProposalsService {
         tenantId: string;
         status: string;
         leadId: string | null;
+        clientId: string | null;
         title: string;
         content: string;
         dealId: string | null;
@@ -98,6 +123,7 @@ export declare class ProposalsService {
         tenantId: string;
         status: string;
         leadId: string | null;
+        clientId: string | null;
         title: string;
         content: string;
         dealId: string | null;
@@ -109,6 +135,7 @@ export declare class ProposalsService {
         tenantId: string;
         status: string;
         leadId: string | null;
+        clientId: string | null;
         title: string;
         content: string;
         dealId: string | null;
@@ -124,6 +151,7 @@ export declare class ProposalsService {
         tenantId: string;
         status: string;
         leadId: string | null;
+        clientId: string | null;
         title: string;
         content: string;
         dealId: string | null;

@@ -24,6 +24,7 @@ export declare class DealsController {
         tenantId: string;
         leadId: string;
         stage: string;
+        clientId: string | null;
     }>;
     convert(leadId: string, req: Request): Promise<{
         id: string;
@@ -33,6 +34,7 @@ export declare class DealsController {
         tenantId: string;
         leadId: string;
         stage: string;
+        clientId: string | null;
     }>;
     findAll(req: Request): Promise<({
         activities: {
@@ -64,6 +66,16 @@ export declare class DealsController {
             company: string;
             status: string;
         };
+        client: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            email: string;
+            tenantId: string;
+            phone: string | null;
+            companyName: string | null;
+        } | null;
     } & {
         id: string;
         name: string;
@@ -72,6 +84,7 @@ export declare class DealsController {
         tenantId: string;
         leadId: string;
         stage: string;
+        clientId: string | null;
     })[]>;
     findOne(id: string, req: Request): Promise<{
         activities: {
@@ -103,6 +116,16 @@ export declare class DealsController {
             company: string;
             status: string;
         };
+        client: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            email: string;
+            tenantId: string;
+            phone: string | null;
+            companyName: string | null;
+        } | null;
     } & {
         id: string;
         name: string;
@@ -111,6 +134,7 @@ export declare class DealsController {
         tenantId: string;
         leadId: string;
         stage: string;
+        clientId: string | null;
     }>;
     updateStage(id: string, updateDealStageDto: UpdateDealStageDto, req: Request): Promise<{
         id: string;
@@ -120,6 +144,7 @@ export declare class DealsController {
         tenantId: string;
         leadId: string;
         stage: string;
+        clientId: string | null;
     }>;
     remove(id: string, req: Request): Promise<{
         success: boolean;

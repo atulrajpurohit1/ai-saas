@@ -75,13 +75,13 @@ let DealsService = class DealsService {
     async findAll(tenantId) {
         return this.prisma.deal.findMany({
             where: { tenantId },
-            include: { lead: true, activities: true, notes: true },
+            include: { lead: true, client: true, activities: true, notes: true },
         });
     }
     async findOne(id, tenantId) {
         const deal = await this.prisma.deal.findFirst({
             where: { id, tenantId },
-            include: { lead: true, activities: true, notes: true },
+            include: { lead: true, client: true, activities: true, notes: true },
         });
         if (!deal) {
             throw new common_1.NotFoundException(`Deal with ID ${id} not found`);

@@ -4,4 +4,5 @@ export class CreateProposalDto {
   status?: string;
   leadId?: string;
   dealId?: string;
+  clientId?: string;
 }

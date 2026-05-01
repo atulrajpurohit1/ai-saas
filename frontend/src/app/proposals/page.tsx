@@ -15,7 +15,8 @@ import {
   Users,
   X,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Building2
 } from 'lucide-react';
 
 interface Lead {
@@ -34,6 +35,15 @@ interface Proposal {
   leadId: string | null;
   lead?: Lead;
   createdAt: string;
+  clientId: string | null;
+  client?: { name: string; companyName: string };
+}
+
+interface Client {
+  id: string;
+  name: string;
+  companyName: string;
+  email: string;
 }
 
 export default function ProposalsPage() {
@@ -49,6 +59,8 @@ export default function ProposalsPage() {
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
   const [selectedLeadId, setSelectedLeadId] = useState('');
+  const [clients, setClients] = useState<Client[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState('');
   
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -59,12 +71,14 @@ export default function ProposalsPage() {
 
   const fetchData = async () => {
     try {
-      const [pRes, lRes] = await Promise.all([
+      const [pRes, lRes, cRes] = await Promise.all([
         api.get('proposals'),
-        api.get('leads')
+        api.get('leads'),
+        api.get('clients')
       ]);
       setProposals(pRes.data);
       setLeads(lRes.data);
+      setClients(cRes.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -84,10 +98,14 @@ export default function ProposalsPage() {
     }
     setIsGenerating(true);
     try {
-      await api.post('proposals/generate', { leadId: selectedLeadId });
+      await api.post('proposals/generate', { 
+        leadId: selectedLeadId,
+        clientId: selectedClientId || undefined
+      });
       showToast('AI Proposal generated successfully!', 'success');
       setShowModal(false);
       setSelectedLeadId('');
+      setSelectedClientId('');
       fetchData();
     } catch (err: any) {
       console.error(err);
@@ -235,9 +253,15 @@ export default function ProposalsPage() {
               <h4 className="text-xl font-bold mb-1 truncate">{p.title}</h4>
 
               {lead && (
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-1">
                   <Users size={14} className="text-indigo-400" />
                   <span className="text-xs text-muted-foreground">{lead.name} · {lead.company}</span>
+                </div>
+              )}
+              {p.client && (
+                <div className="flex items-center gap-2 mb-3">
+                  <Building2 size={14} className="text-emerald-400" />
+                  <span className="text-xs text-muted-foreground">Client: {p.client.name}</span>
                 </div>
               )}
               <p className="text-xs text-muted-foreground line-clamp-3 mb-6 bg-white/5 p-3 rounded-xl border border-white/5">
@@ -300,6 +324,22 @@ export default function ProposalsPage() {
                   {leads.map(lead => (
                     <option key={lead.id} value={lead.id} className="bg-gray-900">
                       {lead.name} — {lead.company} {lead.email ? `(${lead.email})` : '(no email)'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Link to Client (Optional)</label>
+                <select
+                  value={selectedClientId}
+                  onChange={(e) => setSelectedClientId(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none"
+                >
+                  <option value="" className="bg-gray-900">-- Choose a Client --</option>
+                  {clients.map(client => (
+                    <option key={client.id} value={client.id} className="bg-gray-900">
+                      {client.name} — {client.companyName || 'Individual'} ({client.email})
                     </option>
                   ))}
                 </select>

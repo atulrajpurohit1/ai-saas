@@ -2,5 +2,6 @@ export interface ActiveUser {
     sub: string;
     email: string;
     tenantId: string;
-    role: 'admin';
+    role: 'admin' | 'client';
+    clientId?: string;
 }

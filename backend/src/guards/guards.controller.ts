@@ -8,7 +8,9 @@ import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CreateGuardDto } from './dto/create-guard.dto';
 import { UpdateGuardDto } from './dto/update-guard.dto';
 
-@Controller('guards')
+import { UpdateAvailabilityDto } from './dto/update-availability.dto';
+
+@Controller('v2/guards')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
 export class GuardsController {
@@ -34,5 +36,22 @@ export class GuardsController {
     @Body() updateGuardDto: UpdateGuardDto,
   ) {
     return this.guardsService.update(user.sub, user.tenantId, id, updateGuardDto);
+  }
+
+  @Get(':id/availability')
+  getAvailability(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+  ) {
+    return this.guardsService.getAvailability(user.tenantId, id);
+  }
+
+  @Put(':id/availability')
+  updateAvailability(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateAvailabilityDto,
+  ) {
+    return this.guardsService.updateAvailability(user.sub, user.tenantId, id, dto);
   }
 }

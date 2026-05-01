@@ -26,6 +26,9 @@ const sites_module_1 = require("./sites/sites.module");
 const guards_module_1 = require("./guards/guards.module");
 const shifts_module_1 = require("./shifts/shifts.module");
 const assignments_module_1 = require("./assignments/assignments.module");
+const clients_module_1 = require("./clients/clients.module");
+const client_auth_module_1 = require("./client-auth/client-auth.module");
+const client_portal_module_1 = require("./client-portal/client-portal.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -36,6 +39,8 @@ exports.AppModule = AppModule = __decorate([
             prisma_module_1.PrismaModule,
             users_module_1.UsersModule,
             auth_module_1.AuthModule,
+            client_auth_module_1.ClientAuthModule,
+            client_portal_module_1.ClientPortalModule,
             leads_module_1.LeadsModule,
             deals_module_1.DealsModule,
             proposals_module_1.ProposalsModule,
@@ -48,6 +53,7 @@ exports.AppModule = AppModule = __decorate([
             guards_module_1.GuardsModule,
             shifts_module_1.ShiftsModule,
             assignments_module_1.AssignmentsModule,
+            clients_module_1.ClientsModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

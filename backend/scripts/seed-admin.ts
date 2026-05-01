@@ -4,41 +4,54 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  const email = 'atul@gmail.com';
-  const password = '12345678';
-  const tenantName = 'atul';
-  const tenantSlug = 'atul';
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-
+  const hashedPassword = await bcrypt.hash('admin123', 10);
+  
+  // 1. Create or Find Tenant
   const tenant = await prisma.tenant.upsert({
-    where: { slug: tenantSlug },
+    where: { slug: 'default' },
     update: {},
     create: {
-      name: tenantName,
-      slug: tenantSlug,
+      name: 'Default Tenant',
+      slug: 'default',
     },
   });
 
-  const user = await prisma.user.upsert({
-    where: { email },
-    update: {
-      password: hashedPassword,
-      tenantId: tenant.id,
-      role: 'ADMIN',
-    },
+  // 2. Create Admin User
+  await prisma.user.upsert({
+    where: { email: 'admin@example.com' },
+    update: { password: hashedPassword },
     create: {
-      email,
+      email: 'admin@example.com',
       password: hashedPassword,
-      name: 'Atul',
-      tenantId: tenant.id,
+      name: 'Admin User',
       role: 'ADMIN',
+      tenantId: tenant.id,
     },
   });
 
-  console.log('Admin user created successfully');
-  console.log('Email:', email);
-  console.log('Tenant:', tenantName);
+  // 3. Create a Test Site
+  const site = await prisma.site.create({
+    data: {
+      name: 'Test Site Alpha',
+      address: '123 Security St',
+      tenantId: tenant.id,
+    },
+  });
+
+  // 4. Create a Test Guard
+  const guard = await prisma.guard.create({
+    data: {
+      name: 'John Guard',
+      phone: '555-0101',
+      tenantId: tenant.id,
+    },
+  });
+
+  console.log('Seed completed successfully:');
+  console.log('Admin Email: admin@example.com');
+  console.log('Admin Password: admin123');
+  console.log('Site Created: Test Site Alpha');
+  console.log('Guard Created: John Guard');
 }
 
 main()

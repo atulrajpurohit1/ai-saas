@@ -80,14 +80,14 @@ export class DealsService {
   async findAll(tenantId: string) {
     return this.prisma.deal.findMany({
       where: { tenantId },
-      include: { lead: true, activities: true, notes: true },
+      include: { lead: true, client: true, activities: true, notes: true },
     });
   }
 
   async findOne(id: string, tenantId: string) {
     const deal = await this.prisma.deal.findFirst({
       where: { id, tenantId },
-      include: { lead: true, activities: true, notes: true },
+      include: { lead: true, client: true, activities: true, notes: true },
     });
 
     if (!deal) {

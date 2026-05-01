@@ -2,6 +2,7 @@ import { GuardsService } from './guards.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CreateGuardDto } from './dto/create-guard.dto';
 import { UpdateGuardDto } from './dto/update-guard.dto';
+import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 export declare class GuardsController {
     private readonly guardsService;
     constructor(guardsService: GuardsService);
@@ -12,18 +13,51 @@ export declare class GuardsController {
         tenantId: string;
         phone: string | null;
     }>;
-    findAll(user: ActiveUser): Promise<{
+    findAll(user: ActiveUser): Promise<({
+        availability: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            status: string;
+            startDate: Date | null;
+            endDate: Date | null;
+            guardId: string;
+        } | null;
+    } & {
         id: string;
         name: string;
         createdAt: Date;
         tenantId: string;
         phone: string | null;
-    }[]>;
+    })[]>;
     update(user: ActiveUser, id: string, updateGuardDto: UpdateGuardDto): Promise<{
         id: string;
         name: string;
         createdAt: Date;
         tenantId: string;
         phone: string | null;
+    }>;
+    getAvailability(user: ActiveUser, id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        status: string;
+        startDate: Date | null;
+        endDate: Date | null;
+        guardId: string;
+    } | {
+        status: string;
+    }>;
+    updateAvailability(user: ActiveUser, id: string, dto: UpdateAvailabilityDto): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        status: string;
+        startDate: Date | null;
+        endDate: Date | null;
+        guardId: string;
     }>;
 }

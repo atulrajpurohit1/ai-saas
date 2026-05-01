@@ -40,6 +40,9 @@ let GuardsService = class GuardsService {
     async findAll(tenantId) {
         return this.prisma.guard.findMany({
             where: { tenantId },
+            include: {
+                availability: true,
+            },
             orderBy: { createdAt: 'desc' },
         });
     }
@@ -63,6 +66,47 @@ let GuardsService = class GuardsService {
             details: `Guard "${guard.name}" updated`,
         });
         return updatedGuard;
+    }
+    async getAvailability(tenantId, id) {
+        const availability = await this.prisma.availability.findUnique({
+            where: { guardId: id },
+        });
+        if (!availability) {
+            return { status: 'available' };
+        }
+        return availability;
+    }
+    async updateAvailability(userId, tenantId, id, dto) {
+        const guard = await this.prisma.guard.findFirst({
+            where: { id, tenantId },
+        });
+        if (!guard) {
+            throw new common_1.NotFoundException('Guard not found');
+        }
+        const availability = await this.prisma.availability.upsert({
+            where: { guardId: id },
+            update: {
+                status: dto.status,
+                startDate: dto.startDate ? new Date(dto.startDate) : null,
+                endDate: dto.endDate ? new Date(dto.endDate) : null,
+            },
+            create: {
+                guardId: id,
+                tenantId,
+                status: dto.status,
+                startDate: dto.startDate ? new Date(dto.startDate) : null,
+                endDate: dto.endDate ? new Date(dto.endDate) : null,
+            },
+        });
+        await this.auditService.log({
+            tenantId,
+            userId,
+            action: 'AVAILABILITY_UPDATED',
+            entityType: 'Guard',
+            entityId: id,
+            details: `Guard "${guard.name}" availability set to ${dto.status}`,
+        });
+        return availability;
     }
 };
 exports.GuardsService = GuardsService;

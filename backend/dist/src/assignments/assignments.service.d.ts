@@ -6,7 +6,7 @@ export declare class AssignmentsService {
         id: string;
         createdAt: Date;
         status: string;
-        shiftId: string;
         guardId: string;
+        shiftId: string;
     }[]>;
 }

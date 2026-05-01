@@ -25,6 +25,7 @@ export declare class DealsService {
         tenantId: string;
         leadId: string;
         stage: string;
+        clientId: string | null;
     }>;
     convertLeadToDeal(leadId: string, tenantId: string, userId?: string): Promise<{
         id: string;
@@ -34,6 +35,7 @@ export declare class DealsService {
         tenantId: string;
         leadId: string;
         stage: string;
+        clientId: string | null;
     }>;
     findAll(tenantId: string): Promise<({
         activities: {
@@ -65,6 +67,16 @@ export declare class DealsService {
             company: string;
             status: string;
         };
+        client: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            email: string;
+            tenantId: string;
+            phone: string | null;
+            companyName: string | null;
+        } | null;
     } & {
         id: string;
         name: string;
@@ -73,6 +85,7 @@ export declare class DealsService {
         tenantId: string;
         leadId: string;
         stage: string;
+        clientId: string | null;
     })[]>;
     findOne(id: string, tenantId: string): Promise<{
         activities: {
@@ -104,6 +117,16 @@ export declare class DealsService {
             company: string;
             status: string;
         };
+        client: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            email: string;
+            tenantId: string;
+            phone: string | null;
+            companyName: string | null;
+        } | null;
     } & {
         id: string;
         name: string;
@@ -112,6 +135,7 @@ export declare class DealsService {
         tenantId: string;
         leadId: string;
         stage: string;
+        clientId: string | null;
     }>;
     updateStage(id: string, updateDealStageDto: UpdateDealStageDto, tenantId: string, userId?: string): Promise<{
         id: string;
@@ -121,6 +145,7 @@ export declare class DealsService {
         tenantId: string;
         leadId: string;
         stage: string;
+        clientId: string | null;
     }>;
     remove(id: string, tenantId: string, userId?: string): Promise<{
         success: boolean;

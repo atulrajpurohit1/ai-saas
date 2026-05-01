@@ -9,4 +9,5 @@ export declare class CreateDealDto {
     name: string;
     leadId: string;
     stage?: DealStage;
+    clientId?: string;
 }

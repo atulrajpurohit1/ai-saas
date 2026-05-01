@@ -28,6 +28,7 @@ export declare class LeadsService {
             tenantId: string;
             leadId: string;
             stage: string;
+            clientId: string | null;
         }[];
         notes: {
             id: string;
@@ -56,6 +57,7 @@ export declare class LeadsService {
             tenantId: string;
             leadId: string;
             stage: string;
+            clientId: string | null;
         }[];
         notes: {
             id: string;

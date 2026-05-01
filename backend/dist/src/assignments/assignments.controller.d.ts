@@ -6,7 +6,7 @@ export declare class AssignmentsController {
         id: string;
         createdAt: Date;
         status: string;
-        shiftId: string;
         guardId: string;
+        shiftId: string;
     }[]>;
 }

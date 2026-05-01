@@ -26,7 +26,14 @@ let PrismaService = class PrismaService extends client_1.PrismaClient {
         this.configService = configService;
     }
     async onModuleInit() {
-        await this.$connect();
+        try {
+            await this.$connect();
+            console.log('Successfully connected to database');
+        }
+        catch (error) {
+            console.error('Failed to connect to database:', error.message);
+            console.warn('Backend is running but database-dependent features will fail.');
+        }
     }
 };
 exports.PrismaService = PrismaService;

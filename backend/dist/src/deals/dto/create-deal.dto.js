@@ -23,6 +23,7 @@ class CreateDealDto {
     name;
     leadId;
     stage;
+    clientId;
 }
 exports.CreateDealDto = CreateDealDto;
 __decorate([
@@ -40,4 +41,9 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateDealDto.prototype, "stage", void 0);
+__decorate([
+    (0, class_validator_1.IsUUID)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateDealDto.prototype, "clientId", void 0);
 //# sourceMappingURL=create-deal.dto.js.map

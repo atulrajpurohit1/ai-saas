@@ -49,6 +49,7 @@ export class ProposalsService {
       include: { 
         lead: true,
         deal: true,
+        client: true,
         _count: { select: { versions: true } }
       },
     });
@@ -60,6 +61,7 @@ export class ProposalsService {
       include: {
         lead: true,
         deal: true,
+        client: true,
         versions: { orderBy: { versionNumber: 'desc' } },
       },
     });

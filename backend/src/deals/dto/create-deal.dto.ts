@@ -26,4 +26,8 @@ export class CreateDealDto {
   @IsEnum(DealStage)
   @IsOptional()
   stage?: DealStage;
+
+  @IsUUID()
+  @IsOptional()
+  clientId?: string;
 }

@@ -54,6 +54,7 @@ let ProposalsService = class ProposalsService {
             include: {
                 lead: true,
                 deal: true,
+                client: true,
                 _count: { select: { versions: true } }
             },
         });
@@ -64,6 +65,7 @@ let ProposalsService = class ProposalsService {
             include: {
                 lead: true,
                 deal: true,
+                client: true,
                 versions: { orderBy: { versionNumber: 'desc' } },
             },
         });

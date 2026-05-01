@@ -10,6 +10,9 @@ interface Guard {
   name: string;
   phone: string;
   createdAt: string;
+  availability?: {
+    status: string;
+  };
 }
 
 export default function GuardsPage() {
@@ -21,7 +24,7 @@ export default function GuardsPage() {
   
   const fetchGuards = async () => {
     try {
-      const res = await api.get('guards');
+      const res = await api.get('v2/guards');
       setGuards(res.data);
     } catch (err: any) {
       console.error('Fetch Guards Error:', err);
@@ -39,9 +42,9 @@ export default function GuardsPage() {
     e.preventDefault();
     try {
       if (isEditing) {
-        await api.put(`guards/${isEditing}`, formData);
+        await api.put(`v2/guards/${isEditing}`, formData);
       } else {
-        await api.post('guards', formData);
+        await api.post('v2/guards', formData);
       }
       setShowModal(false);
       resetForm();
@@ -64,6 +67,17 @@ export default function GuardsPage() {
   const resetForm = () => {
     setFormData({ name: '', phone: '' });
     setIsEditing(null);
+  };
+
+  const toggleAvailability = async (guardId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'available' ? 'unavailable' : 'available';
+    try {
+      await api.put(`v2/guards/${guardId}/availability`, { status: newStatus });
+      fetchGuards();
+    } catch (err) {
+      console.error('Toggle Availability Error:', err);
+      alert('Failed to update availability.');
+    }
   };
 
   return (
@@ -100,6 +114,7 @@ export default function GuardsPage() {
               <tr className="text-muted-foreground text-sm uppercase tracking-wider">
                 <th className="px-6 py-4 font-semibold">Guard Detail</th>
                 <th className="px-6 py-4 font-semibold">Contact Info</th>
+                <th className="px-6 py-4 font-semibold">Availability</th>
                 <th className="px-6 py-4 font-semibold">Date Added</th>
                 <th className="px-6 py-4 font-semibold text-right">Actions</th>
               </tr>
@@ -124,6 +139,18 @@ export default function GuardsPage() {
                        <Phone size={14} className="text-indigo-400" />
                        <span className="text-sm">{guard.phone}</span>
                     </div>
+                  </td>
+                  <td className="px-6 py-4 align-middle">
+                    <button
+                      onClick={() => toggleAvailability(guard.id, guard.availability?.status || 'available')}
+                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                        (guard.availability?.status || 'available') === 'available'
+                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20'
+                          : 'bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20'
+                      }`}
+                    >
+                      {(guard.availability?.status || 'available').toUpperCase()}
+                    </button>
                   </td>
                   <td className="px-6 py-4 text-sm text-muted-foreground align-middle">
                     {new Date(guard.createdAt).toLocaleDateString()}

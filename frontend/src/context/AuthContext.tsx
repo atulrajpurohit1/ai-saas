@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 
 export interface User {
   email: string;
-  role: 'admin';
+  role: 'admin' | 'client';
   name: string;
   tenantName?: string;
 }
@@ -44,7 +44,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
     
-    router.push('/');
+    if (userData.role === 'client') {
+      router.push('/client/dashboard');
+    } else {
+      router.push('/');
+    }
   };
 
   const logout = () => {

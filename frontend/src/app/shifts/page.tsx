@@ -1,23 +1,382 @@
-import React from 'react';
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import DashboardLayout from '@/components/DashboardLayout';
+import api from '@/lib/api';
+import { Plus, Search, Calendar, Clock, Users, MoreVertical, MapPin } from 'lucide-react';
+
+interface Site {
+  id: string;
+  name: string;
+}
+
+interface Guard {
+  id: string;
+  name: string;
+}
+
+interface Shift {
+  id: string;
+  siteId: string;
+  site: { name: string };
+  startTime: string;
+  endTime: string;
+  requiredGuards: number;
+  status: string;
+  createdAt: string;
+  assignments: {
+    id: string;
+    guard: {
+      name: string;
+    };
+  }[];
+}
 
 export default function ShiftsPage() {
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [guards, setGuards] = useState<Guard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedShift, setSelectedShift] = useState<string | null>(null);
+  const [selectedGuard, setSelectedGuard] = useState('');
+  
+  const [newShift, setNewShift] = useState({
+    siteId: '',
+    startTime: '',
+    endTime: '',
+    requiredGuards: 1
+  });
+
+  const fetchShifts = async () => {
+    try {
+      const res = await api.get('v2/shifts');
+      setShifts(res.data);
+    } catch (err) {
+      console.error('Failed to fetch shifts:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSites = async () => {
+    try {
+      const res = await api.get('sites');
+      setSites(res.data);
+    } catch (err) {
+      console.error('Failed to fetch sites:', err);
+    }
+  };
+
+  const fetchGuards = async () => {
+    try {
+      const res = await api.get('v2/guards');
+      setGuards(res.data);
+    } catch (err) {
+      console.error('Failed to fetch guards:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchShifts();
+    fetchSites();
+    fetchGuards();
+  }, []);
+
+  const handleAssign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedShift || !selectedGuard) return;
+
+    try {
+      await api.put(`v2/shifts/${selectedShift}/assign`, { guardId: selectedGuard });
+      setShowAssignModal(false);
+      setSelectedGuard('');
+      setSelectedShift(null);
+      fetchShifts();
+    } catch (err: any) {
+      console.error('Failed to assign guard:', err);
+      const message = err.response?.data?.message || 'Failed to assign guard.';
+      alert(message);
+    }
+  };
+
+  const handleUnassign = async (shiftId: string) => {
+    if (!confirm('Are you sure you want to unassign the guard from this shift?')) return;
+
+    try {
+      await api.delete(`v2/shifts/${shiftId}/unassign`);
+      fetchShifts();
+    } catch (err) {
+      console.error('Failed to unassign guard:', err);
+      alert('Failed to unassign guard.');
+    }
+  };
+
+  const handleCreateShift = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.post('v2/shifts', newShift);
+      setShowModal(false);
+      setNewShift({ siteId: '', startTime: '', endTime: '', requiredGuards: 1 });
+      fetchShifts();
+    } catch (err) {
+      console.error('Failed to create shift:', err);
+      alert('Failed to create shift. Please check your inputs.');
+    }
+  };
+
+  const formatDateTime = (dateStr: string) => {
+    return new Date(dateStr).toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+    <DashboardLayout>
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Shifts</h1>
-          <p className="text-muted-foreground mt-2">
-            Schedule and manage guard shifts across all sites.
-          </p>
+          <h2 className="text-3xl font-bold">Shift Management</h2>
+          <p className="text-muted-foreground">Schedule and manage guard presence at client sites.</p>
+        </div>
+        <button 
+          onClick={() => setShowModal(true)}
+          className="bg-primary hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2"
+        >
+          <Plus size={20} />
+          <span>Create Shift</span>
+        </button>
+      </div>
+
+      <div className="glass-card rounded-3xl overflow-hidden border border-white/5">
+        <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/5">
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
+            <input 
+              type="text" 
+              placeholder="Search shifts..." 
+              className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="text-muted-foreground text-sm uppercase tracking-wider">
+                <th className="px-6 py-4 font-semibold">Site</th>
+                <th className="px-6 py-4 font-semibold">Start Time</th>
+                <th className="px-6 py-4 font-semibold">End Time</th>
+                <th className="px-6 py-4 font-semibold">Guards</th>
+                <th className="px-6 py-4 font-semibold">Assigned Guard</th>
+                <th className="px-6 py-4 font-semibold">Status</th>
+                <th className="px-6 py-4 font-semibold text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {loading ? (
+                <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">Loading shifts...</td></tr>
+              ) : shifts.length === 0 ? (
+                <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">No shifts scheduled yet.</td></tr>
+              ) : shifts.map((shift) => (
+                <tr key={shift.id} className="hover:bg-white/5 transition-colors group">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
+                        <MapPin size={18} />
+                      </div>
+                      <span className="font-semibold">{shift.site?.name || 'N/A'}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                      <Calendar size={14} className="text-indigo-400" />
+                      <span>{formatDateTime(shift.startTime)}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                      <Clock size={14} className="text-indigo-400" />
+                      <span>{formatDateTime(shift.endTime)}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                       <Users size={16} className="text-muted-foreground" />
+                       <span className="font-medium">{shift.requiredGuards}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`font-medium ${shift.assignments && shift.assignments.length > 0 ? 'text-indigo-300' : 'text-muted-foreground'}`}>
+                      {shift.assignments && shift.assignments.length > 0 
+                        ? shift.assignments[0].guard.name 
+                        : 'Unassigned'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${shift.status === 'assigned' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                      {shift.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    {shift.assignments && shift.assignments.length > 0 ? (
+                       <button 
+                         onClick={() => handleUnassign(shift.id)}
+                         className="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-500 px-3 py-1.5 rounded-lg font-medium transition-colors"
+                       >
+                         Unassign
+                       </button>
+                    ) : (
+                       <button 
+                         onClick={() => { setSelectedShift(shift.id); setShowAssignModal(true); }}
+                         className="text-xs bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-3 py-1.5 rounded-lg font-medium transition-colors"
+                       >
+                         Assign Guard
+                       </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
-      
-      <div className="glass-card p-12 text-center rounded-2xl border border-white/10">
-        <h2 className="text-2xl font-semibold mb-2">Shifts page coming soon</h2>
-        <p className="text-muted-foreground">
-          This module is part of the Phase 1 V2 implementation and is currently under construction.
-        </p>
-      </div>
-    </div>
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="glass-card w-full max-w-lg rounded-3xl p-8 border-white/10 shadow-3xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold">Create New Shift</h3>
+              <button onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-white transition-colors">
+                <Plus size={24} className="rotate-45" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateShift} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-muted-foreground">Select Site</label>
+                <select 
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
+                  value={newShift.siteId}
+                  onChange={(e) => setNewShift({...newShift, siteId: e.target.value})}
+                  required
+                >
+                  <option value="" className="bg-[#0e0e1a]">Choose a site...</option>
+                  {sites.map(site => (
+                    <option key={site.id} value={site.id} className="bg-[#0e0e1a]">{site.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-muted-foreground">Start Time</label>
+                  <input 
+                    type="datetime-local" 
+                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
+                    value={newShift.startTime}
+                    onChange={(e) => setNewShift({...newShift, startTime: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-muted-foreground">End Time</label>
+                  <input 
+                    type="datetime-local" 
+                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
+                    value={newShift.endTime}
+                    onChange={(e) => setNewShift({...newShift, endTime: e.target.value})}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-muted-foreground">Required Guards</label>
+                <input 
+                  type="number" 
+                  min="1"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
+                  value={isNaN(newShift.requiredGuards) ? '' : newShift.requiredGuards}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    setNewShift({...newShift, requiredGuards: isNaN(val) ? 1 : val});
+                  }}
+                  required
+                />
+              </div>
+
+              <div className="flex gap-4 mt-10">
+                <button 
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-3 rounded-2xl transition-all border border-white/10"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="flex-1 bg-primary hover:bg-indigo-500 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-indigo-500/20"
+                >
+                  Create Shift
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showAssignModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="glass-card w-full max-w-lg rounded-3xl p-8 border-white/10 shadow-3xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold">Assign Guard to Shift</h3>
+              <button 
+                onClick={() => { setShowAssignModal(false); setSelectedGuard(''); setSelectedShift(null); }} 
+                className="text-muted-foreground hover:text-white transition-colors"
+              >
+                <Plus size={24} className="rotate-45" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAssign} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-muted-foreground">Select Guard</label>
+                <select 
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
+                  value={selectedGuard}
+                  onChange={(e) => setSelectedGuard(e.target.value)}
+                  required
+                >
+                  <option value="" className="bg-[#0e0e1a]">Choose a guard...</option>
+                  {guards.map(guard => (
+                    <option key={guard.id} value={guard.id} className="bg-[#0e0e1a]">{guard.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-4 mt-10">
+                <button 
+                  type="button"
+                  onClick={() => { setShowAssignModal(false); setSelectedGuard(''); setSelectedShift(null); }}
+                  className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-3 rounded-2xl transition-all border border-white/10"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="flex-1 bg-primary hover:bg-indigo-500 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-indigo-500/20"
+                >
+                  Confirm Assignment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </DashboardLayout>
   );
 }

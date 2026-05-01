@@ -11,6 +11,8 @@ interface Deal {
   stage: string;
   lead: { name: string; company: string };
   createdAt: string;
+  clientId: string | null;
+  client?: { name: string; companyName: string };
 }
 
 export default function DealsPage() {
@@ -18,16 +20,19 @@ export default function DealsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [leads, setLeads] = useState<any[]>([]);
-  const [newDeal, setNewDeal] = useState({ name: '', leadId: '' });
+  const [clients, setClients] = useState<any[]>([]);
+  const [newDeal, setNewDeal] = useState({ name: '', leadId: '', clientId: '' });
 
   const fetchData = async () => {
     try {
-      const [dealsRes, leadsRes] = await Promise.all([
+      const [dealsRes, leadsRes, clientsRes] = await Promise.all([
         api.get('deals'),
-        api.get('leads')
+        api.get('leads'),
+        api.get('clients')
       ]);
       setDeals(dealsRes.data);
       setLeads(leadsRes.data);
+      setClients(clientsRes.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -44,7 +49,7 @@ export default function DealsPage() {
     try {
       await api.post('deals', newDeal);
       setShowModal(false);
-      setNewDeal({ name: '', leadId: '' });
+      setNewDeal({ name: '', leadId: '', clientId: '' });
       fetchData();
     } catch (err) {
       console.error(err);
@@ -99,6 +104,11 @@ export default function DealsPage() {
                 <Target size={14} />
                 {deal.lead.company}
               </p>
+              {deal.client && (
+                <p className="text-xs text-emerald-400 font-medium mb-4">
+                  Client: {deal.client.name}
+                </p>
+              )}
               
               <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-4">
                 <div className="flex items-center gap-1 text-emerald-400 font-bold">
@@ -141,6 +151,19 @@ export default function DealsPage() {
                   <option value="">Choose a lead...</option>
                   {leads.map(lead => (
                     <option key={lead.id} value={lead.id}>{lead.company} ({lead.name})</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-muted-foreground">Link to Client (Optional)</label>
+                <select 
+                  className="w-full bg-[#1e293b] border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
+                  value={newDeal.clientId}
+                  onChange={(e) => setNewDeal({...newDeal, clientId: e.target.value})}
+                >
+                  <option value="">Choose a client...</option>
+                  {clients.map(client => (
+                    <option key={client.id} value={client.id}>{client.name} ({client.companyName || 'Individual'})</option>
                   ))}
                 </select>
               </div>
