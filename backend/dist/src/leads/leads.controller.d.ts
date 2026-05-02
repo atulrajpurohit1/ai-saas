@@ -24,8 +24,8 @@ export declare class LeadsController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            leadId: string;
             stage: string;
+            leadId: string;
             clientId: string | null;
         }[];
         notes: {
@@ -72,8 +72,8 @@ export declare class LeadsController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            leadId: string;
             stage: string;
+            leadId: string;
             clientId: string | null;
         }[];
         notes: {

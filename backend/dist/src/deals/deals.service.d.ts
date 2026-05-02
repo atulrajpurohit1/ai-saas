@@ -23,8 +23,8 @@ export declare class DealsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        leadId: string;
         stage: string;
+        leadId: string;
         clientId: string | null;
     }>;
     convertLeadToDeal(leadId: string, tenantId: string, userId?: string): Promise<{
@@ -33,8 +33,8 @@ export declare class DealsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        leadId: string;
         stage: string;
+        leadId: string;
         clientId: string | null;
     }>;
     findAll(tenantId: string): Promise<({
@@ -44,8 +44,8 @@ export declare class DealsService {
             tenantId: string;
             status: string;
             dealId: string | null;
-            subject: string;
             type: string;
+            subject: string;
             description: string | null;
             dueDate: Date | null;
         }[];
@@ -83,8 +83,8 @@ export declare class DealsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        leadId: string;
         stage: string;
+        leadId: string;
         clientId: string | null;
     })[]>;
     findOne(id: string, tenantId: string): Promise<{
@@ -94,8 +94,8 @@ export declare class DealsService {
             tenantId: string;
             status: string;
             dealId: string | null;
-            subject: string;
             type: string;
+            subject: string;
             description: string | null;
             dueDate: Date | null;
         }[];
@@ -133,8 +133,8 @@ export declare class DealsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        leadId: string;
         stage: string;
+        leadId: string;
         clientId: string | null;
     }>;
     updateStage(id: string, updateDealStageDto: UpdateDealStageDto, tenantId: string, userId?: string): Promise<{
@@ -143,8 +143,8 @@ export declare class DealsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        leadId: string;
         stage: string;
+        leadId: string;
         clientId: string | null;
     }>;
     remove(id: string, tenantId: string, userId?: string): Promise<{

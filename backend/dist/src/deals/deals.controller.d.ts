@@ -22,8 +22,8 @@ export declare class DealsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        leadId: string;
         stage: string;
+        leadId: string;
         clientId: string | null;
     }>;
     convert(leadId: string, req: Request): Promise<{
@@ -32,8 +32,8 @@ export declare class DealsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        leadId: string;
         stage: string;
+        leadId: string;
         clientId: string | null;
     }>;
     findAll(req: Request): Promise<({
@@ -43,8 +43,8 @@ export declare class DealsController {
             tenantId: string;
             status: string;
             dealId: string | null;
-            subject: string;
             type: string;
+            subject: string;
             description: string | null;
             dueDate: Date | null;
         }[];
@@ -82,8 +82,8 @@ export declare class DealsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        leadId: string;
         stage: string;
+        leadId: string;
         clientId: string | null;
     })[]>;
     findOne(id: string, req: Request): Promise<{
@@ -93,8 +93,8 @@ export declare class DealsController {
             tenantId: string;
             status: string;
             dealId: string | null;
-            subject: string;
             type: string;
+            subject: string;
             description: string | null;
             dueDate: Date | null;
         }[];
@@ -132,8 +132,8 @@ export declare class DealsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        leadId: string;
         stage: string;
+        leadId: string;
         clientId: string | null;
     }>;
     updateStage(id: string, updateDealStageDto: UpdateDealStageDto, req: Request): Promise<{
@@ -142,8 +142,8 @@ export declare class DealsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        leadId: string;
         stage: string;
+        leadId: string;
         clientId: string | null;
     }>;
     remove(id: string, req: Request): Promise<{

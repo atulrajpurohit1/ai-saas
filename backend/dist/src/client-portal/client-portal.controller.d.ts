@@ -13,9 +13,9 @@ export declare class ClientPortalController {
         status: string;
         leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
         dealId: string | null;
+        title: string;
     }[]>;
     getProposal(user: ActiveUser, id: string): Promise<{
         versions: {
@@ -33,9 +33,9 @@ export declare class ClientPortalController {
         status: string;
         leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
         dealId: string | null;
+        title: string;
     }>;
     approveProposal(user: ActiveUser, id: string): Promise<{
         id: string;
@@ -45,9 +45,9 @@ export declare class ClientPortalController {
         status: string;
         leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
         dealId: string | null;
+        title: string;
     }>;
     rejectProposal(user: ActiveUser, id: string): Promise<{
         id: string;
@@ -57,8 +57,8 @@ export declare class ClientPortalController {
         status: string;
         leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
         dealId: string | null;
+        title: string;
     }>;
 }

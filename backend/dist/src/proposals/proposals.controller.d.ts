@@ -13,9 +13,9 @@ export declare class ProposalsController {
         status: string;
         leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
         dealId: string | null;
+        title: string;
     }>;
     findAll(req: Request): Promise<({
         _count: {
@@ -37,8 +37,8 @@ export declare class ProposalsController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            leadId: string;
             stage: string;
+            leadId: string;
             clientId: string | null;
         } | null;
         client: {
@@ -59,9 +59,9 @@ export declare class ProposalsController {
         status: string;
         leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
         dealId: string | null;
+        title: string;
     })[]>;
     generateProposal(req: Request, leadId: string): Promise<{
         id: string;
@@ -71,9 +71,9 @@ export declare class ProposalsController {
         status: string;
         leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
         dealId: string | null;
+        title: string;
     }>;
     generateBulkProposals(req: Request): Promise<{
         generatedCount: number;
@@ -96,8 +96,8 @@ export declare class ProposalsController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            leadId: string;
             stage: string;
+            leadId: string;
             clientId: string | null;
         } | null;
         client: {
@@ -125,9 +125,9 @@ export declare class ProposalsController {
         status: string;
         leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
         dealId: string | null;
+        title: string;
     }>;
     update(req: Request, id: string, updateProposalDto: UpdateProposalDto): Promise<{
         id: string;
@@ -137,9 +137,9 @@ export declare class ProposalsController {
         status: string;
         leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
         dealId: string | null;
+        title: string;
     }>;
     duplicate(req: Request, id: string): Promise<{
         id: string;
@@ -149,8 +149,8 @@ export declare class ProposalsController {
         status: string;
         leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
         dealId: string | null;
+        title: string;
     }>;
 }

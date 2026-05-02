@@ -16,9 +16,9 @@ export declare class ProposalsService {
         status: string;
         leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
         dealId: string | null;
+        title: string;
     }>;
     findAll(tenantId: string): Promise<({
         _count: {
@@ -40,8 +40,8 @@ export declare class ProposalsService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            leadId: string;
             stage: string;
+            leadId: string;
             clientId: string | null;
         } | null;
         client: {
@@ -62,9 +62,9 @@ export declare class ProposalsService {
         status: string;
         leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
         dealId: string | null;
+        title: string;
     })[]>;
     findOne(tenantId: string, id: string): Promise<{
         lead: {
@@ -83,8 +83,8 @@ export declare class ProposalsService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            leadId: string;
             stage: string;
+            leadId: string;
             clientId: string | null;
         } | null;
         client: {
@@ -112,9 +112,9 @@ export declare class ProposalsService {
         status: string;
         leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
         dealId: string | null;
+        title: string;
     }>;
     update(tenantId: string, id: string, updateProposalDto: UpdateProposalDto, userId?: string): Promise<{
         id: string;
@@ -124,9 +124,9 @@ export declare class ProposalsService {
         status: string;
         leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
         dealId: string | null;
+        title: string;
     }>;
     duplicate(tenantId: string, id: string, userId?: string): Promise<{
         id: string;
@@ -136,9 +136,9 @@ export declare class ProposalsService {
         status: string;
         leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
         dealId: string | null;
+        title: string;
     }>;
     export(tenantId: string, id: string, userId?: string): Promise<{
         content: string;
@@ -152,9 +152,9 @@ export declare class ProposalsService {
         status: string;
         leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
         dealId: string | null;
+        title: string;
     }>;
     generateBulkProposals(tenantId: string, userId?: string): Promise<{
         generatedCount: number;
