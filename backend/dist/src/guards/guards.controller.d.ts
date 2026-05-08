@@ -20,9 +20,9 @@ export declare class GuardsController {
             updatedAt: Date;
             tenantId: string;
             status: string;
+            guardId: string;
             startDate: Date | null;
             endDate: Date | null;
-            guardId: string;
         } | null;
     } & {
         id: string;
@@ -44,9 +44,9 @@ export declare class GuardsController {
         updatedAt: Date;
         tenantId: string;
         status: string;
+        guardId: string;
         startDate: Date | null;
         endDate: Date | null;
-        guardId: string;
     } | {
         status: string;
     }>;
@@ -56,8 +56,8 @@ export declare class GuardsController {
         updatedAt: Date;
         tenantId: string;
         status: string;
+        guardId: string;
         startDate: Date | null;
         endDate: Date | null;
-        guardId: string;
     }>;
 }

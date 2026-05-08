@@ -47,7 +47,11 @@ export default function DealsPage() {
   const handleAddDeal = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post('deals', newDeal);
+      const payload = {
+        ...newDeal,
+        clientId: newDeal.clientId || null
+      };
+      await api.post('deals', payload);
       setShowModal(false);
       setNewDeal({ name: '', leadId: '', clientId: '' });
       fetchData();

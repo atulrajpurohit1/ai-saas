@@ -25,9 +25,12 @@ let ClientPortalController = class ClientPortalController {
         this.prisma = prisma;
         this.auditService = auditService;
     }
-    async getProposals(user) {
+    checkClient(user) {
         if (user.role !== 'client')
             throw new common_1.ForbiddenException('Access denied');
+    }
+    async getProposals(user) {
+        this.checkClient(user);
         return this.prisma.proposal.findMany({
             where: {
                 clientId: user.clientId,
@@ -37,8 +40,7 @@ let ClientPortalController = class ClientPortalController {
         });
     }
     async getProposal(user, id) {
-        if (user.role !== 'client')
-            throw new common_1.ForbiddenException('Access denied');
+        this.checkClient(user);
         const proposal = await this.prisma.proposal.findFirst({
             where: {
                 id,
@@ -85,6 +87,66 @@ let ClientPortalController = class ClientPortalController {
         });
         return updated;
     }
+    async getComments(user, id) {
+        this.checkClient(user);
+        await this.getProposal(user, id);
+        return this.prisma.proposalComment.findMany({
+            where: { proposalId: id, tenantId: user.tenantId },
+            orderBy: { createdAt: 'asc' },
+        });
+    }
+    async addComment(user, id, content) {
+        this.checkClient(user);
+        await this.getProposal(user, id);
+        const comment = await this.prisma.proposalComment.create({
+            data: {
+                content,
+                proposalId: id,
+                clientUserId: user.sub,
+                tenantId: user.tenantId,
+            },
+        });
+        await this.auditService.log({
+            tenantId: user.tenantId,
+            userId: user.sub,
+            action: 'COMMENT_ADDED',
+            entityType: 'Proposal',
+            entityId: id,
+            details: `Client added a comment to proposal`,
+        });
+        return comment;
+    }
+    async getTimeline(user, id) {
+        this.checkClient(user);
+        await this.getProposal(user, id);
+        return this.prisma.auditLog.findMany({
+            where: {
+                entityId: id,
+                tenantId: user.tenantId,
+                action: { in: ['CREATE', 'PROPOSAL_APPROVED', 'PROPOSAL_REJECTED', 'COMMENT_ADDED', 'DOCUMENT_SHARED'] }
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+    async getDocuments(user) {
+        this.checkClient(user);
+        return this.prisma.sharedDocument.findMany({
+            where: {
+                clientId: user.clientId,
+                tenantId: user.tenantId
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+    async getProfile(user) {
+        this.checkClient(user);
+        const client = await this.prisma.client.findFirst({
+            where: { id: user.clientId, tenantId: user.tenantId },
+        });
+        if (!client)
+            throw new common_1.NotFoundException('Client profile not found');
+        return client;
+    }
 };
 exports.ClientPortalController = ClientPortalController;
 __decorate([
@@ -118,6 +180,45 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], ClientPortalController.prototype, "rejectProposal", null);
+__decorate([
+    (0, common_1.Get)('proposals/:id/comments'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], ClientPortalController.prototype, "getComments", null);
+__decorate([
+    (0, common_1.Post)('proposals/:id/comments'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)('content')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", Promise)
+], ClientPortalController.prototype, "addComment", null);
+__decorate([
+    (0, common_1.Get)('proposals/:id/timeline'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], ClientPortalController.prototype, "getTimeline", null);
+__decorate([
+    (0, common_1.Get)('documents'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], ClientPortalController.prototype, "getDocuments", null);
+__decorate([
+    (0, common_1.Get)('profile'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], ClientPortalController.prototype, "getProfile", null);
 exports.ClientPortalController = ClientPortalController = __decorate([
     (0, common_1.Controller)('client-portal'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

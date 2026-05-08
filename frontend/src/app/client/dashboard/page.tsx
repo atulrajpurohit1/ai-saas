@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import ClientLayout from '@/components/ClientLayout';
 import Link from 'next/link';
-import axios from 'axios';
+import api from '@/lib/api';
 import { FileText, Clock, CheckCircle, XCircle, ArrowRight, Sparkles, Building } from 'lucide-react';
 
 interface Proposal {
@@ -20,10 +20,7 @@ export default function ClientDashboard() {
   useEffect(() => {
     const fetchProposals = async () => {
       try {
-        const token = localStorage.getItem('client_token');
-        const res = await axios.get('http://localhost:5000/api/client-portal/proposals', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await api.get('client-portal/proposals');
         setProposals(res.data);
       } catch (err) {
         console.error('Failed to fetch proposals', err);

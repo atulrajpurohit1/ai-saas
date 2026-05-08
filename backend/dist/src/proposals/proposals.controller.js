@@ -33,9 +33,9 @@ let ProposalsController = class ProposalsController {
         const user = req.user;
         return this.proposalsService.findAll(user.tenantId);
     }
-    generateProposal(req, leadId) {
+    generateProposal(req, leadId, clientId) {
         const user = req.user;
-        return this.proposalsService.generateForLead(user.tenantId, leadId);
+        return this.proposalsService.generateForLead(user.tenantId, leadId, user.sub, clientId);
     }
     generateBulkProposals(req) {
         const user = req.user;
@@ -49,9 +49,29 @@ let ProposalsController = class ProposalsController {
         const user = req.user;
         return this.proposalsService.update(user.tenantId, id, updateProposalDto);
     }
-    duplicate(req, id) {
+    async export(req, id, res) {
         const user = req.user;
-        return this.proposalsService.duplicate(user.tenantId, id);
+        const buffer = await this.proposalsService.export(user.tenantId, id, user.sub);
+        res.set({
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename=proposal-${id}.pdf`,
+            'Content-Length': buffer.length,
+        });
+        res.end(buffer);
+    }
+    async getComments(req, id) {
+        const user = req.user;
+        return this.proposalsService.getComments(user.tenantId, id);
+    }
+    async addComment(req, id, content) {
+        const user = req.user;
+        return this.proposalsService.addComment(user.tenantId, id, user.sub, content);
+    }
+    async share(req, id, clientId) {
+        const user = req.user;
+        const updated = await this.proposalsService.update(user.tenantId, id, { clientId }, user.sub);
+        await this.proposalsService.logAction(user.tenantId, user.sub, id, 'DOCUMENT_SHARED', `Proposal shared with client`);
+        return updated;
     }
 };
 exports.ProposalsController = ProposalsController;
@@ -77,8 +97,9 @@ __decorate([
     (0, common_1.Post)('generate'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)('leadId')),
+    __param(2, (0, common_1.Body)('clientId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:paramtypes", [Object, String, String]),
     __metadata("design:returntype", void 0)
 ], ProposalsController.prototype, "generateProposal", null);
 __decorate([
@@ -110,13 +131,43 @@ __decorate([
 ], ProposalsController.prototype, "update", null);
 __decorate([
     (0, roles_decorator_1.Roles)('admin'),
-    (0, common_1.Post)(':id/duplicate'),
+    (0, common_1.Get)(':id/export'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], ProposalsController.prototype, "export", null);
+__decorate([
+    (0, roles_decorator_1.Roles)('admin'),
+    (0, common_1.Get)(':id/comments'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, String]),
-    __metadata("design:returntype", void 0)
-], ProposalsController.prototype, "duplicate", null);
+    __metadata("design:returntype", Promise)
+], ProposalsController.prototype, "getComments", null);
+__decorate([
+    (0, roles_decorator_1.Roles)('admin'),
+    (0, common_1.Post)(':id/comments'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)('content')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", Promise)
+], ProposalsController.prototype, "addComment", null);
+__decorate([
+    (0, roles_decorator_1.Roles)('admin'),
+    (0, common_1.Post)(':id/share'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)('clientId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", Promise)
+], ProposalsController.prototype, "share", null);
 exports.ProposalsController = ProposalsController = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, common_1.Controller)('proposals'),

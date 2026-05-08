@@ -14,10 +14,10 @@ export declare class ShiftsController {
         createdAt: Date;
         tenantId: string;
         status: string;
-        siteId: string;
         startTime: Date;
         endTime: Date;
         requiredGuards: number;
+        siteId: string;
     }>;
     findAll(user: ActiveUser): Promise<({
         site: {
@@ -39,10 +39,10 @@ export declare class ShiftsController {
         createdAt: Date;
         tenantId: string;
         status: string;
-        siteId: string;
         startTime: Date;
         endTime: Date;
         requiredGuards: number;
+        siteId: string;
     })[]>;
     assign(user: ActiveUser, id: string, dto: AssignGuardDto): Promise<{
         id: string;

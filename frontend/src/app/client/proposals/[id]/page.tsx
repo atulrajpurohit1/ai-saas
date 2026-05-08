@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import ClientLayout from '@/components/ClientLayout';
-import axios from 'axios';
+import api from '@/lib/api';
 import { 
   FileText, 
   CheckCircle, 
@@ -13,7 +13,11 @@ import {
   Calendar,
   AlertTriangle,
   Loader2,
-  ShieldCheck
+  ShieldCheck,
+  MessageSquare,
+  Send,
+  History,
+  Clock
 } from 'lucide-react';
 
 interface Proposal {
@@ -24,29 +28,51 @@ interface Proposal {
   createdAt: string;
 }
 
+interface Comment {
+  id: string;
+  content: string;
+  userId?: string;
+  clientUserId?: string;
+  createdAt: string;
+}
+
+interface TimelineItem {
+  id: string;
+  action: string;
+  details?: string;
+  createdAt: string;
+}
+
 export default function ClientProposalView() {
   const { id } = useParams();
   const router = useRouter();
   const [proposal, setProposal] = useState<Proposal | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [timeline, setTimeline] = useState<TimelineItem[]>([]);
+  const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [commentLoading, setCommentLoading] = useState(false);
 
-  const fetchProposal = async () => {
+  const fetchProposalData = async () => {
     try {
-      const token = localStorage.getItem('client_token');
-      const res = await axios.get(`http://localhost:5000/api/client-portal/proposals/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setProposal(res.data);
+      const [pRes, cRes, tRes] = await Promise.all([
+        api.get(`client-portal/proposals/${id}`),
+        api.get(`client-portal/proposals/${id}/comments`),
+        api.get(`client-portal/proposals/${id}/timeline`)
+      ]);
+      setProposal(pRes.data);
+      setComments(cRes.data);
+      setTimeline(tRes.data);
     } catch (err) {
-      console.error('Failed to fetch proposal', err);
+      console.error('Failed to fetch proposal data', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchProposal();
+    fetchProposalData();
   }, [id]);
 
   const handleAction = async (action: 'approve' | 'reject') => {
@@ -54,15 +80,44 @@ export default function ClientProposalView() {
     
     setActionLoading(true);
     try {
-      const token = localStorage.getItem('client_token');
-      await axios.post(`http://localhost:5000/api/client-portal/proposals/${id}/${action}`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      fetchProposal();
+      await api.post(`client-portal/proposals/${id}/${action}`);
+      fetchProposalData();
     } catch (err) {
       console.error(`Failed to ${action} proposal`, err);
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim()) return;
+
+    setCommentLoading(true);
+    try {
+      await api.post(`client-portal/proposals/${id}/comments`, { content: newComment });
+      setNewComment('');
+      fetchProposalData();
+    } catch (err) {
+      console.error('Failed to add comment', err);
+    } finally {
+      setCommentLoading(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      const response = await api.get(`proposals/${id}/export`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `proposal-${id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error('Failed to download PDF', err);
+      alert('Failed to download PDF. Please try again.');
     }
   };
 
@@ -81,7 +136,7 @@ export default function ClientProposalView() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-8">
           <div className="glass-card bg-[#0a0a14]/60 border border-white/5 rounded-[2.5rem] p-10 overflow-hidden relative">
             <div className="absolute top-0 right-0 p-8 opacity-5">
               <FileText size={160} />
@@ -94,6 +149,59 @@ export default function ClientProposalView() {
                 {proposal.content}
               </div>
             </div>
+          </div>
+
+          {/* Comments Section */}
+          <div className="glass-card bg-[#0a0a14]/40 border border-white/5 rounded-3xl p-8">
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <MessageSquare className="text-indigo-400" size={20} />
+              Comments
+            </h3>
+
+            <div className="space-y-4 mb-8 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+              {comments.length === 0 ? (
+                <div className="text-center py-10 text-slate-500 bg-white/5 rounded-2xl border border-dashed border-white/10 italic">
+                  No comments yet. Start the conversation below.
+                </div>
+              ) : comments.map((comment) => (
+                <div 
+                  key={comment.id} 
+                  className={`p-4 rounded-2xl border ${
+                    comment.clientUserId 
+                      ? 'bg-indigo-500/10 border-indigo-500/20 ml-8' 
+                      : 'bg-white/5 border-white/10 mr-8'
+                  }`}
+                >
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">
+                      {comment.clientUserId ? 'You' : 'Account Manager'}
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      {new Date(comment.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-300">{comment.content}</p>
+                </div>
+              ))}
+            </div>
+
+            <form onSubmit={handleAddComment} className="relative group">
+              <input 
+                type="text" 
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-6 pr-14 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600"
+                placeholder="Type your message..."
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                required
+              />
+              <button 
+                type="submit" 
+                disabled={commentLoading}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all disabled:opacity-50"
+              >
+                {commentLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+              </button>
+            </form>
           </div>
         </div>
 
@@ -153,10 +261,31 @@ export default function ClientProposalView() {
                 </div>
               )}
 
-              <button className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-white transition-colors text-sm font-medium py-2">
+              <button 
+                onClick={handleDownload}
+                className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-white transition-colors text-sm font-medium py-2"
+              >
                 <Download size={16} />
                 <span>Download as PDF</span>
               </button>
+            </div>
+
+            {/* Timeline in Sidebar */}
+            <div className="mt-8 pt-8 border-t border-white/5">
+              <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                <History className="text-indigo-400" size={16} />
+                Timeline
+              </h3>
+              <div className="space-y-4">
+                {timeline.map((item, idx) => (
+                  <div key={item.id} className="relative pl-6 pb-2 border-l border-white/10 last:border-0 last:pb-0">
+                    <div className="absolute left-[-5px] top-1 w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]"></div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.action.replace(/_/g, ' ')}</div>
+                    <div className="text-[9px] text-slate-500 mb-1">{new Date(item.createdAt).toLocaleDateString()}</div>
+                    {item.details && <div className="text-[10px] text-slate-500 leading-tight italic">{item.details}</div>}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 

@@ -29,6 +29,7 @@ const assignments_module_1 = require("./assignments/assignments.module");
 const clients_module_1 = require("./clients/clients.module");
 const client_auth_module_1 = require("./client-auth/client-auth.module");
 const client_portal_module_1 = require("./client-portal/client-portal.module");
+const documents_module_1 = require("./documents/documents.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -54,6 +55,7 @@ exports.AppModule = AppModule = __decorate([
             shifts_module_1.ShiftsModule,
             assignments_module_1.AssignmentsModule,
             clients_module_1.ClientsModule,
+            documents_module_1.DocumentsModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

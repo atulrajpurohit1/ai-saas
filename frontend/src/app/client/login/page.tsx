@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
+import api from '@/lib/api';
 import { FileText, Shield, Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
 
 export default function ClientLoginPage() {
@@ -18,7 +18,7 @@ export default function ClientLoginPage() {
     setError('');
     
     try {
-      const res = await axios.post('http://localhost:5000/api/client-auth/login', {
+      const res = await api.post('client-auth/login', {
         email,
         password,
       });

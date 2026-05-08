@@ -109,6 +109,12 @@ let ClientsService = class ClientsService {
         return updatedClient;
     }
     async createClientUser(tenantId, clientId, email) {
+        const client = await this.prisma.client.findFirst({
+            where: { id: clientId, tenantId },
+        });
+        if (!client) {
+            throw new common_1.NotFoundException('Client not found in this tenant');
+        }
         const password = 'client123';
         const hashedPassword = await bcrypt.hash(password, 10);
         return this.prisma.clientUser.create({

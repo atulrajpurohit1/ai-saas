@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FileText, LogOut, LayoutDashboard, User } from 'lucide-react';
+import { FileText, LogOut, LayoutDashboard, User, Folder, Shield } from 'lucide-react';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -13,6 +13,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     router.push('/client/login');
   };
 
+  const menuItems = [
+    { name: 'Dashboard', icon: LayoutDashboard, href: '/client/dashboard' },
+    { name: 'Documents', icon: Folder, href: '/client/documents' },
+    { name: 'Profile', icon: User, href: '/client/profile' },
+  ];
+
   return (
     <div className="min-h-screen bg-[#05050a] text-slate-200 font-sans selection:bg-indigo-500/30">
       {/* Sidebar */}
@@ -20,17 +26,23 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         <div className="p-8">
           <Link href="/client/dashboard" className="flex items-center gap-3 group">
             <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20 group-hover:scale-110 transition-transform">
-              <FileText className="text-white" size={22} />
+              <Shield className="text-white" size={22} />
             </div>
             <span className="text-xl font-bold tracking-tight text-white">ClientPortal</span>
           </Link>
         </div>
 
         <nav className="px-4 mt-4 space-y-2">
-          <Link href="/client/dashboard" className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white/5 text-white font-medium hover:bg-white/10 transition-all border border-white/5">
-            <LayoutDashboard size={20} className="text-indigo-400" />
-            <span>Dashboard</span>
-          </Link>
+          {menuItems.map((item) => (
+            <Link 
+              key={item.href}
+              href={item.href} 
+              className="flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-400 font-medium hover:bg-white/5 hover:text-white transition-all border border-transparent hover:border-white/5"
+            >
+              <item.icon size={20} className="text-indigo-400/70" />
+              <span>{item.name}</span>
+            </Link>
+          ))}
         </nav>
 
         <div className="absolute bottom-8 left-0 w-full px-8">

@@ -7,6 +7,7 @@ import {
   Param,
   UseGuards,
   Req,
+  Res,
 } from '@nestjs/common';
 import { ProposalsService } from './proposals.service';
 import { CreateProposalDto } from './dto/create-proposal.dto';
@@ -14,7 +15,7 @@ import { UpdateProposalDto } from './dto/update-proposal.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -38,9 +39,13 @@ export class ProposalsController {
 
   @Roles('admin')
   @Post('generate')
-  generateProposal(@Req() req: Request, @Body('leadId') leadId: string) {
+  generateProposal(
+    @Req() req: Request, 
+    @Body('leadId') leadId: string,
+    @Body('clientId') clientId?: string
+  ) {
     const user = req.user as unknown as ActiveUser;
-    return this.proposalsService.generateForLead(user.tenantId, leadId);
+    return this.proposalsService.generateForLead(user.tenantId, leadId, user.sub, clientId);
   }
 
   @Roles('admin')
@@ -69,11 +74,50 @@ export class ProposalsController {
   }
 
   @Roles('admin')
-  @Post(':id/duplicate')
-  duplicate(@Req() req: Request, @Param('id') id: string) {
+  @Get(':id/export')
+  async export(@Req() req: Request, @Param('id') id: string, @Res() res: Response) {
     const user = req.user as unknown as ActiveUser;
-    return this.proposalsService.duplicate(user.tenantId, id);
+    const buffer = await this.proposalsService.export(user.tenantId, id, user.sub);
+    
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename=proposal-${id}.pdf`,
+      'Content-Length': buffer.length,
+    });
+    
+    res.end(buffer);
   }
 
+  @Roles('admin')
+  @Get(':id/comments')
+  async getComments(@Req() req: Request, @Param('id') id: string) {
+    const user = req.user as unknown as ActiveUser;
+    return this.proposalsService.getComments(user.tenantId, id);
+  }
 
+  @Roles('admin')
+  @Post(':id/comments')
+  async addComment(
+    @Req() req: Request, 
+    @Param('id') id: string,
+    @Body('content') content: string
+  ) {
+    const user = req.user as unknown as ActiveUser;
+    return this.proposalsService.addComment(user.tenantId, id, user.sub, content);
+  }
+
+  @Roles('admin')
+  @Post(':id/share')
+  async share(
+    @Req() req: Request, 
+    @Param('id') id: string,
+    @Body('clientId') clientId: string
+  ) {
+    const user = req.user as unknown as ActiveUser;
+    const updated = await this.proposalsService.update(user.tenantId, id, { clientId } as any, user.sub);
+    
+    await this.proposalsService.logAction(user.tenantId, user.sub, id, 'DOCUMENT_SHARED', `Proposal shared with client`);
+    
+    return updated;
+  }
 }

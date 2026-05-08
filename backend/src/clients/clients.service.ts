@@ -79,6 +79,15 @@ export class ClientsService {
   }
 
   async createClientUser(tenantId: string, clientId: string, email: string) {
+    // Security check: verify client belongs to tenant
+    const client = await this.prisma.client.findFirst({
+      where: { id: clientId, tenantId },
+    });
+
+    if (!client) {
+      throw new NotFoundException('Client not found in this tenant');
+    }
+
     const password = 'client123'; // Default password for testing
     const hashedPassword = await bcrypt.hash(password, 10);
 

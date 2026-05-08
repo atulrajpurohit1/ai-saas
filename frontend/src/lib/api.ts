@@ -22,9 +22,15 @@ const api = axios.create({
 
 // Request interceptor to add JWT token
 api.interceptors.request.use((config) => {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (typeof window !== 'undefined') {
+    const isClientRoute = window.location.pathname.startsWith('/client');
+    const token = isClientRoute 
+      ? localStorage.getItem('client_token') || localStorage.getItem('token')
+      : localStorage.getItem('token');
+      
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });
@@ -46,9 +52,19 @@ api.interceptors.response.use(
     }
     
     if (error.response?.status === 401) {
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        localStorage.removeItem('token');
-        window.location.href = '/login';
+      if (typeof window !== 'undefined') {
+        const isClientRoute = window.location.pathname.startsWith('/client');
+        if (isClientRoute) {
+          if (!window.location.pathname.includes('/client/login')) {
+            localStorage.removeItem('client_token');
+            window.location.href = '/client/login';
+          }
+        } else {
+          if (!window.location.pathname.includes('/login')) {
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+          }
+        }
       }
     }
     return Promise.reject(error);

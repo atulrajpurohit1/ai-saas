@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, UseGuards, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, UseGuards, ForbiddenException, NotFoundException, Response } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
@@ -13,13 +13,17 @@ export class ClientPortalController {
     private auditService: AuditService,
   ) {}
 
+  private checkClient(user: ActiveUser) {
+    if (user.role !== 'client') throw new ForbiddenException('Access denied');
+  }
+
   @Get('proposals')
   async getProposals(@GetUser() user: ActiveUser) {
-    if (user.role !== 'client') throw new ForbiddenException('Access denied');
+    this.checkClient(user);
 
     return this.prisma.proposal.findMany({
       where: { 
-        clientId: (user as any).clientId,
+        clientId: user.clientId,
         tenantId: user.tenantId 
       },
       orderBy: { createdAt: 'desc' },
@@ -28,12 +32,12 @@ export class ClientPortalController {
 
   @Get('proposals/:id')
   async getProposal(@GetUser() user: ActiveUser, @Param('id') id: string) {
-    if (user.role !== 'client') throw new ForbiddenException('Access denied');
+    this.checkClient(user);
 
     const proposal = await this.prisma.proposal.findFirst({
       where: { 
         id, 
-        clientId: (user as any).clientId,
+        clientId: user.clientId,
         tenantId: user.tenantId 
       },
       include: {
@@ -86,5 +90,87 @@ export class ClientPortalController {
     });
 
     return updated;
+  }
+
+  @Get('proposals/:id/comments')
+  async getComments(@GetUser() user: ActiveUser, @Param('id') id: string) {
+    this.checkClient(user);
+    await this.getProposal(user, id); // Auth check
+
+    return this.prisma.proposalComment.findMany({
+      where: { proposalId: id, tenantId: user.tenantId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  @Post('proposals/:id/comments')
+  async addComment(
+    @GetUser() user: ActiveUser, 
+    @Param('id') id: string,
+    @Body('content') content: string
+  ) {
+    this.checkClient(user);
+    await this.getProposal(user, id); // Auth check
+
+    const comment = await this.prisma.proposalComment.create({
+      data: {
+        content,
+        proposalId: id,
+        clientUserId: user.sub,
+        tenantId: user.tenantId,
+      },
+    });
+
+    await this.auditService.log({
+      tenantId: user.tenantId,
+      userId: user.sub,
+      action: 'COMMENT_ADDED',
+      entityType: 'Proposal',
+      entityId: id,
+      details: `Client added a comment to proposal`,
+    });
+
+    return comment;
+  }
+
+  @Get('proposals/:id/timeline')
+  async getTimeline(@GetUser() user: ActiveUser, @Param('id') id: string) {
+    this.checkClient(user);
+    await this.getProposal(user, id); // Auth check
+
+    return this.prisma.auditLog.findMany({
+      where: { 
+        entityId: id, 
+        tenantId: user.tenantId,
+        action: { in: ['CREATE', 'PROPOSAL_APPROVED', 'PROPOSAL_REJECTED', 'COMMENT_ADDED', 'DOCUMENT_SHARED'] }
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  @Get('documents')
+  async getDocuments(@GetUser() user: ActiveUser) {
+    this.checkClient(user);
+
+    return this.prisma.sharedDocument.findMany({
+      where: { 
+        clientId: user.clientId,
+        tenantId: user.tenantId 
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  @Get('profile')
+  async getProfile(@GetUser() user: ActiveUser) {
+    this.checkClient(user);
+
+    const client = await this.prisma.client.findFirst({
+      where: { id: user.clientId, tenantId: user.tenantId },
+    });
+
+    if (!client) throw new NotFoundException('Client profile not found');
+
+    return client;
   }
 }

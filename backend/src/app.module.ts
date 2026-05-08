@@ -20,6 +20,7 @@ import { AssignmentsModule } from './assignments/assignments.module';
 import { ClientsModule } from './clients/clients.module';
 import { ClientAuthModule } from './client-auth/client-auth.module';
 import { ClientPortalModule } from './client-portal/client-portal.module';
+import { DocumentsModule } from './documents/documents.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { ClientPortalModule } from './client-portal/client-portal.module';
     ShiftsModule,
     AssignmentsModule,
     ClientsModule,
+    DocumentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

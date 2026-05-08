@@ -134,25 +134,36 @@ export class ProposalsService {
     return proposal;
   }
 
-  async export(tenantId: string, id: string, userId?: string) {
+  async export(tenantId: string, id: string, userId?: string): Promise<Buffer> {
     const proposal = await this.findOne(tenantId, id);
     
-    await this.auditService.log({
-      tenantId,
-      userId,
-      action: 'EXPORT',
-      entityType: 'PROPOSAL',
-      entityId: id,
-      details: 'Exported proposal as PDF placeholder',
-    });
+    const PDFDocument = require('pdfkit');
+    const doc = new PDFDocument({ margin: 50 });
+    const chunks: Buffer[] = [];
 
-    return { 
-      content: proposal.content,
-      title: proposal.title 
-    };
+    return new Promise((resolve, reject) => {
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      // Add Content to PDF
+      doc.fontSize(25).text(proposal.title, { align: 'center' });
+      doc.moveDown();
+      doc.fontSize(12).text(`Generated on: ${new Date().toLocaleDateString()}`, { align: 'right' });
+      doc.moveDown();
+      doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+      doc.moveDown();
+      
+      doc.fontSize(14).text(proposal.content, {
+        align: 'justify',
+        lineGap: 5
+      });
+
+      doc.end();
+    });
   }
 
-  async generateForLead(tenantId: string, leadId: string, userId?: string) {
+  async generateForLead(tenantId: string, leadId: string, userId?: string, clientId?: string) {
     const lead = await this.prisma.lead.findFirst({
       where: { id: leadId, tenantId },
     });
@@ -168,6 +179,7 @@ export class ProposalsService {
       content,
       status: 'draft',
       leadId,
+      clientId,
     }, userId);
   }
 
@@ -192,4 +204,32 @@ export class ProposalsService {
     return { generatedCount, totalProcessed: leads.length };
   }
 
+  async getComments(tenantId: string, id: string) {
+    return this.prisma.proposalComment.findMany({
+      where: { proposalId: id, tenantId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async addComment(tenantId: string, id: string, userId: string, content: string) {
+    return this.prisma.proposalComment.create({
+      data: {
+        content,
+        proposalId: id,
+        userId,
+        tenantId,
+      },
+    });
+  }
+
+  async logAction(tenantId: string, userId: string, entityId: string, action: string, details?: string) {
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action,
+      entityType: 'Proposal',
+      entityId,
+      details,
+    });
+  }
 }
