@@ -40,14 +40,31 @@ export class LeadsService {
   async findAll(tenantId: string) {
     return this.prisma.lead.findMany({
       where: { tenantId },
-      include: { notes: true, deals: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        company: true,
+        status: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
   async findOne(id: string, tenantId: string) {
     const lead = await this.prisma.lead.findFirst({
       where: { id, tenantId },
-      include: { notes: true, deals: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        company: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        tenantId: true,
+      },
     });
 
     if (!lead) {
