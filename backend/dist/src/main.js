@@ -8,9 +8,13 @@ async function bootstrap() {
     app.useGlobalPipes(new common_1.ValidationPipe({ whitelist: true }));
     app.setGlobalPrefix('api');
     app.enableCors({
-        origin: true,
-        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+        origin: [
+            'http://localhost:3000',
+            'https://ai-saas-qd62.vercel.app',
+        ],
         credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
     });
     const port = process.env.PORT || 5000;
     await app.listen(port);

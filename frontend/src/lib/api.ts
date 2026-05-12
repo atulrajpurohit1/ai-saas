@@ -1,12 +1,14 @@
 import axios from 'axios';
 
 const getBaseUrl = () => {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000/api';
+  const fallbackUrl = 'https://ai-saas-backend-ulpb.onrender.com/api';
+  const envUrl = process.env.NEXT_PUBLIC_API_URL || fallbackUrl;
+  const apiUrl = envUrl.includes('ai-saas-3.onrender.com') ? fallbackUrl : envUrl;
   
   // 1. Remove ANY existing /api or /api/ suffix
   // 2. Remove ANY trailing slashes
   // 3. Append /api/
-  const cleanUrl = envUrl.split('/api')[0].replace(/\/+$/, '');
+  const cleanUrl = apiUrl.split('/api')[0].replace(/\/+$/, '');
   const finalUrl = `${cleanUrl}/api/`;
   
   if (typeof window !== 'undefined') {
