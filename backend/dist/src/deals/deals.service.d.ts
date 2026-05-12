@@ -38,25 +38,6 @@ export declare class DealsService {
         stage: string;
     }>;
     findAll(tenantId: string): Promise<({
-        activities: {
-            id: string;
-            createdAt: Date;
-            tenantId: string;
-            status: string;
-            dealId: string | null;
-            subject: string;
-            type: string;
-            description: string | null;
-            dueDate: Date | null;
-        }[];
-        notes: {
-            id: string;
-            createdAt: Date;
-            tenantId: string;
-            content: string;
-            dealId: string | null;
-            leadId: string | null;
-        }[];
         client: {
             id: string;
             name: string;
@@ -88,25 +69,6 @@ export declare class DealsService {
         stage: string;
     })[]>;
     findOne(id: string, tenantId: string): Promise<{
-        activities: {
-            id: string;
-            createdAt: Date;
-            tenantId: string;
-            status: string;
-            dealId: string | null;
-            subject: string;
-            type: string;
-            description: string | null;
-            dueDate: Date | null;
-        }[];
-        notes: {
-            id: string;
-            createdAt: Date;
-            tenantId: string;
-            content: string;
-            dealId: string | null;
-            leadId: string | null;
-        }[];
         client: {
             id: string;
             name: string;

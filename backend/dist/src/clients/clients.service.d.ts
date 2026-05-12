@@ -16,20 +16,15 @@ export declare class ClientsService {
         companyName: string | null;
         phone: string | null;
     }>;
-    findAll(tenantId: string): Promise<({
-        users: {
-            email: string;
-        }[];
-    } & {
+    findAll(tenantId: string): Promise<{
         id: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
         email: string;
-        tenantId: string;
         companyName: string | null;
         phone: string | null;
-    })[]>;
+    }[]>;
     findOne(tenantId: string, id: string): Promise<{
         id: string;
         name: string;

@@ -15,29 +15,52 @@ interface Deal {
   client?: { name: string; companyName: string };
 }
 
+interface LeadOption {
+  id: string;
+  name: string;
+  company: string;
+}
+
+interface ClientOption {
+  id: string;
+  name: string;
+  companyName: string | null;
+}
+
 export default function DealsPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [leads, setLeads] = useState<any[]>([]);
-  const [clients, setClients] = useState<any[]>([]);
+  const [leads, setLeads] = useState<LeadOption[]>([]);
+  const [clients, setClients] = useState<ClientOption[]>([]);
   const [newDeal, setNewDeal] = useState({ name: '', leadId: '', clientId: '' });
 
   const fetchData = async () => {
-    try {
-      const [dealsRes, leadsRes, clientsRes] = await Promise.all([
-        api.get('deals'),
-        api.get('leads'),
-        api.get('clients')
-      ]);
-      setDeals(dealsRes.data);
-      setLeads(leadsRes.data);
-      setClients(clientsRes.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+    const [dealsResult, leadsResult, clientsResult] = await Promise.allSettled([
+      api.get('deals'),
+      api.get('leads'),
+      api.get('clients'),
+    ]);
+
+    if (dealsResult.status === 'fulfilled') {
+      setDeals(dealsResult.value.data);
+    } else {
+      console.error('Failed to fetch deals', dealsResult.reason);
     }
+
+    if (leadsResult.status === 'fulfilled') {
+      setLeads(leadsResult.value.data);
+    } else {
+      console.error('Failed to fetch leads', leadsResult.reason);
+    }
+
+    if (clientsResult.status === 'fulfilled') {
+      setClients(clientsResult.value.data);
+    } else {
+      console.error('Failed to fetch clients', clientsResult.reason);
+    }
+
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -153,6 +176,7 @@ export default function DealsPage() {
                   required
                 >
                   <option value="">Choose a lead...</option>
+                  {leads.length === 0 && <option value="" disabled>No leads available</option>}
                   {leads.map(lead => (
                     <option key={lead.id} value={lead.id}>{lead.company} ({lead.name})</option>
                   ))}
@@ -166,6 +190,7 @@ export default function DealsPage() {
                   onChange={(e) => setNewDeal({...newDeal, clientId: e.target.value})}
                 >
                   <option value="">Choose a client...</option>
+                  {clients.length === 0 && <option value="" disabled>No clients available</option>}
                   {clients.map(client => (
                     <option key={client.id} value={client.id}>{client.name} ({client.companyName || 'Individual'})</option>
                   ))}

@@ -74,7 +74,15 @@ let ClientsService = class ClientsService {
     async findAll(tenantId) {
         return this.prisma.client.findMany({
             where: { tenantId },
-            include: { users: { select: { email: true } } },
+            select: {
+                id: true,
+                name: true,
+                companyName: true,
+                email: true,
+                phone: true,
+                createdAt: true,
+                updatedAt: true,
+            },
             orderBy: { createdAt: 'desc' },
         });
     }
