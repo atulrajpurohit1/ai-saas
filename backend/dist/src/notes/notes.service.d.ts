@@ -14,17 +14,17 @@ export declare class NotesService {
         id: string;
         createdAt: Date;
         tenantId: string;
-        leadId: string | null;
         content: string;
         dealId: string | null;
+        leadId: string | null;
     }>;
     findByEntity(entityId: string, type: 'lead' | 'deal', tenantId: string): Promise<{
         id: string;
         createdAt: Date;
         tenantId: string;
-        leadId: string | null;
         content: string;
         dealId: string | null;
+        leadId: string | null;
     }[]>;
     remove(id: string, tenantId: string, userId?: string): Promise<{
         success: boolean;

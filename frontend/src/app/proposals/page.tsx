@@ -131,7 +131,7 @@ export default function ProposalsPage() {
       fetchData();
     } catch (err: any) {
       console.error(err);
-      showToast(err.response?.data?.message || 'Generation failed. Check your OpenAI API key.', 'error');
+      showToast(err.response?.data?.message || 'Generation failed. Check your Gemini API key.', 'error');
     } finally {
       setIsGenerating(false);
     }

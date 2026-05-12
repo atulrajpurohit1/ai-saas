@@ -11,73 +11,73 @@ export declare class ClientPortalController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
-        leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
+        title: string;
+        status: string;
         dealId: string | null;
+        leadId: string | null;
     }[]>;
     getProposal(user: ActiveUser, id: string): Promise<{
         versions: {
             id: string;
             createdAt: Date;
             content: string;
-            versionNumber: number;
             proposalId: string;
+            versionNumber: number;
         }[];
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
-        leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
+        title: string;
+        status: string;
         dealId: string | null;
+        leadId: string | null;
     }>;
     approveProposal(user: ActiveUser, id: string): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
-        leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
+        title: string;
+        status: string;
         dealId: string | null;
+        leadId: string | null;
     }>;
     rejectProposal(user: ActiveUser, id: string): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
-        leadId: string | null;
         clientId: string | null;
-        title: string;
         content: string;
+        title: string;
+        status: string;
         dealId: string | null;
+        leadId: string | null;
     }>;
     getComments(user: ActiveUser, id: string): Promise<{
         id: string;
         createdAt: Date;
         tenantId: string;
-        userId: string | null;
         content: string;
         proposalId: string;
+        userId: string | null;
         clientUserId: string | null;
     }[]>;
     addComment(user: ActiveUser, id: string, content: string): Promise<{
         id: string;
         createdAt: Date;
         tenantId: string;
-        userId: string | null;
         content: string;
         proposalId: string;
+        userId: string | null;
         clientUserId: string | null;
     }>;
     getTimeline(user: ActiveUser, id: string): Promise<{
@@ -107,7 +107,7 @@ export declare class ClientPortalController {
         updatedAt: Date;
         email: string;
         tenantId: string;
-        phone: string | null;
         companyName: string | null;
+        phone: string | null;
     }>;
 }

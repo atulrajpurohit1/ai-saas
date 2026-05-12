@@ -7,17 +7,17 @@ export declare class NotesController {
         id: string;
         createdAt: Date;
         tenantId: string;
-        leadId: string | null;
         content: string;
         dealId: string | null;
+        leadId: string | null;
     }>;
     findByEntity(entityId: string, type: 'lead' | 'deal', user: ActiveUser): Promise<{
         id: string;
         createdAt: Date;
         tenantId: string;
-        leadId: string | null;
         content: string;
         dealId: string | null;
+        leadId: string | null;
     }[]>;
     remove(id: string, user: ActiveUser): Promise<{
         success: boolean;

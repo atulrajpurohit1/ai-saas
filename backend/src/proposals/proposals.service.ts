@@ -166,6 +166,7 @@ export class ProposalsService {
   async generateForLead(tenantId: string, leadId: string, userId?: string, clientId?: string) {
     const lead = await this.prisma.lead.findFirst({
       where: { id: leadId, tenantId },
+      include: { notes: true, deals: true }
     });
 
     if (!lead) {

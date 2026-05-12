@@ -145,6 +145,7 @@ let ProposalsService = class ProposalsService {
     async generateForLead(tenantId, leadId, userId, clientId) {
         const lead = await this.prisma.lead.findFirst({
             where: { id: leadId, tenantId },
+            include: { notes: true, deals: true }
         });
         if (!lead) {
             throw new common_1.NotFoundException(`Lead with ID ${leadId} not found`);

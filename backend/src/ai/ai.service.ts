@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GenerateProposalDto } from './dto/generate-proposal.dto';
 import { Lead } from '@prisma/client';
 
@@ -8,98 +10,213 @@ export interface AiProposalDraftResponse {
 
 @Injectable()
 export class AiService {
-  constructor() {
-    console.warn('AI Service is running in MANUAL/MOCK mode because the Gemini API is unavailable.');
+  private readonly logger = new Logger(AiService.name);
+  private genAI: GoogleGenerativeAI | null = null;
+  private model: any = null;
+
+  constructor(private configService: ConfigService) {
+    const apiKey = this.configService.get<string>('GEMINI_API_KEY');
+    const modelName = this.configService.get<string>('GEMINI_MODEL') || 'gemini-1.5-flash';
+
+    if (apiKey) {
+      try {
+        this.genAI = new GoogleGenerativeAI(apiKey);
+        this.model = this.genAI.getGenerativeModel({ model: modelName });
+        this.logger.log(`AI Service initialized with model: ${modelName}`);
+      } catch (error) {
+        this.logger.error('Failed to initialize Gemini AI:', error.message);
+      }
+    } else {
+      this.logger.warn('GEMINI_API_KEY is missing. AI Service will run in FALLBACK mode.');
+    }
   }
 
-  async generateProposalDraft(
-    dto: GenerateProposalDto,
-  ): Promise<AiProposalDraftResponse> {
-    const { siteName, guardCount, requirements, additionalNotes } = dto;
-    
-    return {
-      draft: `
-# Security Proposal for ${siteName}
-**Proposed Guards**: ${guardCount}
-**Key Requirements**: ${requirements}
-**Additional Notes**: ${additionalNotes || 'N/A'}
-
-## 1. Executive Summary
-This is a comprehensive security framework customized specifically for ${siteName}. We deploy highly trained personnel equipped with the latest technology to ensure optimal safety.
-
-## 2. Security Strategy
-To directly address your needs (${requirements}), our tailored plan integrates vigilant physical guarding with robust reporting procedures.
-
-## 3. Manpower and Deployment
-We recommend **${guardCount} security personnel** to ensure complete coverage, deterrence, and rapid response times.
-
-## 4. Technology and Equipment
-Standard deployment includes two-way radios, body cameras, mobile reporting tools, and high-visibility uniforms.
-
-## 5. Why Choose Us
-We provide professional, reliable, and premium protection services. Let us handle the security so you can focus entirely on your core business operations.
-      `.trim(),
-    };
+  private isAiAvailable(): boolean {
+    return !!(this.genAI && this.model);
   }
 
-  async generateForLead(lead: Lead): Promise<string> {
-    return `
-# Security Services Proposal - ${lead.company}
-For: ${lead.name} · ${lead.company}
-
----
-
-## 1. Executive Introduction
-Thank you for considering our firm as the primary security provider for ${lead.company}. We are excited to present this customized security solution.
-
-## 2. Threat Landscape & Risk Analysis
-Based on your current status (${lead.status}), we have identified key operational risks that our specialized guarding protocols will mitigate effectively.
-
-## 3. Operational Strategy
-Our operational strategy includes a custom deployment of guards uniquely trained for your specific operational challenges and site layout.
-
-## 4. Recommended Service Tiers
-- Uniformed Guard Presence (Deterrence)
-- Specialized Access Control
-- 24/7 Incident Response and Reporting
-
-## 5. Value Proposition
-As a premier security provider, we guarantee a secure environment. Our guards undergo rigorous training to ensure ${lead.company} receives only the highest quality service.
-    `.trim();
+  private getFallbackEnabled(): boolean {
+    return this.configService.get<string>('ENABLE_AI_FALLBACK') === 'true';
   }
-  
+
+  async generateProposalDraft(dto: GenerateProposalDto): Promise<AiProposalDraftResponse> {
+    if (!this.isAiAvailable()) {
+      if (this.getFallbackEnabled()) return this.fallbackProposalDraft(dto);
+      throw new InternalServerErrorException('AI Service is currently unavailable and fallback is disabled.');
+    }
+
+    const prompt = `
+      You are a senior security consultant. Generate a professional security services proposal based on these details:
+      
+      Client/Site Name: ${dto.siteName}
+      Required Guards: ${dto.guardCount}
+      Core Requirements: ${dto.requirements}
+      Additional Context: ${dto.additionalNotes || 'None'}
+
+      The proposal MUST follow this structure:
+      # Proposal for ${dto.siteName}
+      
+      ## 1. Executive Summary
+      (Brief overview of the security solution)
+      
+      ## 2. Scope of Work
+      (Detail specific security tasks based on requirements)
+      
+      ## 3. Staffing & Deployment
+      (Explain how ${dto.guardCount} guards will be utilized)
+      
+      ## 4. Operational Strategy
+      (Describe the approach to safety and deterrence)
+      
+      ## 5. Pricing & Terms
+      (Placeholder for pricing assumptions)
+
+      Use professional, persuasive language. Format with Markdown.
+    `;
+
+    try {
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      return { draft: response.text() };
+    } catch (error) {
+      this.logger.error('Gemini Generation Error:', error.message);
+      if (this.getFallbackEnabled()) return this.fallbackProposalDraft(dto, error.message);
+      throw new InternalServerErrorException('Failed to generate AI proposal draft.');
+    }
+  }
+
+  async generateForLead(lead: Lead & { notes?: any[]; deals?: any[] }): Promise<string> {
+    if (!this.isAiAvailable()) {
+      if (this.getFallbackEnabled()) return this.fallbackLeadProposal(lead, 'AI Service not initialized');
+      throw new InternalServerErrorException('AI Service is currently unavailable.');
+    }
+
+    const context = `
+      Lead Name: ${lead.name}
+      Company: ${lead.company}
+      Current Status: ${lead.status}
+      Notes: ${lead.notes?.map(n => n.content).join('; ') || 'No notes available'}
+      Related Deals: ${lead.deals?.map(d => d.name).join(', ') || 'No specific deals'}
+    `;
+
+    const prompt = `
+      Generate a professional security services proposal for a new lead.
+      
+      CONTEXT:
+      ${context}
+
+      STRUCTURE:
+      1. Executive Introduction
+      2. Threat Landscape & Risk Analysis (specific to ${lead.company})
+      3. Operational Strategy
+      4. Recommended Service Tiers
+      5. Value Proposition
+
+      Format the output in clean Markdown. Start with a Title: # Security Services Proposal - ${lead.company}
+    `;
+
+    try {
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
+    } catch (error) {
+      this.logger.error('Gemini Lead Generation Error:', error.message);
+      if (this.getFallbackEnabled()) return this.fallbackLeadProposal(lead, error.message);
+      throw new InternalServerErrorException('Failed to generate AI proposal for lead.');
+    }
+  }
+
   async generateEmailDraft(subject: string, context: string): Promise<string> {
-    return `
-Subject: Following up regarding ${subject}
+    if (!this.isAiAvailable()) return this.fallbackEmailDraft(subject, context);
 
-Hi,
+    const prompt = `
+      Write a professional follow-up email.
+      Subject: ${subject}
+      Context/Details: ${context}
+      
+      The email should be concise, professional, and encourage the client to secure their assets.
+    `;
 
-I hope this email finds you well. I wanted to follow up based on our recent discussions and outline the key points:
-
-${context}
-
-Please let me know a good time this week to connect and solidify our next steps. Our team is ready to deploy and secure your assets.
-
-Best regards,
-Security Consultation Team
-    `.trim();
+    try {
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
+    } catch (error) {
+      return this.fallbackEmailDraft(subject, context);
+    }
   }
 
   async summarizeNotes(notes: string[]): Promise<string> {
-    return `
-**Summary from Site Visit/Meeting:**
-- ${notes.join('\n- ')}
+    if (!this.isAiAvailable()) return this.fallbackSummarizeNotes(notes);
 
-**Key Takeaway:** The client requires a tailored approach focusing heavily on the points above. Our team is fully capable of handling this environment and exceeding expectations.
+    const prompt = `Summarize these security site visit notes into key takeaways and action items: ${notes.join('\n')}`;
+
+    try {
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
+    } catch (error) {
+      return this.fallbackSummarizeNotes(notes);
+    }
+  }
+
+  // --- Fallback Methods ---
+
+  private fallbackProposalDraft(dto: GenerateProposalDto, reason?: string): AiProposalDraftResponse {
+    return {
+      draft: `
+# Security Proposal for ${dto.siteName} (Fallback)
+**Reason**: ${reason || 'AI Unavailable'}
+**Proposed Guards**: ${dto.guardCount}
+**Key Requirements**: ${dto.requirements}
+
+## 1. Executive Summary
+This proposal outlines a standard security framework for ${dto.siteName}.
+
+## 2. Security Strategy
+Deployment focuses on ${dto.requirements}.
+
+## 3. Deployment
+Recommended staffing: ${dto.guardCount} personnel.
+      `.trim()
+    };
+  }
+
+  private fallbackLeadProposal(lead: Lead, reason?: string): string {
+    return `
+# Security Services Proposal - ${lead.company} (Fallback)
+For: ${lead.name} · ${lead.company}
+**Reason**: ${reason || 'AI Unavailable'}
+
+## 1. Executive Introduction
+Thank you for considering our services for ${lead.company}.
+
+## 2. Risk Analysis
+Based on your status (${lead.status}), we recommend a baseline security audit.
+
+## 3. Operational Strategy
+Custom deployment tailored for ${lead.company}.
     `.trim();
   }
 
+  private fallbackEmailDraft(subject: string, context: string): string {
+    return `Subject: Follow up: ${subject}\n\nHi,\n\nFollowing up on our discussion regarding ${context}.\n\nBest regards.`;
+  }
+
+  private fallbackSummarizeNotes(notes: string[]): string {
+    return `**Summary:**\n- ${notes.join('\n- ')}`;
+  }
+
   async extractLeadFromText(text: string): Promise<{ name: string; company: string; email: string }> {
-    // Simple mock extraction logic to avoid breaking the front end
-    return {
-      name: "Mocked Client Name",
-      company: "Mocked Company Ltd",
-      email: "mocked@example.com"
-    };
+    if (!this.isAiAvailable()) return { name: "Extracted Name", company: "Extracted Company", email: "client@example.com" };
+    
+    const prompt = `Extract JSON with {name, company, email} from this text: "${text}". Only return JSON.`;
+    try {
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      return JSON.parse(response.text().replace(/```json|```/g, '').trim());
+    } catch (error) {
+      return { name: "N/A", company: "N/A", email: "N/A" };
+    }
   }
 }

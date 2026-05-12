@@ -13,8 +13,8 @@ export declare class ClientsService {
         updatedAt: Date;
         email: string;
         tenantId: string;
-        phone: string | null;
         companyName: string | null;
+        phone: string | null;
     }>;
     findAll(tenantId: string): Promise<({
         users: {
@@ -27,8 +27,8 @@ export declare class ClientsService {
         updatedAt: Date;
         email: string;
         tenantId: string;
-        phone: string | null;
         companyName: string | null;
+        phone: string | null;
     })[]>;
     findOne(tenantId: string, id: string): Promise<{
         id: string;
@@ -37,8 +37,8 @@ export declare class ClientsService {
         updatedAt: Date;
         email: string;
         tenantId: string;
-        phone: string | null;
         companyName: string | null;
+        phone: string | null;
     }>;
     update(userId: string, tenantId: string, id: string, dto: UpdateClientDto): Promise<{
         id: string;
@@ -47,8 +47,8 @@ export declare class ClientsService {
         updatedAt: Date;
         email: string;
         tenantId: string;
-        phone: string | null;
         companyName: string | null;
+        phone: string | null;
     }>;
     createClientUser(tenantId: string, clientId: string, email: string): Promise<{
         id: string;

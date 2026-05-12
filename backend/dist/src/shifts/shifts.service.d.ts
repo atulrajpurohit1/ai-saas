@@ -14,10 +14,10 @@ export declare class ShiftsService {
         createdAt: Date;
         tenantId: string;
         status: string;
+        siteId: string;
         startTime: Date;
         endTime: Date;
         requiredGuards: number;
-        siteId: string;
     }>;
     findAll(tenantId: string): Promise<({
         site: {
@@ -39,10 +39,10 @@ export declare class ShiftsService {
         createdAt: Date;
         tenantId: string;
         status: string;
+        siteId: string;
         startTime: Date;
         endTime: Date;
         requiredGuards: number;
-        siteId: string;
     })[]>;
     assign(userId: string, tenantId: string, shiftId: string, guardId: string): Promise<{
         id: string;

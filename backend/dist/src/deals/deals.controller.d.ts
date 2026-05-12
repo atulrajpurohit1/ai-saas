@@ -13,8 +13,8 @@ export declare class DealsController {
             updatedAt: Date;
             email: string | null;
             tenantId: string;
-            company: string;
             status: string;
+            company: string;
         };
     } & {
         id: string;
@@ -22,9 +22,9 @@ export declare class DealsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        stage: string;
-        leadId: string;
         clientId: string | null;
+        leadId: string;
+        stage: string;
     }>;
     convert(leadId: string, req: Request): Promise<{
         id: string;
@@ -32,9 +32,9 @@ export declare class DealsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        stage: string;
-        leadId: string;
         clientId: string | null;
+        leadId: string;
+        stage: string;
     }>;
     findAll(req: Request): Promise<({
         activities: {
@@ -52,20 +52,10 @@ export declare class DealsController {
             id: string;
             createdAt: Date;
             tenantId: string;
-            leadId: string | null;
             content: string;
             dealId: string | null;
+            leadId: string | null;
         }[];
-        lead: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            email: string | null;
-            tenantId: string;
-            company: string;
-            status: string;
-        };
         client: {
             id: string;
             name: string;
@@ -73,18 +63,28 @@ export declare class DealsController {
             updatedAt: Date;
             email: string;
             tenantId: string;
-            phone: string | null;
             companyName: string | null;
+            phone: string | null;
         } | null;
+        lead: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            email: string | null;
+            tenantId: string;
+            status: string;
+            company: string;
+        };
     } & {
         id: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        stage: string;
-        leadId: string;
         clientId: string | null;
+        leadId: string;
+        stage: string;
     })[]>;
     findOne(id: string, req: Request): Promise<{
         activities: {
@@ -102,20 +102,10 @@ export declare class DealsController {
             id: string;
             createdAt: Date;
             tenantId: string;
-            leadId: string | null;
             content: string;
             dealId: string | null;
+            leadId: string | null;
         }[];
-        lead: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            email: string | null;
-            tenantId: string;
-            company: string;
-            status: string;
-        };
         client: {
             id: string;
             name: string;
@@ -123,18 +113,28 @@ export declare class DealsController {
             updatedAt: Date;
             email: string;
             tenantId: string;
-            phone: string | null;
             companyName: string | null;
+            phone: string | null;
         } | null;
+        lead: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            email: string | null;
+            tenantId: string;
+            status: string;
+            company: string;
+        };
     } & {
         id: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        stage: string;
-        leadId: string;
         clientId: string | null;
+        leadId: string;
+        stage: string;
     }>;
     updateStage(id: string, updateDealStageDto: UpdateDealStageDto, req: Request): Promise<{
         id: string;
@@ -142,9 +142,9 @@ export declare class DealsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        stage: string;
-        leadId: string;
         clientId: string | null;
+        leadId: string;
+        stage: string;
     }>;
     remove(id: string, req: Request): Promise<{
         success: boolean;
