@@ -19,6 +19,7 @@ export class AiService {
     const modelName = this.configService.get<string>('GEMINI_MODEL') || 'gemini-1.5-flash';
 
     if (apiKey) {
+      this.logger.log(`GEMINI_API_KEY loaded: ${apiKey.substring(0, 4)}...`);
       try {
         this.genAI = new GoogleGenerativeAI(apiKey);
         this.model = this.genAI.getGenerativeModel({ model: modelName });
