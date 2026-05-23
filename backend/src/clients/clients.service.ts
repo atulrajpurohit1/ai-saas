@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
 
 @Injectable()
 export class ClientsService {
@@ -43,6 +44,13 @@ export class ClientsService {
         phone: true,
         createdAt: true,
         updatedAt: true,
+        users: {
+          select: {
+            id: true,
+            email: true,
+            createdAt: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -51,6 +59,15 @@ export class ClientsService {
   async findOne(tenantId: string, id: string) {
     const client = await this.prisma.client.findFirst({
       where: { id, tenantId },
+      include: {
+        users: {
+          select: {
+            id: true,
+            email: true,
+            createdAt: true,
+          },
+        },
+      },
     });
 
     if (!client) {
@@ -90,22 +107,51 @@ export class ClientsService {
     // Security check: verify client belongs to tenant
     const client = await this.prisma.client.findFirst({
       where: { id: clientId, tenantId },
+      include: {
+        users: true,
+      },
     });
 
     if (!client) {
       throw new NotFoundException('Client not found in this tenant');
     }
 
-    const password = 'client123'; // Default password for testing
-    const hashedPassword = await bcrypt.hash(password, 10);
+    if (client.users.length > 0) {
+      throw new ConflictException('Client portal user already exists for this client');
+    }
 
-    return this.prisma.clientUser.create({
-      data: {
-        email,
-        password: hashedPassword,
-        clientId,
-        tenantId,
-      },
-    });
+    const temporaryPassword = randomBytes(12).toString('base64url');
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+
+    try {
+      const clientUser = await this.prisma.clientUser.create({
+        data: {
+          email,
+          password: hashedPassword,
+          clientId,
+          tenantId,
+        },
+      });
+
+      return {
+        id: clientUser.id,
+        email: clientUser.email,
+        clientId: clientUser.clientId,
+        temporaryPassword,
+      };
+    } catch (error: unknown) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        (error as { code?: string }).code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'A client portal user with this email already exists.',
+        );
+      }
+
+      throw error;
+    }
   }
 }

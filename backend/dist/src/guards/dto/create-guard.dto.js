@@ -14,6 +14,8 @@ const class_validator_1 = require("class-validator");
 class CreateGuardDto {
     name;
     phone;
+    email;
+    password;
 }
 exports.CreateGuardDto = CreateGuardDto;
 __decorate([
@@ -22,8 +24,19 @@ __decorate([
     __metadata("design:type", String)
 ], CreateGuardDto.prototype, "name", void 0);
 __decorate([
-    (0, class_validator_1.IsNotEmpty)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateGuardDto.prototype, "phone", void 0);
+__decorate([
+    (0, class_validator_1.IsEmail)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateGuardDto.prototype, "email", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.MinLength)(6),
+    __metadata("design:type", String)
+], CreateGuardDto.prototype, "password", void 0);
 //# sourceMappingURL=create-guard.dto.js.map

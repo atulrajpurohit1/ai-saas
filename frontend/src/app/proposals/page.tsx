@@ -62,6 +62,7 @@ export default function ProposalsPage() {
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
   const [selectedLeadId, setSelectedLeadId] = useState('');
   const [clients, setClients] = useState<Client[]>([]);
+  const [clientsLoading, setClientsLoading] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState('');
   
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -77,21 +78,48 @@ export default function ProposalsPage() {
     setTimeout(() => setToast(null), 4000);
   };
 
+  const fetchClients = async () => {
+    setClientsLoading(true);
+    try {
+      const res = await api.get('clients');
+      setClients(Array.isArray(res.data) ? res.data : []);
+      return res.data;
+    } catch (err) {
+      console.error('Failed to fetch clients', err);
+      showToast('Could not load clients. Please refresh or login again.', 'error');
+      setClients([]);
+      return [];
+    } finally {
+      setClientsLoading(false);
+    }
+  };
+
   const fetchData = async () => {
     try {
-      const [pRes, lRes, cRes] = await Promise.all([
+      const [pRes, lRes, cRes] = await Promise.allSettled([
         api.get('proposals'),
         api.get('leads'),
-        api.get('clients')
+        fetchClients()
       ]);
-      setProposals(pRes.data);
-      setLeads(lRes.data);
-      setClients(cRes.data);
+      if (pRes.status === 'fulfilled') setProposals(pRes.value.data);
+      if (lRes.status === 'fulfilled') setLeads(lRes.value.data);
+      if (cRes.status === 'rejected') console.error('Failed to fetch clients', cRes.reason);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const openGenerateModal = () => {
+    setShowModal(true);
+    fetchClients();
+  };
+
+  const openShareModal = (proposalId: string) => {
+    setShareProposalId(proposalId);
+    setShowShareModal(true);
+    fetchClients();
   };
 
   const fetchComments = async (proposalId: string) => {
@@ -261,7 +289,7 @@ export default function ProposalsPage() {
             {isSendingBulk ? <Loader2 className="animate-spin" size={18} /> : <Mail size={18} />}
             <span>Send Bulk Emails</span>
           </button>
-          <button onClick={() => setShowModal(true)} className="bg-primary hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2">
+          <button onClick={openGenerateModal} className="bg-primary hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2">
             <Plus size={20} />
             <span>Generate for Lead</span>
           </button>
@@ -316,7 +344,7 @@ export default function ProposalsPage() {
                   <button title="View Full Proposal" onClick={() => { setSelectedProposal(p); setShowViewModal(true); }} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-muted-foreground hover:text-white">
                     <Eye size={18} />
                   </button>
-                  <button title="Share with Client" onClick={() => { setShareProposalId(p.id); setShowShareModal(true); }} className="p-2 hover:bg-indigo-500/10 rounded-lg transition-colors text-indigo-400 hover:text-indigo-300">
+                  <button title="Share with Client" onClick={() => openShareModal(p.id)} className="p-2 hover:bg-indigo-500/10 rounded-lg transition-colors text-indigo-400 hover:text-indigo-300">
                     <Send size={18} />
                   </button>
                   <button title="Download PDF" onClick={() => handleDownload(p.id)} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-muted-foreground hover:text-white">
@@ -338,8 +366,11 @@ export default function ProposalsPage() {
               <select
                 className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
                 onChange={(e) => handleShare(shareProposalId!, e.target.value)}
+                disabled={clientsLoading || clients.length === 0}
               >
-                <option value="" className="bg-gray-900">-- Select Client --</option>
+                <option value="" className="bg-gray-900">
+                  {clientsLoading ? 'Loading clients...' : clients.length === 0 ? 'No clients found' : '-- Select Client --'}
+                </option>
                 {clients.map(c => (
                   <option key={c.id} value={c.id} className="bg-gray-900">{c.name} ({c.companyName})</option>
                 ))}
@@ -392,8 +423,11 @@ export default function ProposalsPage() {
                   value={selectedClientId}
                   onChange={(e) => setSelectedClientId(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none text-white"
+                  disabled={clientsLoading || clients.length === 0}
                 >
-                  <option value="" className="bg-gray-900">-- Choose a Client --</option>
+                  <option value="" className="bg-gray-900">
+                    {clientsLoading ? 'Loading clients...' : clients.length === 0 ? 'No clients found' : '-- Choose a Client --'}
+                  </option>
                   {clients.map(client => (
                     <option key={client.id} value={client.id} className="bg-gray-900">
                       {client.name} — {client.companyName}

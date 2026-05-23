@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, type ReactNode } from 'react';
+import React, { useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';

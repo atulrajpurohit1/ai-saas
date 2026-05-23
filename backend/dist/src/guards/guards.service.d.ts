@@ -7,14 +7,18 @@ export declare class GuardsService {
     private prisma;
     private auditService;
     constructor(prisma: PrismaService, auditService: AuditService);
-    create(userId: string, tenantId: string, dto: CreateGuardDto): Promise<{
+    private normalizeContact;
+    private withoutPasswordHash;
+    create(userId: string, tenantId: string, dto: CreateGuardDto): Promise<Omit<{
         id: string;
         name: string;
         createdAt: Date;
+        email: string | null;
         tenantId: string;
         phone: string | null;
-    }>;
-    findAll(tenantId: string): Promise<({
+        passwordHash: string | null;
+    }, "passwordHash">>;
+    findAll(tenantId: string): Promise<Omit<{
         availability: {
             id: string;
             createdAt: Date;
@@ -29,16 +33,20 @@ export declare class GuardsService {
         id: string;
         name: string;
         createdAt: Date;
+        email: string | null;
         tenantId: string;
         phone: string | null;
-    })[]>;
-    update(userId: string, tenantId: string, id: string, dto: UpdateGuardDto): Promise<{
+        passwordHash: string | null;
+    }, "passwordHash">[]>;
+    update(userId: string, tenantId: string, id: string, dto: UpdateGuardDto): Promise<Omit<{
         id: string;
         name: string;
         createdAt: Date;
+        email: string | null;
         tenantId: string;
         phone: string | null;
-    }>;
+        passwordHash: string | null;
+    }, "passwordHash">>;
     getAvailability(tenantId: string, id: string): Promise<{
         id: string;
         createdAt: Date;

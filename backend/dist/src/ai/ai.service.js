@@ -17,38 +17,68 @@ const generative_ai_1 = require("@google/generative-ai");
 let AiService = AiService_1 = class AiService {
     configService;
     logger = new common_1.Logger(AiService_1.name);
+    fallbackEnabled;
+    modelName;
     genAI = null;
     model = null;
     constructor(configService) {
         this.configService = configService;
-        const apiKey = this.configService.get('GEMINI_API_KEY');
-        const modelName = this.configService.get('GEMINI_MODEL') || 'gemini-1.5-flash';
-        if (apiKey) {
-            try {
-                this.genAI = new generative_ai_1.GoogleGenerativeAI(apiKey);
-                this.model = this.genAI.getGenerativeModel({ model: modelName });
-                this.logger.log(`AI Service initialized with model: ${modelName}`);
-            }
-            catch (error) {
-                this.logger.error('Failed to initialize Gemini AI:', error.message);
-            }
+        this.modelName =
+            this.configService.get('GEMINI_MODEL')?.trim() ||
+                'gemini-1.5-flash';
+        this.fallbackEnabled =
+            this.configService.get('ENABLE_AI_FALLBACK') === 'true';
+        const apiKey = this.configService.get('GEMINI_API_KEY')?.trim();
+        if (!apiKey) {
+            this.logger.warn('GEMINI_API_KEY is missing. Gemini requests will fail unless fallback is explicitly enabled.');
+            return;
         }
-        else {
-            this.logger.warn('GEMINI_API_KEY is missing. AI Service will run in FALLBACK mode.');
+        try {
+            this.genAI = new generative_ai_1.GoogleGenerativeAI(apiKey);
+            this.model = this.genAI.getGenerativeModel({ model: this.modelName });
+            this.logger.log(`Gemini model initialized with ${this.modelName}`);
+        }
+        catch (error) {
+            this.logger.error('Failed to initialize Gemini AI', error instanceof Error ? error.stack : String(error));
+            this.genAI = null;
+            this.model = null;
         }
     }
     isAiAvailable() {
         return !!(this.genAI && this.model);
     }
     getFallbackEnabled() {
-        return this.configService.get('ENABLE_AI_FALLBACK') === 'true';
+        return this.fallbackEnabled;
     }
-    async generateProposalDraft(dto) {
+    getUnavailableMessage(action) {
+        if (!this.isAiAvailable()) {
+            return `GEMINI_API_KEY is missing or Gemini could not be initialized. ${action} requires a working Gemini configuration.`;
+        }
+        return `Failed to complete ${action} with Gemini. Check GEMINI_API_KEY and GEMINI_MODEL.`;
+    }
+    async generateText(prompt, action, fallbackFactory) {
         if (!this.isAiAvailable()) {
             if (this.getFallbackEnabled())
-                return this.fallbackProposalDraft(dto);
-            throw new common_1.InternalServerErrorException('AI Service is currently unavailable and fallback is disabled.');
+                return fallbackFactory();
+            throw new common_1.InternalServerErrorException(this.getUnavailableMessage(action));
         }
+        try {
+            const result = await this.model.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text().trim();
+            if (!text) {
+                throw new Error('Gemini returned an empty response.');
+            }
+            return text;
+        }
+        catch (error) {
+            this.logger.error(`${action} failed`, error instanceof Error ? error.stack : String(error));
+            if (this.getFallbackEnabled())
+                return fallbackFactory();
+            throw new common_1.InternalServerErrorException(this.getUnavailableMessage(action));
+        }
+    }
+    async generateProposalDraft(dto) {
         const prompt = `
       You are a senior security consultant. Generate a professional security services proposal based on these details:
       
@@ -77,30 +107,16 @@ let AiService = AiService_1 = class AiService {
 
       Use professional, persuasive language. Format with Markdown.
     `;
-        try {
-            const result = await this.model.generateContent(prompt);
-            const response = await result.response;
-            return { draft: response.text() };
-        }
-        catch (error) {
-            this.logger.error('Gemini Generation Error:', error.message);
-            if (this.getFallbackEnabled())
-                return this.fallbackProposalDraft(dto, error.message);
-            throw new common_1.InternalServerErrorException('Failed to generate AI proposal draft.');
-        }
+        const draft = await this.generateText(prompt, 'proposal draft generation', () => this.fallbackProposalDraft(dto).draft ?? '');
+        return { draft };
     }
     async generateForLead(lead) {
-        if (!this.isAiAvailable()) {
-            if (this.getFallbackEnabled())
-                return this.fallbackLeadProposal(lead, 'AI Service not initialized');
-            throw new common_1.InternalServerErrorException('AI Service is currently unavailable.');
-        }
         const context = `
       Lead Name: ${lead.name}
       Company: ${lead.company}
       Current Status: ${lead.status}
-      Notes: ${lead.notes?.map(n => n.content).join('; ') || 'No notes available'}
-      Related Deals: ${lead.deals?.map(d => d.name).join(', ') || 'No specific deals'}
+      Notes: ${lead.notes?.map((n) => n.content).join('; ') || 'No notes available'}
+      Related Deals: ${lead.deals?.map((d) => d.name).join(', ') || 'No specific deals'}
     `;
         const prompt = `
       Generate a professional security services proposal for a new lead.
@@ -117,21 +133,9 @@ let AiService = AiService_1 = class AiService {
 
       Format the output in clean Markdown. Start with a Title: # Security Services Proposal - ${lead.company}
     `;
-        try {
-            const result = await this.model.generateContent(prompt);
-            const response = await result.response;
-            return response.text();
-        }
-        catch (error) {
-            this.logger.error('Gemini Lead Generation Error:', error.message);
-            if (this.getFallbackEnabled())
-                return this.fallbackLeadProposal(lead, error.message);
-            throw new common_1.InternalServerErrorException('Failed to generate AI proposal for lead.');
-        }
+        return this.generateText(prompt, `proposal generation for lead ${lead.id}`, () => this.fallbackLeadProposal(lead));
     }
     async generateEmailDraft(subject, context) {
-        if (!this.isAiAvailable())
-            return this.fallbackEmailDraft(subject, context);
         const prompt = `
       Write a professional follow-up email.
       Subject: ${subject}
@@ -139,34 +143,17 @@ let AiService = AiService_1 = class AiService {
       
       The email should be concise, professional, and encourage the client to secure their assets.
     `;
-        try {
-            const result = await this.model.generateContent(prompt);
-            const response = await result.response;
-            return response.text();
-        }
-        catch (error) {
-            return this.fallbackEmailDraft(subject, context);
-        }
+        return this.generateText(prompt, 'email draft generation', () => this.fallbackEmailDraft(subject, context));
     }
     async summarizeNotes(notes) {
-        if (!this.isAiAvailable())
-            return this.fallbackSummarizeNotes(notes);
         const prompt = `Summarize these security site visit notes into key takeaways and action items: ${notes.join('\n')}`;
-        try {
-            const result = await this.model.generateContent(prompt);
-            const response = await result.response;
-            return response.text();
-        }
-        catch (error) {
-            return this.fallbackSummarizeNotes(notes);
-        }
+        return this.generateText(prompt, 'notes summarization', () => this.fallbackSummarizeNotes(notes));
     }
     fallbackProposalDraft(dto, reason) {
         return {
             draft: `
 # Security Proposal for ${dto.siteName} (Fallback)
-**Reason**: ${reason || 'AI Unavailable'}
-**Proposed Guards**: ${dto.guardCount}
+${reason ? `**Reason**: ${reason}\n` : ''}**Proposed Guards**: ${dto.guardCount}
 **Key Requirements**: ${dto.requirements}
 
 ## 1. Executive Summary
@@ -177,14 +164,14 @@ Deployment focuses on ${dto.requirements}.
 
 ## 3. Deployment
 Recommended staffing: ${dto.guardCount} personnel.
-      `.trim()
+      `.trim(),
         };
     }
     fallbackLeadProposal(lead, reason) {
         return `
 # Security Services Proposal - ${lead.company} (Fallback)
-For: ${lead.name} · ${lead.company}
-**Reason**: ${reason || 'AI Unavailable'}
+For: ${lead.name} - ${lead.company}
+${reason ? `**Reason**: ${reason}\n` : ''}
 
 ## 1. Executive Introduction
 Thank you for considering our services for ${lead.company}.
@@ -203,16 +190,34 @@ Custom deployment tailored for ${lead.company}.
         return `**Summary:**\n- ${notes.join('\n- ')}`;
     }
     async extractLeadFromText(text) {
-        if (!this.isAiAvailable())
-            return { name: "Extracted Name", company: "Extracted Company", email: "client@example.com" };
         const prompt = `Extract JSON with {name, company, email} from this text: "${text}". Only return JSON.`;
+        if (!this.isAiAvailable()) {
+            if (this.getFallbackEnabled()) {
+                return {
+                    name: 'Extracted Name',
+                    company: 'Extracted Company',
+                    email: 'client@example.com',
+                };
+            }
+            throw new common_1.InternalServerErrorException(this.getUnavailableMessage('lead extraction'));
+        }
         try {
             const result = await this.model.generateContent(prompt);
             const response = await result.response;
-            return JSON.parse(response.text().replace(/```json|```/g, '').trim());
+            const rawText = response.text().replace(/```json|```/g, '').trim();
+            const parsed = JSON.parse(rawText);
+            return {
+                name: parsed.name || 'N/A',
+                company: parsed.company || 'N/A',
+                email: parsed.email || 'N/A',
+            };
         }
         catch (error) {
-            return { name: "N/A", company: "N/A", email: "N/A" };
+            this.logger.error('Lead extraction failed', error instanceof Error ? error.stack : String(error));
+            if (this.getFallbackEnabled()) {
+                return { name: 'N/A', company: 'N/A', email: 'N/A' };
+            }
+            throw new common_1.InternalServerErrorException(this.getUnavailableMessage('lead extraction'));
         }
     }
 };

@@ -3,32 +3,54 @@
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import api from '@/lib/api';
-import { Plus, Search, ShieldCheck, MoreVertical, Edit2, Phone } from 'lucide-react';
+import { Plus, Search, ShieldCheck, Edit2, Phone, AlertTriangle, RefreshCw, Mail, KeyRound } from 'lucide-react';
 
 interface Guard {
   id: string;
   name: string;
-  phone: string;
+  phone?: string;
+  email?: string;
   createdAt: string;
   availability?: {
     status: string;
   };
 }
 
+interface ApiError {
+  response?: {
+    status?: number;
+    data?: {
+      message?: string;
+    };
+  };
+}
+
 export default function GuardsPage() {
   const [guards, setGuards] = useState<Guard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: '', phone: '' });
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', password: '' });
   
   const fetchGuards = async () => {
+    setError(null);
+    setLoading(true);
     try {
       const res = await api.get('v2/guards');
       setGuards(res.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Fetch Guards Error:', err);
-      // If 403, we might want to show an access denied message instead of just log
+      const status = (err as ApiError).response?.status;
+      if (status === 401) {
+        setError('Session expired. Please log in again.');
+      } else if (status === 403) {
+        setError('You do not have permission to view guards.');
+      } else if (status === 500) {
+        setError('Server error: the database may be temporarily unavailable. Please try again later.');
+      } else {
+        setError('Failed to load guards. Please check your connection and try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -41,10 +63,17 @@ export default function GuardsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const payload = {
+        name: formData.name.trim(),
+        phone: formData.phone.trim() || undefined,
+        email: formData.email.trim() || undefined,
+        ...(formData.password ? { password: formData.password } : {}),
+      };
+
       if (isEditing) {
-        await api.put(`v2/guards/${isEditing}`, formData);
+        await api.put(`v2/guards/${isEditing}`, payload);
       } else {
-        await api.post('v2/guards', formData);
+        await api.post('v2/guards', payload);
       }
       setShowModal(false);
       resetForm();
@@ -58,14 +87,16 @@ export default function GuardsPage() {
   const handleEdit = (guard: Guard) => {
     setFormData({
       name: guard.name,
-      phone: guard.phone || ''
+      phone: guard.phone || '',
+      email: guard.email || '',
+      password: '',
     });
     setIsEditing(guard.id);
     setShowModal(true);
   };
 
   const resetForm = () => {
-    setFormData({ name: '', phone: '' });
+    setFormData({ name: '', phone: '', email: '', password: '' });
     setIsEditing(null);
   };
 
@@ -121,9 +152,23 @@ export default function GuardsPage() {
             </thead>
             <tbody className="divide-y divide-white/5">
               {loading ? (
-                <tr><td colSpan={4} className="px-6 py-10 text-center text-muted-foreground">Loading guards...</td></tr>
+                <tr><td colSpan={5} className="px-6 py-10 text-center text-muted-foreground">Loading guards...</td></tr>
+              ) : error ? (
+                <tr><td colSpan={5} className="px-6 py-10 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <AlertTriangle size={32} className="text-amber-400" />
+                    <p className="text-amber-400 font-medium">{error}</p>
+                    <button
+                      onClick={fetchGuards}
+                      className="mt-2 flex items-center gap-2 bg-white/10 hover:bg-white/15 text-white px-4 py-2 rounded-xl transition-all text-sm"
+                    >
+                      <RefreshCw size={14} />
+                      Retry
+                    </button>
+                  </div>
+                </td></tr>
               ) : guards.length === 0 ? (
-                <tr><td colSpan={4} className="px-6 py-10 text-center text-muted-foreground">No guards found. Administrators can add new personnel above.</td></tr>
+                <tr><td colSpan={5} className="px-6 py-10 text-center text-muted-foreground">No guards found. Administrators can add new personnel above.</td></tr>
               ) : guards.map((guard) => (
                 <tr key={guard.id} className="hover:bg-white/5 transition-colors group">
                   <td className="px-6 py-4">
@@ -137,8 +182,14 @@ export default function GuardsPage() {
                   <td className="px-6 py-4 align-middle">
                     <div className="flex items-center gap-2 text-muted-foreground">
                        <Phone size={14} className="text-indigo-400" />
-                       <span className="text-sm">{guard.phone}</span>
+                       <span className="text-sm">{guard.phone || 'No phone'}</span>
                     </div>
+                    {guard.email && (
+                      <div className="flex items-center gap-2 text-muted-foreground mt-1">
+                        <Mail size={14} className="text-indigo-400" />
+                        <span className="text-sm">{guard.email}</span>
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 align-middle">
                     <button
@@ -161,9 +212,6 @@ export default function GuardsPage() {
                       className="p-2 hover:bg-white/10 rounded-lg transition-colors text-indigo-400 hover:text-indigo-300"
                     >
                       <Edit2 size={18} />
-                    </button>
-                    <button className="p-2 hover:bg-white/10 rounded-lg transition-colors text-muted-foreground hover:text-white ml-2">
-                      <MoreVertical size={18} />
                     </button>
                   </td>
                 </tr>
@@ -204,8 +252,36 @@ export default function GuardsPage() {
                   placeholder="e.g. +1 (555) 000-0000"
                   value={formData.phone}
                   onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                  required
                 />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-muted-foreground">Email Address</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 text-muted-foreground" size={16} />
+                  <input
+                    type="email"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    placeholder="guard@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-muted-foreground">Portal Password</label>
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-3 text-muted-foreground" size={16} />
+                  <input
+                    type="password"
+                    minLength={6}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    placeholder={isEditing ? 'Leave blank to keep current password' : 'Set guard portal password'}
+                    value={formData.password}
+                    onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  />
+                </div>
               </div>
 
               <div className="flex gap-4 mt-8 pt-4">

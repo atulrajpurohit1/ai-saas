@@ -27,7 +27,7 @@ let ProposalsController = class ProposalsController {
     }
     create(req, createProposalDto) {
         const user = req.user;
-        return this.proposalsService.create(user.tenantId, createProposalDto);
+        return this.proposalsService.create(user.tenantId, createProposalDto, user.sub);
     }
     findAll(req) {
         const user = req.user;
@@ -39,7 +39,7 @@ let ProposalsController = class ProposalsController {
     }
     generateBulkProposals(req) {
         const user = req.user;
-        return this.proposalsService.generateBulkProposals(user.tenantId);
+        return this.proposalsService.generateBulkProposals(user.tenantId, user.sub);
     }
     findOne(req, id) {
         const user = req.user;
@@ -47,7 +47,7 @@ let ProposalsController = class ProposalsController {
     }
     update(req, id, updateProposalDto) {
         const user = req.user;
-        return this.proposalsService.update(user.tenantId, id, updateProposalDto);
+        return this.proposalsService.update(user.tenantId, id, updateProposalDto, user.sub);
     }
     async export(req, id, res) {
         const user = req.user;
@@ -69,7 +69,9 @@ let ProposalsController = class ProposalsController {
     }
     async share(req, id, clientId) {
         const user = req.user;
-        const updated = await this.proposalsService.update(user.tenantId, id, { clientId }, user.sub);
+        const existing = await this.proposalsService.findOne(user.tenantId, id);
+        const updateData = existing.status === 'draft' ? { clientId, status: 'sent' } : { clientId };
+        const updated = await this.proposalsService.update(user.tenantId, id, updateData, user.sub);
         await this.proposalsService.logAction(user.tenantId, user.sub, id, 'DOCUMENT_SHARED', `Proposal shared with client`);
         return updated;
     }

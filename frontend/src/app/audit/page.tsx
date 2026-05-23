@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import api from '@/lib/api';
-import { Shield, Clock, User, Activity } from 'lucide-react';
+import { Shield, Clock, AlertTriangle } from 'lucide-react';
 
 interface AuditLog {
   id: string;
@@ -17,13 +17,16 @@ interface AuditLog {
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const fetchLogs = async () => {
     try {
-      const res = await api.get('audit'); // I need to implement this controller in backend
-      setLogs(res.data);
+      const res = await api.get('audit');
+      setLogs(Array.isArray(res.data) ? res.data : []);
+      setError('');
     } catch (err) {
       console.error(err);
+      setError('Could not load activity logs. Please refresh or login again.');
     } finally {
       setLoading(false);
     }
@@ -67,6 +70,15 @@ export default function AuditLogsPage() {
             <tbody className="divide-y divide-white/5">
               {loading ? (
                 <tr><td colSpan={4} className="px-6 py-10 text-center text-muted-foreground italic">Fetching records...</td></tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-10 text-center text-rose-300">
+                    <div className="flex items-center justify-center gap-2">
+                      <AlertTriangle size={16} />
+                      <span>{error}</span>
+                    </div>
+                  </td>
+                </tr>
               ) : logs.length === 0 ? (
                 <tr><td colSpan={4} className="px-6 py-10 text-center text-muted-foreground">No logs found.</td></tr>
               ) : logs.map((log) => (

@@ -17,14 +17,17 @@ export default function ClientDocumentsPage() {
   const [documents, setDocuments] = useState<SharedDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
         const res = await api.get('client-portal/documents');
-        setDocuments(res.data);
+        setDocuments(Array.isArray(res.data) ? res.data : []);
+        setError('');
       } catch (err) {
         console.error('Failed to fetch documents', err);
+        setError('Could not load shared documents. Please refresh or sign in again.');
       } finally {
         setLoading(false);
       }
@@ -65,6 +68,10 @@ export default function ClientDocumentsPage() {
             <div className="py-20 text-center text-slate-500">
               <Loader2 className="animate-spin mx-auto mb-4" size={32} />
               <p>Loading your documents...</p>
+            </div>
+          ) : error ? (
+            <div className="py-16 px-6 text-center text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-3xl">
+              <p className="text-sm font-medium">{error}</p>
             </div>
           ) : filteredDocs.length === 0 ? (
             <div className="py-20 text-center text-slate-500">

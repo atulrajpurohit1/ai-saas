@@ -6,6 +6,14 @@ import api from '@/lib/api';
 import { Lock, Mail, Building2, User, Shield, Briefcase } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+interface ApiError {
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -55,7 +63,7 @@ export default function LoginPage() {
         }
       }
     } catch (err: unknown) {
-      const errorMessage = (err as any).response?.data?.message || 'Authentication failed';
+      const errorMessage = (err as ApiError).response?.data?.message || 'Authentication failed';
       setError(errorMessage);
     }
   };

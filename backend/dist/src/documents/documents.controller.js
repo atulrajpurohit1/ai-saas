@@ -18,6 +18,7 @@ const documents_service_1 = require("./documents.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const roles_guard_1 = require("../auth/guards/roles.guard");
 const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const create_document_dto_1 = require("./dto/create-document.dto");
 let DocumentsController = class DocumentsController {
     documentsService;
     constructor(documentsService) {
@@ -47,7 +48,7 @@ __decorate([
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [Object, create_document_dto_1.CreateDocumentDto]),
     __metadata("design:returntype", void 0)
 ], DocumentsController.prototype, "create", null);
 __decorate([

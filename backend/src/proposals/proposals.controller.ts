@@ -27,7 +27,7 @@ export class ProposalsController {
   @Post()
   create(@Req() req: Request, @Body() createProposalDto: CreateProposalDto) {
     const user = req.user as unknown as ActiveUser;
-    return this.proposalsService.create(user.tenantId, createProposalDto);
+    return this.proposalsService.create(user.tenantId, createProposalDto, user.sub);
   }
 
   @Roles('admin')
@@ -52,7 +52,7 @@ export class ProposalsController {
   @Post('generate-bulk')
   generateBulkProposals(@Req() req: Request) {
     const user = req.user as unknown as ActiveUser;
-    return this.proposalsService.generateBulkProposals(user.tenantId);
+    return this.proposalsService.generateBulkProposals(user.tenantId, user.sub);
   }
 
   @Roles('admin')
@@ -70,7 +70,7 @@ export class ProposalsController {
     @Body() updateProposalDto: UpdateProposalDto,
   ) {
     const user = req.user as unknown as ActiveUser;
-    return this.proposalsService.update(user.tenantId, id, updateProposalDto);
+    return this.proposalsService.update(user.tenantId, id, updateProposalDto, user.sub);
   }
 
   @Roles('admin')
@@ -114,7 +114,9 @@ export class ProposalsController {
     @Body('clientId') clientId: string
   ) {
     const user = req.user as unknown as ActiveUser;
-    const updated = await this.proposalsService.update(user.tenantId, id, { clientId } as any, user.sub);
+    const existing = await this.proposalsService.findOne(user.tenantId, id);
+    const updateData = existing.status === 'draft' ? { clientId, status: 'sent' } : { clientId };
+    const updated = await this.proposalsService.update(user.tenantId, id, updateData, user.sub);
     
     await this.proposalsService.logAction(user.tenantId, user.sub, id, 'DOCUMENT_SHARED', `Proposal shared with client`);
     

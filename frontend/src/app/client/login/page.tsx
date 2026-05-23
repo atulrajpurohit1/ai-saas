@@ -3,7 +3,15 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import { FileText, Shield, Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
+import { Shield, Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
+
+interface ApiError {
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+}
 
 export default function ClientLoginPage() {
   const [email, setEmail] = useState('');
@@ -24,8 +32,8 @@ export default function ClientLoginPage() {
       });
       localStorage.setItem('client_token', res.data.access_token);
       router.push('/client/dashboard');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid credentials. Please check and try again.');
+    } catch (err: unknown) {
+      setError((err as ApiError).response?.data?.message || 'Invalid credentials. Please check and try again.');
     } finally {
       setLoading(false);
     }

@@ -6,14 +6,16 @@ import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 export declare class GuardsController {
     private readonly guardsService;
     constructor(guardsService: GuardsService);
-    create(user: ActiveUser, createGuardDto: CreateGuardDto): Promise<{
+    create(user: ActiveUser, createGuardDto: CreateGuardDto): Promise<Omit<{
         id: string;
         name: string;
         createdAt: Date;
+        email: string | null;
         tenantId: string;
         phone: string | null;
-    }>;
-    findAll(user: ActiveUser): Promise<({
+        passwordHash: string | null;
+    }, "passwordHash">>;
+    findAll(user: ActiveUser): Promise<Omit<{
         availability: {
             id: string;
             createdAt: Date;
@@ -28,16 +30,20 @@ export declare class GuardsController {
         id: string;
         name: string;
         createdAt: Date;
+        email: string | null;
         tenantId: string;
         phone: string | null;
-    })[]>;
-    update(user: ActiveUser, id: string, updateGuardDto: UpdateGuardDto): Promise<{
+        passwordHash: string | null;
+    }, "passwordHash">[]>;
+    update(user: ActiveUser, id: string, updateGuardDto: UpdateGuardDto): Promise<Omit<{
         id: string;
         name: string;
         createdAt: Date;
+        email: string | null;
         tenantId: string;
         phone: string | null;
-    }>;
+        passwordHash: string | null;
+    }, "passwordHash">>;
     getAvailability(user: ActiveUser, id: string): Promise<{
         id: string;
         createdAt: Date;

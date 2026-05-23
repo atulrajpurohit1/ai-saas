@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import ClientLayout from '@/components/ClientLayout';
 import api from '@/lib/api';
-import { User, Building, Mail, Phone, Calendar, Shield, Loader2, Info } from 'lucide-react';
+import { User, Building, Mail, Phone, Calendar, Shield, Info } from 'lucide-react';
 
 interface ClientProfile {
   id: string;
@@ -17,14 +17,17 @@ interface ClientProfile {
 export default function ClientProfilePage() {
   const [profile, setProfile] = useState<ClientProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         const res = await api.get('client-portal/profile');
         setProfile(res.data);
+        setError('');
       } catch (err) {
         console.error('Failed to fetch profile', err);
+        setError('Could not load your profile. Please refresh or sign in again.');
       } finally {
         setLoading(false);
       }
@@ -33,13 +36,14 @@ export default function ClientProfilePage() {
   }, []);
 
   if (loading) return <ClientLayout><div className="py-20 text-center text-slate-500">Loading profile...</div></ClientLayout>;
+  if (error) return <ClientLayout><div className="py-20 text-center text-rose-400">{error}</div></ClientLayout>;
   if (!profile) return <ClientLayout><div className="py-20 text-center text-rose-400">Profile not found.</div></ClientLayout>;
 
   return (
     <ClientLayout>
       <div className="mb-10">
         <h2 className="text-3xl font-bold text-white tracking-tight">Your Profile</h2>
-        <p className="text-slate-400 font-medium">Manage your account details and view company information.</p>
+        <p className="text-slate-400 font-medium">View your account details and company information.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -103,7 +107,7 @@ export default function ClientProfilePage() {
             <div>
               <h4 className="text-white font-bold mb-1">Information Security</h4>
               <p className="text-sm text-slate-400 leading-relaxed">
-                Your profile information is securely managed by Antigravity AI. If you need to update any admin-only details like your company name or linked email, please contact your account manager.
+                Your profile information is securely managed by your account team. If you need to update admin-only details like your company name or linked email, please contact your account manager.
               </p>
             </div>
           </div>

@@ -15,21 +15,27 @@ export declare class ClientsController {
         companyName: string | null;
         phone: string | null;
     }>;
-    findAll(user: ActiveUser): Promise<({
-        users: {
-            email: string;
-        }[];
-    } & {
+    findAll(user: ActiveUser): Promise<{
         id: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
+        users: {
+            id: string;
+            createdAt: Date;
+            email: string;
+        }[];
         email: string;
-        tenantId: string;
         companyName: string | null;
         phone: string | null;
-    })[]>;
+    }[]>;
     findOne(user: ActiveUser, id: string): Promise<{
+        users: {
+            id: string;
+            createdAt: Date;
+            email: string;
+        }[];
+    } & {
         id: string;
         name: string;
         createdAt: Date;
@@ -51,12 +57,8 @@ export declare class ClientsController {
     }>;
     createUser(user: ActiveUser, id: string, email: string): Promise<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         email: string;
-        password: string;
-        refreshToken: string | null;
-        tenantId: string;
         clientId: string;
+        temporaryPassword: string;
     }>;
 }

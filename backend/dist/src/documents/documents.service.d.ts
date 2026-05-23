@@ -1,15 +1,11 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { CreateDocumentDto } from './dto/create-document.dto';
 export declare class DocumentsService {
     private prisma;
     private auditService;
     constructor(prisma: PrismaService, auditService: AuditService);
-    create(tenantId: string, uploadedBy: string, data: {
-        name: string;
-        url: string;
-        description?: string;
-        clientId: string;
-    }): Promise<{
+    create(tenantId: string, uploadedBy: string, data: CreateDocumentDto): Promise<{
         id: string;
         name: string;
         createdAt: Date;

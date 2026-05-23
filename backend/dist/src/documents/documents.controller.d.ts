@@ -1,14 +1,10 @@
 import { DocumentsService } from './documents.service';
 import { Request } from 'express';
+import { CreateDocumentDto } from './dto/create-document.dto';
 export declare class DocumentsController {
     private readonly documentsService;
     constructor(documentsService: DocumentsService);
-    create(req: Request, data: {
-        name: string;
-        url: string;
-        description?: string;
-        clientId: string;
-    }): Promise<{
+    create(req: Request, data: CreateDocumentDto): Promise<{
         id: string;
         name: string;
         createdAt: Date;

@@ -23,11 +23,17 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
         });
     }
     validate(payload) {
+        const tenantId = payload.tenantId ?? payload.tenant_id;
+        const clientId = payload.clientId ?? payload.client_id;
+        const guardId = payload.guardId ?? payload.guard_id;
         return {
             sub: payload.sub,
             email: payload.email,
-            tenantId: payload.tenantId,
+            phone: payload.phone,
+            tenantId,
             role: payload.role,
+            clientId,
+            guardId,
         };
     }
 };

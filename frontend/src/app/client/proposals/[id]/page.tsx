@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import ClientLayout from '@/components/ClientLayout';
 import api from '@/lib/api';
@@ -17,7 +17,6 @@ import {
   MessageSquare,
   Send,
   History,
-  Clock
 } from 'lucide-react';
 
 interface Proposal {
@@ -44,7 +43,8 @@ interface TimelineItem {
 }
 
 export default function ClientProposalView() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const router = useRouter();
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -53,37 +53,54 @@ export default function ClientProposalView() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [commentLoading, setCommentLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const fetchProposalData = async () => {
+  const fetchProposalData = useCallback(async () => {
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      const [pRes, cRes, tRes] = await Promise.all([
+      const [pRes, cRes, tRes] = await Promise.allSettled([
         api.get(`client-portal/proposals/${id}`),
         api.get(`client-portal/proposals/${id}/comments`),
         api.get(`client-portal/proposals/${id}/timeline`)
       ]);
-      setProposal(pRes.data);
-      setComments(cRes.data);
-      setTimeline(tRes.data);
+
+      if (pRes.status !== 'fulfilled') {
+        throw pRes.reason;
+      }
+
+      setProposal(pRes.value.data);
+      setComments(cRes.status === 'fulfilled' && Array.isArray(cRes.value.data) ? cRes.value.data : []);
+      setTimeline(tRes.status === 'fulfilled' && Array.isArray(tRes.value.data) ? tRes.value.data : []);
+      setError(cRes.status === 'rejected' || tRes.status === 'rejected' ? 'Proposal loaded, but activity could not be refreshed.' : '');
     } catch (err) {
       console.error('Failed to fetch proposal data', err);
+      setError('Could not load proposal activity. Please refresh or sign in again.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     fetchProposalData();
-  }, [id]);
+  }, [fetchProposalData]);
 
   const handleAction = async (action: 'approve' | 'reject') => {
+    if (!id) return;
+
     if (!confirm(`Are you sure you want to ${action} this proposal?`)) return;
     
     setActionLoading(true);
     try {
       await api.post(`client-portal/proposals/${id}/${action}`);
-      fetchProposalData();
+      setError('');
+      await fetchProposalData();
     } catch (err) {
       console.error(`Failed to ${action} proposal`, err);
+      setError(`Could not ${action} this proposal. Please try again.`);
     } finally {
       setActionLoading(false);
     }
@@ -92,22 +109,27 @@ export default function ClientProposalView() {
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newComment.trim()) return;
+    if (!id) return;
 
     setCommentLoading(true);
     try {
-      await api.post(`client-portal/proposals/${id}/comments`, { content: newComment });
+      await api.post(`client-portal/proposals/${id}/comments`, { content: newComment.trim() });
       setNewComment('');
-      fetchProposalData();
+      setError('');
+      await fetchProposalData();
     } catch (err) {
       console.error('Failed to add comment', err);
+      setError('Could not add your comment. Please try again.');
     } finally {
       setCommentLoading(false);
     }
   };
 
   const handleDownload = async () => {
+    if (!id) return;
+
     try {
-      const response = await api.get(`proposals/${id}/export`, { responseType: 'blob' });
+      const response = await api.get(`client-portal/proposals/${id}/export`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -117,7 +139,7 @@ export default function ClientProposalView() {
       link.remove();
     } catch (err) {
       console.error('Failed to download PDF', err);
-      alert('Failed to download PDF. Please try again.');
+      setError('Could not download the PDF. Please try again.');
     }
   };
 
@@ -133,6 +155,12 @@ export default function ClientProposalView() {
         <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
         <span className="font-semibold">Back to Dashboard</span>
       </button>
+
+      {error && (
+        <div className="mb-6 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-5 py-4 text-sm font-medium text-rose-300">
+          {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         {/* Main Content */}
@@ -277,7 +305,9 @@ export default function ClientProposalView() {
                 Timeline
               </h3>
               <div className="space-y-4">
-                {timeline.map((item, idx) => (
+                {timeline.length === 0 ? (
+                  <div className="text-xs text-slate-500 italic">No activity recorded yet.</div>
+                ) : timeline.map((item) => (
                   <div key={item.id} className="relative pl-6 pb-2 border-l border-white/10 last:border-0 last:pb-0">
                     <div className="absolute left-[-5px] top-1 w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]"></div>
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.action.replace(/_/g, ' ')}</div>

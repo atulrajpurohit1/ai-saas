@@ -6,12 +6,12 @@ import {
   Users, 
   Briefcase, 
   FileText, 
-  UserCircle, 
   LogOut,
   ChevronRight,
   MapPin,
   ShieldCheck,
-  CalendarClock
+  CalendarClock,
+  Activity
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { clsx, type ClassValue } from 'clsx';
@@ -33,6 +33,7 @@ export default function Sidebar() {
     { href: '/sites', label: 'Sites', icon: MapPin },
     { href: '/guards', label: 'Guards', icon: ShieldCheck },
     { href: '/shifts', label: 'Shifts', icon: CalendarClock },
+    { href: '/audit', label: 'Activity', icon: Activity },
   ];
 
   const links = adminLinks;
@@ -93,5 +94,3 @@ export default function Sidebar() {
     </aside>
   );
 }
-
-

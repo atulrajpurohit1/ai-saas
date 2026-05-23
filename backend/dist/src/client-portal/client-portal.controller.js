@@ -18,16 +18,20 @@ const prisma_service_1 = require("../prisma/prisma.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const audit_service_1 = require("../audit/audit.service");
+const proposals_service_1 = require("../proposals/proposals.service");
 let ClientPortalController = class ClientPortalController {
     prisma;
     auditService;
-    constructor(prisma, auditService) {
+    proposalsService;
+    constructor(prisma, auditService, proposalsService) {
         this.prisma = prisma;
         this.auditService = auditService;
+        this.proposalsService = proposalsService;
     }
     checkClient(user) {
-        if (user.role !== 'client')
+        if (user.role !== 'client' || !user.clientId) {
             throw new common_1.ForbiddenException('Access denied');
+        }
     }
     async getProposals(user) {
         this.checkClient(user);
@@ -54,6 +58,16 @@ let ClientPortalController = class ClientPortalController {
         if (!proposal)
             throw new common_1.NotFoundException('Proposal not found');
         return proposal;
+    }
+    async exportProposal(user, id, res) {
+        this.checkClient(user);
+        const buffer = await this.proposalsService.export(user.tenantId, id, user.sub, user.clientId);
+        res.set({
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename=proposal-${id}.pdf`,
+            'Content-Length': buffer.length,
+        });
+        return res.end(buffer);
     }
     async approveProposal(user, id) {
         const proposal = await this.getProposal(user, id);
@@ -98,9 +112,13 @@ let ClientPortalController = class ClientPortalController {
     async addComment(user, id, content) {
         this.checkClient(user);
         await this.getProposal(user, id);
+        const trimmedContent = content?.trim();
+        if (!trimmedContent) {
+            throw new common_1.BadRequestException('Comment content is required');
+        }
         const comment = await this.prisma.proposalComment.create({
             data: {
-                content,
+                content: trimmedContent,
                 proposalId: id,
                 clientUserId: user.sub,
                 tenantId: user.tenantId,
@@ -119,11 +137,34 @@ let ClientPortalController = class ClientPortalController {
     async getTimeline(user, id) {
         this.checkClient(user);
         await this.getProposal(user, id);
+        const documents = await this.prisma.sharedDocument.findMany({
+            where: {
+                clientId: user.clientId,
+                tenantId: user.tenantId,
+            },
+            select: { id: true },
+        });
+        const documentIds = documents.map((document) => document.id);
+        const timelineFilters = [
+            {
+                entityId: id,
+                entityType: { in: ['Proposal', 'PROPOSAL'] },
+                action: { in: ['CREATE', 'PROPOSAL_APPROVED', 'PROPOSAL_REJECTED', 'COMMENT_ADDED', 'DOCUMENT_SHARED'] },
+            },
+            ...(documentIds.length > 0
+                ? [
+                    {
+                        entityId: { in: documentIds },
+                        entityType: 'Document',
+                        action: 'DOCUMENT_SHARED',
+                    },
+                ]
+                : []),
+        ];
         return this.prisma.auditLog.findMany({
             where: {
-                entityId: id,
                 tenantId: user.tenantId,
-                action: { in: ['CREATE', 'PROPOSAL_APPROVED', 'PROPOSAL_REJECTED', 'COMMENT_ADDED', 'DOCUMENT_SHARED'] }
+                OR: timelineFilters,
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -164,6 +205,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], ClientPortalController.prototype, "getProposal", null);
+__decorate([
+    (0, common_1.Get)('proposals/:id/export'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Response)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], ClientPortalController.prototype, "exportProposal", null);
 __decorate([
     (0, common_1.Post)('proposals/:id/approve'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
@@ -223,6 +273,7 @@ exports.ClientPortalController = ClientPortalController = __decorate([
     (0, common_1.Controller)('client-portal'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        audit_service_1.AuditService])
+        audit_service_1.AuditService,
+        proposals_service_1.ProposalsService])
 ], ClientPortalController);
 //# sourceMappingURL=client-portal.controller.js.map

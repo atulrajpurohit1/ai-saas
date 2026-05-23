@@ -1,12 +1,42 @@
 import { AssignmentsService } from './assignments.service';
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
 export declare class AssignmentsController {
     private readonly assignmentsService;
     constructor(assignmentsService: AssignmentsService);
-    findAll(): import(".prisma/client").Prisma.PrismaPromise<{
+    findAll(user: ActiveUser): Promise<({
+        guard: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            email: string | null;
+            tenantId: string;
+            phone: string | null;
+            passwordHash: string | null;
+        };
+        shift: {
+            site: {
+                id: string;
+                name: string;
+                createdAt: Date;
+                tenantId: string;
+                address: string;
+                instructions: string | null;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            tenantId: string;
+            status: string;
+            siteId: string;
+            startTime: Date;
+            endTime: Date;
+            requiredGuards: number;
+        };
+    } & {
         id: string;
         createdAt: Date;
         status: string;
         guardId: string;
         shiftId: string;
-    }[]>;
+    })[]>;
 }

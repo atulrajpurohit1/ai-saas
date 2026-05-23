@@ -8,7 +8,7 @@ import { ActiveUser } from '../auth/interfaces/active-user.interface';
 
 @Controller('audit')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN')
+@Roles('admin')
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 

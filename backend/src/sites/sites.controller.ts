@@ -23,7 +23,7 @@ export class SitesController {
   }
 
   @Get()
-  @Roles('admin', 'user')
+  @Roles('admin')
   findAll(@GetUser() user: ActiveUser) {
     return this.sitesService.findAll(user.tenantId);
   }

@@ -112,18 +112,6 @@ let EmailService = class EmailService {
         };
     }
     async sendBulkProposalEmails(tenantId) {
-        const leads = await this.prisma.lead.findMany({
-            where: {
-                tenantId,
-                email: { not: null },
-                proposals: { some: {} }
-            },
-            include: {
-                proposals: {
-                    orderBy: { createdAt: 'desc' }
-                }
-            }
-        });
         let sentCount = 0;
         let skippedMissingEmail = 0;
         let skippedMissingProposal = 0;

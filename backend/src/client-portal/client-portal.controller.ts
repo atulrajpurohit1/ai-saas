@@ -1,9 +1,11 @@
-import { Controller, Get, Post, Param, Body, UseGuards, ForbiddenException, NotFoundException, Response } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Post, Param, Body, UseGuards, ForbiddenException, NotFoundException, Response } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { AuditService } from '../audit/audit.service';
+import { ProposalsService } from '../proposals/proposals.service';
+import { Response as ExpressResponse } from 'express';
 
 @Controller('client-portal')
 @UseGuards(JwtAuthGuard)
@@ -11,10 +13,13 @@ export class ClientPortalController {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
+    private proposalsService: ProposalsService,
   ) {}
 
   private checkClient(user: ActiveUser) {
-    if (user.role !== 'client') throw new ForbiddenException('Access denied');
+    if (user.role !== 'client' || !user.clientId) {
+      throw new ForbiddenException('Access denied');
+    }
   }
 
   @Get('proposals')
@@ -48,6 +53,30 @@ export class ClientPortalController {
     if (!proposal) throw new NotFoundException('Proposal not found');
 
     return proposal;
+  }
+
+  @Get('proposals/:id/export')
+  async exportProposal(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Response() res: ExpressResponse,
+  ) {
+    this.checkClient(user);
+
+    const buffer = await this.proposalsService.export(
+      user.tenantId,
+      id,
+      user.sub,
+      user.clientId,
+    );
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename=proposal-${id}.pdf`,
+      'Content-Length': buffer.length,
+    });
+
+    return res.end(buffer);
   }
 
   @Post('proposals/:id/approve')
@@ -111,10 +140,15 @@ export class ClientPortalController {
   ) {
     this.checkClient(user);
     await this.getProposal(user, id); // Auth check
+    const trimmedContent = content?.trim();
+
+    if (!trimmedContent) {
+      throw new BadRequestException('Comment content is required');
+    }
 
     const comment = await this.prisma.proposalComment.create({
       data: {
-        content,
+        content: trimmedContent,
         proposalId: id,
         clientUserId: user.sub,
         tenantId: user.tenantId,
@@ -138,11 +172,36 @@ export class ClientPortalController {
     this.checkClient(user);
     await this.getProposal(user, id); // Auth check
 
+    const documents = await this.prisma.sharedDocument.findMany({
+      where: {
+        clientId: user.clientId,
+        tenantId: user.tenantId,
+      },
+      select: { id: true },
+    });
+
+    const documentIds = documents.map((document) => document.id);
+    const timelineFilters = [
+      {
+        entityId: id,
+        entityType: { in: ['Proposal', 'PROPOSAL'] },
+        action: { in: ['CREATE', 'PROPOSAL_APPROVED', 'PROPOSAL_REJECTED', 'COMMENT_ADDED', 'DOCUMENT_SHARED'] },
+      },
+      ...(documentIds.length > 0
+        ? [
+            {
+              entityId: { in: documentIds },
+              entityType: 'Document',
+              action: 'DOCUMENT_SHARED',
+            },
+          ]
+        : []),
+    ];
+
     return this.prisma.auditLog.findMany({
       where: { 
-        entityId: id, 
         tenantId: user.tenantId,
-        action: { in: ['CREATE', 'PROPOSAL_APPROVED', 'PROPOSAL_REJECTED', 'COMMENT_ADDED', 'DOCUMENT_SHARED'] }
+        OR: timelineFilters,
       },
       orderBy: { createdAt: 'desc' },
     });

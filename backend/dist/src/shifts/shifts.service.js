@@ -56,28 +56,34 @@ let ShiftsService = class ShiftsService {
         return shift;
     }
     async findAll(tenantId) {
-        return this.prisma.shift.findMany({
-            where: { tenantId },
-            include: {
-                site: {
-                    select: {
-                        name: true,
+        try {
+            return await this.prisma.shift.findMany({
+                where: { tenantId },
+                include: {
+                    site: {
+                        select: {
+                            name: true,
+                        },
                     },
-                },
-                assignments: {
-                    include: {
-                        guard: {
-                            select: {
-                                name: true,
+                    assignments: {
+                        include: {
+                            guard: {
+                                select: {
+                                    name: true,
+                                },
                             },
                         },
                     },
                 },
-            },
-            orderBy: {
-                startTime: 'desc',
-            },
-        });
+                orderBy: {
+                    startTime: 'desc',
+                },
+            });
+        }
+        catch (error) {
+            console.error('Shifts findAll error:', error.message);
+            throw new common_1.InternalServerErrorException('Failed to fetch shifts. The database may be unavailable.');
+        }
     }
     async assign(userId, tenantId, shiftId, guardId) {
         const shift = await this.prisma.shift.findUnique({

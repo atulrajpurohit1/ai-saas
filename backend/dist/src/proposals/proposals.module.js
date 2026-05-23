@@ -20,6 +20,7 @@ exports.ProposalsModule = ProposalsModule = __decorate([
         imports: [prisma_module_1.PrismaModule, ai_module_1.AiModule],
         controllers: [proposals_controller_1.ProposalsController],
         providers: [proposals_service_1.ProposalsService],
+        exports: [proposals_service_1.ProposalsService],
     })
 ], ProposalsModule);
 //# sourceMappingURL=proposals.module.js.map

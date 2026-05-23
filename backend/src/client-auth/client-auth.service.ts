@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -54,36 +54,61 @@ export class ClientAuthService {
   }
 
   async register(dto: ClientRegisterDto) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { slug: dto.tenantSlug },
-    });
+    try {
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { slug: dto.tenantSlug },
+      });
 
-    if (!tenant) {
-      throw new ForbiddenException('Company not found. Please check the slug.');
+      if (!tenant) {
+        throw new ForbiddenException('Company not found. Please check the slug.');
+      }
+
+      const hashedPassword = await bcrypt.hash(dto.password, 10);
+
+      const result = await this.prisma.$transaction(async (tx) => {
+        const client = await tx.client.create({
+          data: {
+            name: dto.name,
+            email: dto.email,
+            tenantId: tenant.id,
+          },
+        });
+
+        const user = await tx.clientUser.create({
+          data: {
+            email: dto.email,
+            password: hashedPassword,
+            clientId: client.id,
+            tenantId: tenant.id,
+          },
+        });
+
+        const tokens = await this.getTokens(
+          user.id,
+          user.email,
+          user.tenantId,
+          user.clientId,
+        );
+
+        return { user, tokens };
+      });
+
+      await this.updateRefreshTokenHash(result.user.id, result.tokens.refresh_token);
+      return result.tokens;
+    } catch (error: unknown) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        (error as { code?: string }).code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'A client or client portal account already exists for this email.',
+        );
+      }
+
+      throw error;
     }
-
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
-
-    return this.prisma.$transaction(async (tx) => {
-      const client = await tx.client.create({
-        data: {
-          name: dto.name,
-          email: dto.email,
-          tenantId: tenant.id,
-        },
-      });
-
-      const user = await tx.clientUser.create({
-        data: {
-          email: dto.email,
-          password: hashedPassword,
-          clientId: client.id,
-          tenantId: tenant.id,
-        },
-      });
-
-      return this.getTokens(user.id, user.email, user.tenantId, user.clientId);
-    });
   }
 
   async logout(userId: string) {

@@ -99,31 +99,45 @@ let ClientAuthService = class ClientAuthService {
         return tokens;
     }
     async register(dto) {
-        const tenant = await this.prisma.tenant.findUnique({
-            where: { slug: dto.tenantSlug },
-        });
-        if (!tenant) {
-            throw new common_1.ForbiddenException('Company not found. Please check the slug.');
+        try {
+            const tenant = await this.prisma.tenant.findUnique({
+                where: { slug: dto.tenantSlug },
+            });
+            if (!tenant) {
+                throw new common_1.ForbiddenException('Company not found. Please check the slug.');
+            }
+            const hashedPassword = await bcrypt.hash(dto.password, 10);
+            const result = await this.prisma.$transaction(async (tx) => {
+                const client = await tx.client.create({
+                    data: {
+                        name: dto.name,
+                        email: dto.email,
+                        tenantId: tenant.id,
+                    },
+                });
+                const user = await tx.clientUser.create({
+                    data: {
+                        email: dto.email,
+                        password: hashedPassword,
+                        clientId: client.id,
+                        tenantId: tenant.id,
+                    },
+                });
+                const tokens = await this.getTokens(user.id, user.email, user.tenantId, user.clientId);
+                return { user, tokens };
+            });
+            await this.updateRefreshTokenHash(result.user.id, result.tokens.refresh_token);
+            return result.tokens;
         }
-        const hashedPassword = await bcrypt.hash(dto.password, 10);
-        return this.prisma.$transaction(async (tx) => {
-            const client = await tx.client.create({
-                data: {
-                    name: dto.name,
-                    email: dto.email,
-                    tenantId: tenant.id,
-                },
-            });
-            const user = await tx.clientUser.create({
-                data: {
-                    email: dto.email,
-                    password: hashedPassword,
-                    clientId: client.id,
-                    tenantId: tenant.id,
-                },
-            });
-            return this.getTokens(user.id, user.email, user.tenantId, user.clientId);
-        });
+        catch (error) {
+            if (typeof error === 'object' &&
+                error !== null &&
+                'code' in error &&
+                error.code === 'P2002') {
+                throw new common_1.ConflictException('A client or client portal account already exists for this email.');
+            }
+            throw error;
+        }
     }
     async logout(userId) {
         await this.prisma.clientUser.updateMany({

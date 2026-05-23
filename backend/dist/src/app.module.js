@@ -30,6 +30,8 @@ const clients_module_1 = require("./clients/clients.module");
 const client_auth_module_1 = require("./client-auth/client-auth.module");
 const client_portal_module_1 = require("./client-portal/client-portal.module");
 const documents_module_1 = require("./documents/documents.module");
+const guard_auth_module_1 = require("./guard-auth/guard-auth.module");
+const guard_portal_module_1 = require("./guard-portal/guard-portal.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -42,6 +44,8 @@ exports.AppModule = AppModule = __decorate([
             auth_module_1.AuthModule,
             client_auth_module_1.ClientAuthModule,
             client_portal_module_1.ClientPortalModule,
+            guard_auth_module_1.GuardAuthModule,
+            guard_portal_module_1.GuardPortalModule,
             leads_module_1.LeadsModule,
             deals_module_1.DealsModule,
             proposals_module_1.ProposalsModule,

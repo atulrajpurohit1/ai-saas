@@ -21,9 +21,25 @@ let DocumentsService = class DocumentsService {
         this.auditService = auditService;
     }
     async create(tenantId, uploadedBy, data) {
+        const name = data.name?.trim();
+        const url = data.url?.trim();
+        const description = data.description?.trim() || undefined;
+        const clientId = data.clientId?.trim();
+        if (!name || !url || !clientId) {
+            throw new common_1.BadRequestException('Document name, URL, and client are required');
+        }
+        const client = await this.prisma.client.findFirst({
+            where: { id: clientId, tenantId },
+        });
+        if (!client) {
+            throw new common_1.NotFoundException('Client not found in this tenant');
+        }
         const document = await this.prisma.sharedDocument.create({
             data: {
-                ...data,
+                name,
+                url,
+                description,
+                clientId,
                 tenantId,
                 uploadedBy,
             },
@@ -34,7 +50,7 @@ let DocumentsService = class DocumentsService {
             action: 'DOCUMENT_SHARED',
             entityType: 'Document',
             entityId: document.id,
-            details: `Document "${data.name}" shared with client`,
+            details: `Document "${name}" shared with ${client.name}`,
         });
         return document;
     }

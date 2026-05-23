@@ -20,22 +20,30 @@ export default function DashboardPage() {
     deals: 0,
     proposals: 0,
   });
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [leadsRes, dealsRes, proposalsRes] = await Promise.all([
+        const [leadsRes, dealsRes, proposalsRes] = await Promise.allSettled([
           api.get('leads'),
           api.get('deals'),
           api.get('proposals'),
         ]);
+
         setStats({
-          leads: leadsRes.data.length,
-          deals: dealsRes.data.length,
-          proposals: proposalsRes.data.length,
+          leads: leadsRes.status === 'fulfilled' && Array.isArray(leadsRes.value.data) ? leadsRes.value.data.length : 0,
+          deals: dealsRes.status === 'fulfilled' && Array.isArray(dealsRes.value.data) ? dealsRes.value.data.length : 0,
+          proposals: proposalsRes.status === 'fulfilled' && Array.isArray(proposalsRes.value.data) ? proposalsRes.value.data.length : 0,
         });
+        setError(
+          [leadsRes, dealsRes, proposalsRes].some((result) => result.status === 'rejected')
+            ? 'Some dashboard stats could not be loaded. Check that the backend API is running.'
+            : '',
+        );
       } catch (err) {
         console.error('Failed to fetch stats', err);
+        setError('Dashboard stats could not be loaded. Check that the backend API is running.');
       }
     };
     fetchStats();
@@ -51,8 +59,14 @@ export default function DashboardPage() {
     <DashboardLayout>
       <div className="mb-8">
         <h2 className="text-3xl font-bold mb-2">Welcome back, <span className="gradient-text">{user?.name}</span></h2>
-        <p className="text-muted-foreground">Here's what's happening in your company today.</p>
+        <p className="text-muted-foreground">Here&apos;s what&apos;s happening in your company today.</p>
       </div>
+
+      {error && (
+        <div className="mb-6 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-5 py-4 text-sm font-medium text-rose-300">
+          {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         {statCards.map((stat) => {

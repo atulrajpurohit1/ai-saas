@@ -47,6 +47,7 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const audit_service_1 = require("../audit/audit.service");
 const bcrypt = __importStar(require("bcrypt"));
+const crypto_1 = require("crypto");
 let ClientsService = class ClientsService {
     prisma;
     auditService;
@@ -82,6 +83,13 @@ let ClientsService = class ClientsService {
                 phone: true,
                 createdAt: true,
                 updatedAt: true,
+                users: {
+                    select: {
+                        id: true,
+                        email: true,
+                        createdAt: true,
+                    },
+                },
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -89,6 +97,15 @@ let ClientsService = class ClientsService {
     async findOne(tenantId, id) {
         const client = await this.prisma.client.findFirst({
             where: { id, tenantId },
+            include: {
+                users: {
+                    select: {
+                        id: true,
+                        email: true,
+                        createdAt: true,
+                    },
+                },
+            },
         });
         if (!client) {
             throw new common_1.NotFoundException('Client not found');
@@ -119,20 +136,43 @@ let ClientsService = class ClientsService {
     async createClientUser(tenantId, clientId, email) {
         const client = await this.prisma.client.findFirst({
             where: { id: clientId, tenantId },
+            include: {
+                users: true,
+            },
         });
         if (!client) {
             throw new common_1.NotFoundException('Client not found in this tenant');
         }
-        const password = 'client123';
-        const hashedPassword = await bcrypt.hash(password, 10);
-        return this.prisma.clientUser.create({
-            data: {
-                email,
-                password: hashedPassword,
-                clientId,
-                tenantId,
-            },
-        });
+        if (client.users.length > 0) {
+            throw new common_1.ConflictException('Client portal user already exists for this client');
+        }
+        const temporaryPassword = (0, crypto_1.randomBytes)(12).toString('base64url');
+        const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+        try {
+            const clientUser = await this.prisma.clientUser.create({
+                data: {
+                    email,
+                    password: hashedPassword,
+                    clientId,
+                    tenantId,
+                },
+            });
+            return {
+                id: clientUser.id,
+                email: clientUser.email,
+                clientId: clientUser.clientId,
+                temporaryPassword,
+            };
+        }
+        catch (error) {
+            if (typeof error === 'object' &&
+                error !== null &&
+                'code' in error &&
+                error.code === 'P2002') {
+                throw new common_1.ConflictException('A client portal user with this email already exists.');
+            }
+            throw error;
+        }
     }
 };
 exports.ClientsService = ClientsService;

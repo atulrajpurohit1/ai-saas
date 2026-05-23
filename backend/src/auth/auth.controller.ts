@@ -12,6 +12,8 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
+import { RolesGuard } from './guards/roles.guard';
+import { Roles } from './decorators/roles.decorator';
 import { Request } from 'express';
 import { ActiveUser } from './interfaces/active-user.interface';
 
@@ -33,7 +35,8 @@ export class AuthController {
 
 
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   logout(@Req() req: Request) {
@@ -41,7 +44,8 @@ export class AuthController {
     return this.authService.logout(user.sub);
   }
 
-  @UseGuards(JwtRefreshGuard)
+  @UseGuards(JwtRefreshGuard, RolesGuard)
+  @Roles('admin')
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   refreshTokens(@Req() req: Request) {

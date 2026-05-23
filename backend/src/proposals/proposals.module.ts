@@ -8,5 +8,6 @@ import { AiModule } from '../ai/ai.module';
   imports: [PrismaModule, AiModule],
   controllers: [ProposalsController],
   providers: [ProposalsService],
+  exports: [ProposalsService],
 })
 export class ProposalsModule {}

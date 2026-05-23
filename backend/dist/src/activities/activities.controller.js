@@ -16,6 +16,8 @@ exports.ActivitiesController = void 0;
 const common_1 = require("@nestjs/common");
 const activities_service_1 = require("./activities.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const roles_guard_1 = require("../auth/guards/roles.guard");
+const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 let ActivitiesController = class ActivitiesController {
     activitiesService;
@@ -64,7 +66,8 @@ __decorate([
 ], ActivitiesController.prototype, "updateStatus", null);
 exports.ActivitiesController = ActivitiesController = __decorate([
     (0, common_1.Controller)('activities'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)('admin'),
     __metadata("design:paramtypes", [activities_service_1.ActivitiesService])
 ], ActivitiesController);
 //# sourceMappingURL=activities.controller.js.map

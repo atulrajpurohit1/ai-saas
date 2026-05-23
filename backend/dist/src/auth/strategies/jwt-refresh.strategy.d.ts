@@ -10,10 +10,12 @@ export declare class JwtRefreshStrategy extends JwtRefreshStrategy_base {
     validate(req: Request, payload: ActiveUser): {
         refreshToken: string;
         sub: string;
-        email: string;
+        email?: string;
+        phone?: string;
         tenantId: string;
-        role: "admin" | "client";
+        role: "admin" | "client" | "guard";
         clientId?: string;
+        guardId?: string;
     };
 }
 export {};

@@ -7,11 +7,15 @@ export interface AiProposalDraftResponse {
 export declare class AiService {
     private configService;
     private readonly logger;
+    private readonly fallbackEnabled;
+    private readonly modelName;
     private genAI;
     private model;
     constructor(configService: ConfigService);
     private isAiAvailable;
     private getFallbackEnabled;
+    private getUnavailableMessage;
+    private generateText;
     generateProposalDraft(dto: GenerateProposalDto): Promise<AiProposalDraftResponse>;
     generateForLead(lead: Lead & {
         notes?: any[];

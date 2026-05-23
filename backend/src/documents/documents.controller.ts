@@ -5,6 +5,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Request } from 'express';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { CreateDocumentDto } from './dto/create-document.dto';
 
 @Controller('documents')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -13,7 +14,7 @@ export class DocumentsController {
 
   @Roles('admin')
   @Post()
-  create(@Req() req: Request, @Body() data: { name: string, url: string, description?: string, clientId: string }) {
+  create(@Req() req: Request, @Body() data: CreateDocumentDto) {
     const user = req.user as unknown as ActiveUser;
     return this.documentsService.create(user.tenantId, user.sub, data);
   }

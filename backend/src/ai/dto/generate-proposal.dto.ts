@@ -1,11 +1,14 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 
 export class GenerateProposalDto {
   @IsString()
   @IsNotEmpty()
   siteName: string;
 
-  @IsNumber()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   guardCount: number;
 
   @IsString()

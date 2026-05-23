@@ -1,10 +1,13 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { AuditService } from '../audit/audit.service';
+import { ProposalsService } from '../proposals/proposals.service';
+import { Response as ExpressResponse } from 'express';
 export declare class ClientPortalController {
     private prisma;
     private auditService;
-    constructor(prisma: PrismaService, auditService: AuditService);
+    private proposalsService;
+    constructor(prisma: PrismaService, auditService: AuditService, proposalsService: ProposalsService);
     private checkClient;
     getProposals(user: ActiveUser): Promise<{
         id: string;
@@ -38,6 +41,7 @@ export declare class ClientPortalController {
         dealId: string | null;
         leadId: string | null;
     }>;
+    exportProposal(user: ActiveUser, id: string, res: ExpressResponse): Promise<ExpressResponse<any, Record<string, any>>>;
     approveProposal(user: ActiveUser, id: string): Promise<{
         id: string;
         createdAt: Date;

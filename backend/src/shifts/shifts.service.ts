@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateShiftDto } from './dto/create-shift.dto';
 import { AuditService } from '../audit/audit.service';
@@ -55,28 +55,35 @@ export class ShiftsService {
   }
 
   async findAll(tenantId: string) {
-    return this.prisma.shift.findMany({
-      where: { tenantId },
-      include: {
-        site: {
-          select: {
-            name: true,
+    try {
+      return await this.prisma.shift.findMany({
+        where: { tenantId },
+        include: {
+          site: {
+            select: {
+              name: true,
+            },
           },
-        },
-        assignments: {
-          include: {
-            guard: {
-              select: {
-                name: true,
+          assignments: {
+            include: {
+              guard: {
+                select: {
+                  name: true,
+                },
               },
             },
           },
         },
-      },
-      orderBy: {
-        startTime: 'desc',
-      },
-    });
+        orderBy: {
+          startTime: 'desc',
+        },
+      });
+    } catch (error) {
+      console.error('Shifts findAll error:', error.message);
+      throw new InternalServerErrorException(
+        'Failed to fetch shifts. The database may be unavailable.',
+      );
+    }
   }
 
   async assign(userId: string, tenantId: string, shiftId: string, guardId: string) {

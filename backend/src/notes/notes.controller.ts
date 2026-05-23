@@ -10,11 +10,14 @@ import {
 } from '@nestjs/common';
 import { NotesService } from './notes.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 
 @Controller('notes')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
 export class NotesController {
   constructor(private readonly notesService: NotesService) {}
 

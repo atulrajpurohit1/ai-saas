@@ -39,7 +39,7 @@ __decorate([
 exports.AuditController = AuditController = __decorate([
     (0, common_1.Controller)('audit'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('ADMIN'),
+    (0, roles_decorator_1.Roles)('admin'),
     __metadata("design:paramtypes", [audit_service_1.AuditService])
 ], AuditController);
 //# sourceMappingURL=audit.controller.js.map

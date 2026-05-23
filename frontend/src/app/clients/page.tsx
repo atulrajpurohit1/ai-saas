@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import api from '@/lib/api';
-import { Plus, Search, User, Mail, Phone, Building, Edit2, MoreVertical, Folder, FileText, Download, Trash2, Loader2, X } from 'lucide-react';
+import { Plus, Search, User, Mail, Phone, Building, Edit2, Folder, FileText, Download, Trash2, Loader2, X } from 'lucide-react';
 
 interface Client {
   id: string;
@@ -13,6 +13,22 @@ interface Client {
   phone: string;
   createdAt: string;
   users: { email: string }[];
+}
+
+interface SharedDocument {
+  id: string;
+  name: string;
+  url: string;
+  description?: string;
+  createdAt: string;
+}
+
+interface ApiError {
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
 }
 
 export default function ClientsPage() {
@@ -30,10 +46,11 @@ export default function ClientsPage() {
   // Document management state
   const [showDocsModal, setShowDocsModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [documents, setDocuments] = useState<any[]>([]);
+  const [documents, setDocuments] = useState<SharedDocument[]>([]);
   const [docLoading, setDocLoading] = useState(false);
   const [newDoc, setNewDoc] = useState({ name: '', url: '', description: '' });
   const [isUploading, setIsUploading] = useState(false);
+  const [docError, setDocError] = useState('');
 
   const fetchClients = async () => {
     try {
@@ -50,9 +67,11 @@ export default function ClientsPage() {
     setDocLoading(true);
     try {
       const res = await api.get(`documents?clientId=${clientId}`);
-      setDocuments(res.data);
+      setDocuments(Array.isArray(res.data) ? res.data : []);
+      setDocError('');
     } catch (err) {
       console.error(err);
+      setDocError('Could not load shared documents.');
     } finally {
       setDocLoading(false);
     }
@@ -80,10 +99,10 @@ export default function ClientsPage() {
   };
 
   const handleCreateUser = async (client: Client) => {
-    if (!confirm(`Create portal login for ${client.email}? Default password will be 'client123'`)) return;
+    if (!confirm(`Create portal login for ${client.email}? A secure temporary password will be generated.`)) return;
     try {
-      await api.post(`clients/${client.id}/create-user`, { email: client.email });
-      alert('Client portal login created! Password is: client123');
+      const res = await api.post(`clients/${client.id}/create-user`, { email: client.email });
+      alert(`Client portal login created! Temporary password: ${res.data.temporaryPassword}`);
       fetchClients();
     } catch (err) {
       console.error(err);
@@ -95,12 +114,19 @@ export default function ClientsPage() {
     e.preventDefault();
     if (!selectedClient) return;
     setIsUploading(true);
+    setDocError('');
     try {
-      await api.post('documents', { ...newDoc, clientId: selectedClient.id });
+      await api.post('documents', {
+        name: newDoc.name.trim(),
+        url: newDoc.url.trim(),
+        description: newDoc.description.trim() || undefined,
+        clientId: selectedClient.id,
+      });
       setNewDoc({ name: '', url: '', description: '' });
       fetchDocuments(selectedClient.id);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
+      setDocError((err as ApiError).response?.data?.message || 'Could not share this document.');
     } finally {
       setIsUploading(false);
     }
@@ -111,8 +137,9 @@ export default function ClientsPage() {
     try {
       await api.delete(`documents/${docId}`);
       if (selectedClient) fetchDocuments(selectedClient.id);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
+      setDocError((err as ApiError).response?.data?.message || 'Could not remove this document.');
     }
   };
 
@@ -261,6 +288,10 @@ export default function ClientsPage() {
                 <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-4">Shared Documents</h4>
                 {docLoading ? (
                   <div className="py-20 text-center"><Loader2 className="animate-spin mx-auto text-indigo-500" /></div>
+                ) : docError ? (
+                  <div className="py-12 px-4 text-center text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-3xl">
+                    <p className="text-sm font-medium">{docError}</p>
+                  </div>
                 ) : documents.length === 0 ? (
                   <div className="py-20 text-center text-muted-foreground border-2 border-dashed border-white/5 rounded-3xl">
                     <FileText className="mx-auto mb-4 opacity-20" size={48} />
@@ -291,6 +322,11 @@ export default function ClientsPage() {
 
               <div className="p-8 bg-black/20">
                 <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-6">Share New Document</h4>
+                {docError && (
+                  <div className="mb-4 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+                    {docError}
+                  </div>
+                )}
                 <form onSubmit={handleShareDocument} className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Document Name</label>

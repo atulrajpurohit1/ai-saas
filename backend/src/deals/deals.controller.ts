@@ -13,10 +13,13 @@ import { DealsService } from './deals.service';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { UpdateDealStageDto } from './dto/update-deal-stage.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { Request } from 'express';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
 @Controller('deals')
 export class DealsController {
   constructor(private readonly dealsService: DealsService) {}

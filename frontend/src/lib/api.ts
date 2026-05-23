@@ -25,10 +25,14 @@ const api = axios.create({
 // Request interceptor to add JWT token
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
-    const isClientRoute = window.location.pathname.startsWith('/client');
-    const token = isClientRoute 
-      ? localStorage.getItem('client_token') || localStorage.getItem('token')
-      : localStorage.getItem('token');
+    const pathname = window.location.pathname;
+    const isClientRoute = pathname === '/client' || pathname.startsWith('/client/');
+    const isGuardRoute = pathname === '/guard' || pathname.startsWith('/guard/');
+    const token = isGuardRoute
+      ? localStorage.getItem('guard_token')
+      : isClientRoute
+        ? localStorage.getItem('client_token') || localStorage.getItem('token')
+        : localStorage.getItem('token');
       
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -42,10 +46,15 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (typeof window !== 'undefined') {
-      console.error('API Error:', {
+      const method = error.config?.method?.toUpperCase();
+      const baseUrl = error.config?.baseURL || '';
+      const url = error.config?.url || '';
+
+      console.warn('API request failed:', {
         message: error.message,
         code: error.code,
-        config: error.config,
+        method,
+        url: `${baseUrl}${url}`,
         response: error.response ? {
           status: error.response.status,
           data: error.response.data
@@ -55,8 +64,15 @@ api.interceptors.response.use(
     
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
-        const isClientRoute = window.location.pathname.startsWith('/client');
-        if (isClientRoute) {
+        const pathname = window.location.pathname;
+        const isClientRoute = pathname === '/client' || pathname.startsWith('/client/');
+        const isGuardRoute = pathname === '/guard' || pathname.startsWith('/guard/');
+        if (isGuardRoute) {
+          if (!window.location.pathname.includes('/guard/login')) {
+            localStorage.removeItem('guard_token');
+            window.location.href = '/guard/login';
+          }
+        } else if (isClientRoute) {
           if (!window.location.pathname.includes('/client/login')) {
             localStorage.removeItem('client_token');
             window.location.href = '/client/login';

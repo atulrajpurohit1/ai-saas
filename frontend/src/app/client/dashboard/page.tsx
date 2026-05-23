@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import ClientLayout from '@/components/ClientLayout';
 import Link from 'next/link';
 import api from '@/lib/api';
-import { FileText, Clock, CheckCircle, XCircle, ArrowRight, Sparkles, Building } from 'lucide-react';
+import { FileText, Clock, CheckCircle, XCircle, ArrowRight, Sparkles, AlertTriangle } from 'lucide-react';
 
 interface Proposal {
   id: string;
@@ -16,14 +16,17 @@ interface Proposal {
 export default function ClientDashboard() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchProposals = async () => {
       try {
         const res = await api.get('client-portal/proposals');
-        setProposals(res.data);
+        setProposals(Array.isArray(res.data) ? res.data : []);
+        setError('');
       } catch (err) {
         console.error('Failed to fetch proposals', err);
+        setError('Could not load your proposals. Please refresh or sign in again.');
       } finally {
         setLoading(false);
       }
@@ -53,6 +56,11 @@ export default function ClientDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
           <div className="col-span-full py-20 text-center text-slate-500 italic">Syncing with portal...</div>
+        ) : error ? (
+          <div className="col-span-full py-10 px-6 rounded-[2rem] border border-rose-500/20 bg-rose-500/10 text-rose-300 flex items-center gap-3">
+            <AlertTriangle size={20} />
+            <span className="text-sm font-medium">{error}</span>
+          </div>
         ) : proposals.length === 0 ? (
           <div className="col-span-full py-20 text-center glass-card rounded-[2rem] border-dashed border-white/5">
             <p className="text-slate-400">No proposals available at the moment.</p>

@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FileText, LogOut, LayoutDashboard, User, Folder, Shield } from 'lucide-react';
+import { LogOut, LayoutDashboard, User, Folder, Shield } from 'lucide-react';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();

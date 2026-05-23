@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { CreateDocumentDto } from './dto/create-document.dto';
 
 @Injectable()
 export class DocumentsService {
@@ -9,10 +10,30 @@ export class DocumentsService {
     private auditService: AuditService,
   ) {}
 
-  async create(tenantId: string, uploadedBy: string, data: { name: string, url: string, description?: string, clientId: string }) {
+  async create(tenantId: string, uploadedBy: string, data: CreateDocumentDto) {
+    const name = data.name?.trim();
+    const url = data.url?.trim();
+    const description = data.description?.trim() || undefined;
+    const clientId = data.clientId?.trim();
+
+    if (!name || !url || !clientId) {
+      throw new BadRequestException('Document name, URL, and client are required');
+    }
+
+    const client = await this.prisma.client.findFirst({
+      where: { id: clientId, tenantId },
+    });
+
+    if (!client) {
+      throw new NotFoundException('Client not found in this tenant');
+    }
+
     const document = await this.prisma.sharedDocument.create({
       data: {
-        ...data,
+        name,
+        url,
+        description,
+        clientId,
         tenantId,
         uploadedBy,
       },
@@ -24,7 +45,7 @@ export class DocumentsService {
       action: 'DOCUMENT_SHARED',
       entityType: 'Document',
       entityId: document.id,
-      details: `Document "${data.name}" shared with client`,
+      details: `Document "${name}" shared with ${client.name}`,
     });
 
     return document;

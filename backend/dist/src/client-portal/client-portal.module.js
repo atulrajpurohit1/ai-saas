@@ -11,12 +11,13 @@ const common_1 = require("@nestjs/common");
 const client_portal_controller_1 = require("./client-portal.controller");
 const prisma_module_1 = require("../prisma/prisma.module");
 const audit_module_1 = require("../audit/audit.module");
+const proposals_module_1 = require("../proposals/proposals.module");
 let ClientPortalModule = class ClientPortalModule {
 };
 exports.ClientPortalModule = ClientPortalModule;
 exports.ClientPortalModule = ClientPortalModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule],
+        imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule, proposals_module_1.ProposalsModule],
         controllers: [client_portal_controller_1.ClientPortalController],
     })
 ], ClientPortalModule);

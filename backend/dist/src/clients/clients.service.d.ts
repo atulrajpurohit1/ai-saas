@@ -21,11 +21,22 @@ export declare class ClientsService {
         name: string;
         createdAt: Date;
         updatedAt: Date;
+        users: {
+            id: string;
+            createdAt: Date;
+            email: string;
+        }[];
         email: string;
         companyName: string | null;
         phone: string | null;
     }[]>;
     findOne(tenantId: string, id: string): Promise<{
+        users: {
+            id: string;
+            createdAt: Date;
+            email: string;
+        }[];
+    } & {
         id: string;
         name: string;
         createdAt: Date;
@@ -47,12 +58,8 @@ export declare class ClientsService {
     }>;
     createClientUser(tenantId: string, clientId: string, email: string): Promise<{
         id: string;
-        createdAt: Date;
-        updatedAt: Date;
         email: string;
-        password: string;
-        refreshToken: string | null;
-        tenantId: string;
         clientId: string;
+        temporaryPassword: string;
     }>;
 }

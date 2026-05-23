@@ -18,13 +18,13 @@ export class EmailService {
   }
 
   async sendProposalEmail(tenantId: string, leadId: string) {
-    const lead: any = await this.prisma.lead.findFirst({
+    const lead = await this.prisma.lead.findFirst({
       where: { id: leadId, tenantId },
       include: {
         proposals: {
           orderBy: { createdAt: 'desc' }
         },
-      } as any,
+      },
     });
 
     if (!lead) {
@@ -64,7 +64,7 @@ export class EmailService {
     });
 
     // Update proposal status to 'sent'
-    await (this.prisma as any).proposal.update({
+    await this.prisma.proposal.update({
       where: { id: proposal.id },
       data: { status: 'sent' }
     });
@@ -77,28 +77,15 @@ export class EmailService {
   }
 
   async sendBulkProposalEmails(tenantId: string) {
-    const leads: any[] = await this.prisma.lead.findMany({
-      where: { 
-        tenantId,
-        email: { not: null } as any,
-        proposals: { some: {} } as any
-      } as any,
-      include: { 
-        proposals: {
-          orderBy: { createdAt: 'desc' }
-        } 
-      } as any
-    });
-
     let sentCount = 0;
     let skippedMissingEmail = 0;
     let skippedMissingProposal = 0;
     const results: any[] = [];
 
     // Fetch all leads for the tenant to diagnose
-    const allLeads: any[] = await this.prisma.lead.findMany({
+    const allLeads = await this.prisma.lead.findMany({
       where: { tenantId },
-      include: { proposals: true } as any
+      include: { proposals: true }
     });
 
     for (const lead of allLeads) {
@@ -129,7 +116,7 @@ export class EmailService {
           `,
         });
         
-        await (this.prisma as any).proposal.update({
+        await this.prisma.proposal.update({
           where: { id: proposal.id },
           data: { status: 'sent' }
         });

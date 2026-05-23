@@ -8,150 +8,154 @@ export declare class ProposalsService {
     private aiService;
     private auditService;
     constructor(prisma: PrismaService, aiService: AiService, auditService: AuditService);
+    private ensureLeadBelongsToTenant;
+    private ensureDealBelongsToTenant;
+    private ensureClientBelongsToTenant;
+    private buildPdfBuffer;
     create(tenantId: string, createProposalDto: CreateProposalDto, userId?: string): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
+        tenantId: string;
+        clientId: string | null;
         content: string;
+        title: string;
+        status: string;
         dealId: string | null;
         leadId: string | null;
-        clientId: string | null;
     }>;
     findAll(tenantId: string): Promise<({
-        lead: {
-            name: string;
-            id: string;
-            company: string;
-            status: string;
-            tenantId: string;
-            createdAt: Date;
-            updatedAt: Date;
-            email: string | null;
-        } | null;
         _count: {
             versions: number;
         };
-        deal: {
-            name: string;
-            id: string;
-            tenantId: string;
-            createdAt: Date;
-            updatedAt: Date;
-            leadId: string;
-            clientId: string | null;
-            stage: string;
-        } | null;
         client: {
-            name: string;
             id: string;
-            tenantId: string;
+            name: string;
             createdAt: Date;
             updatedAt: Date;
             email: string;
+            tenantId: string;
             companyName: string | null;
             phone: string | null;
         } | null;
-    } & {
-        id: string;
-        status: string;
-        tenantId: string;
-        createdAt: Date;
-        updatedAt: Date;
-        title: string;
-        content: string;
-        dealId: string | null;
-        leadId: string | null;
-        clientId: string | null;
-    })[]>;
-    findOne(tenantId: string, id: string): Promise<{
         lead: {
-            name: string;
             id: string;
-            company: string;
-            status: string;
-            tenantId: string;
+            name: string;
             createdAt: Date;
             updatedAt: Date;
             email: string | null;
+            tenantId: string;
+            status: string;
+            company: string;
         } | null;
         deal: {
-            name: string;
             id: string;
-            tenantId: string;
+            name: string;
             createdAt: Date;
             updatedAt: Date;
-            leadId: string;
+            tenantId: string;
             clientId: string | null;
+            leadId: string;
+            stage: string;
+        } | null;
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        clientId: string | null;
+        content: string;
+        title: string;
+        status: string;
+        dealId: string | null;
+        leadId: string | null;
+    })[]>;
+    findOne(tenantId: string, id: string, clientId?: string): Promise<{
+        client: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            email: string;
+            tenantId: string;
+            companyName: string | null;
+            phone: string | null;
+        } | null;
+        lead: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            email: string | null;
+            tenantId: string;
+            status: string;
+            company: string;
+        } | null;
+        deal: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            clientId: string | null;
+            leadId: string;
             stage: string;
         } | null;
         versions: {
             id: string;
             createdAt: Date;
             content: string;
-            versionNumber: number;
             proposalId: string;
+            versionNumber: number;
         }[];
-        client: {
-            name: string;
-            id: string;
-            tenantId: string;
-            createdAt: Date;
-            updatedAt: Date;
-            email: string;
-            companyName: string | null;
-            phone: string | null;
-        } | null;
     } & {
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
+        tenantId: string;
+        clientId: string | null;
         content: string;
+        title: string;
+        status: string;
         dealId: string | null;
         leadId: string | null;
-        clientId: string | null;
     }>;
     update(tenantId: string, id: string, updateProposalDto: UpdateProposalDto, userId?: string): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
+        tenantId: string;
+        clientId: string | null;
         content: string;
+        title: string;
+        status: string;
         dealId: string | null;
         leadId: string | null;
-        clientId: string | null;
     }>;
     duplicate(tenantId: string, id: string, userId?: string): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
+        tenantId: string;
+        clientId: string | null;
         content: string;
+        title: string;
+        status: string;
         dealId: string | null;
         leadId: string | null;
-        clientId: string | null;
     }>;
-    export(tenantId: string, id: string, userId?: string): Promise<Buffer>;
+    export(tenantId: string, id: string, userId?: string, clientId?: string): Promise<Buffer>;
     generateForLead(tenantId: string, leadId: string, userId?: string, clientId?: string): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
+        tenantId: string;
+        clientId: string | null;
         content: string;
+        title: string;
+        status: string;
         dealId: string | null;
         leadId: string | null;
-        clientId: string | null;
     }>;
     generateBulkProposals(tenantId: string, userId?: string): Promise<{
         generatedCount: number;
@@ -159,20 +163,20 @@ export declare class ProposalsService {
     }>;
     getComments(tenantId: string, id: string): Promise<{
         id: string;
-        tenantId: string;
         createdAt: Date;
-        userId: string | null;
+        tenantId: string;
         content: string;
         proposalId: string;
+        userId: string | null;
         clientUserId: string | null;
     }[]>;
     addComment(tenantId: string, id: string, userId: string, content: string): Promise<{
         id: string;
-        tenantId: string;
         createdAt: Date;
-        userId: string | null;
+        tenantId: string;
         content: string;
         proposalId: string;
+        userId: string | null;
         clientUserId: string | null;
     }>;
     logAction(tenantId: string, userId: string, entityId: string, action: string, details?: string): Promise<void>;

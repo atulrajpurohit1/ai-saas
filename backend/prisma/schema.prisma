@@ -183,6 +183,8 @@ model Guard {
   id          String       @id @default(uuid())
   name        String
   phone       String?
+  email       String?
+  passwordHash String?    @map("password_hash")
   tenantId    String
   tenant      Tenant       @relation(fields: [tenantId], references: [id])
   assignments Assignment[]
@@ -190,6 +192,8 @@ model Guard {
   createdAt   DateTime     @default(now())
 
   @@index([tenantId])
+  @@index([email])
+  @@index([phone])
 }
 
 model Shift {
