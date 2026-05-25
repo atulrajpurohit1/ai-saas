@@ -23,6 +23,9 @@ interface Shift {
   endTime: string;
   requiredGuards: number;
   status: string;
+  attendanceStatus?: 'not_started' | 'checked_in' | 'completed';
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
   createdAt: string;
   assignments: {
     id: string;
@@ -135,16 +138,28 @@ export default function ShiftsPage() {
     });
   };
 
+  const formatAttendanceStatus = (status?: Shift['attendanceStatus']) => {
+    if (status === 'checked_in') return 'Checked in';
+    if (status === 'completed') return 'Completed';
+    return 'Not started';
+  };
+
+  const attendanceBadgeClass = (status?: Shift['attendanceStatus']) => {
+    if (status === 'checked_in') return 'bg-sky-500/10 text-sky-400 border-sky-500/20';
+    if (status === 'completed') return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+    return 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+  };
+
   return (
     <DashboardLayout>
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
-          <h2 className="text-3xl font-bold">Shift Management</h2>
+          <h2 className="text-2xl font-bold sm:text-3xl">Shift Management</h2>
           <p className="text-muted-foreground">Schedule and manage guard presence at client sites.</p>
         </div>
         <button 
           onClick={() => setShowModal(true)}
-          className="bg-primary hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-indigo-500 sm:w-auto"
         >
           <Plus size={20} />
           <span>Create Shift</span>
@@ -152,8 +167,8 @@ export default function ShiftsPage() {
       </div>
 
       <div className="glass-card rounded-3xl overflow-hidden border border-white/5">
-        <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/5">
-          <div className="relative w-full max-w-sm">
+        <div className="border-b border-white/5 bg-white/5 p-4 sm:p-6">
+          <div className="relative w-full sm:max-w-sm">
             <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
             <input 
               type="text" 
@@ -164,7 +179,7 @@ export default function ShiftsPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="responsive-table w-full text-left">
             <thead>
               <tr className="text-muted-foreground text-sm uppercase tracking-wider">
                 <th className="px-6 py-4 font-semibold">Site</th>
@@ -173,17 +188,18 @@ export default function ShiftsPage() {
                 <th className="px-6 py-4 font-semibold">Guards</th>
                 <th className="px-6 py-4 font-semibold">Assigned Guard</th>
                 <th className="px-6 py-4 font-semibold">Status</th>
+                <th className="px-6 py-4 font-semibold">Attendance</th>
                 <th className="px-6 py-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {loading ? (
-                <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">Loading shifts...</td></tr>
+                <tr><td colSpan={8} className="px-6 py-10 text-center text-muted-foreground">Loading shifts...</td></tr>
               ) : shifts.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">No shifts scheduled yet.</td></tr>
+                <tr><td colSpan={8} className="px-6 py-10 text-center text-muted-foreground">No shifts scheduled yet.</td></tr>
               ) : shifts.map((shift) => (
                 <tr key={shift.id} className="hover:bg-white/5 transition-colors group">
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4" data-label="Site">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
                         <MapPin size={18} />
@@ -191,37 +207,50 @@ export default function ShiftsPage() {
                       <span className="font-semibold">{shift.site?.name || 'N/A'}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4" data-label="Start">
                     <div className="flex items-center gap-2 text-muted-foreground text-sm">
                       <Calendar size={14} className="text-indigo-400" />
                       <span>{formatDateTime(shift.startTime)}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4" data-label="End">
                     <div className="flex items-center gap-2 text-muted-foreground text-sm">
                       <Clock size={14} className="text-indigo-400" />
                       <span>{formatDateTime(shift.endTime)}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4" data-label="Guards">
                     <div className="flex items-center gap-2">
                        <Users size={16} className="text-muted-foreground" />
                        <span className="font-medium">{shift.requiredGuards}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4" data-label="Assigned">
                     <span className={`font-medium ${shift.assignments && shift.assignments.length > 0 ? 'text-indigo-300' : 'text-muted-foreground'}`}>
                       {shift.assignments && shift.assignments.length > 0 
                         ? shift.assignments[0].guard.name 
                         : 'Unassigned'}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4" data-label="Status">
                     <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${shift.status === 'assigned' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
                       {shift.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-6 py-4" data-label="Attendance">
+                    <div className="space-y-1.5">
+                      <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${attendanceBadgeClass(shift.attendanceStatus)}`}>
+                        {formatAttendanceStatus(shift.attendanceStatus)}
+                      </span>
+                      <div className="text-xs text-muted-foreground">
+                        In: {shift.checkInTime ? formatDateTime(shift.checkInTime) : 'Not recorded'}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Out: {shift.checkOutTime ? formatDateTime(shift.checkOutTime) : 'Not recorded'}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-right" data-label="Actions">
                     {shift.assignments && shift.assignments.length > 0 ? (
                        <button 
                          onClick={() => handleUnassign(shift.id)}
@@ -247,7 +276,7 @@ export default function ShiftsPage() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="glass-card w-full max-w-lg rounded-3xl p-8 border-white/10 shadow-3xl animate-in zoom-in-95 duration-200">
+          <div className="glass-card max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-3xl border-white/10 p-5 shadow-3xl animate-in zoom-in-95 duration-200 sm:p-8">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold">Create New Shift</h3>
               <button onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-white transition-colors">
@@ -271,7 +300,7 @@ export default function ShiftsPage() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-muted-foreground">Start Time</label>
                   <input 
@@ -309,7 +338,7 @@ export default function ShiftsPage() {
                 />
               </div>
 
-              <div className="flex gap-4 mt-10">
+              <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:gap-4">
                 <button 
                   type="button"
                   onClick={() => setShowModal(false)}
@@ -331,7 +360,7 @@ export default function ShiftsPage() {
 
       {showAssignModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="glass-card w-full max-w-lg rounded-3xl p-8 border-white/10 shadow-3xl animate-in zoom-in-95 duration-200">
+          <div className="glass-card max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-3xl border-white/10 p-5 shadow-3xl animate-in zoom-in-95 duration-200 sm:p-8">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold">Assign Guard to Shift</h3>
               <button 
@@ -358,7 +387,7 @@ export default function ShiftsPage() {
                 </select>
               </div>
 
-              <div className="flex gap-4 mt-10">
+              <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:gap-4">
                 <button 
                   type="button"
                   onClick={() => { setShowAssignModal(false); setSelectedGuard(''); setSelectedShift(null); }}

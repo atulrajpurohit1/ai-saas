@@ -22,6 +22,36 @@ body {
   font-family: 'Inter', sans-serif;
 }
 
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  min-width: 0;
+}
+
+button,
+a {
+  touch-action: manipulation;
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+}
+
 .glass-card {
   background: rgba(30, 41, 59, 0.7);
   backdrop-filter: blur(12px);
@@ -33,4 +63,68 @@ body {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+@media (max-width: 767px) {
+  .responsive-table {
+    border-collapse: separate;
+    border-spacing: 0 0.75rem;
+    min-width: 0;
+  }
+
+  .responsive-table thead {
+    display: none;
+  }
+
+  .responsive-table tbody,
+  .responsive-table tr,
+  .responsive-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .responsive-table tbody {
+    padding: 0.75rem;
+  }
+
+  .responsive-table tr {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 1.25rem;
+    background: rgba(255, 255, 255, 0.035);
+    overflow: hidden;
+  }
+
+  .responsive-table tr + tr {
+    margin-top: 0.75rem;
+  }
+
+  .responsive-table td {
+    border: 0;
+    padding: 0.75rem 1rem;
+  }
+
+  .responsive-table td[data-label] {
+    display: grid;
+    grid-template-columns: minmax(6.5rem, 38%) minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  .responsive-table td[data-label]::before {
+    content: attr(data-label);
+    color: var(--muted-foreground);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .responsive-table td[data-label="Actions"] {
+    display: block;
+  }
+
+  .responsive-table td[data-label="Actions"]::before {
+    display: block;
+    margin-bottom: 0.5rem;
+  }
 }

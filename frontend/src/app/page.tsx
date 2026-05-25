@@ -58,7 +58,7 @@ export default function DashboardPage() {
   return (
     <DashboardLayout>
       <div className="mb-8">
-        <h2 className="text-3xl font-bold mb-2">Welcome back, <span className="gradient-text">{user?.name}</span></h2>
+        <h2 className="mb-2 text-2xl font-bold sm:text-3xl">Welcome back, <span className="gradient-text">{user?.name}</span></h2>
         <p className="text-muted-foreground">Here&apos;s what&apos;s happening in your company today.</p>
       </div>
 
@@ -68,11 +68,11 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+      <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
         {statCards.map((stat) => {
           const Icon = stat.icon;
           return (
-            <div key={stat.label} className="glass-card p-6 rounded-3xl group hover:border-primary/50 transition-all cursor-default">
+            <div key={stat.label} className="glass-card group cursor-default rounded-3xl p-5 transition-all hover:border-primary/50 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className={`p-3 rounded-2xl bg-${stat.color}-500/10 text-${stat.color}-400 group-hover:scale-110 transition-transform`}>
                   <Icon size={24} />
@@ -83,15 +83,15 @@ export default function DashboardPage() {
                 </div>
               </div>
               <p className="text-muted-foreground font-medium mb-1">{stat.label}</p>
-              <h3 className="text-4xl font-bold">{stat.value}</h3>
+              <h3 className="text-3xl font-bold sm:text-4xl">{stat.value}</h3>
             </div>
           );
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="glass-card rounded-3xl p-6">
-          <div className="flex items-center justify-between mb-6">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-8">
+        <div className="glass-card rounded-3xl p-5 sm:p-6">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-xl font-bold flex items-center gap-2">
               <Clock className="text-indigo-400" size={20} />
               Recent Activity
@@ -115,7 +115,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="glass-card rounded-3xl p-6 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex flex-col justify-between">
+        <div className="glass-card flex flex-col justify-between rounded-3xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 p-5 sm:p-6">
           <div>
             <h3 className="text-xl font-bold mb-4">AI Service Insight</h3>
             <p className="text-muted-foreground leading-relaxed">

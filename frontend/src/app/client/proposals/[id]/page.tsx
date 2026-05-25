@@ -162,25 +162,25 @@ export default function ClientProposalView() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3 lg:gap-8">
         {/* Main Content */}
-        <div className="lg:col-span-2 space-y-8">
-          <div className="glass-card bg-[#0a0a14]/60 border border-white/5 rounded-[2.5rem] p-10 overflow-hidden relative">
+        <div className="space-y-6 lg:col-span-2 lg:space-y-8">
+          <div className="glass-card relative overflow-hidden rounded-[2rem] border border-white/5 bg-[#0a0a14]/60 p-5 sm:p-8 lg:rounded-[2.5rem] lg:p-10">
             <div className="absolute top-0 right-0 p-8 opacity-5">
               <FileText size={160} />
             </div>
             
-            <h1 className="text-3xl font-extrabold text-white mb-6 relative z-10">{proposal.title}</h1>
+            <h1 className="relative z-10 mb-6 break-words text-2xl font-extrabold text-white sm:text-3xl">{proposal.title}</h1>
             
             <div className="prose prose-invert max-w-none relative z-10">
-              <div className="bg-white/5 p-8 rounded-3xl border border-white/5 text-slate-300 leading-relaxed whitespace-pre-wrap font-serif text-lg">
+              <div className="whitespace-pre-wrap rounded-3xl border border-white/5 bg-white/5 p-4 font-serif text-base leading-relaxed text-slate-300 sm:p-8 sm:text-lg">
                 {proposal.content}
               </div>
             </div>
           </div>
 
           {/* Comments Section */}
-          <div className="glass-card bg-[#0a0a14]/40 border border-white/5 rounded-3xl p-8">
+          <div className="glass-card rounded-3xl border border-white/5 bg-[#0a0a14]/40 p-5 sm:p-8">
             <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
               <MessageSquare className="text-indigo-400" size={20} />
               Comments
@@ -196,11 +196,11 @@ export default function ClientProposalView() {
                   key={comment.id} 
                   className={`p-4 rounded-2xl border ${
                     comment.clientUserId 
-                      ? 'bg-indigo-500/10 border-indigo-500/20 ml-8' 
-                      : 'bg-white/5 border-white/10 mr-8'
+                      ? 'bg-indigo-500/10 border-indigo-500/20 sm:ml-8'
+                      : 'bg-white/5 border-white/10 sm:mr-8'
                   }`}
                 >
-                  <div className="flex justify-between items-center mb-2">
+                  <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">
                       {comment.clientUserId ? 'You' : 'Account Manager'}
                     </span>
@@ -235,7 +235,7 @@ export default function ClientProposalView() {
 
         {/* Sidebar Info */}
         <div className="space-y-6">
-          <div className="glass-card bg-[#0a0a14]/60 border border-white/5 rounded-3xl p-8 sticky top-8">
+          <div className="glass-card rounded-3xl border border-white/5 bg-[#0a0a14]/60 p-5 sm:p-8 lg:sticky lg:top-8">
             <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
               <ShieldCheck className="text-indigo-400" size={20} />
               Proposal Status

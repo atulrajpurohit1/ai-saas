@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import api from '@/lib/api';
 import { Plus, Search, DollarSign, Target, Briefcase } from 'lucide-react';
@@ -87,12 +88,12 @@ export default function DealsPage() {
     <DashboardLayout>
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
-          <h2 className="text-3xl font-bold">Sales Pipeline</h2>
+          <h2 className="text-2xl font-bold sm:text-3xl">Sales Pipeline</h2>
           <p className="text-muted-foreground">Track your active deals and conversion progress.</p>
         </div>
         <button 
           onClick={() => setShowModal(true)}
-          className="bg-primary hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-indigo-500 sm:w-auto"
         >
           <Plus size={20} />
           <span>New Deal</span>
@@ -100,8 +101,8 @@ export default function DealsPage() {
       </div>
 
       <div className="glass-card rounded-3xl overflow-hidden">
-        <div className="p-6 border-b border-white/5 bg-white/5 flex items-center gap-4">
-          <div className="relative flex-1 max-w-sm">
+        <div className="border-b border-white/5 bg-white/5 p-4 sm:p-6">
+          <div className="relative w-full sm:max-w-sm">
             <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
             <input 
               type="text" 
@@ -111,7 +112,7 @@ export default function DealsPage() {
           </div>
         </div>
 
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-4 p-4 sm:p-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
           {loading ? (
             <div className="col-span-full py-20 text-center text-muted-foreground italic">Syncing with pipeline...</div>
           ) : deals.length === 0 ? (
@@ -126,7 +127,9 @@ export default function DealsPage() {
                   {deal.stage}
                 </span>
               </div>
-              <h4 className="text-xl font-bold mb-1 truncate">{deal.name}</h4>
+              <Link href={`/deals/${deal.id}`} className="block text-xl font-bold mb-1 truncate transition hover:text-indigo-300">
+                {deal.name}
+              </Link>
               <p className="text-sm text-muted-foreground mb-4 flex items-center gap-1">
                 <Target size={14} />
                 {deal.lead.company}
@@ -142,9 +145,9 @@ export default function DealsPage() {
                   <DollarSign size={16} />
                   <span>Proposed</span>
                 </div>
-                <button className="text-xs font-bold text-muted-foreground hover:text-white transition-colors">
-                  EDIT DETAILS
-                </button>
+                <Link href={`/deals/${deal.id}`} className="text-xs font-bold text-muted-foreground hover:text-white transition-colors">
+                  VIEW DETAILS
+                </Link>
               </div>
             </div>
           ))}
@@ -153,7 +156,7 @@ export default function DealsPage() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="glass-card w-full max-w-md rounded-3xl p-8 border-white/10 shadow-3xl">
+          <div className="glass-card max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl border-white/10 p-5 shadow-3xl sm:p-8">
             <h3 className="text-2xl font-bold mb-6">Start a New Deal</h3>
             <form onSubmit={handleAddDeal} className="space-y-4">
               <div className="space-y-1">
@@ -196,7 +199,7 @@ export default function DealsPage() {
                   ))}
                 </select>
               </div>
-              <div className="flex gap-4 mt-8">
+              <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:gap-4">
                 <button 
                   type="button"
                   onClick={() => setShowModal(false)}

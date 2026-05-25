@@ -87,14 +87,14 @@ export default function GuardDashboardPage() {
         </div>
       ) : (
         <div className="space-y-8">
-          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8">
+          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-8">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-emerald-300">
                   <ShieldCheck size={16} />
                   Field operations
                 </div>
-                <h1 className="text-3xl font-extrabold text-white">Welcome, {profile?.name || 'Guard'}</h1>
+                <h1 className="text-2xl font-extrabold text-white sm:text-3xl">Welcome, {profile?.name || 'Guard'}</h1>
                 <p className="mt-2 text-sm text-slate-400">Review your assigned shifts before reporting to site.</p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
@@ -105,7 +105,7 @@ export default function GuardDashboardPage() {
           </section>
 
           <section>
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="flex items-center gap-2 text-xl font-bold text-white">
                 <CalendarDays className="text-emerald-300" size={20} />
                 Today
@@ -143,7 +143,7 @@ export default function GuardDashboardPage() {
             ) : (
               <div className="space-y-3">
                 {upcomingShifts.map((shift) => (
-                  <Link key={shift.id} href={`/guard/shifts/${shift.id}`} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-emerald-400/40">
+                  <Link key={shift.id} href={`/guard/shifts/${shift.id}`} className="flex min-h-16 items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-emerald-400/40">
                     <div>
                       <div className="font-bold text-white">{shift.siteName}</div>
                       <div className="mt-1 text-sm text-slate-400">{formatTime(shift.startTime)}</div>

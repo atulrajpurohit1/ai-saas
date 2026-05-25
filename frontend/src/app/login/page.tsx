@@ -69,18 +69,18 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#05050a] p-4 relative overflow-hidden">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#05050a] px-4 py-8">
        {/* Background decoration */}
        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full"></div>
        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full"></div>
 
-      <div className="w-full max-w-md relative z-10">
-        <div className="text-center mb-10">
-          <h1 className="text-5xl font-black text-white tracking-tighter mb-2 italic">Ai Saas</h1>
+      <div className="relative z-10 w-full max-w-md">
+        <div className="mb-8 text-center sm:mb-10">
+          <h1 className="mb-2 text-4xl font-black italic tracking-tighter text-white sm:text-5xl">Ai Saas</h1>
           <p className="text-slate-500 font-medium tracking-wide">Next Generation Security CRM</p>
         </div>
 
-        <div className="glass-card rounded-[2.5rem] p-10 shadow-2xl border-white/5 bg-[#0a0a14]/80 backdrop-blur-xl">
+        <div className="glass-card rounded-[2rem] border-white/5 bg-[#0a0a14]/80 p-5 shadow-2xl backdrop-blur-xl sm:rounded-[2.5rem] sm:p-10">
           
           {/* Role Switcher */}
           <div className="flex bg-white/5 p-1 rounded-2xl mb-8 border border-white/5">
@@ -100,7 +100,7 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <h2 className="text-3xl font-extrabold text-white mb-2">{isRegister ? 'Create Account' : 'Welcome Back'}</h2>
+          <h2 className="mb-2 text-2xl font-extrabold text-white sm:text-3xl">{isRegister ? 'Create Account' : 'Welcome Back'}</h2>
           <p className="text-slate-500 text-sm mb-8">
             {isRegister 
               ? `Signing up as a ${role === 'admin' ? 'Company Administrator' : 'Client'}` 

@@ -20,6 +20,9 @@ export declare class GuardPortalController {
         endTime: Date;
         status: string;
         assignmentStatus: string;
+        attendanceStatus: "not_started" | "checked_in" | "completed";
+        checkInTime: Date | null;
+        checkOutTime: Date | null;
     }[]>;
     shiftDetail(user: ActiveUser, id: string): Promise<{
         id: string;
@@ -28,6 +31,9 @@ export declare class GuardPortalController {
         endTime: Date;
         status: string;
         assignmentStatus: string;
+        attendanceStatus: "not_started" | "checked_in" | "completed";
+        checkInTime: Date | null;
+        checkOutTime: Date | null;
         site: {
             id: string;
             name: string;
@@ -40,5 +46,19 @@ export declare class GuardPortalController {
             phone: string | null;
             email: string | null;
         };
+    }>;
+    checkIn(user: ActiveUser, id: string): Promise<{
+        message: string;
+        shiftStatus: string;
+        attendanceStatus: string;
+        checkInTime: Date;
+        checkOutTime: null;
+    }>;
+    checkOut(user: ActiveUser, id: string): Promise<{
+        message: string;
+        shiftStatus: string;
+        attendanceStatus: string;
+        checkInTime: Date;
+        checkOutTime: Date;
     }>;
 }

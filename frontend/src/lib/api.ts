@@ -11,10 +11,6 @@ const getBaseUrl = () => {
   const cleanUrl = apiUrl.split('/api')[0].replace(/\/+$/, '');
   const finalUrl = `${cleanUrl}/api/`;
   
-  if (typeof window !== 'undefined') {
-    console.log('API Base URL:', finalUrl);
-  }
-  
   return finalUrl;
 };
 
@@ -45,23 +41,6 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (typeof window !== 'undefined') {
-      const method = error.config?.method?.toUpperCase();
-      const baseUrl = error.config?.baseURL || '';
-      const url = error.config?.url || '';
-
-      console.warn('API request failed:', {
-        message: error.message,
-        code: error.code,
-        method,
-        url: `${baseUrl}${url}`,
-        response: error.response ? {
-          status: error.response.status,
-          data: error.response.data
-        } : 'No response'
-      });
-    }
-    
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
         const pathname = window.location.pathname;

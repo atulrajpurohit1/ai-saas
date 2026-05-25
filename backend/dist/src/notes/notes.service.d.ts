@@ -1,9 +1,12 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+type NoteEntityType = 'lead' | 'deal';
 export declare class NotesService {
     private prisma;
     private auditService;
     constructor(prisma: PrismaService, auditService: AuditService);
+    private attachCreatedBy;
+    private ensureEntityExists;
     create(data: {
         content: string;
         leadId?: string;
@@ -11,22 +14,33 @@ export declare class NotesService {
         tenantId: string;
         userId?: string;
     }): Promise<{
+        createdBy: {
+            id: string;
+            name: string | null;
+            email: string;
+        } | null;
         id: string;
-        createdAt: Date;
-        tenantId: string;
         content: string;
-        dealId: string | null;
         leadId: string | null;
+        dealId: string | null;
+        tenantId: string;
+        createdAt: Date;
     }>;
-    findByEntity(entityId: string, type: 'lead' | 'deal', tenantId: string): Promise<{
+    findByEntity(entityId: string, type: NoteEntityType, tenantId: string): Promise<{
+        createdBy: {
+            id: string;
+            name: string | null;
+            email: string;
+        } | null;
         id: string;
-        createdAt: Date;
-        tenantId: string;
         content: string;
-        dealId: string | null;
         leadId: string | null;
+        dealId: string | null;
+        tenantId: string;
+        createdAt: Date;
     }[]>;
     remove(id: string, tenantId: string, userId?: string): Promise<{
         success: boolean;
     }>;
 }
+export {};

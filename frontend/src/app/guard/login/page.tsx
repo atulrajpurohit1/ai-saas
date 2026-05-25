@@ -42,17 +42,17 @@ export default function GuardLoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#071013] px-4 py-10 text-slate-100">
+    <div className="flex min-h-screen items-center justify-center bg-[#071013] px-4 py-8 text-slate-100">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-xl shadow-emerald-500/20">
             <ShieldCheck size={34} />
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-white">Guard Login</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Guard Login</h1>
           <p className="mt-2 text-sm text-slate-400">Access assigned field shifts.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl sm:p-8">
+        <form onSubmit={handleSubmit} className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl sm:p-8">
           <div className="space-y-5">
             <div>
               <label className="mb-2 block text-sm font-semibold text-slate-300">Phone or email</label>

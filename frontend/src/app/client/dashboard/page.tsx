@@ -44,13 +44,13 @@ export default function ClientDashboard() {
 
   return (
     <ClientLayout>
-      <div className="mb-10">
+      <div className="mb-8 sm:mb-10">
         <div className="flex items-center gap-3 mb-2">
           <Sparkles className="text-indigo-400" size={20} />
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-400">Client Workspace</span>
         </div>
-        <h1 className="text-4xl font-extrabold text-white tracking-tight">Your Proposals</h1>
-        <p className="text-slate-400 mt-2 text-lg">Review and manage your security service proposals.</p>
+        <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Your Proposals</h1>
+        <p className="mt-2 text-base text-slate-400 sm:text-lg">Review and manage your security service proposals.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -67,7 +67,7 @@ export default function ClientDashboard() {
           </div>
         ) : proposals.map((p) => (
           <Link key={p.id} href={`/client/proposals/${p.id}`} className="group">
-            <div className="glass-card bg-[#0a0a14]/60 hover:bg-[#0a0a14]/80 border border-white/5 hover:border-indigo-500/30 rounded-[2rem] p-8 transition-all duration-300 h-full flex flex-col group-hover:-translate-y-1">
+            <div className="glass-card flex h-full flex-col rounded-[2rem] border border-white/5 bg-[#0a0a14]/60 p-5 transition-all duration-300 hover:border-indigo-500/30 hover:bg-[#0a0a14]/80 group-hover:-translate-y-1 sm:p-8">
               <div className="flex items-center justify-between mb-6">
                 <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
                   <FileText size={24} />

@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.GuardAuthModule = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
+const audit_module_1 = require("../audit/audit.module");
 const guard_auth_controller_1 = require("./guard-auth.controller");
 const guard_auth_service_1 = require("./guard-auth.service");
 let GuardAuthModule = class GuardAuthModule {
@@ -16,7 +17,7 @@ let GuardAuthModule = class GuardAuthModule {
 exports.GuardAuthModule = GuardAuthModule;
 exports.GuardAuthModule = GuardAuthModule = __decorate([
     (0, common_1.Module)({
-        imports: [jwt_1.JwtModule.register({})],
+        imports: [audit_module_1.AuditModule, jwt_1.JwtModule.register({})],
         controllers: [guard_auth_controller_1.GuardAuthController],
         providers: [guard_auth_service_1.GuardAuthService],
     })

@@ -3,12 +3,34 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateShiftDto } from './dto/create-shift.dto';
 import { AuditService } from '../audit/audit.service';
 
+type AttendanceStatus = 'not_started' | 'checked_in' | 'completed';
+
+type AttendanceEventSummary = {
+  type: string;
+  timestamp: Date;
+};
+
 @Injectable()
 export class ShiftsService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
   ) {}
+
+  private summarizeAttendance(events: AttendanceEventSummary[]): {
+    attendanceStatus: AttendanceStatus;
+    checkInTime: Date | null;
+    checkOutTime: Date | null;
+  } {
+    const checkIn = events.find((event) => event.type === 'CHECK_IN');
+    const checkOut = events.find((event) => event.type === 'CHECK_OUT');
+
+    return {
+      attendanceStatus: checkOut ? 'completed' : checkIn ? 'checked_in' : 'not_started',
+      checkInTime: checkIn?.timestamp ?? null,
+      checkOutTime: checkOut?.timestamp ?? null,
+    };
+  }
 
   async create(userId: string, tenantId: string, dto: CreateShiftDto) {
     // 1. Verify site exists and belongs to the same tenant
@@ -56,7 +78,7 @@ export class ShiftsService {
 
   async findAll(tenantId: string) {
     try {
-      return await this.prisma.shift.findMany({
+      const shifts = await this.prisma.shift.findMany({
         where: { tenantId },
         include: {
           site: {
@@ -73,10 +95,27 @@ export class ShiftsService {
               },
             },
           },
+          attendanceEvents: {
+            orderBy: {
+              timestamp: 'asc',
+            },
+          },
         },
         orderBy: {
           startTime: 'desc',
         },
+      });
+
+      return shifts.map((shift) => {
+        const attendance = this.summarizeAttendance(shift.attendanceEvents);
+        const { attendanceEvents, ...shiftWithoutEvents } = shift;
+
+        return {
+          ...shiftWithoutEvents,
+          attendanceStatus: attendance.attendanceStatus,
+          checkInTime: attendance.checkInTime,
+          checkOutTime: attendance.checkOutTime,
+        };
       });
     } catch (error) {
       console.error('Shifts findAll error:', error.message);

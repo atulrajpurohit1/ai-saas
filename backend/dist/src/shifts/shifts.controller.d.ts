@@ -19,7 +19,10 @@ export declare class ShiftsController {
         endTime: Date;
         requiredGuards: number;
     }>;
-    findAll(user: ActiveUser): Promise<({
+    findAll(user: ActiveUser): Promise<{
+        attendanceStatus: "not_started" | "checked_in" | "completed";
+        checkInTime: Date | null;
+        checkOutTime: Date | null;
         site: {
             name: string;
         };
@@ -34,7 +37,6 @@ export declare class ShiftsController {
             guardId: string;
             shiftId: string;
         })[];
-    } & {
         id: string;
         createdAt: Date;
         tenantId: string;
@@ -43,7 +45,7 @@ export declare class ShiftsController {
         startTime: Date;
         endTime: Date;
         requiredGuards: number;
-    })[]>;
+    }[]>;
     assign(user: ActiveUser, id: string, dto: AssignGuardDto): Promise<{
         id: string;
         createdAt: Date;

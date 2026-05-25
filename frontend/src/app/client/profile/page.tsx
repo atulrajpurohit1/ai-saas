@@ -42,33 +42,33 @@ export default function ClientProfilePage() {
   return (
     <ClientLayout>
       <div className="mb-10">
-        <h2 className="text-3xl font-bold text-white tracking-tight">Your Profile</h2>
+        <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Your Profile</h2>
         <p className="text-slate-400 font-medium">View your account details and company information.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
+        <div className="space-y-6 lg:col-span-2 lg:space-y-8">
           {/* Profile Card */}
-          <div className="glass-card bg-[#0a0a14]/60 border border-white/5 rounded-[2.5rem] p-10 relative overflow-hidden">
+          <div className="glass-card relative overflow-hidden rounded-[2rem] border border-white/5 bg-[#0a0a14]/60 p-5 sm:p-8 lg:rounded-[2.5rem] lg:p-10">
             <div className="absolute top-0 right-0 p-8 opacity-5">
               <User size={160} />
             </div>
 
-            <div className="flex flex-col md:flex-row gap-8 items-start relative z-10">
-              <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-2xl shadow-indigo-600/20">
-                <User size={48} />
+            <div className="relative z-10 flex flex-col items-start gap-6 md:flex-row lg:gap-8">
+              <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-2xl shadow-indigo-600/20 sm:h-24 sm:w-24">
+                <User size={42} />
               </div>
               
-              <div className="flex-1">
-                <h1 className="text-4xl font-extrabold text-white mb-2">{profile.name}</h1>
-                <p className="text-indigo-400 font-semibold text-lg mb-6">{profile.companyName || 'Private Client'}</p>
+              <div className="min-w-0 flex-1">
+                <h1 className="break-words text-3xl font-extrabold text-white sm:text-4xl">{profile.name}</h1>
+                <p className="mb-6 mt-2 text-base font-semibold text-indigo-400 sm:text-lg">{profile.companyName || 'Private Client'}</p>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Email Address</label>
-                    <div className="flex items-center gap-3 text-slate-200">
+                    <div className="flex min-w-0 items-center gap-3 text-slate-200">
                       <Mail size={18} className="text-indigo-400/70" />
-                      <span className="font-medium">{profile.email}</span>
+                      <span className="break-all font-medium">{profile.email}</span>
                     </div>
                   </div>
                   
@@ -100,7 +100,7 @@ export default function ClientProfilePage() {
             </div>
           </div>
 
-          <div className="p-8 rounded-[2rem] bg-indigo-500/5 border border-indigo-500/10 flex items-start gap-4">
+          <div className="flex items-start gap-4 rounded-[2rem] border border-indigo-500/10 bg-indigo-500/5 p-5 sm:p-8">
             <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 shrink-0">
               <Info size={20} />
             </div>
@@ -114,7 +114,7 @@ export default function ClientProfilePage() {
         </div>
 
         <div className="space-y-6">
-          <div className="glass-card bg-[#0a0a14]/60 border border-white/5 rounded-3xl p-8">
+          <div className="glass-card rounded-3xl border border-white/5 bg-[#0a0a14]/60 p-5 sm:p-8">
             <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
               <Building className="text-indigo-400" size={20} />
               Company Details

@@ -23,6 +23,7 @@ import { ClientPortalModule } from './client-portal/client-portal.module';
 import { DocumentsModule } from './documents/documents.module';
 import { GuardAuthModule } from './guard-auth/guard-auth.module';
 import { GuardPortalModule } from './guard-portal/guard-portal.module';
+import { IncidentsModule } from './incidents/incidents.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { GuardPortalModule } from './guard-portal/guard-portal.module';
     ClientPortalModule,
     GuardAuthModule,
     GuardPortalModule,
+    IncidentsModule,
     LeadsModule,
     DealsModule,
     ProposalsModule,

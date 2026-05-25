@@ -11,6 +11,11 @@ enum UserRole {
   ADMIN
 }
 
+enum AttendanceEventType {
+  CHECK_IN
+  CHECK_OUT
+}
+
 model Tenant {
   id        String     @id @default(uuid())
   name      String
@@ -32,6 +37,8 @@ model Tenant {
   clientUsers ClientUser[]
   comments    ProposalComment[]
   documents   SharedDocument[]
+  attendanceEvents AttendanceEvent[]
+  incidents Incident[]
 }
 
 model User {
@@ -174,6 +181,7 @@ model Site {
   tenantId     String
   tenant       Tenant   @relation(fields: [tenantId], references: [id])
   shifts       Shift[]
+  incidents    Incident[]
   createdAt    DateTime @default(now())
 
   @@index([tenantId])
@@ -189,6 +197,8 @@ model Guard {
   tenant      Tenant       @relation(fields: [tenantId], references: [id])
   assignments Assignment[]
   availability Availability?
+  attendanceEvents AttendanceEvent[]
+  incidents Incident[]
   createdAt   DateTime     @default(now())
 
   @@index([tenantId])
@@ -207,6 +217,8 @@ model Shift {
   tenantId       String
   tenant         Tenant       @relation(fields: [tenantId], references: [id])
   assignments    Assignment[]
+  attendanceEvents AttendanceEvent[]
+  incidents      Incident[]
   createdAt      DateTime     @default(now())
 
   @@index([tenantId])
@@ -240,6 +252,54 @@ model Availability {
 
   @@index([guardId])
   @@index([tenantId])
+}
+
+model AttendanceEvent {
+  id        String              @id @default(uuid())
+  guardId   String
+  guard     Guard               @relation(fields: [guardId], references: [id])
+  shiftId   String
+  shift     Shift               @relation(fields: [shiftId], references: [id])
+  type      AttendanceEventType
+  timestamp DateTime            @default(now())
+  tenantId  String
+  tenant    Tenant              @relation(fields: [tenantId], references: [id])
+  notes     String?
+  source    String              @default("guard_portal")
+  createdAt DateTime            @default(now())
+
+  @@unique([guardId, shiftId, type])
+  @@index([tenantId])
+  @@index([guardId])
+  @@index([shiftId])
+}
+
+model Incident {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  shiftId       String   @map("shift_id")
+  shift         Shift    @relation(fields: [shiftId], references: [id])
+  siteId        String   @map("site_id")
+  site          Site     @relation(fields: [siteId], references: [id])
+  guardId       String   @map("guard_id")
+  guard         Guard    @relation(fields: [guardId], references: [id])
+  title         String
+  description   String
+  severity      String   @default("low")
+  status        String   @default("submitted")
+  occurredAt    DateTime @map("occurred_at")
+  attachmentUrl String?  @map("attachment_url")
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([shiftId])
+  @@index([siteId])
+  @@index([guardId])
+  @@index([severity])
+  @@index([status])
+  @@map("Incident")
 }
 
 model Client {

@@ -40,21 +40,21 @@ export default function ClientLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#05050a] flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#05050a] px-4 py-8">
       {/* Background decoration */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full"></div>
 
-      <div className="w-full max-w-md relative z-10">
-        <div className="text-center mb-10">
+      <div className="relative z-10 w-full max-w-md">
+        <div className="mb-8 text-center sm:mb-10">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-600 shadow-2xl shadow-indigo-600/40 mb-6">
             <Shield className="text-white" size={32} />
           </div>
-          <h1 className="text-4xl font-extrabold text-white tracking-tight mb-2">Client Portal</h1>
+          <h1 className="mb-2 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Client Portal</h1>
           <p className="text-slate-400 font-medium">Access your proposals and secure service details.</p>
         </div>
 
-        <div className="glass-card bg-[#0a0a14]/80 backdrop-blur-xl border border-white/5 rounded-[2.5rem] p-10 shadow-2xl">
+        <div className="glass-card rounded-[2rem] border border-white/5 bg-[#0a0a14]/80 p-5 shadow-2xl backdrop-blur-xl sm:rounded-[2.5rem] sm:p-10">
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-300 ml-1">Email Address</label>

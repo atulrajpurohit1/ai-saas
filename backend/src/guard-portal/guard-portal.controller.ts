@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Param, Post, UseGuards, ForbiddenException } from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -39,5 +39,17 @@ export class GuardPortalController {
   shiftDetail(@GetUser() user: ActiveUser, @Param('id') id: string) {
     const { tenantId, guardId } = this.getGuardContext(user);
     return this.guardPortalService.getShiftDetail(tenantId, guardId, id);
+  }
+
+  @Post('shifts/:id/check-in')
+  checkIn(@GetUser() user: ActiveUser, @Param('id') id: string) {
+    const { tenantId, guardId } = this.getGuardContext(user);
+    return this.guardPortalService.checkIn(tenantId, guardId, id);
+  }
+
+  @Post('shifts/:id/check-out')
+  checkOut(@GetUser() user: ActiveUser, @Param('id') id: string) {
+    const { tenantId, guardId } = this.getGuardContext(user);
+    return this.guardPortalService.checkOut(tenantId, guardId, id);
   }
 }

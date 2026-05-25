@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GuardPortalModule = void 0;
 const common_1 = require("@nestjs/common");
+const audit_module_1 = require("../audit/audit.module");
 const guard_portal_controller_1 = require("./guard-portal.controller");
 const guard_portal_service_1 = require("./guard-portal.service");
 let GuardPortalModule = class GuardPortalModule {
@@ -15,6 +16,7 @@ let GuardPortalModule = class GuardPortalModule {
 exports.GuardPortalModule = GuardPortalModule;
 exports.GuardPortalModule = GuardPortalModule = __decorate([
     (0, common_1.Module)({
+        imports: [audit_module_1.AuditModule],
         controllers: [guard_portal_controller_1.GuardPortalController],
         providers: [guard_portal_service_1.GuardPortalService],
     })

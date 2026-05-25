@@ -49,7 +49,7 @@ export default function GuardShiftsPage() {
   return (
     <GuardLayout>
       <div className="mb-6">
-        <h1 className="text-3xl font-extrabold text-white">Assigned Shifts</h1>
+        <h1 className="text-2xl font-extrabold text-white sm:text-3xl">Assigned Shifts</h1>
         <p className="mt-2 text-sm text-slate-400">Only shifts assigned to your guard profile are shown.</p>
       </div>
 
@@ -91,11 +91,11 @@ export default function GuardShiftsPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end">
+                <div className="flex flex-col gap-3 sm:items-end">
                   <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-emerald-300">
                     {shift.status}
                   </span>
-                  <Link href={`/guard/shifts/${shift.id}`} className="flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-400">
+                  <Link href={`/guard/shifts/${shift.id}`} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-400 sm:w-auto">
                     Details <ArrowRight size={16} />
                   </Link>
                 </div>

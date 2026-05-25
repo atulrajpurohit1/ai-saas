@@ -20,6 +20,15 @@ let ShiftsService = class ShiftsService {
         this.prisma = prisma;
         this.auditService = auditService;
     }
+    summarizeAttendance(events) {
+        const checkIn = events.find((event) => event.type === 'CHECK_IN');
+        const checkOut = events.find((event) => event.type === 'CHECK_OUT');
+        return {
+            attendanceStatus: checkOut ? 'completed' : checkIn ? 'checked_in' : 'not_started',
+            checkInTime: checkIn?.timestamp ?? null,
+            checkOutTime: checkOut?.timestamp ?? null,
+        };
+    }
     async create(userId, tenantId, dto) {
         const site = await this.prisma.site.findUnique({
             where: { id: dto.siteId },
@@ -57,7 +66,7 @@ let ShiftsService = class ShiftsService {
     }
     async findAll(tenantId) {
         try {
-            return await this.prisma.shift.findMany({
+            const shifts = await this.prisma.shift.findMany({
                 where: { tenantId },
                 include: {
                     site: {
@@ -74,10 +83,25 @@ let ShiftsService = class ShiftsService {
                             },
                         },
                     },
+                    attendanceEvents: {
+                        orderBy: {
+                            timestamp: 'asc',
+                        },
+                    },
                 },
                 orderBy: {
                     startTime: 'desc',
                 },
+            });
+            return shifts.map((shift) => {
+                const attendance = this.summarizeAttendance(shift.attendanceEvents);
+                const { attendanceEvents, ...shiftWithoutEvents } = shift;
+                return {
+                    ...shiftWithoutEvents,
+                    attendanceStatus: attendance.attendanceStatus,
+                    checkInTime: attendance.checkInTime,
+                    checkOutTime: attendance.checkOutTime,
+                };
             });
         }
         catch (error) {

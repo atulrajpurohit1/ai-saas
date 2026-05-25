@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import api from '@/lib/api';
 import { Plus, Search, MoreVertical, Building2, User, Mail, FileText, Upload, Loader2 } from 'lucide-react';
@@ -99,12 +100,12 @@ export default function LeadsPage() {
     <DashboardLayout>
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
-          <h2 className="text-3xl font-bold">Leads</h2>
+          <h2 className="text-2xl font-bold sm:text-3xl">Leads</h2>
           <p className="text-muted-foreground">Manage your incoming business opportunities.</p>
         </div>
           <button 
             onClick={() => setShowModal(true)}
-            className="bg-primary hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-indigo-500 sm:w-auto"
           >
             <Plus size={20} />
             <span>Add New Lead</span>
@@ -112,8 +113,8 @@ export default function LeadsPage() {
         </div>
 
       <div className="glass-card rounded-3xl overflow-hidden border border-white/5">
-        <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/5">
-          <div className="relative w-full max-w-sm">
+        <div className="border-b border-white/5 bg-white/5 p-4 sm:p-6">
+          <div className="relative w-full sm:max-w-sm">
             <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
             <input 
               type="text" 
@@ -124,7 +125,7 @@ export default function LeadsPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="responsive-table w-full text-left">
             <thead>
               <tr className="text-muted-foreground text-sm uppercase tracking-wider">
                 <th className="px-6 py-4 font-semibold">Lead Contact</th>
@@ -142,15 +143,17 @@ export default function LeadsPage() {
                 <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">No leads found.</td></tr>
               ) : leads.map((lead) => (
                 <tr key={lead.id} className="hover:bg-white/5 transition-colors group">
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4" data-label="Lead">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
                         <User size={18} />
                       </div>
-                      <span className="font-semibold">{lead.name}</span>
+                      <Link href={`/leads/${lead.id}`} className="font-semibold transition hover:text-indigo-300">
+                        {lead.name}
+                      </Link>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4" data-label="Email">
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2 text-indigo-100 font-medium">
                         <Mail size={14} className="text-indigo-400" />
@@ -159,13 +162,13 @@ export default function LeadsPage() {
                       <span className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1 ml-6">Primary Contact</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4" data-label="Company">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Building2 size={16} />
                       <span>{lead.company}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4" data-label="Status">
                     <select
                       value={lead.status}
                       onChange={(e) => handleStatusChange(lead.id, e.target.value)}
@@ -178,11 +181,17 @@ export default function LeadsPage() {
                       <option value="closed">Closed</option>
                     </select>
                   </td>
-                  <td className="px-6 py-4 text-sm text-muted-foreground">
+                  <td className="px-6 py-4 text-sm text-muted-foreground" data-label="Created">
                     {new Date(lead.createdAt).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                  <td className="px-6 py-4 text-right" data-label="Actions">
+                    <div className="flex flex-wrap items-center justify-start gap-2 md:justify-end">
+                      <Link
+                        href={`/leads/${lead.id}`}
+                        className="text-xs font-bold bg-white/5 text-slate-300 border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-all"
+                      >
+                        DETAILS
+                      </Link>
                       <button 
                          onClick={async () => {
                            if (confirm('Convert this lead to a deal?')) {
@@ -213,7 +222,7 @@ export default function LeadsPage() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="glass-card w-full max-w-lg rounded-3xl p-8 border-white/10 shadow-3xl animate-in zoom-in-95 duration-200">
+          <div className="glass-card max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-3xl border-white/10 p-5 shadow-3xl animate-in zoom-in-95 duration-200 sm:p-8">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold">Create New Lead</h3>
               <button onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-white transition-colors">
@@ -235,8 +244,8 @@ export default function LeadsPage() {
             </div>
 
             <form onSubmit={handleAddLead} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1 col-span-2 md:col-span-1">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-1">
                   <label className="text-sm font-medium text-muted-foreground">Contact Name</label>
                   <input 
                     type="text" 
@@ -247,7 +256,7 @@ export default function LeadsPage() {
                     required
                   />
                 </div>
-                <div className="space-y-1 col-span-2 md:col-span-1">
+                <div className="space-y-1">
                   <label className="text-sm font-medium text-muted-foreground">Company Name</label>
                   <input 
                     type="text" 
@@ -271,7 +280,7 @@ export default function LeadsPage() {
                 />
               </div>
 
-              <div className="flex gap-4 mt-10">
+              <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:gap-4">
                 <button 
                   type="button"
                   onClick={() => setShowModal(false)}

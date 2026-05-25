@@ -163,12 +163,12 @@ export default function ClientsPage() {
     <DashboardLayout>
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 text-left">
         <div>
-          <h2 className="text-3xl font-bold text-white tracking-tight">Client Management</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Client Management</h2>
           <p className="text-slate-400 font-medium">Manage your client relationships and contact details.</p>
         </div>
         <button 
           onClick={() => { resetForm(); setShowModal(true); }}
-          className="bg-primary hover:bg-indigo-500 text-white font-bold py-3.5 px-7 rounded-2xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 group"
+          className="group flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-7 py-3.5 font-bold text-white shadow-lg shadow-indigo-600/20 transition-all hover:bg-indigo-500 sm:w-auto"
         >
           <Plus size={20} className="group-hover:rotate-90 transition-transform" />
           <span>Add New Client</span>
@@ -176,8 +176,8 @@ export default function ClientsPage() {
       </div>
 
       <div className="glass-card rounded-[2rem] overflow-hidden border border-white/5 bg-[#0a0a14]/60">
-        <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/5">
-          <div className="relative w-full max-w-sm">
+        <div className="border-b border-white/5 bg-white/5 p-4 sm:p-6">
+          <div className="relative w-full sm:max-w-sm">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
             <input 
               type="text" 
@@ -188,7 +188,7 @@ export default function ClientsPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="responsive-table w-full text-left">
             <thead>
               <tr className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] border-b border-white/5">
                 <th className="px-8 py-5">Client / Company</th>
@@ -204,7 +204,7 @@ export default function ClientsPage() {
                 <tr><td colSpan={4} className="px-8 py-20 text-center text-slate-500 italic">No clients found. Add your first client above.</td></tr>
               ) : clients.map((client) => (
                 <tr key={client.id} className="hover:bg-white/5 transition-all group">
-                  <td className="px-8 py-6">
+                  <td className="px-8 py-6" data-label="Client">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-2xl bg-indigo-600/10 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
                         <User size={22} />
@@ -218,7 +218,7 @@ export default function ClientsPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-8 py-6">
+                  <td className="px-8 py-6" data-label="Contact">
                     <div className="space-y-2">
                       <div className="flex items-center gap-2.5 text-sm text-slate-400 font-medium">
                         <Mail size={14} className="text-indigo-400/70" />
@@ -232,7 +232,7 @@ export default function ClientsPage() {
                       )}
                     </div>
                   </td>
-                  <td className="px-8 py-6 text-center">
+                  <td className="px-8 py-6 text-center" data-label="Status">
                     {client.users && client.users.length > 0 ? (
                       <span className="text-[10px] font-extrabold text-emerald-400 bg-emerald-400/10 px-3 py-1.5 rounded-full border border-emerald-400/20 tracking-widest uppercase">PORTAL ACTIVE</span>
                     ) : (
@@ -244,8 +244,8 @@ export default function ClientsPage() {
                       </button>
                     )}
                   </td>
-                  <td className="px-8 py-6 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                  <td className="px-8 py-6 text-right" data-label="Actions">
+                    <div className="flex items-center justify-start gap-2 md:justify-end">
                       <button 
                         onClick={() => { setSelectedClient(client); setShowDocsModal(true); fetchDocuments(client.id); }}
                         className="p-3 hover:bg-white/10 rounded-xl transition-all text-indigo-400 hover:text-indigo-300 border border-transparent hover:border-white/5"
@@ -272,8 +272,8 @@ export default function ClientsPage() {
       {/* DOCUMENT MANAGEMENT MODAL */}
       {showDocsModal && selectedClient && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] p-4 text-left">
-          <div className="glass-card w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-[2.5rem] flex flex-col border-white/10 shadow-3xl bg-[#0e0e1a]">
-            <div className="p-8 border-b border-white/5 flex items-center justify-between">
+          <div className="glass-card flex max-h-[calc(100dvh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[2rem] border-white/10 bg-[#0e0e1a] shadow-3xl sm:rounded-[2.5rem]">
+            <div className="flex items-start justify-between gap-4 border-b border-white/5 p-5 sm:p-8">
               <div>
                 <h3 className="text-2xl font-bold text-white">Documents: {selectedClient.name}</h3>
                 <p className="text-sm text-muted-foreground">Share and manage files for this client.</p>
@@ -283,8 +283,8 @@ export default function ClientsPage() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-2">
-              <div className="overflow-y-auto p-8 border-r border-white/5 space-y-4 custom-scrollbar">
+            <div className="grid flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-2 lg:overflow-hidden">
+              <div className="space-y-4 overflow-y-auto border-r border-white/5 p-5 custom-scrollbar sm:p-8">
                 <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-4">Shared Documents</h4>
                 {docLoading ? (
                   <div className="py-20 text-center"><Loader2 className="animate-spin mx-auto text-indigo-500" /></div>
@@ -320,7 +320,7 @@ export default function ClientsPage() {
                 ))}
               </div>
 
-              <div className="p-8 bg-black/20">
+              <div className="overflow-y-auto bg-black/20 p-5 sm:p-8">
                 <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-6">Share New Document</h4>
                 {docError && (
                   <div className="mb-4 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
@@ -376,7 +376,7 @@ export default function ClientsPage() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 text-left">
-          <div className="glass-card w-full max-w-lg rounded-3xl p-8 border-white/10 shadow-3xl animate-in zoom-in-95 duration-200 bg-[#0e0e1a]">
+          <div className="glass-card max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-3xl border-white/10 bg-[#0e0e1a] p-5 shadow-3xl animate-in zoom-in-95 duration-200 sm:p-8">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-white">{isEditing ? 'Edit Client' : 'Add New Client'}</h3>
               <button onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-white transition-colors">
@@ -408,7 +408,7 @@ export default function ClientsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-muted-foreground">Email Address</label>
                   <input 
@@ -432,7 +432,7 @@ export default function ClientsPage() {
                 </div>
               </div>
 
-              <div className="flex gap-4 mt-8 pt-4">
+              <div className="mt-8 flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:gap-4">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-3 rounded-2xl transition-all border border-white/10">
                   Cancel
                 </button>

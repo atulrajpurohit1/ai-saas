@@ -71,12 +71,12 @@ export default function SitesPage() {
     <DashboardLayout>
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
-          <h2 className="text-3xl font-bold">Sites</h2>
+          <h2 className="text-2xl font-bold sm:text-3xl">Sites</h2>
           <p className="text-muted-foreground">Manage your physical security locations and assignments.</p>
         </div>
         <button 
           onClick={() => { resetForm(); setShowModal(true); }}
-          className="bg-primary hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-indigo-500 sm:w-auto"
         >
           <Plus size={20} />
           <span>Create Site</span>
@@ -84,8 +84,8 @@ export default function SitesPage() {
       </div>
 
       <div className="glass-card rounded-3xl overflow-hidden border border-white/5">
-        <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/5">
-          <div className="relative w-full max-w-sm">
+        <div className="border-b border-white/5 bg-white/5 p-4 sm:p-6">
+          <div className="relative w-full sm:max-w-sm">
             <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
             <input 
               type="text" 
@@ -96,7 +96,7 @@ export default function SitesPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="responsive-table w-full text-left">
             <thead>
               <tr className="text-muted-foreground text-sm uppercase tracking-wider">
                 <th className="px-6 py-4 font-semibold">Site Detail</th>
@@ -112,7 +112,7 @@ export default function SitesPage() {
                 <tr><td colSpan={4} className="px-6 py-10 text-center text-muted-foreground">No sites found.</td></tr>
               ) : sites.map((site) => (
                 <tr key={site.id} className="hover:bg-white/5 transition-colors group">
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4" data-label="Site">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
                         <MapPin size={18} />
@@ -120,13 +120,13 @@ export default function SitesPage() {
                       <span className="font-semibold">{site.name}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 truncate max-w-xs align-middle">
+                  <td className="px-6 py-4 align-middle md:max-w-xs md:truncate" data-label="Location">
                     <span className="text-muted-foreground text-sm">{site.address}</span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-muted-foreground align-middle">
+                  <td className="px-6 py-4 text-sm text-muted-foreground align-middle" data-label="Created">
                     {new Date(site.createdAt).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 text-right align-middle">
+                  <td className="px-6 py-4 text-right align-middle" data-label="Actions">
                     <button 
                       onClick={() => handleEdit(site)}
                       className="p-2 hover:bg-white/10 rounded-lg transition-colors text-indigo-400 hover:text-indigo-300"
@@ -146,7 +146,7 @@ export default function SitesPage() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 text-left">
-          <div className="glass-card w-full max-w-lg rounded-3xl p-8 border-white/10 shadow-3xl animate-in zoom-in-95 duration-200">
+          <div className="glass-card max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-3xl border-white/10 p-5 shadow-3xl animate-in zoom-in-95 duration-200 sm:p-8">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold">{isEditing ? 'Edit Site' : 'Create New Site'}</h3>
               <button onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-white transition-colors">
@@ -189,7 +189,7 @@ export default function SitesPage() {
                 />
               </div>
 
-              <div className="flex gap-4 mt-8 pt-4">
+              <div className="mt-8 flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:gap-4">
                 <button 
                   type="button"
                   onClick={() => setShowModal(false)}
@@ -211,4 +211,3 @@ export default function SitesPage() {
     </DashboardLayout>
   );
 }
-

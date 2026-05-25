@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Building2,
-  Download
+  Download,
+  UserPlus
 } from 'lucide-react';
 
 interface Lead {
@@ -44,7 +45,7 @@ interface Proposal {
 interface Client {
   id: string;
   name: string;
-  companyName: string;
+  companyName: string | null;
   email: string;
 }
 
@@ -64,6 +65,7 @@ export default function ProposalsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [clientsLoading, setClientsLoading] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState('');
+  const [isCreatingClient, setIsCreatingClient] = useState(false);
   
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   
@@ -82,8 +84,9 @@ export default function ProposalsPage() {
     setClientsLoading(true);
     try {
       const res = await api.get('clients');
-      setClients(Array.isArray(res.data) ? res.data : []);
-      return res.data;
+      const nextClients = Array.isArray(res.data) ? res.data : [];
+      setClients(nextClients);
+      return nextClients;
     } catch (err) {
       console.error('Failed to fetch clients', err);
       showToast('Could not load clients. Please refresh or login again.', 'error');
@@ -112,6 +115,7 @@ export default function ProposalsPage() {
   };
 
   const openGenerateModal = () => {
+    setSelectedClientId('');
     setShowModal(true);
     fetchClients();
   };
@@ -140,6 +144,55 @@ export default function ProposalsPage() {
       fetchComments(selectedProposal.id);
     }
   }, [showViewModal, selectedProposal]);
+
+  const selectedLead = leads.find((lead) => lead.id === selectedLeadId);
+
+  useEffect(() => {
+    if (!selectedLead || selectedClientId) return;
+
+    const leadEmail = selectedLead.email?.trim().toLowerCase();
+    const leadCompany = selectedLead.company.trim().toLowerCase();
+
+    const matchingClient = clients.find((client) => {
+      const clientEmail = client.email?.trim().toLowerCase();
+      const clientCompany = client.companyName?.trim().toLowerCase();
+
+      return (leadEmail && clientEmail === leadEmail) || (leadCompany && clientCompany === leadCompany);
+    });
+
+    if (matchingClient) {
+      setSelectedClientId(matchingClient.id);
+    }
+  }, [clients, selectedClientId, selectedLead]);
+
+  const handleCreateClientFromLead = async () => {
+    if (!selectedLead) {
+      showToast('Please select a lead first.', 'error');
+      return;
+    }
+
+    if (!selectedLead.email) {
+      showToast('This lead needs an email before it can become a client.', 'error');
+      return;
+    }
+
+    setIsCreatingClient(true);
+    try {
+      const res = await api.post('clients', {
+        name: selectedLead.name,
+        companyName: selectedLead.company,
+        email: selectedLead.email,
+      });
+      const nextClients = await fetchClients();
+      setSelectedClientId(res.data?.id || nextClients[0]?.id || '');
+      showToast('Client created for this workspace.', 'success');
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.response?.data?.message || 'Could not create client from this lead.', 'error');
+    } finally {
+      setIsCreatingClient(false);
+    }
+  };
 
   const handleGenerateForLead = async () => {
     if (!selectedLeadId) {
@@ -267,7 +320,7 @@ export default function ProposalsPage() {
   return (
     <DashboardLayout>
       {toast && (
-        <div className={`fixed top-6 right-6 z-[200] flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border transition-all animate-in slide-in-from-right ${
+        <div className={`fixed left-4 right-4 top-4 z-[200] flex items-center gap-3 rounded-2xl border px-4 py-3 shadow-2xl transition-all animate-in slide-in-from-right sm:left-auto sm:right-6 sm:top-6 sm:max-w-md sm:px-5 sm:py-4 ${
           toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'
         }`}>
           {toast.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
@@ -277,19 +330,19 @@ export default function ProposalsPage() {
 
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
-          <h2 className="text-3xl font-bold">Proposals</h2>
+          <h2 className="text-2xl font-bold sm:text-3xl">Proposals</h2>
           <p className="text-muted-foreground">AI-powered proposal generation and email delivery.</p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <button onClick={handleBulkGenerate} disabled={isBulkGenerating} className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 px-5 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50">
+        <div className="grid w-full gap-3 sm:w-auto sm:grid-cols-2 xl:flex xl:flex-wrap">
+          <button onClick={handleBulkGenerate} disabled={isBulkGenerating} className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-3 font-bold text-white shadow-lg transition-all hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50">
             {isBulkGenerating ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} />}
             <span>Bulk Generate AI</span>
           </button>
-          <button onClick={handleBulkSendEmails} disabled={isSendingBulk} className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3 px-5 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50">
+          <button onClick={handleBulkSendEmails} disabled={isSendingBulk} className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 px-5 py-3 font-bold text-white shadow-lg transition-all hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50">
             {isSendingBulk ? <Loader2 className="animate-spin" size={18} /> : <Mail size={18} />}
             <span>Send Bulk Emails</span>
           </button>
-          <button onClick={openGenerateModal} className="bg-primary hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2">
+          <button onClick={openGenerateModal} className="flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-indigo-500 sm:col-span-2 xl:col-span-1">
             <Plus size={20} />
             <span>Generate for Lead</span>
           </button>
@@ -359,8 +412,8 @@ export default function ProposalsPage() {
       </div>
 
       {showShareModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] p-4 text-left">
-          <div className="glass-card w-full max-w-md rounded-3xl p-8 border-white/10 shadow-3xl bg-[#0e0e1a]">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 p-3 text-left backdrop-blur-md sm:items-center sm:p-4">
+          <div className="glass-card max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-3xl border-white/10 bg-[#0e0e1a] p-5 shadow-3xl sm:max-h-[calc(100dvh-2rem)] sm:p-8">
             <h3 className="text-2xl font-bold mb-6 text-white">Share with Client</h3>
             <div className="space-y-4">
               <select
@@ -369,7 +422,7 @@ export default function ProposalsPage() {
                 disabled={clientsLoading || clients.length === 0}
               >
                 <option value="" className="bg-gray-900">
-                  {clientsLoading ? 'Loading clients...' : clients.length === 0 ? 'No clients found' : '-- Select Client --'}
+                  {clientsLoading ? 'Loading clients...' : clients.length === 0 ? 'No clients in this workspace' : '-- Select Client --'}
                 </option>
                 {clients.map(c => (
                   <option key={c.id} value={c.id} className="bg-gray-900">{c.name} ({c.companyName})</option>
@@ -384,10 +437,10 @@ export default function ProposalsPage() {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] p-4 text-left">
-          <div className="glass-card w-full max-w-lg rounded-3xl p-8 border-white/10 shadow-3xl bg-[#0e0e1a]">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold flex items-center gap-3 text-white">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 p-3 text-left backdrop-blur-md sm:items-center sm:p-4">
+          <div className="glass-card max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl border-white/10 bg-[#0e0e1a] p-5 shadow-3xl sm:max-h-[calc(100dvh-2rem)] sm:p-8">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <h3 className="flex items-center gap-3 text-xl font-bold text-white sm:text-2xl">
                 <Sparkles className="text-indigo-400" size={24} />
                 Generate AI Proposal
               </h3>
@@ -405,7 +458,10 @@ export default function ProposalsPage() {
                 <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Select Lead</label>
                 <select
                   value={selectedLeadId}
-                  onChange={(e) => setSelectedLeadId(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedLeadId(e.target.value);
+                    setSelectedClientId('');
+                  }}
                   className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none text-white"
                 >
                   <option value="" className="bg-gray-900">-- Choose a Lead --</option>
@@ -426,18 +482,34 @@ export default function ProposalsPage() {
                   disabled={clientsLoading || clients.length === 0}
                 >
                   <option value="" className="bg-gray-900">
-                    {clientsLoading ? 'Loading clients...' : clients.length === 0 ? 'No clients found' : '-- Choose a Client --'}
+                    {clientsLoading ? 'Loading clients...' : clients.length === 0 ? 'No clients in this workspace' : '-- Choose a Client --'}
                   </option>
                   {clients.map(client => (
                     <option key={client.id} value={client.id} className="bg-gray-900">
-                      {client.name} — {client.companyName}
+                      {client.name} — {client.companyName || 'No company'}
                     </option>
                   ))}
                 </select>
+                {clients.length === 0 && !clientsLoading && (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                    <p className="mb-3 text-xs font-medium leading-relaxed text-slate-400">
+                      Clients are workspace-specific. Create one from the selected lead to link this proposal.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleCreateClientFromLead}
+                      disabled={!selectedLeadId || isCreatingClient}
+                      className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isCreatingClient ? <Loader2 className="animate-spin" size={14} /> : <UserPlus size={14} />}
+                      <span>{isCreatingClient ? 'Creating...' : 'Create Client From Lead'}</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="flex gap-4 pt-6 mt-6 border-t border-white/5">
+            <div className="mt-6 flex flex-col-reverse gap-3 border-t border-white/5 pt-6 sm:flex-row sm:gap-4">
               <button type="button" onClick={() => setShowModal(false)} className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-3 rounded-2xl transition-all border border-white/10">
                 Cancel
               </button>
@@ -451,11 +523,11 @@ export default function ProposalsPage() {
       )}
 
       {showViewModal && selectedProposal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] p-4 text-left">
-          <div className="glass-card w-full max-w-5xl max-h-[90vh] overflow-hidden rounded-3xl flex flex-col border-white/10 shadow-3xl bg-[#0e0e1a]">
-            <div className="p-8 border-b border-white/5 flex items-center justify-between">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 p-3 text-left backdrop-blur-md sm:items-center sm:p-4">
+          <div className="glass-card flex max-h-[calc(100dvh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border-white/10 bg-[#0e0e1a] shadow-3xl sm:max-h-[90vh]">
+            <div className="flex items-start justify-between gap-4 border-b border-white/5 p-5 sm:p-8">
               <div>
-                <h3 className="text-2xl font-bold text-white">{selectedProposal.title}</h3>
+                <h3 className="text-xl font-bold text-white sm:text-2xl">{selectedProposal.title}</h3>
                 <p className="text-sm text-muted-foreground">Version History & Communication</p>
               </div>
               <div className="flex gap-3">
@@ -468,19 +540,19 @@ export default function ProposalsPage() {
               </div>
             </div>
             
-            <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-3">
-              <div className="lg:col-span-2 overflow-y-auto p-8 border-r border-white/5">
-                <div className="prose prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed bg-white/5 p-8 rounded-3xl border border-white/5 text-slate-300">
+            <div className="grid flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-3 lg:overflow-hidden">
+              <div className="overflow-y-visible border-r border-white/5 p-5 sm:p-8 lg:col-span-2 lg:overflow-y-auto">
+                <div className="prose prose-invert max-w-none whitespace-pre-wrap rounded-3xl border border-white/5 bg-white/5 p-4 text-sm leading-relaxed text-slate-300 sm:p-8">
                   {selectedProposal.content}
                 </div>
               </div>
               
               <div className="flex flex-col h-full bg-black/20">
-                <div className="p-6 border-b border-white/5 bg-white/5">
+                <div className="border-b border-white/5 bg-white/5 p-5 sm:p-6">
                   <h4 className="text-sm font-bold uppercase tracking-widest text-indigo-400">Communication</h4>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+                <div className="max-h-80 flex-1 space-y-4 overflow-y-auto p-5 custom-scrollbar sm:p-6 lg:max-h-none">
                   {comments.length === 0 ? (
                     <div className="text-center py-10 text-muted-foreground italic text-xs">No comments yet.</div>
                   ) : comments.map((c) => (
@@ -494,7 +566,7 @@ export default function ProposalsPage() {
                   ))}
                 </div>
                 
-                <div className="p-6 border-t border-white/5">
+                <div className="border-t border-white/5 p-5 sm:p-6">
                   <div className="relative">
                     <input 
                       type="text" 

@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { Menu } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -26,10 +28,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null;
 
   return (
-    <div className="flex bg-[#0f172a] min-h-screen">
-      <Sidebar />
-      <main className="flex-1 ml-64 p-8 overflow-y-auto">
-        <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-[#0f172a]">
+      <div className="lg:hidden">
+        {sidebarOpen && (
+          <button
+            type="button"
+            aria-label="Close navigation overlay"
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+        <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0f172a]/95 px-4 py-3 backdrop-blur">
+          <div className="flex items-center justify-between gap-4">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white"
+              aria-label="Open navigation"
+            >
+              <Menu size={22} />
+            </button>
+            <div className="min-w-0 text-right">
+              <div className="truncate text-sm font-bold text-white">{user?.tenantName || 'Ai Saas'}</div>
+              <div className="text-xs text-muted-foreground">Admin workspace</div>
+            </div>
+          </div>
+        </header>
+      </div>
+
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      <main className="min-w-0 px-4 py-5 sm:px-6 sm:py-7 lg:ml-64 lg:px-8 lg:py-8">
+        <div className="mx-auto w-full max-w-7xl">
           {children}
         </div>
       </main>
