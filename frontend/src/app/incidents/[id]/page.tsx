@@ -26,7 +26,8 @@ const severityClass: Record<string, string> = {
 
 const statusClass: Record<string, string> = {
   submitted: 'border-sky-400/20 bg-sky-400/10 text-sky-300',
-  reviewed: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
+  under_review: 'border-violet-400/20 bg-violet-400/10 text-violet-300',
+  approved: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
   rejected: 'border-rose-400/20 bg-rose-400/10 text-rose-300',
 };
 
@@ -127,7 +128,7 @@ export default function IncidentDetailPage() {
             <div className="min-w-0 rounded-3xl border border-white/10 bg-white/[0.04] p-5">
               <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
                 <CalendarDays size={14} />
-                Occurred At
+                Occurrence Time
               </div>
               <div className="text-lg font-bold text-white">{formatDate(incident.occurredAt)}</div>
             </div>
@@ -139,6 +140,27 @@ export default function IncidentDetailPage() {
               </div>
               <div className="text-sm text-slate-300">{formatDate(incident.shift.startTime)}</div>
               <div className="mt-1 text-sm text-slate-400">to {formatDate(incident.shift.endTime)}</div>
+            </div>
+
+            <div className="min-w-0 rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+              <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                <CalendarDays size={14} />
+                Submitted
+              </div>
+              <div className="text-lg font-bold text-white">{formatDate(incident.submittedAt || incident.createdAt)}</div>
+            </div>
+
+            <div className="min-w-0 rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+              <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                <ShieldCheck size={14} />
+                Review
+              </div>
+              <div className="text-lg font-bold text-white">
+                {incident.reviewedAt ? formatDate(incident.reviewedAt) : 'Not finalized'}
+              </div>
+              <div className="mt-1 text-sm text-slate-400">
+                {incident.reviewedBy?.name || incident.reviewedBy?.email || 'No reviewer yet'}
+              </div>
             </div>
           </section>
 
@@ -160,6 +182,13 @@ export default function IncidentDetailPage() {
             <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
               <h2 className="mb-3 text-lg font-bold text-white">Notes</h2>
               <p className="whitespace-pre-wrap text-sm leading-7 text-slate-300">{incident.notes}</p>
+            </section>
+          )}
+
+          {incident.reviewNote && (
+            <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+              <h2 className="mb-3 text-lg font-bold text-white">Review Note</h2>
+              <p className="whitespace-pre-wrap text-sm leading-7 text-slate-300">{incident.reviewNote}</p>
             </section>
           )}
         </div>

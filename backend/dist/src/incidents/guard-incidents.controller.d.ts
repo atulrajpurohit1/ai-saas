@@ -14,11 +14,20 @@ export declare class GuardIncidentsController {
         title: string;
         description: string;
         severity: string;
-        status: "rejected" | "submitted" | "reviewed";
+        status: "approved" | "rejected" | "submitted" | "under_review";
         occurredAt: Date;
         attachmentUrl: string | null;
         notes: string | null;
         createdAt: Date;
+        submittedAt: Date;
+        reviewedById: string | null;
+        reviewedBy: {
+            id: string;
+            name: string | null;
+            email: string | null;
+        } | null;
+        reviewedAt: Date | null;
+        reviewNote: string | null;
         site: {
             id: string;
             name: string;
@@ -45,11 +54,20 @@ export declare class GuardIncidentsController {
         title: string;
         description: string;
         severity: string;
-        status: "rejected" | "submitted" | "reviewed";
+        status: "approved" | "rejected" | "submitted" | "under_review";
         occurredAt: Date;
         attachmentUrl: string | null;
         notes: string | null;
         createdAt: Date;
+        submittedAt: Date;
+        reviewedById: string | null;
+        reviewedBy: {
+            id: string;
+            name: string | null;
+            email: string | null;
+        } | null;
+        reviewedAt: Date | null;
+        reviewNote: string | null;
         site: {
             id: string;
             name: string;

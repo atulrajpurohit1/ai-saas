@@ -13,7 +13,7 @@ export declare class JwtRefreshStrategy extends JwtRefreshStrategy_base {
         email?: string;
         phone?: string;
         tenantId: string;
-        role: "admin" | "client" | "guard";
+        role: "admin" | "supervisor" | "client" | "guard";
         clientId?: string;
         guardId?: string;
     };

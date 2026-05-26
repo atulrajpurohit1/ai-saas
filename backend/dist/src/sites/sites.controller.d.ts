@@ -6,26 +6,47 @@ export declare class SitesController {
     private readonly sitesService;
     constructor(sitesService: SitesService);
     create(user: ActiveUser, createSiteDto: CreateSiteDto): Promise<{
+        client: {
+            id: string;
+            name: string;
+            companyName: string | null;
+        } | null;
+    } & {
         id: string;
         name: string;
         createdAt: Date;
         tenantId: string;
+        clientId: string | null;
         address: string;
         instructions: string | null;
     }>;
-    findAll(user: ActiveUser): Promise<{
+    findAll(user: ActiveUser): Promise<({
+        client: {
+            id: string;
+            name: string;
+            companyName: string | null;
+        } | null;
+    } & {
         id: string;
         name: string;
         createdAt: Date;
         tenantId: string;
+        clientId: string | null;
         address: string;
         instructions: string | null;
-    }[]>;
+    })[]>;
     update(user: ActiveUser, id: string, updateSiteDto: UpdateSiteDto): Promise<{
+        client: {
+            id: string;
+            name: string;
+            companyName: string | null;
+        } | null;
+    } & {
         id: string;
         name: string;
         createdAt: Date;
         tenantId: string;
+        clientId: string | null;
         address: string;
         instructions: string | null;
     }>;

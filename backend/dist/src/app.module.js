@@ -33,6 +33,7 @@ const documents_module_1 = require("./documents/documents.module");
 const guard_auth_module_1 = require("./guard-auth/guard-auth.module");
 const guard_portal_module_1 = require("./guard-portal/guard-portal.module");
 const incidents_module_1 = require("./incidents/incidents.module");
+const reports_module_1 = require("./reports/reports.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -48,6 +49,7 @@ exports.AppModule = AppModule = __decorate([
             guard_auth_module_1.GuardAuthModule,
             guard_portal_module_1.GuardPortalModule,
             incidents_module_1.IncidentsModule,
+            reports_module_1.ReportsModule,
             leads_module_1.LeadsModule,
             deals_module_1.DealsModule,
             proposals_module_1.ProposalsModule,

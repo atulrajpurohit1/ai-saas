@@ -14,6 +14,17 @@ const severityClass: Record<string, string> = {
   critical: 'border-rose-400/20 bg-rose-400/10 text-rose-300',
 };
 
+const statusClass: Record<string, string> = {
+  submitted: 'border-sky-400/20 bg-sky-400/10 text-sky-300',
+  under_review: 'border-sky-400/20 bg-sky-400/10 text-sky-300',
+  approved: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
+  rejected: 'border-rose-400/20 bg-rose-400/10 text-rose-300',
+};
+
+const guardStatusLabel = (status: Incident['status']) => (
+  status === 'under_review' ? 'submitted' : status
+);
+
 export default function GuardIncidentsPage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +84,9 @@ export default function GuardIncidentsPage() {
                 <div>
                   <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-amber-300">
                     <FileWarning size={14} />
-                    {incident.status}
+                    <span className={`rounded-full border px-3 py-1 ${statusClass[incident.status] || statusClass.submitted}`}>
+                      {guardStatusLabel(incident.status)}
+                    </span>
                   </div>
                   <h2 className="text-xl font-bold text-white">{incident.title}</h2>
                   <div className="mt-2 flex items-start gap-2 text-sm text-slate-400">

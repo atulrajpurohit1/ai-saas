@@ -18,6 +18,7 @@ export declare class AssignmentsService {
                 name: string;
                 createdAt: Date;
                 tenantId: string;
+                clientId: string | null;
                 address: string;
                 instructions: string | null;
             };

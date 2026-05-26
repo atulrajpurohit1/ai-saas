@@ -5,7 +5,7 @@ import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { getAdminIncidents, Incident } from '@/lib/incidents';
-import { AlertTriangle, ArrowRight, CalendarDays, FileWarning, Loader2, MapPin, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CalendarDays, ClipboardCheck, FileWarning, Loader2, MapPin, ShieldCheck } from 'lucide-react';
 
 const severityClass: Record<string, string> = {
   low: 'border-slate-400/20 bg-slate-400/10 text-slate-300',
@@ -16,7 +16,8 @@ const severityClass: Record<string, string> = {
 
 const statusClass: Record<string, string> = {
   submitted: 'border-sky-400/20 bg-sky-400/10 text-sky-300',
-  reviewed: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
+  under_review: 'border-violet-400/20 bg-violet-400/10 text-violet-300',
+  approved: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
   rejected: 'border-rose-400/20 bg-rose-400/10 text-rose-300',
 };
 
@@ -51,12 +52,21 @@ export default function IncidentsPage() {
 
   return (
     <DashboardLayout>
-      <div className="mb-8 flex flex-col gap-2">
-        <h2 className="flex items-center gap-3 text-2xl font-bold sm:text-3xl">
-          <FileWarning className="text-amber-300" size={28} />
-          Incidents
-        </h2>
-        <p className="text-muted-foreground">Review incident reports submitted by guards.</p>
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-2">
+          <h2 className="flex items-center gap-3 text-2xl font-bold sm:text-3xl">
+            <FileWarning className="text-amber-300" size={28} />
+            Incidents
+          </h2>
+          <p className="text-muted-foreground">Track incident reports submitted by guards.</p>
+        </div>
+        <Link
+          href="/incidents/review"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-indigo-400"
+        >
+          <ClipboardCheck size={17} />
+          Review Queue
+        </Link>
       </div>
 
       <div className="glass-card overflow-hidden rounded-3xl border border-white/5">

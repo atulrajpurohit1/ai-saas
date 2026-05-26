@@ -10,15 +10,28 @@ interface Site {
   name: string;
   address: string;
   instructions: string | null;
+  clientId: string | null;
+  client?: {
+    id: string;
+    name: string;
+    companyName: string | null;
+  } | null;
   createdAt: string;
+}
+
+interface Client {
+  id: string;
+  name: string;
+  companyName: string | null;
 }
 
 export default function SitesPage() {
   const [sites, setSites] = useState<Site[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: '', address: '', instructions: '' });
+  const [formData, setFormData] = useState({ name: '', address: '', instructions: '', client_id: '' });
   
   const fetchSites = async () => {
     try {
@@ -31,17 +44,33 @@ export default function SitesPage() {
     }
   };
 
+  const fetchClients = async () => {
+    try {
+      const res = await api.get('clients');
+      setClients(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchSites();
+    fetchClients();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (isEditing) {
-        await api.put(`sites/${isEditing}`, formData);
+        await api.put(`sites/${isEditing}`, {
+          ...formData,
+          client_id: formData.client_id || null,
+        });
       } else {
-        await api.post('sites', formData);
+        await api.post('sites', {
+          ...formData,
+          client_id: formData.client_id || null,
+        });
       }
       setShowModal(false);
       resetForm();
@@ -56,14 +85,15 @@ export default function SitesPage() {
     setFormData({
       name: site.name,
       address: site.address,
-      instructions: site.instructions || ''
+      instructions: site.instructions || '',
+      client_id: site.clientId || ''
     });
     setIsEditing(site.id);
     setShowModal(true);
   };
 
   const resetForm = () => {
-    setFormData({ name: '', address: '', instructions: '' });
+    setFormData({ name: '', address: '', instructions: '', client_id: '' });
     setIsEditing(null);
   };
 
@@ -101,15 +131,16 @@ export default function SitesPage() {
               <tr className="text-muted-foreground text-sm uppercase tracking-wider">
                 <th className="px-6 py-4 font-semibold">Site Detail</th>
                 <th className="px-6 py-4 font-semibold">Location</th>
+                <th className="px-6 py-4 font-semibold">Client</th>
                 <th className="px-6 py-4 font-semibold">Created</th>
                 <th className="px-6 py-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {loading ? (
-                <tr><td colSpan={4} className="px-6 py-10 text-center text-muted-foreground">Loading sites...</td></tr>
+                <tr><td colSpan={5} className="px-6 py-10 text-center text-muted-foreground">Loading sites...</td></tr>
               ) : sites.length === 0 ? (
-                <tr><td colSpan={4} className="px-6 py-10 text-center text-muted-foreground">No sites found.</td></tr>
+                <tr><td colSpan={5} className="px-6 py-10 text-center text-muted-foreground">No sites found.</td></tr>
               ) : sites.map((site) => (
                 <tr key={site.id} className="hover:bg-white/5 transition-colors group">
                   <td className="px-6 py-4" data-label="Site">
@@ -122,6 +153,15 @@ export default function SitesPage() {
                   </td>
                   <td className="px-6 py-4 align-middle md:max-w-xs md:truncate" data-label="Location">
                     <span className="text-muted-foreground text-sm">{site.address}</span>
+                  </td>
+                  <td className="px-6 py-4 align-middle" data-label="Client">
+                    {site.client ? (
+                      <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">
+                        {site.client.companyName || site.client.name}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Unlinked</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-sm text-muted-foreground align-middle" data-label="Created">
                     {new Date(site.createdAt).toLocaleDateString()}
@@ -187,6 +227,22 @@ export default function SitesPage() {
                   value={formData.instructions}
                   onChange={(e) => setFormData({...formData, instructions: e.target.value})}
                 />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-muted-foreground">Client (Optional)</label>
+                <select
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  value={formData.client_id}
+                  onChange={(e) => setFormData({...formData, client_id: e.target.value})}
+                >
+                  <option value="">No linked client</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.companyName || client.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="mt-8 flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:gap-4">

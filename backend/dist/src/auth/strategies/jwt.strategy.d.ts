@@ -6,7 +6,7 @@ interface JwtPayload {
     phone?: string;
     tenantId?: string;
     tenant_id?: string;
-    role: 'admin' | 'client' | 'guard';
+    role: 'admin' | 'supervisor' | 'client' | 'guard';
     clientId?: string;
     client_id?: string;
     guardId?: string;
@@ -22,7 +22,7 @@ export declare class JwtStrategy extends JwtStrategy_base {
         email: string | undefined;
         phone: string | undefined;
         tenantId: string | undefined;
-        role: "client" | "guard" | "admin";
+        role: "client" | "guard" | "admin" | "supervisor";
         clientId: string | undefined;
         guardId: string | undefined;
     };

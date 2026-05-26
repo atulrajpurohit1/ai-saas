@@ -20,11 +20,34 @@ let SitesService = class SitesService {
         this.prisma = prisma;
         this.auditService = auditService;
     }
+    async resolveClientId(tenantId, clientId) {
+        const normalizedClientId = clientId?.trim() || null;
+        if (!normalizedClientId) {
+            return null;
+        }
+        const client = await this.prisma.client.findFirst({
+            where: { id: normalizedClientId, tenantId },
+            select: { id: true },
+        });
+        if (!client) {
+            throw new common_1.BadRequestException('Client must belong to this tenant');
+        }
+        return client.id;
+    }
     async create(userId, tenantId, dto) {
+        const clientId = await this.resolveClientId(tenantId, dto.client_id);
         const site = await this.prisma.site.create({
             data: {
-                ...dto,
+                name: dto.name,
+                address: dto.address,
+                instructions: dto.instructions,
+                clientId,
                 tenantId,
+            },
+            include: {
+                client: {
+                    select: { id: true, name: true, companyName: true },
+                },
             },
         });
         await this.auditService.log({
@@ -40,6 +63,11 @@ let SitesService = class SitesService {
     async findAll(tenantId) {
         return this.prisma.site.findMany({
             where: { tenantId },
+            include: {
+                client: {
+                    select: { id: true, name: true, companyName: true },
+                },
+            },
             orderBy: { createdAt: 'desc' },
         });
     }
@@ -50,9 +78,22 @@ let SitesService = class SitesService {
         if (!site) {
             throw new common_1.NotFoundException('Site not found');
         }
+        const clientId = dto.client_id === undefined
+            ? undefined
+            : await this.resolveClientId(tenantId, dto.client_id);
         const updatedSite = await this.prisma.site.update({
             where: { id },
-            data: dto,
+            data: {
+                ...(dto.name !== undefined ? { name: dto.name } : {}),
+                ...(dto.address !== undefined ? { address: dto.address } : {}),
+                ...(dto.instructions !== undefined ? { instructions: dto.instructions } : {}),
+                ...(clientId !== undefined ? { clientId } : {}),
+            },
+            include: {
+                client: {
+                    select: { id: true, name: true, companyName: true },
+                },
+            },
         });
         await this.auditService.log({
             tenantId,

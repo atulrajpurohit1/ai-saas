@@ -24,6 +24,7 @@ import { DocumentsModule } from './documents/documents.module';
 import { GuardAuthModule } from './guard-auth/guard-auth.module';
 import { GuardPortalModule } from './guard-portal/guard-portal.module';
 import { IncidentsModule } from './incidents/incidents.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { IncidentsModule } from './incidents/incidents.module';
     GuardAuthModule,
     GuardPortalModule,
     IncidentsModule,
+    ReportsModule,
     LeadsModule,
     DealsModule,
     ProposalsModule,

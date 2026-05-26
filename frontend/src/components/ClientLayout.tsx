@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LogOut, LayoutDashboard, User, Folder, Shield, Menu, X } from 'lucide-react';
+import { LogOut, LayoutDashboard, User, Folder, Shield, Menu, X, FileWarning, FileText } from 'lucide-react';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -18,6 +18,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const menuItems = [
     { name: 'Dashboard', icon: LayoutDashboard, href: '/client/dashboard' },
     { name: 'Documents', icon: Folder, href: '/client/documents' },
+    { name: 'Incidents', icon: FileWarning, href: '/client/incidents' },
+    { name: 'Reports', icon: FileText, href: '/client/reports' },
     { name: 'Profile', icon: User, href: '/client/profile' },
   ];
 
@@ -39,7 +41,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               key={item.href}
               href={item.href} 
               className={`flex items-center gap-3 rounded-2xl border px-4 py-3 font-medium transition-all ${
-                pathname === item.href
+                pathname === item.href || pathname.startsWith(`${item.href}/`)
                   ? 'border-indigo-500/20 bg-indigo-600/15 text-white'
                   : 'border-transparent text-slate-400 hover:border-white/5 hover:bg-white/5 hover:text-white'
               }`}
@@ -115,7 +117,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   href={item.href}
                   onClick={() => setMenuOpen(false)}
                   className={`flex min-h-12 items-center gap-3 rounded-2xl border px-4 py-3 font-semibold transition ${
-                    pathname === item.href
+                    pathname === item.href || pathname.startsWith(`${item.href}/`)
                       ? 'border-indigo-500/20 bg-indigo-600/15 text-white'
                       : 'border-transparent text-slate-400 hover:border-white/5 hover:bg-white/5 hover:text-white'
                   }`}
@@ -137,9 +139,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </div>
       )}
 
-      <nav className="fixed bottom-0 left-0 right-0 z-40 grid grid-cols-3 border-t border-white/10 bg-[#05050a]/95 px-2 pb-[env(safe-area-inset-bottom)] pt-2 backdrop-blur lg:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 grid grid-cols-5 border-t border-white/10 bg-[#05050a]/95 px-2 pb-[env(safe-area-inset-bottom)] pt-2 backdrop-blur lg:hidden">
         {menuItems.map((item) => {
-          const active = pathname === item.href;
+          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link
               key={item.href}

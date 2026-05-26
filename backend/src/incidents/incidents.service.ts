@@ -9,8 +9,9 @@ import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateIncidentDto, INCIDENT_SEVERITIES } from './dto/create-incident.dto';
+import { IncidentReviewStatus, INCIDENT_REVIEW_STATUSES, ReviewIncidentDto } from './dto/review-incident.dto';
 
-type IncidentStatus = 'submitted' | 'reviewed' | 'rejected';
+type IncidentStatus = 'submitted' | 'under_review' | 'approved' | 'rejected';
 
 type IncidentRow = {
   id: string;
@@ -25,6 +26,11 @@ type IncidentRow = {
   occurredAt: Date;
   attachmentUrl: string | null;
   notes: string | null;
+  reviewedById: string | null;
+  reviewedByName: string | null;
+  reviewedByEmail: string | null;
+  reviewedAt: Date | null;
+  reviewNote: string | null;
   createdAt: Date;
   siteName: string;
   siteAddress: string;
@@ -33,6 +39,20 @@ type IncidentRow = {
   guardPhone: string | null;
   shiftStartTime: Date;
   shiftEndTime: Date;
+};
+
+type ClientIncidentRow = {
+  id: string;
+  title: string;
+  description: string;
+  severity: string;
+  status: 'approved';
+  occurredAt: Date;
+  attachmentUrl: string | null;
+  reviewedAt: Date | null;
+  siteId: string;
+  siteName: string;
+  siteAddress: string;
 };
 
 @Injectable()
@@ -57,6 +77,17 @@ export class IncidentsService {
       attachmentUrl: row.attachmentUrl,
       notes: row.notes,
       createdAt: row.createdAt,
+      submittedAt: row.createdAt,
+      reviewedById: row.reviewedById,
+      reviewedBy: row.reviewedById
+        ? {
+            id: row.reviewedById,
+            name: row.reviewedByName,
+            email: row.reviewedByEmail,
+          }
+        : null,
+      reviewedAt: row.reviewedAt,
+      reviewNote: row.reviewNote,
       site: {
         id: row.siteId,
         name: row.siteName,
@@ -76,6 +107,38 @@ export class IncidentsService {
     };
   }
 
+  private mapClientIncident(row: ClientIncidentRow) {
+    return {
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      severity: row.severity,
+      status: row.status,
+      occurredAt: row.occurredAt,
+      attachmentUrl: row.attachmentUrl,
+      reviewedAt: row.reviewedAt,
+      site: {
+        id: row.siteId,
+        name: row.siteName,
+        address: row.siteAddress,
+      },
+    };
+  }
+
+  private mapClientIncidentListItem(row: ClientIncidentRow) {
+    return {
+      id: row.id,
+      title: row.title,
+      severity: row.severity,
+      status: row.status,
+      occurredAt: row.occurredAt,
+      site: {
+        id: row.siteId,
+        name: row.siteName,
+      },
+    };
+  }
+
   private incidentSelectSql(whereSql: Prisma.Sql) {
     return Prisma.sql`
       SELECT
@@ -91,6 +154,11 @@ export class IncidentsService {
         i."occurred_at" AS "occurredAt",
         i."attachment_url" AS "attachmentUrl",
         i."notes",
+        i."reviewed_by" AS "reviewedById",
+        reviewer."name" AS "reviewedByName",
+        reviewer."email" AS "reviewedByEmail",
+        i."reviewed_at" AS "reviewedAt",
+        i."review_note" AS "reviewNote",
         i."created_at" AS "createdAt",
         s."name" AS "siteName",
         s."address" AS "siteAddress",
@@ -103,6 +171,7 @@ export class IncidentsService {
       INNER JOIN "Site" s ON s."id" = i."site_id"
       INNER JOIN "Guard" g ON g."id" = i."guard_id"
       INNER JOIN "Shift" sh ON sh."id" = i."shift_id"
+      LEFT JOIN "User" reviewer ON reviewer."id" = i."reviewed_by"
       ${whereSql}
       ORDER BY i."occurred_at" DESC, i."created_at" DESC
     `;
@@ -136,6 +205,45 @@ export class IncidentsService {
       attachmentUrl,
       notes,
     };
+  }
+
+  private validateReviewStatus(status: string): IncidentReviewStatus {
+    if (!INCIDENT_REVIEW_STATUSES.includes(status as IncidentReviewStatus)) {
+      throw new BadRequestException('Review status must be approved or rejected');
+    }
+
+    return status as IncidentReviewStatus;
+  }
+
+  private async moveSubmittedIncidentToReview(
+    tenantId: string,
+    userId: string,
+    incident: IncidentRow,
+  ) {
+    if (incident.status !== 'submitted') {
+      return false;
+    }
+
+    const updatedCount = await this.prisma.$executeRaw(Prisma.sql`
+      UPDATE "Incident"
+      SET "status" = 'under_review'
+      WHERE "id" = ${incident.id}
+        AND "tenant_id" = ${tenantId}
+        AND "status" = 'submitted'
+    `);
+
+    if (updatedCount > 0) {
+      await this.auditService.log({
+        tenantId,
+        userId,
+        action: 'INCIDENT_UNDER_REVIEW',
+        entityType: 'Incident',
+        entityId: incident.id,
+        details: `Incident "${incident.title}" moved to review`,
+      });
+    }
+
+    return updatedCount > 0;
   }
 
   async createForGuard(
@@ -222,6 +330,11 @@ export class IncidentsService {
         "occurred_at" AS "occurredAt",
         "attachment_url" AS "attachmentUrl",
         "notes",
+        NULL AS "reviewedById",
+        NULL AS "reviewedByName",
+        NULL AS "reviewedByEmail",
+        NULL::timestamp AS "reviewedAt",
+        NULL AS "reviewNote",
         "created_at" AS "createdAt",
         ${shift.site.name} AS "siteName",
         ${shift.site.address} AS "siteAddress",
@@ -262,6 +375,16 @@ export class IncidentsService {
     return rows.map((row) => this.mapIncident(row));
   }
 
+  async findReviewQueueForAdmin(tenantId: string) {
+    const rows = await this.prisma.$queryRaw<IncidentRow[]>(
+      this.incidentSelectSql(
+        Prisma.sql`WHERE i."tenant_id" = ${tenantId} AND i."status" IN ('submitted', 'under_review')`,
+      ),
+    );
+
+    return rows.map((row) => this.mapIncident(row));
+  }
+
   async findOneForAdmin(tenantId: string, incidentId: string, userId: string) {
     const rows = await this.prisma.$queryRaw<IncidentRow[]>(
       this.incidentSelectSql(
@@ -269,9 +392,19 @@ export class IncidentsService {
       ),
     );
 
-    const incident = rows[0];
+    let incident = rows[0];
     if (!incident) {
       throw new NotFoundException('Incident not found');
+    }
+
+    const movedToReview = await this.moveSubmittedIncidentToReview(tenantId, userId, incident);
+    if (movedToReview) {
+      const updatedRows = await this.prisma.$queryRaw<IncidentRow[]>(
+        this.incidentSelectSql(
+          Prisma.sql`WHERE i."tenant_id" = ${tenantId} AND i."id" = ${incidentId}`,
+        ),
+      );
+      incident = updatedRows[0] ?? incident;
     }
 
     await this.auditService.log({
@@ -284,5 +417,149 @@ export class IncidentsService {
     });
 
     return this.mapIncident(incident);
+  }
+
+  async reviewIncident(
+    tenantId: string,
+    incidentId: string,
+    userId: string,
+    dto: ReviewIncidentDto,
+  ) {
+    const status = this.validateReviewStatus(dto.status);
+    const reviewNote = dto.review_note?.trim() || null;
+
+    const rows = await this.prisma.$queryRaw<IncidentRow[]>(
+      this.incidentSelectSql(
+        Prisma.sql`WHERE i."tenant_id" = ${tenantId} AND i."id" = ${incidentId}`,
+      ),
+    );
+
+    const incident = rows[0];
+    if (!incident) {
+      throw new NotFoundException('Incident not found');
+    }
+
+    if (incident.status === 'approved' || incident.status === 'rejected') {
+      throw new BadRequestException('Incident has already been reviewed');
+    }
+
+    if (incident.status !== 'submitted' && incident.status !== 'under_review') {
+      throw new BadRequestException('Incident cannot be reviewed from its current status');
+    }
+
+    await this.moveSubmittedIncidentToReview(tenantId, userId, incident);
+
+    const reviewedAt = new Date();
+    const updatedCount = await this.prisma.$executeRaw(Prisma.sql`
+      UPDATE "Incident"
+      SET
+        "status" = ${status},
+        "reviewed_by" = ${userId},
+        "reviewed_at" = ${reviewedAt},
+        "review_note" = ${reviewNote}
+      WHERE "id" = ${incidentId}
+        AND "tenant_id" = ${tenantId}
+        AND "status" IN ('submitted', 'under_review')
+    `);
+
+    if (updatedCount === 0) {
+      throw new BadRequestException('Incident has already been reviewed');
+    }
+
+    const updatedRows = await this.prisma.$queryRaw<IncidentRow[]>(
+      this.incidentSelectSql(
+        Prisma.sql`WHERE i."tenant_id" = ${tenantId} AND i."id" = ${incidentId}`,
+      ),
+    );
+    const reviewedIncident = updatedRows[0];
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: status === 'approved' ? 'INCIDENT_APPROVED' : 'INCIDENT_REJECTED',
+      entityType: 'Incident',
+      entityId: reviewedIncident.id,
+      details: `Incident "${reviewedIncident.title}" ${status}`,
+    });
+
+    return this.mapIncident(reviewedIncident);
+  }
+
+  async findApprovedForClient(tenantId: string, clientId: string, userId: string) {
+    const rows = await this.prisma.$queryRaw<ClientIncidentRow[]>(Prisma.sql`
+      SELECT
+        i."id",
+        i."title",
+        i."description",
+        i."severity",
+        i."status",
+        i."occurred_at" AS "occurredAt",
+        i."attachment_url" AS "attachmentUrl",
+        i."reviewed_at" AS "reviewedAt",
+        s."id" AS "siteId",
+        s."name" AS "siteName",
+        s."address" AS "siteAddress"
+      FROM "Incident" i
+      INNER JOIN "Site" s ON s."id" = i."site_id"
+      WHERE i."tenant_id" = ${tenantId}
+        AND i."status" = 'approved'
+        AND s."client_id" = ${clientId}
+      ORDER BY i."occurred_at" DESC, i."created_at" DESC
+    `);
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'CLIENT_INCIDENT_LIST_VIEWED',
+      entityType: 'Incident',
+      details: 'Client viewed approved incident list',
+    });
+
+    return rows.map((row) => this.mapClientIncidentListItem(row));
+  }
+
+  async findApprovedDetailForClient(
+    tenantId: string,
+    clientId: string,
+    userId: string,
+    incidentId: string,
+  ) {
+    const rows = await this.prisma.$queryRaw<ClientIncidentRow[]>(Prisma.sql`
+      SELECT
+        i."id",
+        i."title",
+        i."description",
+        i."severity",
+        i."status",
+        i."occurred_at" AS "occurredAt",
+        i."attachment_url" AS "attachmentUrl",
+        i."reviewed_at" AS "reviewedAt",
+        s."id" AS "siteId",
+        s."name" AS "siteName",
+        s."address" AS "siteAddress"
+      FROM "Incident" i
+      INNER JOIN "Site" s ON s."id" = i."site_id"
+      WHERE i."tenant_id" = ${tenantId}
+        AND i."id" = ${incidentId}
+        AND i."status" = 'approved'
+        AND s."client_id" = ${clientId}
+      LIMIT 1
+    `);
+
+    const incident = rows[0];
+    if (!incident) {
+      throw new NotFoundException('Incident not found');
+    }
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'CLIENT_INCIDENT_DETAIL_VIEWED',
+      entityType: 'Incident',
+      entityId: incident.id,
+      details: `Client viewed incident "${incident.title}"`,
+    });
+
+    return this.mapClientIncident(incident);
   }
 }

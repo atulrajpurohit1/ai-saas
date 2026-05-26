@@ -18,6 +18,7 @@ const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const roles_guard_1 = require("../auth/guards/roles.guard");
+const review_incident_dto_1 = require("./dto/review-incident.dto");
 const incidents_service_1 = require("./incidents.service");
 let IncidentsController = class IncidentsController {
     incidentsService;
@@ -27,8 +28,14 @@ let IncidentsController = class IncidentsController {
     findAll(user) {
         return this.incidentsService.findAllForAdmin(user.tenantId);
     }
+    findReviewQueue(user) {
+        return this.incidentsService.findReviewQueueForAdmin(user.tenantId);
+    }
     findOne(user, id) {
         return this.incidentsService.findOneForAdmin(user.tenantId, id, user.sub);
+    }
+    review(user, id, dto) {
+        return this.incidentsService.reviewIncident(user.tenantId, id, user.sub, dto);
     }
 };
 exports.IncidentsController = IncidentsController;
@@ -40,6 +47,13 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], IncidentsController.prototype, "findAll", null);
 __decorate([
+    (0, common_1.Get)('review-queue'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], IncidentsController.prototype, "findReviewQueue", null);
+__decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -47,10 +61,19 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], IncidentsController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Post)(':id/review'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, review_incident_dto_1.ReviewIncidentDto]),
+    __metadata("design:returntype", void 0)
+], IncidentsController.prototype, "review", null);
 exports.IncidentsController = IncidentsController = __decorate([
     (0, common_1.Controller)('incidents'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin'),
+    (0, roles_decorator_1.Roles)('admin', 'supervisor'),
     __metadata("design:paramtypes", [incidents_service_1.IncidentsService])
 ], IncidentsController);
 //# sourceMappingURL=incidents.controller.js.map

@@ -12,4 +12,8 @@ export class CreateSiteDto {
   @IsOptional()
   @IsString()
   instructions?: string;
+
+  @IsOptional()
+  @IsString()
+  client_id?: string | null;
 }

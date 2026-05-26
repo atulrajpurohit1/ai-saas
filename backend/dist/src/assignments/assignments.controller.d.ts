@@ -19,6 +19,7 @@ export declare class AssignmentsController {
                 name: string;
                 createdAt: Date;
                 tenantId: string;
+                clientId: string | null;
                 address: string;
                 instructions: string | null;
             };

@@ -13,6 +13,7 @@ import {
   CalendarClock,
   Activity,
   FileWarning,
+  ClipboardList,
   X
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -41,6 +42,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     { href: '/guards', label: 'Guards', icon: ShieldCheck },
     { href: '/shifts', label: 'Shifts', icon: CalendarClock },
     { href: '/incidents', label: 'Incidents', icon: FileWarning },
+    { href: '/reports', label: 'Reports', icon: ClipboardList },
     { href: '/audit', label: 'Activity', icon: Activity },
   ];
 

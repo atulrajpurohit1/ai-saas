@@ -39,6 +39,7 @@ model Tenant {
   documents   SharedDocument[]
   attendanceEvents AttendanceEvent[]
   incidents Incident[]
+  dailyServiceReports DailyServiceReport[]
 }
 
 model User {
@@ -52,6 +53,7 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  reviewedIncidents Incident[] @relation("IncidentReviewer")
 
   @@index([tenantId])
 }
@@ -180,11 +182,15 @@ model Site {
   instructions String?
   tenantId     String
   tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  clientId     String?  @map("client_id")
+  client       Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   shifts       Shift[]
   incidents    Incident[]
+  dailyServiceReports DailyServiceReport[]
   createdAt    DateTime @default(now())
 
   @@index([tenantId])
+  @@index([clientId])
 }
 
 model Guard {
@@ -291,12 +297,17 @@ model Incident {
   occurredAt    DateTime @map("occurred_at")
   attachmentUrl String?  @map("attachment_url")
   notes         String?
+  reviewedById  String?   @map("reviewed_by")
+  reviewedBy    User?     @relation("IncidentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt    DateTime? @map("reviewed_at")
+  reviewNote    String?   @map("review_note")
   createdAt     DateTime @default(now()) @map("created_at")
 
   @@index([tenantId])
   @@index([shiftId])
   @@index([siteId])
   @@index([guardId])
+  @@index([reviewedById])
   @@index([severity])
   @@index([status])
   @@map("Incident")
@@ -314,10 +325,34 @@ model Client {
   deals       Deal[]
   proposals   Proposal[]
   documents   SharedDocument[]
+  sites       Site[]
+  dailyServiceReports DailyServiceReport[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([tenantId])
+}
+
+model DailyServiceReport {
+  id          String    @id @default(uuid())
+  tenantId    String    @map("tenant_id")
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  clientId    String    @map("client_id")
+  client      Client    @relation(fields: [clientId], references: [id])
+  siteId      String    @map("site_id")
+  site        Site      @relation(fields: [siteId], references: [id])
+  reportDate  DateTime  @map("report_date")
+  summary     String
+  status      String    @default("draft")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  publishedAt DateTime? @map("published_at")
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([siteId])
+  @@index([reportDate])
+  @@index([status])
+  @@map("DailyServiceReport")
 }
 
 model ClientUser {
