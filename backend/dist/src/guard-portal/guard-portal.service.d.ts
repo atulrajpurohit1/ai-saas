@@ -8,6 +8,7 @@ export declare class GuardPortalService {
     private summarizeAttendance;
     private logInvalidAttendanceAttempt;
     private isDuplicateAttendanceEvent;
+    private roundHours;
     private getAssignedShiftContext;
     getProfile(tenantId: string, guardId: string): Promise<{
         id: string;
@@ -65,6 +66,9 @@ export declare class GuardPortalService {
         attendanceStatus: string;
         checkInTime: Date;
         checkOutTime: Date;
+        timesheetId: string;
+        timesheetStatus: string;
+        totalHours: number;
     }>;
 }
 export {};

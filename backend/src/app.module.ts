@@ -25,6 +25,9 @@ import { GuardAuthModule } from './guard-auth/guard-auth.module';
 import { GuardPortalModule } from './guard-portal/guard-portal.module';
 import { IncidentsModule } from './incidents/incidents.module';
 import { ReportsModule } from './reports/reports.module';
+import { InvoicesModule } from './invoices/invoices.module';
+import { TimesheetsModule } from './timesheets/timesheets.module';
+import { RateCardsModule } from './rate-cards/rate-cards.module';
 
 @Module({
   imports: [
@@ -38,6 +41,9 @@ import { ReportsModule } from './reports/reports.module';
     GuardPortalModule,
     IncidentsModule,
     ReportsModule,
+    InvoicesModule,
+    TimesheetsModule,
+    RateCardsModule,
     LeadsModule,
     DealsModule,
     ProposalsModule,

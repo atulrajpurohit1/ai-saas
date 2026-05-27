@@ -34,6 +34,9 @@ const guard_auth_module_1 = require("./guard-auth/guard-auth.module");
 const guard_portal_module_1 = require("./guard-portal/guard-portal.module");
 const incidents_module_1 = require("./incidents/incidents.module");
 const reports_module_1 = require("./reports/reports.module");
+const invoices_module_1 = require("./invoices/invoices.module");
+const timesheets_module_1 = require("./timesheets/timesheets.module");
+const rate_cards_module_1 = require("./rate-cards/rate-cards.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -50,6 +53,9 @@ exports.AppModule = AppModule = __decorate([
             guard_portal_module_1.GuardPortalModule,
             incidents_module_1.IncidentsModule,
             reports_module_1.ReportsModule,
+            invoices_module_1.InvoicesModule,
+            timesheets_module_1.TimesheetsModule,
+            rate_cards_module_1.RateCardsModule,
             leads_module_1.LeadsModule,
             deals_module_1.DealsModule,
             proposals_module_1.ProposalsModule,

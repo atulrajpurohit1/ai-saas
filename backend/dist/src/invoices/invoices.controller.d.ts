@@ -1,0 +1,229 @@
+import { Response } from 'express';
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { GenerateInvoiceDto } from './dto/generate-invoice.dto';
+import { InvoicesService } from './invoices.service';
+export declare class InvoicesController {
+    private readonly invoicesService;
+    constructor(invoicesService: InvoicesService);
+    generate(user: ActiveUser, dto: GenerateInvoiceDto): Promise<{
+        id: any;
+        tenantId: any;
+        clientId: any;
+        siteId: any;
+        invoiceNumber: any;
+        billingStartDate: any;
+        billingEndDate: any;
+        totalHours: any;
+        hourlyRate: any;
+        subtotal: any;
+        tax: any;
+        totalAmount: any;
+        status: any;
+        createdAt: any;
+        issuedAt: any;
+        rateCardId: any;
+        rateSource: any;
+        rateCard: {
+            id: any;
+            roleName: any;
+            hourlyRate: any;
+            overtimeRate: any;
+            holidayRate: any;
+            effectiveFrom: any;
+            effectiveTo: any;
+            status: any;
+            clientId: any;
+            siteId: any;
+        } | null;
+        client: {
+            id: any;
+            name: any;
+            companyName: any;
+            email: any;
+            phone: any;
+        } | null;
+        site: {
+            id: any;
+            name: any;
+            address: any;
+        } | null;
+        items: any;
+    }>;
+    findAll(user: ActiveUser): Promise<{
+        id: any;
+        tenantId: any;
+        clientId: any;
+        siteId: any;
+        invoiceNumber: any;
+        billingStartDate: any;
+        billingEndDate: any;
+        totalHours: any;
+        hourlyRate: any;
+        subtotal: any;
+        tax: any;
+        totalAmount: any;
+        status: any;
+        createdAt: any;
+        issuedAt: any;
+        rateCardId: any;
+        rateSource: any;
+        rateCard: {
+            id: any;
+            roleName: any;
+            hourlyRate: any;
+            overtimeRate: any;
+            holidayRate: any;
+            effectiveFrom: any;
+            effectiveTo: any;
+            status: any;
+            clientId: any;
+            siteId: any;
+        } | null;
+        client: {
+            id: any;
+            name: any;
+            companyName: any;
+            email: any;
+            phone: any;
+        } | null;
+        site: {
+            id: any;
+            name: any;
+            address: any;
+        } | null;
+        items: any;
+    }[]>;
+    exportPdf(user: ActiveUser, id: string, res: Response): Promise<void>;
+    findOne(user: ActiveUser, id: string): Promise<{
+        id: any;
+        tenantId: any;
+        clientId: any;
+        siteId: any;
+        invoiceNumber: any;
+        billingStartDate: any;
+        billingEndDate: any;
+        totalHours: any;
+        hourlyRate: any;
+        subtotal: any;
+        tax: any;
+        totalAmount: any;
+        status: any;
+        createdAt: any;
+        issuedAt: any;
+        rateCardId: any;
+        rateSource: any;
+        rateCard: {
+            id: any;
+            roleName: any;
+            hourlyRate: any;
+            overtimeRate: any;
+            holidayRate: any;
+            effectiveFrom: any;
+            effectiveTo: any;
+            status: any;
+            clientId: any;
+            siteId: any;
+        } | null;
+        client: {
+            id: any;
+            name: any;
+            companyName: any;
+            email: any;
+            phone: any;
+        } | null;
+        site: {
+            id: any;
+            name: any;
+            address: any;
+        } | null;
+        items: any;
+    }>;
+    issue(user: ActiveUser, id: string): Promise<{
+        id: any;
+        tenantId: any;
+        clientId: any;
+        siteId: any;
+        invoiceNumber: any;
+        billingStartDate: any;
+        billingEndDate: any;
+        totalHours: any;
+        hourlyRate: any;
+        subtotal: any;
+        tax: any;
+        totalAmount: any;
+        status: any;
+        createdAt: any;
+        issuedAt: any;
+        rateCardId: any;
+        rateSource: any;
+        rateCard: {
+            id: any;
+            roleName: any;
+            hourlyRate: any;
+            overtimeRate: any;
+            holidayRate: any;
+            effectiveFrom: any;
+            effectiveTo: any;
+            status: any;
+            clientId: any;
+            siteId: any;
+        } | null;
+        client: {
+            id: any;
+            name: any;
+            companyName: any;
+            email: any;
+            phone: any;
+        } | null;
+        site: {
+            id: any;
+            name: any;
+            address: any;
+        } | null;
+        items: any;
+    }>;
+    markPaid(user: ActiveUser, id: string): Promise<{
+        id: any;
+        tenantId: any;
+        clientId: any;
+        siteId: any;
+        invoiceNumber: any;
+        billingStartDate: any;
+        billingEndDate: any;
+        totalHours: any;
+        hourlyRate: any;
+        subtotal: any;
+        tax: any;
+        totalAmount: any;
+        status: any;
+        createdAt: any;
+        issuedAt: any;
+        rateCardId: any;
+        rateSource: any;
+        rateCard: {
+            id: any;
+            roleName: any;
+            hourlyRate: any;
+            overtimeRate: any;
+            holidayRate: any;
+            effectiveFrom: any;
+            effectiveTo: any;
+            status: any;
+            clientId: any;
+            siteId: any;
+        } | null;
+        client: {
+            id: any;
+            name: any;
+            companyName: any;
+            email: any;
+            phone: any;
+        } | null;
+        site: {
+            id: any;
+            name: any;
+            address: any;
+        } | null;
+        items: any;
+    }>;
+}

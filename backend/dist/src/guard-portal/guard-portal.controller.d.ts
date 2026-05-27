@@ -60,5 +60,8 @@ export declare class GuardPortalController {
         attendanceStatus: string;
         checkInTime: Date;
         checkOutTime: Date;
+        timesheetId: string;
+        timesheetStatus: string;
+        totalHours: number;
     }>;
 }

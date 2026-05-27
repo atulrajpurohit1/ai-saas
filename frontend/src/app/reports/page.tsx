@@ -27,7 +27,8 @@ interface SiteOption {
   id: string;
   name: string;
   address: string;
-  clientId: string | null;
+  clientId?: string | null;
+  client_id?: string | null;
   client?: {
     id: string;
     name: string;
@@ -65,6 +66,14 @@ function formatDateTime(value: string | null) {
   });
 }
 
+function getSiteClientId(site: SiteOption) {
+  return site.clientId || site.client_id || site.client?.id || '';
+}
+
+function getSiteClientName(site: SiteOption) {
+  return site.client?.companyName || site.client?.name || 'Linked client';
+}
+
 export default function ReportsPage() {
   const [reports, setReports] = useState<DailyServiceReport[]>([]);
   const [sites, setSites] = useState<SiteOption[]>([]);
@@ -77,7 +86,7 @@ export default function ReportsPage() {
     report_date: localDateInputValue(),
   });
 
-  const linkedSites = useMemo(() => sites.filter((site) => site.clientId), [sites]);
+  const linkedSites = useMemo(() => sites.filter((site) => getSiteClientId(site)), [sites]);
 
   const fetchData = async () => {
     try {
@@ -180,11 +189,11 @@ export default function ReportsPage() {
             required
           >
             {linkedSites.length === 0 ? (
-              <option value="">Link a site to a client first</option>
+              <option value="" className="bg-[#0e0e1a] text-white">No linked sites available</option>
             ) : (
               linkedSites.map((site) => (
-                <option key={site.id} value={site.id}>
-                  {site.name} - {site.client?.companyName || site.client?.name || 'Client'}
+                <option key={site.id} value={site.id} className="bg-[#0e0e1a] text-white">
+                  {site.name} - {getSiteClientName(site)}
                 </option>
               ))
             )}
@@ -315,9 +324,28 @@ export default function ReportsPage() {
       </div>
 
       {linkedSites.length === 0 && !loading && (
-        <div className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200">
-          <MapPin className="mt-0.5 shrink-0" size={18} />
-          Link at least one site to a client before generating daily service reports.
+        <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <MapPin className="mt-0.5 shrink-0" size={18} />
+            <div>
+              <div className="font-semibold">
+                {sites.length === 0
+                  ? 'Create a site and assign it to a client before generating daily service reports.'
+                  : 'No sites are linked to a client yet.'}
+              </div>
+              {sites.length > 0 && (
+                <div className="mt-1 text-amber-100/80">
+                  Reports use client-linked sites. Open Sites, edit a site, choose a client, then save.
+                </div>
+              )}
+            </div>
+          </div>
+          <Link
+            href="/sites"
+            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 py-2 text-xs font-bold text-slate-950 transition hover:bg-amber-300"
+          >
+            Manage Sites <ArrowRight size={14} />
+          </Link>
         </div>
       )}
     </DashboardLayout>

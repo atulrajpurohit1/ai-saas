@@ -236,9 +236,14 @@ export default function SitesPage() {
                   value={formData.client_id}
                   onChange={(e) => setFormData({...formData, client_id: e.target.value})}
                 >
-                  <option value="">No linked client</option>
+                  <option value="" className="bg-[#0e0e1a] text-white">No linked client</option>
+                  {clients.length === 0 && (
+                    <option value="" disabled className="bg-[#0e0e1a] text-white">
+                      Create a client first
+                    </option>
+                  )}
                   {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
+                    <option key={client.id} value={client.id} className="bg-[#0e0e1a] text-white">
                       {client.companyName || client.name}
                     </option>
                   ))}

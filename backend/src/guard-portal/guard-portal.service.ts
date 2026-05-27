@@ -53,6 +53,10 @@ export class GuardPortalService {
     return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
   }
 
+  private roundHours(value: number) {
+    return Math.round(value * 10) / 10;
+  }
+
   private async getAssignedShiftContext(
     tenantId: string,
     guardId: string,
@@ -307,8 +311,10 @@ export class GuardPortalService {
       throw new BadRequestException('Guard must check in before checking out');
     }
 
+    const checkInTime = attendance.checkInTime;
+
     try {
-      const event = await this.prisma.$transaction(async (tx) => {
+      const result = await this.prisma.$transaction(async (tx) => {
         const attendanceEvent = await tx.attendanceEvent.create({
           data: {
             tenantId,
@@ -324,7 +330,43 @@ export class GuardPortalService {
           data: { status: 'completed' },
         });
 
-        return attendanceEvent;
+        const totalHours = this.roundHours(
+          Math.max(0, (attendanceEvent.timestamp.getTime() - checkInTime.getTime()) / 3_600_000),
+        );
+
+        const timesheet = await tx.timesheet.upsert({
+          where: {
+            tenantId_shiftId_guardId: {
+              tenantId,
+              shiftId,
+              guardId,
+            },
+          },
+          update: {
+            siteId: shift.siteId,
+            clientId: shift.site.clientId,
+            checkInTime,
+            checkOutTime: attendanceEvent.timestamp,
+            totalHours,
+            status: 'pending',
+            approvedBy: null,
+            approvedAt: null,
+            rejectionReason: null,
+          },
+          create: {
+            tenantId,
+            guardId,
+            shiftId,
+            siteId: shift.siteId,
+            clientId: shift.site.clientId,
+            checkInTime,
+            checkOutTime: attendanceEvent.timestamp,
+            totalHours,
+            status: 'pending',
+          },
+        });
+
+        return { attendanceEvent, timesheet };
       });
 
       await this.auditService.log({
@@ -340,8 +382,11 @@ export class GuardPortalService {
         message: 'Checked out successfully',
         shiftStatus: 'completed',
         attendanceStatus: 'completed',
-        checkInTime: attendance.checkInTime,
-        checkOutTime: event.timestamp,
+        checkInTime,
+        checkOutTime: result.attendanceEvent.timestamp,
+        timesheetId: result.timesheet.id,
+        timesheetStatus: result.timesheet.status,
+        totalHours: result.timesheet.totalHours,
       };
     } catch (error) {
       if (this.isDuplicateAttendanceEvent(error)) {
