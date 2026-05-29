@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 
 export interface User {
   email: string;
-  role: 'admin' | 'client';
+  role: 'admin' | 'finance' | 'client';
   name: string;
   tenantName?: string;
 }
@@ -45,6 +45,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     if (userData.role === 'client') {
       router.push('/client/dashboard');
+    } else if (userData.role === 'finance') {
+      router.push('/finance');
     } else {
       router.push('/');
     }

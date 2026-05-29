@@ -6,24 +6,37 @@ import { useParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { getAdminInvoice, Invoice, issueInvoice, markInvoicePaid } from '@/lib/invoices';
+import { cancelInvoice, getAdminInvoice, Invoice, issueInvoice, markInvoicePaid } from '@/lib/invoices';
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   CalendarDays,
   CheckCircle2,
   Download,
+  FileWarning,
   Loader2,
   MapPin,
   Receipt,
   Send,
   ShieldCheck,
+  XCircle,
 } from 'lucide-react';
 
 const statusClass: Record<string, string> = {
   draft: 'border-amber-400/20 bg-amber-400/10 text-amber-300',
   issued: 'border-sky-400/20 bg-sky-400/10 text-sky-300',
+  disputed: 'border-orange-400/20 bg-orange-400/10 text-orange-300',
+  resolved: 'border-violet-400/20 bg-violet-400/10 text-violet-300',
   paid: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
+  cancelled: 'border-slate-400/20 bg-slate-400/10 text-slate-300',
+};
+
+const disputeStatusClass: Record<string, string> = {
+  open: 'border-amber-400/20 bg-amber-400/10 text-amber-300',
+  under_review: 'border-violet-400/20 bg-violet-400/10 text-violet-300',
+  resolved: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
+  rejected: 'border-rose-400/20 bg-rose-400/10 text-rose-300',
 };
 
 function formatDate(value: string | null) {
@@ -115,6 +128,21 @@ export default function InvoiceDetailPage() {
     }
   };
 
+  const handleCancel = async () => {
+    if (!invoice) return;
+
+    setWorking(true);
+    setError('');
+
+    try {
+      setInvoice(await cancelInvoice(invoice.id));
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not cancel invoice.'));
+    } finally {
+      setWorking(false);
+    }
+  };
+
   const handleDownload = async () => {
     if (!invoice) return;
 
@@ -183,7 +211,7 @@ export default function InvoiceDetailPage() {
               </div>
 
               <div className="flex flex-wrap gap-3">
-                {invoice.status === 'draft' && (
+                {['draft', 'resolved'].includes(invoice.status) && (
                   <button
                     type="button"
                     onClick={handleIssue}
@@ -191,10 +219,10 @@ export default function InvoiceDetailPage() {
                     className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-sky-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-sky-400 disabled:opacity-60"
                   >
                     {working ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
-                    Issue
+                    {invoice.status === 'resolved' ? 'Reissue' : 'Issue'}
                   </button>
                 )}
-                {invoice.status === 'issued' && (
+                {['issued', 'resolved'].includes(invoice.status) && (
                   <button
                     type="button"
                     onClick={handleMarkPaid}
@@ -203,6 +231,17 @@ export default function InvoiceDetailPage() {
                   >
                     {working ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
                     Mark Paid
+                  </button>
+                )}
+                {!['paid', 'cancelled'].includes(invoice.status) && (
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    disabled={working}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-rose-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-rose-400 disabled:opacity-60"
+                  >
+                    {working ? <Loader2 className="animate-spin" size={16} /> : <XCircle size={16} />}
+                    Cancel
                   </button>
                 )}
                 <button
@@ -266,6 +305,52 @@ export default function InvoiceDetailPage() {
               <div className="text-lg font-bold text-white">Issued {formatDate(invoice.issuedAt)}</div>
               <div className="mt-1 text-sm text-slate-400">Created {formatDate(invoice.createdAt)}</div>
             </div>
+          </section>
+
+          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="flex items-center gap-2 text-xl font-bold text-white">
+                <FileWarning className="text-amber-300" size={20} />
+                Dispute History
+              </h2>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-slate-300">
+                {invoice.disputes.length}
+              </span>
+            </div>
+
+            {invoice.disputes.length === 0 ? (
+              <div className="py-8 text-center text-slate-500">No disputes recorded for this invoice.</div>
+            ) : (
+              <div className="space-y-3">
+                {invoice.disputes.map((dispute) => (
+                  <article key={dispute.id} className="rounded-2xl border border-white/5 bg-white/[0.03] p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-widest ${disputeStatusClass[dispute.status] || disputeStatusClass.open}`}>
+                            {dispute.status.replace('_', ' ')}
+                          </span>
+                          <span className="text-xs font-semibold text-slate-500">{formatDate(dispute.createdAt)}</span>
+                        </div>
+                        <div className="mt-3 font-bold text-white">{dispute.reason}</div>
+                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-300">{dispute.description}</p>
+                        {dispute.adminResponse && (
+                          <p className="mt-3 whitespace-pre-wrap rounded-2xl border border-white/5 bg-black/10 p-3 text-sm leading-6 text-slate-300">
+                            {dispute.adminResponse}
+                          </p>
+                        )}
+                      </div>
+                      <Link
+                        href={`/invoice-disputes/${dispute.id}`}
+                        className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-white/10"
+                      >
+                        Review <ArrowRight size={14} />
+                      </Link>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
           </section>
 
           <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">

@@ -11,6 +11,7 @@ import {
   Invoice,
   issueInvoice,
   markInvoicePaid,
+  cancelInvoice,
 } from '@/lib/invoices';
 import {
   AlertTriangle,
@@ -24,6 +25,7 @@ import {
   Loader2,
   Receipt,
   Send,
+  XCircle,
 } from 'lucide-react';
 
 interface ClientOption {
@@ -48,7 +50,10 @@ interface SiteOption {
 const statusClass: Record<string, string> = {
   draft: 'border-amber-400/20 bg-amber-400/10 text-amber-300',
   issued: 'border-sky-400/20 bg-sky-400/10 text-sky-300',
+  disputed: 'border-orange-400/20 bg-orange-400/10 text-orange-300',
+  resolved: 'border-violet-400/20 bg-violet-400/10 text-violet-300',
   paid: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
+  cancelled: 'border-slate-400/20 bg-slate-400/10 text-slate-300',
 };
 
 function localDateInputValue(value = new Date()) {
@@ -176,6 +181,7 @@ export default function InvoicesPage() {
     formData.billing_end_date &&
     (!formData.allow_manual_rate || Number(formData.hourly_rate) > 0),
   );
+  const shouldLinkTimesheets = error.includes('timesheet') || error.includes('billable hours');
 
   const handleGenerate = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -248,6 +254,19 @@ export default function InvoicesPage() {
       updateInvoice(await markInvoicePaid(id));
     } catch (err) {
       setError(getApiErrorMessage(err, 'Could not mark invoice paid.'));
+    } finally {
+      setActionId('');
+    }
+  };
+
+  const handleCancel = async (id: string) => {
+    setActionId(id);
+    setError('');
+
+    try {
+      updateInvoice(await cancelInvoice(id));
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not cancel invoice.'));
     } finally {
       setActionId('');
     }
@@ -386,9 +405,19 @@ export default function InvoicesPage() {
       </form>
 
       {error && (
-        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-5 py-4 text-sm font-semibold text-rose-300">
-          <AlertTriangle size={18} />
-          {error}
+        <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-5 py-4 text-sm font-semibold text-rose-300 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <AlertTriangle size={18} className="shrink-0" />
+            <span>{error}</span>
+          </div>
+          {shouldLinkTimesheets && (
+            <Link
+              href="/timesheets"
+              className="inline-flex min-h-10 items-center justify-center rounded-xl bg-rose-400 px-4 py-2 text-xs font-bold text-slate-950 transition hover:bg-rose-300"
+            >
+              Open Timesheets
+            </Link>
+          )}
         </div>
       )}
 
@@ -451,7 +480,7 @@ export default function InvoicesPage() {
                         >
                           View <ArrowRight size={14} />
                         </Link>
-                        {invoice.status === 'draft' && (
+                        {['draft', 'resolved'].includes(invoice.status) && (
                           <button
                             type="button"
                             onClick={() => handleIssue(invoice.id)}
@@ -459,10 +488,10 @@ export default function InvoicesPage() {
                             className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-sky-500 px-3 py-2 text-xs font-bold text-white transition hover:bg-sky-400 disabled:opacity-60"
                           >
                             {actionId === invoice.id ? <Loader2 className="animate-spin" size={14} /> : <Send size={14} />}
-                            Issue
+                            {invoice.status === 'resolved' ? 'Reissue' : 'Issue'}
                           </button>
                         )}
-                        {invoice.status === 'issued' && (
+                        {['issued', 'resolved'].includes(invoice.status) && (
                           <button
                             type="button"
                             onClick={() => handleMarkPaid(invoice.id)}
@@ -471,6 +500,17 @@ export default function InvoicesPage() {
                           >
                             {actionId === invoice.id ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}
                             Paid
+                          </button>
+                        )}
+                        {!['paid', 'cancelled'].includes(invoice.status) && (
+                          <button
+                            type="button"
+                            onClick={() => handleCancel(invoice.id)}
+                            disabled={actionId === invoice.id}
+                            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-rose-500/90 px-3 py-2 text-xs font-bold text-white transition hover:bg-rose-400 disabled:opacity-60"
+                          >
+                            {actionId === invoice.id ? <Loader2 className="animate-spin" size={14} /> : <XCircle size={14} />}
+                            Cancel
                           </button>
                         )}
                         <button

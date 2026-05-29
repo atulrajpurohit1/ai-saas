@@ -1,6 +1,20 @@
 import api from './api';
 
-export type InvoiceStatus = 'draft' | 'issued' | 'paid';
+export type InvoiceStatus = 'draft' | 'issued' | 'disputed' | 'resolved' | 'paid' | 'cancelled';
+export type InvoiceDisputeStatus = 'open' | 'under_review' | 'resolved' | 'rejected';
+
+export interface InvoiceDispute {
+  id: string;
+  invoiceId: string;
+  clientId: string;
+  tenantId: string;
+  reason: string;
+  description: string;
+  status: InvoiceDisputeStatus;
+  adminResponse: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
 
 export interface InvoiceItem {
   id: string;
@@ -47,6 +61,8 @@ export interface Invoice {
   status: InvoiceStatus;
   createdAt: string;
   issuedAt: string | null;
+  paidAt: string | null;
+  dueDate: string | null;
   rateCardId: string | null;
   rateSource: 'site_rate_card' | 'client_rate_card' | 'manual';
   rateCard: {
@@ -74,6 +90,7 @@ export interface Invoice {
     address: string;
   } | null;
   items: InvoiceItem[];
+  disputes: InvoiceDispute[];
 }
 
 export interface GenerateInvoiceInput {
@@ -110,6 +127,11 @@ export async function markInvoicePaid(id: string) {
   return response.data;
 }
 
+export async function cancelInvoice(id: string) {
+  const response = await api.post<Invoice>(`invoices/${id}/cancel`);
+  return response.data;
+}
+
 export async function getClientInvoices() {
   const response = await api.get<Invoice[]>('client/invoices');
   return response.data;
@@ -117,5 +139,15 @@ export async function getClientInvoices() {
 
 export async function getClientInvoice(id: string) {
   const response = await api.get<Invoice>(`client/invoices/${id}`);
+  return response.data;
+}
+
+export async function acceptClientInvoice(id: string) {
+  const response = await api.post<Invoice>(`client/invoices/${id}/accept`);
+  return response.data;
+}
+
+export async function disputeClientInvoice(id: string, input: { reason: string; description: string }) {
+  const response = await api.post<Invoice>(`client/invoices/${id}/dispute`, input);
   return response.data;
 }

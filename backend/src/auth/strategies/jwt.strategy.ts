@@ -9,7 +9,7 @@ interface JwtPayload {
   phone?: string;
   tenantId?: string;
   tenant_id?: string;
-  role: 'admin' | 'supervisor' | 'client' | 'guard';
+  role: 'admin' | 'finance' | 'supervisor' | 'client' | 'guard';
   clientId?: string;
   client_id?: string;
   guardId?: string;

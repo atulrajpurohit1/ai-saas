@@ -18,6 +18,7 @@ const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const roles_guard_1 = require("../auth/guards/roles.guard");
+const dispute_invoice_dto_1 = require("./dto/dispute-invoice.dto");
 const invoices_service_1 = require("./invoices.service");
 let ClientInvoicesController = class ClientInvoicesController {
     invoicesService;
@@ -52,6 +53,14 @@ let ClientInvoicesController = class ClientInvoicesController {
         const { tenantId, clientId } = this.getClientContext(user);
         return this.invoicesService.findOneForClient(tenantId, clientId, id);
     }
+    accept(user, id) {
+        const { tenantId, clientId, userId } = this.getClientContext(user);
+        return this.invoicesService.acceptInvoice(tenantId, clientId, userId, id);
+    }
+    dispute(user, id, dto) {
+        const { tenantId, clientId, userId } = this.getClientContext(user);
+        return this.invoicesService.disputeInvoice(tenantId, clientId, userId, id, dto);
+    }
 };
 exports.ClientInvoicesController = ClientInvoicesController;
 __decorate([
@@ -78,6 +87,23 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], ClientInvoicesController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Post)(':id/accept'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], ClientInvoicesController.prototype, "accept", null);
+__decorate([
+    (0, common_1.Post)(':id/dispute'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, dispute_invoice_dto_1.DisputeInvoiceDto]),
+    __metadata("design:returntype", void 0)
+], ClientInvoicesController.prototype, "dispute", null);
 exports.ClientInvoicesController = ClientInvoicesController = __decorate([
     (0, common_1.Controller)('client/invoices'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),

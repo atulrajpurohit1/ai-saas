@@ -2,20 +2,32 @@
 
 import React, { useEffect, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, type User } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Menu } from 'lucide-react';
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+interface DashboardLayoutProps {
+  children: React.ReactNode;
+  allowedRoles?: User['role'][];
+}
+
+export default function DashboardLayout({ children, allowedRoles }: DashboardLayoutProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isBlocked = Boolean(user && allowedRoles && !allowedRoles.includes(user.role));
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    if (!loading && user && isBlocked) {
+      router.push(user.role === 'client' ? '/client/dashboard' : '/login');
+    }
+  }, [isBlocked, loading, router, user]);
 
   if (loading) {
     return (
@@ -25,7 +37,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  if (!user) return null;
+  if (!user || isBlocked) return null;
 
   return (
     <div className="min-h-screen bg-[#0f172a]">
@@ -50,7 +62,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </button>
             <div className="min-w-0 text-right">
               <div className="truncate text-sm font-bold text-white">{user?.tenantName || 'Ai Saas'}</div>
-              <div className="text-xs text-muted-foreground">Admin workspace</div>
+              <div className="text-xs text-muted-foreground">{user.role === 'finance' ? 'Finance workspace' : 'Admin workspace'}</div>
             </div>
           </div>
         </header>

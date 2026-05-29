@@ -1,5 +1,6 @@
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { DisputeInvoiceDto } from './dto/dispute-invoice.dto';
 import { GenerateInvoiceDto } from './dto/generate-invoice.dto';
 export declare class InvoicesService {
     private prisma;
@@ -13,9 +14,11 @@ export declare class InvoicesService {
     private formatDateTime;
     private formatCurrency;
     private invoiceInclude;
+    private mapInvoiceDispute;
     private mapInvoice;
     private findInvoiceOrThrow;
     private findClientInvoiceOrThrow;
+    private findClientOwnedInvoiceOrThrow;
     private resolveBillableClientAndSite;
     private buildInvoiceItems;
     private findActiveRateCard;
@@ -37,6 +40,8 @@ export declare class InvoicesService {
         status: any;
         createdAt: any;
         issuedAt: any;
+        paidAt: any;
+        dueDate: any;
         rateCardId: any;
         rateSource: any;
         rateCard: {
@@ -64,6 +69,7 @@ export declare class InvoicesService {
             address: any;
         } | null;
         items: any;
+        disputes: any;
     }>;
     findAllForAdmin(tenantId: string): Promise<{
         id: any;
@@ -81,6 +87,8 @@ export declare class InvoicesService {
         status: any;
         createdAt: any;
         issuedAt: any;
+        paidAt: any;
+        dueDate: any;
         rateCardId: any;
         rateSource: any;
         rateCard: {
@@ -108,6 +116,7 @@ export declare class InvoicesService {
             address: any;
         } | null;
         items: any;
+        disputes: any;
     }[]>;
     findOneForAdmin(tenantId: string, id: string): Promise<{
         id: any;
@@ -125,6 +134,8 @@ export declare class InvoicesService {
         status: any;
         createdAt: any;
         issuedAt: any;
+        paidAt: any;
+        dueDate: any;
         rateCardId: any;
         rateSource: any;
         rateCard: {
@@ -152,6 +163,7 @@ export declare class InvoicesService {
             address: any;
         } | null;
         items: any;
+        disputes: any;
     }>;
     issueInvoice(tenantId: string, userId: string, id: string): Promise<{
         id: any;
@@ -169,6 +181,8 @@ export declare class InvoicesService {
         status: any;
         createdAt: any;
         issuedAt: any;
+        paidAt: any;
+        dueDate: any;
         rateCardId: any;
         rateSource: any;
         rateCard: {
@@ -196,6 +210,7 @@ export declare class InvoicesService {
             address: any;
         } | null;
         items: any;
+        disputes: any;
     }>;
     markPaid(tenantId: string, userId: string, id: string): Promise<{
         id: any;
@@ -213,6 +228,8 @@ export declare class InvoicesService {
         status: any;
         createdAt: any;
         issuedAt: any;
+        paidAt: any;
+        dueDate: any;
         rateCardId: any;
         rateSource: any;
         rateCard: {
@@ -240,6 +257,148 @@ export declare class InvoicesService {
             address: any;
         } | null;
         items: any;
+        disputes: any;
+    }>;
+    cancelInvoice(tenantId: string, userId: string, id: string): Promise<{
+        id: any;
+        tenantId: any;
+        clientId: any;
+        siteId: any;
+        invoiceNumber: any;
+        billingStartDate: any;
+        billingEndDate: any;
+        totalHours: any;
+        hourlyRate: any;
+        subtotal: any;
+        tax: any;
+        totalAmount: any;
+        status: any;
+        createdAt: any;
+        issuedAt: any;
+        paidAt: any;
+        dueDate: any;
+        rateCardId: any;
+        rateSource: any;
+        rateCard: {
+            id: any;
+            roleName: any;
+            hourlyRate: any;
+            overtimeRate: any;
+            holidayRate: any;
+            effectiveFrom: any;
+            effectiveTo: any;
+            status: any;
+            clientId: any;
+            siteId: any;
+        } | null;
+        client: {
+            id: any;
+            name: any;
+            companyName: any;
+            email: any;
+            phone: any;
+        } | null;
+        site: {
+            id: any;
+            name: any;
+            address: any;
+        } | null;
+        items: any;
+        disputes: any;
+    }>;
+    acceptInvoice(tenantId: string, clientId: string, userId: string, id: string): Promise<{
+        id: any;
+        tenantId: any;
+        clientId: any;
+        siteId: any;
+        invoiceNumber: any;
+        billingStartDate: any;
+        billingEndDate: any;
+        totalHours: any;
+        hourlyRate: any;
+        subtotal: any;
+        tax: any;
+        totalAmount: any;
+        status: any;
+        createdAt: any;
+        issuedAt: any;
+        paidAt: any;
+        dueDate: any;
+        rateCardId: any;
+        rateSource: any;
+        rateCard: {
+            id: any;
+            roleName: any;
+            hourlyRate: any;
+            overtimeRate: any;
+            holidayRate: any;
+            effectiveFrom: any;
+            effectiveTo: any;
+            status: any;
+            clientId: any;
+            siteId: any;
+        } | null;
+        client: {
+            id: any;
+            name: any;
+            companyName: any;
+            email: any;
+            phone: any;
+        } | null;
+        site: {
+            id: any;
+            name: any;
+            address: any;
+        } | null;
+        items: any;
+        disputes: any;
+    }>;
+    disputeInvoice(tenantId: string, clientId: string, userId: string, id: string, dto: DisputeInvoiceDto): Promise<{
+        id: any;
+        tenantId: any;
+        clientId: any;
+        siteId: any;
+        invoiceNumber: any;
+        billingStartDate: any;
+        billingEndDate: any;
+        totalHours: any;
+        hourlyRate: any;
+        subtotal: any;
+        tax: any;
+        totalAmount: any;
+        status: any;
+        createdAt: any;
+        issuedAt: any;
+        paidAt: any;
+        dueDate: any;
+        rateCardId: any;
+        rateSource: any;
+        rateCard: {
+            id: any;
+            roleName: any;
+            hourlyRate: any;
+            overtimeRate: any;
+            holidayRate: any;
+            effectiveFrom: any;
+            effectiveTo: any;
+            status: any;
+            clientId: any;
+            siteId: any;
+        } | null;
+        client: {
+            id: any;
+            name: any;
+            companyName: any;
+            email: any;
+            phone: any;
+        } | null;
+        site: {
+            id: any;
+            name: any;
+            address: any;
+        } | null;
+        items: any;
+        disputes: any;
     }>;
     findAllForClient(tenantId: string, clientId: string): Promise<{
         id: any;
@@ -257,6 +416,8 @@ export declare class InvoicesService {
         status: any;
         createdAt: any;
         issuedAt: any;
+        paidAt: any;
+        dueDate: any;
         rateCardId: any;
         rateSource: any;
         rateCard: {
@@ -284,6 +445,7 @@ export declare class InvoicesService {
             address: any;
         } | null;
         items: any;
+        disputes: any;
     }[]>;
     findOneForClient(tenantId: string, clientId: string, id: string): Promise<{
         id: any;
@@ -301,6 +463,8 @@ export declare class InvoicesService {
         status: any;
         createdAt: any;
         issuedAt: any;
+        paidAt: any;
+        dueDate: any;
         rateCardId: any;
         rateSource: any;
         rateCard: {
@@ -328,6 +492,7 @@ export declare class InvoicesService {
             address: any;
         } | null;
         items: any;
+        disputes: any;
     }>;
     private addPdfSectionTitle;
     private buildPdfBuffer;
@@ -349,6 +514,8 @@ export declare class InvoicesService {
             status: any;
             createdAt: any;
             issuedAt: any;
+            paidAt: any;
+            dueDate: any;
             rateCardId: any;
             rateSource: any;
             rateCard: {
@@ -376,6 +543,7 @@ export declare class InvoicesService {
                 address: any;
             } | null;
             items: any;
+            disputes: any;
         };
     }>;
     downloadForClient(tenantId: string, clientId: string, userId: string, id: string): Promise<{
@@ -396,6 +564,8 @@ export declare class InvoicesService {
             status: any;
             createdAt: any;
             issuedAt: any;
+            paidAt: any;
+            dueDate: any;
             rateCardId: any;
             rateSource: any;
             rateCard: {
@@ -423,6 +593,7 @@ export declare class InvoicesService {
                 address: any;
             } | null;
             items: any;
+            disputes: any;
         };
     }>;
 }

@@ -9,6 +9,7 @@ datasource db {
 
 enum UserRole {
   ADMIN
+  FINANCE
 }
 
 enum AttendanceEventType {
@@ -41,6 +42,7 @@ model Tenant {
   incidents           Incident[]
   dailyServiceReports DailyServiceReport[]
   invoices            Invoice[]
+  invoiceDisputes     InvoiceDispute[]
   timesheets          Timesheet[]
   rateCards           RateCard[]
 }
@@ -338,6 +340,7 @@ model Client {
   sites               Site[]
   dailyServiceReports DailyServiceReport[]
   invoices            Invoice[]
+  invoiceDisputes     InvoiceDispute[]
   timesheets          Timesheet[]
   rateCards           RateCard[]
   createdAt           DateTime             @default(now())
@@ -387,10 +390,13 @@ model Invoice {
   status           String        @default("draft")
   createdAt        DateTime      @default(now()) @map("created_at")
   issuedAt         DateTime?     @map("issued_at")
+  paidAt           DateTime?     @map("paid_at")
+  dueDate          DateTime?     @map("due_date")
   rateCardId       String?       @map("rate_card_id")
   rateCard         RateCard?     @relation(fields: [rateCardId], references: [id], onDelete: SetNull)
   rateSource       String        @default("manual") @map("rate_source")
   items            InvoiceItem[]
+  disputes         InvoiceDispute[]
 
   @@unique([tenantId, invoiceNumber], map: "Invoice_tenant_invoice_number_key")
   @@unique([tenantId, clientId, siteId, billingStartDate, billingEndDate], map: "Invoice_period_key")
@@ -401,7 +407,33 @@ model Invoice {
   @@index([status])
   @@index([billingStartDate])
   @@index([billingEndDate])
+  @@index([issuedAt])
+  @@index([paidAt])
+  @@index([dueDate])
   @@map("Invoice")
+}
+
+model InvoiceDispute {
+  id            String    @id @default(uuid())
+  invoiceId     String    @map("invoice_id")
+  invoice       Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  clientId      String    @map("client_id")
+  client        Client    @relation(fields: [clientId], references: [id])
+  tenantId      String    @map("tenant_id")
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  reason        String
+  description   String
+  status        String    @default("open")
+  adminResponse String?   @map("admin_response")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  resolvedAt    DateTime? @map("resolved_at")
+
+  @@index([invoiceId])
+  @@index([clientId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("InvoiceDispute")
 }
 
 model InvoiceItem {

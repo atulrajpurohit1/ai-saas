@@ -14,6 +14,16 @@ interface ApiError {
   };
 }
 
+function getPortalRole(accessToken: string): 'admin' | 'finance' {
+  try {
+    const payload = accessToken.split('.')[1];
+    const decoded = JSON.parse(window.atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return decoded?.role === 'finance' ? 'finance' : 'admin';
+  } catch {
+    return 'admin';
+  }
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,7 +53,12 @@ export default function LoginPage() {
           login(res.data.access_token, { email, role: 'admin', name: name || 'Admin', tenantName });
         } else {
           const res = await api.post('auth/login', { email, password });
-          login(res.data.access_token, { email, role: 'admin', name: 'Admin User' });
+          const portalRole = getPortalRole(res.data.access_token);
+          login(res.data.access_token, {
+            email,
+            role: portalRole,
+            name: portalRole === 'finance' ? 'Finance User' : 'Admin User',
+          });
         }
       } else {
         // Client Flow

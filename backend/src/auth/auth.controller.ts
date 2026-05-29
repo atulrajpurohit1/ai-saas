@@ -36,7 +36,7 @@ export class AuthController {
 
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
+  @Roles('admin', 'finance')
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   logout(@Req() req: Request) {
@@ -45,7 +45,7 @@ export class AuthController {
   }
 
   @UseGuards(JwtRefreshGuard, RolesGuard)
-  @Roles('admin')
+  @Roles('admin', 'finance')
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   refreshTokens(@Req() req: Request) {

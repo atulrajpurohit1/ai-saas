@@ -15,7 +15,8 @@ const client_1 = require("@prisma/client");
 const audit_service_1 = require("../audit/audit.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const TAX_RATE = 0;
-const CLIENT_VISIBLE_STATUSES = ['issued', 'paid'];
+const CLIENT_VISIBLE_STATUSES = ['issued', 'disputed', 'resolved', 'paid'];
+const PAYABLE_STATUSES = ['issued', 'resolved'];
 let InvoicesService = class InvoicesService {
     prisma;
     auditService;
@@ -154,6 +155,25 @@ let InvoicesService = class InvoicesService {
                     },
                 },
             },
+            disputes: {
+                orderBy: {
+                    createdAt: 'desc',
+                },
+            },
+        };
+    }
+    mapInvoiceDispute(dispute) {
+        return {
+            id: dispute.id,
+            invoiceId: dispute.invoiceId,
+            clientId: dispute.clientId,
+            tenantId: dispute.tenantId,
+            reason: dispute.reason,
+            description: dispute.description,
+            status: dispute.status,
+            adminResponse: dispute.adminResponse,
+            createdAt: dispute.createdAt,
+            resolvedAt: dispute.resolvedAt,
         };
     }
     mapInvoice(invoice) {
@@ -173,6 +193,8 @@ let InvoicesService = class InvoicesService {
             status: invoice.status,
             createdAt: invoice.createdAt,
             issuedAt: invoice.issuedAt,
+            paidAt: invoice.paidAt,
+            dueDate: invoice.dueDate,
             rateCardId: invoice.rateCardId,
             rateSource: invoice.rateSource,
             rateCard: invoice.rateCard
@@ -241,6 +263,9 @@ let InvoicesService = class InvoicesService {
                         : null,
                 }))
                 : [],
+            disputes: Array.isArray(invoice.disputes)
+                ? invoice.disputes.map((dispute) => this.mapInvoiceDispute(dispute))
+                : [],
         };
     }
     async findInvoiceOrThrow(tenantId, id) {
@@ -260,6 +285,20 @@ let InvoicesService = class InvoicesService {
                 tenantId,
                 clientId,
                 status: { in: CLIENT_VISIBLE_STATUSES },
+            },
+            include: this.invoiceInclude(),
+        });
+        if (!invoice) {
+            throw new common_1.NotFoundException('Invoice not found');
+        }
+        return invoice;
+    }
+    async findClientOwnedInvoiceOrThrow(tenantId, clientId, id) {
+        const invoice = await this.prisma.invoice.findFirst({
+            where: {
+                id,
+                tenantId,
+                clientId,
             },
             include: this.invoiceInclude(),
         });
@@ -322,10 +361,8 @@ let InvoicesService = class InvoicesService {
         const timesheets = await this.prisma.timesheet.findMany({
             where: {
                 tenantId: input.tenantId,
-                clientId: input.clientId,
                 siteId: input.siteId,
                 status: 'approved',
-                totalHours: { gt: 0 },
                 shift: {
                     status: 'completed',
                     startTime: {
@@ -350,7 +387,11 @@ let InvoicesService = class InvoicesService {
             },
             orderBy: [{ checkInTime: 'asc' }, { createdAt: 'asc' }],
         });
-        const items = timesheets.map((timesheet) => {
+        const billableTimesheets = timesheets.filter((timesheet) => this.roundHours(timesheet.totalHours) > 0);
+        if (timesheets.length > 0 && billableTimesheets.length === 0) {
+            throw new common_1.BadRequestException('Approved timesheets found for this billing period, but they have 0 billable hours. Correct the timesheet hours before generating an invoice.');
+        }
+        const items = billableTimesheets.map((timesheet) => {
             const workedHours = this.roundHours(timesheet.totalHours);
             return {
                 timesheetId: timesheet.id,
@@ -530,8 +571,8 @@ let InvoicesService = class InvoicesService {
         if (existing.status === 'issued' || existing.status === 'paid') {
             return this.mapInvoice(existing);
         }
-        if (existing.status !== 'draft') {
-            throw new common_1.BadRequestException('Only draft invoices can be issued');
+        if (!['draft', 'resolved'].includes(existing.status)) {
+            throw new common_1.BadRequestException('Only draft or resolved invoices can be issued');
         }
         const invoice = await this.prisma.invoice.update({
             where: { id },
@@ -556,12 +597,12 @@ let InvoicesService = class InvoicesService {
         if (existing.status === 'paid') {
             return this.mapInvoice(existing);
         }
-        if (existing.status !== 'issued') {
-            throw new common_1.BadRequestException('Only issued invoices can be marked paid');
+        if (!PAYABLE_STATUSES.includes(existing.status)) {
+            throw new common_1.BadRequestException('Only issued or resolved invoices can be marked paid');
         }
         const invoice = await this.prisma.invoice.update({
             where: { id },
-            data: { status: 'paid' },
+            data: { status: 'paid', paidAt: new Date() },
             include: this.invoiceInclude(),
         });
         await this.auditService.log({
@@ -571,6 +612,106 @@ let InvoicesService = class InvoicesService {
             entityType: 'Invoice',
             entityId: invoice.id,
             details: `Invoice ${invoice.invoiceNumber} marked paid`,
+        });
+        return this.mapInvoice(invoice);
+    }
+    async cancelInvoice(tenantId, userId, id) {
+        const existing = await this.findInvoiceOrThrow(tenantId, id);
+        if (existing.status === 'cancelled') {
+            return this.mapInvoice(existing);
+        }
+        if (existing.status === 'paid') {
+            throw new common_1.BadRequestException('Paid invoices cannot be cancelled');
+        }
+        const invoice = await this.prisma.invoice.update({
+            where: { id },
+            data: { status: 'cancelled' },
+            include: this.invoiceInclude(),
+        });
+        await this.auditService.log({
+            tenantId,
+            userId,
+            action: 'INVOICE_CANCELLED',
+            entityType: 'Invoice',
+            entityId: invoice.id,
+            details: `Invoice ${invoice.invoiceNumber} cancelled`,
+        });
+        return this.mapInvoice(invoice);
+    }
+    async acceptInvoice(tenantId, clientId, userId, id) {
+        if (!clientId) {
+            throw new common_1.ForbiddenException('Client access required');
+        }
+        const existing = await this.findClientOwnedInvoiceOrThrow(tenantId, clientId, id);
+        if (!['issued', 'resolved'].includes(existing.status)) {
+            throw new common_1.BadRequestException('Only issued or resolved invoices can be accepted');
+        }
+        const invoice = existing.status === 'resolved'
+            ? await this.prisma.invoice.update({
+                where: { id },
+                data: { status: 'issued' },
+                include: this.invoiceInclude(),
+            })
+            : existing;
+        await this.auditService.log({
+            tenantId,
+            userId,
+            action: 'CLIENT_INVOICE_ACCEPTED',
+            entityType: 'Invoice',
+            entityId: invoice.id,
+            details: `Client accepted invoice ${invoice.invoiceNumber}`,
+        });
+        return this.mapInvoice(invoice);
+    }
+    async disputeInvoice(tenantId, clientId, userId, id, dto) {
+        if (!clientId) {
+            throw new common_1.ForbiddenException('Client access required');
+        }
+        const reason = dto.reason?.trim();
+        const description = dto.description?.trim();
+        if (!reason || !description) {
+            throw new common_1.BadRequestException('Dispute reason and description are required');
+        }
+        const existing = await this.findClientOwnedInvoiceOrThrow(tenantId, clientId, id);
+        if (existing.status !== 'issued') {
+            throw new common_1.BadRequestException('Only issued invoices can be disputed');
+        }
+        const openDispute = await this.prisma.invoiceDispute.findFirst({
+            where: {
+                tenantId,
+                clientId,
+                invoiceId: existing.id,
+                status: { in: ['open', 'under_review'] },
+            },
+            select: { id: true },
+        });
+        if (openDispute) {
+            throw new common_1.ConflictException('This invoice already has an open dispute');
+        }
+        const invoice = await this.prisma.$transaction(async (tx) => {
+            await tx.invoiceDispute.create({
+                data: {
+                    tenantId,
+                    clientId,
+                    invoiceId: existing.id,
+                    reason,
+                    description,
+                    status: 'open',
+                },
+            });
+            return tx.invoice.update({
+                where: { id: existing.id },
+                data: { status: 'disputed' },
+                include: this.invoiceInclude(),
+            });
+        });
+        await this.auditService.log({
+            tenantId,
+            userId,
+            action: 'CLIENT_INVOICE_DISPUTED',
+            entityType: 'Invoice',
+            entityId: invoice.id,
+            details: `Client disputed invoice ${invoice.invoiceNumber}: ${reason}`,
         });
         return this.mapInvoice(invoice);
     }

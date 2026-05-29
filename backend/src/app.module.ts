@@ -26,6 +26,8 @@ import { GuardPortalModule } from './guard-portal/guard-portal.module';
 import { IncidentsModule } from './incidents/incidents.module';
 import { ReportsModule } from './reports/reports.module';
 import { InvoicesModule } from './invoices/invoices.module';
+import { InvoiceDisputesModule } from './invoice-disputes/invoice-disputes.module';
+import { FinanceModule } from './finance/finance.module';
 import { TimesheetsModule } from './timesheets/timesheets.module';
 import { RateCardsModule } from './rate-cards/rate-cards.module';
 
@@ -42,6 +44,8 @@ import { RateCardsModule } from './rate-cards/rate-cards.module';
     IncidentsModule,
     ReportsModule,
     InvoicesModule,
+    InvoiceDisputesModule,
+    FinanceModule,
     TimesheetsModule,
     RateCardsModule,
     LeadsModule,

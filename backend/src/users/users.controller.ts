@@ -6,7 +6,7 @@ import { Request } from 'express';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@Roles('admin', 'finance')
 @Controller('users')
 export class UsersController {
   @Get('me')

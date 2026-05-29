@@ -162,6 +162,9 @@ let TimesheetsService = class TimesheetsService {
         if (existing.status === 'approved') {
             return this.mapTimesheet(existing);
         }
+        if (existing.totalHours <= 0) {
+            throw new common_1.BadRequestException('Timesheet must have billable hours before approval. Correct the hours first.');
+        }
         if (!['pending', 'corrected'].includes(existing.status)) {
             throw new common_1.BadRequestException('Only pending or corrected timesheets can be approved');
         }

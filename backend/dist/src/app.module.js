@@ -35,6 +35,8 @@ const guard_portal_module_1 = require("./guard-portal/guard-portal.module");
 const incidents_module_1 = require("./incidents/incidents.module");
 const reports_module_1 = require("./reports/reports.module");
 const invoices_module_1 = require("./invoices/invoices.module");
+const invoice_disputes_module_1 = require("./invoice-disputes/invoice-disputes.module");
+const finance_module_1 = require("./finance/finance.module");
 const timesheets_module_1 = require("./timesheets/timesheets.module");
 const rate_cards_module_1 = require("./rate-cards/rate-cards.module");
 let AppModule = class AppModule {
@@ -54,6 +56,8 @@ exports.AppModule = AppModule = __decorate([
             incidents_module_1.IncidentsModule,
             reports_module_1.ReportsModule,
             invoices_module_1.InvoicesModule,
+            invoice_disputes_module_1.InvoiceDisputesModule,
+            finance_module_1.FinanceModule,
             timesheets_module_1.TimesheetsModule,
             rate_cards_module_1.RateCardsModule,
             leads_module_1.LeadsModule,

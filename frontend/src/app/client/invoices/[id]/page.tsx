@@ -6,21 +6,33 @@ import { useParams } from 'next/navigation';
 import ClientLayout from '@/components/ClientLayout';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { getClientInvoice, Invoice } from '@/lib/invoices';
+import { acceptClientInvoice, disputeClientInvoice, getClientInvoice, Invoice } from '@/lib/invoices';
 import {
   AlertTriangle,
   ArrowLeft,
   CalendarDays,
+  CheckCircle2,
   Download,
+  FileWarning,
   Loader2,
   MapPin,
   Receipt,
+  Send,
   ShieldCheck,
 } from 'lucide-react';
 
 const statusClass: Record<string, string> = {
   issued: 'border-sky-400/20 bg-sky-400/10 text-sky-300',
+  disputed: 'border-orange-400/20 bg-orange-400/10 text-orange-300',
+  resolved: 'border-violet-400/20 bg-violet-400/10 text-violet-300',
   paid: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
+};
+
+const disputeStatusClass: Record<string, string> = {
+  open: 'border-amber-400/20 bg-amber-400/10 text-amber-300',
+  under_review: 'border-violet-400/20 bg-violet-400/10 text-violet-300',
+  resolved: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
+  rejected: 'border-rose-400/20 bg-rose-400/10 text-rose-300',
 };
 
 function formatDate(value: string | null) {
@@ -56,7 +68,14 @@ export default function ClientInvoiceDetailPage() {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [workingAction, setWorkingAction] = useState('');
+  const [showDisputeForm, setShowDisputeForm] = useState(false);
+  const [disputeForm, setDisputeForm] = useState({
+    reason: '',
+    description: '',
+  });
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     const fetchInvoice = async () => {
@@ -98,6 +117,53 @@ export default function ClientInvoiceDetailPage() {
       setDownloading(false);
     }
   };
+
+  const handleAccept = async () => {
+    if (!invoice) return;
+
+    setWorkingAction('accept');
+    setError('');
+    setSuccess('');
+
+    try {
+      setInvoice(await acceptClientInvoice(invoice.id));
+      setShowDisputeForm(false);
+      setSuccess('Invoice accepted.');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not accept this invoice.'));
+    } finally {
+      setWorkingAction('');
+    }
+  };
+
+  const handleDispute = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!invoice) return;
+
+    setWorkingAction('dispute');
+    setError('');
+    setSuccess('');
+
+    try {
+      const updated = await disputeClientInvoice(invoice.id, {
+        reason: disputeForm.reason.trim(),
+        description: disputeForm.description.trim(),
+      });
+      setInvoice(updated);
+      setDisputeForm({ reason: '', description: '' });
+      setShowDisputeForm(false);
+      setSuccess('Dispute submitted.');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not submit this dispute.'));
+    } finally {
+      setWorkingAction('');
+    }
+  };
+
+  const latestDispute = invoice?.disputes[0] || null;
+  const canAccept = invoice?.status === 'issued' || invoice?.status === 'resolved';
+  const canDispute = invoice?.status === 'issued';
+  const canSubmitDispute = Boolean(disputeForm.reason.trim() && disputeForm.description.trim());
 
   return (
     <ClientLayout>
@@ -141,15 +207,39 @@ export default function ClientInvoiceDetailPage() {
                 <p className="mt-3 text-slate-400">{invoice.site?.name || 'Linked site'}</p>
               </div>
 
-              <button
-                type="button"
-                onClick={handleDownload}
-                disabled={downloading}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-indigo-500 disabled:opacity-60"
-              >
-                {downloading ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
-                Download PDF
-              </button>
+              <div className="flex flex-wrap gap-3">
+                {canAccept && (
+                  <button
+                    type="button"
+                    onClick={handleAccept}
+                    disabled={workingAction === 'accept'}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-400 disabled:opacity-60"
+                  >
+                    {workingAction === 'accept' ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
+                    Accept
+                  </button>
+                )}
+                {canDispute && (
+                  <button
+                    type="button"
+                    onClick={() => setShowDisputeForm((current) => !current)}
+                    disabled={workingAction === 'dispute'}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-amber-400 disabled:opacity-60"
+                  >
+                    <FileWarning size={16} />
+                    Dispute
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  disabled={downloading}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-indigo-500 disabled:opacity-60"
+                >
+                  {downloading ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
+                  Download PDF
+                </button>
+              </div>
             </div>
           </section>
 
@@ -157,6 +247,13 @@ export default function ClientInvoiceDetailPage() {
             <div className="flex items-center gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-5 py-4 text-sm font-semibold text-rose-300">
               <AlertTriangle size={18} />
               {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-4 text-sm font-semibold text-emerald-300">
+              <CheckCircle2 size={18} />
+              {success}
             </div>
           )}
 
@@ -197,6 +294,78 @@ export default function ClientInvoiceDetailPage() {
               <div className="mt-1 text-sm text-slate-400">Created {formatDate(invoice.createdAt)}</div>
             </div>
           </section>
+
+          {(latestDispute || showDisputeForm) && (
+            <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="flex items-center gap-2 text-xl font-bold text-white">
+                  <FileWarning className="text-amber-300" size={20} />
+                  Dispute
+                </h2>
+                {latestDispute && (
+                  <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-widest ${disputeStatusClass[latestDispute.status] || disputeStatusClass.open}`}>
+                    {latestDispute.status.replace('_', ' ')}
+                  </span>
+                )}
+              </div>
+
+              {latestDispute && (
+                <div className="mb-5 rounded-2xl border border-white/5 bg-black/10 p-4">
+                  <div className="font-bold text-white">{latestDispute.reason}</div>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-300">{latestDispute.description}</p>
+                  {latestDispute.adminResponse && (
+                    <p className="mt-3 whitespace-pre-wrap rounded-2xl border border-white/5 bg-white/[0.03] p-3 text-sm leading-6 text-slate-300">
+                      {latestDispute.adminResponse}
+                    </p>
+                  )}
+                  <div className="mt-3 text-xs font-semibold text-slate-500">
+                    Submitted {formatDate(latestDispute.createdAt)}
+                    {latestDispute.resolvedAt ? ` - Closed ${formatDate(latestDispute.resolvedAt)}` : ''}
+                  </div>
+                </div>
+              )}
+
+              {showDisputeForm && canDispute && (
+                <form onSubmit={handleDispute} className="grid gap-4">
+                  <div>
+                    <label htmlFor="dispute-reason" className="text-sm font-semibold text-slate-300">
+                      Reason
+                    </label>
+                    <input
+                      id="dispute-reason"
+                      value={disputeForm.reason}
+                      onChange={(event) => setDisputeForm((current) => ({ ...current, reason: event.target.value }))}
+                      className="mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 text-white outline-none transition placeholder:text-slate-500 focus:border-indigo-400"
+                      placeholder="Billing amount, shift hours, rate, or other"
+                      maxLength={200}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="dispute-description" className="text-sm font-semibold text-slate-300">
+                      Description
+                    </label>
+                    <textarea
+                      id="dispute-description"
+                      value={disputeForm.description}
+                      onChange={(event) => setDisputeForm((current) => ({ ...current, description: event.target.value }))}
+                      rows={5}
+                      className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-indigo-400"
+                      placeholder="Add the invoice lines or dates you want reviewed."
+                      maxLength={4000}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={workingAction === 'dispute' || !canSubmitDispute}
+                    className="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {workingAction === 'dispute' ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
+                    Submit Dispute
+                  </button>
+                </form>
+              )}
+            </section>
+          )}
 
           <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
             <h2 className="mb-4 text-xl font-bold text-white">Shift Work Summary</h2>

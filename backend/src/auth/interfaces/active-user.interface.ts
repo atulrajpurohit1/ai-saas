@@ -3,7 +3,7 @@ export interface ActiveUser {
   email?: string;
   phone?: string;
   tenantId: string;
-  role: 'admin' | 'supervisor' | 'client' | 'guard';
+  role: 'admin' | 'finance' | 'supervisor' | 'client' | 'guard';
   clientId?: string;
   guardId?: string;
 }

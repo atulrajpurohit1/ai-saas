@@ -180,6 +180,10 @@ export class TimesheetsService {
       return this.mapTimesheet(existing);
     }
 
+    if (existing.totalHours <= 0) {
+      throw new BadRequestException('Timesheet must have billable hours before approval. Correct the hours first.');
+    }
+
     if (!['pending', 'corrected'].includes(existing.status)) {
       throw new BadRequestException('Only pending or corrected timesheets can be approved');
     }

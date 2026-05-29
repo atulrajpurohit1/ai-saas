@@ -16,6 +16,7 @@ import {
   ClipboardList,
   ClipboardCheck,
   BadgeDollarSign,
+  DollarSign,
   Receipt,
   X
 } from 'lucide-react';
@@ -49,10 +50,14 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     { href: '/timesheets', label: 'Timesheets', icon: ClipboardCheck },
     { href: '/rate-cards', label: 'Rate Cards', icon: BadgeDollarSign },
     { href: '/invoices', label: 'Invoices', icon: Receipt },
+    { href: '/invoice-disputes', label: 'Disputes', icon: FileWarning },
+    { href: '/finance', label: 'Finance', icon: DollarSign },
     { href: '/audit', label: 'Activity', icon: Activity },
   ];
 
-  const links = adminLinks;
+  const links = user?.role === 'finance'
+    ? [{ href: '/finance', label: 'Finance', icon: DollarSign }]
+    : adminLinks;
 
   return (
     <aside

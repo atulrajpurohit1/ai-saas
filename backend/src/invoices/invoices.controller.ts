@@ -51,4 +51,9 @@ export class InvoicesController {
   markPaid(@GetUser() user: ActiveUser, @Param('id') id: string) {
     return this.invoicesService.markPaid(user.tenantId, user.sub, id);
   }
+
+  @Post(':id/cancel')
+  cancel(@GetUser() user: ActiveUser, @Param('id') id: string) {
+    return this.invoicesService.cancelInvoice(user.tenantId, user.sub, id);
+  }
 }

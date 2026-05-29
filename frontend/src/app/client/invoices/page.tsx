@@ -19,6 +19,8 @@ import {
 
 const statusClass: Record<string, string> = {
   issued: 'border-sky-400/20 bg-sky-400/10 text-sky-300',
+  disputed: 'border-orange-400/20 bg-orange-400/10 text-orange-300',
+  resolved: 'border-violet-400/20 bg-violet-400/10 text-violet-300',
   paid: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
 };
 

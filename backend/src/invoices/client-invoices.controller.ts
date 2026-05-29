@@ -1,10 +1,11 @@
-import { Controller, ForbiddenException, Get, Param, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Param, Post, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { DisputeInvoiceDto } from './dto/dispute-invoice.dto';
 import { InvoicesService } from './invoices.service';
 
 @Controller('client/invoices')
@@ -49,5 +50,17 @@ export class ClientInvoicesController {
   findOne(@GetUser() user: ActiveUser, @Param('id') id: string) {
     const { tenantId, clientId } = this.getClientContext(user);
     return this.invoicesService.findOneForClient(tenantId, clientId, id);
+  }
+
+  @Post(':id/accept')
+  accept(@GetUser() user: ActiveUser, @Param('id') id: string) {
+    const { tenantId, clientId, userId } = this.getClientContext(user);
+    return this.invoicesService.acceptInvoice(tenantId, clientId, userId, id);
+  }
+
+  @Post(':id/dispute')
+  dispute(@GetUser() user: ActiveUser, @Param('id') id: string, @Body() dto: DisputeInvoiceDto) {
+    const { tenantId, clientId, userId } = this.getClientContext(user);
+    return this.invoicesService.disputeInvoice(tenantId, clientId, userId, id, dto);
   }
 }

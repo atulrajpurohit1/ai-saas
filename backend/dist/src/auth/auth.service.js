@@ -57,6 +57,9 @@ let AuthService = class AuthService {
         this.jwtService = jwtService;
         this.configService = configService;
     }
+    mapUserRole(role) {
+        return role.toLowerCase() === 'finance' ? 'finance' : 'admin';
+    }
     async register(dto) {
         const hashedPassword = await bcrypt.hash(dto.password, 10);
         try {
@@ -102,8 +105,9 @@ let AuthService = class AuthService {
         const passwordMatches = await bcrypt.compare(dto.password, user.password);
         if (!passwordMatches)
             throw new common_1.UnauthorizedException('Invalid credentials');
-        const tokens = await this.getTokens(user.id, user.email, user.tenantId, 'admin');
-        await this.updateRefreshTokenHash(user.id, tokens.refresh_token, 'admin');
+        const role = this.mapUserRole(user.role);
+        const tokens = await this.getTokens(user.id, user.email, user.tenantId, role);
+        await this.updateRefreshTokenHash(user.id, tokens.refresh_token, role);
         return tokens;
     }
     async logout(userId) {
@@ -121,8 +125,9 @@ let AuthService = class AuthService {
         if (!rtMatches)
             throw new common_1.ForbiddenException('Access Denied');
         const typedUser = user;
-        const tokens = await this.getTokens(typedUser.id, typedUser.email, typedUser.tenantId, 'admin');
-        await this.updateRefreshTokenHash(typedUser.id, tokens.refresh_token, 'admin');
+        const userRole = this.mapUserRole(user.role);
+        const tokens = await this.getTokens(typedUser.id, typedUser.email, typedUser.tenantId, userRole);
+        await this.updateRefreshTokenHash(typedUser.id, tokens.refresh_token, userRole);
         return tokens;
     }
     async updateRefreshTokenHash(userId, rt, role) {

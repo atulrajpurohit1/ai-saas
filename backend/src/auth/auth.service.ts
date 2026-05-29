@@ -11,6 +11,8 @@ import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
+type AdminPortalRole = 'admin' | 'finance';
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -18,6 +20,10 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {}
+
+  private mapUserRole(role: string): AdminPortalRole {
+    return role.toLowerCase() === 'finance' ? 'finance' : 'admin';
+  }
 
   async register(dto: RegisterDto) {
     const hashedPassword = await bcrypt.hash(dto.password, 10);
@@ -85,14 +91,10 @@ export class AuthService {
     if (!passwordMatches)
       throw new UnauthorizedException('Invalid credentials');
 
-    const tokens = await this.getTokens(
-      user.id,
-      user.email,
-      user.tenantId,
-      'admin',
-    );
+    const role = this.mapUserRole(user.role);
+    const tokens = await this.getTokens(user.id, user.email, user.tenantId, role);
 
-    await this.updateRefreshTokenHash(user.id, tokens.refresh_token, 'admin');
+    await this.updateRefreshTokenHash(user.id, tokens.refresh_token, role);
     return tokens;
   }
 
@@ -118,17 +120,13 @@ export class AuthService {
 
     const typedUser = user as { id: string; email: string; tenantId: string };
 
-    const tokens = await this.getTokens(
-      typedUser.id,
-      typedUser.email,
-      typedUser.tenantId,
-      'admin',
-    );
+    const userRole = this.mapUserRole(user.role);
+    const tokens = await this.getTokens(typedUser.id, typedUser.email, typedUser.tenantId, userRole);
 
     await this.updateRefreshTokenHash(
       typedUser.id,
       tokens.refresh_token,
-      'admin',
+      userRole,
     );
     return tokens;
   }
@@ -145,7 +143,7 @@ export class AuthService {
     userId: string,
     email: string,
     tenantId: string,
-    role: 'admin',
+    role: AdminPortalRole,
   ) {
     const atSecret = this.configService.get<string>('JWT_ACCESS_SECRET');
     const atExpires = this.configService.get<string>('JWT_ACCESS_EXPIRES_IN');
