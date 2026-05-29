@@ -149,6 +149,84 @@ let AiService = AiService_1 = class AiService {
         const prompt = `Summarize these security site visit notes into key takeaways and action items: ${notes.join('\n')}`;
         return this.generateText(prompt, 'notes summarization', () => this.fallbackSummarizeNotes(notes));
     }
+    async generateBusinessInsightRecommendations(context) {
+        if (!this.isAiAvailable()) {
+            return null;
+        }
+        const prompt = `
+      You are analyzing tenant-scoped security operations data for an admin dashboard.
+      Use only this aggregated context:
+      ${context}
+
+      Return JSON only in this exact shape:
+      {"recommendations":["action 1","action 2","action 3"]}
+
+      Keep each action concise, operational, and specific. Do not mention tenant IDs, user IDs, emails, or raw database fields.
+    `;
+        try {
+            const result = await this.model.generateContent(prompt);
+            const response = await result.response;
+            const rawText = response.text().replace(/```json|```/g, '').trim();
+            const parsed = JSON.parse(rawText);
+            if (!Array.isArray(parsed.recommendations)) {
+                return null;
+            }
+            return parsed.recommendations
+                .filter((item) => typeof item === 'string')
+                .map((item) => item.trim())
+                .filter(Boolean)
+                .slice(0, 5);
+        }
+        catch (error) {
+            this.logger.warn(`Business insight recommendation generation failed: ${error instanceof Error ? error.message : String(error)}`);
+            return null;
+        }
+    }
+    async generateIncidentRiskSummary(context) {
+        if (!this.isAiAvailable()) {
+            return null;
+        }
+        const prompt = `
+      You are analyzing tenant-scoped security incident risk for an operations admin.
+      Use only this aggregated incident context:
+      ${context}
+
+      Return one concise paragraph with the key incident trends, riskiest locations or people, and the most important next action.
+      Do not mention tenant IDs, user IDs, emails, phone numbers, raw database fields, or implementation details.
+    `;
+        try {
+            const result = await this.model.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text().replace(/```/g, '').trim();
+            return text || null;
+        }
+        catch (error) {
+            this.logger.warn(`Incident risk summary generation failed: ${error instanceof Error ? error.message : String(error)}`);
+            return null;
+        }
+    }
+    async explainGuardRecommendation(context) {
+        if (!this.isAiAvailable()) {
+            return null;
+        }
+        const prompt = `
+      Explain this guard recommendation to a security operations admin.
+      Use only this aggregated scheduling context:
+      ${context}
+
+      Return one concise sentence. Mention the guard by name. Do not mention tenant IDs, user IDs, emails, or raw database fields.
+    `;
+        try {
+            const result = await this.model.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text().replace(/```/g, '').trim();
+            return text || null;
+        }
+        catch (error) {
+            this.logger.warn(`Guard recommendation explanation failed: ${error instanceof Error ? error.message : String(error)}`);
+            return null;
+        }
+    }
     fallbackProposalDraft(dto, reason) {
         return {
             draft: `

@@ -6,21 +6,20 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ShiftsModule = void 0;
+exports.AiInsightsModule = void 0;
 const common_1 = require("@nestjs/common");
-const shifts_service_1 = require("./shifts.service");
-const shifts_controller_1 = require("./shifts.controller");
-const shift_recommendations_controller_1 = require("./shift-recommendations.controller");
-const prisma_module_1 = require("../prisma/prisma.module");
 const ai_module_1 = require("../ai/ai.module");
-let ShiftsModule = class ShiftsModule {
+const prisma_module_1 = require("../prisma/prisma.module");
+const ai_insights_controller_1 = require("./ai-insights.controller");
+const ai_insights_service_1 = require("./ai-insights.service");
+let AiInsightsModule = class AiInsightsModule {
 };
-exports.ShiftsModule = ShiftsModule;
-exports.ShiftsModule = ShiftsModule = __decorate([
+exports.AiInsightsModule = AiInsightsModule;
+exports.AiInsightsModule = AiInsightsModule = __decorate([
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule, ai_module_1.AiModule],
-        controllers: [shifts_controller_1.ShiftsController, shift_recommendations_controller_1.ShiftRecommendationsController],
-        providers: [shifts_service_1.ShiftsService],
+        controllers: [ai_insights_controller_1.AiInsightsController],
+        providers: [ai_insights_service_1.AiInsightsService],
     })
-], ShiftsModule);
-//# sourceMappingURL=shifts.module.js.map
+], AiInsightsModule);
+//# sourceMappingURL=ai-insights.module.js.map

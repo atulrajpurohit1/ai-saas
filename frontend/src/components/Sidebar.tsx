@@ -18,7 +18,8 @@ import {
   BadgeDollarSign,
   DollarSign,
   Receipt,
-  X
+  X,
+  BrainCircuit
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { clsx, type ClassValue } from 'clsx';
@@ -52,6 +53,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     { href: '/invoices', label: 'Invoices', icon: Receipt },
     { href: '/invoice-disputes', label: 'Disputes', icon: FileWarning },
     { href: '/finance', label: 'Finance', icon: DollarSign },
+    { href: '/ai-insights', label: 'AI Insights', icon: BrainCircuit },
     { href: '/audit', label: 'Activity', icon: Activity },
   ];
 

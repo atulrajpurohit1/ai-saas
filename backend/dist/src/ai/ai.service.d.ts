@@ -23,6 +23,9 @@ export declare class AiService {
     }): Promise<string>;
     generateEmailDraft(subject: string, context: string): Promise<string>;
     summarizeNotes(notes: string[]): Promise<string>;
+    generateBusinessInsightRecommendations(context: string): Promise<string[] | null>;
+    generateIncidentRiskSummary(context: string): Promise<string | null>;
+    explainGuardRecommendation(context: string): Promise<string | null>;
     private fallbackProposalDraft;
     private fallbackLeadProposal;
     private fallbackEmailDraft;

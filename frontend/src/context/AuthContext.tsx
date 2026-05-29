@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 
 export interface User {
   email: string;
-  role: 'admin' | 'finance' | 'client';
+  role: 'admin' | 'finance' | 'supervisor' | 'client';
   name: string;
   tenantName?: string;
 }

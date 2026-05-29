@@ -33,6 +33,9 @@ let ShiftsController = class ShiftsController {
     findAll(user) {
         return this.shiftsService.findAll(user.tenantId);
     }
+    recommendGuards(user, id) {
+        return this.shiftsService.recommendGuards(user.sub, user.tenantId, id);
+    }
     assign(user, id, dto) {
         return this.shiftsService.assign(user.sub, user.tenantId, id, dto.guardId);
     }
@@ -57,6 +60,14 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], ShiftsController.prototype, "findAll", null);
 __decorate([
+    (0, common_1.Get)(':id/recommend-guards'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_2.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], ShiftsController.prototype, "recommendGuards", null);
+__decorate([
     (0, common_2.Put)(':id/assign'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_2.Param)('id')),
@@ -76,7 +87,7 @@ __decorate([
 exports.ShiftsController = ShiftsController = __decorate([
     (0, common_1.Controller)('v2/shifts'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin'),
+    (0, roles_decorator_1.Roles)('admin', 'scheduler'),
     __metadata("design:paramtypes", [shifts_service_1.ShiftsService])
 ], ShiftsController);
 //# sourceMappingURL=shifts.controller.js.map

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import api from '@/lib/api';
-import { Plus, Search, Calendar, Clock, Users, MoreVertical, MapPin } from 'lucide-react';
+import { Plus, Search, Calendar, Clock, Users, MapPin, Sparkles, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface Site {
   id: string;
@@ -35,6 +35,15 @@ interface Shift {
   }[];
 }
 
+interface GuardRecommendation {
+  guard_id: string;
+  guard_name: string;
+  score: number;
+  reasons: string[];
+  warnings: string[];
+  explanation: string;
+}
+
 export default function ShiftsPage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
@@ -44,6 +53,9 @@ export default function ShiftsPage() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedShift, setSelectedShift] = useState<string | null>(null);
   const [selectedGuard, setSelectedGuard] = useState('');
+  const [recommendations, setRecommendations] = useState<GuardRecommendation[]>([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+  const [recommendationsError, setRecommendationsError] = useState('');
   
   const [newShift, setNewShift] = useState({
     siteId: '',
@@ -87,15 +99,44 @@ export default function ShiftsPage() {
     fetchGuards();
   }, []);
 
+  const resetAssignModal = () => {
+    setShowAssignModal(false);
+    setSelectedGuard('');
+    setSelectedShift(null);
+    setRecommendations([]);
+    setRecommendationsError('');
+    setRecommendationsLoading(false);
+  };
+
+  const fetchRecommendations = async (shiftId: string) => {
+    setRecommendationsLoading(true);
+    setRecommendationsError('');
+    try {
+      const res = await api.get<GuardRecommendation[]>(`v2/shifts/${shiftId}/recommend-guards`);
+      setRecommendations(Array.isArray(res.data) ? res.data : []);
+    } catch (err: any) {
+      console.error('Failed to fetch guard recommendations:', err);
+      setRecommendationsError(err.response?.data?.message || 'Could not load recommended guards.');
+      setRecommendations([]);
+    } finally {
+      setRecommendationsLoading(false);
+    }
+  };
+
+  const openAssignModal = (shiftId: string) => {
+    setSelectedShift(shiftId);
+    setSelectedGuard('');
+    setShowAssignModal(true);
+    fetchRecommendations(shiftId);
+  };
+
   const handleAssign = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedShift || !selectedGuard) return;
 
     try {
       await api.put(`v2/shifts/${selectedShift}/assign`, { guardId: selectedGuard });
-      setShowAssignModal(false);
-      setSelectedGuard('');
-      setSelectedShift(null);
+      resetAssignModal();
       fetchShifts();
     } catch (err: any) {
       console.error('Failed to assign guard:', err);
@@ -148,6 +189,13 @@ export default function ShiftsPage() {
     if (status === 'checked_in') return 'bg-sky-500/10 text-sky-400 border-sky-500/20';
     if (status === 'completed') return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
     return 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+  };
+
+  const scoreBadgeClass = (score: number) => {
+    if (score >= 80) return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20';
+    if (score >= 60) return 'bg-sky-500/10 text-sky-300 border-sky-500/20';
+    if (score >= 40) return 'bg-amber-500/10 text-amber-300 border-amber-500/20';
+    return 'bg-rose-500/10 text-rose-300 border-rose-500/20';
   };
 
   return (
@@ -260,7 +308,7 @@ export default function ShiftsPage() {
                        </button>
                     ) : (
                        <button 
-                         onClick={() => { setSelectedShift(shift.id); setShowAssignModal(true); }}
+                         onClick={() => openAssignModal(shift.id)}
                          className="text-xs bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-3 py-1.5 rounded-lg font-medium transition-colors"
                        >
                          Assign Guard
@@ -364,7 +412,7 @@ export default function ShiftsPage() {
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold">Assign Guard to Shift</h3>
               <button 
-                onClick={() => { setShowAssignModal(false); setSelectedGuard(''); setSelectedShift(null); }} 
+                onClick={resetAssignModal} 
                 className="text-muted-foreground hover:text-white transition-colors"
               >
                 <Plus size={24} className="rotate-45" />
@@ -372,6 +420,79 @@ export default function ShiftsPage() {
             </div>
 
             <form onSubmit={handleAssign} className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <h4 className="flex items-center gap-2 text-sm font-bold text-white">
+                    <Sparkles size={16} className="text-sky-300" />
+                    Recommended Guards
+                  </h4>
+                  {selectedShift && (
+                    <button
+                      type="button"
+                      onClick={() => fetchRecommendations(selectedShift)}
+                      disabled={recommendationsLoading}
+                      className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-slate-300 transition hover:bg-white/10 disabled:opacity-60"
+                    >
+                      Refresh
+                    </button>
+                  )}
+                </div>
+
+                {recommendationsLoading ? (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-5 text-center text-sm text-muted-foreground">
+                    <Loader2 className="mx-auto mb-2 animate-spin text-sky-300" size={20} />
+                    Ranking available guards...
+                  </div>
+                ) : recommendationsError ? (
+                  <div className="flex items-center gap-2 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+                    <AlertTriangle size={16} />
+                    {recommendationsError}
+                  </div>
+                ) : recommendations.length === 0 ? (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-5 text-center text-sm text-muted-foreground">
+                    No recommended guards found. Use manual selection below.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {recommendations.slice(0, 5).map((recommendation) => (
+                      <button
+                        key={recommendation.guard_id}
+                        type="button"
+                        onClick={() => setSelectedGuard(recommendation.guard_id)}
+                        className={`w-full rounded-2xl border p-4 text-left transition ${
+                          selectedGuard === recommendation.guard_id
+                            ? 'border-sky-400/50 bg-sky-400/10'
+                            : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'
+                        }`}
+                      >
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="truncate font-bold text-white">{recommendation.guard_name}</div>
+                            <p className="mt-1 text-sm leading-5 text-slate-400">{recommendation.explanation}</p>
+                          </div>
+                          <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-black ${scoreBadgeClass(recommendation.score)}`}>
+                            {recommendation.score}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          {recommendation.reasons.slice(0, 3).map((reason) => (
+                            <span key={reason} className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200">
+                              {reason}
+                            </span>
+                          ))}
+                          {recommendation.warnings.slice(0, 2).map((warning) => (
+                            <span key={warning} className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
+                              {warning}
+                            </span>
+                          ))}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-1">
                 <label className="text-sm font-medium text-muted-foreground">Select Guard</label>
                 <select 
@@ -390,7 +511,7 @@ export default function ShiftsPage() {
               <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:gap-4">
                 <button 
                   type="button"
-                  onClick={() => { setShowAssignModal(false); setSelectedGuard(''); setSelectedShift(null); }}
+                  onClick={resetAssignModal}
                   className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-3 rounded-2xl transition-all border border-white/10"
                 >
                   Cancel

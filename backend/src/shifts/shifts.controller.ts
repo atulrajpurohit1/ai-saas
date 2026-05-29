@@ -11,7 +11,7 @@ import { Param, Put, Delete } from '@nestjs/common';
 
 @Controller('v2/shifts')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@Roles('admin', 'scheduler')
 export class ShiftsController {
   constructor(private readonly shiftsService: ShiftsService) {}
 
@@ -26,6 +26,11 @@ export class ShiftsController {
   @Get()
   findAll(@GetUser() user: ActiveUser) {
     return this.shiftsService.findAll(user.tenantId);
+  }
+
+  @Get(':id/recommend-guards')
+  recommendGuards(@GetUser() user: ActiveUser, @Param('id') id: string) {
+    return this.shiftsService.recommendGuards(user.sub, user.tenantId, id);
   }
 
   @Put(':id/assign')

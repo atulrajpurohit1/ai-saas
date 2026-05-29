@@ -30,6 +30,7 @@ import { InvoiceDisputesModule } from './invoice-disputes/invoice-disputes.modul
 import { FinanceModule } from './finance/finance.module';
 import { TimesheetsModule } from './timesheets/timesheets.module';
 import { RateCardsModule } from './rate-cards/rate-cards.module';
+import { AiInsightsModule } from './ai-insights/ai-insights.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { RateCardsModule } from './rate-cards/rate-cards.module';
     InvoicesModule,
     InvoiceDisputesModule,
     FinanceModule,
+    AiInsightsModule,
     TimesheetsModule,
     RateCardsModule,
     LeadsModule,
