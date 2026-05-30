@@ -19,7 +19,8 @@ import {
   DollarSign,
   Receipt,
   X,
-  BrainCircuit
+  BrainCircuit,
+  Command
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { clsx, type ClassValue } from 'clsx';
@@ -39,6 +40,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const { user, logout } = useAuth();
 
   const adminLinks = [
+    { href: '/ai-command-center', label: 'Command Center', icon: Command },
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/leads', label: 'Leads', icon: Users },
     { href: '/deals', label: 'Deals', icon: Briefcase },
@@ -58,7 +60,10 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   ];
 
   const links = user?.role === 'finance'
-    ? [{ href: '/finance', label: 'Finance', icon: DollarSign }]
+    ? [
+        { href: '/finance', label: 'Finance', icon: DollarSign },
+        { href: '/ai-insights/revenue', label: 'Revenue AI', icon: BrainCircuit },
+      ]
     : adminLinks;
 
   return (

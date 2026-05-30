@@ -31,6 +31,7 @@ import { FinanceModule } from './finance/finance.module';
 import { TimesheetsModule } from './timesheets/timesheets.module';
 import { RateCardsModule } from './rate-cards/rate-cards.module';
 import { AiInsightsModule } from './ai-insights/ai-insights.module';
+import { CommandCenterModule } from './ai-command-center/command-center.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { AiInsightsModule } from './ai-insights/ai-insights.module';
     InvoiceDisputesModule,
     FinanceModule,
     AiInsightsModule,
+    CommandCenterModule,
     TimesheetsModule,
     RateCardsModule,
     LeadsModule,

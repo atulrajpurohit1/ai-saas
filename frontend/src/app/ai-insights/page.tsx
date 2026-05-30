@@ -17,6 +17,7 @@ import {
   BrainCircuit,
   CheckCircle2,
   Clock,
+  DollarSign,
   FileWarning,
   Lightbulb,
   Loader2,
@@ -74,8 +75,8 @@ function formatPercent(value: number | null) {
 function MetricGrid({ metrics }: { metrics: AiInsightMetric[] }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {metrics.map((metric) => (
-        <div key={metric.label} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+      {metrics.map((metric, index) => (
+        <div key={`${metric.label}-${index}`} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
           <div className="mb-3 flex items-center justify-between gap-3">
             <p className="text-sm font-semibold text-slate-400">{metric.label}</p>
             <span className={`h-2.5 w-2.5 rounded-full ${metric.tone === 'critical' ? 'bg-rose-300' : metric.tone === 'warning' ? 'bg-amber-300' : metric.tone === 'positive' ? 'bg-emerald-300' : 'bg-sky-300'}`} />
@@ -122,10 +123,10 @@ function BarList({ title, items }: { title: string; items: BarItem[] }) {
         {items.length === 0 ? (
           <div className="py-8 text-center text-sm text-slate-400">No data yet.</div>
         ) : (
-          items.map((item) => {
+          items.map((item, index) => {
             const width = item.value <= 0 ? 0 : Math.max(8, (item.value / max) * 100);
             return (
-              <div key={item.label}>
+              <div key={`${item.label}-${index}`}>
                 <div className="mb-2 flex items-center justify-between gap-3 text-sm">
                   <span className="min-w-0 truncate font-semibold text-slate-200">{item.label}</span>
                   <span className="shrink-0 font-bold text-white">{item.valueLabel}</span>
@@ -289,6 +290,26 @@ export default function AiInsightsPage() {
             <MetricGrid metrics={dashboard.overview.summary} />
             <div className="mt-4">
               <InsightList insights={dashboard.overview.insights} />
+            </div>
+          </section>
+
+          <section>
+            <SectionHeader icon={DollarSign} title="Revenue Intelligence" />
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h4 className="font-bold text-white">Revenue forecasting and contract intelligence</h4>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">
+                    Forecast revenue, score contract health, identify renewal opportunities, and review financial recommendations.
+                  </p>
+                </div>
+                <Link
+                  href="/ai-insights/revenue"
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-emerald-400"
+                >
+                  Open Revenue AI
+                </Link>
+              </div>
             </div>
           </section>
 

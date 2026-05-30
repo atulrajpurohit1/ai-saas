@@ -6,22 +6,21 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AiInsightsModule = void 0;
+exports.CommandCenterModule = void 0;
 const common_1 = require("@nestjs/common");
 const ai_module_1 = require("../ai/ai.module");
 const prisma_module_1 = require("../prisma/prisma.module");
-const ai_insights_controller_1 = require("./ai-insights.controller");
-const ai_insights_service_1 = require("./ai-insights.service");
-const revenue_insights_service_1 = require("./revenue-insights.service");
-let AiInsightsModule = class AiInsightsModule {
+const ai_insights_module_1 = require("../ai-insights/ai-insights.module");
+const command_center_controller_1 = require("./command-center.controller");
+const command_center_service_1 = require("./command-center.service");
+let CommandCenterModule = class CommandCenterModule {
 };
-exports.AiInsightsModule = AiInsightsModule;
-exports.AiInsightsModule = AiInsightsModule = __decorate([
+exports.CommandCenterModule = CommandCenterModule;
+exports.CommandCenterModule = CommandCenterModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, ai_module_1.AiModule],
-        controllers: [ai_insights_controller_1.AiInsightsController],
-        providers: [ai_insights_service_1.AiInsightsService, revenue_insights_service_1.RevenueInsightsService],
-        exports: [ai_insights_service_1.AiInsightsService, revenue_insights_service_1.RevenueInsightsService],
+        imports: [prisma_module_1.PrismaModule, ai_module_1.AiModule, ai_insights_module_1.AiInsightsModule],
+        controllers: [command_center_controller_1.CommandCenterController],
+        providers: [command_center_service_1.CommandCenterService],
     })
-], AiInsightsModule);
-//# sourceMappingURL=ai-insights.module.js.map
+], CommandCenterModule);
+//# sourceMappingURL=command-center.module.js.map

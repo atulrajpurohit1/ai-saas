@@ -23,6 +23,7 @@ export class ClientsController {
   }
 
   @Get()
+  @Roles('admin', 'finance')
   findAll(@GetUser() user: ActiveUser) {
     return this.clientsService.findAll(user.tenantId);
   }

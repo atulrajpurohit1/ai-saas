@@ -6,13 +6,21 @@ export type AiInsightCategory =
   | 'guards'
   | 'sites'
   | 'billing'
-  | 'incidents';
+  | 'incidents'
+  | 'revenue'
+  | 'contracts'
+  | 'renewals';
 
 export type AiInsightSeverity = 'positive' | 'info' | 'warning' | 'critical';
 export type AiRecommendationPriority = 'high' | 'medium' | 'low';
 export type AiRecommendationSource = 'rule' | 'ai';
 export type AiRiskEntityType = 'site' | 'client' | 'guard';
 export type AiRiskLevel = 'low' | 'medium' | 'high' | 'critical';
+export type RevenueInsightSource = 'ai_assisted' | 'rule_based';
+export type RevenueForecastConfidence = 'high' | 'medium' | 'low';
+export type RevenueForecastMonthType = 'actual' | 'forecast';
+export type ContractHealthStatus = 'Excellent' | 'Good' | 'Warning' | 'High Risk';
+export type RenewalOpportunityType = 'renewal_due' | 'inactive_client' | 'declining_revenue' | 'pricing_review';
 
 export interface AiInsightMetric {
   label: string;
@@ -129,6 +137,105 @@ export type GuardInsightsResponse = AiInsightsSection<GuardInsightRow>;
 export type SiteInsightsResponse = AiInsightsSection<SiteInsightRow>;
 export type BillingInsightsResponse = AiInsightsSection<BillingClientRow>;
 
+export interface RevenueForecastMonth {
+  month: string;
+  label: string;
+  type: RevenueForecastMonthType;
+  actualRevenue: number;
+  paidRevenue: number;
+  outstandingRevenue: number;
+  forecastRevenue: number;
+}
+
+export interface RevenueForecastResponse {
+  generatedAt: string;
+  summary: AiInsightMetric[];
+  insights: AiInsightItem[];
+  months: RevenueForecastMonth[];
+  nextMonthRevenue: number;
+  monthlyGrowthRate: number;
+  quarterlyForecast: number;
+  annualForecast: number;
+  expectedCollections: number;
+  expectedCollectionsNext30Days: number;
+  outstandingAmount: number;
+  confidence: RevenueForecastConfidence;
+  methodology: string;
+}
+
+export interface ContractHealthRow {
+  clientId: string;
+  name: string;
+  healthScore: number;
+  healthStatus: ContractHealthStatus;
+  activeContract: boolean;
+  contractStartDate: string | null;
+  contractEndDate: string | null;
+  daysUntilRenewal: number | null;
+  invoiceCount: number;
+  totalRevenue: number;
+  outstandingAmount: number;
+  averagePaymentDays: number | null;
+  incidentCount: number;
+  disputeCount: number;
+  lastInvoiceAt: string | null;
+  indicators: string[];
+}
+
+export interface ClientValueRow {
+  clientId: string;
+  name: string;
+  totalRevenue: number;
+  revenueShare: number;
+  currentPeriodRevenue: number;
+  previousPeriodRevenue: number;
+  growthRate: number;
+  invoiceCount: number;
+  disputeCount: number;
+  incidentCount: number;
+  clientValueScore: number;
+  retentionScore: number;
+  growthPotentialScore: number;
+  indicators: string[];
+}
+
+export interface RenewalOpportunityRow {
+  id: string;
+  clientId: string;
+  name: string;
+  type: RenewalOpportunityType;
+  priority: AiRecommendationPriority;
+  dueDate: string | null;
+  daysUntilRenewal: number | null;
+  estimatedRevenueAtRisk: number;
+  recommendation: string;
+  reason: string;
+}
+
+export type ContractIntelligenceResponse = AiInsightsSection<ContractHealthRow>;
+export type ClientValueAnalysisResponse = AiInsightsSection<ClientValueRow>;
+export type RenewalOpportunitiesResponse = AiInsightsSection<RenewalOpportunityRow>;
+
+export interface FinancialRecommendationsResponse {
+  generatedAt: string;
+  source: RevenueInsightSource;
+  summary: AiInsightMetric[];
+  recommendations: AiRecommendation[];
+  aiRecommendations: AiRecommendation[];
+  ruleRecommendations: AiRecommendation[];
+}
+
+export interface RevenueInsightsDashboard {
+  generatedAt: string;
+  source: RevenueInsightSource;
+  aiSummary: string;
+  forecast: RevenueForecastResponse;
+  clientValue: ClientValueAnalysisResponse;
+  contracts: ContractIntelligenceResponse;
+  renewals: RenewalOpportunitiesResponse;
+  recommendations: FinancialRecommendationsResponse;
+}
+
 export interface IncidentInsightsResponse {
   generatedAt: string;
   source: 'ai_assisted' | 'rule_based';
@@ -187,5 +294,30 @@ export async function getAiBillingInsights() {
 
 export async function getAiIncidentInsights() {
   const response = await api.get<IncidentInsightsResponse>('ai-insights/incidents');
+  return response.data;
+}
+
+export async function getAiRevenueInsights() {
+  const response = await api.get<RevenueInsightsDashboard>('ai-insights/revenue');
+  return response.data;
+}
+
+export async function getAiContractInsights() {
+  const response = await api.get<ContractIntelligenceResponse>('ai-insights/contracts');
+  return response.data;
+}
+
+export async function getAiClientValueInsights() {
+  const response = await api.get<ClientValueAnalysisResponse>('ai-insights/client-value');
+  return response.data;
+}
+
+export async function getAiRenewalInsights() {
+  const response = await api.get<RenewalOpportunitiesResponse>('ai-insights/renewals');
+  return response.data;
+}
+
+export async function getAiFinancialRecommendations() {
+  const response = await api.get<FinancialRecommendationsResponse>('ai-insights/recommendations');
   return response.data;
 }

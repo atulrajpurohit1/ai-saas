@@ -4,6 +4,12 @@ import { Lead } from '@prisma/client';
 export interface AiProposalDraftResponse {
     draft: string | null;
 }
+export interface AiRevenueRecommendationDraft {
+    title: string;
+    action: string;
+    reason: string;
+    priority: 'high' | 'medium' | 'low';
+}
 export declare class AiService {
     private configService;
     private readonly logger;
@@ -25,6 +31,8 @@ export declare class AiService {
     summarizeNotes(notes: string[]): Promise<string>;
     generateBusinessInsightRecommendations(context: string): Promise<string[] | null>;
     generateIncidentRiskSummary(context: string): Promise<string | null>;
+    generateRevenueIntelligenceSummary(context: string): Promise<string | null>;
+    generateRevenueFinancialRecommendations(context: string): Promise<AiRevenueRecommendationDraft[] | null>;
     explainGuardRecommendation(context: string): Promise<string | null>;
     private fallbackProposalDraft;
     private fallbackLeadProposal;

@@ -12,6 +12,13 @@ export interface AiProposalDraftResponse {
   draft: string | null;
 }
 
+export interface AiRevenueRecommendationDraft {
+  title: string;
+  action: string;
+  reason: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
@@ -264,6 +271,106 @@ export class AiService {
     } catch (error) {
       this.logger.warn(
         `Incident risk summary generation failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return null;
+    }
+  }
+
+  async generateRevenueIntelligenceSummary(
+    context: string,
+  ): Promise<string | null> {
+    if (!this.isAiAvailable()) {
+      return null;
+    }
+
+    const prompt = `
+      You are analyzing tenant-scoped security services revenue, contracts, renewals, invoice collections, and client value.
+      Use only this aggregated financial context:
+      ${context}
+
+      Return one concise executive paragraph with:
+      - next-month revenue forecast
+      - expected growth or decline
+      - the most important contract or renewal risk
+      - the most important finance action
+
+      Do not mention tenant IDs, user IDs, emails, phone numbers, raw database fields, or implementation details.
+    `;
+
+    try {
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text().replace(/```/g, '').trim();
+      return text || null;
+    } catch (error) {
+      this.logger.warn(
+        `Revenue intelligence summary generation failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return null;
+    }
+  }
+
+  async generateRevenueFinancialRecommendations(
+    context: string,
+  ): Promise<AiRevenueRecommendationDraft[] | null> {
+    if (!this.isAiAvailable()) {
+      return null;
+    }
+
+    const prompt = `
+      You are a senior finance and operations advisor for a security services SaaS platform.
+      Use only this aggregated tenant-scoped financial context:
+      ${context}
+
+      Return JSON only in this exact shape:
+      {
+        "recommendations": [
+          {
+            "title": "short title",
+            "action": "specific action",
+            "reason": "brief reason using the aggregate metrics",
+            "priority": "high"
+          }
+        ]
+      }
+
+      Priority must be one of: high, medium, low.
+      Keep each action concise and specific. Do not mention tenant IDs, user IDs, emails, phone numbers, raw database fields, or implementation details.
+    `;
+
+    try {
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      const rawText = response.text().replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(rawText) as {
+        recommendations?: Array<Partial<AiRevenueRecommendationDraft>>;
+      };
+
+      if (!Array.isArray(parsed.recommendations)) {
+        return null;
+      }
+
+      return parsed.recommendations
+        .map((item) => ({
+          title: typeof item.title === 'string' ? item.title.trim() : '',
+          action: typeof item.action === 'string' ? item.action.trim() : '',
+          reason: typeof item.reason === 'string' ? item.reason.trim() : '',
+          priority:
+            item.priority === 'high' ||
+            item.priority === 'medium' ||
+            item.priority === 'low'
+              ? item.priority
+              : 'medium',
+        }))
+        .filter((item) => item.title && item.action && item.reason)
+        .slice(0, 5);
+    } catch (error) {
+      this.logger.warn(
+        `Revenue recommendation generation failed: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );

@@ -19,10 +19,13 @@ const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const roles_guard_1 = require("../auth/guards/roles.guard");
 const ai_insights_service_1 = require("./ai-insights.service");
+const revenue_insights_service_1 = require("./revenue-insights.service");
 let AiInsightsController = class AiInsightsController {
     aiInsightsService;
-    constructor(aiInsightsService) {
+    revenueInsightsService;
+    constructor(aiInsightsService, revenueInsightsService) {
         this.aiInsightsService = aiInsightsService;
+        this.revenueInsightsService = revenueInsightsService;
     }
     dashboard(user) {
         return this.aiInsightsService.getDashboard(user.tenantId);
@@ -41,6 +44,21 @@ let AiInsightsController = class AiInsightsController {
     }
     incidents(user) {
         return this.aiInsightsService.getIncidentInsights(user.tenantId);
+    }
+    revenue(user) {
+        return this.revenueInsightsService.getRevenueDashboard(user.tenantId, user.sub);
+    }
+    contracts(user) {
+        return this.revenueInsightsService.getContractInsights(user.tenantId, user.sub);
+    }
+    clientValue(user) {
+        return this.revenueInsightsService.getClientValueAnalysis(user.tenantId, user.sub);
+    }
+    renewals(user) {
+        return this.revenueInsightsService.getRenewalOpportunities(user.tenantId, user.sub);
+    }
+    recommendations(user) {
+        return this.revenueInsightsService.getFinancialRecommendations(user.tenantId, user.sub);
     }
 };
 exports.AiInsightsController = AiInsightsController;
@@ -87,10 +105,51 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], AiInsightsController.prototype, "incidents", null);
+__decorate([
+    (0, common_1.Get)('revenue'),
+    (0, roles_decorator_1.Roles)('admin', 'finance'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AiInsightsController.prototype, "revenue", null);
+__decorate([
+    (0, common_1.Get)('contracts'),
+    (0, roles_decorator_1.Roles)('admin', 'finance'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AiInsightsController.prototype, "contracts", null);
+__decorate([
+    (0, common_1.Get)('client-value'),
+    (0, roles_decorator_1.Roles)('admin', 'finance'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AiInsightsController.prototype, "clientValue", null);
+__decorate([
+    (0, common_1.Get)('renewals'),
+    (0, roles_decorator_1.Roles)('admin', 'finance'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AiInsightsController.prototype, "renewals", null);
+__decorate([
+    (0, common_1.Get)('recommendations'),
+    (0, roles_decorator_1.Roles)('admin', 'finance'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AiInsightsController.prototype, "recommendations", null);
 exports.AiInsightsController = AiInsightsController = __decorate([
     (0, common_1.Controller)('ai-insights'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)('admin'),
-    __metadata("design:paramtypes", [ai_insights_service_1.AiInsightsService])
+    __metadata("design:paramtypes", [ai_insights_service_1.AiInsightsService,
+        revenue_insights_service_1.RevenueInsightsService])
 ], AiInsightsController);
 //# sourceMappingURL=ai-insights.controller.js.map
