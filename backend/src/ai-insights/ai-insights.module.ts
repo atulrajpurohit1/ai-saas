@@ -3,12 +3,13 @@ import { AiModule } from '../ai/ai.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AiInsightsController } from './ai-insights.controller';
 import { AiInsightsService } from './ai-insights.service';
+import { RecommendationService } from './recommendation.service';
 import { RevenueInsightsService } from './revenue-insights.service';
 
 @Module({
   imports: [PrismaModule, AiModule],
   controllers: [AiInsightsController],
-  providers: [AiInsightsService, RevenueInsightsService],
-  exports: [AiInsightsService, RevenueInsightsService],
+  providers: [AiInsightsService, RevenueInsightsService, RecommendationService],
+  exports: [AiInsightsService, RevenueInsightsService, RecommendationService],
 })
 export class AiInsightsModule {}

@@ -3,6 +3,7 @@ import {
   AiInsightSeverity,
   AiRecommendation,
   AiRiskLevel,
+  SchedulingOverview,
 } from '../ai-insights/ai-insights.types';
 
 // ── Executive Overview ────────────────────────────────────────────────
@@ -111,6 +112,7 @@ export interface CommandCenterDashboard {
   risks: CommandCenterRiskCenter;
   workforce: WorkforceHealth;
   financial: FinancialHealthOverview;
+  scheduling: SchedulingOverview;
   recommendations: AiRecommendation[];
   dailySummary: DailySummary;
 }

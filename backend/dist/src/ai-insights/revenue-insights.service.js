@@ -850,6 +850,9 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
                 action: `Follow up on ${overdueInvoices.length} invoices unpaid for more than 30 days.`,
                 reason: `${this.formatCurrency(overdueInvoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0))} is overdue and affecting expected collections.`,
                 source: 'rule',
+                actionType: 'create_invoice_followup',
+                targetModule: 'invoice',
+                targetEntityId: overdueInvoices[0]?.id ?? null,
             });
         }
         if (topOutstanding) {
@@ -861,6 +864,9 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
                 action: `Create a collections plan for ${topOutstanding.name}.`,
                 reason: `${topOutstanding.name} has ${this.formatCurrency(topOutstanding.outstandingAmount)} outstanding.`,
                 source: 'rule',
+                actionType: 'create_invoice_followup',
+                targetModule: 'client',
+                targetEntityId: topOutstanding.clientId,
             });
         }
         if (highRiskContract) {
@@ -872,6 +878,9 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
                 action: `Review contract terms and payment behavior for ${highRiskContract.name}.`,
                 reason: `${highRiskContract.name} has a contract health score of ${highRiskContract.healthScore}/100.`,
                 source: 'rule',
+                actionType: 'flag_client_risk',
+                targetModule: 'client',
+                targetEntityId: highRiskContract.clientId,
             });
         }
         if (topRenewal) {
@@ -883,6 +892,9 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
                 action: topRenewal.recommendation,
                 reason: topRenewal.reason,
                 source: 'rule',
+                actionType: 'create_follow_up_task',
+                targetModule: 'client',
+                targetEntityId: topRenewal.clientId,
             });
         }
         if (topValueClient && topValueClient.totalRevenue > 0) {
@@ -894,6 +906,9 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
                 action: `Protect and expand the relationship with ${topValueClient.name}.`,
                 reason: `${topValueClient.name} contributes ${topValueClient.revenueShare}% of total revenue.`,
                 source: 'rule',
+                actionType: 'flag_client_risk',
+                targetModule: 'client',
+                targetEntityId: topValueClient.clientId,
             });
         }
         if (topGrowthClient) {
@@ -905,6 +920,9 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
                 action: `Discuss expanded coverage with ${topGrowthClient.name}.`,
                 reason: `${topGrowthClient.name} has a growth potential score of ${topGrowthClient.growthPotentialScore}/100.`,
                 source: 'rule',
+                actionType: 'create_follow_up_task',
+                targetModule: 'client',
+                targetEntityId: topGrowthClient.clientId,
             });
         }
         if (topSite) {
@@ -916,6 +934,9 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
                 action: `Review staffing capacity for ${topSite.name}.`,
                 reason: `${topSite.name} generated ${this.formatCurrency(topSite.revenue)} in invoice revenue.`,
                 source: 'rule',
+                actionType: 'flag_site_risk',
+                targetModule: 'site',
+                targetEntityId: topSite.id,
             });
         }
         if (forecast.monthlyGrowthRate > 10 && topSite) {
@@ -927,6 +948,8 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
                 action: `Increase staffing readiness for profitable sites before next month's forecasted demand.`,
                 reason: `Revenue is forecast to grow ${forecast.monthlyGrowthRate}% from the recent baseline.`,
                 source: 'rule',
+                actionType: 'create_follow_up_task',
+                targetModule: 'operations',
             });
         }
         if (recommendations.length === 0) {
@@ -938,6 +961,8 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
                 action: 'Review revenue, renewals, and collections every week.',
                 reason: 'No high-priority revenue or contract risk was detected in the available data.',
                 source: 'rule',
+                actionType: 'create_follow_up_task',
+                targetModule: 'revenue',
             });
         }
         return recommendations;
@@ -1024,6 +1049,8 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
             action: item.action,
             reason: item.reason,
             source: 'ai',
+            actionType: 'notify_admin',
+            targetModule: 'revenue',
         };
     }
     getOrCreateAggregate(aggregates, invoice) {

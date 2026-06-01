@@ -1,8 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { useAuth } from '@/context/AuthContext';
+import { getAiActions, RecommendationAction } from '@/lib/ai-actions';
 import { CommandCenterDashboard, getCommandCenterDashboard } from '@/lib/command-center';
 import {
   BrainCircuit,
@@ -17,15 +20,13 @@ import {
   CheckCircle2,
   Lightbulb,
   Clock,
+  CalendarClock,
   Loader2,
   RefreshCcw,
-  Sparkles
+  Sparkles,
+  ClipboardCheck,
+  ArrowRight
 } from 'lucide-react';
-import { AiInsightMetric, AiRecommendation } from '@/lib/ai-insights';
-import { cn } from '@/lib/utils'; // Assuming a standard utility
-
-// If cn is not available in utils, we can define a quick inline one:
-// const cn = (...classes: (string | undefined | null | false)[]) => classes.filter(Boolean).join(' ');
 
 const severityStyles = {
   positive: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
@@ -82,7 +83,9 @@ function SectionHeader({ title, icon: Icon, badge }: { title: string, icon: any,
 }
 
 export default function AiCommandCenterPage() {
+  const { user } = useAuth();
   const [dashboard, setDashboard] = useState<CommandCenterDashboard | null>(null);
+  const [pendingActions, setPendingActions] = useState<RecommendationAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeRiskTab, setActiveRiskTab] = useState<'sites' | 'clients' | 'contracts'>('sites');
@@ -91,7 +94,10 @@ export default function AiCommandCenterPage() {
     setLoading(true);
     try {
       const data = await getCommandCenterDashboard();
+      const actions =
+        user?.role === 'admin' ? (await getAiActions('pending')).actions : [];
       setDashboard(data);
+      setPendingActions(actions);
       setError('');
     } catch (err) {
       setError(getApiErrorMessage(err, 'Could not load AI Command Center.'));
@@ -101,8 +107,10 @@ export default function AiCommandCenterPage() {
   };
 
   useEffect(() => {
-    loadDashboard();
-  }, []);
+    if (user) {
+      loadDashboard();
+    }
+  }, [user?.role]);
 
   return (
     <DashboardLayout allowedRoles={['admin', 'finance']}>
@@ -246,8 +254,58 @@ export default function AiCommandCenterPage() {
                 icon={AlertTriangle}
                 tone={dashboard.overview.staffingAlerts > 0 ? 'critical' : 'positive'}
               />
+              <MetricCard
+                title="Upcoming Shifts"
+                value={dashboard.scheduling.totalUpcomingShifts}
+                detail={`${dashboard.scheduling.fullyCoveredShifts} fully covered`}
+                icon={CalendarClock}
+                tone={dashboard.scheduling.coverageGaps > 0 ? 'warning' : 'positive'}
+              />
             </div>
           </section>
+
+          {user?.role === 'admin' && (
+            <section>
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <SectionHeader title="Pending AI Actions" icon={ClipboardCheck} badge={`${pendingActions.length} pending`} />
+                <Link
+                  href="/ai-actions"
+                  className="inline-flex min-h-10 w-fit items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-white transition hover:bg-white/10"
+                >
+                  Open AI Actions
+                  <ArrowRight size={16} />
+                </Link>
+              </div>
+              {pendingActions.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-white/10 py-10 text-center text-sm text-slate-500">
+                  No pending AI actions.
+                </div>
+              ) : (
+                <div className="grid gap-4 lg:grid-cols-3">
+                  {pendingActions.slice(0, 3).map((action) => (
+                    <Link
+                      key={action.id}
+                      href="/ai-actions"
+                      className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 transition hover:bg-white/[0.07]"
+                    >
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <h4 className="font-bold text-white">{action.title}</h4>
+                        <span className="shrink-0 rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-[11px] font-bold uppercase text-amber-200">
+                          Pending
+                        </span>
+                      </div>
+                      <p className="line-clamp-2 text-sm leading-6 text-slate-400">
+                        {action.description}
+                      </p>
+                      <div className="mt-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                        {action.actionType.replace(/_/g, ' ')}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
 
           <div className="grid gap-8 lg:grid-cols-2">
             {/* Risk Center */}

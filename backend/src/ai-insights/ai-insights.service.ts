@@ -90,7 +90,7 @@ export class AiInsightsService {
   constructor(
     private prisma: PrismaService,
     private aiService: AiService,
-  ) {}
+  ) { }
 
   async getDashboard(tenantId: string): Promise<AiInsightsDashboard> {
     const [clients, guards, sites, billing] = await Promise.all([
@@ -198,7 +198,7 @@ export class AiInsightsService {
           invoice.clientId,
           this.roundCurrency(
             (revenueByClient.get(invoice.clientId) || 0) +
-              invoice.totalAmount,
+            invoice.totalAmount,
           ),
         );
       });
@@ -432,8 +432,8 @@ export class AiInsightsService {
           attendanceRate:
             pastScheduled > 0
               ? this.roundPercent(
-                  ((pastScheduled - guard.missedShifts) / pastScheduled) * 100,
-                )
+                ((pastScheduled - guard.missedShifts) / pastScheduled) * 100,
+              )
               : null,
         };
       })
@@ -838,10 +838,10 @@ export class AiInsightsService {
     const averagePaymentDays =
       paidDurations.length > 0
         ? this.roundNumber(
-            paidDurations.reduce((sum, value) => sum + value, 0) /
-              paidDurations.length,
-            1,
-          )
+          paidDurations.reduce((sum, value) => sum + value, 0) /
+          paidDurations.length,
+          1,
+        )
         : null;
     const outstandingAmount = this.roundCurrency(
       outstandingInvoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0),
@@ -1359,6 +1359,9 @@ export class AiInsightsService {
         action: `Increase supervision at ${topSite.name}.`,
         reason: `${topSite.name} has a risk score of ${topSite.riskScore} from ${topSite.incidentCount} incidents.`,
         source: 'rule',
+        actionType: 'flag_site_risk',
+        targetModule: 'site',
+        targetEntityId: topSite.entityId,
       });
 
       recommendations.push({
@@ -1369,6 +1372,9 @@ export class AiInsightsService {
         action: `Review post orders for ${topSite.name}.`,
         reason: topSite.indicators[0] || 'The site has recurring incident risk indicators.',
         source: 'rule',
+        actionType: 'create_follow_up_task',
+        targetModule: 'site',
+        targetEntityId: topSite.entityId,
       });
     }
 
@@ -1381,6 +1387,8 @@ export class AiInsightsService {
         action: `Investigate repeated ${repeatedType.label.toLowerCase()} incidents.`,
         reason: `${repeatedType.label} appeared ${repeatedType.count} times in the analysis window.`,
         source: 'rule',
+        actionType: 'create_follow_up_task',
+        targetModule: 'incident',
       });
     }
 
@@ -1393,6 +1401,8 @@ export class AiInsightsService {
         action: 'Add extra guard coverage during night shift.',
         reason: `${nightPattern.count} incidents occurred during the night window.`,
         source: 'rule',
+        actionType: 'create_follow_up_task',
+        targetModule: 'operations',
       });
     }
 
@@ -1405,6 +1415,9 @@ export class AiInsightsService {
         action: `Review incident involvement with ${topGuard.name}.`,
         reason: `${topGuard.name} has a guard risk score of ${topGuard.riskScore}.`,
         source: 'rule',
+        actionType: 'suggest_guard_reassignment',
+        targetModule: 'guard',
+        targetEntityId: topGuard.entityId,
       });
     }
 
@@ -1417,6 +1430,9 @@ export class AiInsightsService {
         action: `Review service scope and risk controls with ${topClient.name}.`,
         reason: `${topClient.name} has a client risk score of ${topClient.riskScore}.`,
         source: 'rule',
+        actionType: 'flag_client_risk',
+        targetModule: 'client',
+        targetEntityId: topClient.entityId,
       });
     }
 
@@ -1429,6 +1445,8 @@ export class AiInsightsService {
         action: 'Keep reviewing incident trends weekly.',
         reason: 'No elevated incident risk pattern was detected in the current analysis window.',
         source: 'rule',
+        actionType: 'create_follow_up_task',
+        targetModule: 'incident',
       });
     }
 
@@ -1458,8 +1476,7 @@ export class AiInsightsService {
       );
     } catch (error) {
       this.logger.warn(
-        `Incident AI summary skipped: ${
-          error instanceof Error ? error.message : String(error)
+        `Incident AI summary skipped: ${error instanceof Error ? error.message : String(error)
         }`,
       );
       return null;
@@ -1623,6 +1640,9 @@ export class AiInsightsService {
         action: `Increase staffing or supervision at ${highestIncidentSite.name}.`,
         reason: `${highestIncidentSite.name} has ${highestIncidentSite.incidentCount} incident reports this month.`,
         source: 'rule',
+        actionType: 'flag_site_risk',
+        targetModule: 'site',
+        targetEntityId: highestIncidentSite.siteId,
       });
     }
 
@@ -1635,6 +1655,9 @@ export class AiInsightsService {
         action: `Add backup coverage for ${shortageSite.name}.`,
         reason: `${shortageSite.coverageIssues} shifts were below required guard coverage.`,
         source: 'rule',
+        actionType: 'flag_site_risk',
+        targetModule: 'site',
+        targetEntityId: shortageSite.siteId,
       });
     }
 
@@ -1647,6 +1670,9 @@ export class AiInsightsService {
         action: `Review attendance with ${missedShiftGuard.name}.`,
         reason: `${missedShiftGuard.name} missed ${missedShiftGuard.missedShifts} scheduled shifts.`,
         source: 'rule',
+        actionType: 'suggest_guard_reassignment',
+        targetModule: 'guard',
+        targetEntityId: missedShiftGuard.guardId,
       });
     }
 
@@ -1659,6 +1685,9 @@ export class AiInsightsService {
         action: `Review contract coverage with ${highIncidentClient.name}.`,
         reason: `${highIncidentClient.name} has ${highIncidentClient.incidentCount} incident reports this month.`,
         source: 'rule',
+        actionType: 'flag_client_risk',
+        targetModule: 'client',
+        targetEntityId: highIncidentClient.clientId,
       });
     }
 
@@ -1671,6 +1700,9 @@ export class AiInsightsService {
         action: `Follow up with ${topOutstandingClient.name} on unpaid invoices.`,
         reason: `${topOutstandingClient.name} has ${this.formatCurrency(topOutstandingClient.outstandingAmount)} outstanding.`,
         source: 'rule',
+        actionType: 'create_invoice_followup',
+        targetModule: 'client',
+        targetEntityId: topOutstandingClient.clientId,
       });
     }
 
@@ -1683,6 +1715,9 @@ export class AiInsightsService {
         action: `Prioritize dispute resolution for ${disputedClient.name}.`,
         reason: `${this.formatCurrency(disputedClient.disputedAmount)} is tied to disputed invoices.`,
         source: 'rule',
+        actionType: 'create_invoice_followup',
+        targetModule: 'client',
+        targetEntityId: disputedClient.clientId,
       });
     }
 
@@ -1695,6 +1730,8 @@ export class AiInsightsService {
         action: 'Keep monitoring attendance, incidents, and invoice aging weekly.',
         reason: 'No high-risk patterns were detected in the available data.',
         source: 'rule',
+        actionType: 'create_follow_up_task',
+        targetModule: 'operations',
       });
     }
 
@@ -1733,11 +1770,12 @@ export class AiInsightsService {
         action,
         reason: 'Generated from tenant-scoped operational and billing metrics.',
         source: 'ai',
+        actionType: 'notify_admin',
+        targetModule: 'ai_insights',
       }));
     } catch (error) {
       this.logger.warn(
-        `AI recommendation generation skipped: ${
-          error instanceof Error ? error.message : String(error)
+        `AI recommendation generation skipped: ${error instanceof Error ? error.message : String(error)
         }`,
       );
       return [];

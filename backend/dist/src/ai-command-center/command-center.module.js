@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const ai_module_1 = require("../ai/ai.module");
 const prisma_module_1 = require("../prisma/prisma.module");
 const ai_insights_module_1 = require("../ai-insights/ai-insights.module");
+const ai_actions_module_1 = require("../ai-actions/ai-actions.module");
 const command_center_controller_1 = require("./command-center.controller");
 const command_center_service_1 = require("./command-center.service");
 let CommandCenterModule = class CommandCenterModule {
@@ -18,7 +19,7 @@ let CommandCenterModule = class CommandCenterModule {
 exports.CommandCenterModule = CommandCenterModule;
 exports.CommandCenterModule = CommandCenterModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, ai_module_1.AiModule, ai_insights_module_1.AiInsightsModule],
+        imports: [prisma_module_1.PrismaModule, ai_module_1.AiModule, ai_insights_module_1.AiInsightsModule, ai_actions_module_1.AiActionsModule],
         controllers: [command_center_controller_1.CommandCenterController],
         providers: [command_center_service_1.CommandCenterService],
     })

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import api from '@/lib/api';
+import { GuardRecommendation } from '@/lib/ai-insights';
 import { Plus, Search, Calendar, Clock, Users, MapPin, Sparkles, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface Site {
@@ -33,15 +34,6 @@ interface Shift {
       name: string;
     };
   }[];
-}
-
-interface GuardRecommendation {
-  guard_id: string;
-  guard_name: string;
-  score: number;
-  reasons: string[];
-  warnings: string[];
-  explanation: string;
 }
 
 export default function ShiftsPage() {

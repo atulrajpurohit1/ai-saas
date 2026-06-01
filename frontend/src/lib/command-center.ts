@@ -1,5 +1,10 @@
 import api from './api';
-import { AiRecommendation, AiInsightMetric, AiRiskLevel } from './ai-insights';
+import {
+  AiRecommendation,
+  AiInsightMetric,
+  AiRiskLevel,
+  SchedulingOverview,
+} from './ai-insights';
 
 export interface CommandCenterOverview {
   activeClients: number;
@@ -91,6 +96,7 @@ export interface CommandCenterDashboard {
   risks: CommandCenterRiskCenter;
   workforce: WorkforceHealth;
   financial: FinancialHealthOverview;
+  scheduling: SchedulingOverview;
   recommendations: AiRecommendation[];
   dailySummary: DailySummary;
 }

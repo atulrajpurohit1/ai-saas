@@ -13,6 +13,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CommandCenterService = void 0;
 const common_1 = require("@nestjs/common");
 const ai_insights_service_1 = require("../ai-insights/ai-insights.service");
+const recommendation_service_1 = require("../ai-insights/recommendation.service");
+const ai_actions_service_1 = require("../ai-actions/ai-actions.service");
 const revenue_insights_service_1 = require("../ai-insights/revenue-insights.service");
 const ai_service_1 = require("../ai/ai.service");
 const prisma_service_1 = require("../prisma/prisma.service");
@@ -20,29 +22,35 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
     prisma;
     aiInsightsService;
     revenueInsightsService;
+    recommendationService;
+    aiActionsService;
     aiService;
     logger = new common_1.Logger(CommandCenterService_1.name);
-    constructor(prisma, aiInsightsService, revenueInsightsService, aiService) {
+    constructor(prisma, aiInsightsService, revenueInsightsService, recommendationService, aiActionsService, aiService) {
         this.prisma = prisma;
         this.aiInsightsService = aiInsightsService;
         this.revenueInsightsService = revenueInsightsService;
+        this.recommendationService = recommendationService;
+        this.aiActionsService = aiActionsService;
         this.aiService = aiService;
     }
-    async getDashboard(tenantId, userId) {
+    async getDashboard(tenantId, userId, userRole) {
         const now = new Date();
-        const [opsDashboard, incidentInsights, revenueDashboard, guardsOnDuty, openIncidents] = await Promise.all([
+        const [opsDashboard, incidentInsights, revenueDashboard, schedulingOverview, guardsOnDuty, openIncidents] = await Promise.all([
             this.aiInsightsService.getDashboard(tenantId),
             this.aiInsightsService.getIncidentInsights(tenantId),
             this.revenueInsightsService.getRevenueDashboard(tenantId, userId),
+            this.recommendationService.getSchedulingOverview(tenantId),
             this.countGuardsOnDuty(tenantId, now),
             this.countOpenIncidents(tenantId)
         ]);
-        const recommendations = this.buildUnifiedRecommendations(opsDashboard.recommendations, revenueDashboard.recommendations.recommendations);
+        const recommendations = this.buildUnifiedRecommendations(opsDashboard.recommendations, revenueDashboard.recommendations.recommendations, schedulingOverview.recommendations);
+        await this.syncPendingActions(tenantId, userId, userRole, recommendations);
         const risks = this.buildUnifiedRisks(incidentInsights.highRiskSites, incidentInsights.clientRisks, revenueDashboard.contracts.rows);
-        const overview = this.buildOverview(opsDashboard, revenueDashboard, guardsOnDuty, openIncidents);
+        const overview = this.buildOverview(opsDashboard, revenueDashboard, schedulingOverview, guardsOnDuty, openIncidents);
         const workforce = this.buildWorkforceHealth(opsDashboard.guards);
         const financial = this.buildFinancialHealth(revenueDashboard, opsDashboard.billing);
-        const dailySummary = await this.generateDailySummary(tenantId, now, overview, risks, workforce, financial, recommendations);
+        const dailySummary = await this.generateDailySummary(tenantId, now, overview, risks, workforce, financial, schedulingOverview, recommendations);
         const isAiAssisted = dailySummary.source === 'ai_assisted' ||
             opsDashboard.source === 'ai_assisted' ||
             revenueDashboard.source === 'ai_assisted';
@@ -53,20 +61,24 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
             risks,
             workforce,
             financial,
+            scheduling: schedulingOverview,
             recommendations,
             dailySummary
         };
     }
-    async getSummary(tenantId, userId) {
-        const dashboard = await this.getDashboard(tenantId, userId);
+    async getSummary(tenantId, userId, userRole) {
+        const dashboard = await this.getDashboard(tenantId, userId, userRole);
         return dashboard.dailySummary;
     }
-    async getRecommendations(tenantId, userId) {
-        const [opsDashboard, revenueDashboard] = await Promise.all([
+    async getRecommendations(tenantId, userId, userRole) {
+        const [opsDashboard, revenueDashboard, schedulingOverview] = await Promise.all([
             this.aiInsightsService.getDashboard(tenantId),
-            this.revenueInsightsService.getRevenueDashboard(tenantId, userId)
+            this.revenueInsightsService.getRevenueDashboard(tenantId, userId),
+            this.recommendationService.getSchedulingOverview(tenantId),
         ]);
-        return this.buildUnifiedRecommendations(opsDashboard.recommendations, revenueDashboard.recommendations.recommendations);
+        const recommendations = this.buildUnifiedRecommendations(opsDashboard.recommendations, revenueDashboard.recommendations.recommendations, schedulingOverview.recommendations);
+        await this.syncPendingActions(tenantId, userId, userRole, recommendations);
+        return recommendations;
     }
     async getRisks(tenantId, userId) {
         const [incidentInsights, revenueDashboard] = await Promise.all([
@@ -102,6 +114,16 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
         });
         return onDutyGuardIds.size;
     }
+    async syncPendingActions(tenantId, userId, userRole, recommendations) {
+        if (userRole !== 'admin' || recommendations.length === 0)
+            return;
+        try {
+            await this.aiActionsService.syncFromRecommendations(tenantId, recommendations, userId);
+        }
+        catch (error) {
+            this.logger.warn(`Failed to sync AI actions: ${error}`);
+        }
+    }
     async countOpenIncidents(tenantId) {
         return this.prisma.incident.count({
             where: {
@@ -110,20 +132,15 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
             }
         });
     }
-    buildOverview(opsDashboard, revenueDashboard, guardsOnDuty, openIncidents) {
+    buildOverview(opsDashboard, revenueDashboard, schedulingOverview, guardsOnDuty, openIncidents) {
         const activeClients = opsDashboard.clients.rows.filter((c) => c.active).length;
         const totalClients = opsDashboard.clients.rows.length;
         const activeSites = opsDashboard.sites.rows.length;
         const totalGuards = opsDashboard.guards.rows.length;
-        const outstandingInvoices = opsDashboard.billing.summary
-            .find((m) => m.label === 'Outstanding')?.value;
-        let outstandingAmount = 0;
-        const outStr = typeof outstandingInvoices === 'string' ? outstandingInvoices : '$0';
-        if (outStr) {
-            outstandingAmount = parseFloat(outStr.replace(/[^0-9.-]+/g, "")) || 0;
-        }
+        const outstandingInvoices = opsDashboard.billing.rows.reduce((sum, row) => sum + (row.outstandingAmount > 0 ? row.invoiceCount : 0), 0);
+        const outstandingAmount = opsDashboard.billing.rows.reduce((sum, row) => sum + row.outstandingAmount, 0);
         const revenueForecast = revenueDashboard.forecast.nextMonthRevenue;
-        const staffingAlerts = opsDashboard.sites.rows.reduce((sum, site) => sum + site.coverageIssues, 0);
+        const staffingAlerts = schedulingOverview.coverageGaps;
         const coverageGaps = opsDashboard.sites.summary.find((m) => m.label === 'Coverage issues')?.value || 0;
         return {
             activeClients,
@@ -132,12 +149,13 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
             guardsOnDuty,
             totalGuards,
             openIncidents,
-            outstandingInvoices: typeof coverageGaps === 'number' ? coverageGaps : 0,
+            outstandingInvoices,
             outstandingAmount,
             revenueForecast,
             revenueForecastLabel: 'Next Month Forecast',
             staffingAlerts,
-            coverageGaps: typeof coverageGaps === 'number' ? coverageGaps : parseInt(coverageGaps) || 0,
+            coverageGaps: schedulingOverview.shortageSlots ||
+                (typeof coverageGaps === 'number' ? coverageGaps : parseInt(coverageGaps) || 0),
             metrics: [
                 { label: 'Active Clients', value: activeClients, tone: 'info' },
                 { label: 'Guards on Duty', value: guardsOnDuty, tone: guardsOnDuty > 0 ? 'positive' : 'warning' },
@@ -220,7 +238,7 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
             name: c.name,
             relatedName: null,
             riskScore: 100 - c.healthScore,
-            riskLevel: c.healthStatus === 'High Risk' ? 'critical' : c.healthStatus === 'Warning' ? 'warning' : 'medium',
+            riskLevel: c.healthStatus === 'High Risk' ? 'critical' : 'high',
             incidentCount: c.incidentCount,
             indicators: c.indicators
         }));
@@ -235,8 +253,8 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
             totalCritical
         };
     }
-    buildUnifiedRecommendations(opsRecs, revenueRecs) {
-        const all = [...(opsRecs || []), ...(revenueRecs || [])];
+    buildUnifiedRecommendations(opsRecs, revenueRecs, schedulingRecs = []) {
+        const all = [...(opsRecs || []), ...(revenueRecs || []), ...(schedulingRecs || [])];
         const unique = Array.from(new Map(all.map(item => [item.id, item])).values());
         const priorityWeight = { high: 3, medium: 2, low: 1 };
         return unique.sort((a, b) => {
@@ -245,7 +263,7 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
             return pB - pA;
         }).slice(0, 10);
     }
-    async generateDailySummary(tenantId, now, overview, risks, workforce, financial, recommendations) {
+    async generateDailySummary(tenantId, now, overview, risks, workforce, financial, schedulingOverview, recommendations) {
         const formattedDate = now.toLocaleDateString('en-US', {
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         });
@@ -255,7 +273,7 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
             attendanceSummary: workforce.overallAttendanceRate
                 ? `Overall attendance rate is ${workforce.overallAttendanceRate}%. Recorded ${workforce.totalLateCheckIns} late check-ins and ${workforce.totalMissedShifts} missed shifts recently.`
                 : 'Attendance data is currently being collected.',
-            staffingSummary: `Operating with ${overview.guardsOnDuty} guards currently on duty across ${overview.activeSites} active sites.`,
+            staffingSummary: `Operating with ${overview.guardsOnDuty} guards currently on duty across ${overview.activeSites} active sites. ${schedulingOverview.shortageSlots} upcoming guard slots need coverage.`,
             financeSummary: `Next month's revenue forecast is ${financial.forecastedRevenue}. Monitoring a disputed amount of ${financial.disputedAmount}.`,
             topRecommendations: recommendations.slice(0, 3).map(r => r.action),
             aiNarrative: '',
@@ -270,21 +288,10 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
                 attendanceRate: workforce.overallAttendanceRate,
                 revenueForecast: financial.forecastedRevenue,
                 outstandingBalance: financial.outstandingBalance,
+                upcomingCoverageGaps: schedulingOverview.coverageGaps,
+                upcomingShortageSlots: schedulingOverview.shortageSlots,
                 topRecommendations: recommendations.slice(0, 3).map(r => r.action)
             };
-            const prompt = `
-        You are an operations executive assistant for a security services company.
-        Produce a concise daily operational summary from this data:
-        ${JSON.stringify(context)}
-
-        Format: 2-3 paragraphs covering:
-        1. Operational status (incidents, attendance, staffing)
-        2. Financial health (revenue, collections)  
-        3. Top priority actions
-
-        Use a professional, executive tone. Do not mention tenant IDs, user IDs, or raw database fields.
-        Return ONLY the summary text, no markdown formatting or headers.
-      `;
             const aiNarrative = await this.aiService.generateIncidentRiskSummary(JSON.stringify(context));
             if (aiNarrative) {
                 return {
@@ -307,6 +314,8 @@ exports.CommandCenterService = CommandCenterService = CommandCenterService_1 = _
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         ai_insights_service_1.AiInsightsService,
         revenue_insights_service_1.RevenueInsightsService,
+        recommendation_service_1.RecommendationService,
+        ai_actions_service_1.AiActionsService,
         ai_service_1.AiService])
 ], CommandCenterService);
 //# sourceMappingURL=command-center.service.js.map

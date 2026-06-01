@@ -14,17 +14,29 @@ export class CommandCenterController {
 
   @Get()
   getDashboard(@GetUser() user: ActiveUser) {
-    return this.commandCenterService.getDashboard(user.tenantId, user.sub);
+    return this.commandCenterService.getDashboard(
+      user.tenantId,
+      user.sub,
+      user.role,
+    );
   }
 
   @Get('summary')
   getSummary(@GetUser() user: ActiveUser) {
-    return this.commandCenterService.getSummary(user.tenantId, user.sub);
+    return this.commandCenterService.getSummary(
+      user.tenantId,
+      user.sub,
+      user.role,
+    );
   }
 
   @Get('recommendations')
   getRecommendations(@GetUser() user: ActiveUser) {
-    return this.commandCenterService.getRecommendations(user.tenantId, user.sub);
+    return this.commandCenterService.getRecommendations(
+      user.tenantId,
+      user.sub,
+      user.role,
+    );
   }
 
   @Get('risks')

@@ -12,13 +12,13 @@ const shifts_service_1 = require("./shifts.service");
 const shifts_controller_1 = require("./shifts.controller");
 const shift_recommendations_controller_1 = require("./shift-recommendations.controller");
 const prisma_module_1 = require("../prisma/prisma.module");
-const ai_module_1 = require("../ai/ai.module");
+const ai_insights_module_1 = require("../ai-insights/ai-insights.module");
 let ShiftsModule = class ShiftsModule {
 };
 exports.ShiftsModule = ShiftsModule;
 exports.ShiftsModule = ShiftsModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, ai_module_1.AiModule],
+        imports: [prisma_module_1.PrismaModule, ai_insights_module_1.AiInsightsModule],
         controllers: [shifts_controller_1.ShiftsController, shift_recommendations_controller_1.ShiftRecommendationsController],
         providers: [shifts_service_1.ShiftsService],
     })

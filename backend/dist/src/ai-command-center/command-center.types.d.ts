@@ -1,4 +1,4 @@
-import { AiInsightMetric, AiRecommendation, AiRiskLevel } from '../ai-insights/ai-insights.types';
+import { AiInsightMetric, AiRecommendation, AiRiskLevel, SchedulingOverview } from '../ai-insights/ai-insights.types';
 export interface CommandCenterOverview {
     activeClients: number;
     totalClients: number;
@@ -81,6 +81,7 @@ export interface CommandCenterDashboard {
     risks: CommandCenterRiskCenter;
     workforce: WorkforceHealth;
     financial: FinancialHealthOverview;
+    scheduling: SchedulingOverview;
     recommendations: AiRecommendation[];
     dailySummary: DailySummary;
 }

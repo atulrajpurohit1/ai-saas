@@ -25,7 +25,7 @@ let AiService = AiService_1 = class AiService {
         this.configService = configService;
         this.modelName =
             this.configService.get('GEMINI_MODEL')?.trim() ||
-                'gemini-1.5-flash';
+                'gemini-2.5-flash';
         this.fallbackEnabled =
             this.configService.get('ENABLE_AI_FALLBACK') === 'true';
         const apiKey = this.configService.get('GEMINI_API_KEY')?.trim();

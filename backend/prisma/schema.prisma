@@ -45,6 +45,7 @@ model Tenant {
   invoiceDisputes     InvoiceDispute[]
   timesheets          Timesheet[]
   rateCards           RateCard[]
+  recommendationActions RecommendationAction[]
 }
 
 model User {
@@ -567,4 +568,28 @@ model SharedDocument {
 
   @@index([clientId])
   @@index([tenantId])
+}
+
+model RecommendationAction {
+  id               String    @id @default(uuid())
+  tenantId         String    @map("tenant_id")
+  tenant           Tenant    @relation(fields: [tenantId], references: [id])
+  recommendationId String    @map("recommendation_id")
+  actionType       String    @map("action_type")
+  title            String
+  description      String
+  status           String    @default("pending")
+  targetModule     String    @map("target_module")
+  targetEntityId   String?   @map("target_entity_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  approvedBy       String?   @map("approved_by")
+  approvedAt       DateTime? @map("approved_at")
+  executedAt       DateTime? @map("executed_at")
+  failureReason    String?   @map("failure_reason")
+
+  @@unique([tenantId, recommendationId], map: "RecommendationAction_tenant_recommendation_key")
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, targetModule, targetEntityId])
+  @@map("RecommendationAction")
 }

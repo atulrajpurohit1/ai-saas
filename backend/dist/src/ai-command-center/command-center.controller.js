@@ -25,13 +25,13 @@ let CommandCenterController = class CommandCenterController {
         this.commandCenterService = commandCenterService;
     }
     getDashboard(user) {
-        return this.commandCenterService.getDashboard(user.tenantId, user.sub);
+        return this.commandCenterService.getDashboard(user.tenantId, user.sub, user.role);
     }
     getSummary(user) {
-        return this.commandCenterService.getSummary(user.tenantId, user.sub);
+        return this.commandCenterService.getSummary(user.tenantId, user.sub, user.role);
     }
     getRecommendations(user) {
-        return this.commandCenterService.getRecommendations(user.tenantId, user.sub);
+        return this.commandCenterService.getRecommendations(user.tenantId, user.sub, user.role);
     }
     getRisks(user) {
         return this.commandCenterService.getRisks(user.tenantId, user.sub);

@@ -8,35 +8,35 @@ export declare class LeadsController {
     private readonly leadsService;
     constructor(leadsService: LeadsService);
     create(createLeadDto: CreateLeadDto, req: Request): Promise<{
-        id: string;
         name: string;
+        id: string;
+        company: string;
+        status: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
         email: string | null;
-        tenantId: string;
-        status: string;
-        company: string;
     }>;
     findAll(req: Request): Promise<{
-        id: string;
         name: string;
+        id: string;
+        company: string;
+        status: string;
         createdAt: Date;
         email: string | null;
-        status: string;
-        company: string;
     }[]>;
     import(file: Express.Multer.File, req: Request): Promise<{
         count: number;
     }>;
     uploadPdf(file: Express.Multer.File, req: Request): Promise<{
-        id: string;
         name: string;
+        id: string;
+        company: string;
+        status: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
         email: string | null;
-        tenantId: string;
-        status: string;
-        company: string;
     }>;
     analyzePdf(file: Express.Multer.File): Promise<{
         name: string;
@@ -45,34 +45,34 @@ export declare class LeadsController {
     }>;
     export(res: Response, req: Request): Promise<void>;
     findOne(id: string, req: Request): Promise<{
-        id: string;
         name: string;
+        id: string;
+        company: string;
+        status: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
         email: string | null;
-        tenantId: string;
-        status: string;
-        company: string;
     }>;
     update(id: string, updateLeadDto: UpdateLeadDto, req: Request): Promise<{
-        id: string;
         name: string;
+        id: string;
+        company: string;
+        status: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
         email: string | null;
-        tenantId: string;
-        status: string;
-        company: string;
     }>;
     updateStatus(id: string, updateLeadStatusDto: UpdateLeadStatusDto, req: Request): Promise<{
-        id: string;
         name: string;
+        id: string;
+        company: string;
+        status: string;
+        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
         email: string | null;
-        tenantId: string;
-        status: string;
-        company: string;
     }>;
     remove(id: string, req: Request): Promise<{
         success: boolean;

@@ -13,20 +13,15 @@ exports.ShiftsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const audit_service_1 = require("../audit/audit.service");
-const ai_service_1 = require("../ai/ai.service");
-const LATE_CHECK_IN_MINUTES = 5;
-const HISTORY_DAYS = 90;
-const WORKLOAD_DAYS = 7;
-const HIGH_WORKLOAD_THRESHOLD = 5;
-const MEDIUM_WORKLOAD_THRESHOLD = 3;
+const recommendation_service_1 = require("../ai-insights/recommendation.service");
 let ShiftsService = class ShiftsService {
     prisma;
     auditService;
-    aiService;
-    constructor(prisma, auditService, aiService) {
+    recommendationService;
+    constructor(prisma, auditService, recommendationService) {
         this.prisma = prisma;
         this.auditService = auditService;
-        this.aiService = aiService;
+        this.recommendationService = recommendationService;
     }
     summarizeAttendance(events) {
         const checkIn = events.find((event) => event.type === 'CHECK_IN');
@@ -36,258 +31,6 @@ let ShiftsService = class ShiftsService {
             checkInTime: checkIn?.timestamp ?? null,
             checkOutTime: checkOut?.timestamp ?? null,
         };
-    }
-    datesOverlap(firstStart, firstEnd, secondStart, secondEnd) {
-        return firstStart < secondEnd && firstEnd > secondStart;
-    }
-    isUnavailableForShift(availability, shift) {
-        if (!availability || availability.status !== 'unavailable') {
-            return false;
-        }
-        if (!availability.startDate && !availability.endDate) {
-            return true;
-        }
-        const unavailableStart = availability.startDate ?? new Date(0);
-        const unavailableEnd = availability.endDate ?? new Date('9999-12-31T23:59:59.999Z');
-        return this.datesOverlap(unavailableStart, unavailableEnd, shift.startTime, shift.endTime);
-    }
-    isLateCheckIn(checkInTime, shiftStartTime) {
-        return (checkInTime.getTime() - shiftStartTime.getTime() >
-            LATE_CHECK_IN_MINUTES * 60 * 1000);
-    }
-    roundScore(value) {
-        return Math.max(0, Math.min(100, Math.round(value)));
-    }
-    roundPercent(value) {
-        return Math.round(value * 10) / 10;
-    }
-    fallbackRecommendationExplanation(input) {
-        const reasonText = input.reasons
-            .map((reason) => reason.replace(/\s*\([+-]\d+\)\.?$/g, '').replace(/\.$/, ''))
-            .slice(0, 3)
-            .join(', ');
-        const warningText = input.warnings.length
-            ? ` Watch for ${input.warnings[0].toLowerCase().replace(/\.$/, '')}.`
-            : '';
-        return `${input.guardName} is recommended because ${reasonText || 'their profile fits this shift'}.${warningText}`;
-    }
-    async explainRecommendation(input) {
-        const fallback = this.fallbackRecommendationExplanation({
-            guardName: input.recommendation.guard_name,
-            reasons: input.recommendation.reasons,
-            warnings: input.recommendation.warnings,
-        });
-        const aiExplanation = await this.aiService.explainGuardRecommendation(JSON.stringify({
-            guard_name: input.recommendation.guard_name,
-            site_name: input.siteName,
-            score: input.recommendation.score,
-            reasons: input.recommendation.reasons,
-            warnings: input.recommendation.warnings,
-            metrics: input.recommendation.metrics,
-        }));
-        return aiExplanation || fallback;
-    }
-    async buildGuardRecommendations(tenantId, shiftId, includeAiExplanation) {
-        const shift = await this.prisma.shift.findFirst({
-            where: { id: shiftId, tenantId },
-            include: {
-                site: {
-                    select: {
-                        id: true,
-                        name: true,
-                    },
-                },
-            },
-        });
-        if (!shift) {
-            throw new common_1.NotFoundException('Shift not found');
-        }
-        const historyStart = new Date(shift.startTime);
-        historyStart.setUTCDate(historyStart.getUTCDate() - HISTORY_DAYS);
-        const workloadEnd = new Date(shift.startTime);
-        workloadEnd.setUTCDate(workloadEnd.getUTCDate() + WORKLOAD_DAYS);
-        const [guards, relatedShifts] = await Promise.all([
-            this.prisma.guard.findMany({
-                where: { tenantId },
-                include: {
-                    availability: true,
-                },
-                orderBy: { createdAt: 'desc' },
-            }),
-            this.prisma.shift.findMany({
-                where: {
-                    tenantId,
-                    OR: [
-                        {
-                            endTime: {
-                                gte: historyStart,
-                                lt: shift.startTime,
-                            },
-                        },
-                        {
-                            startTime: { lt: shift.endTime },
-                            endTime: { gt: shift.startTime },
-                        },
-                        {
-                            startTime: {
-                                gte: shift.startTime,
-                                lt: workloadEnd,
-                            },
-                        },
-                    ],
-                },
-                include: {
-                    assignments: {
-                        select: {
-                            guardId: true,
-                        },
-                    },
-                    attendanceEvents: {
-                        select: {
-                            guardId: true,
-                            type: true,
-                            timestamp: true,
-                        },
-                    },
-                    incidents: {
-                        select: {
-                            guardId: true,
-                        },
-                    },
-                },
-            }),
-        ]);
-        const recommendations = guards
-            .map((guard) => {
-            if (this.isUnavailableForShift(guard.availability, shift)) {
-                return null;
-            }
-            let score = 0;
-            const reasons = ['Available for this shift (+30).'];
-            const warnings = [];
-            score += 30;
-            const assignedShifts = relatedShifts.filter((relatedShift) => relatedShift.assignments.some((assignment) => assignment.guardId === guard.id));
-            const pastAssignedShifts = assignedShifts.filter((relatedShift) => relatedShift.id !== shift.id &&
-                relatedShift.endTime < shift.startTime &&
-                relatedShift.status !== 'cancelled');
-            const siteShifts = pastAssignedShifts.filter((relatedShift) => relatedShift.siteId === shift.siteId);
-            if (siteShifts.length > 0) {
-                score += 20;
-                reasons.push(`Previously worked ${siteShifts.length} shifts at this site (+20).`);
-            }
-            else {
-                warnings.push('No prior experience at this site.');
-            }
-            const attendedPastShifts = pastAssignedShifts.filter((relatedShift) => relatedShift.attendanceEvents.some((event) => event.guardId === guard.id && event.type === 'CHECK_IN'));
-            const missedShifts = Math.max(0, pastAssignedShifts.length - attendedPastShifts.length);
-            const attendanceRate = pastAssignedShifts.length > 0
-                ? this.roundPercent((attendedPastShifts.length / pastAssignedShifts.length) * 100)
-                : null;
-            if (attendanceRate === null) {
-                score += 5;
-                reasons.push('Limited attendance history; no negative pattern found (+5).');
-            }
-            else if (attendanceRate >= 95) {
-                score += 20;
-                reasons.push(`Strong attendance history at ${attendanceRate}% (+20).`);
-            }
-            else if (attendanceRate >= 85) {
-                score += 10;
-                reasons.push(`Solid attendance history at ${attendanceRate}% (+10).`);
-            }
-            else {
-                score -= 15;
-                warnings.push(`Attendance history is ${attendanceRate}%.`);
-            }
-            const lateCheckIns = pastAssignedShifts.reduce((count, relatedShift) => {
-                const checkIn = relatedShift.attendanceEvents.find((event) => event.guardId === guard.id && event.type === 'CHECK_IN');
-                return checkIn && this.isLateCheckIn(checkIn.timestamp, relatedShift.startTime)
-                    ? count + 1
-                    : count;
-            }, 0);
-            if (lateCheckIns === 0) {
-                reasons.push('No late check-ins in recent history.');
-            }
-            else {
-                const latePenalty = Math.min(15, lateCheckIns * 5);
-                score -= latePenalty;
-                warnings.push(`${lateCheckIns} late check-ins in recent history (-${latePenalty}).`);
-            }
-            if (missedShifts > 0) {
-                const missedPenalty = Math.min(24, missedShifts * 8);
-                score -= missedPenalty;
-                warnings.push(`${missedShifts} missed shifts in recent history (-${missedPenalty}).`);
-            }
-            const incidentCount = pastAssignedShifts.reduce((count, relatedShift) => count +
-                relatedShift.incidents.filter((incident) => incident.guardId === guard.id).length, 0);
-            if (incidentCount === 0) {
-                score += 10;
-                reasons.push('Low incident involvement (+10).');
-            }
-            else if (incidentCount <= 1) {
-                score += 5;
-                reasons.push('Minimal incident involvement (+5).');
-            }
-            else {
-                const incidentPenalty = Math.min(15, incidentCount * 5);
-                score -= incidentPenalty;
-                warnings.push(`${incidentCount} recent incident involvements (-${incidentPenalty}).`);
-            }
-            const overlappingAssignments = assignedShifts.filter((relatedShift) => relatedShift.id !== shift.id &&
-                relatedShift.status !== 'cancelled' &&
-                this.datesOverlap(relatedShift.startTime, relatedShift.endTime, shift.startTime, shift.endTime));
-            const upcomingWorkload = assignedShifts.filter((relatedShift) => relatedShift.id !== shift.id &&
-                relatedShift.status !== 'cancelled' &&
-                relatedShift.startTime >= shift.startTime &&
-                relatedShift.startTime < workloadEnd).length;
-            if (overlappingAssignments.length > 0) {
-                score -= 30;
-                warnings.push('Already assigned to an overlapping shift (-30).');
-            }
-            if (upcomingWorkload >= HIGH_WORKLOAD_THRESHOLD) {
-                score -= 20;
-                warnings.push(`${upcomingWorkload} upcoming shifts in the next ${WORKLOAD_DAYS} days (-20).`);
-            }
-            else if (upcomingWorkload >= MEDIUM_WORKLOAD_THRESHOLD) {
-                score -= 10;
-                warnings.push(`${upcomingWorkload} upcoming shifts in the next ${WORKLOAD_DAYS} days (-10).`);
-            }
-            else {
-                reasons.push(`Current workload is ${upcomingWorkload} upcoming shifts.`);
-            }
-            const recommendation = {
-                guard_id: guard.id,
-                guard_name: guard.name,
-                score: this.roundScore(score),
-                reasons,
-                warnings,
-                metrics: {
-                    attendance_rate: attendanceRate,
-                    site_shifts: siteShifts.length,
-                    late_check_ins: lateCheckIns,
-                    missed_shifts: missedShifts,
-                    incidents: incidentCount,
-                    upcoming_workload: upcomingWorkload,
-                },
-            };
-            return recommendation;
-        })
-            .filter((recommendation) => Boolean(recommendation))
-            .sort((left, right) => right.score - left.score || left.guard_name.localeCompare(right.guard_name));
-        const explainedRecommendations = await Promise.all(recommendations.map(async (recommendation, index) => ({
-            ...recommendation,
-            explanation: includeAiExplanation && index < 5
-                ? await this.explainRecommendation({
-                    recommendation,
-                    siteName: shift.site.name,
-                })
-                : this.fallbackRecommendationExplanation({
-                    guardName: recommendation.guard_name,
-                    reasons: recommendation.reasons,
-                    warnings: recommendation.warnings,
-                }),
-        })));
-        return explainedRecommendations;
     }
     async create(userId, tenantId, dto) {
         const site = await this.prisma.site.findUnique({
@@ -370,7 +113,7 @@ let ShiftsService = class ShiftsService {
         }
     }
     async recommendGuards(userId, tenantId, shiftId) {
-        const recommendations = await this.buildGuardRecommendations(tenantId, shiftId, true);
+        const recommendations = await this.recommendationService.recommendGuards(tenantId, shiftId, true);
         await this.auditService.log({
             tenantId,
             userId,
@@ -416,7 +159,7 @@ let ShiftsService = class ShiftsService {
         }
         let selectedRecommendation = null;
         try {
-            const recommendations = await this.buildGuardRecommendations(tenantId, shiftId, false);
+            const recommendations = await this.recommendationService.recommendGuards(tenantId, shiftId, false);
             selectedRecommendation =
                 recommendations.find((recommendation) => recommendation.guard_id === guardId) ??
                     null;
@@ -497,6 +240,6 @@ exports.ShiftsService = ShiftsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         audit_service_1.AuditService,
-        ai_service_1.AiService])
+        recommendation_service_1.RecommendationService])
 ], ShiftsService);
 //# sourceMappingURL=shifts.service.js.map

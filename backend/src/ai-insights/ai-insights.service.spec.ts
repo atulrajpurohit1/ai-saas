@@ -80,7 +80,7 @@ describe('AiInsightsService', () => {
   it('summarizes client revenue and incident frequency', async () => {
     const now = new Date();
     const currentMonthDate = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 10),
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
     );
 
     prisma.client.findMany.mockResolvedValue([

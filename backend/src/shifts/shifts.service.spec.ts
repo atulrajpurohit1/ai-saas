@@ -1,4 +1,5 @@
 import { AuditService } from '../audit/audit.service';
+import { RecommendationService } from '../ai-insights/recommendation.service';
 import { AiService } from '../ai/ai.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ShiftsService } from './shifts.service';
@@ -26,6 +27,7 @@ describe('ShiftsService smart guard recommendations', () => {
   };
   let auditService: { log: jest.Mock };
   let aiService: { explainGuardRecommendation: jest.Mock };
+  let recommendationService: RecommendationService;
 
   const tenantId = 'tenant-1';
   const userId = 'admin-1';
@@ -64,10 +66,14 @@ describe('ShiftsService smart guard recommendations', () => {
     };
     auditService = { log: jest.fn().mockResolvedValue(undefined) };
     aiService = { explainGuardRecommendation: jest.fn().mockResolvedValue(null) };
+    recommendationService = new RecommendationService(
+      prisma as unknown as PrismaService,
+      aiService as unknown as AiService,
+    );
     service = new ShiftsService(
       prisma as unknown as PrismaService,
       auditService as unknown as AuditService,
-      aiService as unknown as AiService,
+      recommendationService,
     );
   });
 

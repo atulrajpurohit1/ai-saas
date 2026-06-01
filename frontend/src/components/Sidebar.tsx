@@ -41,6 +41,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   const adminLinks = [
     { href: '/ai-command-center', label: 'Command Center', icon: Command },
+    { href: '/ai-actions', label: 'AI Actions', icon: ClipboardCheck },
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/leads', label: 'Leads', icon: Users },
     { href: '/deals', label: 'Deals', icon: Briefcase },

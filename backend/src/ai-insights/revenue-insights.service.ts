@@ -159,7 +159,7 @@ export class RevenueInsightsService {
     private prisma: PrismaService,
     private aiService: AiService,
     private auditService: AuditService,
-  ) {}
+  ) { }
 
   async getRevenueDashboard(
     tenantId: string,
@@ -674,9 +674,8 @@ export class RevenueInsightsService {
               ? 'warning'
               : 'info',
         title: 'Monthly growth trend',
-        message: `Revenue is expected to ${
-          monthlyGrowthRate >= 0 ? 'grow' : 'decline'
-        } ${Math.abs(monthlyGrowthRate)}% compared to the recent monthly baseline.`,
+        message: `Revenue is expected to ${monthlyGrowthRate >= 0 ? 'grow' : 'decline'
+          } ${Math.abs(monthlyGrowthRate)}% compared to the recent monthly baseline.`,
         metricLabel: 'Growth',
         metricValue: `${monthlyGrowthRate}%`,
       },
@@ -739,7 +738,7 @@ export class RevenueInsightsService {
           aggregate.activeRateCardCount > 0 ||
           aggregate.siteCount > 0 ||
           this.daysSince(aggregate.lastInvoiceAt || aggregate.createdAt, context.now) <=
-            INACTIVE_CLIENT_DAYS;
+          INACTIVE_CLIENT_DAYS;
         const daysUntilRenewal = aggregate.renewalDate
           ? this.daysBetween(context.now, aggregate.renewalDate)
           : null;
@@ -765,7 +764,7 @@ export class RevenueInsightsService {
         if (
           aggregate.lastInvoiceAt &&
           this.daysSince(aggregate.lastInvoiceAt, context.now) >
-            INACTIVE_CLIENT_DAYS
+          INACTIVE_CLIENT_DAYS
         ) {
           score -= 10;
         }
@@ -822,9 +821,9 @@ export class RevenueInsightsService {
     const averageHealth =
       rows.length > 0
         ? this.roundNumber(
-            rows.reduce((sum, row) => sum + row.healthScore, 0) / rows.length,
-            1,
-          )
+          rows.reduce((sum, row) => sum + row.healthScore, 0) / rows.length,
+          1,
+        )
         : 0;
     const insights: AiInsightItem[] = [];
     const strongest = [...rows].sort((a, b) => b.healthScore - a.healthScore)[0];
@@ -940,23 +939,23 @@ export class RevenueInsightsService {
         );
         const clientValueScore = this.roundRiskScore(
           revenueComponent +
-            paymentComponent +
-            growthComponent +
-            activityComponent -
-            penalty,
+          paymentComponent +
+          growthComponent +
+          activityComponent -
+          penalty,
         );
         const health = healthByClient.get(aggregate.clientId);
         const retentionScore = this.roundRiskScore(
           (health?.healthScore ?? 50) -
-            Math.min(15, aggregate.activeDisputeCount * 5) -
-            (aggregate.outstandingAmount > 0 ? 5 : 0),
+          Math.min(15, aggregate.activeDisputeCount * 5) -
+          (aggregate.outstandingAmount > 0 ? 5 : 0),
         );
         const growthPotentialScore = this.roundRiskScore(
           50 +
-            Math.max(-25, Math.min(30, growthRate)) +
-            Math.min(15, aggregate.siteCount * 3) -
-            Math.min(20, aggregate.disputeCount * 4 + aggregate.incidentCount * 2) +
-            (revenueShare < 15 && aggregate.totalRevenue > 0 ? 10 : 0),
+          Math.max(-25, Math.min(30, growthRate)) +
+          Math.min(15, aggregate.siteCount * 3) -
+          Math.min(20, aggregate.disputeCount * 4 + aggregate.incidentCount * 2) +
+          (revenueShare < 15 && aggregate.totalRevenue > 0 ? 10 : 0),
         );
         const indicators = this.clientValueIndicators(
           aggregate,
@@ -1118,7 +1117,7 @@ export class RevenueInsightsService {
       if (
         contract.lastInvoiceAt &&
         this.daysSince(new Date(contract.lastInvoiceAt), context.now) >
-          INACTIVE_CLIENT_DAYS
+        INACTIVE_CLIENT_DAYS
       ) {
         rows.push({
           id: `inactive-${contract.clientId}`,
@@ -1189,26 +1188,26 @@ export class RevenueInsightsService {
     const first = sortedRows[0];
     const insights: AiInsightItem[] = first
       ? [
-          {
-            id: 'renewal-top-opportunity',
-            category: 'renewals',
-            severity: first.priority === 'high' ? 'warning' : 'info',
-            title: 'Top renewal opportunity',
-            message: first.recommendation,
-            subject: first.name,
-            metricLabel: 'Revenue at risk',
-            metricValue: this.formatCurrency(first.estimatedRevenueAtRisk),
-          },
-        ]
+        {
+          id: 'renewal-top-opportunity',
+          category: 'renewals',
+          severity: first.priority === 'high' ? 'warning' : 'info',
+          title: 'Top renewal opportunity',
+          message: first.recommendation,
+          subject: first.name,
+          metricLabel: 'Revenue at risk',
+          metricValue: this.formatCurrency(first.estimatedRevenueAtRisk),
+        },
+      ]
       : [
-          {
-            id: 'renewal-empty',
-            category: 'renewals',
-            severity: 'positive',
-            title: 'No urgent renewal risk',
-            message: `No contracts are currently flagged inside the ${RENEWAL_WINDOW_DAYS}-day renewal window.`,
-          },
-        ];
+        {
+          id: 'renewal-empty',
+          category: 'renewals',
+          severity: 'positive',
+          title: 'No urgent renewal risk',
+          message: `No contracts are currently flagged inside the ${RENEWAL_WINDOW_DAYS}-day renewal window.`,
+        },
+      ];
 
     return {
       generatedAt: context.now.toISOString(),
@@ -1301,6 +1300,9 @@ export class RevenueInsightsService {
           overdueInvoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0),
         )} is overdue and affecting expected collections.`,
         source: 'rule',
+        actionType: 'create_invoice_followup',
+        targetModule: 'invoice',
+        targetEntityId: overdueInvoices[0]?.id ?? null,
       });
     }
 
@@ -1313,6 +1315,9 @@ export class RevenueInsightsService {
         action: `Create a collections plan for ${topOutstanding.name}.`,
         reason: `${topOutstanding.name} has ${this.formatCurrency(topOutstanding.outstandingAmount)} outstanding.`,
         source: 'rule',
+        actionType: 'create_invoice_followup',
+        targetModule: 'client',
+        targetEntityId: topOutstanding.clientId,
       });
     }
 
@@ -1325,6 +1330,9 @@ export class RevenueInsightsService {
         action: `Review contract terms and payment behavior for ${highRiskContract.name}.`,
         reason: `${highRiskContract.name} has a contract health score of ${highRiskContract.healthScore}/100.`,
         source: 'rule',
+        actionType: 'flag_client_risk',
+        targetModule: 'client',
+        targetEntityId: highRiskContract.clientId,
       });
     }
 
@@ -1337,6 +1345,9 @@ export class RevenueInsightsService {
         action: topRenewal.recommendation,
         reason: topRenewal.reason,
         source: 'rule',
+        actionType: 'create_follow_up_task',
+        targetModule: 'client',
+        targetEntityId: topRenewal.clientId,
       });
     }
 
@@ -1349,6 +1360,9 @@ export class RevenueInsightsService {
         action: `Protect and expand the relationship with ${topValueClient.name}.`,
         reason: `${topValueClient.name} contributes ${topValueClient.revenueShare}% of total revenue.`,
         source: 'rule',
+        actionType: 'flag_client_risk',
+        targetModule: 'client',
+        targetEntityId: topValueClient.clientId,
       });
     }
 
@@ -1361,6 +1375,9 @@ export class RevenueInsightsService {
         action: `Discuss expanded coverage with ${topGrowthClient.name}.`,
         reason: `${topGrowthClient.name} has a growth potential score of ${topGrowthClient.growthPotentialScore}/100.`,
         source: 'rule',
+        actionType: 'create_follow_up_task',
+        targetModule: 'client',
+        targetEntityId: topGrowthClient.clientId,
       });
     }
 
@@ -1373,6 +1390,9 @@ export class RevenueInsightsService {
         action: `Review staffing capacity for ${topSite.name}.`,
         reason: `${topSite.name} generated ${this.formatCurrency(topSite.revenue)} in invoice revenue.`,
         source: 'rule',
+        actionType: 'flag_site_risk',
+        targetModule: 'site',
+        targetEntityId: topSite.id,
       });
     }
 
@@ -1385,6 +1405,8 @@ export class RevenueInsightsService {
         action: `Increase staffing readiness for profitable sites before next month's forecasted demand.`,
         reason: `Revenue is forecast to grow ${forecast.monthlyGrowthRate}% from the recent baseline.`,
         source: 'rule',
+        actionType: 'create_follow_up_task',
+        targetModule: 'operations',
       });
     }
 
@@ -1397,6 +1419,8 @@ export class RevenueInsightsService {
         action: 'Review revenue, renewals, and collections every week.',
         reason: 'No high-priority revenue or contract risk was detected in the available data.',
         source: 'rule',
+        actionType: 'create_follow_up_task',
+        targetModule: 'revenue',
       });
     }
 
@@ -1441,8 +1465,7 @@ export class RevenueInsightsService {
       );
     } catch (error) {
       this.logger.warn(
-        `Revenue AI recommendations skipped: ${
-          error instanceof Error ? error.message : String(error)
+        `Revenue AI recommendations skipped: ${error instanceof Error ? error.message : String(error)
         }`,
       );
       return [];
@@ -1479,8 +1502,7 @@ export class RevenueInsightsService {
       );
     } catch (error) {
       this.logger.warn(
-        `Revenue AI summary skipped: ${
-          error instanceof Error ? error.message : String(error)
+        `Revenue AI summary skipped: ${error instanceof Error ? error.message : String(error)
         }`,
       );
       return null;
@@ -1530,6 +1552,8 @@ export class RevenueInsightsService {
       action: item.action,
       reason: item.reason,
       source: 'ai',
+      actionType: 'notify_admin',
+      targetModule: 'revenue',
     };
   }
 
@@ -1733,7 +1757,7 @@ export class RevenueInsightsService {
     return this.roundPercent(
       ((aggregate.currentPeriodRevenue - aggregate.previousPeriodRevenue) /
         aggregate.previousPeriodRevenue) *
-        100,
+      100,
     );
   }
 
@@ -1894,8 +1918,7 @@ export class RevenueInsightsService {
       });
     } catch (error) {
       this.logger.warn(
-        `Revenue audit log skipped: ${
-          error instanceof Error ? error.message : String(error)
+        `Revenue audit log skipped: ${error instanceof Error ? error.message : String(error)
         }`,
       );
     }

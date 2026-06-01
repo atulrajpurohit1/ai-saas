@@ -1,0 +1,90 @@
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { AiActionsService } from './ai-actions.service';
+export declare class AiActionsController {
+    private readonly aiActionsService;
+    constructor(aiActionsService: AiActionsService);
+    findAll(user: ActiveUser, status?: string): Promise<{
+        generatedAt: string;
+        summary: Record<import("./ai-actions.types").RecommendationActionStatus, number>;
+        actions: {
+            id: string;
+            status: string;
+            tenantId: string;
+            createdAt: Date;
+            title: string;
+            description: string;
+            recommendationId: string;
+            actionType: string;
+            targetModule: string;
+            targetEntityId: string | null;
+            approvedBy: string | null;
+            approvedAt: Date | null;
+            executedAt: Date | null;
+            failureReason: string | null;
+        }[];
+    }>;
+    findOne(id: string, user: ActiveUser): Promise<{
+        id: string;
+        status: string;
+        tenantId: string;
+        createdAt: Date;
+        title: string;
+        description: string;
+        recommendationId: string;
+        actionType: string;
+        targetModule: string;
+        targetEntityId: string | null;
+        approvedBy: string | null;
+        approvedAt: Date | null;
+        executedAt: Date | null;
+        failureReason: string | null;
+    }>;
+    approve(id: string, user: ActiveUser): Promise<{
+        id: string;
+        status: string;
+        tenantId: string;
+        createdAt: Date;
+        title: string;
+        description: string;
+        recommendationId: string;
+        actionType: string;
+        targetModule: string;
+        targetEntityId: string | null;
+        approvedBy: string | null;
+        approvedAt: Date | null;
+        executedAt: Date | null;
+        failureReason: string | null;
+    }>;
+    reject(id: string, user: ActiveUser): Promise<{
+        id: string;
+        status: string;
+        tenantId: string;
+        createdAt: Date;
+        title: string;
+        description: string;
+        recommendationId: string;
+        actionType: string;
+        targetModule: string;
+        targetEntityId: string | null;
+        approvedBy: string | null;
+        approvedAt: Date | null;
+        executedAt: Date | null;
+        failureReason: string | null;
+    }>;
+    execute(id: string, user: ActiveUser): Promise<{
+        id: string;
+        status: string;
+        tenantId: string;
+        createdAt: Date;
+        title: string;
+        description: string;
+        recommendationId: string;
+        actionType: string;
+        targetModule: string;
+        targetEntityId: string | null;
+        approvedBy: string | null;
+        approvedAt: Date | null;
+        executedAt: Date | null;
+        failureReason: string | null;
+    }>;
+}

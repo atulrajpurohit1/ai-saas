@@ -30,7 +30,7 @@ export class AiService {
   constructor(private configService: ConfigService) {
     this.modelName =
       this.configService.get<string>('GEMINI_MODEL')?.trim() ||
-      'gemini-1.5-flash';
+      'gemini-2.5-flash';
     this.fallbackEnabled =
       this.configService.get<string>('ENABLE_AI_FALLBACK') === 'true';
 
@@ -241,8 +241,7 @@ export class AiService {
         .slice(0, 5);
     } catch (error) {
       this.logger.warn(
-        `Business insight recommendation generation failed: ${
-          error instanceof Error ? error.message : String(error)
+        `Business insight recommendation generation failed: ${error instanceof Error ? error.message : String(error)
         }`,
       );
       return null;
@@ -270,8 +269,7 @@ export class AiService {
       return text || null;
     } catch (error) {
       this.logger.warn(
-        `Incident risk summary generation failed: ${
-          error instanceof Error ? error.message : String(error)
+        `Incident risk summary generation failed: ${error instanceof Error ? error.message : String(error)
         }`,
       );
       return null;
@@ -306,8 +304,7 @@ export class AiService {
       return text || null;
     } catch (error) {
       this.logger.warn(
-        `Revenue intelligence summary generation failed: ${
-          error instanceof Error ? error.message : String(error)
+        `Revenue intelligence summary generation failed: ${error instanceof Error ? error.message : String(error)
         }`,
       );
       return null;
@@ -361,8 +358,8 @@ export class AiService {
           reason: typeof item.reason === 'string' ? item.reason.trim() : '',
           priority:
             item.priority === 'high' ||
-            item.priority === 'medium' ||
-            item.priority === 'low'
+              item.priority === 'medium' ||
+              item.priority === 'low'
               ? item.priority
               : 'medium',
         }))
@@ -370,8 +367,7 @@ export class AiService {
         .slice(0, 5);
     } catch (error) {
       this.logger.warn(
-        `Revenue recommendation generation failed: ${
-          error instanceof Error ? error.message : String(error)
+        `Revenue recommendation generation failed: ${error instanceof Error ? error.message : String(error)
         }`,
       );
       return null;
@@ -398,8 +394,7 @@ export class AiService {
       return text || null;
     } catch (error) {
       this.logger.warn(
-        `Guard recommendation explanation failed: ${
-          error instanceof Error ? error.message : String(error)
+        `Guard recommendation explanation failed: ${error instanceof Error ? error.message : String(error)
         }`,
       );
       return null;

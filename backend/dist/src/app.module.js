@@ -41,6 +41,7 @@ const timesheets_module_1 = require("./timesheets/timesheets.module");
 const rate_cards_module_1 = require("./rate-cards/rate-cards.module");
 const ai_insights_module_1 = require("./ai-insights/ai-insights.module");
 const command_center_module_1 = require("./ai-command-center/command-center.module");
+const ai_actions_module_1 = require("./ai-actions/ai-actions.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -62,6 +63,7 @@ exports.AppModule = AppModule = __decorate([
             finance_module_1.FinanceModule,
             ai_insights_module_1.AiInsightsModule,
             command_center_module_1.CommandCenterModule,
+            ai_actions_module_1.AiActionsModule,
             timesheets_module_1.TimesheetsModule,
             rate_cards_module_1.RateCardsModule,
             leads_module_1.LeadsModule,

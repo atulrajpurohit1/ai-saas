@@ -20,6 +20,7 @@ exports.ActivitiesModule = ActivitiesModule = __decorate([
         imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule],
         providers: [activities_service_1.ActivitiesService],
         controllers: [activities_controller_1.ActivitiesController],
+        exports: [activities_service_1.ActivitiesService],
     })
 ], ActivitiesModule);
 //# sourceMappingURL=activities.module.js.map

@@ -32,6 +32,7 @@ import { TimesheetsModule } from './timesheets/timesheets.module';
 import { RateCardsModule } from './rate-cards/rate-cards.module';
 import { AiInsightsModule } from './ai-insights/ai-insights.module';
 import { CommandCenterModule } from './ai-command-center/command-center.module';
+import { AiActionsModule } from './ai-actions/ai-actions.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { CommandCenterModule } from './ai-command-center/command-center.module';
     FinanceModule,
     AiInsightsModule,
     CommandCenterModule,
+    AiActionsModule,
     TimesheetsModule,
     RateCardsModule,
     LeadsModule,
