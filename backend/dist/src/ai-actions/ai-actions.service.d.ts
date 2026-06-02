@@ -9,11 +9,12 @@ export declare class AiActionsService {
     constructor(prisma: PrismaService, auditService: AuditService, activitiesService: ActivitiesService);
     syncFromRecommendations(tenantId: string, recommendations: ActionableRecommendation[], userId?: string): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
         title: string;
+        status: string;
         description: string;
+        aiGenerationId: string | null;
         recommendationId: string;
         actionType: string;
         targetModule: string;
@@ -28,11 +29,12 @@ export declare class AiActionsService {
         summary: Record<RecommendationActionStatus, number>;
         actions: {
             id: string;
-            status: string;
-            tenantId: string;
             createdAt: Date;
+            tenantId: string;
             title: string;
+            status: string;
             description: string;
+            aiGenerationId: string | null;
             recommendationId: string;
             actionType: string;
             targetModule: string;
@@ -45,11 +47,12 @@ export declare class AiActionsService {
     }>;
     findOne(id: string, tenantId: string): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
         title: string;
+        status: string;
         description: string;
+        aiGenerationId: string | null;
         recommendationId: string;
         actionType: string;
         targetModule: string;
@@ -61,11 +64,12 @@ export declare class AiActionsService {
     }>;
     approve(id: string, tenantId: string, userId: string): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
         title: string;
+        status: string;
         description: string;
+        aiGenerationId: string | null;
         recommendationId: string;
         actionType: string;
         targetModule: string;
@@ -77,11 +81,12 @@ export declare class AiActionsService {
     }>;
     reject(id: string, tenantId: string, userId: string): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
         title: string;
+        status: string;
         description: string;
+        aiGenerationId: string | null;
         recommendationId: string;
         actionType: string;
         targetModule: string;
@@ -93,11 +98,12 @@ export declare class AiActionsService {
     }>;
     execute(id: string, tenantId: string, userId: string): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
         title: string;
+        status: string;
         description: string;
+        aiGenerationId: string | null;
         recommendationId: string;
         actionType: string;
         targetModule: string;

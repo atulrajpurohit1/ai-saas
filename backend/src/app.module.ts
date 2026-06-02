@@ -33,6 +33,7 @@ import { RateCardsModule } from './rate-cards/rate-cards.module';
 import { AiInsightsModule } from './ai-insights/ai-insights.module';
 import { CommandCenterModule } from './ai-command-center/command-center.module';
 import { AiActionsModule } from './ai-actions/ai-actions.module';
+import { AiMonitoringModule } from './ai-monitoring/ai-monitoring.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { AiActionsModule } from './ai-actions/ai-actions.module';
     AiInsightsModule,
     CommandCenterModule,
     AiActionsModule,
+    AiMonitoringModule,
     TimesheetsModule,
     RateCardsModule,
     LeadsModule,

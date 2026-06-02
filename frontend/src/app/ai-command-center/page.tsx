@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import AiFeedbackControl from '@/components/AiFeedbackControl';
 import DashboardLayout from '@/components/DashboardLayout';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { useAuth } from '@/context/AuthContext';
@@ -39,6 +40,12 @@ const priorityStyles = {
   high: 'border-rose-400/25 bg-rose-400/10 text-rose-200',
   medium: 'border-amber-400/25 bg-amber-400/10 text-amber-200',
   low: 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200',
+};
+
+const confidenceStyles = {
+  high: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200',
+  medium: 'border-sky-400/20 bg-sky-400/10 text-sky-200',
+  low: 'border-rose-400/25 bg-rose-400/10 text-rose-200',
 };
 
 function formatCurrency(value: number) {
@@ -182,6 +189,9 @@ export default function AiCommandCenterPage() {
                       {dashboard.dailySummary.aiNarrative}
                     </p>
                   </div>
+                  {user?.role === 'admin' && (
+                    <AiFeedbackControl aiGenerationId={dashboard.aiGenerationId} compact />
+                  )}
                 </div>
                 <div className="w-full md:w-80 shrink-0 rounded-2xl border border-white/10 bg-white/5 p-5">
                   <h4 className="mb-4 text-sm font-bold uppercase tracking-wider text-slate-400">Top Priorities</h4>
@@ -379,8 +389,20 @@ export default function AiCommandCenterPage() {
                         {rec.priority}
                       </span>
                     </div>
+                    {rec.confidence && (
+                      <span className={`mb-3 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase ${confidenceStyles[rec.confidence]}`}>
+                        {rec.confidence} confidence
+                      </span>
+                    )}
                     <p className="text-sm font-semibold leading-relaxed text-indigo-100">{rec.action}</p>
                     <p className="mt-2 text-sm leading-relaxed text-slate-400">{rec.reason}</p>
+                    {user?.role === 'admin' && (
+                      <AiFeedbackControl
+                        aiGenerationId={rec.aiGenerationId}
+                        recommendationId={rec.id}
+                        compact
+                      />
+                    )}
                   </div>
                 ))}
                 {dashboard.recommendations.length === 0 && (

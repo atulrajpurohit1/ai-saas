@@ -1,4 +1,5 @@
 import { AiService } from '../ai/ai.service';
+import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiInsightsService } from './ai-insights.service';
 import {
@@ -21,6 +22,13 @@ describe('AiInsightsService', () => {
   let aiService: {
     generateBusinessInsightRecommendations: jest.Mock;
     generateIncidentRiskSummary: jest.Mock;
+    getModelName: jest.Mock;
+  };
+  let aiMonitoringService: {
+    applyFeedbackToRecommendations: jest.Mock;
+    attachGenerationId: jest.Mock;
+    getFeedbackSummaryForPrompt: jest.Mock;
+    logGeneration: jest.Mock;
   };
 
   const tenantId = 'tenant-1';
@@ -37,10 +45,25 @@ describe('AiInsightsService', () => {
     aiService = {
       generateBusinessInsightRecommendations: jest.fn().mockResolvedValue(null),
       generateIncidentRiskSummary: jest.fn().mockResolvedValue(null),
+      getModelName: jest.fn().mockReturnValue('test-model'),
+    };
+    aiMonitoringService = {
+      applyFeedbackToRecommendations: jest.fn(async (_tenantId, recommendations) => recommendations),
+      attachGenerationId: jest.fn((recommendations) => recommendations),
+      getFeedbackSummaryForPrompt: jest.fn().mockResolvedValue({
+        averageRating: null,
+        totalFeedback: 0,
+        usefulCount: 0,
+        accurateCount: 0,
+        summaryText: null,
+        rejectedActionTypes: [],
+      }),
+      logGeneration: jest.fn().mockResolvedValue(null),
     };
     service = new AiInsightsService(
       prisma as unknown as PrismaService,
       aiService as unknown as AiService,
+      aiMonitoringService as unknown as AiMonitoringService,
     );
   });
 

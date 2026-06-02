@@ -106,6 +106,7 @@ export interface DailySummary {
 // ── Full Dashboard ────────────────────────────────────────────────────
 
 export interface CommandCenterDashboard {
+  aiGenerationId?: string;
   generatedAt: string;
   source: 'ai_assisted' | 'rule_based';
   overview: CommandCenterOverview;

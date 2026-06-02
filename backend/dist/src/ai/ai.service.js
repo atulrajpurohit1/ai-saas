@@ -50,6 +50,9 @@ let AiService = AiService_1 = class AiService {
     getFallbackEnabled() {
         return this.fallbackEnabled;
     }
+    getModelName() {
+        return this.modelName;
+    }
     getUnavailableMessage(action) {
         if (!this.isAiAvailable()) {
             return `GEMINI_API_KEY is missing or Gemini could not be initialized. ${action} requires a working Gemini configuration.`;

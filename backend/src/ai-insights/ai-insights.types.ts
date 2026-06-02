@@ -15,6 +15,8 @@ export type AiRecommendationPriority = 'high' | 'medium' | 'low';
 
 export type AiRecommendationSource = 'rule' | 'ai';
 
+export type AiRecommendationConfidence = 'high' | 'medium' | 'low';
+
 export type AiRiskEntityType = 'site' | 'client' | 'guard';
 
 export type AiRiskLevel = 'low' | 'medium' | 'high' | 'critical';
@@ -63,6 +65,8 @@ export interface AiRecommendation {
   action: string;
   reason: string;
   source: AiRecommendationSource;
+  confidence?: AiRecommendationConfidence;
+  aiGenerationId?: string;
   actionType?:
   | 'create_follow_up_task'
   | 'notify_admin'
@@ -308,6 +312,7 @@ export interface FinancialRecommendationsResponse {
 }
 
 export interface RevenueInsightsDashboard {
+  aiGenerationId?: string;
   generatedAt: string;
   source: RevenueInsightSource;
   aiSummary: string;
@@ -319,6 +324,7 @@ export interface RevenueInsightsDashboard {
 }
 
 export interface IncidentInsightsResponse {
+  aiGenerationId?: string;
   generatedAt: string;
   source: 'ai_assisted' | 'rule_based';
   summary: AiInsightMetric[];
@@ -339,6 +345,7 @@ export interface AiInsightsOverview {
 }
 
 export interface AiInsightsDashboard {
+  aiGenerationId?: string;
   generatedAt: string;
   source: 'ai_assisted' | 'rule_based';
   overview: AiInsightsOverview;

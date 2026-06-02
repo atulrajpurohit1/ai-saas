@@ -16,9 +16,9 @@ export declare class ShiftsService {
         };
     } & {
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
+        status: string;
         siteId: string;
         startTime: Date;
         endTime: Date;
@@ -37,15 +37,15 @@ export declare class ShiftsService {
             };
         } & {
             id: string;
-            status: string;
             createdAt: Date;
-            shiftId: string;
+            status: string;
             guardId: string;
+            shiftId: string;
         })[];
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
+        status: string;
         siteId: string;
         startTime: Date;
         endTime: Date;
@@ -54,10 +54,10 @@ export declare class ShiftsService {
     recommendGuards(userId: string, tenantId: string, shiftId: string): Promise<GuardRecommendation[]>;
     assign(userId: string, tenantId: string, shiftId: string, guardId: string): Promise<{
         id: string;
-        status: string;
         createdAt: Date;
-        shiftId: string;
+        status: string;
         guardId: string;
+        shiftId: string;
     }>;
     unassign(userId: string, tenantId: string, shiftId: string): Promise<{
         message: string;

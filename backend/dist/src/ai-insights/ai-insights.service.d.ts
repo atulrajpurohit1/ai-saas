@@ -1,17 +1,19 @@
 import { AiService } from '../ai/ai.service';
+import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiInsightsDashboard, BillingInsightsResponse, ClientInsightsResponse, GuardInsightsResponse, IncidentInsightsResponse, SiteInsightsResponse } from './ai-insights.types';
 export declare class AiInsightsService {
     private prisma;
     private aiService;
+    private aiMonitoringService;
     private readonly logger;
-    constructor(prisma: PrismaService, aiService: AiService);
-    getDashboard(tenantId: string): Promise<AiInsightsDashboard>;
+    constructor(prisma: PrismaService, aiService: AiService, aiMonitoringService: AiMonitoringService);
+    getDashboard(tenantId: string, userId?: string): Promise<AiInsightsDashboard>;
     getClientInsights(tenantId: string): Promise<ClientInsightsResponse>;
     getGuardInsights(tenantId: string): Promise<GuardInsightsResponse>;
     getSiteInsights(tenantId: string): Promise<SiteInsightsResponse>;
     getBillingInsights(tenantId: string): Promise<BillingInsightsResponse>;
-    getIncidentInsights(tenantId: string): Promise<IncidentInsightsResponse>;
+    getIncidentInsights(tenantId: string, userId?: string): Promise<IncidentInsightsResponse>;
     private buildSeverityBreakdown;
     private addIncidentRisk;
     private buildIncidentRiskRows;

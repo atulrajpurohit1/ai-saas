@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AiInsightsService } from '../ai-insights/ai-insights.service';
 import { RecommendationService } from '../ai-insights/recommendation.service';
 import { AiActionsService } from '../ai-actions/ai-actions.service';
+import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { RevenueInsightsService } from '../ai-insights/revenue-insights.service';
 import { AiService } from '../ai/ai.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -18,6 +19,7 @@ import { AiRecommendation } from '../ai-insights/ai-insights.types';
 @Injectable()
 export class CommandCenterService {
   private readonly logger = new Logger(CommandCenterService.name);
+  private readonly promptVersion = 'v5-phase-7';
 
   constructor(
     private readonly prisma: PrismaService,
@@ -26,6 +28,7 @@ export class CommandCenterService {
     private readonly recommendationService: RecommendationService,
     private readonly aiActionsService: AiActionsService,
     private readonly aiService: AiService,
+    private readonly aiMonitoringService: AiMonitoringService,
   ) { }
 
   async getDashboard(
@@ -44,8 +47,8 @@ export class CommandCenterService {
       guardsOnDuty,
       openIncidents
     ] = await Promise.all([
-      this.aiInsightsService.getDashboard(tenantId),
-      this.aiInsightsService.getIncidentInsights(tenantId),
+      this.aiInsightsService.getDashboard(tenantId, userId),
+      this.aiInsightsService.getIncidentInsights(tenantId, userId),
       this.revenueInsightsService.getRevenueDashboard(tenantId, userId),
       this.recommendationService.getSchedulingOverview(tenantId),
       this.countGuardsOnDuty(tenantId, now),
@@ -98,7 +101,7 @@ export class CommandCenterService {
       opsDashboard.source === 'ai_assisted' ||
       revenueDashboard.source === 'ai_assisted';
 
-    return {
+    const dashboard: CommandCenterDashboard = {
       generatedAt: now.toISOString(),
       source: isAiAssisted ? 'ai_assisted' : 'rule_based',
       overview,
@@ -108,6 +111,26 @@ export class CommandCenterService {
       scheduling: schedulingOverview,
       recommendations,
       dailySummary
+    };
+
+    const generation = await this.aiMonitoringService.logGeneration({
+      tenantId,
+      createdBy: userId,
+      promptVersion: this.promptVersion,
+      modelUsed: this.aiService.getModelName(),
+      sourceModule: 'ai_command_center.dashboard',
+      generatedOutput: dashboard,
+      fallbackUsed: dailySummary.source !== 'ai_assisted',
+      status: isAiAssisted ? 'success' : 'fallback',
+    });
+
+    return {
+      ...dashboard,
+      aiGenerationId: generation?.id,
+      recommendations: this.aiMonitoringService.attachGenerationId(
+        dashboard.recommendations,
+        generation?.id,
+      ),
     };
   }
 
@@ -126,7 +149,7 @@ export class CommandCenterService {
     userRole?: string,
   ): Promise<AiRecommendation[]> {
     const [opsDashboard, revenueDashboard, schedulingOverview] = await Promise.all([
-      this.aiInsightsService.getDashboard(tenantId),
+      this.aiInsightsService.getDashboard(tenantId, userId),
       this.revenueInsightsService.getRevenueDashboard(tenantId, userId),
       this.recommendationService.getSchedulingOverview(tenantId),
     ]);
@@ -413,6 +436,8 @@ export class CommandCenterService {
     };
 
     try {
+      const feedbackSummary =
+        await this.aiMonitoringService.getFeedbackSummaryForPrompt(tenantId);
       // Create a simplified context for the AI prompt
       const context = {
         activeClients: overview.activeClients,
@@ -424,7 +449,8 @@ export class CommandCenterService {
         outstandingBalance: financial.outstandingBalance,
         upcomingCoverageGaps: schedulingOverview.coverageGaps,
         upcomingShortageSlots: schedulingOverview.shortageSlots,
-        topRecommendations: recommendations.slice(0, 3).map(r => r.action)
+        topRecommendations: recommendations.slice(0, 3).map(r => r.action),
+        adminFeedbackHistory: feedbackSummary.summaryText,
       };
 
       const aiNarrative = await this.aiService.generateIncidentRiskSummary(JSON.stringify(context));

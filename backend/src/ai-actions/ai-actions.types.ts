@@ -29,6 +29,7 @@ export type RecommendationTargetModule =
   | 'incident';
 
 export interface RecommendationActionDraft {
+  aiGenerationId?: string | null;
   recommendationId: string;
   actionType: RecommendationActionType;
   title: string;
@@ -38,6 +39,7 @@ export interface RecommendationActionDraft {
 }
 
 export type ActionableRecommendation = AiRecommendation & {
+  aiGenerationId?: string;
   actionType?: RecommendationActionType;
   targetModule?: RecommendationTargetModule;
   targetEntityId?: string | null;

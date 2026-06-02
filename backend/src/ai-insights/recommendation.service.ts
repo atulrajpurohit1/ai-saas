@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { AiService } from '../ai/ai.service';
+import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   AiRecommendation,
@@ -14,12 +15,15 @@ const WORKLOAD_DAYS = 7;
 const SCHEDULING_HORIZON_DAYS = 7;
 const HIGH_WORKLOAD_THRESHOLD = 5;
 const MEDIUM_WORKLOAD_THRESHOLD = 3;
+const DEFAULT_PROMPT_VERSION = 'v5-phase-7';
 
 @Injectable()
 export class RecommendationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
+    @Optional()
+    private readonly aiMonitoringService?: AiMonitoringService,
   ) {}
 
   async recommendGuards(
@@ -271,7 +275,7 @@ export class RecommendationService {
           left.guard_name.localeCompare(right.guard_name),
       );
 
-    return Promise.all(
+    const results = await Promise.all(
       recommendations.map(async (recommendation, index) => ({
         ...recommendation,
         explanation:
@@ -284,9 +288,28 @@ export class RecommendationService {
                 guardName: recommendation.guard_name,
                 reasons: recommendation.reasons,
                 warnings: recommendation.warnings,
-              }),
+          }),
       })),
     );
+
+    if (includeAiExplanation) {
+      await this.aiMonitoringService?.logGeneration({
+        tenantId,
+        promptVersion: DEFAULT_PROMPT_VERSION,
+        modelUsed: this.aiService.getModelName(),
+        sourceModule: 'ai_scheduling.guard_recommendations',
+        generatedOutput: {
+          shiftId,
+          recommendations: results,
+        },
+        fallbackUsed: results.some((recommendation) =>
+          recommendation.explanation.includes('is recommended because'),
+        ),
+        status: 'success',
+      });
+    }
+
+    return results;
   }
 
   async getSchedulingOverview(tenantId: string): Promise<SchedulingOverview> {
@@ -350,7 +373,16 @@ export class RecommendationService {
       0,
     );
 
-    return {
+    const recommendations = await this.applyFeedback(
+      tenantId,
+      this.buildSchedulingOverviewRecommendations(
+        now,
+        gaps,
+        shortageSlots,
+      ),
+    );
+
+    const overview: SchedulingOverview = {
       generatedAt: now.toISOString(),
       horizonDays: SCHEDULING_HORIZON_DAYS,
       totalUpcomingShifts: upcomingShifts.length,
@@ -359,12 +391,38 @@ export class RecommendationService {
       shortageSlots,
       unassignedShifts: gaps.filter((gap) => gap.assignedGuards === 0).length,
       gaps: gaps.slice(0, 10),
-      recommendations: this.buildSchedulingOverviewRecommendations(
-        now,
-        gaps,
-        shortageSlots,
-      ),
+      recommendations,
     };
+
+    const generation = await this.aiMonitoringService?.logGeneration({
+      tenantId,
+      promptVersion: DEFAULT_PROMPT_VERSION,
+      modelUsed: this.aiService.getModelName(),
+      sourceModule: 'ai_scheduling.overview',
+      generatedOutput: overview,
+      fallbackUsed: true,
+      status: 'fallback',
+    });
+
+    return {
+      ...overview,
+      recommendations:
+        this.aiMonitoringService?.attachGenerationId(
+          overview.recommendations,
+          generation?.id,
+        ) ?? overview.recommendations,
+    };
+  }
+
+  private async applyFeedback(
+    tenantId: string,
+    recommendations: AiRecommendation[],
+  ) {
+    if (!this.aiMonitoringService) return recommendations;
+    return this.aiMonitoringService.applyFeedbackToRecommendations(
+      tenantId,
+      recommendations,
+    );
   }
 
   private buildSchedulingOverviewRecommendations(

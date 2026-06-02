@@ -18,6 +18,7 @@ export type RecommendationActionType =
 export interface RecommendationAction {
   id: string;
   tenantId: string;
+  aiGenerationId?: string | null;
   recommendationId: string;
   actionType: RecommendationActionType;
   title: string;

@@ -1,4 +1,5 @@
 import { AiService } from '../ai/ai.service';
+import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ClientValueAnalysisResponse, ContractIntelligenceResponse, FinancialRecommendationsResponse, RenewalOpportunitiesResponse, RevenueInsightsDashboard } from './ai-insights.types';
@@ -6,8 +7,9 @@ export declare class RevenueInsightsService {
     private prisma;
     private aiService;
     private auditService;
+    private aiMonitoringService;
     private readonly logger;
-    constructor(prisma: PrismaService, aiService: AiService, auditService: AuditService);
+    constructor(prisma: PrismaService, aiService: AiService, auditService: AuditService, aiMonitoringService: AiMonitoringService);
     getRevenueDashboard(tenantId: string, userId: string): Promise<RevenueInsightsDashboard>;
     getContractInsights(tenantId: string, userId: string): Promise<ContractIntelligenceResponse>;
     getClientValueAnalysis(tenantId: string, userId: string): Promise<ClientValueAnalysisResponse>;

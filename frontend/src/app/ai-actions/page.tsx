@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import AiFeedbackControl from '@/components/AiFeedbackControl';
 import DashboardLayout from '@/components/DashboardLayout';
 import {
   approveAiAction,
@@ -274,6 +275,12 @@ export default function AiActionsPage() {
                   <div className="whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/10 p-5 text-sm leading-7 text-slate-200">
                     {selectedAction.description}
                   </div>
+                  <AiFeedbackControl
+                    aiGenerationId={selectedAction.aiGenerationId || undefined}
+                    recommendationId={selectedAction.recommendationId}
+                    actionId={selectedAction.id}
+                    compact
+                  />
                 </div>
 
                 {selectedAction.failureReason && (

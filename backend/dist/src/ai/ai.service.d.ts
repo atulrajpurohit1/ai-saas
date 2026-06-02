@@ -20,6 +20,7 @@ export declare class AiService {
     constructor(configService: ConfigService);
     private isAiAvailable;
     private getFallbackEnabled;
+    getModelName(): string;
     private getUnavailableMessage;
     private generateText;
     generateProposalDraft(dto: GenerateProposalDto): Promise<AiProposalDraftResponse>;

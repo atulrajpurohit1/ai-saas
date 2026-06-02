@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import AiFeedbackControl from '@/components/AiFeedbackControl';
 import DashboardLayout from '@/components/DashboardLayout';
 import {
   AiInsightItem,
@@ -50,6 +51,12 @@ const priorityStyles: Record<AiRecommendation['priority'], string> = {
   high: 'border-rose-400/25 bg-rose-400/10 text-rose-200',
   medium: 'border-amber-400/25 bg-amber-400/10 text-amber-200',
   low: 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200',
+};
+
+const confidenceStyles: Record<NonNullable<AiRecommendation['confidence']>, string> = {
+  high: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200',
+  medium: 'border-sky-400/20 bg-sky-400/10 text-sky-200',
+  low: 'border-rose-400/25 bg-rose-400/10 text-rose-200',
 };
 
 const barStyles: Record<BarTone, string> = {
@@ -167,12 +174,22 @@ function Recommendations({ recommendations }: { recommendations: AiRecommendatio
               {recommendation.priority}
             </span>
           </div>
+          {recommendation.confidence && (
+            <span className={`mb-3 inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase ${confidenceStyles[recommendation.confidence]}`}>
+              {recommendation.confidence} confidence
+            </span>
+          )}
           <p className="text-sm font-semibold leading-6 text-slate-100">{recommendation.action}</p>
           <p className="mt-3 text-sm leading-6 text-slate-400">{recommendation.reason}</p>
           <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-slate-500">
             <Lightbulb size={14} />
             {recommendation.source === 'ai' ? 'AI' : 'Rule'}
           </div>
+          <AiFeedbackControl
+            aiGenerationId={recommendation.aiGenerationId}
+            recommendationId={recommendation.id}
+            compact
+          />
         </div>
       ))}
     </div>
@@ -287,6 +304,7 @@ export default function AiInsightsPage() {
                 {dashboard.source === 'ai_assisted' ? 'AI assisted' : 'Rule based fallback'}
               </span>
             </div>
+            <AiFeedbackControl aiGenerationId={dashboard.aiGenerationId} compact />
             <MetricGrid metrics={dashboard.overview.summary} />
             <div className="mt-4">
               <InsightList insights={dashboard.overview.insights} />

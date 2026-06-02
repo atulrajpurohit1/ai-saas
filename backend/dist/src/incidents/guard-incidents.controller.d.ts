@@ -14,7 +14,7 @@ export declare class GuardIncidentsController {
         title: string;
         description: string;
         severity: string;
-        status: "under_review" | "approved" | "rejected" | "submitted";
+        status: "approved" | "rejected" | "under_review" | "submitted";
         occurredAt: Date;
         attachmentUrl: string | null;
         notes: string | null;
@@ -54,7 +54,7 @@ export declare class GuardIncidentsController {
         title: string;
         description: string;
         severity: string;
-        status: "under_review" | "approved" | "rejected" | "submitted";
+        status: "approved" | "rejected" | "under_review" | "submitted";
         occurredAt: Date;
         attachmentUrl: string | null;
         notes: string | null;

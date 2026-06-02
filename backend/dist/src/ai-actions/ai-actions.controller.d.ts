@@ -8,11 +8,12 @@ export declare class AiActionsController {
         summary: Record<import("./ai-actions.types").RecommendationActionStatus, number>;
         actions: {
             id: string;
-            status: string;
-            tenantId: string;
             createdAt: Date;
+            tenantId: string;
             title: string;
+            status: string;
             description: string;
+            aiGenerationId: string | null;
             recommendationId: string;
             actionType: string;
             targetModule: string;
@@ -25,11 +26,12 @@ export declare class AiActionsController {
     }>;
     findOne(id: string, user: ActiveUser): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
         title: string;
+        status: string;
         description: string;
+        aiGenerationId: string | null;
         recommendationId: string;
         actionType: string;
         targetModule: string;
@@ -41,11 +43,12 @@ export declare class AiActionsController {
     }>;
     approve(id: string, user: ActiveUser): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
         title: string;
+        status: string;
         description: string;
+        aiGenerationId: string | null;
         recommendationId: string;
         actionType: string;
         targetModule: string;
@@ -57,11 +60,12 @@ export declare class AiActionsController {
     }>;
     reject(id: string, user: ActiveUser): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
         title: string;
+        status: string;
         description: string;
+        aiGenerationId: string | null;
         recommendationId: string;
         actionType: string;
         targetModule: string;
@@ -73,11 +77,12 @@ export declare class AiActionsController {
     }>;
     execute(id: string, user: ActiveUser): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
         title: string;
+        status: string;
         description: string;
+        aiGenerationId: string | null;
         recommendationId: string;
         actionType: string;
         targetModule: string;

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AiService } from '../ai/ai.service';
+import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   AiInsightItem,
@@ -28,6 +29,7 @@ const RECENT_INCIDENT_DAYS = 7;
 const REVENUE_STATUSES = ['issued', 'disputed', 'resolved', 'paid'];
 const OUTSTANDING_STATUSES = ['issued', 'resolved', 'disputed'];
 const ACTIVE_DISPUTE_STATUSES = ['open', 'under_review'];
+const DEFAULT_PROMPT_VERSION = 'v5-phase-7';
 const INCIDENT_SEVERITY_SCORES: Record<string, number> = {
   critical: 30,
   high: 20,
@@ -90,9 +92,13 @@ export class AiInsightsService {
   constructor(
     private prisma: PrismaService,
     private aiService: AiService,
+    private aiMonitoringService: AiMonitoringService,
   ) { }
 
-  async getDashboard(tenantId: string): Promise<AiInsightsDashboard> {
+  async getDashboard(
+    tenantId: string,
+    userId?: string,
+  ): Promise<AiInsightsDashboard> {
     const [clients, guards, sites, billing] = await Promise.all([
       this.getClientInsights(tenantId),
       this.getGuardInsights(tenantId),
@@ -107,18 +113,19 @@ export class AiInsightsService {
       billing,
     );
     const aiRecommendations = await this.buildAiRecommendations(
+      tenantId,
       clients,
       guards,
       sites,
       billing,
       ruleRecommendations,
     );
-    const recommendations = [
+    const recommendations = await this.aiMonitoringService.applyFeedbackToRecommendations(tenantId, [
       ...aiRecommendations,
       ...ruleRecommendations,
-    ].slice(0, 10);
+    ].slice(0, 10));
 
-    return {
+    const dashboard: AiInsightsDashboard = {
       generatedAt: new Date().toISOString(),
       source: aiRecommendations.length > 0 ? 'ai_assisted' : 'rule_based',
       overview: this.buildOverview(
@@ -133,6 +140,26 @@ export class AiInsightsService {
       sites,
       billing,
       recommendations,
+    };
+
+    const generation = await this.aiMonitoringService.logGeneration({
+      tenantId,
+      createdBy: userId,
+      promptVersion: DEFAULT_PROMPT_VERSION,
+      modelUsed: this.aiService.getModelName(),
+      sourceModule: 'ai_insights.dashboard',
+      generatedOutput: dashboard,
+      fallbackUsed: aiRecommendations.length === 0,
+      status: aiRecommendations.length > 0 ? 'success' : 'fallback',
+    });
+
+    return {
+      ...dashboard,
+      aiGenerationId: generation?.id,
+      recommendations: this.aiMonitoringService.attachGenerationId(
+        dashboard.recommendations,
+        generation?.id,
+      ),
     };
   }
 
@@ -922,7 +949,10 @@ export class AiInsightsService {
     };
   }
 
-  async getIncidentInsights(tenantId: string): Promise<IncidentInsightsResponse> {
+  async getIncidentInsights(
+    tenantId: string,
+    userId?: string,
+  ): Promise<IncidentInsightsResponse> {
     const now = new Date();
     const analysisStart = new Date(now);
     analysisStart.setUTCDate(analysisStart.getUTCDate() - INCIDENT_ANALYSIS_DAYS);
@@ -1039,13 +1069,13 @@ export class AiInsightsService {
         .slice(0, 3),
     ].slice(0, 6);
 
-    const recommendations = this.buildIncidentRecommendations({
+    const recommendations = await this.aiMonitoringService.applyFeedbackToRecommendations(tenantId, this.buildIncidentRecommendations({
       highRiskSites,
       clientRisks: clientRiskRows,
       guardRisks: guardRiskRows,
       recurringIncidentTypes,
       timePatterns,
-    });
+    }));
     const aiSummary = await this.buildIncidentAiSummary({
       severityBreakdown,
       highRiskSites,
@@ -1073,7 +1103,7 @@ export class AiInsightsService {
     const highCount = incidents.filter((incident) => this.normalizeSeverity(incident.severity) === 'high').length;
     const recentCount = incidents.filter((incident) => incident.occurredAt >= recentStart).length;
 
-    return {
+    const response: IncidentInsightsResponse = {
       generatedAt: now.toISOString(),
       source: aiSummary ? 'ai_assisted' : 'rule_based',
       summary: [
@@ -1091,6 +1121,26 @@ export class AiInsightsService {
       recurringIncidentTypes,
       timePatterns,
       recommendations,
+    };
+
+    const generation = await this.aiMonitoringService.logGeneration({
+      tenantId,
+      createdBy: userId,
+      promptVersion: DEFAULT_PROMPT_VERSION,
+      modelUsed: this.aiService.getModelName(),
+      sourceModule: 'ai_insights.incident_risk',
+      generatedOutput: response,
+      fallbackUsed: !aiSummary,
+      status: aiSummary ? 'success' : 'fallback',
+    });
+
+    return {
+      ...response,
+      aiGenerationId: generation?.id,
+      recommendations: this.aiMonitoringService.attachGenerationId(
+        response.recommendations,
+        generation?.id,
+      ),
     };
   }
 
@@ -1739,6 +1789,7 @@ export class AiInsightsService {
   }
 
   private async buildAiRecommendations(
+    tenantId: string,
     clients: ClientInsightsResponse,
     guards: GuardInsightsResponse,
     sites: SiteInsightsResponse,
@@ -1746,12 +1797,15 @@ export class AiInsightsService {
     ruleRecommendations: AiRecommendation[],
   ): Promise<AiRecommendation[]> {
     try {
+      const feedbackSummary =
+        await this.aiMonitoringService.getFeedbackSummaryForPrompt(tenantId);
       const context = {
         clientInsights: clients.insights.map((insight) => insight.message),
         guardInsights: guards.insights.map((insight) => insight.message),
         siteInsights: sites.insights.map((insight) => insight.message),
         billingInsights: billing.insights.map((insight) => insight.message),
         currentRecommendations: ruleRecommendations.map((item) => item.action),
+        adminFeedbackHistory: feedbackSummary.summaryText,
       };
       const generated =
         await this.aiService.generateBusinessInsightRecommendations(

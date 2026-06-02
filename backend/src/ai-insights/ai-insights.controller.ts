@@ -18,7 +18,7 @@ export class AiInsightsController {
 
   @Get()
   dashboard(@GetUser() user: ActiveUser) {
-    return this.aiInsightsService.getDashboard(user.tenantId);
+    return this.aiInsightsService.getDashboard(user.tenantId, user.sub);
   }
 
   @Get('clients')
@@ -44,7 +44,7 @@ export class AiInsightsController {
   @Get('incidents')
   @Roles('admin', 'supervisor')
   incidents(@GetUser() user: ActiveUser) {
-    return this.aiInsightsService.getIncidentInsights(user.tenantId);
+    return this.aiInsightsService.getIncidentInsights(user.tenantId, user.sub);
   }
 
   @Get('revenue')

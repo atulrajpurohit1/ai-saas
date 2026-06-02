@@ -2,6 +2,7 @@ export type AiInsightCategory = 'operations' | 'clients' | 'guards' | 'sites' | 
 export type AiInsightSeverity = 'positive' | 'info' | 'warning' | 'critical';
 export type AiRecommendationPriority = 'high' | 'medium' | 'low';
 export type AiRecommendationSource = 'rule' | 'ai';
+export type AiRecommendationConfidence = 'high' | 'medium' | 'low';
 export type AiRiskEntityType = 'site' | 'client' | 'guard';
 export type AiRiskLevel = 'low' | 'medium' | 'high' | 'critical';
 export type RevenueInsightSource = 'ai_assisted' | 'rule_based';
@@ -33,6 +34,8 @@ export interface AiRecommendation {
     action: string;
     reason: string;
     source: AiRecommendationSource;
+    confidence?: AiRecommendationConfidence;
+    aiGenerationId?: string;
     actionType?: 'create_follow_up_task' | 'notify_admin' | 'flag_client_risk' | 'flag_site_risk' | 'suggest_guard_reassignment' | 'create_invoice_followup';
     targetModule?: 'ai_insights' | 'client' | 'site' | 'guard' | 'shift' | 'invoice' | 'command_center' | 'operations' | 'billing' | 'revenue' | 'incident';
     targetEntityId?: string | null;
@@ -236,6 +239,7 @@ export interface FinancialRecommendationsResponse {
     ruleRecommendations: AiRecommendation[];
 }
 export interface RevenueInsightsDashboard {
+    aiGenerationId?: string;
     generatedAt: string;
     source: RevenueInsightSource;
     aiSummary: string;
@@ -246,6 +250,7 @@ export interface RevenueInsightsDashboard {
     recommendations: FinancialRecommendationsResponse;
 }
 export interface IncidentInsightsResponse {
+    aiGenerationId?: string;
     generatedAt: string;
     source: 'ai_assisted' | 'rule_based';
     summary: AiInsightMetric[];
@@ -264,6 +269,7 @@ export interface AiInsightsOverview {
     insights: AiInsightItem[];
 }
 export interface AiInsightsDashboard {
+    aiGenerationId?: string;
     generatedAt: string;
     source: 'ai_assisted' | 'rule_based';
     overview: AiInsightsOverview;

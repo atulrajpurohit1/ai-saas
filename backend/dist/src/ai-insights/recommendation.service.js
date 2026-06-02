@@ -8,10 +8,14 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RecommendationService = void 0;
 const common_1 = require("@nestjs/common");
 const ai_service_1 = require("../ai/ai.service");
+const ai_monitoring_service_1 = require("../ai-monitoring/ai-monitoring.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const LATE_CHECK_IN_MINUTES = 5;
 const HISTORY_DAYS = 90;
@@ -19,12 +23,15 @@ const WORKLOAD_DAYS = 7;
 const SCHEDULING_HORIZON_DAYS = 7;
 const HIGH_WORKLOAD_THRESHOLD = 5;
 const MEDIUM_WORKLOAD_THRESHOLD = 3;
+const DEFAULT_PROMPT_VERSION = 'v5-phase-7';
 let RecommendationService = class RecommendationService {
     prisma;
     aiService;
-    constructor(prisma, aiService) {
+    aiMonitoringService;
+    constructor(prisma, aiService, aiMonitoringService) {
         this.prisma = prisma;
         this.aiService = aiService;
+        this.aiMonitoringService = aiMonitoringService;
     }
     async recommendGuards(tenantId, shiftId, includeAiExplanation = true) {
         const shift = await this.prisma.shift.findFirst({
@@ -214,7 +221,7 @@ let RecommendationService = class RecommendationService {
             .filter((recommendation) => Boolean(recommendation))
             .sort((left, right) => right.score - left.score ||
             left.guard_name.localeCompare(right.guard_name));
-        return Promise.all(recommendations.map(async (recommendation, index) => ({
+        const results = await Promise.all(recommendations.map(async (recommendation, index) => ({
             ...recommendation,
             explanation: includeAiExplanation && index < 5
                 ? await this.explainRecommendation({
@@ -227,6 +234,21 @@ let RecommendationService = class RecommendationService {
                     warnings: recommendation.warnings,
                 }),
         })));
+        if (includeAiExplanation) {
+            await this.aiMonitoringService?.logGeneration({
+                tenantId,
+                promptVersion: DEFAULT_PROMPT_VERSION,
+                modelUsed: this.aiService.getModelName(),
+                sourceModule: 'ai_scheduling.guard_recommendations',
+                generatedOutput: {
+                    shiftId,
+                    recommendations: results,
+                },
+                fallbackUsed: results.some((recommendation) => recommendation.explanation.includes('is recommended because')),
+                status: 'success',
+            });
+        }
+        return results;
     }
     async getSchedulingOverview(tenantId) {
         const now = new Date();
@@ -281,7 +303,8 @@ let RecommendationService = class RecommendationService {
         })
             .filter((gap) => Boolean(gap));
         const shortageSlots = gaps.reduce((sum, gap) => sum + gap.shortageSlots, 0);
-        return {
+        const recommendations = await this.applyFeedback(tenantId, this.buildSchedulingOverviewRecommendations(now, gaps, shortageSlots));
+        const overview = {
             generatedAt: now.toISOString(),
             horizonDays: SCHEDULING_HORIZON_DAYS,
             totalUpcomingShifts: upcomingShifts.length,
@@ -290,8 +313,26 @@ let RecommendationService = class RecommendationService {
             shortageSlots,
             unassignedShifts: gaps.filter((gap) => gap.assignedGuards === 0).length,
             gaps: gaps.slice(0, 10),
-            recommendations: this.buildSchedulingOverviewRecommendations(now, gaps, shortageSlots),
+            recommendations,
         };
+        const generation = await this.aiMonitoringService?.logGeneration({
+            tenantId,
+            promptVersion: DEFAULT_PROMPT_VERSION,
+            modelUsed: this.aiService.getModelName(),
+            sourceModule: 'ai_scheduling.overview',
+            generatedOutput: overview,
+            fallbackUsed: true,
+            status: 'fallback',
+        });
+        return {
+            ...overview,
+            recommendations: this.aiMonitoringService?.attachGenerationId(overview.recommendations, generation?.id) ?? overview.recommendations,
+        };
+    }
+    async applyFeedback(tenantId, recommendations) {
+        if (!this.aiMonitoringService)
+            return recommendations;
+        return this.aiMonitoringService.applyFeedbackToRecommendations(tenantId, recommendations);
     }
     buildSchedulingOverviewRecommendations(now, gaps, shortageSlots) {
         const recommendations = [];
@@ -410,7 +451,9 @@ let RecommendationService = class RecommendationService {
 exports.RecommendationService = RecommendationService;
 exports.RecommendationService = RecommendationService = __decorate([
     (0, common_1.Injectable)(),
+    __param(2, (0, common_1.Optional)()),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        ai_service_1.AiService])
+        ai_service_1.AiService,
+        ai_monitoring_service_1.AiMonitoringService])
 ], RecommendationService);
 //# sourceMappingURL=recommendation.service.js.map

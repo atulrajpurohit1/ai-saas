@@ -28,7 +28,7 @@ let AiInsightsController = class AiInsightsController {
         this.revenueInsightsService = revenueInsightsService;
     }
     dashboard(user) {
-        return this.aiInsightsService.getDashboard(user.tenantId);
+        return this.aiInsightsService.getDashboard(user.tenantId, user.sub);
     }
     clients(user) {
         return this.aiInsightsService.getClientInsights(user.tenantId);
@@ -43,7 +43,7 @@ let AiInsightsController = class AiInsightsController {
         return this.aiInsightsService.getBillingInsights(user.tenantId);
     }
     incidents(user) {
-        return this.aiInsightsService.getIncidentInsights(user.tenantId);
+        return this.aiInsightsService.getIncidentInsights(user.tenantId, user.sub);
     }
     revenue(user) {
         return this.revenueInsightsService.getRevenueDashboard(user.tenantId, user.sub);

@@ -52,6 +52,7 @@ export class AiActionsService {
               where: { id: existing.id },
               data: {
                 actionType: draft.actionType,
+                aiGenerationId: draft.aiGenerationId ?? existing.aiGenerationId,
                 title: draft.title,
                 description: draft.description,
                 targetModule: draft.targetModule,
@@ -70,6 +71,7 @@ export class AiActionsService {
       const created = await this.prisma.recommendationAction.create({
         data: {
           tenantId,
+          aiGenerationId: draft.aiGenerationId ?? null,
           recommendationId: draft.recommendationId,
           actionType: draft.actionType,
           title: draft.title,
@@ -310,6 +312,7 @@ export class AiActionsService {
 
     return {
       recommendationId: recommendation.id,
+      aiGenerationId: recommendation.aiGenerationId ?? null,
       actionType,
       title: recommendation.title,
       description: `${recommendation.action}\n\nReason: ${recommendation.reason}`,

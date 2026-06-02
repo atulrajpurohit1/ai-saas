@@ -13,6 +13,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AiInsightsService = void 0;
 const common_1 = require("@nestjs/common");
 const ai_service_1 = require("../ai/ai.service");
+const ai_monitoring_service_1 = require("../ai-monitoring/ai-monitoring.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const LATE_CHECK_IN_MINUTES = 5;
@@ -21,6 +22,7 @@ const RECENT_INCIDENT_DAYS = 7;
 const REVENUE_STATUSES = ['issued', 'disputed', 'resolved', 'paid'];
 const OUTSTANDING_STATUSES = ['issued', 'resolved', 'disputed'];
 const ACTIVE_DISPUTE_STATUSES = ['open', 'under_review'];
+const DEFAULT_PROMPT_VERSION = 'v5-phase-7';
 const INCIDENT_SEVERITY_SCORES = {
     critical: 30,
     high: 20,
@@ -31,12 +33,14 @@ const INCIDENT_SEVERITY_ORDER = ['critical', 'high', 'medium', 'low'];
 let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
     prisma;
     aiService;
+    aiMonitoringService;
     logger = new common_1.Logger(AiInsightsService_1.name);
-    constructor(prisma, aiService) {
+    constructor(prisma, aiService, aiMonitoringService) {
         this.prisma = prisma;
         this.aiService = aiService;
+        this.aiMonitoringService = aiMonitoringService;
     }
-    async getDashboard(tenantId) {
+    async getDashboard(tenantId, userId) {
         const [clients, guards, sites, billing] = await Promise.all([
             this.getClientInsights(tenantId),
             this.getGuardInsights(tenantId),
@@ -44,12 +48,12 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
             this.getBillingInsights(tenantId),
         ]);
         const ruleRecommendations = this.buildRuleRecommendations(clients, guards, sites, billing);
-        const aiRecommendations = await this.buildAiRecommendations(clients, guards, sites, billing, ruleRecommendations);
-        const recommendations = [
+        const aiRecommendations = await this.buildAiRecommendations(tenantId, clients, guards, sites, billing, ruleRecommendations);
+        const recommendations = await this.aiMonitoringService.applyFeedbackToRecommendations(tenantId, [
             ...aiRecommendations,
             ...ruleRecommendations,
-        ].slice(0, 10);
-        return {
+        ].slice(0, 10));
+        const dashboard = {
             generatedAt: new Date().toISOString(),
             source: aiRecommendations.length > 0 ? 'ai_assisted' : 'rule_based',
             overview: this.buildOverview(clients, guards, sites, billing, recommendations),
@@ -58,6 +62,21 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
             sites,
             billing,
             recommendations,
+        };
+        const generation = await this.aiMonitoringService.logGeneration({
+            tenantId,
+            createdBy: userId,
+            promptVersion: DEFAULT_PROMPT_VERSION,
+            modelUsed: this.aiService.getModelName(),
+            sourceModule: 'ai_insights.dashboard',
+            generatedOutput: dashboard,
+            fallbackUsed: aiRecommendations.length === 0,
+            status: aiRecommendations.length > 0 ? 'success' : 'fallback',
+        });
+        return {
+            ...dashboard,
+            aiGenerationId: generation?.id,
+            recommendations: this.aiMonitoringService.attachGenerationId(dashboard.recommendations, generation?.id),
         };
     }
     async getClientInsights(tenantId) {
@@ -685,7 +704,7 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
             rows,
         };
     }
-    async getIncidentInsights(tenantId) {
+    async getIncidentInsights(tenantId, userId) {
         const now = new Date();
         const analysisStart = new Date(now);
         analysisStart.setUTCDate(analysisStart.getUTCDate() - INCIDENT_ANALYSIS_DAYS);
@@ -789,13 +808,13 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
                 .filter((trend) => trend.count > 1)
                 .slice(0, 3),
         ].slice(0, 6);
-        const recommendations = this.buildIncidentRecommendations({
+        const recommendations = await this.aiMonitoringService.applyFeedbackToRecommendations(tenantId, this.buildIncidentRecommendations({
             highRiskSites,
             clientRisks: clientRiskRows,
             guardRisks: guardRiskRows,
             recurringIncidentTypes,
             timePatterns,
-        });
+        }));
         const aiSummary = await this.buildIncidentAiSummary({
             severityBreakdown,
             highRiskSites,
@@ -822,7 +841,7 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
         const criticalCount = incidents.filter((incident) => this.normalizeSeverity(incident.severity) === 'critical').length;
         const highCount = incidents.filter((incident) => this.normalizeSeverity(incident.severity) === 'high').length;
         const recentCount = incidents.filter((incident) => incident.occurredAt >= recentStart).length;
-        return {
+        const response = {
             generatedAt: now.toISOString(),
             source: aiSummary ? 'ai_assisted' : 'rule_based',
             summary: [
@@ -840,6 +859,21 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
             recurringIncidentTypes,
             timePatterns,
             recommendations,
+        };
+        const generation = await this.aiMonitoringService.logGeneration({
+            tenantId,
+            createdBy: userId,
+            promptVersion: DEFAULT_PROMPT_VERSION,
+            modelUsed: this.aiService.getModelName(),
+            sourceModule: 'ai_insights.incident_risk',
+            generatedOutput: response,
+            fallbackUsed: !aiSummary,
+            status: aiSummary ? 'success' : 'fallback',
+        });
+        return {
+            ...response,
+            aiGenerationId: generation?.id,
+            recommendations: this.aiMonitoringService.attachGenerationId(response.recommendations, generation?.id),
         };
     }
     buildSeverityBreakdown(incidents) {
@@ -1359,14 +1393,16 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
         }
         return recommendations;
     }
-    async buildAiRecommendations(clients, guards, sites, billing, ruleRecommendations) {
+    async buildAiRecommendations(tenantId, clients, guards, sites, billing, ruleRecommendations) {
         try {
+            const feedbackSummary = await this.aiMonitoringService.getFeedbackSummaryForPrompt(tenantId);
             const context = {
                 clientInsights: clients.insights.map((insight) => insight.message),
                 guardInsights: guards.insights.map((insight) => insight.message),
                 siteInsights: sites.insights.map((insight) => insight.message),
                 billingInsights: billing.insights.map((insight) => insight.message),
                 currentRecommendations: ruleRecommendations.map((item) => item.action),
+                adminFeedbackHistory: feedbackSummary.summaryText,
             };
             const generated = await this.aiService.generateBusinessInsightRecommendations(JSON.stringify(context));
             if (!generated?.length) {
@@ -1463,6 +1499,7 @@ exports.AiInsightsService = AiInsightsService;
 exports.AiInsightsService = AiInsightsService = AiInsightsService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        ai_service_1.AiService])
+        ai_service_1.AiService,
+        ai_monitoring_service_1.AiMonitoringService])
 ], AiInsightsService);
 //# sourceMappingURL=ai-insights.service.js.map

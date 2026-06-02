@@ -64,6 +64,10 @@ export class AiService {
     return this.fallbackEnabled;
   }
 
+  getModelName(): string {
+    return this.modelName;
+  }
+
   private getUnavailableMessage(action: string): string {
     if (!this.isAiAvailable()) {
       return `GEMINI_API_KEY is missing or Gemini could not be initialized. ${action} requires a working Gemini configuration.`;

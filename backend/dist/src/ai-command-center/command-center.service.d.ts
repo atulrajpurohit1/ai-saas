@@ -1,6 +1,7 @@
 import { AiInsightsService } from '../ai-insights/ai-insights.service';
 import { RecommendationService } from '../ai-insights/recommendation.service';
 import { AiActionsService } from '../ai-actions/ai-actions.service';
+import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { RevenueInsightsService } from '../ai-insights/revenue-insights.service';
 import { AiService } from '../ai/ai.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -13,8 +14,10 @@ export declare class CommandCenterService {
     private readonly recommendationService;
     private readonly aiActionsService;
     private readonly aiService;
+    private readonly aiMonitoringService;
     private readonly logger;
-    constructor(prisma: PrismaService, aiInsightsService: AiInsightsService, revenueInsightsService: RevenueInsightsService, recommendationService: RecommendationService, aiActionsService: AiActionsService, aiService: AiService);
+    private readonly promptVersion;
+    constructor(prisma: PrismaService, aiInsightsService: AiInsightsService, revenueInsightsService: RevenueInsightsService, recommendationService: RecommendationService, aiActionsService: AiActionsService, aiService: AiService, aiMonitoringService: AiMonitoringService);
     getDashboard(tenantId: string, userId: string, userRole?: string): Promise<CommandCenterDashboard>;
     getSummary(tenantId: string, userId: string, userRole?: string): Promise<DailySummary>;
     getRecommendations(tenantId: string, userId: string, userRole?: string): Promise<AiRecommendation[]>;

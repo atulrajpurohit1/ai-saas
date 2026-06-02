@@ -11,15 +11,15 @@ export declare class ClientPortalController {
     private checkClient;
     getProposals(user: ActiveUser): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
+        tenantId: string;
         clientId: string | null;
-        leadId: string | null;
         content: string;
+        title: string;
+        status: string;
         dealId: string | null;
+        leadId: string | null;
     }[]>;
     getProposal(user: ActiveUser, id: string): Promise<{
         versions: {
@@ -31,86 +31,86 @@ export declare class ClientPortalController {
         }[];
     } & {
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
+        tenantId: string;
         clientId: string | null;
-        leadId: string | null;
         content: string;
+        title: string;
+        status: string;
         dealId: string | null;
+        leadId: string | null;
     }>;
     exportProposal(user: ActiveUser, id: string, res: ExpressResponse): Promise<ExpressResponse<any, Record<string, any>>>;
     approveProposal(user: ActiveUser, id: string): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
+        tenantId: string;
         clientId: string | null;
-        leadId: string | null;
         content: string;
+        title: string;
+        status: string;
         dealId: string | null;
+        leadId: string | null;
     }>;
     rejectProposal(user: ActiveUser, id: string): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
+        tenantId: string;
         clientId: string | null;
-        leadId: string | null;
         content: string;
+        title: string;
+        status: string;
         dealId: string | null;
+        leadId: string | null;
     }>;
     getComments(user: ActiveUser, id: string): Promise<{
         id: string;
-        tenantId: string;
         createdAt: Date;
-        userId: string | null;
+        tenantId: string;
         content: string;
         proposalId: string;
+        userId: string | null;
         clientUserId: string | null;
     }[]>;
     addComment(user: ActiveUser, id: string, content: string): Promise<{
         id: string;
-        tenantId: string;
         createdAt: Date;
-        userId: string | null;
+        tenantId: string;
         content: string;
         proposalId: string;
+        userId: string | null;
         clientUserId: string | null;
     }>;
     getTimeline(user: ActiveUser, id: string): Promise<{
         id: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
+        userId: string | null;
         action: string;
         entityType: string;
-        userId: string | null;
         entityId: string | null;
         details: string | null;
     }[]>;
     getDocuments(user: ActiveUser): Promise<{
-        name: string;
         id: string;
-        tenantId: string;
+        name: string;
         createdAt: Date;
+        tenantId: string;
         clientId: string;
-        description: string | null;
         url: string;
+        description: string | null;
         uploadedBy: string;
     }[]>;
     getProfile(user: ActiveUser): Promise<{
-        name: string;
         id: string;
-        tenantId: string;
+        name: string;
         createdAt: Date;
         updatedAt: Date;
         email: string;
+        tenantId: string;
         companyName: string | null;
         phone: string | null;
     }>;

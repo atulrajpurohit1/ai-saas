@@ -75,6 +75,7 @@ export interface DailySummary {
     source: 'ai_assisted' | 'rule_based';
 }
 export interface CommandCenterDashboard {
+    aiGenerationId?: string;
     generatedAt: string;
     source: 'ai_assisted' | 'rule_based';
     overview: CommandCenterOverview;

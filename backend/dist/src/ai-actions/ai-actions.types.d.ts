@@ -3,6 +3,7 @@ export type RecommendationActionStatus = 'pending' | 'approved' | 'rejected' | '
 export type RecommendationActionType = 'create_follow_up_task' | 'notify_admin' | 'flag_client_risk' | 'flag_site_risk' | 'suggest_guard_reassignment' | 'create_invoice_followup';
 export type RecommendationTargetModule = 'ai_insights' | 'client' | 'site' | 'guard' | 'shift' | 'invoice' | 'command_center' | 'operations' | 'billing' | 'revenue' | 'incident';
 export interface RecommendationActionDraft {
+    aiGenerationId?: string | null;
     recommendationId: string;
     actionType: RecommendationActionType;
     title: string;
@@ -11,6 +12,7 @@ export interface RecommendationActionDraft {
     targetEntityId?: string | null;
 }
 export type ActionableRecommendation = AiRecommendation & {
+    aiGenerationId?: string;
     actionType?: RecommendationActionType;
     targetModule?: RecommendationTargetModule;
     targetEntityId?: string | null;

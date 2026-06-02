@@ -3,6 +3,7 @@ import {
   AiRevenueRecommendationDraft,
   AiService,
 } from '../ai/ai.service';
+import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -36,6 +37,7 @@ const REVENUE_STATUSES = ['issued', 'disputed', 'resolved', 'paid'];
 const OUTSTANDING_STATUSES = ['issued', 'resolved', 'disputed'];
 const ACTIVE_DISPUTE_STATUSES = ['open', 'under_review'];
 const HIGH_INCIDENT_SEVERITIES = ['critical', 'high'];
+const DEFAULT_PROMPT_VERSION = 'v5-phase-7';
 
 type RevenueClientRecord = {
   id: string;
@@ -159,6 +161,7 @@ export class RevenueInsightsService {
     private prisma: PrismaService,
     private aiService: AiService,
     private auditService: AuditService,
+    private aiMonitoringService: AiMonitoringService,
   ) { }
 
   async getRevenueDashboard(
@@ -202,7 +205,7 @@ export class RevenueInsightsService {
       this.logAudit(tenantId, userId, 'AI_FINANCIAL_RECOMMENDATION_GENERATED', 'AiFinancialRecommendation', `${recommendations.recommendations.length} recommendations generated`),
     ]);
 
-    return {
+    const dashboard: RevenueInsightsDashboard = {
       generatedAt: base.context.now.toISOString(),
       source,
       aiSummary,
@@ -211,6 +214,29 @@ export class RevenueInsightsService {
       contracts: base.contracts,
       renewals: base.renewals,
       recommendations,
+    };
+
+    const generation = await this.aiMonitoringService.logGeneration({
+      tenantId,
+      createdBy: userId,
+      promptVersion: DEFAULT_PROMPT_VERSION,
+      modelUsed: this.aiService.getModelName(),
+      sourceModule: 'ai_insights.revenue',
+      generatedOutput: dashboard,
+      fallbackUsed: source !== 'ai_assisted',
+      status: source === 'ai_assisted' ? 'success' : 'fallback',
+    });
+
+    return {
+      ...dashboard,
+      aiGenerationId: generation?.id,
+      recommendations: {
+        ...dashboard.recommendations,
+        recommendations: this.aiMonitoringService.attachGenerationId(
+          dashboard.recommendations.recommendations,
+          generation?.id,
+        ),
+      },
     };
   }
 
@@ -1237,13 +1263,17 @@ export class RevenueInsightsService {
       renewals,
     );
     const aiRecommendations = await this.buildAiFinancialRecommendations(
+      context.tenantId,
       forecast,
       clientValue,
       contracts,
       renewals,
       ruleRecommendations,
     );
-    const recommendations = [...aiRecommendations, ...ruleRecommendations].slice(0, 10);
+    const recommendations = await this.aiMonitoringService.applyFeedbackToRecommendations(
+      context.tenantId,
+      [...aiRecommendations, ...ruleRecommendations].slice(0, 10),
+    );
     const highPriority = recommendations.filter(
       (recommendation) => recommendation.priority === 'high',
     ).length;
@@ -1428,6 +1458,7 @@ export class RevenueInsightsService {
   }
 
   private async buildAiFinancialRecommendations(
+    tenantId: string,
     forecast: RevenueForecastResponse,
     clientValue: ClientValueAnalysisResponse,
     contracts: ContractIntelligenceResponse,
@@ -1435,6 +1466,8 @@ export class RevenueInsightsService {
     ruleRecommendations: AiRecommendation[],
   ): Promise<AiRecommendation[]> {
     try {
+      const feedbackSummary =
+        await this.aiMonitoringService.getFeedbackSummaryForPrompt(tenantId);
       const generated =
         await this.aiService.generateRevenueFinancialRecommendations(
           JSON.stringify({
@@ -1453,6 +1486,7 @@ export class RevenueInsightsService {
             currentRuleActions: ruleRecommendations.map(
               (recommendation) => recommendation.action,
             ),
+            adminFeedbackHistory: feedbackSummary.summaryText,
           }),
         );
 

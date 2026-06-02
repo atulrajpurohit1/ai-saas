@@ -46,6 +46,8 @@ model Tenant {
   timesheets          Timesheet[]
   rateCards           RateCard[]
   recommendationActions RecommendationAction[]
+  aiGenerations       AiGeneration[]
+  aiFeedback          AiFeedback[]
 }
 
 model User {
@@ -574,6 +576,8 @@ model RecommendationAction {
   id               String    @id @default(uuid())
   tenantId         String    @map("tenant_id")
   tenant           Tenant    @relation(fields: [tenantId], references: [id])
+  aiGenerationId   String?   @map("ai_generation_id")
+  aiGeneration     AiGeneration? @relation(fields: [aiGenerationId], references: [id], onDelete: SetNull)
   recommendationId String    @map("recommendation_id")
   actionType       String    @map("action_type")
   title            String
@@ -586,10 +590,60 @@ model RecommendationAction {
   approvedAt       DateTime? @map("approved_at")
   executedAt       DateTime? @map("executed_at")
   failureReason    String?   @map("failure_reason")
+  feedback          AiFeedback[]
 
   @@unique([tenantId, recommendationId], map: "RecommendationAction_tenant_recommendation_key")
   @@index([tenantId])
+  @@index([aiGenerationId])
   @@index([tenantId, status])
   @@index([tenantId, targetModule, targetEntityId])
   @@map("RecommendationAction")
+}
+
+model AiGeneration {
+  id              String      @id @default(uuid())
+  tenantId        String      @map("tenant_id")
+  tenant          Tenant      @relation(fields: [tenantId], references: [id])
+  promptVersion   String      @map("prompt_version")
+  modelUsed       String      @map("model_used")
+  sourceModule    String      @map("source_module")
+  generatedOutput Json        @map("generated_output")
+  fallbackUsed    Boolean     @default(false) @map("fallback_used")
+  status          String      @default("success")
+  errorMessage    String?     @map("error_message")
+  createdBy       String?     @map("created_by")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  feedback        AiFeedback[]
+  actions         RecommendationAction[]
+
+  @@index([tenantId])
+  @@index([tenantId, sourceModule])
+  @@index([tenantId, status])
+  @@index([tenantId, fallbackUsed])
+  @@index([createdAt])
+  @@map("AiGeneration")
+}
+
+model AiFeedback {
+  id               String       @id @default(uuid())
+  tenantId         String       @map("tenant_id")
+  tenant           Tenant       @relation(fields: [tenantId], references: [id])
+  aiGenerationId   String       @map("ai_generation_id")
+  aiGeneration     AiGeneration @relation(fields: [aiGenerationId], references: [id], onDelete: Cascade)
+  recommendationId String?      @map("recommendation_id")
+  actionId         String?      @map("action_id")
+  action           RecommendationAction? @relation(fields: [actionId], references: [id], onDelete: SetNull)
+  rating           Int
+  feedbackText     String?      @map("feedback_text")
+  isUseful         Boolean      @map("is_useful")
+  isAccurate       Boolean      @map("is_accurate")
+  createdBy        String       @map("created_by")
+  createdAt        DateTime     @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([aiGenerationId])
+  @@index([recommendationId])
+  @@index([actionId])
+  @@index([tenantId, createdAt])
+  @@map("AiFeedback")
 }

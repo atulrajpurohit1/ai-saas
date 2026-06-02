@@ -15,6 +15,7 @@ const common_1 = require("@nestjs/common");
 const ai_insights_service_1 = require("../ai-insights/ai-insights.service");
 const recommendation_service_1 = require("../ai-insights/recommendation.service");
 const ai_actions_service_1 = require("../ai-actions/ai-actions.service");
+const ai_monitoring_service_1 = require("../ai-monitoring/ai-monitoring.service");
 const revenue_insights_service_1 = require("../ai-insights/revenue-insights.service");
 const ai_service_1 = require("../ai/ai.service");
 const prisma_service_1 = require("../prisma/prisma.service");
@@ -25,20 +26,23 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
     recommendationService;
     aiActionsService;
     aiService;
+    aiMonitoringService;
     logger = new common_1.Logger(CommandCenterService_1.name);
-    constructor(prisma, aiInsightsService, revenueInsightsService, recommendationService, aiActionsService, aiService) {
+    promptVersion = 'v5-phase-7';
+    constructor(prisma, aiInsightsService, revenueInsightsService, recommendationService, aiActionsService, aiService, aiMonitoringService) {
         this.prisma = prisma;
         this.aiInsightsService = aiInsightsService;
         this.revenueInsightsService = revenueInsightsService;
         this.recommendationService = recommendationService;
         this.aiActionsService = aiActionsService;
         this.aiService = aiService;
+        this.aiMonitoringService = aiMonitoringService;
     }
     async getDashboard(tenantId, userId, userRole) {
         const now = new Date();
         const [opsDashboard, incidentInsights, revenueDashboard, schedulingOverview, guardsOnDuty, openIncidents] = await Promise.all([
-            this.aiInsightsService.getDashboard(tenantId),
-            this.aiInsightsService.getIncidentInsights(tenantId),
+            this.aiInsightsService.getDashboard(tenantId, userId),
+            this.aiInsightsService.getIncidentInsights(tenantId, userId),
             this.revenueInsightsService.getRevenueDashboard(tenantId, userId),
             this.recommendationService.getSchedulingOverview(tenantId),
             this.countGuardsOnDuty(tenantId, now),
@@ -54,7 +58,7 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
         const isAiAssisted = dailySummary.source === 'ai_assisted' ||
             opsDashboard.source === 'ai_assisted' ||
             revenueDashboard.source === 'ai_assisted';
-        return {
+        const dashboard = {
             generatedAt: now.toISOString(),
             source: isAiAssisted ? 'ai_assisted' : 'rule_based',
             overview,
@@ -65,6 +69,21 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
             recommendations,
             dailySummary
         };
+        const generation = await this.aiMonitoringService.logGeneration({
+            tenantId,
+            createdBy: userId,
+            promptVersion: this.promptVersion,
+            modelUsed: this.aiService.getModelName(),
+            sourceModule: 'ai_command_center.dashboard',
+            generatedOutput: dashboard,
+            fallbackUsed: dailySummary.source !== 'ai_assisted',
+            status: isAiAssisted ? 'success' : 'fallback',
+        });
+        return {
+            ...dashboard,
+            aiGenerationId: generation?.id,
+            recommendations: this.aiMonitoringService.attachGenerationId(dashboard.recommendations, generation?.id),
+        };
     }
     async getSummary(tenantId, userId, userRole) {
         const dashboard = await this.getDashboard(tenantId, userId, userRole);
@@ -72,7 +91,7 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
     }
     async getRecommendations(tenantId, userId, userRole) {
         const [opsDashboard, revenueDashboard, schedulingOverview] = await Promise.all([
-            this.aiInsightsService.getDashboard(tenantId),
+            this.aiInsightsService.getDashboard(tenantId, userId),
             this.revenueInsightsService.getRevenueDashboard(tenantId, userId),
             this.recommendationService.getSchedulingOverview(tenantId),
         ]);
@@ -280,6 +299,7 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
             source: 'rule_based'
         };
         try {
+            const feedbackSummary = await this.aiMonitoringService.getFeedbackSummaryForPrompt(tenantId);
             const context = {
                 activeClients: overview.activeClients,
                 guardsOnDuty: overview.guardsOnDuty,
@@ -290,7 +310,8 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
                 outstandingBalance: financial.outstandingBalance,
                 upcomingCoverageGaps: schedulingOverview.coverageGaps,
                 upcomingShortageSlots: schedulingOverview.shortageSlots,
-                topRecommendations: recommendations.slice(0, 3).map(r => r.action)
+                topRecommendations: recommendations.slice(0, 3).map(r => r.action),
+                adminFeedbackHistory: feedbackSummary.summaryText,
             };
             const aiNarrative = await this.aiService.generateIncidentRiskSummary(JSON.stringify(context));
             if (aiNarrative) {
@@ -316,6 +337,7 @@ exports.CommandCenterService = CommandCenterService = CommandCenterService_1 = _
         revenue_insights_service_1.RevenueInsightsService,
         recommendation_service_1.RecommendationService,
         ai_actions_service_1.AiActionsService,
-        ai_service_1.AiService])
+        ai_service_1.AiService,
+        ai_monitoring_service_1.AiMonitoringService])
 ], CommandCenterService);
 //# sourceMappingURL=command-center.service.js.map

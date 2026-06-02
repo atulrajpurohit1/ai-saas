@@ -20,7 +20,8 @@ import {
   Receipt,
   X,
   BrainCircuit,
-  Command
+  Command,
+  Gauge
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { clsx, type ClassValue } from 'clsx';
@@ -41,6 +42,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   const adminLinks = [
     { href: '/ai-command-center', label: 'Command Center', icon: Command },
+    { href: '/ai-monitoring', label: 'AI Monitoring', icon: Gauge },
     { href: '/ai-actions', label: 'AI Actions', icon: ClipboardCheck },
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/leads', label: 'Leads', icon: Users },

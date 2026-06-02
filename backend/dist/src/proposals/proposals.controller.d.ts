@@ -7,108 +7,108 @@ export declare class ProposalsController {
     constructor(proposalsService: ProposalsService);
     create(req: Request, createProposalDto: CreateProposalDto): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
+        tenantId: string;
         clientId: string | null;
-        leadId: string | null;
         content: string;
+        title: string;
+        status: string;
         dealId: string | null;
+        leadId: string | null;
     }>;
     findAll(req: Request): Promise<({
-        lead: {
-            name: string;
-            id: string;
-            company: string;
-            status: string;
-            tenantId: string;
-            createdAt: Date;
-            updatedAt: Date;
-            email: string | null;
-        } | null;
-        client: {
-            name: string;
-            id: string;
-            tenantId: string;
-            createdAt: Date;
-            updatedAt: Date;
-            email: string;
-            companyName: string | null;
-            phone: string | null;
-        } | null;
         _count: {
             versions: number;
         };
-        deal: {
-            name: string;
+        client: {
             id: string;
-            tenantId: string;
+            name: string;
             createdAt: Date;
             updatedAt: Date;
+            email: string;
+            tenantId: string;
+            companyName: string | null;
+            phone: string | null;
+        } | null;
+        lead: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            email: string | null;
+            tenantId: string;
+            status: string;
+            company: string;
+        } | null;
+        deal: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
             clientId: string | null;
-            stage: string;
             leadId: string;
+            stage: string;
         } | null;
     } & {
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
+        tenantId: string;
         clientId: string | null;
-        leadId: string | null;
         content: string;
+        title: string;
+        status: string;
         dealId: string | null;
+        leadId: string | null;
     })[]>;
     generateProposal(req: Request, leadId: string, clientId?: string): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
+        tenantId: string;
         clientId: string | null;
-        leadId: string | null;
         content: string;
+        title: string;
+        status: string;
         dealId: string | null;
+        leadId: string | null;
     }>;
     generateBulkProposals(req: Request): Promise<{
         generatedCount: number;
         totalProcessed: number;
     }>;
     findOne(req: Request, id: string): Promise<{
-        lead: {
-            name: string;
-            id: string;
-            company: string;
-            status: string;
-            tenantId: string;
-            createdAt: Date;
-            updatedAt: Date;
-            email: string | null;
-        } | null;
         client: {
-            name: string;
             id: string;
-            tenantId: string;
+            name: string;
             createdAt: Date;
             updatedAt: Date;
             email: string;
+            tenantId: string;
             companyName: string | null;
             phone: string | null;
         } | null;
-        deal: {
-            name: string;
+        lead: {
             id: string;
-            tenantId: string;
+            name: string;
             createdAt: Date;
             updatedAt: Date;
+            email: string | null;
+            tenantId: string;
+            status: string;
+            company: string;
+        } | null;
+        deal: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
             clientId: string | null;
-            stage: string;
             leadId: string;
+            stage: string;
         } | null;
         versions: {
             id: string;
@@ -119,57 +119,57 @@ export declare class ProposalsController {
         }[];
     } & {
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
+        tenantId: string;
         clientId: string | null;
-        leadId: string | null;
         content: string;
+        title: string;
+        status: string;
         dealId: string | null;
+        leadId: string | null;
     }>;
     update(req: Request, id: string, updateProposalDto: UpdateProposalDto): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
+        tenantId: string;
         clientId: string | null;
-        leadId: string | null;
         content: string;
+        title: string;
+        status: string;
         dealId: string | null;
+        leadId: string | null;
     }>;
     export(req: Request, id: string, res: Response): Promise<void>;
     getComments(req: Request, id: string): Promise<{
         id: string;
-        tenantId: string;
         createdAt: Date;
-        userId: string | null;
+        tenantId: string;
         content: string;
         proposalId: string;
+        userId: string | null;
         clientUserId: string | null;
     }[]>;
     addComment(req: Request, id: string, content: string): Promise<{
         id: string;
-        tenantId: string;
         createdAt: Date;
-        userId: string | null;
+        tenantId: string;
         content: string;
         proposalId: string;
+        userId: string | null;
         clientUserId: string | null;
     }>;
     share(req: Request, id: string, clientId: string): Promise<{
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
         updatedAt: Date;
-        title: string;
+        tenantId: string;
         clientId: string | null;
-        leadId: string | null;
         content: string;
+        title: string;
+        status: string;
         dealId: string | null;
+        leadId: string | null;
     }>;
 }

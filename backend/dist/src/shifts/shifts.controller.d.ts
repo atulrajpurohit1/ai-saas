@@ -11,9 +11,9 @@ export declare class ShiftsController {
         };
     } & {
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
+        status: string;
         siteId: string;
         startTime: Date;
         endTime: Date;
@@ -32,15 +32,15 @@ export declare class ShiftsController {
             };
         } & {
             id: string;
-            status: string;
             createdAt: Date;
-            shiftId: string;
+            status: string;
             guardId: string;
+            shiftId: string;
         })[];
         id: string;
-        status: string;
-        tenantId: string;
         createdAt: Date;
+        tenantId: string;
+        status: string;
         siteId: string;
         startTime: Date;
         endTime: Date;
@@ -49,10 +49,10 @@ export declare class ShiftsController {
     recommendGuards(user: ActiveUser, id: string): Promise<import("../ai-insights/ai-insights.types").GuardRecommendation[]>;
     assign(user: ActiveUser, id: string, dto: AssignGuardDto): Promise<{
         id: string;
-        status: string;
         createdAt: Date;
-        shiftId: string;
+        status: string;
         guardId: string;
+        shiftId: string;
     }>;
     unassign(user: ActiveUser, id: string): Promise<{
         message: string;

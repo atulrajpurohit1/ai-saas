@@ -13,6 +13,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RevenueInsightsService = void 0;
 const common_1 = require("@nestjs/common");
 const ai_service_1 = require("../ai/ai.service");
+const ai_monitoring_service_1 = require("../ai-monitoring/ai-monitoring.service");
 const audit_service_1 = require("../audit/audit.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -27,15 +28,18 @@ const REVENUE_STATUSES = ['issued', 'disputed', 'resolved', 'paid'];
 const OUTSTANDING_STATUSES = ['issued', 'resolved', 'disputed'];
 const ACTIVE_DISPUTE_STATUSES = ['open', 'under_review'];
 const HIGH_INCIDENT_SEVERITIES = ['critical', 'high'];
+const DEFAULT_PROMPT_VERSION = 'v5-phase-7';
 let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsService {
     prisma;
     aiService;
     auditService;
+    aiMonitoringService;
     logger = new common_1.Logger(RevenueInsightsService_1.name);
-    constructor(prisma, aiService, auditService) {
+    constructor(prisma, aiService, auditService, aiMonitoringService) {
         this.prisma = prisma;
         this.aiService = aiService;
         this.auditService = auditService;
+        this.aiMonitoringService = aiMonitoringService;
     }
     async getRevenueDashboard(tenantId, userId) {
         const base = await this.buildBaseSections(tenantId);
@@ -52,7 +56,7 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
             this.logAudit(tenantId, userId, 'AI_CONTRACT_ANALYSIS_EXECUTED', 'AiContractIntelligence', `${base.contracts.rows.length} contracts analyzed`),
             this.logAudit(tenantId, userId, 'AI_FINANCIAL_RECOMMENDATION_GENERATED', 'AiFinancialRecommendation', `${recommendations.recommendations.length} recommendations generated`),
         ]);
-        return {
+        const dashboard = {
             generatedAt: base.context.now.toISOString(),
             source,
             aiSummary,
@@ -61,6 +65,24 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
             contracts: base.contracts,
             renewals: base.renewals,
             recommendations,
+        };
+        const generation = await this.aiMonitoringService.logGeneration({
+            tenantId,
+            createdBy: userId,
+            promptVersion: DEFAULT_PROMPT_VERSION,
+            modelUsed: this.aiService.getModelName(),
+            sourceModule: 'ai_insights.revenue',
+            generatedOutput: dashboard,
+            fallbackUsed: source !== 'ai_assisted',
+            status: source === 'ai_assisted' ? 'success' : 'fallback',
+        });
+        return {
+            ...dashboard,
+            aiGenerationId: generation?.id,
+            recommendations: {
+                ...dashboard.recommendations,
+                recommendations: this.aiMonitoringService.attachGenerationId(dashboard.recommendations.recommendations, generation?.id),
+            },
         };
     }
     async getContractInsights(tenantId, userId) {
@@ -810,8 +832,8 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
     }
     async buildFinancialRecommendations(context, forecast, clientValue, contracts, renewals) {
         const ruleRecommendations = this.buildRuleFinancialRecommendations(context, forecast, clientValue, contracts, renewals);
-        const aiRecommendations = await this.buildAiFinancialRecommendations(forecast, clientValue, contracts, renewals, ruleRecommendations);
-        const recommendations = [...aiRecommendations, ...ruleRecommendations].slice(0, 10);
+        const aiRecommendations = await this.buildAiFinancialRecommendations(context.tenantId, forecast, clientValue, contracts, renewals, ruleRecommendations);
+        const recommendations = await this.aiMonitoringService.applyFeedbackToRecommendations(context.tenantId, [...aiRecommendations, ...ruleRecommendations].slice(0, 10));
         const highPriority = recommendations.filter((recommendation) => recommendation.priority === 'high').length;
         return {
             generatedAt: context.now.toISOString(),
@@ -967,8 +989,9 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
         }
         return recommendations;
     }
-    async buildAiFinancialRecommendations(forecast, clientValue, contracts, renewals, ruleRecommendations) {
+    async buildAiFinancialRecommendations(tenantId, forecast, clientValue, contracts, renewals, ruleRecommendations) {
         try {
+            const feedbackSummary = await this.aiMonitoringService.getFeedbackSummaryForPrompt(tenantId);
             const generated = await this.aiService.generateRevenueFinancialRecommendations(JSON.stringify({
                 forecast: {
                     nextMonthRevenue: forecast.nextMonthRevenue,
@@ -983,6 +1006,7 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
                 contractRisks: contracts.rows.slice(0, 5),
                 renewalOpportunities: renewals.rows.slice(0, 5),
                 currentRuleActions: ruleRecommendations.map((recommendation) => recommendation.action),
+                adminFeedbackHistory: feedbackSummary.summaryText,
             }));
             if (!generated?.length) {
                 return [];
@@ -1330,6 +1354,7 @@ exports.RevenueInsightsService = RevenueInsightsService = RevenueInsightsService
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         ai_service_1.AiService,
-        audit_service_1.AuditService])
+        audit_service_1.AuditService,
+        ai_monitoring_service_1.AiMonitoringService])
 ], RevenueInsightsService);
 //# sourceMappingURL=revenue-insights.service.js.map
