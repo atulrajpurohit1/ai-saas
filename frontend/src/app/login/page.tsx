@@ -158,7 +158,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            {(isRegister || role === 'client') && (
+            {isRegister && (
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Company Slug</label>
                 <div className="relative group">
