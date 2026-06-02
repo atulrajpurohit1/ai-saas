@@ -12,28 +12,53 @@ var AiMonitoringService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AiMonitoringService = void 0;
 const common_1 = require("@nestjs/common");
+const ai_governance_service_1 = require("../ai-governance/ai-governance.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const DEFAULT_PROMPT_VERSION = 'v5-phase-7';
 const DEFAULT_MODEL_USED = 'rule-or-fallback';
 const REJECTED_ACTION_THRESHOLD = 2;
 let AiMonitoringService = AiMonitoringService_1 = class AiMonitoringService {
     prisma;
+    aiGovernanceService;
     logger = new common_1.Logger(AiMonitoringService_1.name);
-    constructor(prisma) {
+    constructor(prisma, aiGovernanceService) {
         this.prisma = prisma;
+        this.aiGovernanceService = aiGovernanceService;
     }
     async logGeneration(input) {
         try {
+            const prompt = await this.aiGovernanceService.resolvePromptVersion({
+                tenantId: input.tenantId,
+                moduleName: input.sourceModule,
+                promptKey: input.promptKey,
+                fallbackVersion: input.promptVersion || DEFAULT_PROMPT_VERSION,
+            });
+            const safety = this.aiGovernanceService.evaluateSafety({
+                generatedOutput: input.generatedOutput,
+                inputSource: input.inputSource,
+                clientVisible: input.clientVisible,
+            });
             return await this.prisma.aiGeneration.create({
                 data: {
                     tenantId: input.tenantId,
-                    promptVersion: input.promptVersion || DEFAULT_PROMPT_VERSION,
+                    promptVersion: prompt.promptVersion,
+                    promptVersionId: prompt.promptVersionId,
                     modelUsed: input.modelUsed || DEFAULT_MODEL_USED,
                     sourceModule: input.sourceModule,
+                    inputSource: input.inputSource === undefined
+                        ? undefined
+                        : this.toJsonValue(input.inputSource),
                     generatedOutput: this.toJsonValue(input.generatedOutput),
                     fallbackUsed: input.fallbackUsed,
                     status: input.status,
                     errorMessage: input.errorMessage,
+                    clientVisible: input.clientVisible ?? false,
+                    approvalStatus: this.aiGovernanceService.approvalStatusFor({
+                        clientVisible: input.clientVisible,
+                        safetyStatus: safety.status,
+                    }),
+                    safetyStatus: safety.status,
+                    safetyFindings: this.toJsonValue(safety.findings),
                     createdBy: input.createdBy,
                 },
             });
@@ -296,6 +321,10 @@ let AiMonitoringService = AiMonitoringService_1 = class AiMonitoringService {
                 sourceModule: dto.actionId
                     ? 'ai_actions.legacy_feedback'
                     : 'ai_recommendations.legacy_feedback',
+                clientVisible: false,
+                approvalStatus: 'not_required',
+                safetyStatus: 'passed',
+                safetyFindings: [],
                 generatedOutput: this.toJsonValue({
                     recommendationId: dto.recommendationId,
                     actionId: dto.actionId,
@@ -377,6 +406,7 @@ let AiMonitoringService = AiMonitoringService_1 = class AiMonitoringService {
 exports.AiMonitoringService = AiMonitoringService;
 exports.AiMonitoringService = AiMonitoringService = AiMonitoringService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        ai_governance_service_1.AiGovernanceService])
 ], AiMonitoringService);
 //# sourceMappingURL=ai-monitoring.service.js.map

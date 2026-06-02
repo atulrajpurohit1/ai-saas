@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { AiGovernanceService } from '../ai-governance/ai-governance.service';
 import {
   AiRevenueRecommendationDraft,
   AiService,
@@ -162,6 +163,8 @@ export class RevenueInsightsService {
     private aiService: AiService,
     private auditService: AuditService,
     private aiMonitoringService: AiMonitoringService,
+    @Optional()
+    private aiGovernanceService?: AiGovernanceService,
   ) { }
 
   async getRevenueDashboard(
@@ -220,6 +223,7 @@ export class RevenueInsightsService {
       tenantId,
       createdBy: userId,
       promptVersion: DEFAULT_PROMPT_VERSION,
+      promptKey: 'revenue_summary',
       modelUsed: this.aiService.getModelName(),
       sourceModule: 'ai_insights.revenue',
       generatedOutput: dashboard,
@@ -1488,6 +1492,11 @@ export class RevenueInsightsService {
             ),
             adminFeedbackHistory: feedbackSummary.summaryText,
           }),
+          await this.resolvePromptTemplate(
+            tenantId,
+            'ai_insights.revenue',
+            'financial_recommendations',
+          ),
         );
 
       if (!generated?.length) {
@@ -1533,6 +1542,11 @@ export class RevenueInsightsService {
             .slice(0, 4)
             .map((recommendation) => recommendation.action),
         }),
+        await this.resolvePromptTemplate(
+          context.tenantId,
+          'ai_insights.revenue',
+          'revenue_summary',
+        ),
       );
     } catch (error) {
       this.logger.warn(
@@ -1589,6 +1603,21 @@ export class RevenueInsightsService {
       actionType: 'notify_admin',
       targetModule: 'revenue',
     };
+  }
+
+  private async resolvePromptTemplate(
+    tenantId: string,
+    moduleName: string,
+    promptKey: string,
+  ) {
+    return (
+      await this.aiGovernanceService?.resolvePromptVersion({
+        tenantId,
+        moduleName,
+        promptKey,
+        fallbackVersion: DEFAULT_PROMPT_VERSION,
+      })
+    )?.promptText ?? null;
   }
 
   private getOrCreateAggregate(

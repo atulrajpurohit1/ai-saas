@@ -8,10 +8,14 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 var RevenueInsightsService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RevenueInsightsService = void 0;
 const common_1 = require("@nestjs/common");
+const ai_governance_service_1 = require("../ai-governance/ai-governance.service");
 const ai_service_1 = require("../ai/ai.service");
 const ai_monitoring_service_1 = require("../ai-monitoring/ai-monitoring.service");
 const audit_service_1 = require("../audit/audit.service");
@@ -34,12 +38,14 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
     aiService;
     auditService;
     aiMonitoringService;
+    aiGovernanceService;
     logger = new common_1.Logger(RevenueInsightsService_1.name);
-    constructor(prisma, aiService, auditService, aiMonitoringService) {
+    constructor(prisma, aiService, auditService, aiMonitoringService, aiGovernanceService) {
         this.prisma = prisma;
         this.aiService = aiService;
         this.auditService = auditService;
         this.aiMonitoringService = aiMonitoringService;
+        this.aiGovernanceService = aiGovernanceService;
     }
     async getRevenueDashboard(tenantId, userId) {
         const base = await this.buildBaseSections(tenantId);
@@ -70,6 +76,7 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
             tenantId,
             createdBy: userId,
             promptVersion: DEFAULT_PROMPT_VERSION,
+            promptKey: 'revenue_summary',
             modelUsed: this.aiService.getModelName(),
             sourceModule: 'ai_insights.revenue',
             generatedOutput: dashboard,
@@ -1007,7 +1014,7 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
                 renewalOpportunities: renewals.rows.slice(0, 5),
                 currentRuleActions: ruleRecommendations.map((recommendation) => recommendation.action),
                 adminFeedbackHistory: feedbackSummary.summaryText,
-            }));
+            }), await this.resolvePromptTemplate(tenantId, 'ai_insights.revenue', 'financial_recommendations'));
             if (!generated?.length) {
                 return [];
             }
@@ -1036,7 +1043,7 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
                 recommendations: recommendations.recommendations
                     .slice(0, 4)
                     .map((recommendation) => recommendation.action),
-            }));
+            }), await this.resolvePromptTemplate(context.tenantId, 'ai_insights.revenue', 'revenue_summary'));
         }
         catch (error) {
             this.logger.warn(`Revenue AI summary skipped: ${error instanceof Error ? error.message : String(error)}`);
@@ -1076,6 +1083,14 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
             actionType: 'notify_admin',
             targetModule: 'revenue',
         };
+    }
+    async resolvePromptTemplate(tenantId, moduleName, promptKey) {
+        return (await this.aiGovernanceService?.resolvePromptVersion({
+            tenantId,
+            moduleName,
+            promptKey,
+            fallbackVersion: DEFAULT_PROMPT_VERSION,
+        }))?.promptText ?? null;
     }
     getOrCreateAggregate(aggregates, invoice) {
         return this.getOrCreateAggregateForClient(aggregates, invoice.clientId, invoice.client ? this.clientDisplayName(invoice.client) : 'Unknown client', invoice.createdAt);
@@ -1352,9 +1367,11 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
 exports.RevenueInsightsService = RevenueInsightsService;
 exports.RevenueInsightsService = RevenueInsightsService = RevenueInsightsService_1 = __decorate([
     (0, common_1.Injectable)(),
+    __param(4, (0, common_1.Optional)()),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         ai_service_1.AiService,
         audit_service_1.AuditService,
-        ai_monitoring_service_1.AiMonitoringService])
+        ai_monitoring_service_1.AiMonitoringService,
+        ai_governance_service_1.AiGovernanceService])
 ], RevenueInsightsService);
 //# sourceMappingURL=revenue-insights.service.js.map

@@ -43,6 +43,7 @@ const ai_insights_module_1 = require("./ai-insights/ai-insights.module");
 const command_center_module_1 = require("./ai-command-center/command-center.module");
 const ai_actions_module_1 = require("./ai-actions/ai-actions.module");
 const ai_monitoring_module_1 = require("./ai-monitoring/ai-monitoring.module");
+const ai_governance_module_1 = require("./ai-governance/ai-governance.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -65,6 +66,7 @@ exports.AppModule = AppModule = __decorate([
             ai_insights_module_1.AiInsightsModule,
             command_center_module_1.CommandCenterModule,
             ai_actions_module_1.AiActionsModule,
+            ai_governance_module_1.AiGovernanceModule,
             ai_monitoring_module_1.AiMonitoringModule,
             timesheets_module_1.TimesheetsModule,
             rate_cards_module_1.RateCardsModule,

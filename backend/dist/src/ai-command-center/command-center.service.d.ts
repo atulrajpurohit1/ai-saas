@@ -1,3 +1,4 @@
+import { AiGovernanceService } from '../ai-governance/ai-governance.service';
 import { AiInsightsService } from '../ai-insights/ai-insights.service';
 import { RecommendationService } from '../ai-insights/recommendation.service';
 import { AiActionsService } from '../ai-actions/ai-actions.service';
@@ -15,9 +16,10 @@ export declare class CommandCenterService {
     private readonly aiActionsService;
     private readonly aiService;
     private readonly aiMonitoringService;
+    private readonly aiGovernanceService?;
     private readonly logger;
     private readonly promptVersion;
-    constructor(prisma: PrismaService, aiInsightsService: AiInsightsService, revenueInsightsService: RevenueInsightsService, recommendationService: RecommendationService, aiActionsService: AiActionsService, aiService: AiService, aiMonitoringService: AiMonitoringService);
+    constructor(prisma: PrismaService, aiInsightsService: AiInsightsService, revenueInsightsService: RevenueInsightsService, recommendationService: RecommendationService, aiActionsService: AiActionsService, aiService: AiService, aiMonitoringService: AiMonitoringService, aiGovernanceService?: AiGovernanceService | undefined);
     getDashboard(tenantId: string, userId: string, userRole?: string): Promise<CommandCenterDashboard>;
     getSummary(tenantId: string, userId: string, userRole?: string): Promise<DailySummary>;
     getRecommendations(tenantId: string, userId: string, userRole?: string): Promise<AiRecommendation[]>;
@@ -37,4 +39,5 @@ export declare class CommandCenterService {
     private buildUnifiedRisks;
     private buildUnifiedRecommendations;
     private generateDailySummary;
+    private resolvePromptTemplate;
 }

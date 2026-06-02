@@ -8,10 +8,14 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 var AiInsightsService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AiInsightsService = void 0;
 const common_1 = require("@nestjs/common");
+const ai_governance_service_1 = require("../ai-governance/ai-governance.service");
 const ai_service_1 = require("../ai/ai.service");
 const ai_monitoring_service_1 = require("../ai-monitoring/ai-monitoring.service");
 const prisma_service_1 = require("../prisma/prisma.service");
@@ -34,11 +38,13 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
     prisma;
     aiService;
     aiMonitoringService;
+    aiGovernanceService;
     logger = new common_1.Logger(AiInsightsService_1.name);
-    constructor(prisma, aiService, aiMonitoringService) {
+    constructor(prisma, aiService, aiMonitoringService, aiGovernanceService) {
         this.prisma = prisma;
         this.aiService = aiService;
         this.aiMonitoringService = aiMonitoringService;
+        this.aiGovernanceService = aiGovernanceService;
     }
     async getDashboard(tenantId, userId) {
         const [clients, guards, sites, billing] = await Promise.all([
@@ -67,6 +73,7 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
             tenantId,
             createdBy: userId,
             promptVersion: DEFAULT_PROMPT_VERSION,
+            promptKey: 'business_recommendations',
             modelUsed: this.aiService.getModelName(),
             sourceModule: 'ai_insights.dashboard',
             generatedOutput: dashboard,
@@ -816,6 +823,7 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
             timePatterns,
         }));
         const aiSummary = await this.buildIncidentAiSummary({
+            tenantId,
             severityBreakdown,
             highRiskSites,
             clientRisks: clientRiskRows,
@@ -864,6 +872,7 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
             tenantId,
             createdBy: userId,
             promptVersion: DEFAULT_PROMPT_VERSION,
+            promptKey: 'incident_risk_summary',
             modelUsed: this.aiService.getModelName(),
             sourceModule: 'ai_insights.incident_risk',
             generatedOutput: response,
@@ -1171,6 +1180,7 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
     }
     async buildIncidentAiSummary(input) {
         try {
+            const promptTemplate = await this.resolvePromptTemplate(input.tenantId, 'ai_insights.incident_risk', 'incident_risk_summary');
             return await this.aiService.generateIncidentRiskSummary(JSON.stringify({
                 severityBreakdown: input.severityBreakdown,
                 highRiskSites: input.highRiskSites.slice(0, 3),
@@ -1179,7 +1189,7 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
                 recurringIncidentTypes: input.recurringIncidentTypes.slice(0, 5),
                 timePatterns: input.timePatterns.slice(0, 5),
                 recommendations: input.recommendations.map((recommendation) => recommendation.action),
-            }));
+            }), promptTemplate);
         }
         catch (error) {
             this.logger.warn(`Incident AI summary skipped: ${error instanceof Error ? error.message : String(error)}`);
@@ -1404,7 +1414,7 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
                 currentRecommendations: ruleRecommendations.map((item) => item.action),
                 adminFeedbackHistory: feedbackSummary.summaryText,
             };
-            const generated = await this.aiService.generateBusinessInsightRecommendations(JSON.stringify(context));
+            const generated = await this.aiService.generateBusinessInsightRecommendations(JSON.stringify(context), await this.resolvePromptTemplate(tenantId, 'ai_insights.dashboard', 'business_recommendations'));
             if (!generated?.length) {
                 return [];
             }
@@ -1433,6 +1443,14 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
             title,
             message: 'Generate shifts, attendance records, incidents, invoices, or contracts to unlock richer insights.',
         };
+    }
+    async resolvePromptTemplate(tenantId, moduleName, promptKey) {
+        return (await this.aiGovernanceService?.resolvePromptVersion({
+            tenantId,
+            moduleName,
+            promptKey,
+            fallbackVersion: DEFAULT_PROMPT_VERSION,
+        }))?.promptText ?? null;
     }
     metric(label, value, detail, tone) {
         return { label, value, detail, tone };
@@ -1498,8 +1516,10 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
 exports.AiInsightsService = AiInsightsService;
 exports.AiInsightsService = AiInsightsService = AiInsightsService_1 = __decorate([
     (0, common_1.Injectable)(),
+    __param(3, (0, common_1.Optional)()),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         ai_service_1.AiService,
-        ai_monitoring_service_1.AiMonitoringService])
+        ai_monitoring_service_1.AiMonitoringService,
+        ai_governance_service_1.AiGovernanceService])
 ], AiInsightsService);
 //# sourceMappingURL=ai-insights.service.js.map

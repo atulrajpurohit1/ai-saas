@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { AiGovernanceService } from '../ai-governance/ai-governance.service';
 import { AiService } from '../ai/ai.service';
 import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -93,6 +94,8 @@ export class AiInsightsService {
     private prisma: PrismaService,
     private aiService: AiService,
     private aiMonitoringService: AiMonitoringService,
+    @Optional()
+    private aiGovernanceService?: AiGovernanceService,
   ) { }
 
   async getDashboard(
@@ -146,6 +149,7 @@ export class AiInsightsService {
       tenantId,
       createdBy: userId,
       promptVersion: DEFAULT_PROMPT_VERSION,
+      promptKey: 'business_recommendations',
       modelUsed: this.aiService.getModelName(),
       sourceModule: 'ai_insights.dashboard',
       generatedOutput: dashboard,
@@ -1077,6 +1081,7 @@ export class AiInsightsService {
       timePatterns,
     }));
     const aiSummary = await this.buildIncidentAiSummary({
+      tenantId,
       severityBreakdown,
       highRiskSites,
       clientRisks: clientRiskRows,
@@ -1127,6 +1132,7 @@ export class AiInsightsService {
       tenantId,
       createdBy: userId,
       promptVersion: DEFAULT_PROMPT_VERSION,
+      promptKey: 'incident_risk_summary',
       modelUsed: this.aiService.getModelName(),
       sourceModule: 'ai_insights.incident_risk',
       generatedOutput: response,
@@ -1504,6 +1510,7 @@ export class AiInsightsService {
   }
 
   private async buildIncidentAiSummary(input: {
+    tenantId: string;
     severityBreakdown: IncidentSeverityBreakdown[];
     highRiskSites: IncidentRiskRow[];
     clientRisks: IncidentRiskRow[];
@@ -1513,6 +1520,12 @@ export class AiInsightsService {
     recommendations: AiRecommendation[];
   }) {
     try {
+      const promptTemplate = await this.resolvePromptTemplate(
+        input.tenantId,
+        'ai_insights.incident_risk',
+        'incident_risk_summary',
+      );
+
       return await this.aiService.generateIncidentRiskSummary(
         JSON.stringify({
           severityBreakdown: input.severityBreakdown,
@@ -1523,6 +1536,7 @@ export class AiInsightsService {
           timePatterns: input.timePatterns.slice(0, 5),
           recommendations: input.recommendations.map((recommendation) => recommendation.action),
         }),
+        promptTemplate,
       );
     } catch (error) {
       this.logger.warn(
@@ -1810,6 +1824,11 @@ export class AiInsightsService {
       const generated =
         await this.aiService.generateBusinessInsightRecommendations(
           JSON.stringify(context),
+          await this.resolvePromptTemplate(
+            tenantId,
+            'ai_insights.dashboard',
+            'business_recommendations',
+          ),
         );
 
       if (!generated?.length) {
@@ -1847,6 +1866,21 @@ export class AiInsightsService {
       title,
       message: 'Generate shifts, attendance records, incidents, invoices, or contracts to unlock richer insights.',
     };
+  }
+
+  private async resolvePromptTemplate(
+    tenantId: string,
+    moduleName: string,
+    promptKey: string,
+  ) {
+    return (
+      await this.aiGovernanceService?.resolvePromptVersion({
+        tenantId,
+        moduleName,
+        promptKey,
+        fallbackVersion: DEFAULT_PROMPT_VERSION,
+      })
+    )?.promptText ?? null;
   }
 
   private metric(

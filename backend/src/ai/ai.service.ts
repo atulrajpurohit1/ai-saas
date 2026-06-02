@@ -76,6 +76,17 @@ export class AiService {
     return `Failed to complete ${action} with Gemini. Check GEMINI_API_KEY and GEMINI_MODEL.`;
   }
 
+  private renderPrompt(
+    promptTemplate: string | null | undefined,
+    variables: Record<string, string | number | null | undefined>,
+  ) {
+    if (!promptTemplate?.trim()) return null;
+
+    return promptTemplate.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key) =>
+      String(variables[key] ?? ''),
+    );
+  }
+
   private async generateText(
     prompt: string,
     action: string,
@@ -212,12 +223,13 @@ export class AiService {
 
   async generateBusinessInsightRecommendations(
     context: string,
+    promptTemplate?: string | null,
   ): Promise<string[] | null> {
     if (!this.isAiAvailable()) {
       return null;
     }
 
-    const prompt = `
+    const prompt = this.renderPrompt(promptTemplate, { context }) || `
       You are analyzing tenant-scoped security operations data for an admin dashboard.
       Use only this aggregated context:
       ${context}
@@ -252,12 +264,15 @@ export class AiService {
     }
   }
 
-  async generateIncidentRiskSummary(context: string): Promise<string | null> {
+  async generateIncidentRiskSummary(
+    context: string,
+    promptTemplate?: string | null,
+  ): Promise<string | null> {
     if (!this.isAiAvailable()) {
       return null;
     }
 
-    const prompt = `
+    const prompt = this.renderPrompt(promptTemplate, { context }) || `
       You are analyzing tenant-scoped security incident risk for an operations admin.
       Use only this aggregated incident context:
       ${context}
@@ -282,12 +297,13 @@ export class AiService {
 
   async generateRevenueIntelligenceSummary(
     context: string,
+    promptTemplate?: string | null,
   ): Promise<string | null> {
     if (!this.isAiAvailable()) {
       return null;
     }
 
-    const prompt = `
+    const prompt = this.renderPrompt(promptTemplate, { context }) || `
       You are analyzing tenant-scoped security services revenue, contracts, renewals, invoice collections, and client value.
       Use only this aggregated financial context:
       ${context}
@@ -317,12 +333,13 @@ export class AiService {
 
   async generateRevenueFinancialRecommendations(
     context: string,
+    promptTemplate?: string | null,
   ): Promise<AiRevenueRecommendationDraft[] | null> {
     if (!this.isAiAvailable()) {
       return null;
     }
 
-    const prompt = `
+    const prompt = this.renderPrompt(promptTemplate, { context }) || `
       You are a senior finance and operations advisor for a security services SaaS platform.
       Use only this aggregated tenant-scoped financial context:
       ${context}
@@ -378,12 +395,15 @@ export class AiService {
     }
   }
 
-  async explainGuardRecommendation(context: string): Promise<string | null> {
+  async explainGuardRecommendation(
+    context: string,
+    promptTemplate?: string | null,
+  ): Promise<string | null> {
     if (!this.isAiAvailable()) {
       return null;
     }
 
-    const prompt = `
+    const prompt = this.renderPrompt(promptTemplate, { context }) || `
       Explain this guard recommendation to a security operations admin.
       Use only this aggregated scheduling context:
       ${context}

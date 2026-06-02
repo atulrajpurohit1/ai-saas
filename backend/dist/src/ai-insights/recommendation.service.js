@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RecommendationService = void 0;
 const common_1 = require("@nestjs/common");
+const ai_governance_service_1 = require("../ai-governance/ai-governance.service");
 const ai_service_1 = require("../ai/ai.service");
 const ai_monitoring_service_1 = require("../ai-monitoring/ai-monitoring.service");
 const prisma_service_1 = require("../prisma/prisma.service");
@@ -28,10 +29,12 @@ let RecommendationService = class RecommendationService {
     prisma;
     aiService;
     aiMonitoringService;
-    constructor(prisma, aiService, aiMonitoringService) {
+    aiGovernanceService;
+    constructor(prisma, aiService, aiMonitoringService, aiGovernanceService) {
         this.prisma = prisma;
         this.aiService = aiService;
         this.aiMonitoringService = aiMonitoringService;
+        this.aiGovernanceService = aiGovernanceService;
     }
     async recommendGuards(tenantId, shiftId, includeAiExplanation = true) {
         const shift = await this.prisma.shift.findFirst({
@@ -225,6 +228,7 @@ let RecommendationService = class RecommendationService {
             ...recommendation,
             explanation: includeAiExplanation && index < 5
                 ? await this.explainRecommendation({
+                    tenantId,
                     recommendation,
                     siteName: shift.site.name,
                 })
@@ -238,6 +242,7 @@ let RecommendationService = class RecommendationService {
             await this.aiMonitoringService?.logGeneration({
                 tenantId,
                 promptVersion: DEFAULT_PROMPT_VERSION,
+                promptKey: 'guard_recommendation_explanation',
                 modelUsed: this.aiService.getModelName(),
                 sourceModule: 'ai_scheduling.guard_recommendations',
                 generatedOutput: {
@@ -444,16 +449,26 @@ let RecommendationService = class RecommendationService {
             reasons: input.recommendation.reasons,
             warnings: input.recommendation.warnings,
             metrics: input.recommendation.metrics,
-        }));
+        }), await this.resolvePromptTemplate(input.tenantId, 'ai_scheduling.guard_recommendations', 'guard_recommendation_explanation'));
         return aiExplanation || fallback;
+    }
+    async resolvePromptTemplate(tenantId, moduleName, promptKey) {
+        return (await this.aiGovernanceService?.resolvePromptVersion({
+            tenantId,
+            moduleName,
+            promptKey,
+            fallbackVersion: DEFAULT_PROMPT_VERSION,
+        }))?.promptText ?? null;
     }
 };
 exports.RecommendationService = RecommendationService;
 exports.RecommendationService = RecommendationService = __decorate([
     (0, common_1.Injectable)(),
     __param(2, (0, common_1.Optional)()),
+    __param(3, (0, common_1.Optional)()),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         ai_service_1.AiService,
-        ai_monitoring_service_1.AiMonitoringService])
+        ai_monitoring_service_1.AiMonitoringService,
+        ai_governance_service_1.AiGovernanceService])
 ], RecommendationService);
 //# sourceMappingURL=recommendation.service.js.map

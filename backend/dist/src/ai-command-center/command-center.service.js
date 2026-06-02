@@ -8,10 +8,14 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 var CommandCenterService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CommandCenterService = void 0;
 const common_1 = require("@nestjs/common");
+const ai_governance_service_1 = require("../ai-governance/ai-governance.service");
 const ai_insights_service_1 = require("../ai-insights/ai-insights.service");
 const recommendation_service_1 = require("../ai-insights/recommendation.service");
 const ai_actions_service_1 = require("../ai-actions/ai-actions.service");
@@ -27,9 +31,10 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
     aiActionsService;
     aiService;
     aiMonitoringService;
+    aiGovernanceService;
     logger = new common_1.Logger(CommandCenterService_1.name);
     promptVersion = 'v5-phase-7';
-    constructor(prisma, aiInsightsService, revenueInsightsService, recommendationService, aiActionsService, aiService, aiMonitoringService) {
+    constructor(prisma, aiInsightsService, revenueInsightsService, recommendationService, aiActionsService, aiService, aiMonitoringService, aiGovernanceService) {
         this.prisma = prisma;
         this.aiInsightsService = aiInsightsService;
         this.revenueInsightsService = revenueInsightsService;
@@ -37,6 +42,7 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
         this.aiActionsService = aiActionsService;
         this.aiService = aiService;
         this.aiMonitoringService = aiMonitoringService;
+        this.aiGovernanceService = aiGovernanceService;
     }
     async getDashboard(tenantId, userId, userRole) {
         const now = new Date();
@@ -73,6 +79,7 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
             tenantId,
             createdBy: userId,
             promptVersion: this.promptVersion,
+            promptKey: 'daily_summary',
             modelUsed: this.aiService.getModelName(),
             sourceModule: 'ai_command_center.dashboard',
             generatedOutput: dashboard,
@@ -313,7 +320,7 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
                 topRecommendations: recommendations.slice(0, 3).map(r => r.action),
                 adminFeedbackHistory: feedbackSummary.summaryText,
             };
-            const aiNarrative = await this.aiService.generateIncidentRiskSummary(JSON.stringify(context));
+            const aiNarrative = await this.aiService.generateIncidentRiskSummary(JSON.stringify(context), await this.resolvePromptTemplate(tenantId, 'ai_command_center.dashboard', 'daily_summary'));
             if (aiNarrative) {
                 return {
                     ...fallbackSummary,
@@ -328,16 +335,26 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
         fallbackSummary.aiNarrative = `${fallbackSummary.staffingSummary} ${fallbackSummary.incidentSummary} ${fallbackSummary.financeSummary}`;
         return fallbackSummary;
     }
+    async resolvePromptTemplate(tenantId, moduleName, promptKey) {
+        return (await this.aiGovernanceService?.resolvePromptVersion({
+            tenantId,
+            moduleName,
+            promptKey,
+            fallbackVersion: this.promptVersion,
+        }))?.promptText ?? null;
+    }
 };
 exports.CommandCenterService = CommandCenterService;
 exports.CommandCenterService = CommandCenterService = CommandCenterService_1 = __decorate([
     (0, common_1.Injectable)(),
+    __param(7, (0, common_1.Optional)()),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         ai_insights_service_1.AiInsightsService,
         revenue_insights_service_1.RevenueInsightsService,
         recommendation_service_1.RecommendationService,
         ai_actions_service_1.AiActionsService,
         ai_service_1.AiService,
-        ai_monitoring_service_1.AiMonitoringService])
+        ai_monitoring_service_1.AiMonitoringService,
+        ai_governance_service_1.AiGovernanceService])
 ], CommandCenterService);
 //# sourceMappingURL=command-center.service.js.map

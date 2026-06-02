@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { AiGovernanceService } from '../ai-governance/ai-governance.service';
 import { AiInsightsService } from '../ai-insights/ai-insights.service';
 import { RecommendationService } from '../ai-insights/recommendation.service';
 import { AiActionsService } from '../ai-actions/ai-actions.service';
@@ -29,6 +30,8 @@ export class CommandCenterService {
     private readonly aiActionsService: AiActionsService,
     private readonly aiService: AiService,
     private readonly aiMonitoringService: AiMonitoringService,
+    @Optional()
+    private readonly aiGovernanceService?: AiGovernanceService,
   ) { }
 
   async getDashboard(
@@ -117,6 +120,7 @@ export class CommandCenterService {
       tenantId,
       createdBy: userId,
       promptVersion: this.promptVersion,
+      promptKey: 'daily_summary',
       modelUsed: this.aiService.getModelName(),
       sourceModule: 'ai_command_center.dashboard',
       generatedOutput: dashboard,
@@ -453,7 +457,14 @@ export class CommandCenterService {
         adminFeedbackHistory: feedbackSummary.summaryText,
       };
 
-      const aiNarrative = await this.aiService.generateIncidentRiskSummary(JSON.stringify(context));
+      const aiNarrative = await this.aiService.generateIncidentRiskSummary(
+        JSON.stringify(context),
+        await this.resolvePromptTemplate(
+          tenantId,
+          'ai_command_center.dashboard',
+          'daily_summary',
+        ),
+      );
 
       if (aiNarrative) {
         return {
@@ -469,5 +480,20 @@ export class CommandCenterService {
     // Fallback if AI fails or returns null
     fallbackSummary.aiNarrative = `${fallbackSummary.staffingSummary} ${fallbackSummary.incidentSummary} ${fallbackSummary.financeSummary}`;
     return fallbackSummary;
+  }
+
+  private async resolvePromptTemplate(
+    tenantId: string,
+    moduleName: string,
+    promptKey: string,
+  ) {
+    return (
+      await this.aiGovernanceService?.resolvePromptVersion({
+        tenantId,
+        moduleName,
+        promptKey,
+        fallbackVersion: this.promptVersion,
+      })
+    )?.promptText ?? null;
   }
 }

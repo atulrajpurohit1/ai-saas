@@ -1,3 +1,4 @@
+import { AiGovernanceService } from '../ai-governance/ai-governance.service';
 import { AiService } from '../ai/ai.service';
 import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -6,8 +7,9 @@ export declare class AiInsightsService {
     private prisma;
     private aiService;
     private aiMonitoringService;
+    private aiGovernanceService?;
     private readonly logger;
-    constructor(prisma: PrismaService, aiService: AiService, aiMonitoringService: AiMonitoringService);
+    constructor(prisma: PrismaService, aiService: AiService, aiMonitoringService: AiMonitoringService, aiGovernanceService?: AiGovernanceService | undefined);
     getDashboard(tenantId: string, userId?: string): Promise<AiInsightsDashboard>;
     getClientInsights(tenantId: string): Promise<ClientInsightsResponse>;
     getGuardInsights(tenantId: string): Promise<GuardInsightsResponse>;
@@ -35,6 +37,7 @@ export declare class AiInsightsService {
     private buildRuleRecommendations;
     private buildAiRecommendations;
     private emptyInsight;
+    private resolvePromptTemplate;
     private metric;
     private metricValue;
     private clientDisplayName;

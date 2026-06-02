@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { AiGovernanceService } from '../ai-governance/ai-governance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAiFeedbackDto } from './dto/create-ai-feedback.dto';
 import {
@@ -23,20 +24,47 @@ const REJECTED_ACTION_THRESHOLD = 2;
 export class AiMonitoringService {
   private readonly logger = new Logger(AiMonitoringService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aiGovernanceService: AiGovernanceService,
+  ) {}
 
   async logGeneration(input: LogAiGenerationInput) {
     try {
+      const prompt = await this.aiGovernanceService.resolvePromptVersion({
+        tenantId: input.tenantId,
+        moduleName: input.sourceModule,
+        promptKey: input.promptKey,
+        fallbackVersion: input.promptVersion || DEFAULT_PROMPT_VERSION,
+      });
+      const safety = this.aiGovernanceService.evaluateSafety({
+        generatedOutput: input.generatedOutput,
+        inputSource: input.inputSource,
+        clientVisible: input.clientVisible,
+      });
+
       return await this.prisma.aiGeneration.create({
         data: {
           tenantId: input.tenantId,
-          promptVersion: input.promptVersion || DEFAULT_PROMPT_VERSION,
+          promptVersion: prompt.promptVersion,
+          promptVersionId: prompt.promptVersionId,
           modelUsed: input.modelUsed || DEFAULT_MODEL_USED,
           sourceModule: input.sourceModule,
+          inputSource:
+            input.inputSource === undefined
+              ? undefined
+              : this.toJsonValue(input.inputSource),
           generatedOutput: this.toJsonValue(input.generatedOutput),
           fallbackUsed: input.fallbackUsed,
           status: input.status,
           errorMessage: input.errorMessage,
+          clientVisible: input.clientVisible ?? false,
+          approvalStatus: this.aiGovernanceService.approvalStatusFor({
+            clientVisible: input.clientVisible,
+            safetyStatus: safety.status,
+          }),
+          safetyStatus: safety.status,
+          safetyFindings: this.toJsonValue(safety.findings),
           createdBy: input.createdBy,
         },
       });
@@ -392,6 +420,10 @@ export class AiMonitoringService {
         sourceModule: dto.actionId
           ? 'ai_actions.legacy_feedback'
           : 'ai_recommendations.legacy_feedback',
+        clientVisible: false,
+        approvalStatus: 'not_required',
+        safetyStatus: 'passed',
+        safetyFindings: [],
         generatedOutput: this.toJsonValue({
           recommendationId: dto.recommendationId,
           actionId: dto.actionId,

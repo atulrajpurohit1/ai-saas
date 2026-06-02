@@ -408,12 +408,9 @@ export class InvoicesService {
         tenantId: input.tenantId,
         siteId: input.siteId,
         status: 'approved',
-        shift: {
-          status: 'completed',
-          startTime: {
-            gte: input.billingStartDate,
-            lt: input.endExclusive,
-          },
+        checkInTime: {
+          gte: input.billingStartDate,
+          lt: input.endExclusive,
         },
       },
       include: {
@@ -517,6 +514,15 @@ export class InvoicesService {
     billingEndDate: Date;
     dto: GenerateInvoiceDto;
   }) {
+    const manualRate = Number(input.dto.hourly_rate);
+    if (input.dto.allow_manual_rate && Number.isFinite(manualRate) && manualRate > 0) {
+      return {
+        hourlyRate: this.roundCurrency(manualRate),
+        rateCardId: null,
+        rateSource: 'manual',
+      };
+    }
+
     const { rateCard, rateSource } = await this.findActiveRateCard(input);
 
     if (rateCard) {
@@ -524,15 +530,6 @@ export class InvoicesService {
         hourlyRate: this.roundCurrency(rateCard.hourlyRate),
         rateCardId: rateCard.id,
         rateSource,
-      };
-    }
-
-    const manualRate = Number(input.dto.hourly_rate);
-    if (input.dto.allow_manual_rate && Number.isFinite(manualRate) && manualRate > 0) {
-      return {
-        hourlyRate: this.roundCurrency(manualRate),
-        rateCardId: null,
-        rateSource: 'manual',
       };
     }
 
@@ -584,48 +581,51 @@ export class InvoicesService {
     });
 
     try {
-      const invoice = await this.prisma.$transaction(async (tx) => {
-        const todayStart = new Date();
-        todayStart.setUTCHours(0, 0, 0, 0);
-        const tomorrowStart = new Date(todayStart);
-        tomorrowStart.setUTCDate(tomorrowStart.getUTCDate() + 1);
+      const invoice = await this.prisma.$transaction(
+        async (tx) => {
+          const todayStart = new Date();
+          todayStart.setUTCHours(0, 0, 0, 0);
+          const tomorrowStart = new Date(todayStart);
+          tomorrowStart.setUTCDate(tomorrowStart.getUTCDate() + 1);
 
-        const sequence = await tx.invoice.count({
-          where: {
-            tenantId,
-            createdAt: {
-              gte: todayStart,
-              lt: tomorrowStart,
+          const sequence = await tx.invoice.count({
+            where: {
+              tenantId,
+              createdAt: {
+                gte: todayStart,
+                lt: tomorrowStart,
+              },
             },
-          },
-        });
+          });
 
-        const datePart = todayStart.toISOString().slice(0, 10).replace(/-/g, '');
-        const invoiceNumber = `INV-${datePart}-${String(sequence + 1).padStart(4, '0')}`;
+          const datePart = todayStart.toISOString().slice(0, 10).replace(/-/g, '');
+          const invoiceNumber = `INV-${datePart}-${String(sequence + 1).padStart(4, '0')}`;
 
-        return tx.invoice.create({
-          data: {
-            tenantId,
-            clientId: client.id,
-            siteId: site.id,
-            invoiceNumber,
-            billingStartDate,
-            billingEndDate,
-            totalHours: totals.totalHours,
-            hourlyRate: rate.hourlyRate,
-            rateCardId: rate.rateCardId,
-            rateSource: rate.rateSource,
-            subtotal: totals.subtotal,
-            tax: totals.tax,
-            totalAmount: totals.totalAmount,
-            status: 'draft',
-            items: {
-              create: totals.items,
+          return tx.invoice.create({
+            data: {
+              tenantId,
+              clientId: client.id,
+              siteId: site.id,
+              invoiceNumber,
+              billingStartDate,
+              billingEndDate,
+              totalHours: totals.totalHours,
+              hourlyRate: rate.hourlyRate,
+              rateCardId: rate.rateCardId,
+              rateSource: rate.rateSource,
+              subtotal: totals.subtotal,
+              tax: totals.tax,
+              totalAmount: totals.totalAmount,
+              status: 'draft',
+              items: {
+                create: totals.items,
+              },
             },
-          },
-          include: this.invoiceInclude(),
-        });
-      });
+            include: this.invoiceInclude(),
+          });
+        },
+        { maxWait: 10_000, timeout: 30_000 },
+      );
 
       await this.auditService.log({
         tenantId,

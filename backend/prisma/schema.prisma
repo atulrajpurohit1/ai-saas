@@ -48,6 +48,7 @@ model Tenant {
   recommendationActions RecommendationAction[]
   aiGenerations       AiGeneration[]
   aiFeedback          AiFeedback[]
+  promptVersions      PromptVersion[]
 }
 
 model User {
@@ -600,25 +601,57 @@ model RecommendationAction {
   @@map("RecommendationAction")
 }
 
+model PromptVersion {
+  id          String         @id @default(uuid())
+  tenantId    String         @map("tenant_id")
+  tenant      Tenant         @relation(fields: [tenantId], references: [id])
+  moduleName  String         @map("module_name")
+  promptKey   String         @map("prompt_key")
+  version     String
+  promptText  String         @map("prompt_text")
+  status      String         @default("inactive")
+  createdBy   String?        @map("created_by")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  generations AiGeneration[]
+
+  @@unique([tenantId, moduleName, promptKey, version], map: "PromptVersion_tenant_module_key_version_key")
+  @@index([tenantId])
+  @@index([tenantId, moduleName, promptKey])
+  @@index([tenantId, status])
+  @@map("PromptVersion")
+}
+
 model AiGeneration {
   id              String      @id @default(uuid())
   tenantId        String      @map("tenant_id")
   tenant          Tenant      @relation(fields: [tenantId], references: [id])
   promptVersion   String      @map("prompt_version")
+  promptVersionId String?     @map("prompt_version_id")
+  promptVersionRecord PromptVersion? @relation(fields: [promptVersionId], references: [id], onDelete: SetNull)
   modelUsed       String      @map("model_used")
   sourceModule    String      @map("source_module")
+  inputSource     Json?       @map("input_source")
   generatedOutput Json        @map("generated_output")
   fallbackUsed    Boolean     @default(false) @map("fallback_used")
   status          String      @default("success")
   errorMessage    String?     @map("error_message")
+  clientVisible   Boolean     @default(false) @map("client_visible")
+  approvalStatus  String      @default("not_required") @map("approval_status")
+  approvedBy      String?     @map("approved_by")
+  approvedAt      DateTime?   @map("approved_at")
+  safetyStatus    String      @default("passed") @map("safety_status")
+  safetyFindings  Json?       @map("safety_findings")
   createdBy       String?     @map("created_by")
   createdAt       DateTime    @default(now()) @map("created_at")
   feedback        AiFeedback[]
   actions         RecommendationAction[]
 
   @@index([tenantId])
+  @@index([promptVersionId])
   @@index([tenantId, sourceModule])
   @@index([tenantId, status])
+  @@index([tenantId, approvalStatus])
+  @@index([tenantId, safetyStatus])
   @@index([tenantId, fallbackUsed])
   @@index([createdAt])
   @@map("AiGeneration")

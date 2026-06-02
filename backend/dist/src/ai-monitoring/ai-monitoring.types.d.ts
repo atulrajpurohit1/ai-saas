@@ -4,9 +4,12 @@ export interface LogAiGenerationInput {
     tenantId: string;
     createdBy?: string;
     promptVersion?: string;
+    promptKey?: string;
+    inputSource?: unknown;
     modelUsed?: string;
     sourceModule: string;
     generatedOutput: unknown;
+    clientVisible?: boolean;
     fallbackUsed: boolean;
     status: AiGenerationStatus;
     errorMessage?: string;

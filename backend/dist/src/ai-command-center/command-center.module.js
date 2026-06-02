@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CommandCenterModule = void 0;
 const common_1 = require("@nestjs/common");
+const ai_governance_module_1 = require("../ai-governance/ai-governance.module");
 const ai_module_1 = require("../ai/ai.module");
 const prisma_module_1 = require("../prisma/prisma.module");
 const ai_insights_module_1 = require("../ai-insights/ai-insights.module");
@@ -20,7 +21,7 @@ let CommandCenterModule = class CommandCenterModule {
 exports.CommandCenterModule = CommandCenterModule;
 exports.CommandCenterModule = CommandCenterModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, ai_module_1.AiModule, ai_insights_module_1.AiInsightsModule, ai_actions_module_1.AiActionsModule, ai_monitoring_module_1.AiMonitoringModule],
+        imports: [prisma_module_1.PrismaModule, ai_module_1.AiModule, ai_insights_module_1.AiInsightsModule, ai_actions_module_1.AiActionsModule, ai_monitoring_module_1.AiMonitoringModule, ai_governance_module_1.AiGovernanceModule],
         controllers: [command_center_controller_1.CommandCenterController],
         providers: [command_center_service_1.CommandCenterService],
     })

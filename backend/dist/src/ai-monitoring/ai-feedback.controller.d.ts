@@ -15,6 +15,7 @@ export declare class AiFeedbackController {
         id: string;
         createdAt: Date;
         tenantId: string;
+        createdBy: string;
         aiGenerationId: string;
         recommendationId: string | null;
         actionId: string | null;
@@ -22,7 +23,6 @@ export declare class AiFeedbackController {
         feedbackText: string | null;
         isUseful: boolean;
         isAccurate: boolean;
-        createdBy: string;
     }>;
     findAll(user: ActiveUser): Promise<({
         aiGeneration: {
@@ -38,6 +38,7 @@ export declare class AiFeedbackController {
         id: string;
         createdAt: Date;
         tenantId: string;
+        createdBy: string;
         aiGenerationId: string;
         recommendationId: string | null;
         actionId: string | null;
@@ -45,6 +46,5 @@ export declare class AiFeedbackController {
         feedbackText: string | null;
         isUseful: boolean;
         isAccurate: boolean;
-        createdBy: string;
     })[]>;
 }

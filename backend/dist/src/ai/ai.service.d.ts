@@ -22,6 +22,7 @@ export declare class AiService {
     private getFallbackEnabled;
     getModelName(): string;
     private getUnavailableMessage;
+    private renderPrompt;
     private generateText;
     generateProposalDraft(dto: GenerateProposalDto): Promise<AiProposalDraftResponse>;
     generateForLead(lead: Lead & {
@@ -30,11 +31,11 @@ export declare class AiService {
     }): Promise<string>;
     generateEmailDraft(subject: string, context: string): Promise<string>;
     summarizeNotes(notes: string[]): Promise<string>;
-    generateBusinessInsightRecommendations(context: string): Promise<string[] | null>;
-    generateIncidentRiskSummary(context: string): Promise<string | null>;
-    generateRevenueIntelligenceSummary(context: string): Promise<string | null>;
-    generateRevenueFinancialRecommendations(context: string): Promise<AiRevenueRecommendationDraft[] | null>;
-    explainGuardRecommendation(context: string): Promise<string | null>;
+    generateBusinessInsightRecommendations(context: string, promptTemplate?: string | null): Promise<string[] | null>;
+    generateIncidentRiskSummary(context: string, promptTemplate?: string | null): Promise<string | null>;
+    generateRevenueIntelligenceSummary(context: string, promptTemplate?: string | null): Promise<string | null>;
+    generateRevenueFinancialRecommendations(context: string, promptTemplate?: string | null): Promise<AiRevenueRecommendationDraft[] | null>;
+    explainGuardRecommendation(context: string, promptTemplate?: string | null): Promise<string | null>;
     private fallbackProposalDraft;
     private fallbackLeadProposal;
     private fallbackEmailDraft;

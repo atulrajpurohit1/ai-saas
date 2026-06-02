@@ -59,6 +59,11 @@ let AiService = AiService_1 = class AiService {
         }
         return `Failed to complete ${action} with Gemini. Check GEMINI_API_KEY and GEMINI_MODEL.`;
     }
+    renderPrompt(promptTemplate, variables) {
+        if (!promptTemplate?.trim())
+            return null;
+        return promptTemplate.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key) => String(variables[key] ?? ''));
+    }
     async generateText(prompt, action, fallbackFactory) {
         if (!this.isAiAvailable()) {
             if (this.getFallbackEnabled())
@@ -152,11 +157,11 @@ let AiService = AiService_1 = class AiService {
         const prompt = `Summarize these security site visit notes into key takeaways and action items: ${notes.join('\n')}`;
         return this.generateText(prompt, 'notes summarization', () => this.fallbackSummarizeNotes(notes));
     }
-    async generateBusinessInsightRecommendations(context) {
+    async generateBusinessInsightRecommendations(context, promptTemplate) {
         if (!this.isAiAvailable()) {
             return null;
         }
-        const prompt = `
+        const prompt = this.renderPrompt(promptTemplate, { context }) || `
       You are analyzing tenant-scoped security operations data for an admin dashboard.
       Use only this aggregated context:
       ${context}
@@ -185,11 +190,11 @@ let AiService = AiService_1 = class AiService {
             return null;
         }
     }
-    async generateIncidentRiskSummary(context) {
+    async generateIncidentRiskSummary(context, promptTemplate) {
         if (!this.isAiAvailable()) {
             return null;
         }
-        const prompt = `
+        const prompt = this.renderPrompt(promptTemplate, { context }) || `
       You are analyzing tenant-scoped security incident risk for an operations admin.
       Use only this aggregated incident context:
       ${context}
@@ -208,11 +213,11 @@ let AiService = AiService_1 = class AiService {
             return null;
         }
     }
-    async generateRevenueIntelligenceSummary(context) {
+    async generateRevenueIntelligenceSummary(context, promptTemplate) {
         if (!this.isAiAvailable()) {
             return null;
         }
-        const prompt = `
+        const prompt = this.renderPrompt(promptTemplate, { context }) || `
       You are analyzing tenant-scoped security services revenue, contracts, renewals, invoice collections, and client value.
       Use only this aggregated financial context:
       ${context}
@@ -236,11 +241,11 @@ let AiService = AiService_1 = class AiService {
             return null;
         }
     }
-    async generateRevenueFinancialRecommendations(context) {
+    async generateRevenueFinancialRecommendations(context, promptTemplate) {
         if (!this.isAiAvailable()) {
             return null;
         }
-        const prompt = `
+        const prompt = this.renderPrompt(promptTemplate, { context }) || `
       You are a senior finance and operations advisor for a security services SaaS platform.
       Use only this aggregated tenant-scoped financial context:
       ${context}
@@ -287,11 +292,11 @@ let AiService = AiService_1 = class AiService {
             return null;
         }
     }
-    async explainGuardRecommendation(context) {
+    async explainGuardRecommendation(context, promptTemplate) {
         if (!this.isAiAvailable()) {
             return null;
         }
-        const prompt = `
+        const prompt = this.renderPrompt(promptTemplate, { context }) || `
       Explain this guard recommendation to a security operations admin.
       Use only this aggregated scheduling context:
       ${context}

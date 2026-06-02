@@ -219,7 +219,7 @@ describe('InvoicesService', () => {
     return tx;
   }
 
-  it('generates an invoice from approved timesheets and completed shifts', async () => {
+  it('generates an invoice from approved timesheets in the billing period', async () => {
     mockBillableClientAndSite();
     prisma.rateCard.findFirst.mockResolvedValue(rateCard);
     mockApprovedTimesheets();
@@ -233,8 +233,9 @@ describe('InvoicesService', () => {
           tenantId,
           siteId,
           status: 'approved',
-          shift: expect.objectContaining({
-            status: 'completed',
+          checkInTime: expect.objectContaining({
+            gte: new Date('2026-05-01T00:00:00.000Z'),
+            lt: new Date('2026-05-16T00:00:00.000Z'),
           }),
         }),
       }),
@@ -334,6 +335,36 @@ describe('InvoicesService', () => {
               }),
             ],
           },
+        }),
+      }),
+    );
+  });
+
+  it('uses the manual hourly rate when manual rate is enabled', async () => {
+    mockBillableClientAndSite();
+    mockApprovedTimesheets();
+    const tx = mockInvoiceCreateTransaction({
+      ...baseInvoice,
+      hourlyRate: 100,
+      rateCardId: null,
+      rateSource: 'manual',
+      subtotal: 1240,
+      totalAmount: 1240,
+    });
+
+    await service.generateInvoice(tenantId, userId, {
+      ...dto,
+      allow_manual_rate: true,
+      hourly_rate: 100,
+    });
+
+    expect(prisma.rateCard.findFirst).not.toHaveBeenCalled();
+    expect(tx.invoice.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          hourlyRate: 100,
+          rateCardId: null,
+          rateSource: 'manual',
         }),
       }),
     );

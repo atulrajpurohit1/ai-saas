@@ -34,6 +34,7 @@ import { AiInsightsModule } from './ai-insights/ai-insights.module';
 import { CommandCenterModule } from './ai-command-center/command-center.module';
 import { AiActionsModule } from './ai-actions/ai-actions.module';
 import { AiMonitoringModule } from './ai-monitoring/ai-monitoring.module';
+import { AiGovernanceModule } from './ai-governance/ai-governance.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { AiMonitoringModule } from './ai-monitoring/ai-monitoring.module';
     AiInsightsModule,
     CommandCenterModule,
     AiActionsModule,
+    AiGovernanceModule,
     AiMonitoringModule,
     TimesheetsModule,
     RateCardsModule,

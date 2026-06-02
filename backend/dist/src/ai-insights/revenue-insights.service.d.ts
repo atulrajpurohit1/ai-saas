@@ -1,3 +1,4 @@
+import { AiGovernanceService } from '../ai-governance/ai-governance.service';
 import { AiService } from '../ai/ai.service';
 import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { AuditService } from '../audit/audit.service';
@@ -8,8 +9,9 @@ export declare class RevenueInsightsService {
     private aiService;
     private auditService;
     private aiMonitoringService;
+    private aiGovernanceService?;
     private readonly logger;
-    constructor(prisma: PrismaService, aiService: AiService, auditService: AuditService, aiMonitoringService: AiMonitoringService);
+    constructor(prisma: PrismaService, aiService: AiService, auditService: AuditService, aiMonitoringService: AiMonitoringService, aiGovernanceService?: AiGovernanceService | undefined);
     getRevenueDashboard(tenantId: string, userId: string): Promise<RevenueInsightsDashboard>;
     getContractInsights(tenantId: string, userId: string): Promise<ContractIntelligenceResponse>;
     getClientValueAnalysis(tenantId: string, userId: string): Promise<ClientValueAnalysisResponse>;
@@ -28,6 +30,7 @@ export declare class RevenueInsightsService {
     private buildAiSummary;
     private fallbackRevenueSummary;
     private mapAiRecommendation;
+    private resolvePromptTemplate;
     private getOrCreateAggregate;
     private getOrCreateAggregateForClient;
     private calculateAverageGrowthRate;

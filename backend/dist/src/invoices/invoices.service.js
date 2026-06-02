@@ -363,12 +363,9 @@ let InvoicesService = class InvoicesService {
                 tenantId: input.tenantId,
                 siteId: input.siteId,
                 status: 'approved',
-                shift: {
-                    status: 'completed',
-                    startTime: {
-                        gte: input.billingStartDate,
-                        lt: input.endExclusive,
-                    },
+                checkInTime: {
+                    gte: input.billingStartDate,
+                    lt: input.endExclusive,
                 },
             },
             include: {
@@ -443,20 +440,20 @@ let InvoicesService = class InvoicesService {
         return { rateCard: null, rateSource: 'manual' };
     }
     async resolveInvoiceRate(input) {
-        const { rateCard, rateSource } = await this.findActiveRateCard(input);
-        if (rateCard) {
-            return {
-                hourlyRate: this.roundCurrency(rateCard.hourlyRate),
-                rateCardId: rateCard.id,
-                rateSource,
-            };
-        }
         const manualRate = Number(input.dto.hourly_rate);
         if (input.dto.allow_manual_rate && Number.isFinite(manualRate) && manualRate > 0) {
             return {
                 hourlyRate: this.roundCurrency(manualRate),
                 rateCardId: null,
                 rateSource: 'manual',
+            };
+        }
+        const { rateCard, rateSource } = await this.findActiveRateCard(input);
+        if (rateCard) {
+            return {
+                hourlyRate: this.roundCurrency(rateCard.hourlyRate),
+                rateCardId: rateCard.id,
+                rateSource,
             };
         }
         throw new common_1.BadRequestException('No active rate card found for this client/site and billing period. Create a client or site rate card, or enable manual rate fallback.');
@@ -536,7 +533,7 @@ let InvoicesService = class InvoicesService {
                     },
                     include: this.invoiceInclude(),
                 });
-            });
+            }, { maxWait: 10_000, timeout: 30_000 });
             await this.auditService.log({
                 tenantId,
                 userId,

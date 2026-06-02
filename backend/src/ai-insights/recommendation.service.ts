@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { AiGovernanceService } from '../ai-governance/ai-governance.service';
 import { AiService } from '../ai/ai.service';
 import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -24,6 +25,8 @@ export class RecommendationService {
     private readonly aiService: AiService,
     @Optional()
     private readonly aiMonitoringService?: AiMonitoringService,
+    @Optional()
+    private readonly aiGovernanceService?: AiGovernanceService,
   ) {}
 
   async recommendGuards(
@@ -281,6 +284,7 @@ export class RecommendationService {
         explanation:
           includeAiExplanation && index < 5
             ? await this.explainRecommendation({
+                tenantId,
                 recommendation,
                 siteName: shift.site.name,
               })
@@ -296,6 +300,7 @@ export class RecommendationService {
       await this.aiMonitoringService?.logGeneration({
         tenantId,
         promptVersion: DEFAULT_PROMPT_VERSION,
+        promptKey: 'guard_recommendation_explanation',
         modelUsed: this.aiService.getModelName(),
         sourceModule: 'ai_scheduling.guard_recommendations',
         generatedOutput: {
@@ -572,6 +577,7 @@ export class RecommendationService {
   }
 
   private async explainRecommendation(input: {
+    tenantId: string;
     recommendation: Omit<GuardRecommendation, 'explanation'>;
     siteName: string;
   }) {
@@ -590,8 +596,28 @@ export class RecommendationService {
         warnings: input.recommendation.warnings,
         metrics: input.recommendation.metrics,
       }),
+      await this.resolvePromptTemplate(
+        input.tenantId,
+        'ai_scheduling.guard_recommendations',
+        'guard_recommendation_explanation',
+      ),
     );
 
     return aiExplanation || fallback;
+  }
+
+  private async resolvePromptTemplate(
+    tenantId: string,
+    moduleName: string,
+    promptKey: string,
+  ) {
+    return (
+      await this.aiGovernanceService?.resolvePromptVersion({
+        tenantId,
+        moduleName,
+        promptKey,
+        fallbackVersion: DEFAULT_PROMPT_VERSION,
+      })
+    )?.promptText ?? null;
   }
 }
