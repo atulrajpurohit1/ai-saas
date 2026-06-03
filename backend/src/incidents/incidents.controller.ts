@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -14,18 +14,18 @@ export class IncidentsController {
   constructor(private readonly incidentsService: IncidentsService) {}
 
   @Get()
-  findAll(@GetUser() user: ActiveUser) {
-    return this.incidentsService.findAllForAdmin(user.tenantId);
+  findAll(@GetUser() user: ActiveUser, @Query('branch_id') branchId?: string) {
+    return this.incidentsService.findAllForAdmin(user, branchId);
   }
 
   @Get('review-queue')
-  findReviewQueue(@GetUser() user: ActiveUser) {
-    return this.incidentsService.findReviewQueueForAdmin(user.tenantId);
+  findReviewQueue(@GetUser() user: ActiveUser, @Query('branch_id') branchId?: string) {
+    return this.incidentsService.findReviewQueueForAdmin(user, branchId);
   }
 
   @Get(':id')
   findOne(@GetUser() user: ActiveUser, @Param('id') id: string) {
-    return this.incidentsService.findOneForAdmin(user.tenantId, id, user.sub);
+    return this.incidentsService.findOneForAdmin(user, id);
   }
 
   @Post(':id/review')
@@ -34,6 +34,6 @@ export class IncidentsController {
     @Param('id') id: string,
     @Body() dto: ReviewIncidentDto,
   ) {
-    return this.incidentsService.reviewIncident(user.tenantId, id, user.sub, dto);
+    return this.incidentsService.reviewIncident(user, id, dto);
   }
 }

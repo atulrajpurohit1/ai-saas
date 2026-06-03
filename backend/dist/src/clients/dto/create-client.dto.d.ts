@@ -3,4 +3,5 @@ export declare class CreateClientDto {
     companyName?: string;
     email: string;
     phone?: string;
+    branch_id?: string | null;
 }

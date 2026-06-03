@@ -2,6 +2,7 @@ import { AiGovernanceService } from '../ai-governance/ai-governance.service';
 import { AiService } from '../ai/ai.service';
 import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { AuditService } from '../audit/audit.service';
+import { KnowledgeRetrievalService } from '../knowledge-base/knowledge-retrieval.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ClientValueAnalysisResponse, ContractIntelligenceResponse, FinancialRecommendationsResponse, RenewalOpportunitiesResponse, RevenueInsightsDashboard } from './ai-insights.types';
 export declare class RevenueInsightsService {
@@ -10,8 +11,9 @@ export declare class RevenueInsightsService {
     private auditService;
     private aiMonitoringService;
     private aiGovernanceService?;
+    private knowledgeRetrievalService?;
     private readonly logger;
-    constructor(prisma: PrismaService, aiService: AiService, auditService: AuditService, aiMonitoringService: AiMonitoringService, aiGovernanceService?: AiGovernanceService | undefined);
+    constructor(prisma: PrismaService, aiService: AiService, auditService: AuditService, aiMonitoringService: AiMonitoringService, aiGovernanceService?: AiGovernanceService | undefined, knowledgeRetrievalService?: KnowledgeRetrievalService | undefined);
     getRevenueDashboard(tenantId: string, userId: string): Promise<RevenueInsightsDashboard>;
     getContractInsights(tenantId: string, userId: string): Promise<ContractIntelligenceResponse>;
     getClientValueAnalysis(tenantId: string, userId: string): Promise<ClientValueAnalysisResponse>;
@@ -28,6 +30,7 @@ export declare class RevenueInsightsService {
     private buildRuleFinancialRecommendations;
     private buildAiFinancialRecommendations;
     private buildAiSummary;
+    private getRevenueMemory;
     private fallbackRevenueSummary;
     private mapAiRecommendation;
     private resolvePromptTemplate;

@@ -1,4 +1,5 @@
 import api from './api';
+import { branchParams, BranchSummary } from './branches';
 
 export type ReportStatus = 'draft' | 'published';
 
@@ -69,6 +70,7 @@ export interface DailyReportSummary {
 export interface DailyServiceReport {
   id: string;
   tenantId: string;
+  branchId?: string | null;
   clientId: string;
   siteId: string;
   reportDate: string;
@@ -87,14 +89,15 @@ export interface DailyServiceReport {
     name: string;
     address: string;
   } | null;
+  branch?: BranchSummary | null;
 }
 
 export function isDailyReportSummary(summary: DailyServiceReport['summary']): summary is DailyReportSummary {
   return Boolean(summary && 'totals' in summary && 'shifts' in summary && 'incidents' in summary);
 }
 
-export async function getAdminReports() {
-  const response = await api.get<DailyServiceReport[]>('reports');
+export async function getAdminReports(branchId?: string | null) {
+  const response = await api.get<DailyServiceReport[]>('reports', { params: branchParams(branchId) });
   return response.data;
 }
 

@@ -12,10 +12,17 @@ export declare class GuardsController {
         createdAt: Date;
         email: string | null;
         tenantId: string;
+        branchId: string | null;
         phone: string | null;
         passwordHash: string | null;
     }, "passwordHash">>;
-    findAll(user: ActiveUser): Promise<Omit<{
+    findAll(user: ActiveUser, branchId?: string): Promise<Omit<{
+        branch: {
+            id: string;
+            name: string;
+            status: string;
+            location: string;
+        } | null;
         availability: {
             id: string;
             createdAt: Date;
@@ -32,6 +39,7 @@ export declare class GuardsController {
         createdAt: Date;
         email: string | null;
         tenantId: string;
+        branchId: string | null;
         phone: string | null;
         passwordHash: string | null;
     }, "passwordHash">[]>;
@@ -41,6 +49,7 @@ export declare class GuardsController {
         createdAt: Date;
         email: string | null;
         tenantId: string;
+        branchId: string | null;
         phone: string | null;
         passwordHash: string | null;
     }, "passwordHash">>;

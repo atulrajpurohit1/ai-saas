@@ -4,6 +4,8 @@ import { CreateShiftDto } from './dto/create-shift.dto';
 import { AuditService } from '../audit/audit.service';
 import { RecommendationService } from '../ai-insights/recommendation.service';
 import { GuardRecommendation } from '../ai-insights/ai-insights.types';
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { branchScopedWhere, branchWhere, resolveWriteBranchId } from '../branches/branch-scope';
 
 type AttendanceStatus = 'not_started' | 'checked_in' | 'completed';
 
@@ -35,18 +37,19 @@ export class ShiftsService {
     };
   }
 
-  async create(userId: string, tenantId: string, dto: CreateShiftDto) {
+  async create(user: ActiveUser, dto: CreateShiftDto) {
+    const branchId = resolveWriteBranchId(user, dto.branch_id);
     // 1. Verify site exists and belongs to the same tenant
-    const site = await this.prisma.site.findUnique({
-      where: { id: dto.siteId },
+    const site = await this.prisma.site.findFirst({
+      where: { id: dto.siteId, tenantId: user.tenantId, ...branchWhere(user) },
     });
 
     if (!site) {
       throw new NotFoundException('Site not found');
     }
 
-    if (site.tenantId !== tenantId) {
-      throw new ForbiddenException('You do not have access to this site');
+    if (branchId && site.branchId && site.branchId !== branchId) {
+      throw new ForbiddenException('Site must belong to the selected branch');
     }
 
     // 2. Create the shift
@@ -56,7 +59,8 @@ export class ShiftsService {
         startTime: new Date(dto.startTime),
         endTime: new Date(dto.endTime),
         requiredGuards: dto.requiredGuards,
-        tenantId: tenantId,
+        tenantId: user.tenantId,
+        branchId: branchId ?? site.branchId,
         status: 'open',
       },
       include: {
@@ -68,8 +72,8 @@ export class ShiftsService {
 
     // 3. Log audit event
     await this.auditService.log({
-      tenantId,
-      userId,
+      tenantId: user.tenantId,
+      userId: user.sub,
       action: 'SHIFT_CREATED',
       entityType: 'Shift',
       entityId: shift.id,
@@ -79,11 +83,14 @@ export class ShiftsService {
     return shift;
   }
 
-  async findAll(tenantId: string) {
+  async findAll(user: ActiveUser, requestedBranchId?: string | null) {
     try {
       const shifts = await this.prisma.shift.findMany({
-        where: { tenantId },
+        where: branchScopedWhere(user, requestedBranchId),
         include: {
+          branch: {
+            select: { id: true, name: true, location: true, status: true },
+          },
           site: {
             select: {
               name: true,
@@ -128,16 +135,25 @@ export class ShiftsService {
     }
   }
 
-  async recommendGuards(userId: string, tenantId: string, shiftId: string) {
+  async recommendGuards(user: ActiveUser, shiftId: string) {
+    const shift = await this.prisma.shift.findFirst({
+      where: { id: shiftId, tenantId: user.tenantId, ...branchWhere(user) },
+      select: { id: true },
+    });
+
+    if (!shift) {
+      throw new NotFoundException('Shift not found');
+    }
+
     const recommendations = await this.recommendationService.recommendGuards(
-      tenantId,
+      user.tenantId,
       shiftId,
       true,
     );
 
     await this.auditService.log({
-      tenantId,
-      userId,
+      tenantId: user.tenantId,
+      userId: user.sub,
       action: 'GUARD_RECOMMENDATIONS_GENERATED',
       entityType: 'Shift',
       entityId: shiftId,
@@ -147,23 +163,24 @@ export class ShiftsService {
     return recommendations;
   }
 
-  async assign(userId: string, tenantId: string, shiftId: string, guardId: string) {
+  async assign(user: ActiveUser, shiftId: string, guardId: string) {
     // 1. Validate shift exists and belongs to tenant
-    const shift = await this.prisma.shift.findUnique({
-      where: { id: shiftId },
+    const shift = await this.prisma.shift.findFirst({
+      where: { id: shiftId, tenantId: user.tenantId, ...branchWhere(user) },
       include: { assignments: true },
     });
 
     if (!shift) throw new NotFoundException('Shift not found');
-    if (shift.tenantId !== tenantId) throw new ForbiddenException('Access denied');
 
     // 2. Validate guard exists and belongs to tenant
-    const guard = await this.prisma.guard.findUnique({
-      where: { id: guardId },
+    const guard = await this.prisma.guard.findFirst({
+      where: { id: guardId, tenantId: user.tenantId, ...branchWhere(user) },
     });
 
     if (!guard) throw new NotFoundException('Guard not found');
-    if (guard.tenantId !== tenantId) throw new ForbiddenException('Access denied');
+    if (shift.branchId && guard.branchId && shift.branchId !== guard.branchId) {
+      throw new ForbiddenException('Guard and shift must belong to the same branch');
+    }
 
     // 3. Check guard availability
     const availability = await this.prisma.availability.findUnique({
@@ -172,8 +189,8 @@ export class ShiftsService {
 
     if (availability && availability.status === 'unavailable') {
       await this.auditService.log({
-        tenantId,
-        userId,
+        tenantId: user.tenantId,
+        userId: user.sub,
         action: 'ASSIGNMENT_REJECTED',
         entityType: 'Shift',
         entityId: shiftId,
@@ -190,7 +207,7 @@ export class ShiftsService {
     let selectedRecommendation: GuardRecommendation | null = null;
     try {
       const recommendations = await this.recommendationService.recommendGuards(
-        tenantId,
+        user.tenantId,
         shiftId,
         false,
       );
@@ -224,8 +241,8 @@ export class ShiftsService {
 
     // 5. Audit log
     await this.auditService.log({
-      tenantId,
-      userId,
+      tenantId: user.tenantId,
+      userId: user.sub,
       action: 'GUARD_ASSIGNED',
       entityType: 'Shift',
       entityId: shiftId,
@@ -234,8 +251,8 @@ export class ShiftsService {
 
     if (selectedRecommendation) {
       await this.auditService.log({
-        tenantId,
-        userId,
+        tenantId: user.tenantId,
+        userId: user.sub,
         action: 'RECOMMENDED_GUARD_ASSIGNED',
         entityType: 'Shift',
         entityId: shiftId,
@@ -249,15 +266,14 @@ export class ShiftsService {
     return result;
   }
 
-  async unassign(userId: string, tenantId: string, shiftId: string) {
+  async unassign(user: ActiveUser, shiftId: string) {
     // 1. Validate shift exists and belongs to tenant
-    const shift = await this.prisma.shift.findUnique({
-      where: { id: shiftId },
+    const shift = await this.prisma.shift.findFirst({
+      where: { id: shiftId, tenantId: user.tenantId, ...branchWhere(user) },
       include: { assignments: true },
     });
 
     if (!shift) throw new NotFoundException('Shift not found');
-    if (shift.tenantId !== tenantId) throw new ForbiddenException('Access denied');
 
     if (shift.assignments.length === 0) {
       throw new NotFoundException('No assignment found for this shift');
@@ -277,8 +293,8 @@ export class ShiftsService {
 
     // 3. Audit log
     await this.auditService.log({
-      tenantId,
-      userId,
+      tenantId: user.tenantId,
+      userId: user.sub,
       action: 'GUARD_UNASSIGNED',
       entityType: 'Shift',
       entityId: shiftId,

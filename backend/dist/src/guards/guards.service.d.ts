@@ -1,5 +1,6 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CreateGuardDto } from './dto/create-guard.dto';
 import { UpdateGuardDto } from './dto/update-guard.dto';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
@@ -9,16 +10,23 @@ export declare class GuardsService {
     constructor(prisma: PrismaService, auditService: AuditService);
     private normalizeContact;
     private withoutPasswordHash;
-    create(userId: string, tenantId: string, dto: CreateGuardDto): Promise<Omit<{
+    create(user: ActiveUser, dto: CreateGuardDto): Promise<Omit<{
         id: string;
         name: string;
         createdAt: Date;
         email: string | null;
         tenantId: string;
+        branchId: string | null;
         phone: string | null;
         passwordHash: string | null;
     }, "passwordHash">>;
-    findAll(tenantId: string): Promise<Omit<{
+    findAll(user: ActiveUser, requestedBranchId?: string | null): Promise<Omit<{
+        branch: {
+            id: string;
+            name: string;
+            status: string;
+            location: string;
+        } | null;
         availability: {
             id: string;
             createdAt: Date;
@@ -35,19 +43,21 @@ export declare class GuardsService {
         createdAt: Date;
         email: string | null;
         tenantId: string;
+        branchId: string | null;
         phone: string | null;
         passwordHash: string | null;
     }, "passwordHash">[]>;
-    update(userId: string, tenantId: string, id: string, dto: UpdateGuardDto): Promise<Omit<{
+    update(user: ActiveUser, id: string, dto: UpdateGuardDto): Promise<Omit<{
         id: string;
         name: string;
         createdAt: Date;
         email: string | null;
         tenantId: string;
+        branchId: string | null;
         phone: string | null;
         passwordHash: string | null;
     }, "passwordHash">>;
-    getAvailability(tenantId: string, id: string): Promise<{
+    getAvailability(user: ActiveUser, id: string): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
@@ -59,7 +69,7 @@ export declare class GuardsService {
     } | {
         status: string;
     }>;
-    updateAvailability(userId: string, tenantId: string, id: string, dto: UpdateAvailabilityDto): Promise<{
+    updateAvailability(user: ActiveUser, id: string, dto: UpdateAvailabilityDto): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;

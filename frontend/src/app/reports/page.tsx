@@ -3,8 +3,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
+import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { branchParams, BranchSummary } from '@/lib/branches';
 import {
   DailyServiceReport,
   generateDailyReport,
@@ -29,6 +31,8 @@ interface SiteOption {
   address: string;
   clientId?: string | null;
   client_id?: string | null;
+  branchId?: string | null;
+  branch?: BranchSummary | null;
   client?: {
     id: string;
     name: string;
@@ -81,6 +85,7 @@ export default function ReportsPage() {
   const [saving, setSaving] = useState(false);
   const [actionId, setActionId] = useState('');
   const [error, setError] = useState('');
+  const [selectedBranchId, setSelectedBranchId] = useState('');
   const [formData, setFormData] = useState({
     site_id: '',
     report_date: localDateInputValue(),
@@ -89,10 +94,11 @@ export default function ReportsPage() {
   const linkedSites = useMemo(() => sites.filter((site) => getSiteClientId(site)), [sites]);
 
   const fetchData = async () => {
+    setLoading(true);
     try {
       const [reportData, siteRes] = await Promise.all([
-        getAdminReports(),
-        api.get<SiteOption[]>('sites'),
+        getAdminReports(selectedBranchId),
+        api.get<SiteOption[]>('sites', { params: branchParams(selectedBranchId) }),
       ]);
       setReports(Array.isArray(reportData) ? reportData : []);
       setSites(Array.isArray(siteRes.data) ? siteRes.data : []);
@@ -106,12 +112,14 @@ export default function ReportsPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [selectedBranchId]);
 
   useEffect(() => {
-    if (!formData.site_id && linkedSites.length > 0) {
-      setFormData((current) => ({ ...current, site_id: linkedSites[0].id }));
-    }
+    setFormData((current) => {
+      if (linkedSites.length === 0) return { ...current, site_id: '' };
+      if (linkedSites.some((site) => site.id === current.site_id)) return current;
+      return { ...current, site_id: linkedSites[0].id };
+    });
   }, [formData.site_id, linkedSites]);
 
   const handleGenerate = async (event: React.FormEvent) => {
@@ -178,8 +186,10 @@ export default function ReportsPage() {
 
       <form
         onSubmit={handleGenerate}
-        className="mb-8 grid gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:p-6 lg:grid-cols-[1fr_220px_auto]"
+        className="mb-8 grid gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:p-6 lg:grid-cols-[220px_1fr_220px_auto]"
       >
+        <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Branch" />
+
         <div className="space-y-2">
           <label className="text-sm font-semibold text-slate-300">Site</label>
           <select
@@ -243,6 +253,7 @@ export default function ReportsPage() {
                 <tr className="border-b border-white/5 text-sm uppercase tracking-wider text-muted-foreground">
                   <th className="px-6 py-4 font-semibold">Report</th>
                   <th className="px-6 py-4 font-semibold">Client</th>
+                  <th className="px-6 py-4 font-semibold">Branch</th>
                   <th className="px-6 py-4 font-semibold">Status</th>
                   <th className="px-6 py-4 font-semibold">Coverage</th>
                   <th className="px-6 py-4 font-semibold">Published</th>
@@ -265,6 +276,9 @@ export default function ReportsPage() {
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-300" data-label="Client">
                         {report.client?.companyName || report.client?.name || 'Client'}
+                      </td>
+                      <td className="px-6 py-4" data-label="Branch">
+                        <BranchBadge branch={report.branch} />
                       </td>
                       <td className="px-6 py-4" data-label="Status">
                         <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-widest ${statusClass[report.status] || statusClass.draft}`}>

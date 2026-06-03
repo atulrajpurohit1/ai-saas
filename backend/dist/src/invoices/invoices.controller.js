@@ -26,13 +26,13 @@ let InvoicesController = class InvoicesController {
         this.invoicesService = invoicesService;
     }
     generate(user, dto) {
-        return this.invoicesService.generateInvoice(user.tenantId, user.sub, dto);
+        return this.invoicesService.generateInvoice(user, dto);
     }
-    findAll(user) {
-        return this.invoicesService.findAllForAdmin(user.tenantId);
+    findAll(user, branchId) {
+        return this.invoicesService.findAllForAdmin(user, branchId);
     }
     async exportPdf(user, id, res) {
-        const { buffer, invoice } = await this.invoicesService.exportForAdmin(user.tenantId, user.sub, id);
+        const { buffer, invoice } = await this.invoicesService.exportForAdmin(user, id);
         res.set({
             'Content-Type': 'application/pdf',
             'Content-Disposition': `attachment; filename=${invoice.invoiceNumber}.pdf`,
@@ -41,16 +41,16 @@ let InvoicesController = class InvoicesController {
         res.end(buffer);
     }
     findOne(user, id) {
-        return this.invoicesService.findOneForAdmin(user.tenantId, id);
+        return this.invoicesService.findOneForAdmin(user, id);
     }
     issue(user, id) {
-        return this.invoicesService.issueInvoice(user.tenantId, user.sub, id);
+        return this.invoicesService.issueInvoice(user, id);
     }
     markPaid(user, id) {
-        return this.invoicesService.markPaid(user.tenantId, user.sub, id);
+        return this.invoicesService.markPaid(user, id);
     }
     cancel(user, id) {
-        return this.invoicesService.cancelInvoice(user.tenantId, user.sub, id);
+        return this.invoicesService.cancelInvoice(user, id);
     }
 };
 exports.InvoicesController = InvoicesController;
@@ -65,8 +65,9 @@ __decorate([
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Query)('branch_id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], InvoicesController.prototype, "findAll", null);
 __decorate([

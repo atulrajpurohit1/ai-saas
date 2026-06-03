@@ -27,13 +27,13 @@ let SitesController = class SitesController {
         this.sitesService = sitesService;
     }
     create(user, createSiteDto) {
-        return this.sitesService.create(user.sub, user.tenantId, createSiteDto);
+        return this.sitesService.create(user, createSiteDto);
     }
-    findAll(user) {
-        return this.sitesService.findAll(user.tenantId);
+    findAll(user, branchId) {
+        return this.sitesService.findAll(user, branchId);
     }
     update(user, id, updateSiteDto) {
-        return this.sitesService.update(user.sub, user.tenantId, id, updateSiteDto);
+        return this.sitesService.update(user, id, updateSiteDto);
     }
 };
 exports.SitesController = SitesController;
@@ -50,8 +50,9 @@ __decorate([
     (0, common_1.Get)(),
     (0, roles_decorator_1.Roles)('admin'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Query)('branch_id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], SitesController.prototype, "findAll", null);
 __decorate([

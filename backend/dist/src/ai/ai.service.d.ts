@@ -36,6 +36,7 @@ export declare class AiService {
     generateRevenueIntelligenceSummary(context: string, promptTemplate?: string | null): Promise<string | null>;
     generateRevenueFinancialRecommendations(context: string, promptTemplate?: string | null): Promise<AiRevenueRecommendationDraft[] | null>;
     explainGuardRecommendation(context: string, promptTemplate?: string | null): Promise<string | null>;
+    generateCopilotAnswer(context: string): Promise<string | null>;
     private fallbackProposalDraft;
     private fallbackLeadProposal;
     private fallbackEmailDraft;

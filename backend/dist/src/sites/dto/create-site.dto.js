@@ -16,6 +16,7 @@ class CreateSiteDto {
     address;
     instructions;
     client_id;
+    branch_id;
 }
 exports.CreateSiteDto = CreateSiteDto;
 __decorate([
@@ -38,4 +39,9 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", Object)
 ], CreateSiteDto.prototype, "client_id", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", Object)
+], CreateSiteDto.prototype, "branch_id", void 0);
 //# sourceMappingURL=create-site.dto.js.map

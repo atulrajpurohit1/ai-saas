@@ -2,13 +2,16 @@
 
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
 import api from '@/lib/api';
 import { GuardRecommendation } from '@/lib/ai-insights';
+import { branchParams, BranchSummary } from '@/lib/branches';
 import { Plus, Search, Calendar, Clock, Users, MapPin, Sparkles, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface Site {
   id: string;
   name: string;
+  branchId?: string | null;
 }
 
 interface Guard {
@@ -20,6 +23,8 @@ interface Shift {
   id: string;
   siteId: string;
   site: { name: string };
+  branchId?: string | null;
+  branch?: BranchSummary | null;
   startTime: string;
   endTime: string;
   requiredGuards: number;
@@ -48,6 +53,7 @@ export default function ShiftsPage() {
   const [recommendations, setRecommendations] = useState<GuardRecommendation[]>([]);
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
   const [recommendationsError, setRecommendationsError] = useState('');
+  const [selectedBranchId, setSelectedBranchId] = useState('');
   
   const [newShift, setNewShift] = useState({
     siteId: '',
@@ -58,7 +64,7 @@ export default function ShiftsPage() {
 
   const fetchShifts = async () => {
     try {
-      const res = await api.get('v2/shifts');
+      const res = await api.get('v2/shifts', { params: branchParams(selectedBranchId) });
       setShifts(res.data);
     } catch (err) {
       console.error('Failed to fetch shifts:', err);
@@ -69,7 +75,7 @@ export default function ShiftsPage() {
 
   const fetchSites = async () => {
     try {
-      const res = await api.get('sites');
+      const res = await api.get('sites', { params: branchParams(selectedBranchId) });
       setSites(res.data);
     } catch (err) {
       console.error('Failed to fetch sites:', err);
@@ -78,7 +84,7 @@ export default function ShiftsPage() {
 
   const fetchGuards = async () => {
     try {
-      const res = await api.get('v2/guards');
+      const res = await api.get('v2/guards', { params: branchParams(selectedBranchId) });
       setGuards(res.data);
     } catch (err) {
       console.error('Failed to fetch guards:', err);
@@ -89,7 +95,7 @@ export default function ShiftsPage() {
     fetchShifts();
     fetchSites();
     fetchGuards();
-  }, []);
+  }, [selectedBranchId]);
 
   const resetAssignModal = () => {
     setShowAssignModal(false);
@@ -152,7 +158,7 @@ export default function ShiftsPage() {
   const handleCreateShift = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post('v2/shifts', newShift);
+      await api.post('v2/shifts', { ...newShift, branch_id: selectedBranchId || null });
       setShowModal(false);
       setNewShift({ siteId: '', startTime: '', endTime: '', requiredGuards: 1 });
       fetchShifts();
@@ -208,13 +214,16 @@ export default function ShiftsPage() {
 
       <div className="glass-card rounded-3xl overflow-hidden border border-white/5">
         <div className="border-b border-white/5 bg-white/5 p-4 sm:p-6">
-          <div className="relative w-full sm:max-w-sm">
-            <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search shifts..." 
-              className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary"
-            />
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_240px]">
+            <div className="relative w-full sm:max-w-sm">
+              <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
+              <input 
+                type="text" 
+                placeholder="Search shifts..." 
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Filter Branch" />
           </div>
         </div>
 
@@ -223,6 +232,7 @@ export default function ShiftsPage() {
             <thead>
               <tr className="text-muted-foreground text-sm uppercase tracking-wider">
                 <th className="px-6 py-4 font-semibold">Site</th>
+                <th className="px-6 py-4 font-semibold">Branch</th>
                 <th className="px-6 py-4 font-semibold">Start Time</th>
                 <th className="px-6 py-4 font-semibold">End Time</th>
                 <th className="px-6 py-4 font-semibold">Guards</th>
@@ -234,9 +244,9 @@ export default function ShiftsPage() {
             </thead>
             <tbody className="divide-y divide-white/5">
               {loading ? (
-                <tr><td colSpan={8} className="px-6 py-10 text-center text-muted-foreground">Loading shifts...</td></tr>
+                <tr><td colSpan={9} className="px-6 py-10 text-center text-muted-foreground">Loading shifts...</td></tr>
               ) : shifts.length === 0 ? (
-                <tr><td colSpan={8} className="px-6 py-10 text-center text-muted-foreground">No shifts scheduled yet.</td></tr>
+                <tr><td colSpan={9} className="px-6 py-10 text-center text-muted-foreground">No shifts scheduled yet.</td></tr>
               ) : shifts.map((shift) => (
                 <tr key={shift.id} className="hover:bg-white/5 transition-colors group">
                   <td className="px-6 py-4" data-label="Site">
@@ -246,6 +256,9 @@ export default function ShiftsPage() {
                       </div>
                       <span className="font-semibold">{shift.site?.name || 'N/A'}</span>
                     </div>
+                  </td>
+                  <td className="px-6 py-4" data-label="Branch">
+                    <BranchBadge branch={shift.branch} />
                   </td>
                   <td className="px-6 py-4" data-label="Start">
                     <div className="flex items-center gap-2 text-muted-foreground text-sm">
@@ -325,6 +338,12 @@ export default function ShiftsPage() {
             </div>
 
             <form onSubmit={handleCreateShift} className="space-y-4">
+              <BranchSelect
+                value={selectedBranchId}
+                onChange={setSelectedBranchId}
+                label="Branch"
+              />
+
               <div className="space-y-1">
                 <label className="text-sm font-medium text-muted-foreground">Select Site</label>
                 <select 

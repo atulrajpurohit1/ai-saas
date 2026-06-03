@@ -12,13 +12,17 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReportsService = void 0;
 const common_1 = require("@nestjs/common");
 const audit_service_1 = require("../audit/audit.service");
+const branch_scope_1 = require("../branches/branch-scope");
+const knowledge_base_service_1 = require("../knowledge-base/knowledge-base.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 let ReportsService = class ReportsService {
     prisma;
     auditService;
-    constructor(prisma, auditService) {
+    knowledgeBaseService;
+    constructor(prisma, auditService, knowledgeBaseService) {
         this.prisma = prisma;
         this.auditService = auditService;
+        this.knowledgeBaseService = knowledgeBaseService;
     }
     parseReportDate(value) {
         const trimmed = value?.trim();
@@ -76,6 +80,7 @@ let ReportsService = class ReportsService {
             tenantId: report.tenantId,
             clientId: report.clientId,
             siteId: report.siteId,
+            branchId: report.branchId,
             reportDate: report.reportDate,
             status: report.status,
             createdAt: report.createdAt,
@@ -115,11 +120,19 @@ let ReportsService = class ReportsService {
                     address: true,
                 },
             },
+            branch: {
+                select: {
+                    id: true,
+                    name: true,
+                    location: true,
+                    status: true,
+                },
+            },
         };
     }
-    async findReportOrThrow(tenantId, id) {
+    async findReportOrThrow(user, id) {
         const report = await this.prisma.dailyServiceReport.findFirst({
-            where: { id, tenantId },
+            where: { id, tenantId: user.tenantId, ...(0, branch_scope_1.branchWhere)(user) },
             include: this.reportInclude(),
         });
         if (!report) {
@@ -303,14 +316,14 @@ let ReportsService = class ReportsService {
             doc.end();
         });
     }
-    async generateDailyReport(tenantId, userId, dto) {
+    async generateDailyReport(user, dto) {
         const siteId = dto.site_id?.trim();
         if (!siteId) {
             throw new common_1.BadRequestException('site_id is required');
         }
         const { reportDate, nextDate } = this.parseReportDate(dto.report_date);
         const site = await this.prisma.site.findFirst({
-            where: { id: siteId, tenantId },
+            where: { id: siteId, tenantId: user.tenantId, ...(0, branch_scope_1.branchWhere)(user) },
             include: {
                 client: {
                     select: {
@@ -329,7 +342,8 @@ let ReportsService = class ReportsService {
         }
         const shifts = await this.prisma.shift.findMany({
             where: {
-                tenantId,
+                tenantId: user.tenantId,
+                branchId: site.branchId,
                 siteId: site.id,
                 startTime: { lt: nextDate },
                 endTime: { gt: reportDate },
@@ -356,7 +370,7 @@ let ReportsService = class ReportsService {
         });
         const incidents = await this.prisma.incident.findMany({
             where: {
-                tenantId,
+                tenantId: user.tenantId,
                 siteId: site.id,
                 status: 'approved',
                 occurredAt: {
@@ -395,7 +409,7 @@ let ReportsService = class ReportsService {
         });
         const report = await this.prisma.dailyServiceReport.create({
             data: {
-                tenantId,
+                tenantId: user.tenantId,
                 clientId: site.clientId,
                 siteId: site.id,
                 reportDate,
@@ -405,8 +419,8 @@ let ReportsService = class ReportsService {
             include: this.reportInclude(),
         });
         await this.auditService.log({
-            tenantId,
-            userId,
+            tenantId: user.tenantId,
+            userId: user.sub,
             action: 'DAILY_REPORT_GENERATED',
             entityType: 'DailyServiceReport',
             entityId: report.id,
@@ -414,19 +428,19 @@ let ReportsService = class ReportsService {
         });
         return this.mapReport(report);
     }
-    async findAllForAdmin(tenantId) {
+    async findAllForAdmin(user, requestedBranchId) {
         const reports = await this.prisma.dailyServiceReport.findMany({
-            where: { tenantId },
+            where: (0, branch_scope_1.branchScopedWhere)(user, requestedBranchId),
             include: this.reportInclude(),
             orderBy: [{ reportDate: 'desc' }, { createdAt: 'desc' }],
         });
         return reports.map((report) => this.mapReport(report));
     }
-    async findOneForAdmin(tenantId, userId, id) {
-        const report = await this.findReportOrThrow(tenantId, id);
+    async findOneForAdmin(user, id) {
+        const report = await this.findReportOrThrow(user, id);
         await this.auditService.log({
-            tenantId,
-            userId,
+            tenantId: user.tenantId,
+            userId: user.sub,
             action: 'DAILY_REPORT_VIEWED',
             entityType: 'DailyServiceReport',
             entityId: report.id,
@@ -434,8 +448,8 @@ let ReportsService = class ReportsService {
         });
         return this.mapReport(report);
     }
-    async publishReport(tenantId, userId, id) {
-        const existing = await this.findReportOrThrow(tenantId, id);
+    async publishReport(user, id) {
+        const existing = await this.findReportOrThrow(user, id);
         if (existing.status === 'published') {
             return this.mapReport(existing);
         }
@@ -451,21 +465,28 @@ let ReportsService = class ReportsService {
             include: this.reportInclude(),
         });
         await this.auditService.log({
-            tenantId,
-            userId,
+            tenantId: user.tenantId,
+            userId: user.sub,
             action: 'DAILY_REPORT_PUBLISHED',
             entityType: 'DailyServiceReport',
             entityId: updated.id,
             details: `Daily report published for client "${updated.client.companyName || updated.client.name}"`,
         });
+        await this.knowledgeBaseService.createFromReport(user.tenantId, user.sub, {
+            id: updated.id,
+            reportDate: updated.reportDate,
+            summary: updated.summary,
+            client: updated.client,
+            site: updated.site,
+        });
         return this.mapReport(updated);
     }
-    async exportForAdmin(tenantId, userId, id) {
-        const report = await this.findReportOrThrow(tenantId, id);
+    async exportForAdmin(user, id) {
+        const report = await this.findReportOrThrow(user, id);
         const buffer = await this.buildPdfBuffer(report);
         await this.auditService.log({
-            tenantId,
-            userId,
+            tenantId: user.tenantId,
+            userId: user.sub,
             action: 'DAILY_REPORT_EXPORTED_PDF',
             entityType: 'DailyServiceReport',
             entityId: report.id,
@@ -532,6 +553,7 @@ exports.ReportsService = ReportsService;
 exports.ReportsService = ReportsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        audit_service_1.AuditService])
+        audit_service_1.AuditService,
+        knowledge_base_service_1.KnowledgeBaseService])
 ], ReportsService);
 //# sourceMappingURL=reports.service.js.map

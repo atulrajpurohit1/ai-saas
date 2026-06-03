@@ -28,6 +28,7 @@ export declare class ProposalsController {
             updatedAt: Date;
             email: string;
             tenantId: string;
+            branchId: string | null;
             companyName: string | null;
             phone: string | null;
         } | null;
@@ -87,6 +88,7 @@ export declare class ProposalsController {
             updatedAt: Date;
             email: string;
             tenantId: string;
+            branchId: string | null;
             companyName: string | null;
             phone: string | null;
         } | null;

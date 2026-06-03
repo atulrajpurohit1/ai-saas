@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -16,17 +16,17 @@ export class InvoicesController {
 
   @Post('generate')
   generate(@GetUser() user: ActiveUser, @Body() dto: GenerateInvoiceDto) {
-    return this.invoicesService.generateInvoice(user.tenantId, user.sub, dto);
+    return this.invoicesService.generateInvoice(user, dto);
   }
 
   @Get()
-  findAll(@GetUser() user: ActiveUser) {
-    return this.invoicesService.findAllForAdmin(user.tenantId);
+  findAll(@GetUser() user: ActiveUser, @Query('branch_id') branchId?: string) {
+    return this.invoicesService.findAllForAdmin(user, branchId);
   }
 
   @Get(':id/export-pdf')
   async exportPdf(@GetUser() user: ActiveUser, @Param('id') id: string, @Res() res: Response) {
-    const { buffer, invoice } = await this.invoicesService.exportForAdmin(user.tenantId, user.sub, id);
+    const { buffer, invoice } = await this.invoicesService.exportForAdmin(user, id);
 
     res.set({
       'Content-Type': 'application/pdf',
@@ -39,21 +39,21 @@ export class InvoicesController {
 
   @Get(':id')
   findOne(@GetUser() user: ActiveUser, @Param('id') id: string) {
-    return this.invoicesService.findOneForAdmin(user.tenantId, id);
+    return this.invoicesService.findOneForAdmin(user, id);
   }
 
   @Post(':id/issue')
   issue(@GetUser() user: ActiveUser, @Param('id') id: string) {
-    return this.invoicesService.issueInvoice(user.tenantId, user.sub, id);
+    return this.invoicesService.issueInvoice(user, id);
   }
 
   @Post(':id/mark-paid')
   markPaid(@GetUser() user: ActiveUser, @Param('id') id: string) {
-    return this.invoicesService.markPaid(user.tenantId, user.sub, id);
+    return this.invoicesService.markPaid(user, id);
   }
 
   @Post(':id/cancel')
   cancel(@GetUser() user: ActiveUser, @Param('id') id: string) {
-    return this.invoicesService.cancelInvoice(user.tenantId, user.sub, id);
+    return this.invoicesService.cancelInvoice(user, id);
   }
 }

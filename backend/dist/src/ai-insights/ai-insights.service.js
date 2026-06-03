@@ -18,6 +18,7 @@ const common_1 = require("@nestjs/common");
 const ai_governance_service_1 = require("../ai-governance/ai-governance.service");
 const ai_service_1 = require("../ai/ai.service");
 const ai_monitoring_service_1 = require("../ai-monitoring/ai-monitoring.service");
+const knowledge_retrieval_service_1 = require("../knowledge-base/knowledge-retrieval.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const LATE_CHECK_IN_MINUTES = 5;
@@ -39,12 +40,14 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
     aiService;
     aiMonitoringService;
     aiGovernanceService;
+    knowledgeRetrievalService;
     logger = new common_1.Logger(AiInsightsService_1.name);
-    constructor(prisma, aiService, aiMonitoringService, aiGovernanceService) {
+    constructor(prisma, aiService, aiMonitoringService, aiGovernanceService, knowledgeRetrievalService) {
         this.prisma = prisma;
         this.aiService = aiService;
         this.aiMonitoringService = aiMonitoringService;
         this.aiGovernanceService = aiGovernanceService;
+        this.knowledgeRetrievalService = knowledgeRetrievalService;
     }
     async getDashboard(tenantId, userId) {
         const [clients, guards, sites, billing] = await Promise.all([
@@ -1180,6 +1183,17 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
     }
     async buildIncidentAiSummary(input) {
         try {
+            const historicalKnowledge = await this.knowledgeRetrievalService?.retrieveRelevant({
+                tenantId: input.tenantId,
+                sourceModule: 'ai_insights.incident_risk',
+                categories: ['incidents', 'operations', 'staffing'],
+                query: [
+                    ...input.highRiskSites.map((risk) => `${risk.name} ${risk.indicators.join(' ')}`),
+                    ...input.recurringIncidentTypes.map((trend) => trend.label),
+                    ...input.recommendations.map((recommendation) => recommendation.action),
+                ].join(' '),
+                limit: 8,
+            });
             const promptTemplate = await this.resolvePromptTemplate(input.tenantId, 'ai_insights.incident_risk', 'incident_risk_summary');
             return await this.aiService.generateIncidentRiskSummary(JSON.stringify({
                 severityBreakdown: input.severityBreakdown,
@@ -1189,6 +1203,12 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
                 recurringIncidentTypes: input.recurringIncidentTypes.slice(0, 5),
                 timePatterns: input.timePatterns.slice(0, 5),
                 recommendations: input.recommendations.map((recommendation) => recommendation.action),
+                organizationalMemory: historicalKnowledge?.map((entry) => ({
+                    title: entry.title,
+                    summary: entry.summary,
+                    sourceType: entry.sourceType,
+                    tags: entry.tags,
+                })) || [],
             }), promptTemplate);
         }
         catch (error) {
@@ -1406,6 +1426,19 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
     async buildAiRecommendations(tenantId, clients, guards, sites, billing, ruleRecommendations) {
         try {
             const feedbackSummary = await this.aiMonitoringService.getFeedbackSummaryForPrompt(tenantId);
+            const historicalKnowledge = await this.knowledgeRetrievalService?.retrieveRelevant({
+                tenantId,
+                sourceModule: 'ai_insights.dashboard',
+                categories: ['operations', 'staffing', 'incidents', 'billing', 'client_management'],
+                query: [
+                    ...clients.insights.map((insight) => insight.message),
+                    ...guards.insights.map((insight) => insight.message),
+                    ...sites.insights.map((insight) => insight.message),
+                    ...billing.insights.map((insight) => insight.message),
+                    ...ruleRecommendations.map((item) => item.action),
+                ].join(' '),
+                limit: 6,
+            });
             const context = {
                 clientInsights: clients.insights.map((insight) => insight.message),
                 guardInsights: guards.insights.map((insight) => insight.message),
@@ -1413,6 +1446,12 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
                 billingInsights: billing.insights.map((insight) => insight.message),
                 currentRecommendations: ruleRecommendations.map((item) => item.action),
                 adminFeedbackHistory: feedbackSummary.summaryText,
+                organizationalMemory: historicalKnowledge?.map((entry) => ({
+                    title: entry.title,
+                    category: entry.category,
+                    summary: entry.summary,
+                    tags: entry.tags,
+                })) || [],
             };
             const generated = await this.aiService.generateBusinessInsightRecommendations(JSON.stringify(context), await this.resolvePromptTemplate(tenantId, 'ai_insights.dashboard', 'business_recommendations'));
             if (!generated?.length) {
@@ -1517,9 +1556,11 @@ exports.AiInsightsService = AiInsightsService;
 exports.AiInsightsService = AiInsightsService = AiInsightsService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(3, (0, common_1.Optional)()),
+    __param(4, (0, common_1.Optional)()),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         ai_service_1.AiService,
         ai_monitoring_service_1.AiMonitoringService,
-        ai_governance_service_1.AiGovernanceService])
+        ai_governance_service_1.AiGovernanceService,
+        knowledge_retrieval_service_1.KnowledgeRetrievalService])
 ], AiInsightsService);
 //# sourceMappingURL=ai-insights.service.js.map

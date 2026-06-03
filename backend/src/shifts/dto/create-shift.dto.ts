@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsDateString, IsInt, Min } from 'class-validator';
+import { IsNotEmpty, IsString, IsDateString, IsInt, Min, IsOptional } from 'class-validator';
 
 export class CreateShiftDto {
   @IsString()
@@ -16,4 +16,8 @@ export class CreateShiftDto {
   @IsInt()
   @Min(1)
   requiredGuards: number;
+
+  @IsString()
+  @IsOptional()
+  branch_id?: string | null;
 }

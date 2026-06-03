@@ -23,6 +23,7 @@ const ai_monitoring_service_1 = require("../ai-monitoring/ai-monitoring.service"
 const revenue_insights_service_1 = require("../ai-insights/revenue-insights.service");
 const ai_service_1 = require("../ai/ai.service");
 const prisma_service_1 = require("../prisma/prisma.service");
+const knowledge_retrieval_service_1 = require("../knowledge-base/knowledge-retrieval.service");
 let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
     prisma;
     aiInsightsService;
@@ -32,9 +33,10 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
     aiService;
     aiMonitoringService;
     aiGovernanceService;
+    knowledgeRetrievalService;
     logger = new common_1.Logger(CommandCenterService_1.name);
     promptVersion = 'v5-phase-7';
-    constructor(prisma, aiInsightsService, revenueInsightsService, recommendationService, aiActionsService, aiService, aiMonitoringService, aiGovernanceService) {
+    constructor(prisma, aiInsightsService, revenueInsightsService, recommendationService, aiActionsService, aiService, aiMonitoringService, aiGovernanceService, knowledgeRetrievalService) {
         this.prisma = prisma;
         this.aiInsightsService = aiInsightsService;
         this.revenueInsightsService = revenueInsightsService;
@@ -43,6 +45,7 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
         this.aiService = aiService;
         this.aiMonitoringService = aiMonitoringService;
         this.aiGovernanceService = aiGovernanceService;
+        this.knowledgeRetrievalService = knowledgeRetrievalService;
     }
     async getDashboard(tenantId, userId, userRole) {
         const now = new Date();
@@ -307,6 +310,19 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
         };
         try {
             const feedbackSummary = await this.aiMonitoringService.getFeedbackSummaryForPrompt(tenantId);
+            const organizationalMemory = await this.knowledgeRetrievalService?.retrieveRelevant({
+                tenantId,
+                sourceModule: 'ai_command_center.dashboard',
+                categories: ['operations', 'incidents', 'staffing', 'billing', 'client_management', 'scheduling'],
+                query: [
+                    fallbackSummary.incidentSummary,
+                    fallbackSummary.attendanceSummary,
+                    fallbackSummary.staffingSummary,
+                    fallbackSummary.financeSummary,
+                    ...fallbackSummary.topRecommendations,
+                ].join(' '),
+                limit: 8,
+            });
             const context = {
                 activeClients: overview.activeClients,
                 guardsOnDuty: overview.guardsOnDuty,
@@ -319,6 +335,12 @@ let CommandCenterService = CommandCenterService_1 = class CommandCenterService {
                 upcomingShortageSlots: schedulingOverview.shortageSlots,
                 topRecommendations: recommendations.slice(0, 3).map(r => r.action),
                 adminFeedbackHistory: feedbackSummary.summaryText,
+                organizationalMemory: organizationalMemory?.map((entry) => ({
+                    title: entry.title,
+                    category: entry.category,
+                    summary: entry.summary,
+                    tags: entry.tags,
+                })) || [],
             };
             const aiNarrative = await this.aiService.generateIncidentRiskSummary(JSON.stringify(context), await this.resolvePromptTemplate(tenantId, 'ai_command_center.dashboard', 'daily_summary'));
             if (aiNarrative) {
@@ -348,6 +370,7 @@ exports.CommandCenterService = CommandCenterService;
 exports.CommandCenterService = CommandCenterService = CommandCenterService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(7, (0, common_1.Optional)()),
+    __param(8, (0, common_1.Optional)()),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         ai_insights_service_1.AiInsightsService,
         revenue_insights_service_1.RevenueInsightsService,
@@ -355,6 +378,7 @@ exports.CommandCenterService = CommandCenterService = CommandCenterService_1 = _
         ai_actions_service_1.AiActionsService,
         ai_service_1.AiService,
         ai_monitoring_service_1.AiMonitoringService,
-        ai_governance_service_1.AiGovernanceService])
+        ai_governance_service_1.AiGovernanceService,
+        knowledge_retrieval_service_1.KnowledgeRetrievalService])
 ], CommandCenterService);
 //# sourceMappingURL=command-center.service.js.map

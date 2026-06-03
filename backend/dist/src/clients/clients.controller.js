@@ -27,19 +27,19 @@ let ClientsController = class ClientsController {
         this.clientsService = clientsService;
     }
     create(user, dto) {
-        return this.clientsService.create(user.sub, user.tenantId, dto);
+        return this.clientsService.create(user, dto);
     }
-    findAll(user) {
-        return this.clientsService.findAll(user.tenantId);
+    findAll(user, branchId) {
+        return this.clientsService.findAll(user, branchId);
     }
     findOne(user, id) {
-        return this.clientsService.findOne(user.tenantId, id);
+        return this.clientsService.findOne(user, id);
     }
     update(user, id, dto) {
-        return this.clientsService.update(user.sub, user.tenantId, id, dto);
+        return this.clientsService.update(user, id, dto);
     }
     createUser(user, id, email) {
-        return this.clientsService.createClientUser(user.tenantId, id, email);
+        return this.clientsService.createClientUser(user, id, email);
     }
 };
 exports.ClientsController = ClientsController;
@@ -55,8 +55,9 @@ __decorate([
     (0, common_1.Get)(),
     (0, roles_decorator_1.Roles)('admin', 'finance'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Query)('branch_id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], ClientsController.prototype, "findAll", null);
 __decorate([

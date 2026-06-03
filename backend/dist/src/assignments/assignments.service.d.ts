@@ -9,6 +9,7 @@ export declare class AssignmentsService {
             createdAt: Date;
             email: string | null;
             tenantId: string;
+            branchId: string | null;
             phone: string | null;
             passwordHash: string | null;
         };
@@ -18,6 +19,7 @@ export declare class AssignmentsService {
                 name: string;
                 createdAt: Date;
                 tenantId: string;
+                branchId: string | null;
                 clientId: string | null;
                 address: string;
                 instructions: string | null;
@@ -26,6 +28,7 @@ export declare class AssignmentsService {
             id: string;
             createdAt: Date;
             tenantId: string;
+            branchId: string | null;
             status: string;
             siteId: string;
             startTime: Date;

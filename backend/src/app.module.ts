@@ -35,6 +35,11 @@ import { CommandCenterModule } from './ai-command-center/command-center.module';
 import { AiActionsModule } from './ai-actions/ai-actions.module';
 import { AiMonitoringModule } from './ai-monitoring/ai-monitoring.module';
 import { AiGovernanceModule } from './ai-governance/ai-governance.module';
+import { KnowledgeBaseModule } from './knowledge-base/knowledge-base.module';
+import { AiCopilotModule } from './ai-copilot/ai-copilot.module';
+import { AiPredictionsModule } from './ai-predictions/ai-predictions.module';
+import { AiExecutiveCenterModule } from './ai-executive-center/ai-executive-center.module';
+import { BranchesModule } from './branches/branches.module';
 
 @Module({
   imports: [
@@ -46,6 +51,7 @@ import { AiGovernanceModule } from './ai-governance/ai-governance.module';
     ClientPortalModule,
     GuardAuthModule,
     GuardPortalModule,
+    BranchesModule,
     IncidentsModule,
     ReportsModule,
     InvoicesModule,
@@ -56,6 +62,10 @@ import { AiGovernanceModule } from './ai-governance/ai-governance.module';
     AiActionsModule,
     AiGovernanceModule,
     AiMonitoringModule,
+    KnowledgeBaseModule,
+    AiCopilotModule,
+    AiPredictionsModule,
+    AiExecutiveCenterModule,
     TimesheetsModule,
     RateCardsModule,
     LeadsModule,

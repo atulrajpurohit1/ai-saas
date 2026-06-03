@@ -2,7 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
 import api from '@/lib/api';
+import { branchParams, BranchSummary } from '@/lib/branches';
 import { Plus, Search, User, Mail, Phone, Building, Edit2, Folder, FileText, Download, Trash2, Loader2, X } from 'lucide-react';
 
 interface Client {
@@ -11,6 +13,8 @@ interface Client {
   companyName: string;
   email: string;
   phone: string;
+  branchId?: string | null;
+  branch?: BranchSummary | null;
   createdAt: string;
   users: { email: string }[];
 }
@@ -36,11 +40,13 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
+  const [selectedBranchId, setSelectedBranchId] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     companyName: '',
     email: '',
-    phone: ''
+    phone: '',
+    branch_id: ''
   });
 
   // Document management state
@@ -54,7 +60,7 @@ export default function ClientsPage() {
 
   const fetchClients = async () => {
     try {
-      const res = await api.get('clients');
+      const res = await api.get('clients', { params: branchParams(selectedBranchId) });
       setClients(res.data);
     } catch (err) {
       console.error('Failed to fetch clients:', err);
@@ -79,7 +85,7 @@ export default function ClientsPage() {
 
   useEffect(() => {
     fetchClients();
-  }, []);
+  }, [selectedBranchId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,14 +154,15 @@ export default function ClientsPage() {
       name: client.name,
       companyName: client.companyName || '',
       email: client.email,
-      phone: client.phone || ''
+      phone: client.phone || '',
+      branch_id: client.branchId || ''
     });
     setIsEditing(client.id);
     setShowModal(true);
   };
 
   const resetForm = () => {
-    setFormData({ name: '', companyName: '', email: '', phone: '' });
+    setFormData({ name: '', companyName: '', email: '', phone: '', branch_id: selectedBranchId });
     setIsEditing(null);
   };
 
@@ -177,13 +184,16 @@ export default function ClientsPage() {
 
       <div className="glass-card rounded-[2rem] overflow-hidden border border-white/5 bg-[#0a0a14]/60">
         <div className="border-b border-white/5 bg-white/5 p-4 sm:p-6">
-          <div className="relative w-full sm:max-w-sm">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search clients..." 
-              className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all text-white placeholder:text-slate-600"
-            />
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_240px]">
+            <div className="relative w-full sm:max-w-sm">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+              <input 
+                type="text" 
+                placeholder="Search clients..." 
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all text-white placeholder:text-slate-600"
+              />
+            </div>
+            <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Filter Branch" />
           </div>
         </div>
 
@@ -193,15 +203,16 @@ export default function ClientsPage() {
               <tr className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] border-b border-white/5">
                 <th className="px-8 py-5">Client / Company</th>
                 <th className="px-8 py-5">Contact Info</th>
+                <th className="px-8 py-5">Branch</th>
                 <th className="px-8 py-5 text-center">Status</th>
                 <th className="px-8 py-5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 text-white">
               {loading ? (
-                <tr><td colSpan={4} className="px-8 py-20 text-center text-slate-500 animate-pulse">Loading clients...</td></tr>
+                <tr><td colSpan={5} className="px-8 py-20 text-center text-slate-500 animate-pulse">Loading clients...</td></tr>
               ) : clients.length === 0 ? (
-                <tr><td colSpan={4} className="px-8 py-20 text-center text-slate-500 italic">No clients found. Add your first client above.</td></tr>
+                <tr><td colSpan={5} className="px-8 py-20 text-center text-slate-500 italic">No clients found. Add your first client above.</td></tr>
               ) : clients.map((client) => (
                 <tr key={client.id} className="hover:bg-white/5 transition-all group">
                   <td className="px-8 py-6" data-label="Client">
@@ -231,6 +242,9 @@ export default function ClientsPage() {
                         </div>
                       )}
                     </div>
+                  </td>
+                  <td className="px-8 py-6" data-label="Branch">
+                    <BranchBadge branch={client.branch} />
                   </td>
                   <td className="px-8 py-6 text-center" data-label="Status">
                     {client.users && client.users.length > 0 ? (
@@ -431,6 +445,12 @@ export default function ClientsPage() {
                   />
                 </div>
               </div>
+
+              <BranchSelect
+                value={formData.branch_id}
+                onChange={(branchId) => setFormData({ ...formData, branch_id: branchId })}
+                includeAll={false}
+              />
 
               <div className="mt-8 flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:gap-4">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-3 rounded-2xl transition-all border border-white/10">

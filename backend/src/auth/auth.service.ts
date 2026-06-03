@@ -54,6 +54,8 @@ export class AuthService {
         result.user.email,
         result.tenant.id,
         'admin',
+        null,
+        true,
       );
 
       await this.updateRefreshTokenHash(
@@ -92,7 +94,14 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
 
     const role = this.mapUserRole(user.role);
-    const tokens = await this.getTokens(user.id, user.email, user.tenantId, role);
+    const tokens = await this.getTokens(
+      user.id,
+      user.email,
+      user.tenantId,
+      role,
+      user.branchId,
+      user.isSuperAdmin,
+    );
 
     await this.updateRefreshTokenHash(user.id, tokens.refresh_token, role);
     return tokens;
@@ -118,10 +127,23 @@ export class AuthService {
     const rtMatches = await bcrypt.compare(rt, user.refreshToken);
     if (!rtMatches) throw new ForbiddenException('Access Denied');
 
-    const typedUser = user as { id: string; email: string; tenantId: string };
+    const typedUser = user as {
+      id: string;
+      email: string;
+      tenantId: string;
+      branchId: string | null;
+      isSuperAdmin: boolean;
+    };
 
     const userRole = this.mapUserRole(user.role);
-    const tokens = await this.getTokens(typedUser.id, typedUser.email, typedUser.tenantId, userRole);
+    const tokens = await this.getTokens(
+      typedUser.id,
+      typedUser.email,
+      typedUser.tenantId,
+      userRole,
+      typedUser.branchId,
+      typedUser.isSuperAdmin,
+    );
 
     await this.updateRefreshTokenHash(
       typedUser.id,
@@ -144,6 +166,8 @@ export class AuthService {
     email: string,
     tenantId: string,
     role: AdminPortalRole,
+    branchId: string | null = null,
+    isSuperAdmin = true,
   ) {
     const atSecret = this.configService.get<string>('JWT_ACCESS_SECRET');
     const atExpires = this.configService.get<string>('JWT_ACCESS_EXPIRES_IN');
@@ -152,14 +176,14 @@ export class AuthService {
 
     const [at, rt] = await Promise.all([
       this.jwtService.signAsync(
-        { sub: userId, email, tenantId, role },
+        { sub: userId, email, tenantId, role, branchId, isSuperAdmin },
         {
           secret: atSecret,
           expiresIn: atExpires as unknown as number,
         },
       ),
       this.jwtService.signAsync(
-        { sub: userId, email, tenantId, role },
+        { sub: userId, email, tenantId, role, branchId, isSuperAdmin },
         {
           secret: rtSecret,
           expiresIn: rtExpires as unknown as number,

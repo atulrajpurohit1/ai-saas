@@ -1,6 +1,7 @@
 import { AiGovernanceService } from '../ai-governance/ai-governance.service';
 import { AiService } from '../ai/ai.service';
 import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
+import { KnowledgeRetrievalService } from '../knowledge-base/knowledge-retrieval.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GuardRecommendation, SchedulingOverview } from './ai-insights.types';
 export declare class RecommendationService {
@@ -8,7 +9,8 @@ export declare class RecommendationService {
     private readonly aiService;
     private readonly aiMonitoringService?;
     private readonly aiGovernanceService?;
-    constructor(prisma: PrismaService, aiService: AiService, aiMonitoringService?: AiMonitoringService | undefined, aiGovernanceService?: AiGovernanceService | undefined);
+    private readonly knowledgeRetrievalService?;
+    constructor(prisma: PrismaService, aiService: AiService, aiMonitoringService?: AiMonitoringService | undefined, aiGovernanceService?: AiGovernanceService | undefined, knowledgeRetrievalService?: KnowledgeRetrievalService | undefined);
     recommendGuards(tenantId: string, shiftId: string, includeAiExplanation?: boolean): Promise<GuardRecommendation[]>;
     getSchedulingOverview(tenantId: string): Promise<SchedulingOverview>;
     private applyFeedback;
@@ -20,5 +22,6 @@ export declare class RecommendationService {
     private roundPercent;
     private fallbackRecommendationExplanation;
     private explainRecommendation;
+    private getSchedulingMemory;
     private resolvePromptTemplate;
 }

@@ -44,6 +44,11 @@ const command_center_module_1 = require("./ai-command-center/command-center.modu
 const ai_actions_module_1 = require("./ai-actions/ai-actions.module");
 const ai_monitoring_module_1 = require("./ai-monitoring/ai-monitoring.module");
 const ai_governance_module_1 = require("./ai-governance/ai-governance.module");
+const knowledge_base_module_1 = require("./knowledge-base/knowledge-base.module");
+const ai_copilot_module_1 = require("./ai-copilot/ai-copilot.module");
+const ai_predictions_module_1 = require("./ai-predictions/ai-predictions.module");
+const ai_executive_center_module_1 = require("./ai-executive-center/ai-executive-center.module");
+const branches_module_1 = require("./branches/branches.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -58,6 +63,7 @@ exports.AppModule = AppModule = __decorate([
             client_portal_module_1.ClientPortalModule,
             guard_auth_module_1.GuardAuthModule,
             guard_portal_module_1.GuardPortalModule,
+            branches_module_1.BranchesModule,
             incidents_module_1.IncidentsModule,
             reports_module_1.ReportsModule,
             invoices_module_1.InvoicesModule,
@@ -68,6 +74,10 @@ exports.AppModule = AppModule = __decorate([
             ai_actions_module_1.AiActionsModule,
             ai_governance_module_1.AiGovernanceModule,
             ai_monitoring_module_1.AiMonitoringModule,
+            knowledge_base_module_1.KnowledgeBaseModule,
+            ai_copilot_module_1.AiCopilotModule,
+            ai_predictions_module_1.AiPredictionsModule,
+            ai_executive_center_module_1.AiExecutiveCenterModule,
             timesheets_module_1.TimesheetsModule,
             rate_cards_module_1.RateCardsModule,
             leads_module_1.LeadsModule,

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, UseGuards, Query } from '@nestjs/common';
 import { SitesService } from './sites.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -19,13 +19,13 @@ export class SitesController {
     @GetUser() user: ActiveUser,
     @Body() createSiteDto: CreateSiteDto,
   ) {
-    return this.sitesService.create(user.sub, user.tenantId, createSiteDto);
+    return this.sitesService.create(user, createSiteDto);
   }
 
   @Get()
   @Roles('admin')
-  findAll(@GetUser() user: ActiveUser) {
-    return this.sitesService.findAll(user.tenantId);
+  findAll(@GetUser() user: ActiveUser, @Query('branch_id') branchId?: string) {
+    return this.sitesService.findAll(user, branchId);
   }
 
   @Put(':id')
@@ -35,6 +35,6 @@ export class SitesController {
     @Param('id') id: string,
     @Body() updateSiteDto: UpdateSiteDto,
   ) {
-    return this.sitesService.update(user.sub, user.tenantId, id, updateSiteDto);
+    return this.sitesService.update(user, id, updateSiteDto);
   }
 }

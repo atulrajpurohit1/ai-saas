@@ -14,6 +14,8 @@ export declare class JwtRefreshStrategy extends JwtRefreshStrategy_base {
         phone?: string;
         tenantId: string;
         role: "admin" | "finance" | "supervisor" | "client" | "guard";
+        branchId?: string | null;
+        isSuperAdmin?: boolean;
         clientId?: string;
         guardId?: string;
     };

@@ -24,7 +24,7 @@ export declare class AuthService {
         refresh_token: string;
     }>;
     updateRefreshTokenHash(userId: string, rt: string, role: string): Promise<void>;
-    getTokens(userId: string, email: string, tenantId: string, role: AdminPortalRole): Promise<{
+    getTokens(userId: string, email: string, tenantId: string, role: AdminPortalRole, branchId?: string | null, isSuperAdmin?: boolean): Promise<{
         access_token: string;
         refresh_token: string;
     }>;

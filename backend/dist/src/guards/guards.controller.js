@@ -28,19 +28,19 @@ let GuardsController = class GuardsController {
         this.guardsService = guardsService;
     }
     create(user, createGuardDto) {
-        return this.guardsService.create(user.sub, user.tenantId, createGuardDto);
+        return this.guardsService.create(user, createGuardDto);
     }
-    findAll(user) {
-        return this.guardsService.findAll(user.tenantId);
+    findAll(user, branchId) {
+        return this.guardsService.findAll(user, branchId);
     }
     update(user, id, updateGuardDto) {
-        return this.guardsService.update(user.sub, user.tenantId, id, updateGuardDto);
+        return this.guardsService.update(user, id, updateGuardDto);
     }
     getAvailability(user, id) {
-        return this.guardsService.getAvailability(user.tenantId, id);
+        return this.guardsService.getAvailability(user, id);
     }
     updateAvailability(user, id, dto) {
-        return this.guardsService.updateAvailability(user.sub, user.tenantId, id, dto);
+        return this.guardsService.updateAvailability(user, id, dto);
     }
 };
 exports.GuardsController = GuardsController;
@@ -55,8 +55,9 @@ __decorate([
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Query)('branch_id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], GuardsController.prototype, "findAll", null);
 __decorate([

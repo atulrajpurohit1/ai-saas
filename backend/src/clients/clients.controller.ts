@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, UseGuards, Query } from '@nestjs/common';
 import { ClientsService } from './clients.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -19,13 +19,13 @@ export class ClientsController {
     @GetUser() user: ActiveUser,
     @Body() dto: CreateClientDto,
   ) {
-    return this.clientsService.create(user.sub, user.tenantId, dto);
+    return this.clientsService.create(user, dto);
   }
 
   @Get()
   @Roles('admin', 'finance')
-  findAll(@GetUser() user: ActiveUser) {
-    return this.clientsService.findAll(user.tenantId);
+  findAll(@GetUser() user: ActiveUser, @Query('branch_id') branchId?: string) {
+    return this.clientsService.findAll(user, branchId);
   }
 
   @Get(':id')
@@ -33,7 +33,7 @@ export class ClientsController {
     @GetUser() user: ActiveUser,
     @Param('id') id: string,
   ) {
-    return this.clientsService.findOne(user.tenantId, id);
+    return this.clientsService.findOne(user, id);
   }
 
   @Put(':id')
@@ -42,7 +42,7 @@ export class ClientsController {
     @Param('id') id: string,
     @Body() dto: UpdateClientDto,
   ) {
-    return this.clientsService.update(user.sub, user.tenantId, id, dto);
+    return this.clientsService.update(user, id, dto);
   }
 
   @Post(':id/create-user')
@@ -51,6 +51,6 @@ export class ClientsController {
     @Param('id') id: string,
     @Body('email') email: string,
   ) {
-    return this.clientsService.createClientUser(user.tenantId, id, email);
+    return this.clientsService.createClientUser(user, id, email);
   }
 }

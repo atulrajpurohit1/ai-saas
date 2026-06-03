@@ -2,7 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
 import api from '@/lib/api';
+import { branchParams, BranchSummary } from '@/lib/branches';
 import { Plus, Search, MapPin, MoreVertical, Edit2 } from 'lucide-react';
 
 interface Site {
@@ -11,6 +13,8 @@ interface Site {
   address: string;
   instructions: string | null;
   clientId: string | null;
+  branchId?: string | null;
+  branch?: BranchSummary | null;
   client?: {
     id: string;
     name: string;
@@ -31,11 +35,12 @@ export default function SitesPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: '', address: '', instructions: '', client_id: '' });
+  const [selectedBranchId, setSelectedBranchId] = useState('');
+  const [formData, setFormData] = useState({ name: '', address: '', instructions: '', client_id: '', branch_id: '' });
   
   const fetchSites = async () => {
     try {
-      const res = await api.get('sites');
+      const res = await api.get('sites', { params: branchParams(selectedBranchId) });
       setSites(res.data);
     } catch (err) {
       console.error(err);
@@ -46,7 +51,7 @@ export default function SitesPage() {
 
   const fetchClients = async () => {
     try {
-      const res = await api.get('clients');
+      const res = await api.get('clients', { params: branchParams(selectedBranchId) });
       setClients(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error(err);
@@ -56,7 +61,7 @@ export default function SitesPage() {
   useEffect(() => {
     fetchSites();
     fetchClients();
-  }, []);
+  }, [selectedBranchId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,11 +70,13 @@ export default function SitesPage() {
         await api.put(`sites/${isEditing}`, {
           ...formData,
           client_id: formData.client_id || null,
+          branch_id: formData.branch_id || null,
         });
       } else {
         await api.post('sites', {
           ...formData,
           client_id: formData.client_id || null,
+          branch_id: formData.branch_id || null,
         });
       }
       setShowModal(false);
@@ -86,14 +93,15 @@ export default function SitesPage() {
       name: site.name,
       address: site.address,
       instructions: site.instructions || '',
-      client_id: site.clientId || ''
+      client_id: site.clientId || '',
+      branch_id: site.branchId || ''
     });
     setIsEditing(site.id);
     setShowModal(true);
   };
 
   const resetForm = () => {
-    setFormData({ name: '', address: '', instructions: '', client_id: '' });
+    setFormData({ name: '', address: '', instructions: '', client_id: '', branch_id: selectedBranchId });
     setIsEditing(null);
   };
 
@@ -115,13 +123,16 @@ export default function SitesPage() {
 
       <div className="glass-card rounded-3xl overflow-hidden border border-white/5">
         <div className="border-b border-white/5 bg-white/5 p-4 sm:p-6">
-          <div className="relative w-full sm:max-w-sm">
-            <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search sites..." 
-              className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary"
-            />
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_240px]">
+            <div className="relative w-full sm:max-w-sm">
+              <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
+              <input 
+                type="text" 
+                placeholder="Search sites..." 
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Filter Branch" />
           </div>
         </div>
 
@@ -132,15 +143,16 @@ export default function SitesPage() {
                 <th className="px-6 py-4 font-semibold">Site Detail</th>
                 <th className="px-6 py-4 font-semibold">Location</th>
                 <th className="px-6 py-4 font-semibold">Client</th>
+                <th className="px-6 py-4 font-semibold">Branch</th>
                 <th className="px-6 py-4 font-semibold">Created</th>
                 <th className="px-6 py-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {loading ? (
-                <tr><td colSpan={5} className="px-6 py-10 text-center text-muted-foreground">Loading sites...</td></tr>
+                <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">Loading sites...</td></tr>
               ) : sites.length === 0 ? (
-                <tr><td colSpan={5} className="px-6 py-10 text-center text-muted-foreground">No sites found.</td></tr>
+                <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">No sites found.</td></tr>
               ) : sites.map((site) => (
                 <tr key={site.id} className="hover:bg-white/5 transition-colors group">
                   <td className="px-6 py-4" data-label="Site">
@@ -162,6 +174,9 @@ export default function SitesPage() {
                     ) : (
                       <span className="text-sm text-muted-foreground">Unlinked</span>
                     )}
+                  </td>
+                  <td className="px-6 py-4 align-middle" data-label="Branch">
+                    <BranchBadge branch={site.branch} />
                   </td>
                   <td className="px-6 py-4 text-sm text-muted-foreground align-middle" data-label="Created">
                     {new Date(site.createdAt).toLocaleDateString()}
@@ -249,6 +264,12 @@ export default function SitesPage() {
                   ))}
                 </select>
               </div>
+
+              <BranchSelect
+                value={formData.branch_id}
+                onChange={(branchId) => setFormData({ ...formData, branch_id: branchId })}
+                includeAll={false}
+              />
 
               <div className="mt-8 flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:gap-4">
                 <button 

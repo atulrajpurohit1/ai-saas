@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, UseGuards, Query } from '@nestjs/common';
 import { GuardsService } from './guards.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -21,12 +21,12 @@ export class GuardsController {
     @GetUser() user: ActiveUser,
     @Body() createGuardDto: CreateGuardDto,
   ) {
-    return this.guardsService.create(user.sub, user.tenantId, createGuardDto);
+    return this.guardsService.create(user, createGuardDto);
   }
 
   @Get()
-  findAll(@GetUser() user: ActiveUser) {
-    return this.guardsService.findAll(user.tenantId);
+  findAll(@GetUser() user: ActiveUser, @Query('branch_id') branchId?: string) {
+    return this.guardsService.findAll(user, branchId);
   }
 
   @Put(':id')
@@ -35,7 +35,7 @@ export class GuardsController {
     @Param('id') id: string,
     @Body() updateGuardDto: UpdateGuardDto,
   ) {
-    return this.guardsService.update(user.sub, user.tenantId, id, updateGuardDto);
+    return this.guardsService.update(user, id, updateGuardDto);
   }
 
   @Get(':id/availability')
@@ -43,7 +43,7 @@ export class GuardsController {
     @GetUser() user: ActiveUser,
     @Param('id') id: string,
   ) {
-    return this.guardsService.getAvailability(user.tenantId, id);
+    return this.guardsService.getAvailability(user, id);
   }
 
   @Put(':id/availability')
@@ -52,6 +52,6 @@ export class GuardsController {
     @Param('id') id: string,
     @Body() dto: UpdateAvailabilityDto,
   ) {
-    return this.guardsService.updateAvailability(user.sub, user.tenantId, id, dto);
+    return this.guardsService.updateAvailability(user, id, dto);
   }
 }

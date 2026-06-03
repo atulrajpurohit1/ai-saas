@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const ai_governance_module_1 = require("../ai-governance/ai-governance.module");
 const ai_module_1 = require("../ai/ai.module");
 const ai_monitoring_module_1 = require("../ai-monitoring/ai-monitoring.module");
+const knowledge_base_module_1 = require("../knowledge-base/knowledge-base.module");
 const prisma_module_1 = require("../prisma/prisma.module");
 const ai_insights_controller_1 = require("./ai-insights.controller");
 const ai_insights_service_1 = require("./ai-insights.service");
@@ -21,7 +22,7 @@ let AiInsightsModule = class AiInsightsModule {
 exports.AiInsightsModule = AiInsightsModule;
 exports.AiInsightsModule = AiInsightsModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, ai_module_1.AiModule, ai_monitoring_module_1.AiMonitoringModule, ai_governance_module_1.AiGovernanceModule],
+        imports: [prisma_module_1.PrismaModule, ai_module_1.AiModule, ai_monitoring_module_1.AiMonitoringModule, ai_governance_module_1.AiGovernanceModule, knowledge_base_module_1.KnowledgeBaseModule],
         controllers: [ai_insights_controller_1.AiInsightsController],
         providers: [ai_insights_service_1.AiInsightsService, revenue_insights_service_1.RevenueInsightsService, recommendation_service_1.RecommendationService],
         exports: [ai_insights_service_1.AiInsightsService, revenue_insights_service_1.RevenueInsightsService, recommendation_service_1.RecommendationService],

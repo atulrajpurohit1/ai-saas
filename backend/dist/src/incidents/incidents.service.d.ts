@@ -1,4 +1,7 @@
 import { AuditService } from '../audit/audit.service';
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
+import { KnowledgeRetrievalService } from '../knowledge-base/knowledge-retrieval.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { ReviewIncidentDto } from './dto/review-incident.dto';
@@ -6,17 +9,27 @@ type IncidentStatus = 'submitted' | 'under_review' | 'approved' | 'rejected';
 export declare class IncidentsService {
     private prisma;
     private auditService;
-    constructor(prisma: PrismaService, auditService: AuditService);
+    private knowledgeBaseService;
+    private knowledgeRetrievalService;
+    constructor(prisma: PrismaService, auditService: AuditService, knowledgeBaseService: KnowledgeBaseService, knowledgeRetrievalService: KnowledgeRetrievalService);
     private mapIncident;
     private mapClientIncident;
     private mapClientIncidentListItem;
     private incidentSelectSql;
     private validateCreateDto;
     private validateReviewStatus;
+    private adminBranchSql;
     private moveSubmittedIncidentToReview;
     createForGuard(tenantId: string, guardId: string, shiftId: string, dto: CreateIncidentDto): Promise<{
         id: string;
         tenantId: string;
+        branchId: string | null;
+        branch: {
+            id: string;
+            name: string | null;
+            location: string | null;
+            status: string | null;
+        } | null;
         shiftId: string;
         siteId: string;
         guardId: string;
@@ -57,6 +70,13 @@ export declare class IncidentsService {
     findForGuard(tenantId: string, guardId: string): Promise<{
         id: string;
         tenantId: string;
+        branchId: string | null;
+        branch: {
+            id: string;
+            name: string | null;
+            location: string | null;
+            status: string | null;
+        } | null;
         shiftId: string;
         siteId: string;
         guardId: string;
@@ -94,9 +114,16 @@ export declare class IncidentsService {
             endTime: Date;
         };
     }[]>;
-    findAllForAdmin(tenantId: string): Promise<{
+    findAllForAdmin(user: ActiveUser, requestedBranchId?: string | null): Promise<{
         id: string;
         tenantId: string;
+        branchId: string | null;
+        branch: {
+            id: string;
+            name: string | null;
+            location: string | null;
+            status: string | null;
+        } | null;
         shiftId: string;
         siteId: string;
         guardId: string;
@@ -134,9 +161,16 @@ export declare class IncidentsService {
             endTime: Date;
         };
     }[]>;
-    findReviewQueueForAdmin(tenantId: string): Promise<{
+    findReviewQueueForAdmin(user: ActiveUser, requestedBranchId?: string | null): Promise<{
         id: string;
         tenantId: string;
+        branchId: string | null;
+        branch: {
+            id: string;
+            name: string | null;
+            location: string | null;
+            status: string | null;
+        } | null;
         shiftId: string;
         siteId: string;
         guardId: string;
@@ -174,9 +208,17 @@ export declare class IncidentsService {
             endTime: Date;
         };
     }[]>;
-    findOneForAdmin(tenantId: string, incidentId: string, userId: string): Promise<{
+    findOneForAdmin(user: ActiveUser, incidentId: string): Promise<{
+        similarHistoricalCases: import("../knowledge-base/knowledge-base.types").KnowledgeRetrievalResult[];
         id: string;
         tenantId: string;
+        branchId: string | null;
+        branch: {
+            id: string;
+            name: string | null;
+            location: string | null;
+            status: string | null;
+        } | null;
         shiftId: string;
         siteId: string;
         guardId: string;
@@ -214,9 +256,16 @@ export declare class IncidentsService {
             endTime: Date;
         };
     }>;
-    reviewIncident(tenantId: string, incidentId: string, userId: string, dto: ReviewIncidentDto): Promise<{
+    reviewIncident(user: ActiveUser, incidentId: string, dto: ReviewIncidentDto): Promise<{
         id: string;
         tenantId: string;
+        branchId: string | null;
+        branch: {
+            id: string;
+            name: string | null;
+            location: string | null;
+            status: string | null;
+        } | null;
         shiftId: string;
         siteId: string;
         guardId: string;

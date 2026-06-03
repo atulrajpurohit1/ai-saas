@@ -10,6 +10,7 @@ export declare class AssignmentsController {
             createdAt: Date;
             email: string | null;
             tenantId: string;
+            branchId: string | null;
             phone: string | null;
             passwordHash: string | null;
         };
@@ -19,6 +20,7 @@ export declare class AssignmentsController {
                 name: string;
                 createdAt: Date;
                 tenantId: string;
+                branchId: string | null;
                 clientId: string | null;
                 address: string;
                 instructions: string | null;
@@ -27,6 +29,7 @@ export declare class AssignmentsController {
             id: string;
             createdAt: Date;
             tenantId: string;
+            branchId: string | null;
             status: string;
             siteId: string;
             startTime: Date;

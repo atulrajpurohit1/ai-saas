@@ -5,7 +5,7 @@ import { PrismaExceptionFilter } from './prisma/prisma-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
   app.useGlobalFilters(new PrismaExceptionFilter());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.setGlobalPrefix('api');
@@ -34,7 +34,7 @@ async function bootstrap() {
       /^https:\/\/ai-saas-[a-z0-9-]+\.vercel\.app$/.test(origin)
     );
   };
-  
+
   app.enableCors({
     origin: (origin, callback) => {
       callback(null, isAllowedOrigin(origin));
@@ -44,7 +44,7 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
     optionsSuccessStatus: 204,
   });
-  
+
   const port = process.env.PORT || 5000;
   await app.listen(port, '0.0.0.0');
   console.log(`Application is running on: http://localhost:${port}/api`);

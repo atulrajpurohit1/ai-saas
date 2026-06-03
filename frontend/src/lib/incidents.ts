@@ -1,4 +1,6 @@
 import api from './api';
+import { branchParams, BranchSummary } from './branches';
+import { KnowledgeEntry } from './knowledge-base';
 
 export type IncidentSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type IncidentStatus = 'submitted' | 'under_review' | 'approved' | 'rejected';
@@ -6,6 +8,7 @@ export type IncidentStatus = 'submitted' | 'under_review' | 'approved' | 'reject
 export interface Incident {
   id: string;
   tenantId: string;
+  branchId?: string | null;
   shiftId: string;
   siteId: string;
   guardId: string;
@@ -42,6 +45,8 @@ export interface Incident {
     startTime: string;
     endTime: string;
   };
+  similarHistoricalCases?: KnowledgeEntry[];
+  branch?: BranchSummary | null;
 }
 
 export interface CreateIncidentInput {
@@ -67,13 +72,13 @@ export async function getGuardIncidents() {
   return response.data;
 }
 
-export async function getAdminIncidents() {
-  const response = await api.get<Incident[]>('incidents');
+export async function getAdminIncidents(branchId?: string | null) {
+  const response = await api.get<Incident[]>('incidents', { params: branchParams(branchId) });
   return response.data;
 }
 
-export async function getIncidentReviewQueue() {
-  const response = await api.get<Incident[]>('incidents/review-queue');
+export async function getIncidentReviewQueue(branchId?: string | null) {
+  const response = await api.get<Incident[]>('incidents/review-queue', { params: branchParams(branchId) });
   return response.data;
 }
 

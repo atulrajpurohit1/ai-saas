@@ -11,6 +11,13 @@ export declare class ClientInvoicesController {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;
@@ -59,6 +66,13 @@ export declare class ClientInvoicesController {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;
@@ -106,6 +120,13 @@ export declare class ClientInvoicesController {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;
@@ -153,6 +174,13 @@ export declare class ClientInvoicesController {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;

@@ -17,4 +17,8 @@ export class CreateGuardDto {
   @IsOptional()
   @MinLength(6)
   password?: string;
+
+  @IsString()
+  @IsOptional()
+  branch_id?: string | null;
 }

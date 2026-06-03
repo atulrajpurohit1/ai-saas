@@ -28,19 +28,19 @@ let ShiftsController = class ShiftsController {
         this.shiftsService = shiftsService;
     }
     create(user, createShiftDto) {
-        return this.shiftsService.create(user.sub, user.tenantId, createShiftDto);
+        return this.shiftsService.create(user, createShiftDto);
     }
-    findAll(user) {
-        return this.shiftsService.findAll(user.tenantId);
+    findAll(user, branchId) {
+        return this.shiftsService.findAll(user, branchId);
     }
     recommendGuards(user, id) {
-        return this.shiftsService.recommendGuards(user.sub, user.tenantId, id);
+        return this.shiftsService.recommendGuards(user, id);
     }
     assign(user, id, dto) {
-        return this.shiftsService.assign(user.sub, user.tenantId, id, dto.guardId);
+        return this.shiftsService.assign(user, id, dto.guardId);
     }
     unassign(user, id) {
-        return this.shiftsService.unassign(user.sub, user.tenantId, id);
+        return this.shiftsService.unassign(user, id);
     }
 };
 exports.ShiftsController = ShiftsController;
@@ -55,8 +55,9 @@ __decorate([
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Query)('branch_id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], ShiftsController.prototype, "findAll", null);
 __decorate([

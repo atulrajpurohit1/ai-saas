@@ -46,6 +46,7 @@ exports.ClientsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const audit_service_1 = require("../audit/audit.service");
+const branch_scope_1 = require("../branches/branch-scope");
 const bcrypt = __importStar(require("bcrypt"));
 const crypto_1 = require("crypto");
 let ClientsService = class ClientsService {
@@ -55,16 +56,21 @@ let ClientsService = class ClientsService {
         this.prisma = prisma;
         this.auditService = auditService;
     }
-    async create(userId, tenantId, dto) {
+    async create(user, dto) {
+        const branchId = (0, branch_scope_1.resolveWriteBranchId)(user, dto.branch_id);
         const client = await this.prisma.client.create({
             data: {
-                ...dto,
-                tenantId,
+                name: dto.name,
+                companyName: dto.companyName,
+                email: dto.email,
+                phone: dto.phone,
+                tenantId: user.tenantId,
+                branchId,
             },
         });
         await this.auditService.log({
-            tenantId,
-            userId,
+            tenantId: user.tenantId,
+            userId: user.sub,
             action: 'CLIENT_CREATED',
             entityType: 'Client',
             entityId: client.id,
@@ -72,9 +78,9 @@ let ClientsService = class ClientsService {
         });
         return client;
     }
-    async findAll(tenantId) {
+    async findAll(user, requestedBranchId) {
         return this.prisma.client.findMany({
-            where: { tenantId },
+            where: (0, branch_scope_1.branchScopedWhere)(user, requestedBranchId),
             select: {
                 id: true,
                 name: true,
@@ -83,6 +89,15 @@ let ClientsService = class ClientsService {
                 phone: true,
                 createdAt: true,
                 updatedAt: true,
+                branchId: true,
+                branch: {
+                    select: {
+                        id: true,
+                        name: true,
+                        location: true,
+                        status: true,
+                    },
+                },
                 users: {
                     select: {
                         id: true,
@@ -94,10 +109,18 @@ let ClientsService = class ClientsService {
             orderBy: { createdAt: 'desc' },
         });
     }
-    async findOne(tenantId, id) {
+    async findOne(user, id) {
         const client = await this.prisma.client.findFirst({
-            where: { id, tenantId },
+            where: { id, tenantId: user.tenantId, ...(0, branch_scope_1.branchWhere)(user) },
             include: {
+                branch: {
+                    select: {
+                        id: true,
+                        name: true,
+                        location: true,
+                        status: true,
+                    },
+                },
                 users: {
                     select: {
                         id: true,
@@ -112,20 +135,29 @@ let ClientsService = class ClientsService {
         }
         return client;
     }
-    async update(userId, tenantId, id, dto) {
+    async update(user, id, dto) {
         const client = await this.prisma.client.findFirst({
-            where: { id, tenantId },
+            where: { id, tenantId: user.tenantId, ...(0, branch_scope_1.branchWhere)(user) },
         });
         if (!client) {
             throw new common_1.NotFoundException('Client not found');
         }
+        const branchId = dto.branch_id === undefined
+            ? undefined
+            : (0, branch_scope_1.resolveWriteBranchId)(user, dto.branch_id);
         const updatedClient = await this.prisma.client.update({
             where: { id },
-            data: dto,
+            data: {
+                ...(dto.name !== undefined ? { name: dto.name } : {}),
+                ...(dto.companyName !== undefined ? { companyName: dto.companyName } : {}),
+                ...(dto.email !== undefined ? { email: dto.email } : {}),
+                ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
+                ...(branchId !== undefined ? { branchId } : {}),
+            },
         });
         await this.auditService.log({
-            tenantId,
-            userId,
+            tenantId: user.tenantId,
+            userId: user.sub,
             action: 'CLIENT_UPDATED',
             entityType: 'Client',
             entityId: client.id,
@@ -133,9 +165,9 @@ let ClientsService = class ClientsService {
         });
         return updatedClient;
     }
-    async createClientUser(tenantId, clientId, email) {
+    async createClientUser(user, clientId, email) {
         const client = await this.prisma.client.findFirst({
-            where: { id: clientId, tenantId },
+            where: { id: clientId, tenantId: user.tenantId, ...(0, branch_scope_1.branchWhere)(user) },
             include: {
                 users: true,
             },
@@ -154,7 +186,7 @@ let ClientsService = class ClientsService {
                     email,
                     password: hashedPassword,
                     clientId,
-                    tenantId,
+                    tenantId: user.tenantId,
                 },
             });
             return {

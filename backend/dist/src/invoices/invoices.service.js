@@ -13,6 +13,7 @@ exports.InvoicesService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const audit_service_1 = require("../audit/audit.service");
+const branch_scope_1 = require("../branches/branch-scope");
 const prisma_service_1 = require("../prisma/prisma.service");
 const TAX_RATE = 0;
 const CLIENT_VISIBLE_STATUSES = ['issued', 'disputed', 'resolved', 'paid'];
@@ -108,6 +109,14 @@ let InvoicesService = class InvoicesService {
                     address: true,
                 },
             },
+            branch: {
+                select: {
+                    id: true,
+                    name: true,
+                    location: true,
+                    status: true,
+                },
+            },
             rateCard: {
                 select: {
                     id: true,
@@ -182,6 +191,15 @@ let InvoicesService = class InvoicesService {
             tenantId: invoice.tenantId,
             clientId: invoice.clientId,
             siteId: invoice.siteId,
+            branchId: invoice.branchId,
+            branch: invoice.branch
+                ? {
+                    id: invoice.branch.id,
+                    name: invoice.branch.name,
+                    location: invoice.branch.location,
+                    status: invoice.branch.status,
+                }
+                : null,
             invoiceNumber: invoice.invoiceNumber,
             billingStartDate: invoice.billingStartDate,
             billingEndDate: invoice.billingEndDate,
@@ -268,9 +286,9 @@ let InvoicesService = class InvoicesService {
                 : [],
         };
     }
-    async findInvoiceOrThrow(tenantId, id) {
+    async findInvoiceOrThrow(user, id) {
         const invoice = await this.prisma.invoice.findFirst({
-            where: { id, tenantId },
+            where: { id, tenantId: user.tenantId, ...(0, branch_scope_1.branchWhere)(user) },
             include: this.invoiceInclude(),
         });
         if (!invoice) {
@@ -307,18 +325,19 @@ let InvoicesService = class InvoicesService {
         }
         return invoice;
     }
-    async resolveBillableClientAndSite(tenantId, clientIdInput, siteIdInput) {
+    async resolveBillableClientAndSite(user, clientIdInput, siteIdInput) {
         const clientId = clientIdInput?.trim();
         const siteId = siteIdInput?.trim();
         if (!clientId) {
             throw new common_1.BadRequestException('client_id is required');
         }
         const client = await this.prisma.client.findFirst({
-            where: { id: clientId, tenantId },
+            where: { id: clientId, tenantId: user.tenantId, ...(0, branch_scope_1.branchWhere)(user) },
             select: {
                 id: true,
                 name: true,
                 companyName: true,
+                branchId: true,
             },
         });
         if (!client) {
@@ -326,26 +345,31 @@ let InvoicesService = class InvoicesService {
         }
         if (siteId) {
             const site = await this.prisma.site.findFirst({
-                where: { id: siteId, tenantId, clientId },
+                where: { id: siteId, tenantId: user.tenantId, clientId, ...(0, branch_scope_1.branchWhere)(user) },
                 select: {
                     id: true,
                     name: true,
                     address: true,
                     clientId: true,
+                    branchId: true,
                 },
             });
             if (!site) {
                 throw new common_1.BadRequestException('Site must belong to this client and tenant');
             }
+            if (client.branchId && site.branchId && client.branchId !== site.branchId) {
+                throw new common_1.BadRequestException('Client and site must belong to the same branch');
+            }
             return { client, site };
         }
         const clientSites = await this.prisma.site.findMany({
-            where: { tenantId, clientId },
+            where: { tenantId: user.tenantId, clientId, ...(0, branch_scope_1.branchWhere)(user) },
             select: {
                 id: true,
                 name: true,
                 address: true,
                 clientId: true,
+                branchId: true,
             },
             orderBy: { createdAt: 'asc' },
         });
@@ -461,12 +485,12 @@ let InvoicesService = class InvoicesService {
     isUniqueConflict(error) {
         return error instanceof client_1.Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
     }
-    async generateInvoice(tenantId, userId, dto) {
+    async generateInvoice(user, dto) {
         const { billingStartDate, billingEndDate, endExclusive } = this.parseBillingRange(dto);
-        const { client, site } = await this.resolveBillableClientAndSite(tenantId, dto.client_id, dto.site_id);
+        const { client, site } = await this.resolveBillableClientAndSite(user, dto.client_id, dto.site_id);
         const existingInvoice = await this.prisma.invoice.findFirst({
             where: {
-                tenantId,
+                tenantId: user.tenantId,
                 clientId: client.id,
                 siteId: site.id,
                 billingStartDate,
@@ -478,7 +502,7 @@ let InvoicesService = class InvoicesService {
             throw new common_1.ConflictException(`Invoice ${existingInvoice.invoiceNumber} already exists for this client, site, and billing period`);
         }
         const rate = await this.resolveInvoiceRate({
-            tenantId,
+            tenantId: user.tenantId,
             clientId: client.id,
             siteId: site.id,
             billingStartDate,
@@ -486,7 +510,7 @@ let InvoicesService = class InvoicesService {
             dto,
         });
         const totals = await this.buildInvoiceItems({
-            tenantId,
+            tenantId: user.tenantId,
             clientId: client.id,
             siteId: site.id,
             billingStartDate,
@@ -502,7 +526,7 @@ let InvoicesService = class InvoicesService {
                 tomorrowStart.setUTCDate(tomorrowStart.getUTCDate() + 1);
                 const sequence = await tx.invoice.count({
                     where: {
-                        tenantId,
+                        tenantId: user.tenantId,
                         createdAt: {
                             gte: todayStart,
                             lt: tomorrowStart,
@@ -513,9 +537,10 @@ let InvoicesService = class InvoicesService {
                 const invoiceNumber = `INV-${datePart}-${String(sequence + 1).padStart(4, '0')}`;
                 return tx.invoice.create({
                     data: {
-                        tenantId,
+                        tenantId: user.tenantId,
                         clientId: client.id,
                         siteId: site.id,
+                        branchId: site.branchId,
                         invoiceNumber,
                         billingStartDate,
                         billingEndDate,
@@ -535,8 +560,8 @@ let InvoicesService = class InvoicesService {
                 });
             }, { maxWait: 10_000, timeout: 30_000 });
             await this.auditService.log({
-                tenantId,
-                userId,
+                tenantId: user.tenantId,
+                userId: user.sub,
                 action: 'INVOICE_GENERATED',
                 entityType: 'Invoice',
                 entityId: invoice.id,
@@ -551,20 +576,20 @@ let InvoicesService = class InvoicesService {
             throw error;
         }
     }
-    async findAllForAdmin(tenantId) {
+    async findAllForAdmin(user, requestedBranchId) {
         const invoices = await this.prisma.invoice.findMany({
-            where: { tenantId },
+            where: (0, branch_scope_1.branchScopedWhere)(user, requestedBranchId),
             include: this.invoiceInclude(),
             orderBy: [{ createdAt: 'desc' }, { invoiceNumber: 'desc' }],
         });
         return invoices.map((invoice) => this.mapInvoice(invoice));
     }
-    async findOneForAdmin(tenantId, id) {
-        const invoice = await this.findInvoiceOrThrow(tenantId, id);
+    async findOneForAdmin(user, id) {
+        const invoice = await this.findInvoiceOrThrow(user, id);
         return this.mapInvoice(invoice);
     }
-    async issueInvoice(tenantId, userId, id) {
-        const existing = await this.findInvoiceOrThrow(tenantId, id);
+    async issueInvoice(user, id) {
+        const existing = await this.findInvoiceOrThrow(user, id);
         if (existing.status === 'issued' || existing.status === 'paid') {
             return this.mapInvoice(existing);
         }
@@ -580,8 +605,8 @@ let InvoicesService = class InvoicesService {
             include: this.invoiceInclude(),
         });
         await this.auditService.log({
-            tenantId,
-            userId,
+            tenantId: user.tenantId,
+            userId: user.sub,
             action: 'INVOICE_ISSUED',
             entityType: 'Invoice',
             entityId: invoice.id,
@@ -589,8 +614,8 @@ let InvoicesService = class InvoicesService {
         });
         return this.mapInvoice(invoice);
     }
-    async markPaid(tenantId, userId, id) {
-        const existing = await this.findInvoiceOrThrow(tenantId, id);
+    async markPaid(user, id) {
+        const existing = await this.findInvoiceOrThrow(user, id);
         if (existing.status === 'paid') {
             return this.mapInvoice(existing);
         }
@@ -603,8 +628,8 @@ let InvoicesService = class InvoicesService {
             include: this.invoiceInclude(),
         });
         await this.auditService.log({
-            tenantId,
-            userId,
+            tenantId: user.tenantId,
+            userId: user.sub,
             action: 'INVOICE_MARKED_PAID',
             entityType: 'Invoice',
             entityId: invoice.id,
@@ -612,8 +637,8 @@ let InvoicesService = class InvoicesService {
         });
         return this.mapInvoice(invoice);
     }
-    async cancelInvoice(tenantId, userId, id) {
-        const existing = await this.findInvoiceOrThrow(tenantId, id);
+    async cancelInvoice(user, id) {
+        const existing = await this.findInvoiceOrThrow(user, id);
         if (existing.status === 'cancelled') {
             return this.mapInvoice(existing);
         }
@@ -626,8 +651,8 @@ let InvoicesService = class InvoicesService {
             include: this.invoiceInclude(),
         });
         await this.auditService.log({
-            tenantId,
-            userId,
+            tenantId: user.tenantId,
+            userId: user.sub,
             action: 'INVOICE_CANCELLED',
             entityType: 'Invoice',
             entityId: invoice.id,
@@ -792,12 +817,12 @@ let InvoicesService = class InvoicesService {
             doc.end();
         });
     }
-    async exportForAdmin(tenantId, userId, id) {
-        const invoice = await this.findInvoiceOrThrow(tenantId, id);
+    async exportForAdmin(user, id) {
+        const invoice = await this.findInvoiceOrThrow(user, id);
         const buffer = await this.buildPdfBuffer(invoice);
         await this.auditService.log({
-            tenantId,
-            userId,
+            tenantId: user.tenantId,
+            userId: user.sub,
             action: 'INVOICE_DOWNLOADED',
             entityType: 'Invoice',
             entityId: invoice.id,

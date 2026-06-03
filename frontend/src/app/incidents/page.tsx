@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
+import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { getAdminIncidents, Incident } from '@/lib/incidents';
 import { AlertTriangle, ArrowRight, CalendarDays, ClipboardCheck, FileWarning, Loader2, MapPin, ShieldCheck } from 'lucide-react';
@@ -25,11 +26,13 @@ export default function IncidentsPage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedBranchId, setSelectedBranchId] = useState('');
 
   useEffect(() => {
     const fetchIncidents = async () => {
+      setLoading(true);
       try {
-        const data = await getAdminIncidents();
+        const data = await getAdminIncidents(selectedBranchId);
         setIncidents(Array.isArray(data) ? data : []);
         setError('');
       } catch (err) {
@@ -40,7 +43,7 @@ export default function IncidentsPage() {
     };
 
     fetchIncidents();
-  }, []);
+  }, [selectedBranchId]);
 
   const formatDate = (value: string) => new Date(value).toLocaleString([], {
     month: 'short',
@@ -70,6 +73,9 @@ export default function IncidentsPage() {
       </div>
 
       <div className="glass-card overflow-hidden rounded-3xl border border-white/5">
+        <div className="border-b border-white/5 bg-white/5 p-4 sm:max-w-xs sm:p-6">
+          <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Filter Branch" />
+        </div>
         {loading ? (
           <div className="py-20 text-center text-muted-foreground">
             <Loader2 className="mx-auto mb-3 animate-spin text-indigo-300" size={26} />
@@ -89,6 +95,7 @@ export default function IncidentsPage() {
                 <tr className="border-b border-white/5 text-sm uppercase tracking-wider text-muted-foreground">
                   <th className="px-6 py-4 font-semibold">Title</th>
                   <th className="px-6 py-4 font-semibold">Site</th>
+                  <th className="px-6 py-4 font-semibold">Branch</th>
                   <th className="px-6 py-4 font-semibold">Guard</th>
                   <th className="px-6 py-4 font-semibold">Severity</th>
                   <th className="px-6 py-4 font-semibold">Status</th>
@@ -107,6 +114,9 @@ export default function IncidentsPage() {
                         <MapPin size={14} className="text-indigo-300" />
                         {incident.site.name}
                       </div>
+                    </td>
+                    <td className="px-6 py-4" data-label="Branch">
+                      <BranchBadge branch={incident.branch} />
                     </td>
                     <td className="px-6 py-4" data-label="Guard">
                       <div className="flex items-center gap-2 text-sm text-slate-300">

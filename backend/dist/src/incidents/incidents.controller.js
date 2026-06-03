@@ -25,32 +25,34 @@ let IncidentsController = class IncidentsController {
     constructor(incidentsService) {
         this.incidentsService = incidentsService;
     }
-    findAll(user) {
-        return this.incidentsService.findAllForAdmin(user.tenantId);
+    findAll(user, branchId) {
+        return this.incidentsService.findAllForAdmin(user, branchId);
     }
-    findReviewQueue(user) {
-        return this.incidentsService.findReviewQueueForAdmin(user.tenantId);
+    findReviewQueue(user, branchId) {
+        return this.incidentsService.findReviewQueueForAdmin(user, branchId);
     }
     findOne(user, id) {
-        return this.incidentsService.findOneForAdmin(user.tenantId, id, user.sub);
+        return this.incidentsService.findOneForAdmin(user, id);
     }
     review(user, id, dto) {
-        return this.incidentsService.reviewIncident(user.tenantId, id, user.sub, dto);
+        return this.incidentsService.reviewIncident(user, id, dto);
     }
 };
 exports.IncidentsController = IncidentsController;
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Query)('branch_id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], IncidentsController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)('review-queue'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Query)('branch_id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], IncidentsController.prototype, "findReviewQueue", null);
 __decorate([

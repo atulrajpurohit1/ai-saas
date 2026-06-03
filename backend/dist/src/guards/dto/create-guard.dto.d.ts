@@ -3,4 +3,5 @@ export declare class CreateGuardDto {
     phone?: string;
     email?: string;
     password?: string;
+    branch_id?: string | null;
 }

@@ -1,12 +1,14 @@
 import { ActivitiesService } from '../activities/activities.service';
 import { AuditService } from '../audit/audit.service';
+import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActionableRecommendation, RecommendationActionStatus } from './ai-actions.types';
 export declare class AiActionsService {
     private readonly prisma;
     private readonly auditService;
     private readonly activitiesService;
-    constructor(prisma: PrismaService, auditService: AuditService, activitiesService: ActivitiesService);
+    private readonly knowledgeBaseService?;
+    constructor(prisma: PrismaService, auditService: AuditService, activitiesService: ActivitiesService, knowledgeBaseService?: KnowledgeBaseService | undefined);
     syncFromRecommendations(tenantId: string, recommendations: ActionableRecommendation[], userId?: string): Promise<{
         id: string;
         createdAt: Date;

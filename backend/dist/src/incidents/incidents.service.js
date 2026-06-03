@@ -14,20 +14,35 @@ const common_1 = require("@nestjs/common");
 const crypto_1 = require("crypto");
 const client_1 = require("@prisma/client");
 const audit_service_1 = require("../audit/audit.service");
+const knowledge_base_service_1 = require("../knowledge-base/knowledge-base.service");
+const knowledge_retrieval_service_1 = require("../knowledge-base/knowledge-retrieval.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const create_incident_dto_1 = require("./dto/create-incident.dto");
 const review_incident_dto_1 = require("./dto/review-incident.dto");
 let IncidentsService = class IncidentsService {
     prisma;
     auditService;
-    constructor(prisma, auditService) {
+    knowledgeBaseService;
+    knowledgeRetrievalService;
+    constructor(prisma, auditService, knowledgeBaseService, knowledgeRetrievalService) {
         this.prisma = prisma;
         this.auditService = auditService;
+        this.knowledgeBaseService = knowledgeBaseService;
+        this.knowledgeRetrievalService = knowledgeRetrievalService;
     }
     mapIncident(row) {
         return {
             id: row.id,
             tenantId: row.tenantId,
+            branchId: row.branchId,
+            branch: row.branchId
+                ? {
+                    id: row.branchId,
+                    name: row.branchName,
+                    location: row.branchLocation,
+                    status: row.branchStatus,
+                }
+                : null,
             shiftId: row.shiftId,
             siteId: row.siteId,
             guardId: row.guardId,
@@ -103,6 +118,10 @@ let IncidentsService = class IncidentsService {
       SELECT
         i."id",
         i."tenant_id" AS "tenantId",
+        i."branch_id" AS "branchId",
+        b."name" AS "branchName",
+        b."location" AS "branchLocation",
+        b."status" AS "branchStatus",
         i."shift_id" AS "shiftId",
         i."site_id" AS "siteId",
         i."guard_id" AS "guardId",
@@ -130,6 +149,7 @@ let IncidentsService = class IncidentsService {
       INNER JOIN "Site" s ON s."id" = i."site_id"
       INNER JOIN "Guard" g ON g."id" = i."guard_id"
       INNER JOIN "Shift" sh ON sh."id" = i."shift_id"
+      LEFT JOIN "Branch" b ON b."id" = i."branch_id"
       LEFT JOIN "User" reviewer ON reviewer."id" = i."reviewed_by"
       ${whereSql}
       ORDER BY i."occurred_at" DESC, i."created_at" DESC
@@ -165,6 +185,17 @@ let IncidentsService = class IncidentsService {
             throw new common_1.BadRequestException('Review status must be approved or rejected');
         }
         return status;
+    }
+    adminBranchSql(user, requestedBranchId) {
+        if (user.isSuperAdmin) {
+            return requestedBranchId
+                ? client_1.Prisma.sql `AND i."branch_id" = ${requestedBranchId}`
+                : client_1.Prisma.empty;
+        }
+        if (!user.branchId) {
+            return client_1.Prisma.sql `AND i."branch_id" IS NULL`;
+        }
+        return client_1.Prisma.sql `AND (i."branch_id" = ${user.branchId} OR i."branch_id" IS NULL)`;
     }
     async moveSubmittedIncidentToReview(tenantId, userId, incident) {
         if (incident.status !== 'submitted') {
@@ -222,6 +253,7 @@ let IncidentsService = class IncidentsService {
       INSERT INTO "Incident" (
         "id",
         "tenant_id",
+        "branch_id",
         "shift_id",
         "site_id",
         "guard_id",
@@ -236,6 +268,7 @@ let IncidentsService = class IncidentsService {
       VALUES (
         ${incidentId},
         ${tenantId},
+        ${shift.branchId},
         ${shift.id},
         ${shift.siteId},
         ${guardId},
@@ -250,6 +283,10 @@ let IncidentsService = class IncidentsService {
       RETURNING
         "id",
         "tenant_id" AS "tenantId",
+        "branch_id" AS "branchId",
+        NULL AS "branchName",
+        NULL AS "branchLocation",
+        NULL AS "branchStatus",
         "shift_id" AS "shiftId",
         "site_id" AS "siteId",
         "guard_id" AS "guardId",
@@ -289,39 +326,52 @@ let IncidentsService = class IncidentsService {
         const rows = await this.prisma.$queryRaw(this.incidentSelectSql(client_1.Prisma.sql `WHERE i."tenant_id" = ${tenantId} AND i."guard_id" = ${guardId}`));
         return rows.map((row) => this.mapIncident(row));
     }
-    async findAllForAdmin(tenantId) {
-        const rows = await this.prisma.$queryRaw(this.incidentSelectSql(client_1.Prisma.sql `WHERE i."tenant_id" = ${tenantId}`));
+    async findAllForAdmin(user, requestedBranchId) {
+        const rows = await this.prisma.$queryRaw(this.incidentSelectSql(client_1.Prisma.sql `WHERE i."tenant_id" = ${user.tenantId} ${this.adminBranchSql(user, requestedBranchId)}`));
         return rows.map((row) => this.mapIncident(row));
     }
-    async findReviewQueueForAdmin(tenantId) {
-        const rows = await this.prisma.$queryRaw(this.incidentSelectSql(client_1.Prisma.sql `WHERE i."tenant_id" = ${tenantId} AND i."status" IN ('submitted', 'under_review')`));
+    async findReviewQueueForAdmin(user, requestedBranchId) {
+        const rows = await this.prisma.$queryRaw(this.incidentSelectSql(client_1.Prisma.sql `WHERE i."tenant_id" = ${user.tenantId} ${this.adminBranchSql(user, requestedBranchId)} AND i."status" IN ('submitted', 'under_review')`));
         return rows.map((row) => this.mapIncident(row));
     }
-    async findOneForAdmin(tenantId, incidentId, userId) {
-        const rows = await this.prisma.$queryRaw(this.incidentSelectSql(client_1.Prisma.sql `WHERE i."tenant_id" = ${tenantId} AND i."id" = ${incidentId}`));
+    async findOneForAdmin(user, incidentId) {
+        const rows = await this.prisma.$queryRaw(this.incidentSelectSql(client_1.Prisma.sql `WHERE i."tenant_id" = ${user.tenantId} ${this.adminBranchSql(user)} AND i."id" = ${incidentId}`));
         let incident = rows[0];
         if (!incident) {
             throw new common_1.NotFoundException('Incident not found');
         }
-        const movedToReview = await this.moveSubmittedIncidentToReview(tenantId, userId, incident);
+        const movedToReview = await this.moveSubmittedIncidentToReview(user.tenantId, user.sub, incident);
         if (movedToReview) {
-            const updatedRows = await this.prisma.$queryRaw(this.incidentSelectSql(client_1.Prisma.sql `WHERE i."tenant_id" = ${tenantId} AND i."id" = ${incidentId}`));
+            const updatedRows = await this.prisma.$queryRaw(this.incidentSelectSql(client_1.Prisma.sql `WHERE i."tenant_id" = ${user.tenantId} AND i."id" = ${incidentId}`));
             incident = updatedRows[0] ?? incident;
         }
         await this.auditService.log({
-            tenantId,
-            userId,
+            tenantId: user.tenantId,
+            userId: user.sub,
             action: 'INCIDENT_VIEWED',
             entityType: 'Incident',
             entityId: incident.id,
             details: `Admin viewed incident "${incident.title}"`,
         });
-        return this.mapIncident(incident);
+        const mapped = this.mapIncident(incident);
+        const similarHistoricalCases = await this.knowledgeRetrievalService.retrieveRelevant({
+            tenantId: user.tenantId,
+            userId: user.sub,
+            sourceModule: 'incidents.similar_cases',
+            query: `${mapped.title} ${mapped.description} ${mapped.severity} ${mapped.site.name}`,
+            categories: ['incidents'],
+            excludeSourceId: incident.id,
+            limit: 5,
+        });
+        return {
+            ...mapped,
+            similarHistoricalCases,
+        };
     }
-    async reviewIncident(tenantId, incidentId, userId, dto) {
+    async reviewIncident(user, incidentId, dto) {
         const status = this.validateReviewStatus(dto.status);
         const reviewNote = dto.review_note?.trim() || null;
-        const rows = await this.prisma.$queryRaw(this.incidentSelectSql(client_1.Prisma.sql `WHERE i."tenant_id" = ${tenantId} AND i."id" = ${incidentId}`));
+        const rows = await this.prisma.$queryRaw(this.incidentSelectSql(client_1.Prisma.sql `WHERE i."tenant_id" = ${user.tenantId} ${this.adminBranchSql(user)} AND i."id" = ${incidentId}`));
         const incident = rows[0];
         if (!incident) {
             throw new common_1.NotFoundException('Incident not found');
@@ -332,32 +382,35 @@ let IncidentsService = class IncidentsService {
         if (incident.status !== 'submitted' && incident.status !== 'under_review') {
             throw new common_1.BadRequestException('Incident cannot be reviewed from its current status');
         }
-        await this.moveSubmittedIncidentToReview(tenantId, userId, incident);
+        await this.moveSubmittedIncidentToReview(user.tenantId, user.sub, incident);
         const reviewedAt = new Date();
         const updatedCount = await this.prisma.$executeRaw(client_1.Prisma.sql `
       UPDATE "Incident"
       SET
         "status" = ${status},
-        "reviewed_by" = ${userId},
+        "reviewed_by" = ${user.sub},
         "reviewed_at" = ${reviewedAt},
         "review_note" = ${reviewNote}
       WHERE "id" = ${incidentId}
-        AND "tenant_id" = ${tenantId}
+        AND "tenant_id" = ${user.tenantId}
         AND "status" IN ('submitted', 'under_review')
     `);
         if (updatedCount === 0) {
             throw new common_1.BadRequestException('Incident has already been reviewed');
         }
-        const updatedRows = await this.prisma.$queryRaw(this.incidentSelectSql(client_1.Prisma.sql `WHERE i."tenant_id" = ${tenantId} AND i."id" = ${incidentId}`));
+        const updatedRows = await this.prisma.$queryRaw(this.incidentSelectSql(client_1.Prisma.sql `WHERE i."tenant_id" = ${user.tenantId} AND i."id" = ${incidentId}`));
         const reviewedIncident = updatedRows[0];
         await this.auditService.log({
-            tenantId,
-            userId,
+            tenantId: user.tenantId,
+            userId: user.sub,
             action: status === 'approved' ? 'INCIDENT_APPROVED' : 'INCIDENT_REJECTED',
             entityType: 'Incident',
             entityId: reviewedIncident.id,
             details: `Incident "${reviewedIncident.title}" ${status}`,
         });
+        if (status === 'approved') {
+            await this.knowledgeBaseService.createFromIncident(user.tenantId, user.sub, this.mapIncident(reviewedIncident));
+        }
         return this.mapIncident(reviewedIncident);
     }
     async findApprovedForClient(tenantId, clientId, userId) {
@@ -431,6 +484,8 @@ exports.IncidentsService = IncidentsService;
 exports.IncidentsService = IncidentsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        audit_service_1.AuditService])
+        audit_service_1.AuditService,
+        knowledge_base_service_1.KnowledgeBaseService,
+        knowledge_retrieval_service_1.KnowledgeRetrievalService])
 ], IncidentsService);
 //# sourceMappingURL=incidents.service.js.map

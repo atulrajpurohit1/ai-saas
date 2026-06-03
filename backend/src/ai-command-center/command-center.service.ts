@@ -7,6 +7,7 @@ import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { RevenueInsightsService } from '../ai-insights/revenue-insights.service';
 import { AiService } from '../ai/ai.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { KnowledgeRetrievalService } from '../knowledge-base/knowledge-retrieval.service';
 import {
   CommandCenterDashboard,
   DailySummary,
@@ -32,6 +33,8 @@ export class CommandCenterService {
     private readonly aiMonitoringService: AiMonitoringService,
     @Optional()
     private readonly aiGovernanceService?: AiGovernanceService,
+    @Optional()
+    private readonly knowledgeRetrievalService?: KnowledgeRetrievalService,
   ) { }
 
   async getDashboard(
@@ -442,6 +445,19 @@ export class CommandCenterService {
     try {
       const feedbackSummary =
         await this.aiMonitoringService.getFeedbackSummaryForPrompt(tenantId);
+      const organizationalMemory = await this.knowledgeRetrievalService?.retrieveRelevant({
+        tenantId,
+        sourceModule: 'ai_command_center.dashboard',
+        categories: ['operations', 'incidents', 'staffing', 'billing', 'client_management', 'scheduling'],
+        query: [
+          fallbackSummary.incidentSummary,
+          fallbackSummary.attendanceSummary,
+          fallbackSummary.staffingSummary,
+          fallbackSummary.financeSummary,
+          ...fallbackSummary.topRecommendations,
+        ].join(' '),
+        limit: 8,
+      });
       // Create a simplified context for the AI prompt
       const context = {
         activeClients: overview.activeClients,
@@ -455,6 +471,12 @@ export class CommandCenterService {
         upcomingShortageSlots: schedulingOverview.shortageSlots,
         topRecommendations: recommendations.slice(0, 3).map(r => r.action),
         adminFeedbackHistory: feedbackSummary.summaryText,
+        organizationalMemory: organizationalMemory?.map((entry) => ({
+          title: entry.title,
+          category: entry.category,
+          summary: entry.summary,
+          tags: entry.tags,
+        })) || [],
       };
 
       const aiNarrative = await this.aiService.generateIncidentRiskSummary(

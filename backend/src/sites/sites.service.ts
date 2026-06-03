@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { branchScopedWhere, branchWhere, resolveWriteBranchId } from '../branches/branch-scope';
 import { CreateSiteDto } from './dto/create-site.dto';
 import { UpdateSiteDto } from './dto/update-site.dto';
 
@@ -11,26 +13,31 @@ export class SitesService {
     private auditService: AuditService,
   ) {}
 
-  private async resolveClientId(tenantId: string, clientId?: string | null) {
+  private async resolveClientId(user: ActiveUser, branchId: string | null, clientId?: string | null) {
     const normalizedClientId = clientId?.trim() || null;
     if (!normalizedClientId) {
       return null;
     }
 
     const client = await this.prisma.client.findFirst({
-      where: { id: normalizedClientId, tenantId },
-      select: { id: true },
+      where: { id: normalizedClientId, tenantId: user.tenantId, ...branchWhere(user) },
+      select: { id: true, branchId: true },
     });
 
     if (!client) {
       throw new BadRequestException('Client must belong to this tenant');
     }
 
+    if (branchId && client.branchId && client.branchId !== branchId) {
+      throw new BadRequestException('Client must belong to the selected branch');
+    }
+
     return client.id;
   }
 
-  async create(userId: string, tenantId: string, dto: CreateSiteDto) {
-    const clientId = await this.resolveClientId(tenantId, dto.client_id);
+  async create(user: ActiveUser, dto: CreateSiteDto) {
+    const branchId = resolveWriteBranchId(user, dto.branch_id);
+    const clientId = await this.resolveClientId(user, branchId, dto.client_id);
 
     const site = await this.prisma.site.create({
       data: {
@@ -38,9 +45,13 @@ export class SitesService {
         address: dto.address,
         instructions: dto.instructions,
         clientId,
-        tenantId,
+        tenantId: user.tenantId,
+        branchId,
       },
       include: {
+        branch: {
+          select: { id: true, name: true, location: true, status: true },
+        },
         client: {
           select: { id: true, name: true, companyName: true },
         },
@@ -48,8 +59,8 @@ export class SitesService {
     });
 
     await this.auditService.log({
-      tenantId,
-      userId,
+      tenantId: user.tenantId,
+      userId: user.sub,
       action: 'SITE_CREATED',
       entityType: 'Site',
       entityId: site.id,
@@ -59,10 +70,13 @@ export class SitesService {
     return site;
   }
 
-  async findAll(tenantId: string) {
+  async findAll(user: ActiveUser, requestedBranchId?: string | null) {
     return this.prisma.site.findMany({
-      where: { tenantId },
+      where: branchScopedWhere(user, requestedBranchId),
       include: {
+        branch: {
+          select: { id: true, name: true, location: true, status: true },
+        },
         client: {
           select: { id: true, name: true, companyName: true },
         },
@@ -71,19 +85,24 @@ export class SitesService {
     });
   }
 
-  async update(userId: string, tenantId: string, id: string, dto: UpdateSiteDto) {
+  async update(user: ActiveUser, id: string, dto: UpdateSiteDto) {
     const site = await this.prisma.site.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId: user.tenantId, ...branchWhere(user) },
     });
 
     if (!site) {
       throw new NotFoundException('Site not found');
     }
 
+    const branchId =
+      dto.branch_id === undefined
+        ? undefined
+        : resolveWriteBranchId(user, dto.branch_id);
+    const effectiveBranchId = branchId === undefined ? site.branchId : branchId;
     const clientId =
       dto.client_id === undefined
         ? undefined
-        : await this.resolveClientId(tenantId, dto.client_id);
+        : await this.resolveClientId(user, effectiveBranchId, dto.client_id);
 
     const updatedSite = await this.prisma.site.update({
       where: { id },
@@ -92,8 +111,12 @@ export class SitesService {
         ...(dto.address !== undefined ? { address: dto.address } : {}),
         ...(dto.instructions !== undefined ? { instructions: dto.instructions } : {}),
         ...(clientId !== undefined ? { clientId } : {}),
+        ...(branchId !== undefined ? { branchId } : {}),
       },
       include: {
+        branch: {
+          select: { id: true, name: true, location: true, status: true },
+        },
         client: {
           select: { id: true, name: true, companyName: true },
         },
@@ -101,8 +124,8 @@ export class SitesService {
     });
 
     await this.auditService.log({
-      tenantId,
-      userId,
+      tenantId: user.tenantId,
+      userId: user.sub,
       action: 'SITE_UPDATED',
       entityType: 'Site',
       entityId: site.id,

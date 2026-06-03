@@ -10,6 +10,13 @@ export declare class InvoicesController {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;
@@ -52,11 +59,18 @@ export declare class InvoicesController {
         items: any;
         disputes: any;
     }>;
-    findAll(user: ActiveUser): Promise<{
+    findAll(user: ActiveUser, branchId?: string): Promise<{
         id: any;
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;
@@ -105,6 +119,13 @@ export declare class InvoicesController {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;
@@ -152,6 +173,13 @@ export declare class InvoicesController {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;
@@ -199,6 +227,13 @@ export declare class InvoicesController {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;
@@ -246,6 +281,13 @@ export declare class InvoicesController {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;

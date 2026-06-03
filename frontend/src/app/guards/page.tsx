@@ -2,7 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
 import api from '@/lib/api';
+import { branchParams, BranchSummary } from '@/lib/branches';
 import { Plus, Search, ShieldCheck, Edit2, Phone, AlertTriangle, RefreshCw, Mail, KeyRound } from 'lucide-react';
 
 interface Guard {
@@ -10,6 +12,8 @@ interface Guard {
   name: string;
   phone?: string;
   email?: string;
+  branchId?: string | null;
+  branch?: BranchSummary | null;
   createdAt: string;
   availability?: {
     status: string;
@@ -31,13 +35,14 @@ export default function GuardsPage() {
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '', password: '' });
+  const [selectedBranchId, setSelectedBranchId] = useState('');
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', password: '', branch_id: '' });
   
   const fetchGuards = async () => {
     setError(null);
     setLoading(true);
     try {
-      const res = await api.get('v2/guards');
+      const res = await api.get('v2/guards', { params: branchParams(selectedBranchId) });
       setGuards(res.data);
     } catch (err: unknown) {
       console.error('Fetch Guards Error:', err);
@@ -58,7 +63,7 @@ export default function GuardsPage() {
 
   useEffect(() => {
     fetchGuards();
-  }, []);
+  }, [selectedBranchId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +73,7 @@ export default function GuardsPage() {
         phone: formData.phone.trim() || undefined,
         email: formData.email.trim() || undefined,
         ...(formData.password ? { password: formData.password } : {}),
+        branch_id: formData.branch_id || null,
       };
 
       if (isEditing) {
@@ -90,13 +96,14 @@ export default function GuardsPage() {
       phone: guard.phone || '',
       email: guard.email || '',
       password: '',
+      branch_id: guard.branchId || '',
     });
     setIsEditing(guard.id);
     setShowModal(true);
   };
 
   const resetForm = () => {
-    setFormData({ name: '', phone: '', email: '', password: '' });
+    setFormData({ name: '', phone: '', email: '', password: '', branch_id: selectedBranchId });
     setIsEditing(null);
   };
 
@@ -129,13 +136,16 @@ export default function GuardsPage() {
 
       <div className="glass-card rounded-3xl overflow-hidden border border-white/5">
         <div className="border-b border-white/5 bg-white/5 p-4 sm:p-6">
-          <div className="relative w-full sm:max-w-sm">
-            <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search guards..." 
-              className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary"
-            />
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_240px]">
+            <div className="relative w-full sm:max-w-sm">
+              <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
+              <input 
+                type="text" 
+                placeholder="Search guards..." 
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Filter Branch" />
           </div>
         </div>
 
@@ -145,6 +155,7 @@ export default function GuardsPage() {
               <tr className="text-muted-foreground text-sm uppercase tracking-wider">
                 <th className="px-6 py-4 font-semibold">Guard Detail</th>
                 <th className="px-6 py-4 font-semibold">Contact Info</th>
+                <th className="px-6 py-4 font-semibold">Branch</th>
                 <th className="px-6 py-4 font-semibold">Availability</th>
                 <th className="px-6 py-4 font-semibold">Date Added</th>
                 <th className="px-6 py-4 font-semibold text-right">Actions</th>
@@ -152,9 +163,9 @@ export default function GuardsPage() {
             </thead>
             <tbody className="divide-y divide-white/5">
               {loading ? (
-                <tr><td colSpan={5} className="px-6 py-10 text-center text-muted-foreground">Loading guards...</td></tr>
+                <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">Loading guards...</td></tr>
               ) : error ? (
-                <tr><td colSpan={5} className="px-6 py-10 text-center">
+                <tr><td colSpan={6} className="px-6 py-10 text-center">
                   <div className="flex flex-col items-center gap-3">
                     <AlertTriangle size={32} className="text-amber-400" />
                     <p className="text-amber-400 font-medium">{error}</p>
@@ -168,7 +179,7 @@ export default function GuardsPage() {
                   </div>
                 </td></tr>
               ) : guards.length === 0 ? (
-                <tr><td colSpan={5} className="px-6 py-10 text-center text-muted-foreground">No guards found. Administrators can add new personnel above.</td></tr>
+                <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">No guards found. Administrators can add new personnel above.</td></tr>
               ) : guards.map((guard) => (
                 <tr key={guard.id} className="hover:bg-white/5 transition-colors group">
                   <td className="px-6 py-4" data-label="Guard">
@@ -190,6 +201,9 @@ export default function GuardsPage() {
                         <span className="text-sm">{guard.email}</span>
                       </div>
                     )}
+                  </td>
+                  <td className="px-6 py-4 align-middle" data-label="Branch">
+                    <BranchBadge branch={guard.branch} />
                   </td>
                   <td className="px-6 py-4 align-middle" data-label="Availability">
                     <button
@@ -283,6 +297,12 @@ export default function GuardsPage() {
                   />
                 </div>
               </div>
+
+              <BranchSelect
+                value={formData.branch_id}
+                onChange={(branchId) => setFormData({ ...formData, branch_id: branchId })}
+                includeAll={false}
+              />
 
               <div className="mt-8 flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:gap-4">
                 <button 

@@ -14,6 +14,6 @@ export class ShiftRecommendationsController {
 
   @Get(':id/recommend-guards')
   recommendGuards(@GetUser() user: ActiveUser, @Param('id') id: string) {
-    return this.shiftsService.recommendGuards(user.sub, user.tenantId, id);
+    return this.shiftsService.recommendGuards(user, id);
   }
 }

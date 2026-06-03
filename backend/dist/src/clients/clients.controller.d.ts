@@ -12,10 +12,11 @@ export declare class ClientsController {
         updatedAt: Date;
         email: string;
         tenantId: string;
+        branchId: string | null;
         companyName: string | null;
         phone: string | null;
     }>;
-    findAll(user: ActiveUser): Promise<{
+    findAll(user: ActiveUser, branchId?: string): Promise<{
         id: string;
         name: string;
         createdAt: Date;
@@ -26,6 +27,13 @@ export declare class ClientsController {
             email: string;
         }[];
         email: string;
+        branchId: string | null;
+        branch: {
+            id: string;
+            name: string;
+            status: string;
+            location: string;
+        } | null;
         companyName: string | null;
         phone: string | null;
     }[]>;
@@ -35,6 +43,12 @@ export declare class ClientsController {
             createdAt: Date;
             email: string;
         }[];
+        branch: {
+            id: string;
+            name: string;
+            status: string;
+            location: string;
+        } | null;
     } & {
         id: string;
         name: string;
@@ -42,6 +56,7 @@ export declare class ClientsController {
         updatedAt: Date;
         email: string;
         tenantId: string;
+        branchId: string | null;
         companyName: string | null;
         phone: string | null;
     }>;
@@ -52,6 +67,7 @@ export declare class ClientsController {
         updatedAt: Date;
         email: string;
         tenantId: string;
+        branchId: string | null;
         companyName: string | null;
         phone: string | null;
     }>;

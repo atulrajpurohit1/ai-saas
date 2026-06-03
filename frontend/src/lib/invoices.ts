@@ -1,4 +1,5 @@
 import api from './api';
+import { branchParams, BranchSummary } from './branches';
 
 export type InvoiceStatus = 'draft' | 'issued' | 'disputed' | 'resolved' | 'paid' | 'cancelled';
 export type InvoiceDisputeStatus = 'open' | 'under_review' | 'resolved' | 'rejected';
@@ -48,6 +49,7 @@ export interface InvoiceItem {
 export interface Invoice {
   id: string;
   tenantId: string;
+  branchId?: string | null;
   clientId: string;
   siteId: string;
   invoiceNumber: string;
@@ -89,6 +91,7 @@ export interface Invoice {
     name: string;
     address: string;
   } | null;
+  branch?: BranchSummary | null;
   items: InvoiceItem[];
   disputes: InvoiceDispute[];
 }
@@ -102,8 +105,8 @@ export interface GenerateInvoiceInput {
   allow_manual_rate?: boolean;
 }
 
-export async function getAdminInvoices() {
-  const response = await api.get<Invoice[]>('invoices');
+export async function getAdminInvoices(branchId?: string | null) {
+  const response = await api.get<Invoice[]>('invoices', { params: branchParams(branchId) });
   return response.data;
 }
 

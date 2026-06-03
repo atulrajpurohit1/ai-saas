@@ -8,21 +8,27 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AiActionsService = void 0;
 const common_1 = require("@nestjs/common");
 const activities_service_1 = require("../activities/activities.service");
 const audit_service_1 = require("../audit/audit.service");
+const knowledge_base_service_1 = require("../knowledge-base/knowledge-base.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const ai_actions_types_1 = require("./ai-actions.types");
 let AiActionsService = class AiActionsService {
     prisma;
     auditService;
     activitiesService;
-    constructor(prisma, auditService, activitiesService) {
+    knowledgeBaseService;
+    constructor(prisma, auditService, activitiesService, knowledgeBaseService) {
         this.prisma = prisma;
         this.auditService = auditService;
         this.activitiesService = activitiesService;
+        this.knowledgeBaseService = knowledgeBaseService;
     }
     async syncFromRecommendations(tenantId, recommendations, userId) {
         const drafts = recommendations.map((recommendation) => this.toActionDraft(recommendation));
@@ -121,6 +127,7 @@ let AiActionsService = class AiActionsService {
             entityId: id,
             details: approved.title,
         });
+        await this.knowledgeBaseService?.createFromAiAction(tenantId, userId, approved);
         return approved;
     }
     async reject(id, tenantId, userId) {
@@ -362,8 +369,10 @@ let AiActionsService = class AiActionsService {
 exports.AiActionsService = AiActionsService;
 exports.AiActionsService = AiActionsService = __decorate([
     (0, common_1.Injectable)(),
+    __param(3, (0, common_1.Optional)()),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         audit_service_1.AuditService,
-        activities_service_1.ActivitiesService])
+        activities_service_1.ActivitiesService,
+        knowledge_base_service_1.KnowledgeBaseService])
 ], AiActionsService);
 //# sourceMappingURL=ai-actions.service.js.map

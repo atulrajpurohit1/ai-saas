@@ -1,22 +1,24 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 export declare class ClientsService {
     private prisma;
     private auditService;
     constructor(prisma: PrismaService, auditService: AuditService);
-    create(userId: string, tenantId: string, dto: CreateClientDto): Promise<{
+    create(user: ActiveUser, dto: CreateClientDto): Promise<{
         id: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
         email: string;
         tenantId: string;
+        branchId: string | null;
         companyName: string | null;
         phone: string | null;
     }>;
-    findAll(tenantId: string): Promise<{
+    findAll(user: ActiveUser, requestedBranchId?: string | null): Promise<{
         id: string;
         name: string;
         createdAt: Date;
@@ -27,15 +29,28 @@ export declare class ClientsService {
             email: string;
         }[];
         email: string;
+        branchId: string | null;
+        branch: {
+            id: string;
+            name: string;
+            status: string;
+            location: string;
+        } | null;
         companyName: string | null;
         phone: string | null;
     }[]>;
-    findOne(tenantId: string, id: string): Promise<{
+    findOne(user: ActiveUser, id: string): Promise<{
         users: {
             id: string;
             createdAt: Date;
             email: string;
         }[];
+        branch: {
+            id: string;
+            name: string;
+            status: string;
+            location: string;
+        } | null;
     } & {
         id: string;
         name: string;
@@ -43,20 +58,22 @@ export declare class ClientsService {
         updatedAt: Date;
         email: string;
         tenantId: string;
+        branchId: string | null;
         companyName: string | null;
         phone: string | null;
     }>;
-    update(userId: string, tenantId: string, id: string, dto: UpdateClientDto): Promise<{
+    update(user: ActiveUser, id: string, dto: UpdateClientDto): Promise<{
         id: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
         email: string;
         tenantId: string;
+        branchId: string | null;
         companyName: string | null;
         phone: string | null;
     }>;
-    createClientUser(tenantId: string, clientId: string, email: string): Promise<{
+    createClientUser(user: ActiveUser, clientId: string, email: string): Promise<{
         id: string;
         email: string;
         clientId: string;

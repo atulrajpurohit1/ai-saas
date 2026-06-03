@@ -35,6 +35,7 @@ export declare class ProposalsService {
             updatedAt: Date;
             email: string;
             tenantId: string;
+            branchId: string | null;
             companyName: string | null;
             phone: string | null;
         } | null;
@@ -78,6 +79,7 @@ export declare class ProposalsService {
             updatedAt: Date;
             email: string;
             tenantId: string;
+            branchId: string | null;
             companyName: string | null;
             phone: string | null;
         } | null;

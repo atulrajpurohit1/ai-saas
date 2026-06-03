@@ -25,7 +25,7 @@ let ShiftRecommendationsController = class ShiftRecommendationsController {
         this.shiftsService = shiftsService;
     }
     recommendGuards(user, id) {
-        return this.shiftsService.recommendGuards(user.sub, user.tenantId, id);
+        return this.shiftsService.recommendGuards(user, id);
     }
 };
 exports.ShiftRecommendationsController = ShiftRecommendationsController;

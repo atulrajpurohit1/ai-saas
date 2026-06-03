@@ -111,6 +111,7 @@ export declare class ClientPortalController {
         updatedAt: Date;
         email: string;
         tenantId: string;
+        branchId: string | null;
         companyName: string | null;
         phone: string | null;
     }>;

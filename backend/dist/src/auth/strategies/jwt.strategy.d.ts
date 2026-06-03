@@ -7,6 +7,10 @@ interface JwtPayload {
     tenantId?: string;
     tenant_id?: string;
     role: 'admin' | 'finance' | 'supervisor' | 'client' | 'guard';
+    branchId?: string | null;
+    branch_id?: string | null;
+    isSuperAdmin?: boolean;
+    is_super_admin?: boolean;
     clientId?: string;
     client_id?: string;
     guardId?: string;
@@ -23,6 +27,8 @@ export declare class JwtStrategy extends JwtStrategy_base {
         phone: string | undefined;
         tenantId: string | undefined;
         role: "client" | "guard" | "admin" | "finance" | "supervisor";
+        branchId: string | null;
+        isSuperAdmin: boolean;
         clientId: string | undefined;
         guardId: string | undefined;
     };

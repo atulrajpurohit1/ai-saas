@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -16,17 +16,17 @@ export class ReportsController {
 
   @Post('generate-daily')
   generateDailyReport(@GetUser() user: ActiveUser, @Body() dto: GenerateDailyReportDto) {
-    return this.reportsService.generateDailyReport(user.tenantId, user.sub, dto);
+    return this.reportsService.generateDailyReport(user, dto);
   }
 
   @Get()
-  findAll(@GetUser() user: ActiveUser) {
-    return this.reportsService.findAllForAdmin(user.tenantId);
+  findAll(@GetUser() user: ActiveUser, @Query('branch_id') branchId?: string) {
+    return this.reportsService.findAllForAdmin(user, branchId);
   }
 
   @Get(':id/export-pdf')
   async exportPdf(@GetUser() user: ActiveUser, @Param('id') id: string, @Res() res: Response) {
-    const { buffer } = await this.reportsService.exportForAdmin(user.tenantId, user.sub, id);
+    const { buffer } = await this.reportsService.exportForAdmin(user, id);
 
     res.set({
       'Content-Type': 'application/pdf',
@@ -39,11 +39,11 @@ export class ReportsController {
 
   @Get(':id')
   findOne(@GetUser() user: ActiveUser, @Param('id') id: string) {
-    return this.reportsService.findOneForAdmin(user.tenantId, user.sub, id);
+    return this.reportsService.findOneForAdmin(user, id);
   }
 
   @Post(':id/publish')
   publish(@GetUser() user: ActiveUser, @Param('id') id: string) {
-    return this.reportsService.publishReport(user.tenantId, user.sub, id);
+    return this.reportsService.publishReport(user, id);
   }
 }

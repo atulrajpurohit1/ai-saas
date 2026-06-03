@@ -3,8 +3,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
+import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { branchParams, BranchSummary } from '@/lib/branches';
 import {
   generateInvoice,
   getAdminInvoices,
@@ -32,6 +34,8 @@ interface ClientOption {
   id: string;
   name: string;
   companyName: string | null;
+  branchId?: string | null;
+  branch?: BranchSummary | null;
 }
 
 interface SiteOption {
@@ -40,6 +44,8 @@ interface SiteOption {
   address: string;
   clientId?: string | null;
   client_id?: string | null;
+  branchId?: string | null;
+  branch?: BranchSummary | null;
   client?: {
     id: string;
     name: string;
@@ -101,6 +107,7 @@ export default function InvoicesPage() {
   const [actionId, setActionId] = useState('');
   const [error, setError] = useState('');
   const [linkSiteId, setLinkSiteId] = useState('');
+  const [selectedBranchId, setSelectedBranchId] = useState('');
   const [formData, setFormData] = useState({
     client_id: '',
     site_id: '',
@@ -128,11 +135,12 @@ export default function InvoicesPage() {
   );
 
   const fetchData = async () => {
+    setLoading(true);
     try {
       const [invoiceData, clientRes, siteRes] = await Promise.all([
-        getAdminInvoices(),
-        api.get<ClientOption[]>('clients'),
-        api.get<SiteOption[]>('sites'),
+        getAdminInvoices(selectedBranchId),
+        api.get<ClientOption[]>('clients', { params: branchParams(selectedBranchId) }),
+        api.get<SiteOption[]>('sites', { params: branchParams(selectedBranchId) }),
       ]);
       setInvoices(Array.isArray(invoiceData) ? invoiceData : []);
       setClients(Array.isArray(clientRes.data) ? clientRes.data : []);
@@ -147,12 +155,14 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [selectedBranchId]);
 
   useEffect(() => {
-    if (!formData.client_id && clients.length > 0) {
-      setFormData((current) => ({ ...current, client_id: clients[0].id }));
-    }
+    setFormData((current) => {
+      if (clients.length === 0) return { ...current, client_id: '', site_id: '' };
+      if (clients.some((client) => client.id === current.client_id)) return current;
+      return { ...current, client_id: clients[0].id, site_id: '' };
+    });
   }, [clients, formData.client_id]);
 
   useEffect(() => {
@@ -307,8 +317,10 @@ export default function InvoicesPage() {
 
       <form
         onSubmit={handleGenerate}
-        className="mb-8 grid gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:p-6 xl:grid-cols-[1.1fr_1.1fr_160px_160px_180px_auto]"
+        className="mb-8 grid gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:p-6 xl:grid-cols-[200px_1.1fr_1.1fr_150px_150px_170px_auto]"
       >
+        <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Branch" />
+
         <div className="space-y-2">
           <label className="text-sm font-semibold text-slate-300">Client</label>
           <select
@@ -436,6 +448,7 @@ export default function InvoicesPage() {
                 <tr className="border-b border-white/5 text-sm uppercase tracking-wider text-muted-foreground">
                   <th className="px-6 py-4 font-semibold">Invoice</th>
                   <th className="px-6 py-4 font-semibold">Client/Site</th>
+                  <th className="px-6 py-4 font-semibold">Branch</th>
                   <th className="px-6 py-4 font-semibold">Hours</th>
                   <th className="px-6 py-4 font-semibold">Rate</th>
                   <th className="px-6 py-4 font-semibold">Total</th>
@@ -456,6 +469,9 @@ export default function InvoicesPage() {
                     <td className="px-6 py-4 text-sm text-slate-300" data-label="Client/Site">
                       <div>{invoice.client?.companyName || invoice.client?.name || 'Client'}</div>
                       <div className="mt-1 text-slate-500">{invoice.site?.name || 'Site'}</div>
+                    </td>
+                    <td className="px-6 py-4" data-label="Branch">
+                      <BranchBadge branch={invoice.branch} />
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-300" data-label="Hours">
                       {invoice.totalHours}h

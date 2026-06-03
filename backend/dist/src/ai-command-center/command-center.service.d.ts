@@ -6,6 +6,7 @@ import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { RevenueInsightsService } from '../ai-insights/revenue-insights.service';
 import { AiService } from '../ai/ai.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { KnowledgeRetrievalService } from '../knowledge-base/knowledge-retrieval.service';
 import { CommandCenterDashboard, DailySummary, CommandCenterRiskItem } from './command-center.types';
 import { AiRecommendation } from '../ai-insights/ai-insights.types';
 export declare class CommandCenterService {
@@ -17,9 +18,10 @@ export declare class CommandCenterService {
     private readonly aiService;
     private readonly aiMonitoringService;
     private readonly aiGovernanceService?;
+    private readonly knowledgeRetrievalService?;
     private readonly logger;
     private readonly promptVersion;
-    constructor(prisma: PrismaService, aiInsightsService: AiInsightsService, revenueInsightsService: RevenueInsightsService, recommendationService: RecommendationService, aiActionsService: AiActionsService, aiService: AiService, aiMonitoringService: AiMonitoringService, aiGovernanceService?: AiGovernanceService | undefined);
+    constructor(prisma: PrismaService, aiInsightsService: AiInsightsService, revenueInsightsService: RevenueInsightsService, recommendationService: RecommendationService, aiActionsService: AiActionsService, aiService: AiService, aiMonitoringService: AiMonitoringService, aiGovernanceService?: AiGovernanceService | undefined, knowledgeRetrievalService?: KnowledgeRetrievalService | undefined);
     getDashboard(tenantId: string, userId: string, userRole?: string): Promise<CommandCenterDashboard>;
     getSummary(tenantId: string, userId: string, userRole?: string): Promise<DailySummary>;
     getRecommendations(tenantId: string, userId: string, userRole?: string): Promise<AiRecommendation[]>;

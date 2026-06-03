@@ -16,6 +16,7 @@ class CreateGuardDto {
     phone;
     email;
     password;
+    branch_id;
 }
 exports.CreateGuardDto = CreateGuardDto;
 __decorate([
@@ -39,4 +40,9 @@ __decorate([
     (0, class_validator_1.MinLength)(6),
     __metadata("design:type", String)
 ], CreateGuardDto.prototype, "password", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Object)
+], CreateGuardDto.prototype, "branch_id", void 0);
 //# sourceMappingURL=create-guard.dto.js.map

@@ -425,6 +425,37 @@ export class AiService {
     }
   }
 
+  async generateCopilotAnswer(context: string): Promise<string | null> {
+    if (!this.isAiAvailable()) {
+      return null;
+    }
+
+    const prompt = `
+      You are an AI copilot for a tenant-scoped security operations SaaS platform.
+      Answer the admin or finance user's question using only this structured context:
+      ${context}
+
+      Requirements:
+      - Be concise and specific.
+      - Include concrete names, counts, amounts, and dates when present.
+      - Do not invent records or cite data that is not in the context.
+      - Do not mention tenant IDs, user IDs, raw database fields, API names, or implementation details.
+      - If the structured result already answers the question, preserve its meaning.
+    `;
+
+    try {
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text().replace(/```/g, '').trim();
+      return text || null;
+    } catch (error) {
+      this.logger.warn(
+        `Copilot answer generation failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    }
+  }
+
   private fallbackProposalDraft(
     dto: GenerateProposalDto,
     reason?: string,

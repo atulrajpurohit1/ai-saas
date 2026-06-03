@@ -13,16 +13,23 @@ export declare class ShiftsController {
         id: string;
         createdAt: Date;
         tenantId: string;
+        branchId: string | null;
         status: string;
         siteId: string;
         startTime: Date;
         endTime: Date;
         requiredGuards: number;
     }>;
-    findAll(user: ActiveUser): Promise<{
+    findAll(user: ActiveUser, branchId?: string): Promise<{
         attendanceStatus: "not_started" | "checked_in" | "completed";
         checkInTime: Date | null;
         checkOutTime: Date | null;
+        branch: {
+            id: string;
+            name: string;
+            status: string;
+            location: string;
+        } | null;
         site: {
             name: string;
         };
@@ -40,6 +47,7 @@ export declare class ShiftsController {
         id: string;
         createdAt: Date;
         tenantId: string;
+        branchId: string | null;
         status: string;
         siteId: string;
         startTime: Date;

@@ -45,6 +45,7 @@ export declare class DealsService {
             updatedAt: Date;
             email: string;
             tenantId: string;
+            branchId: string | null;
             companyName: string | null;
             phone: string | null;
         } | null;
@@ -76,6 +77,7 @@ export declare class DealsService {
             updatedAt: Date;
             email: string;
             tenantId: string;
+            branchId: string | null;
             companyName: string | null;
             phone: string | null;
         } | null;

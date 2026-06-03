@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const ai_governance_service_1 = require("../ai-governance/ai-governance.service");
 const ai_service_1 = require("../ai/ai.service");
 const ai_monitoring_service_1 = require("../ai-monitoring/ai-monitoring.service");
+const knowledge_retrieval_service_1 = require("../knowledge-base/knowledge-retrieval.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const LATE_CHECK_IN_MINUTES = 5;
 const HISTORY_DAYS = 90;
@@ -30,11 +31,13 @@ let RecommendationService = class RecommendationService {
     aiService;
     aiMonitoringService;
     aiGovernanceService;
-    constructor(prisma, aiService, aiMonitoringService, aiGovernanceService) {
+    knowledgeRetrievalService;
+    constructor(prisma, aiService, aiMonitoringService, aiGovernanceService, knowledgeRetrievalService) {
         this.prisma = prisma;
         this.aiService = aiService;
         this.aiMonitoringService = aiMonitoringService;
         this.aiGovernanceService = aiGovernanceService;
+        this.knowledgeRetrievalService = knowledgeRetrievalService;
     }
     async recommendGuards(tenantId, shiftId, includeAiExplanation = true) {
         const shift = await this.prisma.shift.findFirst({
@@ -449,8 +452,24 @@ let RecommendationService = class RecommendationService {
             reasons: input.recommendation.reasons,
             warnings: input.recommendation.warnings,
             metrics: input.recommendation.metrics,
+            organizationalMemory: await this.getSchedulingMemory(input.tenantId, `${input.siteName} ${input.recommendation.guard_name} ${input.recommendation.reasons.join(' ')} ${input.recommendation.warnings.join(' ')}`),
         }), await this.resolvePromptTemplate(input.tenantId, 'ai_scheduling.guard_recommendations', 'guard_recommendation_explanation'));
         return aiExplanation || fallback;
+    }
+    async getSchedulingMemory(tenantId, query) {
+        const entries = await this.knowledgeRetrievalService?.retrieveRelevant({
+            tenantId,
+            sourceModule: 'ai_scheduling.guard_recommendations',
+            categories: ['scheduling', 'staffing', 'incidents', 'operations'],
+            query,
+            limit: 5,
+        });
+        return entries?.map((entry) => ({
+            title: entry.title,
+            category: entry.category,
+            summary: entry.summary,
+            tags: entry.tags,
+        })) || [];
     }
     async resolvePromptTemplate(tenantId, moduleName, promptKey) {
         return (await this.aiGovernanceService?.resolvePromptVersion({
@@ -466,9 +485,11 @@ exports.RecommendationService = RecommendationService = __decorate([
     (0, common_1.Injectable)(),
     __param(2, (0, common_1.Optional)()),
     __param(3, (0, common_1.Optional)()),
+    __param(4, (0, common_1.Optional)()),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         ai_service_1.AiService,
         ai_monitoring_service_1.AiMonitoringService,
-        ai_governance_service_1.AiGovernanceService])
+        ai_governance_service_1.AiGovernanceService,
+        knowledge_retrieval_service_1.KnowledgeRetrievalService])
 ], RecommendationService);
 //# sourceMappingURL=recommendation.service.js.map

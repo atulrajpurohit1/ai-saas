@@ -16,6 +16,7 @@ class CreateShiftDto {
     startTime;
     endTime;
     requiredGuards;
+    branch_id;
 }
 exports.CreateShiftDto = CreateShiftDto;
 __decorate([
@@ -38,4 +39,9 @@ __decorate([
     (0, class_validator_1.Min)(1),
     __metadata("design:type", Number)
 ], CreateShiftDto.prototype, "requiredGuards", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Object)
+], CreateShiftDto.prototype, "branch_id", void 0);
 //# sourceMappingURL=create-shift.dto.js.map

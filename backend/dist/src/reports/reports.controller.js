@@ -26,13 +26,13 @@ let ReportsController = class ReportsController {
         this.reportsService = reportsService;
     }
     generateDailyReport(user, dto) {
-        return this.reportsService.generateDailyReport(user.tenantId, user.sub, dto);
+        return this.reportsService.generateDailyReport(user, dto);
     }
-    findAll(user) {
-        return this.reportsService.findAllForAdmin(user.tenantId);
+    findAll(user, branchId) {
+        return this.reportsService.findAllForAdmin(user, branchId);
     }
     async exportPdf(user, id, res) {
-        const { buffer } = await this.reportsService.exportForAdmin(user.tenantId, user.sub, id);
+        const { buffer } = await this.reportsService.exportForAdmin(user, id);
         res.set({
             'Content-Type': 'application/pdf',
             'Content-Disposition': `attachment; filename=daily-report-${id}.pdf`,
@@ -41,10 +41,10 @@ let ReportsController = class ReportsController {
         res.end(buffer);
     }
     findOne(user, id) {
-        return this.reportsService.findOneForAdmin(user.tenantId, user.sub, id);
+        return this.reportsService.findOneForAdmin(user, id);
     }
     publish(user, id) {
-        return this.reportsService.publishReport(user.tenantId, user.sub, id);
+        return this.reportsService.publishReport(user, id);
     }
 };
 exports.ReportsController = ReportsController;
@@ -59,8 +59,9 @@ __decorate([
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Query)('branch_id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], ReportsController.prototype, "findAll", null);
 __decorate([

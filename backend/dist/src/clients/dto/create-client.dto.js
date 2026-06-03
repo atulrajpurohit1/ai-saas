@@ -16,6 +16,7 @@ class CreateClientDto {
     companyName;
     email;
     phone;
+    branch_id;
 }
 exports.CreateClientDto = CreateClientDto;
 __decorate([
@@ -38,4 +39,9 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateClientDto.prototype, "phone", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Object)
+], CreateClientDto.prototype, "branch_id", void 0);
 //# sourceMappingURL=create-client.dto.js.map

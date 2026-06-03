@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { branchScopedWhere, branchWhere, resolveWriteBranchId } from '../branches/branch-scope';
 import { CreateGuardDto } from './dto/create-guard.dto';
 import { UpdateGuardDto } from './dto/update-guard.dto';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
@@ -25,9 +27,10 @@ export class GuardsService {
     return safeGuard;
   }
 
-  async create(userId: string, tenantId: string, dto: CreateGuardDto) {
+  async create(user: ActiveUser, dto: CreateGuardDto) {
     const name = dto.name?.trim();
     const { phone, email } = this.normalizeContact(dto);
+    const branchId = resolveWriteBranchId(user, dto.branch_id);
 
     if (!name) {
       throw new BadRequestException('Guard name is required');
@@ -45,13 +48,14 @@ export class GuardsService {
         phone,
         email,
         passwordHash,
-        tenantId,
+        tenantId: user.tenantId,
+        branchId,
       },
     });
 
     await this.auditService.log({
-      tenantId,
-      userId,
+      tenantId: user.tenantId,
+      userId: user.sub,
       action: 'GUARD_CREATED',
       entityType: 'Guard',
       entityId: guard.id,
@@ -61,11 +65,14 @@ export class GuardsService {
     return this.withoutPasswordHash(guard);
   }
 
-  async findAll(tenantId: string) {
+  async findAll(user: ActiveUser, requestedBranchId?: string | null) {
     try {
       const guards = await this.prisma.guard.findMany({
-        where: { tenantId },
+        where: branchScopedWhere(user, requestedBranchId),
         include: {
+          branch: {
+            select: { id: true, name: true, location: true, status: true },
+          },
           availability: true,
         },
         orderBy: { createdAt: 'desc' },
@@ -80,9 +87,9 @@ export class GuardsService {
     }
   }
 
-  async update(userId: string, tenantId: string, id: string, dto: UpdateGuardDto) {
+  async update(user: ActiveUser, id: string, dto: UpdateGuardDto) {
     const guard = await this.prisma.guard.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId: user.tenantId, ...branchWhere(user) },
     });
 
     if (!guard) {
@@ -90,11 +97,16 @@ export class GuardsService {
     }
 
     const { phone, email } = this.normalizeContact(dto);
+    const branchId =
+      dto.branch_id === undefined
+        ? undefined
+        : resolveWriteBranchId(user, dto.branch_id);
     const data = {
       ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
       ...(dto.phone !== undefined ? { phone } : {}),
       ...(dto.email !== undefined ? { email } : {}),
       ...(dto.password ? { passwordHash: await bcrypt.hash(dto.password, 10) } : {}),
+      ...(branchId !== undefined ? { branchId } : {}),
     };
 
     if (data.name !== undefined && !data.name) {
@@ -107,8 +119,8 @@ export class GuardsService {
     });
 
     await this.auditService.log({
-      tenantId,
-      userId,
+      tenantId: user.tenantId,
+      userId: user.sub,
       action: 'GUARD_UPDATED',
       entityType: 'Guard',
       entityId: guard.id,
@@ -118,9 +130,9 @@ export class GuardsService {
     return this.withoutPasswordHash(updatedGuard);
   }
 
-  async getAvailability(tenantId: string, id: string) {
+  async getAvailability(user: ActiveUser, id: string) {
     const guard = await this.prisma.guard.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId: user.tenantId, ...branchWhere(user) },
     });
 
     if (!guard) {
@@ -128,7 +140,7 @@ export class GuardsService {
     }
 
     const availability = await this.prisma.availability.findFirst({
-      where: { guardId: id, tenantId },
+      where: { guardId: id, tenantId: user.tenantId },
     });
 
     if (!availability) {
@@ -139,9 +151,9 @@ export class GuardsService {
     return availability;
   }
 
-  async updateAvailability(userId: string, tenantId: string, id: string, dto: UpdateAvailabilityDto) {
+  async updateAvailability(user: ActiveUser, id: string, dto: UpdateAvailabilityDto) {
     const guard = await this.prisma.guard.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId: user.tenantId, ...branchWhere(user) },
     });
 
     if (!guard) {
@@ -157,7 +169,7 @@ export class GuardsService {
       },
       create: {
         guardId: id,
-        tenantId,
+        tenantId: user.tenantId,
         status: dto.status,
         startDate: dto.startDate ? new Date(dto.startDate) : null,
         endDate: dto.endDate ? new Date(dto.endDate) : null,
@@ -165,8 +177,8 @@ export class GuardsService {
     });
 
     await this.auditService.log({
-      tenantId,
-      userId,
+      tenantId: user.tenantId,
+      userId: user.sub,
       action: 'AVAILABILITY_UPDATED',
       entityType: 'Guard',
       entityId: id,

@@ -8,6 +8,13 @@ export declare class GuardIncidentsController {
     createForShift(user: ActiveUser, shiftId: string, dto: CreateIncidentDto): Promise<{
         id: string;
         tenantId: string;
+        branchId: string | null;
+        branch: {
+            id: string;
+            name: string | null;
+            location: string | null;
+            status: string | null;
+        } | null;
         shiftId: string;
         siteId: string;
         guardId: string;
@@ -48,6 +55,13 @@ export declare class GuardIncidentsController {
     findMine(user: ActiveUser): Promise<{
         id: string;
         tenantId: string;
+        branchId: string | null;
+        branch: {
+            id: string;
+            name: string | null;
+            location: string | null;
+            status: string | null;
+        } | null;
         shiftId: string;
         siteId: string;
         guardId: string;

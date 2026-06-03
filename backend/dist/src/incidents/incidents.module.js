@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.IncidentsModule = void 0;
 const common_1 = require("@nestjs/common");
 const audit_module_1 = require("../audit/audit.module");
+const knowledge_base_module_1 = require("../knowledge-base/knowledge-base.module");
 const prisma_module_1 = require("../prisma/prisma.module");
 const client_incidents_controller_1 = require("./client-incidents.controller");
 const guard_incidents_controller_1 = require("./guard-incidents.controller");
@@ -19,7 +20,7 @@ let IncidentsModule = class IncidentsModule {
 exports.IncidentsModule = IncidentsModule;
 exports.IncidentsModule = IncidentsModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule],
+        imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule, knowledge_base_module_1.KnowledgeBaseModule],
         controllers: [incidents_controller_1.IncidentsController, guard_incidents_controller_1.GuardIncidentsController, client_incidents_controller_1.ClientIncidentsController],
         providers: [incidents_service_1.IncidentsService],
     })

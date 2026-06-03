@@ -24,14 +24,18 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
     }
     validate(payload) {
         const tenantId = payload.tenantId ?? payload.tenant_id;
+        const branchId = payload.branchId ?? payload.branch_id ?? null;
         const clientId = payload.clientId ?? payload.client_id;
         const guardId = payload.guardId ?? payload.guard_id;
+        const isSuperAdmin = payload.isSuperAdmin ?? payload.is_super_admin ?? false;
         return {
             sub: payload.sub,
             email: payload.email,
             phone: payload.phone,
             tenantId,
             role: payload.role,
+            branchId,
+            isSuperAdmin,
             clientId,
             guardId,
         };

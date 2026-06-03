@@ -19,6 +19,7 @@ const ai_governance_service_1 = require("../ai-governance/ai-governance.service"
 const ai_service_1 = require("../ai/ai.service");
 const ai_monitoring_service_1 = require("../ai-monitoring/ai-monitoring.service");
 const audit_service_1 = require("../audit/audit.service");
+const knowledge_retrieval_service_1 = require("../knowledge-base/knowledge-retrieval.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const FORECAST_MONTHS = 12;
@@ -39,13 +40,15 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
     auditService;
     aiMonitoringService;
     aiGovernanceService;
+    knowledgeRetrievalService;
     logger = new common_1.Logger(RevenueInsightsService_1.name);
-    constructor(prisma, aiService, auditService, aiMonitoringService, aiGovernanceService) {
+    constructor(prisma, aiService, auditService, aiMonitoringService, aiGovernanceService, knowledgeRetrievalService) {
         this.prisma = prisma;
         this.aiService = aiService;
         this.auditService = auditService;
         this.aiMonitoringService = aiMonitoringService;
         this.aiGovernanceService = aiGovernanceService;
+        this.knowledgeRetrievalService = knowledgeRetrievalService;
     }
     async getRevenueDashboard(tenantId, userId) {
         const base = await this.buildBaseSections(tenantId);
@@ -999,6 +1002,11 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
     async buildAiFinancialRecommendations(tenantId, forecast, clientValue, contracts, renewals, ruleRecommendations) {
         try {
             const feedbackSummary = await this.aiMonitoringService.getFeedbackSummaryForPrompt(tenantId);
+            const organizationalMemory = await this.getRevenueMemory(tenantId, [
+                ...contracts.rows.slice(0, 5).map((contract) => `${contract.name} ${contract.indicators.join(' ')}`),
+                ...renewals.rows.slice(0, 5).map((renewal) => `${renewal.name} ${renewal.reason}`),
+                ...ruleRecommendations.map((recommendation) => recommendation.action),
+            ].join(' '));
             const generated = await this.aiService.generateRevenueFinancialRecommendations(JSON.stringify({
                 forecast: {
                     nextMonthRevenue: forecast.nextMonthRevenue,
@@ -1014,6 +1022,7 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
                 renewalOpportunities: renewals.rows.slice(0, 5),
                 currentRuleActions: ruleRecommendations.map((recommendation) => recommendation.action),
                 adminFeedbackHistory: feedbackSummary.summaryText,
+                organizationalMemory,
             }), await this.resolvePromptTemplate(tenantId, 'ai_insights.revenue', 'financial_recommendations'));
             if (!generated?.length) {
                 return [];
@@ -1027,6 +1036,11 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
     }
     async buildAiSummary(context, forecast, clientValue, contracts, renewals, recommendations) {
         try {
+            const organizationalMemory = await this.getRevenueMemory(context.tenantId, [
+                ...clientValue.rows.slice(0, 3).map((client) => `${client.name} ${client.indicators.join(' ')}`),
+                ...contracts.rows.slice(0, 3).map((contract) => `${contract.name} ${contract.indicators.join(' ')}`),
+                ...recommendations.recommendations.slice(0, 4).map((recommendation) => recommendation.action),
+            ].join(' '));
             return await this.aiService.generateRevenueIntelligenceSummary(JSON.stringify({
                 generatedAt: context.now.toISOString(),
                 forecast: {
@@ -1043,12 +1057,28 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
                 recommendations: recommendations.recommendations
                     .slice(0, 4)
                     .map((recommendation) => recommendation.action),
+                organizationalMemory,
             }), await this.resolvePromptTemplate(context.tenantId, 'ai_insights.revenue', 'revenue_summary'));
         }
         catch (error) {
             this.logger.warn(`Revenue AI summary skipped: ${error instanceof Error ? error.message : String(error)}`);
             return null;
         }
+    }
+    async getRevenueMemory(tenantId, query) {
+        const entries = await this.knowledgeRetrievalService?.retrieveRelevant({
+            tenantId,
+            sourceModule: 'ai_insights.revenue',
+            categories: ['billing', 'contracts', 'client_management', 'operations'],
+            query,
+            limit: 6,
+        });
+        return entries?.map((entry) => ({
+            title: entry.title,
+            category: entry.category,
+            summary: entry.summary,
+            tags: entry.tags,
+        })) || [];
     }
     fallbackRevenueSummary(forecast, clientValue, contracts, renewals, recommendations) {
         const topClient = clientValue.rows.find((client) => client.totalRevenue > 0);
@@ -1368,10 +1398,12 @@ exports.RevenueInsightsService = RevenueInsightsService;
 exports.RevenueInsightsService = RevenueInsightsService = RevenueInsightsService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(4, (0, common_1.Optional)()),
+    __param(5, (0, common_1.Optional)()),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         ai_service_1.AiService,
         audit_service_1.AuditService,
         ai_monitoring_service_1.AiMonitoringService,
-        ai_governance_service_1.AiGovernanceService])
+        ai_governance_service_1.AiGovernanceService,
+        knowledge_retrieval_service_1.KnowledgeRetrievalService])
 ], RevenueInsightsService);
 //# sourceMappingURL=revenue-insights.service.js.map

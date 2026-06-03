@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { AiGovernanceService } from '../ai-governance/ai-governance.service';
 import { AiService } from '../ai/ai.service';
 import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
+import { KnowledgeRetrievalService } from '../knowledge-base/knowledge-retrieval.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   AiRecommendation,
@@ -27,6 +28,8 @@ export class RecommendationService {
     private readonly aiMonitoringService?: AiMonitoringService,
     @Optional()
     private readonly aiGovernanceService?: AiGovernanceService,
+    @Optional()
+    private readonly knowledgeRetrievalService?: KnowledgeRetrievalService,
   ) {}
 
   async recommendGuards(
@@ -595,6 +598,10 @@ export class RecommendationService {
         reasons: input.recommendation.reasons,
         warnings: input.recommendation.warnings,
         metrics: input.recommendation.metrics,
+        organizationalMemory: await this.getSchedulingMemory(
+          input.tenantId,
+          `${input.siteName} ${input.recommendation.guard_name} ${input.recommendation.reasons.join(' ')} ${input.recommendation.warnings.join(' ')}`,
+        ),
       }),
       await this.resolvePromptTemplate(
         input.tenantId,
@@ -604,6 +611,23 @@ export class RecommendationService {
     );
 
     return aiExplanation || fallback;
+  }
+
+  private async getSchedulingMemory(tenantId: string, query: string) {
+    const entries = await this.knowledgeRetrievalService?.retrieveRelevant({
+      tenantId,
+      sourceModule: 'ai_scheduling.guard_recommendations',
+      categories: ['scheduling', 'staffing', 'incidents', 'operations'],
+      query,
+      limit: 5,
+    });
+
+    return entries?.map((entry) => ({
+      title: entry.title,
+      category: entry.category,
+      summary: entry.summary,
+      tags: entry.tags,
+    })) || [];
   }
 
   private async resolvePromptTemplate(

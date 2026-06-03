@@ -14,6 +14,7 @@ const prisma_module_1 = require("../prisma/prisma.module");
 const ai_insights_module_1 = require("../ai-insights/ai-insights.module");
 const ai_actions_module_1 = require("../ai-actions/ai-actions.module");
 const ai_monitoring_module_1 = require("../ai-monitoring/ai-monitoring.module");
+const knowledge_base_module_1 = require("../knowledge-base/knowledge-base.module");
 const command_center_controller_1 = require("./command-center.controller");
 const command_center_service_1 = require("./command-center.service");
 let CommandCenterModule = class CommandCenterModule {
@@ -21,9 +22,10 @@ let CommandCenterModule = class CommandCenterModule {
 exports.CommandCenterModule = CommandCenterModule;
 exports.CommandCenterModule = CommandCenterModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, ai_module_1.AiModule, ai_insights_module_1.AiInsightsModule, ai_actions_module_1.AiActionsModule, ai_monitoring_module_1.AiMonitoringModule, ai_governance_module_1.AiGovernanceModule],
+        imports: [prisma_module_1.PrismaModule, ai_module_1.AiModule, ai_insights_module_1.AiInsightsModule, ai_actions_module_1.AiActionsModule, ai_monitoring_module_1.AiMonitoringModule, ai_governance_module_1.AiGovernanceModule, knowledge_base_module_1.KnowledgeBaseModule],
         controllers: [command_center_controller_1.CommandCenterController],
         providers: [command_center_service_1.CommandCenterService],
+        exports: [command_center_service_1.CommandCenterService],
     })
 ], CommandCenterModule);
 //# sourceMappingURL=command-center.module.js.map

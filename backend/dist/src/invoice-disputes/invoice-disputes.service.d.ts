@@ -1,10 +1,12 @@
 import { AuditService } from '../audit/audit.service';
+import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloseInvoiceDisputeDto, RespondInvoiceDisputeDto } from './dto/respond-invoice-dispute.dto';
 export declare class InvoiceDisputesService {
     private prisma;
     private auditService;
-    constructor(prisma: PrismaService, auditService: AuditService);
+    private knowledgeBaseService;
+    constructor(prisma: PrismaService, auditService: AuditService, knowledgeBaseService: KnowledgeBaseService);
     private disputeInclude;
     private mapDispute;
     private findDisputeOrThrow;

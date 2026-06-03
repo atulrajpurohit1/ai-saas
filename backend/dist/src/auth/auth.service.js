@@ -80,7 +80,7 @@ let AuthService = class AuthService {
                 });
                 return { tenant, user };
             });
-            const tokens = await this.getTokens(result.user.id, result.user.email, result.tenant.id, 'admin');
+            const tokens = await this.getTokens(result.user.id, result.user.email, result.tenant.id, 'admin', null, true);
             await this.updateRefreshTokenHash(result.user.id, tokens.refresh_token, 'admin');
             return tokens;
         }
@@ -106,7 +106,7 @@ let AuthService = class AuthService {
         if (!passwordMatches)
             throw new common_1.UnauthorizedException('Invalid credentials');
         const role = this.mapUserRole(user.role);
-        const tokens = await this.getTokens(user.id, user.email, user.tenantId, role);
+        const tokens = await this.getTokens(user.id, user.email, user.tenantId, role, user.branchId, user.isSuperAdmin);
         await this.updateRefreshTokenHash(user.id, tokens.refresh_token, role);
         return tokens;
     }
@@ -126,7 +126,7 @@ let AuthService = class AuthService {
             throw new common_1.ForbiddenException('Access Denied');
         const typedUser = user;
         const userRole = this.mapUserRole(user.role);
-        const tokens = await this.getTokens(typedUser.id, typedUser.email, typedUser.tenantId, userRole);
+        const tokens = await this.getTokens(typedUser.id, typedUser.email, typedUser.tenantId, userRole, typedUser.branchId, typedUser.isSuperAdmin);
         await this.updateRefreshTokenHash(typedUser.id, tokens.refresh_token, userRole);
         return tokens;
     }
@@ -137,17 +137,17 @@ let AuthService = class AuthService {
             data: { refreshToken: hash },
         });
     }
-    async getTokens(userId, email, tenantId, role) {
+    async getTokens(userId, email, tenantId, role, branchId = null, isSuperAdmin = true) {
         const atSecret = this.configService.get('JWT_ACCESS_SECRET');
         const atExpires = this.configService.get('JWT_ACCESS_EXPIRES_IN');
         const rtSecret = this.configService.get('JWT_REFRESH_SECRET');
         const rtExpires = this.configService.get('JWT_REFRESH_EXPIRES_IN');
         const [at, rt] = await Promise.all([
-            this.jwtService.signAsync({ sub: userId, email, tenantId, role }, {
+            this.jwtService.signAsync({ sub: userId, email, tenantId, role, branchId, isSuperAdmin }, {
                 secret: atSecret,
                 expiresIn: atExpires,
             }),
-            this.jwtService.signAsync({ sub: userId, email, tenantId, role }, {
+            this.jwtService.signAsync({ sub: userId, email, tenantId, role, branchId, isSuperAdmin }, {
                 secret: rtSecret,
                 expiresIn: rtExpires,
             }),

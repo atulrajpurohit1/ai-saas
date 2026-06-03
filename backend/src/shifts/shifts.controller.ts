@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Query } from '@nestjs/common';
 import { ShiftsService } from './shifts.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -20,17 +20,17 @@ export class ShiftsController {
     @GetUser() user: ActiveUser,
     @Body() createShiftDto: CreateShiftDto,
   ) {
-    return this.shiftsService.create(user.sub, user.tenantId, createShiftDto);
+    return this.shiftsService.create(user, createShiftDto);
   }
 
   @Get()
-  findAll(@GetUser() user: ActiveUser) {
-    return this.shiftsService.findAll(user.tenantId);
+  findAll(@GetUser() user: ActiveUser, @Query('branch_id') branchId?: string) {
+    return this.shiftsService.findAll(user, branchId);
   }
 
   @Get(':id/recommend-guards')
   recommendGuards(@GetUser() user: ActiveUser, @Param('id') id: string) {
-    return this.shiftsService.recommendGuards(user.sub, user.tenantId, id);
+    return this.shiftsService.recommendGuards(user, id);
   }
 
   @Put(':id/assign')
@@ -39,11 +39,11 @@ export class ShiftsController {
     @Param('id') id: string,
     @Body() dto: AssignGuardDto,
   ) {
-    return this.shiftsService.assign(user.sub, user.tenantId, id, dto.guardId);
+    return this.shiftsService.assign(user, id, dto.guardId);
   }
 
   @Delete(':id/unassign')
   unassign(@GetUser() user: ActiveUser, @Param('id') id: string) {
-    return this.shiftsService.unassign(user.sub, user.tenantId, id);
+    return this.shiftsService.unassign(user, id);
   }
 }

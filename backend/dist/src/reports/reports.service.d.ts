@@ -1,4 +1,6 @@
 import { AuditService } from '../audit/audit.service';
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GenerateDailyReportDto } from './dto/generate-daily-report.dto';
 type AttendanceStatus = 'not_started' | 'checked_in' | 'completed';
@@ -65,7 +67,8 @@ type DailyReportSummary = {
 export declare class ReportsService {
     private prisma;
     private auditService;
-    constructor(prisma: PrismaService, auditService: AuditService);
+    private knowledgeBaseService;
+    constructor(prisma: PrismaService, auditService: AuditService, knowledgeBaseService: KnowledgeBaseService);
     private parseReportDate;
     private summarizeAttendance;
     private parseStoredSummary;
@@ -77,11 +80,12 @@ export declare class ReportsService {
     private formatDate;
     private addPdfSectionTitle;
     private buildPdfBuffer;
-    generateDailyReport(tenantId: string, userId: string, dto: GenerateDailyReportDto): Promise<{
+    generateDailyReport(user: ActiveUser, dto: GenerateDailyReportDto): Promise<{
         id: any;
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
         reportDate: any;
         status: any;
         createdAt: any;
@@ -101,11 +105,12 @@ export declare class ReportsService {
             address: any;
         } | null;
     }>;
-    findAllForAdmin(tenantId: string): Promise<{
+    findAllForAdmin(user: ActiveUser, requestedBranchId?: string | null): Promise<{
         id: any;
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
         reportDate: any;
         status: any;
         createdAt: any;
@@ -125,11 +130,12 @@ export declare class ReportsService {
             address: any;
         } | null;
     }[]>;
-    findOneForAdmin(tenantId: string, userId: string, id: string): Promise<{
+    findOneForAdmin(user: ActiveUser, id: string): Promise<{
         id: any;
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
         reportDate: any;
         status: any;
         createdAt: any;
@@ -149,11 +155,12 @@ export declare class ReportsService {
             address: any;
         } | null;
     }>;
-    publishReport(tenantId: string, userId: string, id: string): Promise<{
+    publishReport(user: ActiveUser, id: string): Promise<{
         id: any;
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
         reportDate: any;
         status: any;
         createdAt: any;
@@ -173,13 +180,14 @@ export declare class ReportsService {
             address: any;
         } | null;
     }>;
-    exportForAdmin(tenantId: string, userId: string, id: string): Promise<{
+    exportForAdmin(user: ActiveUser, id: string): Promise<{
         buffer: Buffer<ArrayBufferLike>;
         report: {
             id: any;
             tenantId: any;
             clientId: any;
             siteId: any;
+            branchId: any;
             reportDate: any;
             status: any;
             createdAt: any;
@@ -205,6 +213,7 @@ export declare class ReportsService {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
         reportDate: any;
         status: any;
         createdAt: any;
@@ -229,6 +238,7 @@ export declare class ReportsService {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
         reportDate: any;
         status: any;
         createdAt: any;
@@ -255,6 +265,7 @@ export declare class ReportsService {
             tenantId: any;
             clientId: any;
             siteId: any;
+            branchId: any;
             reportDate: any;
             status: any;
             createdAt: any;

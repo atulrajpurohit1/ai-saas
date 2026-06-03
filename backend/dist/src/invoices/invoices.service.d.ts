@@ -1,4 +1,5 @@
 import { AuditService } from '../audit/audit.service';
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { PrismaService } from '../prisma/prisma.service';
 import { DisputeInvoiceDto } from './dto/dispute-invoice.dto';
 import { GenerateInvoiceDto } from './dto/generate-invoice.dto';
@@ -24,11 +25,18 @@ export declare class InvoicesService {
     private findActiveRateCard;
     private resolveInvoiceRate;
     private isUniqueConflict;
-    generateInvoice(tenantId: string, userId: string, dto: GenerateInvoiceDto): Promise<{
+    generateInvoice(user: ActiveUser, dto: GenerateInvoiceDto): Promise<{
         id: any;
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;
@@ -71,11 +79,18 @@ export declare class InvoicesService {
         items: any;
         disputes: any;
     }>;
-    findAllForAdmin(tenantId: string): Promise<{
+    findAllForAdmin(user: ActiveUser, requestedBranchId?: string | null): Promise<{
         id: any;
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;
@@ -118,11 +133,18 @@ export declare class InvoicesService {
         items: any;
         disputes: any;
     }[]>;
-    findOneForAdmin(tenantId: string, id: string): Promise<{
+    findOneForAdmin(user: ActiveUser, id: string): Promise<{
         id: any;
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;
@@ -165,11 +187,18 @@ export declare class InvoicesService {
         items: any;
         disputes: any;
     }>;
-    issueInvoice(tenantId: string, userId: string, id: string): Promise<{
+    issueInvoice(user: ActiveUser, id: string): Promise<{
         id: any;
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;
@@ -212,11 +241,18 @@ export declare class InvoicesService {
         items: any;
         disputes: any;
     }>;
-    markPaid(tenantId: string, userId: string, id: string): Promise<{
+    markPaid(user: ActiveUser, id: string): Promise<{
         id: any;
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;
@@ -259,11 +295,18 @@ export declare class InvoicesService {
         items: any;
         disputes: any;
     }>;
-    cancelInvoice(tenantId: string, userId: string, id: string): Promise<{
+    cancelInvoice(user: ActiveUser, id: string): Promise<{
         id: any;
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;
@@ -311,6 +354,13 @@ export declare class InvoicesService {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;
@@ -358,6 +408,13 @@ export declare class InvoicesService {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;
@@ -405,6 +462,13 @@ export declare class InvoicesService {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;
@@ -452,6 +516,13 @@ export declare class InvoicesService {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
+        branch: {
+            id: any;
+            name: any;
+            location: any;
+            status: any;
+        } | null;
         invoiceNumber: any;
         billingStartDate: any;
         billingEndDate: any;
@@ -496,13 +567,20 @@ export declare class InvoicesService {
     }>;
     private addPdfSectionTitle;
     private buildPdfBuffer;
-    exportForAdmin(tenantId: string, userId: string, id: string): Promise<{
+    exportForAdmin(user: ActiveUser, id: string): Promise<{
         buffer: Buffer<ArrayBufferLike>;
         invoice: {
             id: any;
             tenantId: any;
             clientId: any;
             siteId: any;
+            branchId: any;
+            branch: {
+                id: any;
+                name: any;
+                location: any;
+                status: any;
+            } | null;
             invoiceNumber: any;
             billingStartDate: any;
             billingEndDate: any;
@@ -553,6 +631,13 @@ export declare class InvoicesService {
             tenantId: any;
             clientId: any;
             siteId: any;
+            branchId: any;
+            branch: {
+                id: any;
+                name: any;
+                location: any;
+                status: any;
+            } | null;
             invoiceNumber: any;
             billingStartDate: any;
             billingEndDate: any;

@@ -4,9 +4,16 @@ import { IncidentsService } from './incidents.service';
 export declare class IncidentsController {
     private readonly incidentsService;
     constructor(incidentsService: IncidentsService);
-    findAll(user: ActiveUser): Promise<{
+    findAll(user: ActiveUser, branchId?: string): Promise<{
         id: string;
         tenantId: string;
+        branchId: string | null;
+        branch: {
+            id: string;
+            name: string | null;
+            location: string | null;
+            status: string | null;
+        } | null;
         shiftId: string;
         siteId: string;
         guardId: string;
@@ -44,9 +51,16 @@ export declare class IncidentsController {
             endTime: Date;
         };
     }[]>;
-    findReviewQueue(user: ActiveUser): Promise<{
+    findReviewQueue(user: ActiveUser, branchId?: string): Promise<{
         id: string;
         tenantId: string;
+        branchId: string | null;
+        branch: {
+            id: string;
+            name: string | null;
+            location: string | null;
+            status: string | null;
+        } | null;
         shiftId: string;
         siteId: string;
         guardId: string;
@@ -85,8 +99,16 @@ export declare class IncidentsController {
         };
     }[]>;
     findOne(user: ActiveUser, id: string): Promise<{
+        similarHistoricalCases: import("../knowledge-base/knowledge-base.types").KnowledgeRetrievalResult[];
         id: string;
         tenantId: string;
+        branchId: string | null;
+        branch: {
+            id: string;
+            name: string | null;
+            location: string | null;
+            status: string | null;
+        } | null;
         shiftId: string;
         siteId: string;
         guardId: string;
@@ -127,6 +149,13 @@ export declare class IncidentsController {
     review(user: ActiveUser, id: string, dto: ReviewIncidentDto): Promise<{
         id: string;
         tenantId: string;
+        branchId: string | null;
+        branch: {
+            id: string;
+            name: string | null;
+            location: string | null;
+            status: string | null;
+        } | null;
         shiftId: string;
         siteId: string;
         guardId: string;

@@ -23,7 +23,11 @@ import {
   Command,
   FileSearch,
   Gauge,
-  ScrollText
+  ScrollText,
+  BookOpen,
+  Bot,
+  TrendingDown,
+  GitBranch
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { clsx, type ClassValue } from 'clsx';
@@ -44,14 +48,19 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   const adminLinks = [
     { href: '/ai-command-center', label: 'Command Center', icon: Command },
+    { href: '/ai-executive-center', label: 'Executive Center', icon: Briefcase },
+    { href: '/ai-copilot', label: 'AI Copilot', icon: Bot },
+    { href: '/ai-predictions', label: 'AI Predictions', icon: TrendingDown },
     { href: '/ai-prompts', label: 'AI Prompts', icon: ScrollText },
     { href: '/ai-audit', label: 'AI Audit', icon: FileSearch },
     { href: '/ai-monitoring', label: 'AI Monitoring', icon: Gauge },
     { href: '/ai-actions', label: 'AI Actions', icon: ClipboardCheck },
+    { href: '/knowledge-base', label: 'Knowledge Base', icon: BookOpen },
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/leads', label: 'Leads', icon: Users },
     { href: '/deals', label: 'Deals', icon: Briefcase },
     { href: '/proposals', label: 'Proposals', icon: FileText },
+    { href: '/branches', label: 'Branches', icon: GitBranch },
     { href: '/sites', label: 'Sites', icon: MapPin },
     { href: '/guards', label: 'Guards', icon: ShieldCheck },
     { href: '/shifts', label: 'Shifts', icon: CalendarClock },
@@ -70,6 +79,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     ? [
         { href: '/finance', label: 'Finance', icon: DollarSign },
         { href: '/ai-insights/revenue', label: 'Revenue AI', icon: BrainCircuit },
+        { href: '/ai-copilot', label: 'AI Copilot', icon: Bot },
       ]
     : adminLinks;
 

@@ -10,6 +10,7 @@ exports.AiActionsModule = void 0;
 const common_1 = require("@nestjs/common");
 const activities_module_1 = require("../activities/activities.module");
 const audit_module_1 = require("../audit/audit.module");
+const knowledge_base_module_1 = require("../knowledge-base/knowledge-base.module");
 const prisma_module_1 = require("../prisma/prisma.module");
 const ai_actions_controller_1 = require("./ai-actions.controller");
 const ai_actions_service_1 = require("./ai-actions.service");
@@ -18,7 +19,7 @@ let AiActionsModule = class AiActionsModule {
 exports.AiActionsModule = AiActionsModule;
 exports.AiActionsModule = AiActionsModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule, activities_module_1.ActivitiesModule],
+        imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule, activities_module_1.ActivitiesModule, knowledge_base_module_1.KnowledgeBaseModule],
         controllers: [ai_actions_controller_1.AiActionsController],
         providers: [ai_actions_service_1.AiActionsService],
         exports: [ai_actions_service_1.AiActionsService],

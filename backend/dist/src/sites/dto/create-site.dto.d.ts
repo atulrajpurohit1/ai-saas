@@ -3,4 +3,5 @@ export declare class CreateSiteDto {
     address: string;
     instructions?: string;
     client_id?: string | null;
+    branch_id?: string | null;
 }

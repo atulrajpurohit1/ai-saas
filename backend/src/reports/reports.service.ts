@@ -1,5 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { branchScopedWhere, branchWhere } from '../branches/branch-scope';
+import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GenerateDailyReportDto } from './dto/generate-daily-report.dto';
 
@@ -80,6 +83,7 @@ export class ReportsService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
+    private knowledgeBaseService: KnowledgeBaseService,
   ) {}
 
   private parseReportDate(value: string) {
@@ -156,6 +160,7 @@ export class ReportsService {
       tenantId: report.tenantId,
       clientId: report.clientId,
       siteId: report.siteId,
+      branchId: report.branchId,
       reportDate: report.reportDate,
       status: report.status,
       createdAt: report.createdAt,
@@ -196,12 +201,20 @@ export class ReportsService {
           address: true,
         },
       },
+      branch: {
+        select: {
+          id: true,
+          name: true,
+          location: true,
+          status: true,
+        },
+      },
     };
   }
 
-  private async findReportOrThrow(tenantId: string, id: string) {
+  private async findReportOrThrow(user: ActiveUser, id: string) {
     const report = await this.prisma.dailyServiceReport.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId: user.tenantId, ...branchWhere(user) },
       include: this.reportInclude(),
     });
 
@@ -427,7 +440,7 @@ export class ReportsService {
     });
   }
 
-  async generateDailyReport(tenantId: string, userId: string, dto: GenerateDailyReportDto) {
+  async generateDailyReport(user: ActiveUser, dto: GenerateDailyReportDto) {
     const siteId = dto.site_id?.trim();
     if (!siteId) {
       throw new BadRequestException('site_id is required');
@@ -436,7 +449,7 @@ export class ReportsService {
     const { reportDate, nextDate } = this.parseReportDate(dto.report_date);
 
     const site = await this.prisma.site.findFirst({
-      where: { id: siteId, tenantId },
+      where: { id: siteId, tenantId: user.tenantId, ...branchWhere(user) },
       include: {
         client: {
           select: {
@@ -458,7 +471,8 @@ export class ReportsService {
 
     const shifts = await this.prisma.shift.findMany({
       where: {
-        tenantId,
+        tenantId: user.tenantId,
+        branchId: site.branchId,
         siteId: site.id,
         startTime: { lt: nextDate },
         endTime: { gt: reportDate },
@@ -486,7 +500,7 @@ export class ReportsService {
 
     const incidents = await this.prisma.incident.findMany({
       where: {
-        tenantId,
+        tenantId: user.tenantId,
         siteId: site.id,
         status: 'approved',
         occurredAt: {
@@ -527,7 +541,7 @@ export class ReportsService {
 
     const report = await this.prisma.dailyServiceReport.create({
       data: {
-        tenantId,
+        tenantId: user.tenantId,
         clientId: site.clientId,
         siteId: site.id,
         reportDate,
@@ -538,8 +552,8 @@ export class ReportsService {
     });
 
     await this.auditService.log({
-      tenantId,
-      userId,
+      tenantId: user.tenantId,
+      userId: user.sub,
       action: 'DAILY_REPORT_GENERATED',
       entityType: 'DailyServiceReport',
       entityId: report.id,
@@ -549,9 +563,9 @@ export class ReportsService {
     return this.mapReport(report);
   }
 
-  async findAllForAdmin(tenantId: string) {
+  async findAllForAdmin(user: ActiveUser, requestedBranchId?: string | null) {
     const reports = await this.prisma.dailyServiceReport.findMany({
-      where: { tenantId },
+      where: branchScopedWhere(user, requestedBranchId),
       include: this.reportInclude(),
       orderBy: [{ reportDate: 'desc' }, { createdAt: 'desc' }],
     });
@@ -559,12 +573,12 @@ export class ReportsService {
     return reports.map((report) => this.mapReport(report));
   }
 
-  async findOneForAdmin(tenantId: string, userId: string, id: string) {
-    const report = await this.findReportOrThrow(tenantId, id);
+  async findOneForAdmin(user: ActiveUser, id: string) {
+    const report = await this.findReportOrThrow(user, id);
 
     await this.auditService.log({
-      tenantId,
-      userId,
+      tenantId: user.tenantId,
+      userId: user.sub,
       action: 'DAILY_REPORT_VIEWED',
       entityType: 'DailyServiceReport',
       entityId: report.id,
@@ -574,8 +588,8 @@ export class ReportsService {
     return this.mapReport(report);
   }
 
-  async publishReport(tenantId: string, userId: string, id: string) {
-    const existing = await this.findReportOrThrow(tenantId, id);
+  async publishReport(user: ActiveUser, id: string) {
+    const existing = await this.findReportOrThrow(user, id);
 
     if (existing.status === 'published') {
       return this.mapReport(existing);
@@ -595,24 +609,32 @@ export class ReportsService {
     });
 
     await this.auditService.log({
-      tenantId,
-      userId,
+      tenantId: user.tenantId,
+      userId: user.sub,
       action: 'DAILY_REPORT_PUBLISHED',
       entityType: 'DailyServiceReport',
       entityId: updated.id,
       details: `Daily report published for client "${updated.client.companyName || updated.client.name}"`,
     });
 
+    await this.knowledgeBaseService.createFromReport(user.tenantId, user.sub, {
+      id: updated.id,
+      reportDate: updated.reportDate,
+      summary: updated.summary,
+      client: updated.client,
+      site: updated.site,
+    });
+
     return this.mapReport(updated);
   }
 
-  async exportForAdmin(tenantId: string, userId: string, id: string) {
-    const report = await this.findReportOrThrow(tenantId, id);
+  async exportForAdmin(user: ActiveUser, id: string) {
+    const report = await this.findReportOrThrow(user, id);
     const buffer = await this.buildPdfBuffer(report);
 
     await this.auditService.log({
-      tenantId,
-      userId,
+      tenantId: user.tenantId,
+      userId: user.sub,
       action: 'DAILY_REPORT_EXPORTED_PDF',
       entityType: 'DailyServiceReport',
       entityId: report.id,

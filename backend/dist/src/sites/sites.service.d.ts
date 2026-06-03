@@ -1,5 +1,6 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CreateSiteDto } from './dto/create-site.dto';
 import { UpdateSiteDto } from './dto/update-site.dto';
 export declare class SitesService {
@@ -7,7 +8,13 @@ export declare class SitesService {
     private auditService;
     constructor(prisma: PrismaService, auditService: AuditService);
     private resolveClientId;
-    create(userId: string, tenantId: string, dto: CreateSiteDto): Promise<{
+    create(user: ActiveUser, dto: CreateSiteDto): Promise<{
+        branch: {
+            id: string;
+            name: string;
+            status: string;
+            location: string;
+        } | null;
         client: {
             id: string;
             name: string;
@@ -18,11 +25,18 @@ export declare class SitesService {
         name: string;
         createdAt: Date;
         tenantId: string;
+        branchId: string | null;
         clientId: string | null;
         address: string;
         instructions: string | null;
     }>;
-    findAll(tenantId: string): Promise<({
+    findAll(user: ActiveUser, requestedBranchId?: string | null): Promise<({
+        branch: {
+            id: string;
+            name: string;
+            status: string;
+            location: string;
+        } | null;
         client: {
             id: string;
             name: string;
@@ -33,11 +47,18 @@ export declare class SitesService {
         name: string;
         createdAt: Date;
         tenantId: string;
+        branchId: string | null;
         clientId: string | null;
         address: string;
         instructions: string | null;
     })[]>;
-    update(userId: string, tenantId: string, id: string, dto: UpdateSiteDto): Promise<{
+    update(user: ActiveUser, id: string, dto: UpdateSiteDto): Promise<{
+        branch: {
+            id: string;
+            name: string;
+            status: string;
+            location: string;
+        } | null;
         client: {
             id: string;
             name: string;
@@ -48,6 +69,7 @@ export declare class SitesService {
         name: string;
         createdAt: Date;
         tenantId: string;
+        branchId: string | null;
         clientId: string | null;
         address: string;
         instructions: string | null;

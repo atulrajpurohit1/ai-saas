@@ -10,6 +10,7 @@ export declare class ClientReportsController {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
         reportDate: any;
         status: any;
         createdAt: any;
@@ -91,6 +92,7 @@ export declare class ClientReportsController {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
         reportDate: any;
         status: any;
         createdAt: any;

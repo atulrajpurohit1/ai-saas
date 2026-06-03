@@ -10,6 +10,7 @@ export declare class ReportsController {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
         reportDate: any;
         status: any;
         createdAt: any;
@@ -85,11 +86,12 @@ export declare class ReportsController {
             address: any;
         } | null;
     }>;
-    findAll(user: ActiveUser): Promise<{
+    findAll(user: ActiveUser, branchId?: string): Promise<{
         id: any;
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
         reportDate: any;
         status: any;
         createdAt: any;
@@ -171,6 +173,7 @@ export declare class ReportsController {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
         reportDate: any;
         status: any;
         createdAt: any;
@@ -251,6 +254,7 @@ export declare class ReportsController {
         tenantId: any;
         clientId: any;
         siteId: any;
+        branchId: any;
         reportDate: any;
         status: any;
         createdAt: any;
