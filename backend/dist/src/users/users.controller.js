@@ -15,11 +15,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersController = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const roles_service_1 = require("../roles/roles.service");
 let UsersController = class UsersController {
-    getMe(req) {
-        return req.user;
+    rolesService;
+    constructor(rolesService) {
+        this.rolesService = rolesService;
+    }
+    async getMe(req) {
+        const user = req.user;
+        return this.rolesService.getUserAccessProfile(user.sub);
     }
 };
 exports.UsersController = UsersController;
@@ -28,11 +32,11 @@ __decorate([
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], UsersController.prototype, "getMe", null);
 exports.UsersController = UsersController = __decorate([
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin', 'finance'),
-    (0, common_1.Controller)('users')
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Controller)('users'),
+    __metadata("design:paramtypes", [roles_service_1.RolesService])
 ], UsersController);
 //# sourceMappingURL=users.controller.js.map

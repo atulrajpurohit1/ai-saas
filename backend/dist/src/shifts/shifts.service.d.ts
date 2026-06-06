@@ -4,12 +4,14 @@ import { AuditService } from '../audit/audit.service';
 import { RecommendationService } from '../ai-insights/recommendation.service';
 import { GuardRecommendation } from '../ai-insights/ai-insights.types';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { WebhooksService } from '../webhooks/webhooks.service';
 type AttendanceStatus = 'not_started' | 'checked_in' | 'completed';
 export declare class ShiftsService {
     private prisma;
     private auditService;
     private recommendationService;
-    constructor(prisma: PrismaService, auditService: AuditService, recommendationService: RecommendationService);
+    private webhooksService;
+    constructor(prisma: PrismaService, auditService: AuditService, recommendationService: RecommendationService, webhooksService: WebhooksService);
     private summarizeAttendance;
     create(user: ActiveUser, dto: CreateShiftDto): Promise<{
         site: {

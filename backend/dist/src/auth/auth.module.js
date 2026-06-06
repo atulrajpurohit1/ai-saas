@@ -16,12 +16,13 @@ const jwt_1 = require("@nestjs/jwt");
 const config_1 = require("@nestjs/config");
 const jwt_strategy_1 = require("./strategies/jwt.strategy");
 const jwt_refresh_strategy_1 = require("./strategies/jwt-refresh.strategy");
+const roles_module_1 = require("../roles/roles.module");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
 exports.AuthModule = AuthModule = __decorate([
     (0, common_1.Module)({
-        imports: [users_module_1.UsersModule, prisma_module_1.PrismaModule, config_1.ConfigModule, jwt_1.JwtModule.register({})],
+        imports: [users_module_1.UsersModule, prisma_module_1.PrismaModule, config_1.ConfigModule, jwt_1.JwtModule.register({}), roles_module_1.RolesModule],
         controllers: [auth_controller_1.AuthController],
         providers: [auth_service_1.AuthService, jwt_strategy_1.JwtStrategy, jwt_refresh_strategy_1.JwtRefreshStrategy],
     })

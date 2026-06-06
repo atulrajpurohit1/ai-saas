@@ -34,7 +34,15 @@ async function bootstrap() {
         },
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
+        allowedHeaders: [
+            'Content-Type',
+            'Authorization',
+            'X-API-Key',
+            'X-Ai-Saas-Event',
+            'X-Ai-Saas-Delivery-Id',
+            'X-Ai-Saas-Timestamp',
+            'X-Ai-Saas-Signature',
+        ],
         optionsSuccessStatus: 204,
     });
     const port = process.env.PORT || 5000;

@@ -1,19 +1,20 @@
 import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { GetUser } from '../auth/decorators/get-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { FinanceInvoiceFilters, FinanceService } from './finance.service';
 
 @Controller('finance')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin', 'finance')
+@UseGuards(JwtAuthGuard, PermissionGuard)
+@RequirePermission('finance.view')
 export class FinanceController {
   constructor(private readonly financeService: FinanceService) {}
 
   @Get('export/invoices')
+  @RequirePermission('finance.export')
   async exportInvoices(
     @GetUser() user: ActiveUser,
     @Query() filters: FinanceInvoiceFilters,

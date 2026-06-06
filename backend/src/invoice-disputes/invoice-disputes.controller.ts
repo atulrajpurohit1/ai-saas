@@ -1,15 +1,15 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CloseInvoiceDisputeDto, RespondInvoiceDisputeDto } from './dto/respond-invoice-dispute.dto';
 import { InvoiceDisputesService } from './invoice-disputes.service';
 
 @Controller('invoice-disputes')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@UseGuards(JwtAuthGuard, PermissionGuard)
+@RequirePermission('invoice_disputes.view')
 export class InvoiceDisputesController {
   constructor(private readonly invoiceDisputesService: InvoiceDisputesService) {}
 
@@ -24,6 +24,7 @@ export class InvoiceDisputesController {
   }
 
   @Post(':id/respond')
+  @RequirePermission('invoice_disputes.respond')
   respond(
     @GetUser() user: ActiveUser,
     @Param('id') id: string,
@@ -33,6 +34,7 @@ export class InvoiceDisputesController {
   }
 
   @Post(':id/resolve')
+  @RequirePermission('invoice_disputes.respond')
   resolve(
     @GetUser() user: ActiveUser,
     @Param('id') id: string,
@@ -42,6 +44,7 @@ export class InvoiceDisputesController {
   }
 
   @Post(':id/reject')
+  @RequirePermission('invoice_disputes.respond')
   reject(
     @GetUser() user: ActiveUser,
     @Param('id') id: string,

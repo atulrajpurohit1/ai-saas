@@ -1,20 +1,20 @@
 import { Controller, Get, Post, Put, Body, Param, UseGuards, Query } from '@nestjs/common';
 import { SitesService } from './sites.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { PermissionGuard } from '../auth/guards/permission.guard';
+import { RequireAnyPermission, RequirePermission } from '../auth/decorators/permissions.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CreateSiteDto } from './dto/create-site.dto';
 import { UpdateSiteDto } from './dto/update-site.dto';
 
 @Controller('sites')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 export class SitesController {
   constructor(private readonly sitesService: SitesService) {}
 
   @Post()
-  @Roles('admin')
+  @RequirePermission('sites.manage')
   create(
     @GetUser() user: ActiveUser,
     @Body() createSiteDto: CreateSiteDto,
@@ -23,13 +23,13 @@ export class SitesController {
   }
 
   @Get()
-  @Roles('admin')
+  @RequireAnyPermission('sites.view', 'shifts.create', 'invoices.generate')
   findAll(@GetUser() user: ActiveUser, @Query('branch_id') branchId?: string) {
     return this.sitesService.findAll(user, branchId);
   }
 
   @Put(':id')
-  @Roles('admin')
+  @RequirePermission('sites.manage')
   update(
     @GetUser() user: ActiveUser,
     @Param('id') id: string,

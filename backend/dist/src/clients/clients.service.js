@@ -49,12 +49,15 @@ const audit_service_1 = require("../audit/audit.service");
 const branch_scope_1 = require("../branches/branch-scope");
 const bcrypt = __importStar(require("bcrypt"));
 const crypto_1 = require("crypto");
+const webhooks_service_1 = require("../webhooks/webhooks.service");
 let ClientsService = class ClientsService {
     prisma;
     auditService;
-    constructor(prisma, auditService) {
+    webhooksService;
+    constructor(prisma, auditService, webhooksService) {
         this.prisma = prisma;
         this.auditService = auditService;
+        this.webhooksService = webhooksService;
     }
     async create(user, dto) {
         const branchId = (0, branch_scope_1.resolveWriteBranchId)(user, dto.branch_id);
@@ -76,6 +79,7 @@ let ClientsService = class ClientsService {
             entityId: client.id,
             details: `Client "${client.name}" created`,
         });
+        await this.webhooksService.triggerEvent(user.tenantId, 'client.created', { client });
         return client;
     }
     async findAll(user, requestedBranchId) {
@@ -211,6 +215,7 @@ exports.ClientsService = ClientsService;
 exports.ClientsService = ClientsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        audit_service_1.AuditService])
+        audit_service_1.AuditService,
+        webhooks_service_1.WebhooksService])
 ], ClientsService);
 //# sourceMappingURL=clients.service.js.map

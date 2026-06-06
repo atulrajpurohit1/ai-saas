@@ -18,8 +18,8 @@ const deals_service_1 = require("./deals.service");
 const create_deal_dto_1 = require("./dto/create-deal.dto");
 const update_deal_stage_dto_1 = require("./dto/update-deal-stage.dto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permission_guard_1 = require("../auth/guards/permission.guard");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 let DealsController = class DealsController {
     dealsService;
     constructor(dealsService) {
@@ -53,6 +53,7 @@ let DealsController = class DealsController {
 exports.DealsController = DealsController;
 __decorate([
     (0, common_1.Post)(),
+    (0, permissions_decorator_1.RequirePermission)('deals.create'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -61,6 +62,7 @@ __decorate([
 ], DealsController.prototype, "create", null);
 __decorate([
     (0, common_1.Post)('convert/:leadId'),
+    (0, permissions_decorator_1.RequirePermission)('deals.create'),
     __param(0, (0, common_1.Param)('leadId')),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -69,6 +71,7 @@ __decorate([
 ], DealsController.prototype, "convert", null);
 __decorate([
     (0, common_1.Get)(),
+    (0, permissions_decorator_1.RequirePermission)('deals.view'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -76,6 +79,7 @@ __decorate([
 ], DealsController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)(':id'),
+    (0, permissions_decorator_1.RequirePermission)('deals.view'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -84,6 +88,7 @@ __decorate([
 ], DealsController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Put)(':id/stage'),
+    (0, permissions_decorator_1.RequirePermission)('deals.update'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Req)()),
@@ -93,6 +98,7 @@ __decorate([
 ], DealsController.prototype, "updateStage", null);
 __decorate([
     (0, common_1.Delete)(':id'),
+    (0, permissions_decorator_1.RequirePermission)('deals.delete'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -100,8 +106,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], DealsController.prototype, "remove", null);
 exports.DealsController = DealsController = __decorate([
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     (0, common_1.Controller)('deals'),
     __metadata("design:paramtypes", [deals_service_1.DealsService])
 ], DealsController);

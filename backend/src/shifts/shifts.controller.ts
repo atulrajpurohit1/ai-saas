@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Body, UseGuards, Query } from '@nestjs/common';
 import { ShiftsService } from './shifts.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { PermissionGuard } from '../auth/guards/permission.guard';
+import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CreateShiftDto } from './dto/create-shift.dto';
@@ -10,12 +10,13 @@ import { AssignGuardDto } from './dto/assign-guard.dto';
 import { Param, Put, Delete } from '@nestjs/common';
 
 @Controller('v2/shifts')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin', 'scheduler')
+@UseGuards(JwtAuthGuard, PermissionGuard)
+@RequirePermission('shifts.view')
 export class ShiftsController {
   constructor(private readonly shiftsService: ShiftsService) {}
 
   @Post()
+  @RequirePermission('shifts.create')
   create(
     @GetUser() user: ActiveUser,
     @Body() createShiftDto: CreateShiftDto,
@@ -29,11 +30,13 @@ export class ShiftsController {
   }
 
   @Get(':id/recommend-guards')
+  @RequirePermission('shifts.assign')
   recommendGuards(@GetUser() user: ActiveUser, @Param('id') id: string) {
     return this.shiftsService.recommendGuards(user, id);
   }
 
   @Put(':id/assign')
+  @RequirePermission('shifts.assign')
   assign(
     @GetUser() user: ActiveUser,
     @Param('id') id: string,
@@ -43,6 +46,7 @@ export class ShiftsController {
   }
 
   @Delete(':id/unassign')
+  @RequirePermission('shifts.assign')
   unassign(@GetUser() user: ActiveUser, @Param('id') id: string) {
     return this.shiftsService.unassign(user, id);
   }

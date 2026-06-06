@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { PrismaService } from '../prisma/prisma.service';
 import { CorrectTimesheetDto } from './dto/correct-timesheet.dto';
 import { RejectTimesheetDto } from './dto/reject-timesheet.dto';
@@ -105,9 +106,36 @@ export class TimesheetsService {
     };
   }
 
-  private async findTimesheetOrThrow(tenantId: string, id: string) {
+  private timesheetBranchWhere(user: ActiveUser, requestedBranchId?: string | null): Prisma.TimesheetWhereInput {
+    const branchId = requestedBranchId?.trim() || null;
+
+    if (user.isSuperAdmin) {
+      return branchId ? { shift: { branchId } } : {};
+    }
+
+    if (!user.branchId) {
+      return { shift: { branchId: null } };
+    }
+
+    if (branchId && branchId !== user.branchId) {
+      throw new ForbiddenException('You do not have access to this branch');
+    }
+
+    return {
+      OR: [
+        { shift: { branchId: user.branchId } },
+        { shift: { branchId: null } },
+      ],
+    };
+  }
+
+  private async findTimesheetOrThrow(user: ActiveUser, id: string) {
     const timesheet = await this.prisma.timesheet.findFirst({
-      where: { id, tenantId },
+      where: {
+        id,
+        tenantId: user.tenantId,
+        ...this.timesheetBranchWhere(user),
+      },
       include: this.timesheetInclude(),
     });
 
@@ -141,15 +169,16 @@ export class TimesheetsService {
     return parsed;
   }
 
-  async findAllForAdmin(tenantId: string, status?: string) {
+  async findAllForAdmin(user: ActiveUser, status?: string, requestedBranchId?: string | null) {
     if (status && !this.isValidStatus(status)) {
       throw new BadRequestException('Invalid timesheet status');
     }
 
     const timesheets = await this.prisma.timesheet.findMany({
       where: {
-        tenantId,
+        tenantId: user.tenantId,
         ...(status ? { status } : {}),
+        ...this.timesheetBranchWhere(user, requestedBranchId),
       },
       include: this.timesheetInclude(),
       orderBy: [{ createdAt: 'desc' }],
@@ -158,21 +187,15 @@ export class TimesheetsService {
     return timesheets.map((timesheet) => this.mapTimesheet(timesheet));
   }
 
-  async findOneForAdmin(tenantId: string, id: string) {
-    const timesheet = await this.findTimesheetOrThrow(tenantId, id);
+  async findOneForAdmin(user: ActiveUser, id: string) {
+    const timesheet = await this.findTimesheetOrThrow(user, id);
     return this.mapTimesheet(timesheet);
   }
 
-  async approve(input: {
-    tenantId: string;
-    userId: string;
-    userRole: string;
-    guardId?: string;
-    timesheetId: string;
-  }) {
-    const existing = await this.findTimesheetOrThrow(input.tenantId, input.timesheetId);
+  async approve(user: ActiveUser, timesheetId: string) {
+    const existing = await this.findTimesheetOrThrow(user, timesheetId);
 
-    if (input.userRole === 'guard' || input.guardId === existing.guardId || input.userId === existing.guardId) {
+    if (user.role === 'guard' || user.guardId === existing.guardId || user.sub === existing.guardId) {
       throw new ForbiddenException('Guard cannot approve own timesheet');
     }
 
@@ -192,7 +215,7 @@ export class TimesheetsService {
       where: { id: existing.id },
       data: {
         status: 'approved',
-        approvedBy: input.userId,
+        approvedBy: user.sub,
         approvedAt: new Date(),
         rejectionReason: null,
       },
@@ -200,8 +223,8 @@ export class TimesheetsService {
     });
 
     await this.auditService.log({
-      tenantId: input.tenantId,
-      userId: input.userId,
+      tenantId: user.tenantId,
+      userId: user.sub,
       action: 'TIMESHEET_APPROVED',
       entityType: 'Timesheet',
       entityId: timesheet.id,
@@ -211,13 +234,13 @@ export class TimesheetsService {
     return this.mapTimesheet(timesheet);
   }
 
-  async reject(tenantId: string, userId: string, id: string, dto: RejectTimesheetDto) {
+  async reject(user: ActiveUser, id: string, dto: RejectTimesheetDto) {
     const reason = dto.rejection_reason?.trim();
     if (!reason) {
       throw new BadRequestException('rejection_reason is required');
     }
 
-    const existing = await this.findTimesheetOrThrow(tenantId, id);
+    const existing = await this.findTimesheetOrThrow(user, id);
     await this.assertNotInvoiced(existing.id);
 
     if (!['pending', 'corrected'].includes(existing.status)) {
@@ -236,8 +259,8 @@ export class TimesheetsService {
     });
 
     await this.auditService.log({
-      tenantId,
-      userId,
+      tenantId: user.tenantId,
+      userId: user.sub,
       action: 'TIMESHEET_REJECTED',
       entityType: 'Timesheet',
       entityId: timesheet.id,
@@ -247,12 +270,12 @@ export class TimesheetsService {
     return this.mapTimesheet(timesheet);
   }
 
-  async correct(tenantId: string, userId: string, id: string, dto: CorrectTimesheetDto) {
+  async correct(user: ActiveUser, id: string, dto: CorrectTimesheetDto) {
     if (!Number.isFinite(dto.total_hours) || dto.total_hours < 0) {
       throw new BadRequestException('total_hours must be zero or greater');
     }
 
-    const existing = await this.findTimesheetOrThrow(tenantId, id);
+    const existing = await this.findTimesheetOrThrow(user, id);
     await this.assertNotInvoiced(existing.id);
 
     const checkInTime = this.parseOptionalDate(dto.check_in_time, 'check_in_time') ?? existing.checkInTime;
@@ -284,8 +307,8 @@ export class TimesheetsService {
     });
 
     await this.auditService.log({
-      tenantId,
-      userId,
+      tenantId: user.tenantId,
+      userId: user.sub,
       action: 'TIMESHEET_CORRECTED',
       entityType: 'Timesheet',
       entityId: timesheet.id,

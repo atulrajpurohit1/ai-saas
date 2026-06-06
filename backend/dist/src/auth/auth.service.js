@@ -48,14 +48,17 @@ const prisma_service_1 = require("../prisma/prisma.service");
 const jwt_1 = require("@nestjs/jwt");
 const config_1 = require("@nestjs/config");
 const bcrypt = __importStar(require("bcrypt"));
+const roles_service_1 = require("../roles/roles.service");
 let AuthService = class AuthService {
     prisma;
     jwtService;
     configService;
-    constructor(prisma, jwtService, configService) {
+    rolesService;
+    constructor(prisma, jwtService, configService, rolesService) {
         this.prisma = prisma;
         this.jwtService = jwtService;
         this.configService = configService;
+        this.rolesService = rolesService;
     }
     mapUserRole(role) {
         return role.toLowerCase() === 'finance' ? 'finance' : 'admin';
@@ -80,8 +83,11 @@ let AuthService = class AuthService {
                 });
                 return { tenant, user };
             });
-            const tokens = await this.getTokens(result.user.id, result.user.email, result.tenant.id, 'admin', null, true);
-            await this.updateRefreshTokenHash(result.user.id, tokens.refresh_token, 'admin');
+            await this.rolesService.ensureTenantSystemRoles(result.tenant.id);
+            await this.rolesService.ensureDefaultAssignmentForUser(result.user.id);
+            const profile = await this.rolesService.getUserAccessProfile(result.user.id);
+            const tokens = await this.getTokens(result.user.id, result.user.email, result.tenant.id, profile.role, profile.branchId, profile.isSuperAdmin);
+            await this.updateRefreshTokenHash(result.user.id, tokens.refresh_token, profile.role);
             return tokens;
         }
         catch (error) {
@@ -105,9 +111,10 @@ let AuthService = class AuthService {
         const passwordMatches = await bcrypt.compare(dto.password, user.password);
         if (!passwordMatches)
             throw new common_1.UnauthorizedException('Invalid credentials');
-        const role = this.mapUserRole(user.role);
-        const tokens = await this.getTokens(user.id, user.email, user.tenantId, role, user.branchId, user.isSuperAdmin);
-        await this.updateRefreshTokenHash(user.id, tokens.refresh_token, role);
+        await this.rolesService.ensureDefaultAssignmentForUser(user.id);
+        const profile = await this.rolesService.getUserAccessProfile(user.id);
+        const tokens = await this.getTokens(user.id, user.email, user.tenantId, profile.role, profile.branchId, profile.isSuperAdmin);
+        await this.updateRefreshTokenHash(user.id, tokens.refresh_token, profile.role);
         return tokens;
     }
     async logout(userId) {
@@ -125,9 +132,10 @@ let AuthService = class AuthService {
         if (!rtMatches)
             throw new common_1.ForbiddenException('Access Denied');
         const typedUser = user;
-        const userRole = this.mapUserRole(user.role);
-        const tokens = await this.getTokens(typedUser.id, typedUser.email, typedUser.tenantId, userRole, typedUser.branchId, typedUser.isSuperAdmin);
-        await this.updateRefreshTokenHash(typedUser.id, tokens.refresh_token, userRole);
+        await this.rolesService.ensureDefaultAssignmentForUser(user.id);
+        const profile = await this.rolesService.getUserAccessProfile(user.id);
+        const tokens = await this.getTokens(typedUser.id, typedUser.email, typedUser.tenantId, profile.role, profile.branchId, profile.isSuperAdmin);
+        await this.updateRefreshTokenHash(typedUser.id, tokens.refresh_token, profile.role);
         return tokens;
     }
     async updateRefreshTokenHash(userId, rt, role) {
@@ -163,6 +171,7 @@ exports.AuthService = AuthService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         jwt_1.JwtService,
-        config_1.ConfigService])
+        config_1.ConfigService,
+        roles_service_1.RolesService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

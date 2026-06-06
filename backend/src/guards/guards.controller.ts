@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Put, Body, Param, UseGuards, Query } from '@nestjs/common';
 import { GuardsService } from './guards.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { PermissionGuard } from '../auth/guards/permission.guard';
+import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CreateGuardDto } from './dto/create-guard.dto';
@@ -11,12 +11,13 @@ import { UpdateGuardDto } from './dto/update-guard.dto';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 
 @Controller('v2/guards')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@UseGuards(JwtAuthGuard, PermissionGuard)
+@RequirePermission('guards.view')
 export class GuardsController {
   constructor(private readonly guardsService: GuardsService) {}
 
   @Post()
+  @RequirePermission('guards.manage')
   create(
     @GetUser() user: ActiveUser,
     @Body() createGuardDto: CreateGuardDto,
@@ -30,6 +31,7 @@ export class GuardsController {
   }
 
   @Put(':id')
+  @RequirePermission('guards.manage')
   update(
     @GetUser() user: ActiveUser,
     @Param('id') id: string,
@@ -47,6 +49,7 @@ export class GuardsController {
   }
 
   @Put(':id/availability')
+  @RequirePermission('guards.manage')
   updateAvailability(
     @GetUser() user: ActiveUser,
     @Param('id') id: string,

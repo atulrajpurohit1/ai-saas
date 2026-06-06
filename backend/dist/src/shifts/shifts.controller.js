@@ -16,8 +16,8 @@ exports.ShiftsController = void 0;
 const common_1 = require("@nestjs/common");
 const shifts_service_1 = require("./shifts.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permission_guard_1 = require("../auth/guards/permission.guard");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const create_shift_dto_1 = require("./dto/create-shift.dto");
 const assign_guard_dto_1 = require("./dto/assign-guard.dto");
@@ -46,6 +46,7 @@ let ShiftsController = class ShiftsController {
 exports.ShiftsController = ShiftsController;
 __decorate([
     (0, common_1.Post)(),
+    (0, permissions_decorator_1.RequirePermission)('shifts.create'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -62,6 +63,7 @@ __decorate([
 ], ShiftsController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)(':id/recommend-guards'),
+    (0, permissions_decorator_1.RequirePermission)('shifts.assign'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_2.Param)('id')),
     __metadata("design:type", Function),
@@ -70,6 +72,7 @@ __decorate([
 ], ShiftsController.prototype, "recommendGuards", null);
 __decorate([
     (0, common_2.Put)(':id/assign'),
+    (0, permissions_decorator_1.RequirePermission)('shifts.assign'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_2.Param)('id')),
     __param(2, (0, common_1.Body)()),
@@ -79,6 +82,7 @@ __decorate([
 ], ShiftsController.prototype, "assign", null);
 __decorate([
     (0, common_2.Delete)(':id/unassign'),
+    (0, permissions_decorator_1.RequirePermission)('shifts.assign'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_2.Param)('id')),
     __metadata("design:type", Function),
@@ -87,8 +91,8 @@ __decorate([
 ], ShiftsController.prototype, "unassign", null);
 exports.ShiftsController = ShiftsController = __decorate([
     (0, common_1.Controller)('v2/shifts'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin', 'scheduler'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.RequirePermission)('shifts.view'),
     __metadata("design:paramtypes", [shifts_service_1.ShiftsService])
 ], ShiftsController);
 //# sourceMappingURL=shifts.controller.js.map

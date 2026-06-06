@@ -3,6 +3,7 @@ import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
 import { KnowledgeRetrievalService } from '../knowledge-base/knowledge-retrieval.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { ReviewIncidentDto } from './dto/review-incident.dto';
 type IncidentStatus = 'submitted' | 'under_review' | 'approved' | 'rejected';
@@ -11,7 +12,8 @@ export declare class IncidentsService {
     private auditService;
     private knowledgeBaseService;
     private knowledgeRetrievalService;
-    constructor(prisma: PrismaService, auditService: AuditService, knowledgeBaseService: KnowledgeBaseService, knowledgeRetrievalService: KnowledgeRetrievalService);
+    private webhooksService;
+    constructor(prisma: PrismaService, auditService: AuditService, knowledgeBaseService: KnowledgeBaseService, knowledgeRetrievalService: KnowledgeRetrievalService, webhooksService: WebhooksService);
     private mapIncident;
     private mapClientIncident;
     private mapClientIncidentListItem;

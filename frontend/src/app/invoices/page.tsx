@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
+import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { branchParams, BranchSummary } from '@/lib/branches';
@@ -98,6 +99,13 @@ function formatRateSource(value: string) {
 }
 
 export default function InvoicesPage() {
+  const { can } = useAuth();
+  const canGenerateInvoice = can('invoices.generate');
+  const canIssueInvoice = can('invoices.issue');
+  const canMarkInvoicePaid = can('invoices.mark_paid');
+  const canCancelInvoice = can('invoices.cancel');
+  const canExportInvoice = can('invoices.export');
+  const canManageSites = can('sites.manage');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [sites, setSites] = useState<SiteOption[]>([]);
@@ -139,8 +147,12 @@ export default function InvoicesPage() {
     try {
       const [invoiceData, clientRes, siteRes] = await Promise.all([
         getAdminInvoices(selectedBranchId),
-        api.get<ClientOption[]>('clients', { params: branchParams(selectedBranchId) }),
-        api.get<SiteOption[]>('sites', { params: branchParams(selectedBranchId) }),
+        canGenerateInvoice
+          ? api.get<ClientOption[]>('clients', { params: branchParams(selectedBranchId) })
+          : Promise.resolve({ data: [] as ClientOption[] }),
+        canGenerateInvoice
+          ? api.get<SiteOption[]>('sites', { params: branchParams(selectedBranchId) })
+          : Promise.resolve({ data: [] as SiteOption[] }),
       ]);
       setInvoices(Array.isArray(invoiceData) ? invoiceData : []);
       setClients(Array.isArray(clientRes.data) ? clientRes.data : []);
@@ -155,7 +167,7 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedBranchId]);
+  }, [selectedBranchId, canGenerateInvoice]);
 
   useEffect(() => {
     setFormData((current) => {
@@ -184,7 +196,7 @@ export default function InvoicesPage() {
     });
   }, [linkableSites]);
 
-  const canGenerate = Boolean(
+  const generateReady = Boolean(
     formData.client_id &&
     formData.site_id &&
     formData.billing_start_date &&
@@ -195,6 +207,7 @@ export default function InvoicesPage() {
 
   const handleGenerate = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!canGenerateInvoice) return;
     setSaving(true);
     setError('');
 
@@ -217,6 +230,7 @@ export default function InvoicesPage() {
 
   const handleLinkSite = async () => {
     if (!formData.client_id || !linkSiteId) return;
+    if (!canManageSites) return;
 
     setLinkingSite(true);
     setError('');
@@ -244,6 +258,7 @@ export default function InvoicesPage() {
   };
 
   const handleIssue = async (id: string) => {
+    if (!canIssueInvoice) return;
     setActionId(id);
     setError('');
 
@@ -257,6 +272,7 @@ export default function InvoicesPage() {
   };
 
   const handleMarkPaid = async (id: string) => {
+    if (!canMarkInvoicePaid) return;
     setActionId(id);
     setError('');
 
@@ -270,6 +286,7 @@ export default function InvoicesPage() {
   };
 
   const handleCancel = async (id: string) => {
+    if (!canCancelInvoice) return;
     setActionId(id);
     setError('');
 
@@ -283,6 +300,7 @@ export default function InvoicesPage() {
   };
 
   const handleDownload = async (invoice: Invoice) => {
+    if (!canExportInvoice) return;
     setActionId(invoice.id);
     setError('');
 
@@ -304,7 +322,7 @@ export default function InvoicesPage() {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout requiredPermissions="invoices.view">
       <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="flex items-center gap-3 text-2xl font-bold sm:text-3xl">
@@ -315,10 +333,11 @@ export default function InvoicesPage() {
         </div>
       </div>
 
-      <form
-        onSubmit={handleGenerate}
-        className="mb-8 grid gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:p-6 xl:grid-cols-[200px_1.1fr_1.1fr_150px_150px_170px_auto]"
-      >
+      {canGenerateInvoice && (
+        <form
+          onSubmit={handleGenerate}
+          className="mb-8 grid gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:p-6 xl:grid-cols-[200px_1.1fr_1.1fr_150px_150px_170px_auto]"
+        >
         <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Branch" />
 
         <div className="space-y-2">
@@ -406,15 +425,16 @@ export default function InvoicesPage() {
           />
         </div>
 
-        <button
-          type="submit"
-          disabled={saving || !canGenerate}
-          className="inline-flex min-h-11 items-center justify-center gap-2 self-end rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {saving ? <Loader2 className="animate-spin" size={17} /> : <DollarSign size={17} />}
-          Generate
-        </button>
-      </form>
+          <button
+            type="submit"
+            disabled={saving || !generateReady}
+            className="inline-flex min-h-11 items-center justify-center gap-2 self-end rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {saving ? <Loader2 className="animate-spin" size={17} /> : <DollarSign size={17} />}
+            Generate
+          </button>
+        </form>
+      )}
 
       {error && (
         <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-5 py-4 text-sm font-semibold text-rose-300 sm:flex-row sm:items-center">
@@ -496,7 +516,7 @@ export default function InvoicesPage() {
                         >
                           View <ArrowRight size={14} />
                         </Link>
-                        {['draft', 'resolved'].includes(invoice.status) && (
+                        {canIssueInvoice && ['draft', 'resolved'].includes(invoice.status) && (
                           <button
                             type="button"
                             onClick={() => handleIssue(invoice.id)}
@@ -507,7 +527,7 @@ export default function InvoicesPage() {
                             {invoice.status === 'resolved' ? 'Reissue' : 'Issue'}
                           </button>
                         )}
-                        {['issued', 'resolved'].includes(invoice.status) && (
+                        {canMarkInvoicePaid && ['issued', 'resolved'].includes(invoice.status) && (
                           <button
                             type="button"
                             onClick={() => handleMarkPaid(invoice.id)}
@@ -518,7 +538,7 @@ export default function InvoicesPage() {
                             Paid
                           </button>
                         )}
-                        {!['paid', 'cancelled'].includes(invoice.status) && (
+                        {canCancelInvoice && !['paid', 'cancelled'].includes(invoice.status) && (
                           <button
                             type="button"
                             onClick={() => handleCancel(invoice.id)}
@@ -529,15 +549,17 @@ export default function InvoicesPage() {
                             Cancel
                           </button>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => handleDownload(invoice)}
-                          disabled={actionId === invoice.id}
-                          className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-white/10 disabled:opacity-60"
-                        >
-                          <Download size={14} />
-                          PDF
-                        </button>
+                        {canExportInvoice && (
+                          <button
+                            type="button"
+                            onClick={() => handleDownload(invoice)}
+                            disabled={actionId === invoice.id}
+                            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-white/10 disabled:opacity-60"
+                          >
+                            <Download size={14} />
+                            PDF
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -548,7 +570,7 @@ export default function InvoicesPage() {
         )}
       </div>
 
-      {clients.length > 0 && selectedClientSites.length === 0 && !loading && (
+      {canGenerateInvoice && clients.length > 0 && selectedClientSites.length === 0 && !loading && (
         <div className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200">
           <div className="flex items-start gap-3">
             <FileText className="mt-0.5 shrink-0" size={18} />
@@ -558,7 +580,7 @@ export default function InvoicesPage() {
             </div>
           </div>
 
-          {linkableSites.length > 0 ? (
+          {canManageSites && linkableSites.length > 0 ? (
             <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
               <select
                 className="min-h-11 w-full rounded-xl border border-amber-300/20 bg-slate-950/40 px-4 text-white outline-none focus:ring-2 focus:ring-amber-300/40"
@@ -581,7 +603,7 @@ export default function InvoicesPage() {
                 Link Site
               </button>
             </div>
-          ) : (
+          ) : canManageSites ? (
             <Link
               href="/sites"
               className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-amber-300"
@@ -589,7 +611,7 @@ export default function InvoicesPage() {
               <ArrowRight size={16} />
               Create Site
             </Link>
-          )}
+          ) : null}
         </div>
       )}
     </DashboardLayout>

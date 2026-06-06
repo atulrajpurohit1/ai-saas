@@ -7,12 +7,14 @@ import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
+import { WebhooksService } from '../webhooks/webhooks.service';
 
 @Injectable()
 export class ClientsService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
+    private webhooksService: WebhooksService,
   ) {}
 
   async create(user: ActiveUser, dto: CreateClientDto) {
@@ -36,6 +38,8 @@ export class ClientsService {
       entityId: client.id,
       details: `Client "${client.name}" created`,
     });
+
+    await this.webhooksService.triggerEvent(user.tenantId, 'client.created', { client });
 
     return client;
   }

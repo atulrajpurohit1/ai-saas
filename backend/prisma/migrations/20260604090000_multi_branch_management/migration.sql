@@ -9,14 +9,6 @@ CREATE TABLE IF NOT EXISTS "Branch" (
   CONSTRAINT "Branch_pkey" PRIMARY KEY ("id")
 );
 
-ALTER TABLE "Branch"
-  ADD CONSTRAINT "Branch_tenant_id_fkey"
-  FOREIGN KEY ("tenant_id") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
-ALTER TABLE "Branch"
-  ADD CONSTRAINT "Branch_manager_id_fkey"
-  FOREIGN KEY ("manager_id") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "branch_id" TEXT;
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "is_super_admin" BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE "Client" ADD COLUMN IF NOT EXISTS "branch_id" TEXT;
@@ -29,6 +21,12 @@ ALTER TABLE "DailyServiceReport" ADD COLUMN IF NOT EXISTS "branch_id" TEXT;
 
 DO $$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Branch_tenant_id_fkey') THEN
+    ALTER TABLE "Branch" ADD CONSTRAINT "Branch_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Branch_manager_id_fkey') THEN
+    ALTER TABLE "Branch" ADD CONSTRAINT "Branch_manager_id_fkey" FOREIGN KEY ("manager_id") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'User_branch_id_fkey') THEN
     ALTER TABLE "User" ADD CONSTRAINT "User_branch_id_fkey" FOREIGN KEY ("branch_id") REFERENCES "Branch"("id") ON DELETE SET NULL ON UPDATE CASCADE;
   END IF;

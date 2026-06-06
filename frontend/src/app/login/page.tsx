@@ -14,17 +14,6 @@ interface ApiError {
   };
 }
 
-function getPortalRole(accessToken: string): 'admin' | 'finance' | 'supervisor' {
-  try {
-    const payload = accessToken.split('.')[1];
-    const decoded = JSON.parse(window.atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
-    if (decoded?.role === 'supervisor') return 'supervisor';
-    return decoded?.role === 'finance' ? 'finance' : 'admin';
-  } catch {
-    return 'admin';
-  }
-}
-
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,6 +25,16 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const { login } = useAuth();
   const router = useRouter();
+
+  const completeAdminLogin = async (accessToken: string, fallbackName: string, fallbackTenantName?: string) => {
+    localStorage.setItem('token', accessToken);
+    const me = await api.get('users/me');
+    login(accessToken, {
+      ...me.data,
+      name: me.data.name || fallbackName,
+      tenantName: me.data.tenantName || fallbackTenantName,
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,15 +50,10 @@ export default function LoginPage() {
             tenantName,
             tenantSlug
           });
-          login(res.data.access_token, { email, role: 'admin', name: name || 'Admin', tenantName });
+          await completeAdminLogin(res.data.access_token, name || 'Admin', tenantName);
         } else {
           const res = await api.post('auth/login', { email, password });
-          const portalRole = getPortalRole(res.data.access_token);
-          login(res.data.access_token, {
-            email,
-            role: portalRole,
-            name: portalRole === 'finance' ? 'Finance User' : portalRole === 'supervisor' ? 'Supervisor' : 'Admin User',
-          });
+          await completeAdminLogin(res.data.access_token, 'Admin User');
         }
       } else {
         // Client Flow

@@ -15,9 +15,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.FinanceController = void 0;
 const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
+const permission_guard_1 = require("../auth/guards/permission.guard");
 const finance_service_1 = require("./finance.service");
 let FinanceController = class FinanceController {
     financeService;
@@ -49,6 +49,7 @@ let FinanceController = class FinanceController {
 exports.FinanceController = FinanceController;
 __decorate([
     (0, common_1.Get)('export/invoices'),
+    (0, permissions_decorator_1.RequirePermission)('finance.export'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Query)()),
     __param(2, (0, common_1.Res)()),
@@ -90,8 +91,8 @@ __decorate([
 ], FinanceController.prototype, "dashboard", null);
 exports.FinanceController = FinanceController = __decorate([
     (0, common_1.Controller)('finance'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin', 'finance'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.RequirePermission)('finance.view'),
     __metadata("design:paramtypes", [finance_service_1.FinanceService])
 ], FinanceController);
 //# sourceMappingURL=finance.controller.js.map

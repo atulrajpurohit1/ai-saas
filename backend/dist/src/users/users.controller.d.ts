@@ -1,5 +1,33 @@
 import { Request } from 'express';
-import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { RolesService } from '../roles/roles.service';
 export declare class UsersController {
-    getMe(req: Request): ActiveUser;
+    private readonly rolesService;
+    constructor(rolesService: RolesService);
+    getMe(req: Request): Promise<{
+        id: string;
+        email: string;
+        name: string | null;
+        role: string;
+        tenantId: string;
+        tenantName: string;
+        branchId: string | null;
+        branch: {
+            id: string;
+            name: string;
+        } | null;
+        isSuperAdmin: boolean;
+        roles: {
+            assignmentId: string;
+            id: string;
+            name: string;
+            description: string | null;
+            isSystemRole: boolean;
+            branchId: string | null;
+            branch: {
+                id: string;
+                name: string;
+            } | null;
+        }[];
+        permissions: string[];
+    }>;
 }

@@ -1,14 +1,14 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { AiExecutiveCenterService } from './ai-executive-center.service';
 
 @Controller('ai-executive-center')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@UseGuards(JwtAuthGuard, PermissionGuard)
+@RequirePermission('ai.view')
 export class AiExecutiveCenterController {
   constructor(private readonly executiveCenterService: AiExecutiveCenterService) {}
 

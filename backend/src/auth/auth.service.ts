@@ -10,8 +10,9 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { RolesService } from '../roles/roles.service';
 
-type AdminPortalRole = 'admin' | 'finance';
+type AdminPortalRole = string;
 
 @Injectable()
 export class AuthService {
@@ -19,6 +20,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private rolesService: RolesService,
   ) {}
 
   private mapUserRole(role: string): AdminPortalRole {
@@ -49,19 +51,23 @@ export class AuthService {
         return { tenant, user };
       });
 
+      await this.rolesService.ensureTenantSystemRoles(result.tenant.id);
+      await this.rolesService.ensureDefaultAssignmentForUser(result.user.id);
+      const profile = await this.rolesService.getUserAccessProfile(result.user.id);
+
       const tokens = await this.getTokens(
         result.user.id,
         result.user.email,
         result.tenant.id,
-        'admin',
-        null,
-        true,
+        profile.role,
+        profile.branchId,
+        profile.isSuperAdmin,
       );
 
       await this.updateRefreshTokenHash(
         result.user.id,
         tokens.refresh_token,
-        'admin',
+        profile.role,
       );
 
       return tokens;
@@ -93,17 +99,18 @@ export class AuthService {
     if (!passwordMatches)
       throw new UnauthorizedException('Invalid credentials');
 
-    const role = this.mapUserRole(user.role);
+    await this.rolesService.ensureDefaultAssignmentForUser(user.id);
+    const profile = await this.rolesService.getUserAccessProfile(user.id);
     const tokens = await this.getTokens(
       user.id,
       user.email,
       user.tenantId,
-      role,
-      user.branchId,
-      user.isSuperAdmin,
+      profile.role,
+      profile.branchId,
+      profile.isSuperAdmin,
     );
 
-    await this.updateRefreshTokenHash(user.id, tokens.refresh_token, role);
+    await this.updateRefreshTokenHash(user.id, tokens.refresh_token, profile.role);
     return tokens;
   }
 
@@ -135,20 +142,21 @@ export class AuthService {
       isSuperAdmin: boolean;
     };
 
-    const userRole = this.mapUserRole(user.role);
+    await this.rolesService.ensureDefaultAssignmentForUser(user.id);
+    const profile = await this.rolesService.getUserAccessProfile(user.id);
     const tokens = await this.getTokens(
       typedUser.id,
       typedUser.email,
       typedUser.tenantId,
-      userRole,
-      typedUser.branchId,
-      typedUser.isSuperAdmin,
+      profile.role,
+      profile.branchId,
+      profile.isSuperAdmin,
     );
 
     await this.updateRefreshTokenHash(
       typedUser.id,
       tokens.refresh_token,
-      userRole,
+      profile.role,
     );
     return tokens;
   }

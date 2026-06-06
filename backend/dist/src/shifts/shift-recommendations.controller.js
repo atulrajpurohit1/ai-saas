@@ -15,9 +15,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ShiftRecommendationsController = void 0;
 const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
+const permission_guard_1 = require("../auth/guards/permission.guard");
 const shifts_service_1 = require("./shifts.service");
 let ShiftRecommendationsController = class ShiftRecommendationsController {
     shiftsService;
@@ -39,8 +39,8 @@ __decorate([
 ], ShiftRecommendationsController.prototype, "recommendGuards", null);
 exports.ShiftRecommendationsController = ShiftRecommendationsController = __decorate([
     (0, common_1.Controller)('shifts'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin', 'scheduler'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.RequirePermission)('shifts.assign'),
     __metadata("design:paramtypes", [shifts_service_1.ShiftsService])
 ], ShiftRecommendationsController);
 //# sourceMappingURL=shift-recommendations.controller.js.map

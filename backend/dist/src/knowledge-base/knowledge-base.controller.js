@@ -15,9 +15,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.KnowledgeBaseController = void 0;
 const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
+const permission_guard_1 = require("../auth/guards/permission.guard");
 const create_knowledge_entry_dto_1 = require("./dto/create-knowledge-entry.dto");
 const update_knowledge_entry_dto_1 = require("./dto/update-knowledge-entry.dto");
 const knowledge_base_service_1 = require("./knowledge-base.service");
@@ -80,6 +80,7 @@ __decorate([
 ], KnowledgeBaseController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Post)(),
+    (0, permissions_decorator_1.RequirePermission)('knowledge_base.manage'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -88,6 +89,7 @@ __decorate([
 ], KnowledgeBaseController.prototype, "create", null);
 __decorate([
     (0, common_1.Patch)(':id'),
+    (0, permissions_decorator_1.RequirePermission)('knowledge_base.manage'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)()),
@@ -97,6 +99,7 @@ __decorate([
 ], KnowledgeBaseController.prototype, "update", null);
 __decorate([
     (0, common_1.Post)(':id/archive'),
+    (0, permissions_decorator_1.RequirePermission)('knowledge_base.manage'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -105,8 +108,8 @@ __decorate([
 ], KnowledgeBaseController.prototype, "archive", null);
 exports.KnowledgeBaseController = KnowledgeBaseController = __decorate([
     (0, common_1.Controller)('knowledge'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.RequirePermission)('knowledge_base.view'),
     __metadata("design:paramtypes", [knowledge_base_service_1.KnowledgeBaseService])
 ], KnowledgeBaseController);
 //# sourceMappingURL=knowledge-base.controller.js.map

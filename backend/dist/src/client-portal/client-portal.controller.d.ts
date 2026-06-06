@@ -100,8 +100,8 @@ export declare class ClientPortalController {
         createdAt: Date;
         tenantId: string;
         clientId: string;
-        url: string;
         description: string | null;
+        url: string;
         uploadedBy: string;
     }[]>;
     getProfile(user: ActiveUser): Promise<{

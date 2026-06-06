@@ -4,10 +4,12 @@ import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CreateGuardDto } from './dto/create-guard.dto';
 import { UpdateGuardDto } from './dto/update-guard.dto';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
+import { WebhooksService } from '../webhooks/webhooks.service';
 export declare class GuardsService {
     private prisma;
     private auditService;
-    constructor(prisma: PrismaService, auditService: AuditService);
+    private webhooksService;
+    constructor(prisma: PrismaService, auditService: AuditService, webhooksService: WebhooksService);
     private normalizeContact;
     private withoutPasswordHash;
     create(user: ActiveUser, dto: CreateGuardDto): Promise<Omit<{

@@ -16,8 +16,8 @@ exports.ClientsController = void 0;
 const common_1 = require("@nestjs/common");
 const clients_service_1 = require("./clients.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permission_guard_1 = require("../auth/guards/permission.guard");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const create_client_dto_1 = require("./dto/create-client.dto");
 const update_client_dto_1 = require("./dto/update-client.dto");
@@ -45,6 +45,7 @@ let ClientsController = class ClientsController {
 exports.ClientsController = ClientsController;
 __decorate([
     (0, common_1.Post)(),
+    (0, permissions_decorator_1.RequirePermission)('clients.manage'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -53,7 +54,7 @@ __decorate([
 ], ClientsController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, roles_decorator_1.Roles)('admin', 'finance'),
+    (0, permissions_decorator_1.RequireAnyPermission)('clients.view', 'invoices.generate', 'finance.view'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Query)('branch_id')),
     __metadata("design:type", Function),
@@ -62,6 +63,7 @@ __decorate([
 ], ClientsController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)(':id'),
+    (0, permissions_decorator_1.RequirePermission)('clients.view'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -70,6 +72,7 @@ __decorate([
 ], ClientsController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Put)(':id'),
+    (0, permissions_decorator_1.RequirePermission)('clients.manage'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)()),
@@ -79,6 +82,7 @@ __decorate([
 ], ClientsController.prototype, "update", null);
 __decorate([
     (0, common_1.Post)(':id/create-user'),
+    (0, permissions_decorator_1.RequirePermission)('clients.manage'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)('email')),
@@ -88,8 +92,7 @@ __decorate([
 ], ClientsController.prototype, "createUser", null);
 exports.ClientsController = ClientsController = __decorate([
     (0, common_1.Controller)('clients'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     __metadata("design:paramtypes", [clients_service_1.ClientsService])
 ], ClientsController);
 //# sourceMappingURL=clients.controller.js.map

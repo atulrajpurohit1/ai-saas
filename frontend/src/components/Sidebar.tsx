@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
@@ -27,7 +27,10 @@ import {
   BookOpen,
   Bot,
   TrendingDown,
-  GitBranch
+  GitBranch,
+  Settings,
+  KeyRound,
+  Plug
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { clsx, type ClassValue } from 'clsx';
@@ -37,6 +40,8 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const SIDEBAR_SCROLL_KEY = 'ai-saas-sidebar-scroll-top';
+
 interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
@@ -44,44 +49,63 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, logout, canAny } = useAuth();
+  const navRef = useRef<HTMLElement | null>(null);
 
   const adminLinks = [
-    { href: '/ai-command-center', label: 'Command Center', icon: Command },
-    { href: '/ai-executive-center', label: 'Executive Center', icon: Briefcase },
-    { href: '/ai-copilot', label: 'AI Copilot', icon: Bot },
-    { href: '/ai-predictions', label: 'AI Predictions', icon: TrendingDown },
-    { href: '/ai-prompts', label: 'AI Prompts', icon: ScrollText },
-    { href: '/ai-audit', label: 'AI Audit', icon: FileSearch },
-    { href: '/ai-monitoring', label: 'AI Monitoring', icon: Gauge },
-    { href: '/ai-actions', label: 'AI Actions', icon: ClipboardCheck },
-    { href: '/knowledge-base', label: 'Knowledge Base', icon: BookOpen },
-    { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/leads', label: 'Leads', icon: Users },
-    { href: '/deals', label: 'Deals', icon: Briefcase },
-    { href: '/proposals', label: 'Proposals', icon: FileText },
-    { href: '/branches', label: 'Branches', icon: GitBranch },
-    { href: '/sites', label: 'Sites', icon: MapPin },
-    { href: '/guards', label: 'Guards', icon: ShieldCheck },
-    { href: '/shifts', label: 'Shifts', icon: CalendarClock },
-    { href: '/incidents', label: 'Incidents', icon: FileWarning },
-    { href: '/reports', label: 'Reports', icon: ClipboardList },
-    { href: '/timesheets', label: 'Timesheets', icon: ClipboardCheck },
-    { href: '/rate-cards', label: 'Rate Cards', icon: BadgeDollarSign },
-    { href: '/invoices', label: 'Invoices', icon: Receipt },
-    { href: '/invoice-disputes', label: 'Disputes', icon: FileWarning },
-    { href: '/finance', label: 'Finance', icon: DollarSign },
-    { href: '/ai-insights', label: 'AI Insights', icon: BrainCircuit },
-    { href: '/audit', label: 'Activity', icon: Activity },
+    { href: '/ai-command-center', label: 'Command Center', icon: Command, permissions: ['ai.view'] },
+    { href: '/ai-executive-center', label: 'Executive Center', icon: Briefcase, permissions: ['ai.view'] },
+    { href: '/ai-copilot', label: 'AI Copilot', icon: Bot, permissions: ['ai.view'] },
+    { href: '/ai-predictions', label: 'AI Predictions', icon: TrendingDown, permissions: ['ai.manage'] },
+    { href: '/ai-prompts', label: 'AI Prompts', icon: ScrollText, permissions: ['ai.governance'] },
+    { href: '/ai-audit', label: 'AI Audit', icon: FileSearch, permissions: ['ai.governance'] },
+    { href: '/ai-monitoring', label: 'AI Monitoring', icon: Gauge, permissions: ['ai.manage'] },
+    { href: '/ai-actions', label: 'AI Actions', icon: ClipboardCheck, permissions: ['ai.manage'] },
+    { href: '/knowledge-base', label: 'Knowledge Base', icon: BookOpen, permissions: ['knowledge_base.view'] },
+    { href: '/', label: 'Dashboard', icon: LayoutDashboard, permissions: ['dashboard.view'] },
+    { href: '/leads', label: 'Leads', icon: Users, permissions: ['leads.view'] },
+    { href: '/deals', label: 'Deals', icon: Briefcase, permissions: ['deals.view'] },
+    { href: '/proposals', label: 'Proposals', icon: FileText, permissions: ['proposals.view'] },
+    { href: '/branches', label: 'Branches', icon: GitBranch, permissions: ['branches.view'] },
+    { href: '/sites', label: 'Sites', icon: MapPin, permissions: ['sites.view'] },
+    { href: '/guards', label: 'Guards', icon: ShieldCheck, permissions: ['guards.view'] },
+    { href: '/shifts', label: 'Shifts', icon: CalendarClock, permissions: ['shifts.view'] },
+    { href: '/incidents', label: 'Incidents', icon: FileWarning, permissions: ['incidents.view'] },
+    { href: '/reports', label: 'Reports', icon: ClipboardList, permissions: ['reports.view'] },
+    { href: '/timesheets', label: 'Timesheets', icon: ClipboardCheck, permissions: ['timesheets.view'] },
+    { href: '/rate-cards', label: 'Rate Cards', icon: BadgeDollarSign, permissions: ['rate_cards.view'] },
+    { href: '/invoices', label: 'Invoices', icon: Receipt, permissions: ['invoices.view'] },
+    { href: '/invoice-disputes', label: 'Disputes', icon: FileWarning, permissions: ['invoice_disputes.view'] },
+    { href: '/finance', label: 'Finance', icon: DollarSign, permissions: ['finance.view'] },
+    { href: '/ai-insights', label: 'AI Insights', icon: BrainCircuit, permissions: ['ai.view'] },
+    { href: '/integrations', label: 'Integrations', icon: Plug, permissions: ['integrations.view'] },
+    { href: '/settings/api-keys', label: 'API Keys', icon: KeyRound, permissions: ['api_keys.view'] },
+    { href: '/settings/roles', label: 'Roles', icon: Settings, permissions: ['roles.view'] },
+    { href: '/audit', label: 'Activity', icon: Activity, permissions: ['audit.view'] },
   ];
 
-  const links = user?.role === 'finance'
-    ? [
-        { href: '/finance', label: 'Finance', icon: DollarSign },
-        { href: '/ai-insights/revenue', label: 'Revenue AI', icon: BrainCircuit },
-        { href: '/ai-copilot', label: 'AI Copilot', icon: Bot },
-      ]
-    : adminLinks;
+  const links = adminLinks.filter((link) => canAny(link.permissions));
+
+  const saveScrollPosition = () => {
+    if (typeof window === 'undefined' || !navRef.current) return;
+    sessionStorage.setItem(SIDEBAR_SCROLL_KEY, String(navRef.current.scrollTop));
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const restoreScroll = () => {
+      const storedScrollTop = sessionStorage.getItem(SIDEBAR_SCROLL_KEY);
+      const nextScrollTop = storedScrollTop ? Number(storedScrollTop) : 0;
+
+      if (navRef.current && Number.isFinite(nextScrollTop)) {
+        navRef.current.scrollTop = nextScrollTop;
+      }
+    };
+
+    const frame = window.requestAnimationFrame(restoreScroll);
+    return () => window.cancelAnimationFrame(frame);
+  }, [links.length, pathname]);
 
   return (
     <aside
@@ -107,7 +131,11 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         </button>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4">
+      <nav
+        ref={navRef}
+        onScroll={saveScrollPosition}
+        className="flex-1 space-y-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4"
+      >
         {links.map((link) => {
           const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
           const Icon = link.icon;
@@ -116,7 +144,10 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             <Link
               key={link.href}
               href={link.href}
-              onClick={onClose}
+              onClick={() => {
+                saveScrollPosition();
+                onClose?.();
+              }}
               className={cn(
                 "group flex min-h-12 items-center justify-between rounded-xl px-4 py-3 transition-all duration-200",
                 isActive 

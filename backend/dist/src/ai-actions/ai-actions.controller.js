@@ -15,9 +15,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AiActionsController = void 0;
 const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
+const permission_guard_1 = require("../auth/guards/permission.guard");
 const ai_actions_service_1 = require("./ai-actions.service");
 let AiActionsController = class AiActionsController {
     aiActionsService;
@@ -83,8 +83,8 @@ __decorate([
 ], AiActionsController.prototype, "execute", null);
 exports.AiActionsController = AiActionsController = __decorate([
     (0, common_1.Controller)('ai-actions'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.RequirePermission)('ai.manage'),
     __metadata("design:paramtypes", [ai_actions_service_1.AiActionsService])
 ], AiActionsController);
 //# sourceMappingURL=ai-actions.controller.js.map

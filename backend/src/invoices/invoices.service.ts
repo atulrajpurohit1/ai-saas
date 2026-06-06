@@ -10,6 +10,7 @@ import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { branchScopedWhere, branchWhere } from '../branches/branch-scope';
 import { PrismaService } from '../prisma/prisma.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { DisputeInvoiceDto } from './dto/dispute-invoice.dto';
 import { GenerateInvoiceDto } from './dto/generate-invoice.dto';
 
@@ -22,6 +23,7 @@ export class InvoicesService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
+    private webhooksService: WebhooksService,
   ) {}
 
   private parseBillingDate(value: string, fieldName: string) {
@@ -663,7 +665,12 @@ export class InvoicesService {
         details: `Invoice ${invoice.invoiceNumber} generated for "${client.companyName || client.name}" at "${site.name}" using ${rate.rateSource}`,
       });
 
-      return this.mapInvoice(invoice);
+      const mappedInvoice = this.mapInvoice(invoice);
+      await this.webhooksService.triggerEvent(user.tenantId, 'invoice.generated', {
+        invoice: mappedInvoice,
+      });
+
+      return mappedInvoice;
     } catch (error) {
       if (this.isUniqueConflict(error)) {
         throw new ConflictException('An invoice already exists for this billing period or invoice number');
@@ -746,7 +753,12 @@ export class InvoicesService {
       details: `Invoice ${invoice.invoiceNumber} marked paid`,
     });
 
-    return this.mapInvoice(invoice);
+    const mappedInvoice = this.mapInvoice(invoice);
+    await this.webhooksService.triggerEvent(user.tenantId, 'invoice.paid', {
+      invoice: mappedInvoice,
+    });
+
+    return mappedInvoice;
   }
 
   async cancelInvoice(user: ActiveUser, id: string) {

@@ -11,8 +11,8 @@ export declare class DocumentsService {
         createdAt: Date;
         tenantId: string;
         clientId: string;
-        url: string;
         description: string | null;
+        url: string;
         uploadedBy: string;
     }>;
     findAll(tenantId: string, clientId?: string): Promise<{
@@ -21,8 +21,8 @@ export declare class DocumentsService {
         createdAt: Date;
         tenantId: string;
         clientId: string;
-        url: string;
         description: string | null;
+        url: string;
         uploadedBy: string;
     }[]>;
     findOne(tenantId: string, id: string): Promise<{
@@ -31,8 +31,8 @@ export declare class DocumentsService {
         createdAt: Date;
         tenantId: string;
         clientId: string;
-        url: string;
         description: string | null;
+        url: string;
         uploadedBy: string;
     }>;
     remove(tenantId: string, id: string, userId: string): Promise<{
@@ -41,8 +41,8 @@ export declare class DocumentsService {
         createdAt: Date;
         tenantId: string;
         clientId: string;
-        url: string;
         description: string | null;
+        url: string;
         uploadedBy: string;
     }>;
 }

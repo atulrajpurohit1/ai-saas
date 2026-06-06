@@ -15,9 +15,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RateCardsController = void 0;
 const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
+const permission_guard_1 = require("../auth/guards/permission.guard");
 const create_rate_card_dto_1 = require("./dto/create-rate-card.dto");
 const update_rate_card_dto_1 = require("./dto/update-rate-card.dto");
 const rate_cards_service_1 = require("./rate-cards.service");
@@ -45,6 +45,7 @@ let RateCardsController = class RateCardsController {
 exports.RateCardsController = RateCardsController;
 __decorate([
     (0, common_1.Post)(),
+    (0, permissions_decorator_1.RequirePermission)('rate_cards.manage'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -69,6 +70,7 @@ __decorate([
 ], RateCardsController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Put)(':id'),
+    (0, permissions_decorator_1.RequirePermission)('rate_cards.manage'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)()),
@@ -78,6 +80,7 @@ __decorate([
 ], RateCardsController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
+    (0, permissions_decorator_1.RequirePermission)('rate_cards.manage'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -86,8 +89,8 @@ __decorate([
 ], RateCardsController.prototype, "deactivate", null);
 exports.RateCardsController = RateCardsController = __decorate([
     (0, common_1.Controller)('rate-cards'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.RequirePermission)('rate_cards.view'),
     __metadata("design:paramtypes", [rate_cards_service_1.RateCardsService])
 ], RateCardsController);
 //# sourceMappingURL=rate-cards.controller.js.map

@@ -1,15 +1,15 @@
 import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { AiCopilotService } from './ai-copilot.service';
 import { AskCopilotDto } from './dto/ask-copilot.dto';
 
 @Controller('ai-copilot')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin', 'finance')
+@UseGuards(JwtAuthGuard, PermissionGuard)
+@RequirePermission('ai.view')
 export class AiCopilotController {
   constructor(private readonly aiCopilotService: AiCopilotService) {}
 

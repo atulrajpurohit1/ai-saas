@@ -15,9 +15,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReportsController = void 0;
 const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
+const permission_guard_1 = require("../auth/guards/permission.guard");
 const generate_daily_report_dto_1 = require("./dto/generate-daily-report.dto");
 const reports_service_1 = require("./reports.service");
 let ReportsController = class ReportsController {
@@ -50,6 +50,7 @@ let ReportsController = class ReportsController {
 exports.ReportsController = ReportsController;
 __decorate([
     (0, common_1.Post)('generate-daily'),
+    (0, permissions_decorator_1.RequirePermission)('reports.create'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -66,6 +67,7 @@ __decorate([
 ], ReportsController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)(':id/export-pdf'),
+    (0, permissions_decorator_1.RequirePermission)('reports.export'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Res)()),
@@ -83,6 +85,7 @@ __decorate([
 ], ReportsController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Post)(':id/publish'),
+    (0, permissions_decorator_1.RequirePermission)('reports.publish'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -91,8 +94,8 @@ __decorate([
 ], ReportsController.prototype, "publish", null);
 exports.ReportsController = ReportsController = __decorate([
     (0, common_1.Controller)('reports'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin', 'supervisor'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.RequirePermission)('reports.view'),
     __metadata("design:paramtypes", [reports_service_1.ReportsService])
 ], ReportsController);
 //# sourceMappingURL=reports.controller.js.map

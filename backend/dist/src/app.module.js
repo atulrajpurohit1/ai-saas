@@ -49,6 +49,12 @@ const ai_copilot_module_1 = require("./ai-copilot/ai-copilot.module");
 const ai_predictions_module_1 = require("./ai-predictions/ai-predictions.module");
 const ai_executive_center_module_1 = require("./ai-executive-center/ai-executive-center.module");
 const branches_module_1 = require("./branches/branches.module");
+const roles_module_1 = require("./roles/roles.module");
+const api_keys_module_1 = require("./api-keys/api-keys.module");
+const webhooks_module_1 = require("./webhooks/webhooks.module");
+const public_api_module_1 = require("./public-api/public-api.module");
+const integrations_module_1 = require("./integrations/integrations.module");
+const api_docs_module_1 = require("./api-docs/api-docs.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -57,6 +63,12 @@ exports.AppModule = AppModule = __decorate([
         imports: [
             config_1.ConfigModule.forRoot({ isGlobal: true }),
             prisma_module_1.PrismaModule,
+            roles_module_1.RolesModule,
+            api_keys_module_1.ApiKeysModule,
+            webhooks_module_1.WebhooksModule,
+            public_api_module_1.PublicApiModule,
+            integrations_module_1.IntegrationsModule,
+            api_docs_module_1.ApiDocsModule,
             users_module_1.UsersModule,
             auth_module_1.AuthModule,
             client_auth_module_1.ClientAuthModule,

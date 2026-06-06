@@ -1,15 +1,15 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { ReviewIncidentDto } from './dto/review-incident.dto';
 import { IncidentsService } from './incidents.service';
 
 @Controller('incidents')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin', 'supervisor')
+@UseGuards(JwtAuthGuard, PermissionGuard)
+@RequirePermission('incidents.view')
 export class IncidentsController {
   constructor(private readonly incidentsService: IncidentsService) {}
 
@@ -29,6 +29,7 @@ export class IncidentsController {
   }
 
   @Post(':id/review')
+  @RequirePermission('incidents.review')
   review(
     @GetUser() user: ActiveUser,
     @Param('id') id: string,

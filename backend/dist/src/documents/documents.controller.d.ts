@@ -10,8 +10,8 @@ export declare class DocumentsController {
         createdAt: Date;
         tenantId: string;
         clientId: string;
-        url: string;
         description: string | null;
+        url: string;
         uploadedBy: string;
     }>;
     findAll(req: Request, clientId?: string): Promise<{
@@ -20,8 +20,8 @@ export declare class DocumentsController {
         createdAt: Date;
         tenantId: string;
         clientId: string;
-        url: string;
         description: string | null;
+        url: string;
         uploadedBy: string;
     }[]>;
     findOne(req: Request, id: string): Promise<{
@@ -30,8 +30,8 @@ export declare class DocumentsController {
         createdAt: Date;
         tenantId: string;
         clientId: string;
-        url: string;
         description: string | null;
+        url: string;
         uploadedBy: string;
     }>;
     remove(req: Request, id: string): Promise<{
@@ -40,8 +40,8 @@ export declare class DocumentsController {
         createdAt: Date;
         tenantId: string;
         clientId: string;
-        url: string;
         description: string | null;
+        url: string;
         uploadedBy: string;
     }>;
 }

@@ -21,30 +21,32 @@ import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { UpdateLeadStatusDto } from './dto/update-lead-status.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { PermissionGuard } from '../auth/guards/permission.guard';
+import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { Request } from 'express';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('leads')
 export class LeadsController {
   constructor(private readonly leadsService: LeadsService) {}
 
   @Post()
+  @RequirePermission('leads.create')
   create(@Body() createLeadDto: CreateLeadDto, @Req() req: Request) {
     const user = req.user as unknown as ActiveUser;
     return this.leadsService.create(createLeadDto, user.tenantId, user.sub);
   }
 
   @Get()
+  @RequirePermission('leads.view')
   findAll(@Req() req: Request) {
     const user = req.user as unknown as ActiveUser;
     return this.leadsService.findAll(user.tenantId);
   }
 
   @Post('import')
+  @RequirePermission('leads.import')
   @UseInterceptors(FileInterceptor('file'))
   async import(@UploadedFile() file: Express.Multer.File, @Req() req: Request) {
     const user = req.user as unknown as ActiveUser;
@@ -52,6 +54,7 @@ export class LeadsController {
   }
 
   @Post('upload-pdf')
+  @RequirePermission('leads.import')
   @UseInterceptors(FileInterceptor('file'))
   async uploadPdf(@UploadedFile() file: Express.Multer.File, @Req() req: Request) {
     if (!file) throw new BadRequestException('No file uploaded');
@@ -60,6 +63,7 @@ export class LeadsController {
   }
 
   @Post('analyze-pdf')
+  @RequirePermission('leads.import')
   @UseInterceptors(FileInterceptor('file'))
   async analyzePdf(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No file uploaded');
@@ -67,6 +71,7 @@ export class LeadsController {
   }
 
   @Get('export')
+  @RequirePermission('leads.export')
   async export(@Res() res: Response, @Req() req: Request) {
     const user = req.user as unknown as ActiveUser;
     const csvContent = await this.leadsService.exportLeads(user.tenantId);
@@ -80,12 +85,14 @@ export class LeadsController {
   }
 
   @Get(':id')
+  @RequirePermission('leads.view')
   findOne(@Param('id') id: string, @Req() req: Request) {
     const user = req.user as unknown as ActiveUser;
     return this.leadsService.findOne(id, user.tenantId);
   }
 
   @Put(':id')
+  @RequirePermission('leads.update')
   update(
     @Param('id') id: string,
     @Body() updateLeadDto: UpdateLeadDto,
@@ -96,6 +103,7 @@ export class LeadsController {
   }
 
   @Patch(':id/status')
+  @RequirePermission('leads.update')
   updateStatus(
     @Param('id') id: string,
     @Body() updateLeadStatusDto: UpdateLeadStatusDto,
@@ -106,6 +114,7 @@ export class LeadsController {
   }
 
   @Delete(':id')
+  @RequirePermission('leads.delete')
   remove(@Param('id') id: string, @Req() req: Request) {
     const user = req.user as unknown as ActiveUser;
     return this.leadsService.remove(id, user.tenantId, user.sub);

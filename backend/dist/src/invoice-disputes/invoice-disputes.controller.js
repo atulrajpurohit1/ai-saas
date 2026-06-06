@@ -15,9 +15,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.InvoiceDisputesController = void 0;
 const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
+const permission_guard_1 = require("../auth/guards/permission.guard");
 const respond_invoice_dispute_dto_1 = require("./dto/respond-invoice-dispute.dto");
 const invoice_disputes_service_1 = require("./invoice-disputes.service");
 let InvoiceDisputesController = class InvoiceDisputesController {
@@ -59,6 +59,7 @@ __decorate([
 ], InvoiceDisputesController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Post)(':id/respond'),
+    (0, permissions_decorator_1.RequirePermission)('invoice_disputes.respond'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)()),
@@ -68,6 +69,7 @@ __decorate([
 ], InvoiceDisputesController.prototype, "respond", null);
 __decorate([
     (0, common_1.Post)(':id/resolve'),
+    (0, permissions_decorator_1.RequirePermission)('invoice_disputes.respond'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)()),
@@ -77,6 +79,7 @@ __decorate([
 ], InvoiceDisputesController.prototype, "resolve", null);
 __decorate([
     (0, common_1.Post)(':id/reject'),
+    (0, permissions_decorator_1.RequirePermission)('invoice_disputes.respond'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)()),
@@ -86,8 +89,8 @@ __decorate([
 ], InvoiceDisputesController.prototype, "reject", null);
 exports.InvoiceDisputesController = InvoiceDisputesController = __decorate([
     (0, common_1.Controller)('invoice-disputes'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.RequirePermission)('invoice_disputes.view'),
     __metadata("design:paramtypes", [invoice_disputes_service_1.InvoiceDisputesService])
 ], InvoiceDisputesController);
 //# sourceMappingURL=invoice-disputes.controller.js.map

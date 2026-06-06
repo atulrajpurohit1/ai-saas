@@ -5,7 +5,7 @@ import { TimesheetsService } from './timesheets.service';
 export declare class TimesheetsController {
     private readonly timesheetsService;
     constructor(timesheetsService: TimesheetsService);
-    findAll(user: ActiveUser, status?: string): Promise<{
+    findAll(user: ActiveUser, status?: string, branchId?: string): Promise<{
         id: any;
         tenantId: any;
         guardId: any;

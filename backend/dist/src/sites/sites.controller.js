@@ -16,8 +16,8 @@ exports.SitesController = void 0;
 const common_1 = require("@nestjs/common");
 const sites_service_1 = require("./sites.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permission_guard_1 = require("../auth/guards/permission.guard");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const create_site_dto_1 = require("./dto/create-site.dto");
 const update_site_dto_1 = require("./dto/update-site.dto");
@@ -39,7 +39,7 @@ let SitesController = class SitesController {
 exports.SitesController = SitesController;
 __decorate([
     (0, common_1.Post)(),
-    (0, roles_decorator_1.Roles)('admin'),
+    (0, permissions_decorator_1.RequirePermission)('sites.manage'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -48,7 +48,7 @@ __decorate([
 ], SitesController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, roles_decorator_1.Roles)('admin'),
+    (0, permissions_decorator_1.RequireAnyPermission)('sites.view', 'shifts.create', 'invoices.generate'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Query)('branch_id')),
     __metadata("design:type", Function),
@@ -57,7 +57,7 @@ __decorate([
 ], SitesController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Put)(':id'),
-    (0, roles_decorator_1.Roles)('admin'),
+    (0, permissions_decorator_1.RequirePermission)('sites.manage'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)()),
@@ -67,7 +67,7 @@ __decorate([
 ], SitesController.prototype, "update", null);
 exports.SitesController = SitesController = __decorate([
     (0, common_1.Controller)('sites'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     __metadata("design:paramtypes", [sites_service_1.SitesService])
 ], SitesController);
 //# sourceMappingURL=sites.controller.js.map

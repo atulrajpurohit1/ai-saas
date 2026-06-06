@@ -1,4 +1,5 @@
 import { AuditService } from '../audit/audit.service';
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { PrismaService } from '../prisma/prisma.service';
 import { CorrectTimesheetDto } from './dto/correct-timesheet.dto';
 import { RejectTimesheetDto } from './dto/reject-timesheet.dto';
@@ -11,10 +12,11 @@ export declare class TimesheetsService {
     isValidStatus(status: string): status is TimesheetStatus;
     private timesheetInclude;
     private mapTimesheet;
+    private timesheetBranchWhere;
     private findTimesheetOrThrow;
     private assertNotInvoiced;
     private parseOptionalDate;
-    findAllForAdmin(tenantId: string, status?: string): Promise<{
+    findAllForAdmin(user: ActiveUser, status?: string, requestedBranchId?: string | null): Promise<{
         id: any;
         tenantId: any;
         guardId: any;
@@ -53,7 +55,7 @@ export declare class TimesheetsService {
             email: any;
         } | null;
     }[]>;
-    findOneForAdmin(tenantId: string, id: string): Promise<{
+    findOneForAdmin(user: ActiveUser, id: string): Promise<{
         id: any;
         tenantId: any;
         guardId: any;
@@ -92,13 +94,7 @@ export declare class TimesheetsService {
             email: any;
         } | null;
     }>;
-    approve(input: {
-        tenantId: string;
-        userId: string;
-        userRole: string;
-        guardId?: string;
-        timesheetId: string;
-    }): Promise<{
+    approve(user: ActiveUser, timesheetId: string): Promise<{
         id: any;
         tenantId: any;
         guardId: any;
@@ -137,7 +133,7 @@ export declare class TimesheetsService {
             email: any;
         } | null;
     }>;
-    reject(tenantId: string, userId: string, id: string, dto: RejectTimesheetDto): Promise<{
+    reject(user: ActiveUser, id: string, dto: RejectTimesheetDto): Promise<{
         id: any;
         tenantId: any;
         guardId: any;
@@ -176,7 +172,7 @@ export declare class TimesheetsService {
             email: any;
         } | null;
     }>;
-    correct(tenantId: string, userId: string, id: string, dto: CorrectTimesheetDto): Promise<{
+    correct(user: ActiveUser, id: string, dto: CorrectTimesheetDto): Promise<{
         id: any;
         tenantId: any;
         guardId: any;

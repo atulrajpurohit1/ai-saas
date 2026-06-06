@@ -16,8 +16,8 @@ exports.ActivitiesController = void 0;
 const common_1 = require("@nestjs/common");
 const activities_service_1 = require("./activities.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permission_guard_1 = require("../auth/guards/permission.guard");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 let ActivitiesController = class ActivitiesController {
     activitiesService;
@@ -41,6 +41,7 @@ let ActivitiesController = class ActivitiesController {
 exports.ActivitiesController = ActivitiesController;
 __decorate([
     (0, common_1.Post)(),
+    (0, permissions_decorator_1.RequirePermission)('activities.manage'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, get_user_decorator_1.GetUser)()),
     __metadata("design:type", Function),
@@ -49,6 +50,7 @@ __decorate([
 ], ActivitiesController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
+    (0, permissions_decorator_1.RequirePermission)('activities.view'),
     __param(0, (0, common_1.Query)('dealId')),
     __param(1, (0, get_user_decorator_1.GetUser)()),
     __metadata("design:type", Function),
@@ -57,6 +59,7 @@ __decorate([
 ], ActivitiesController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Patch)(':id/status'),
+    (0, permissions_decorator_1.RequirePermission)('activities.manage'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)('status')),
     __param(2, (0, get_user_decorator_1.GetUser)()),
@@ -66,8 +69,7 @@ __decorate([
 ], ActivitiesController.prototype, "updateStatus", null);
 exports.ActivitiesController = ActivitiesController = __decorate([
     (0, common_1.Controller)('activities'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     __metadata("design:paramtypes", [activities_service_1.ActivitiesService])
 ], ActivitiesController);
 //# sourceMappingURL=activities.controller.js.map

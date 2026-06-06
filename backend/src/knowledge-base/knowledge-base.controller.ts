@@ -1,16 +1,16 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CreateKnowledgeEntryDto } from './dto/create-knowledge-entry.dto';
 import { UpdateKnowledgeEntryDto } from './dto/update-knowledge-entry.dto';
 import { KnowledgeBaseService } from './knowledge-base.service';
 
 @Controller('knowledge')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@UseGuards(JwtAuthGuard, PermissionGuard)
+@RequirePermission('knowledge_base.view')
 export class KnowledgeBaseController {
   constructor(private readonly knowledgeBaseService: KnowledgeBaseService) {}
 
@@ -44,11 +44,13 @@ export class KnowledgeBaseController {
   }
 
   @Post()
+  @RequirePermission('knowledge_base.manage')
   create(@GetUser() user: ActiveUser, @Body() dto: CreateKnowledgeEntryDto) {
     return this.knowledgeBaseService.createManual(user.tenantId, user.sub, dto);
   }
 
   @Patch(':id')
+  @RequirePermission('knowledge_base.manage')
   update(
     @GetUser() user: ActiveUser,
     @Param('id') id: string,
@@ -58,6 +60,7 @@ export class KnowledgeBaseController {
   }
 
   @Post(':id/archive')
+  @RequirePermission('knowledge_base.manage')
   archive(@GetUser() user: ActiveUser, @Param('id') id: string) {
     return this.knowledgeBaseService.archive(user.tenantId, user.sub, id);
   }

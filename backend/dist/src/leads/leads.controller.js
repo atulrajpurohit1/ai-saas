@@ -20,8 +20,8 @@ const create_lead_dto_1 = require("./dto/create-lead.dto");
 const update_lead_dto_1 = require("./dto/update-lead.dto");
 const update_lead_status_dto_1 = require("./dto/update-lead-status.dto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permission_guard_1 = require("../auth/guards/permission.guard");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 let LeadsController = class LeadsController {
     leadsService;
     constructor(leadsService) {
@@ -77,6 +77,7 @@ let LeadsController = class LeadsController {
 exports.LeadsController = LeadsController;
 __decorate([
     (0, common_1.Post)(),
+    (0, permissions_decorator_1.RequirePermission)('leads.create'),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -85,6 +86,7 @@ __decorate([
 ], LeadsController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
+    (0, permissions_decorator_1.RequirePermission)('leads.view'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -92,6 +94,7 @@ __decorate([
 ], LeadsController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Post)('import'),
+    (0, permissions_decorator_1.RequirePermission)('leads.import'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
     __param(0, (0, common_1.UploadedFile)()),
     __param(1, (0, common_1.Req)()),
@@ -101,6 +104,7 @@ __decorate([
 ], LeadsController.prototype, "import", null);
 __decorate([
     (0, common_1.Post)('upload-pdf'),
+    (0, permissions_decorator_1.RequirePermission)('leads.import'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
     __param(0, (0, common_1.UploadedFile)()),
     __param(1, (0, common_1.Req)()),
@@ -110,6 +114,7 @@ __decorate([
 ], LeadsController.prototype, "uploadPdf", null);
 __decorate([
     (0, common_1.Post)('analyze-pdf'),
+    (0, permissions_decorator_1.RequirePermission)('leads.import'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
     __param(0, (0, common_1.UploadedFile)()),
     __metadata("design:type", Function),
@@ -118,6 +123,7 @@ __decorate([
 ], LeadsController.prototype, "analyzePdf", null);
 __decorate([
     (0, common_1.Get)('export'),
+    (0, permissions_decorator_1.RequirePermission)('leads.export'),
     __param(0, (0, common_1.Res)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -126,6 +132,7 @@ __decorate([
 ], LeadsController.prototype, "export", null);
 __decorate([
     (0, common_1.Get)(':id'),
+    (0, permissions_decorator_1.RequirePermission)('leads.view'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -134,6 +141,7 @@ __decorate([
 ], LeadsController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Put)(':id'),
+    (0, permissions_decorator_1.RequirePermission)('leads.update'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Req)()),
@@ -143,6 +151,7 @@ __decorate([
 ], LeadsController.prototype, "update", null);
 __decorate([
     (0, common_1.Patch)(':id/status'),
+    (0, permissions_decorator_1.RequirePermission)('leads.update'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Req)()),
@@ -152,6 +161,7 @@ __decorate([
 ], LeadsController.prototype, "updateStatus", null);
 __decorate([
     (0, common_1.Delete)(':id'),
+    (0, permissions_decorator_1.RequirePermission)('leads.delete'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -159,8 +169,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], LeadsController.prototype, "remove", null);
 exports.LeadsController = LeadsController = __decorate([
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     (0, common_1.Controller)('leads'),
     __metadata("design:paramtypes", [leads_service_1.LeadsService])
 ], LeadsController);

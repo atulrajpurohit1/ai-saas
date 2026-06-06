@@ -48,12 +48,15 @@ const prisma_service_1 = require("../prisma/prisma.service");
 const audit_service_1 = require("../audit/audit.service");
 const branch_scope_1 = require("../branches/branch-scope");
 const bcrypt = __importStar(require("bcrypt"));
+const webhooks_service_1 = require("../webhooks/webhooks.service");
 let GuardsService = class GuardsService {
     prisma;
     auditService;
-    constructor(prisma, auditService) {
+    webhooksService;
+    constructor(prisma, auditService, webhooksService) {
         this.prisma = prisma;
         this.auditService = auditService;
+        this.webhooksService = webhooksService;
     }
     normalizeContact(dto) {
         const phone = dto.phone?.trim() || undefined;
@@ -93,7 +96,9 @@ let GuardsService = class GuardsService {
             entityId: guard.id,
             details: `Guard "${guard.name}" created`,
         });
-        return this.withoutPasswordHash(guard);
+        const safeGuard = this.withoutPasswordHash(guard);
+        await this.webhooksService.triggerEvent(user.tenantId, 'guard.created', { guard: safeGuard });
+        return safeGuard;
     }
     async findAll(user, requestedBranchId) {
         try {
@@ -201,6 +206,7 @@ exports.GuardsService = GuardsService;
 exports.GuardsService = GuardsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        audit_service_1.AuditService])
+        audit_service_1.AuditService,
+        webhooks_service_1.WebhooksService])
 ], GuardsService);
 //# sourceMappingURL=guards.service.js.map

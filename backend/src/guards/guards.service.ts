@@ -7,12 +7,14 @@ import { CreateGuardDto } from './dto/create-guard.dto';
 import { UpdateGuardDto } from './dto/update-guard.dto';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 import * as bcrypt from 'bcrypt';
+import { WebhooksService } from '../webhooks/webhooks.service';
 
 @Injectable()
 export class GuardsService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
+    private webhooksService: WebhooksService,
   ) {}
 
   private normalizeContact(dto: CreateGuardDto | UpdateGuardDto) {
@@ -62,7 +64,10 @@ export class GuardsService {
       details: `Guard "${guard.name}" created`,
     });
 
-    return this.withoutPasswordHash(guard);
+    const safeGuard = this.withoutPasswordHash(guard);
+    await this.webhooksService.triggerEvent(user.tenantId, 'guard.created', { guard: safeGuard });
+
+    return safeGuard;
   }
 
   async findAll(user: ActiveUser, requestedBranchId?: string | null) {

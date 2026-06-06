@@ -1,15 +1,15 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { AiInsightsService } from './ai-insights.service';
 import { RevenueInsightsService } from './revenue-insights.service';
 
 @Controller('ai-insights')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@UseGuards(JwtAuthGuard, PermissionGuard)
+@RequirePermission('ai.view')
 export class AiInsightsController {
   constructor(
     private readonly aiInsightsService: AiInsightsService,
@@ -42,13 +42,13 @@ export class AiInsightsController {
   }
 
   @Get('incidents')
-  @Roles('admin', 'supervisor')
+  @RequirePermission('incidents.view')
   incidents(@GetUser() user: ActiveUser) {
     return this.aiInsightsService.getIncidentInsights(user.tenantId, user.sub);
   }
 
   @Get('revenue')
-  @Roles('admin', 'finance')
+  @RequirePermission('finance.view')
   revenue(@GetUser() user: ActiveUser) {
     return this.revenueInsightsService.getRevenueDashboard(
       user.tenantId,
@@ -57,7 +57,7 @@ export class AiInsightsController {
   }
 
   @Get('contracts')
-  @Roles('admin', 'finance')
+  @RequirePermission('finance.view')
   contracts(@GetUser() user: ActiveUser) {
     return this.revenueInsightsService.getContractInsights(
       user.tenantId,
@@ -66,7 +66,7 @@ export class AiInsightsController {
   }
 
   @Get('client-value')
-  @Roles('admin', 'finance')
+  @RequirePermission('finance.view')
   clientValue(@GetUser() user: ActiveUser) {
     return this.revenueInsightsService.getClientValueAnalysis(
       user.tenantId,
@@ -75,7 +75,7 @@ export class AiInsightsController {
   }
 
   @Get('renewals')
-  @Roles('admin', 'finance')
+  @RequirePermission('finance.view')
   renewals(@GetUser() user: ActiveUser) {
     return this.revenueInsightsService.getRenewalOpportunities(
       user.tenantId,
@@ -84,7 +84,7 @@ export class AiInsightsController {
   }
 
   @Get('recommendations')
-  @Roles('admin', 'finance')
+  @RequirePermission('finance.view')
   recommendations(@GetUser() user: ActiveUser) {
     return this.revenueInsightsService.getFinancialRecommendations(
       user.tenantId,

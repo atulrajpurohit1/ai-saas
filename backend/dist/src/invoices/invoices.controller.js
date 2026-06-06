@@ -15,9 +15,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.InvoicesController = void 0;
 const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
+const permission_guard_1 = require("../auth/guards/permission.guard");
 const generate_invoice_dto_1 = require("./dto/generate-invoice.dto");
 const invoices_service_1 = require("./invoices.service");
 let InvoicesController = class InvoicesController {
@@ -56,6 +56,7 @@ let InvoicesController = class InvoicesController {
 exports.InvoicesController = InvoicesController;
 __decorate([
     (0, common_1.Post)('generate'),
+    (0, permissions_decorator_1.RequirePermission)('invoices.generate'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -72,6 +73,7 @@ __decorate([
 ], InvoicesController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)(':id/export-pdf'),
+    (0, permissions_decorator_1.RequirePermission)('invoices.export'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Res)()),
@@ -89,6 +91,7 @@ __decorate([
 ], InvoicesController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Post)(':id/issue'),
+    (0, permissions_decorator_1.RequirePermission)('invoices.issue'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -97,6 +100,7 @@ __decorate([
 ], InvoicesController.prototype, "issue", null);
 __decorate([
     (0, common_1.Post)(':id/mark-paid'),
+    (0, permissions_decorator_1.RequirePermission)('invoices.mark_paid'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -105,6 +109,7 @@ __decorate([
 ], InvoicesController.prototype, "markPaid", null);
 __decorate([
     (0, common_1.Post)(':id/cancel'),
+    (0, permissions_decorator_1.RequirePermission)('invoices.cancel'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -113,8 +118,8 @@ __decorate([
 ], InvoicesController.prototype, "cancel", null);
 exports.InvoicesController = InvoicesController = __decorate([
     (0, common_1.Controller)('invoices'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.RequirePermission)('invoices.view'),
     __metadata("design:paramtypes", [invoices_service_1.InvoicesService])
 ], InvoicesController);
 //# sourceMappingURL=invoices.controller.js.map

@@ -11,6 +11,7 @@ import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
 import { KnowledgeRetrievalService } from '../knowledge-base/knowledge-retrieval.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { CreateIncidentDto, INCIDENT_SEVERITIES } from './dto/create-incident.dto';
 import { IncidentReviewStatus, INCIDENT_REVIEW_STATUSES, ReviewIncidentDto } from './dto/review-incident.dto';
 
@@ -69,6 +70,7 @@ export class IncidentsService {
     private auditService: AuditService,
     private knowledgeBaseService: KnowledgeBaseService,
     private knowledgeRetrievalService: KnowledgeRetrievalService,
+    private webhooksService: WebhooksService,
   ) {}
 
   private mapIncident(row: IncidentRow) {
@@ -399,7 +401,10 @@ export class IncidentsService {
       details: `Guard "${assignment.guard.name}" submitted incident "${incident.title}"`,
     });
 
-    return this.mapIncident(incident);
+    const mappedIncident = this.mapIncident(incident);
+    await this.webhooksService.triggerEvent(tenantId, 'incident.created', { incident: mappedIncident });
+
+    return mappedIncident;
   }
 
   async findForGuard(tenantId: string, guardId: string) {
@@ -542,6 +547,9 @@ export class IncidentsService {
         user.sub,
         this.mapIncident(reviewedIncident),
       );
+      await this.webhooksService.triggerEvent(user.tenantId, 'incident.approved', {
+        incident: this.mapIncident(reviewedIncident),
+      });
     }
 
     return this.mapIncident(reviewedIncident);

@@ -16,8 +16,8 @@ exports.NotesController = void 0;
 const common_1 = require("@nestjs/common");
 const notes_service_1 = require("./notes.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permission_guard_1 = require("../auth/guards/permission.guard");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 let NotesController = class NotesController {
     notesService;
@@ -66,8 +66,8 @@ __decorate([
 ], NotesController.prototype, "remove", null);
 exports.NotesController = NotesController = __decorate([
     (0, common_1.Controller)('notes'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.RequirePermission)('notes.manage'),
     __metadata("design:paramtypes", [notes_service_1.NotesService])
 ], NotesController);
 //# sourceMappingURL=notes.controller.js.map

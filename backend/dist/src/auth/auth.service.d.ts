@@ -3,12 +3,14 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-type AdminPortalRole = 'admin' | 'finance';
+import { RolesService } from '../roles/roles.service';
+type AdminPortalRole = string;
 export declare class AuthService {
     private prisma;
     private jwtService;
     private configService;
-    constructor(prisma: PrismaService, jwtService: JwtService, configService: ConfigService);
+    private rolesService;
+    constructor(prisma: PrismaService, jwtService: JwtService, configService: ConfigService, rolesService: RolesService);
     private mapUserRole;
     register(dto: RegisterDto): Promise<{
         access_token: string;

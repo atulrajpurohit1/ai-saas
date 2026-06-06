@@ -15,15 +15,18 @@ const client_1 = require("@prisma/client");
 const audit_service_1 = require("../audit/audit.service");
 const branch_scope_1 = require("../branches/branch-scope");
 const prisma_service_1 = require("../prisma/prisma.service");
+const webhooks_service_1 = require("../webhooks/webhooks.service");
 const TAX_RATE = 0;
 const CLIENT_VISIBLE_STATUSES = ['issued', 'disputed', 'resolved', 'paid'];
 const PAYABLE_STATUSES = ['issued', 'resolved'];
 let InvoicesService = class InvoicesService {
     prisma;
     auditService;
-    constructor(prisma, auditService) {
+    webhooksService;
+    constructor(prisma, auditService, webhooksService) {
         this.prisma = prisma;
         this.auditService = auditService;
+        this.webhooksService = webhooksService;
     }
     parseBillingDate(value, fieldName) {
         const trimmed = value?.trim();
@@ -567,7 +570,11 @@ let InvoicesService = class InvoicesService {
                 entityId: invoice.id,
                 details: `Invoice ${invoice.invoiceNumber} generated for "${client.companyName || client.name}" at "${site.name}" using ${rate.rateSource}`,
             });
-            return this.mapInvoice(invoice);
+            const mappedInvoice = this.mapInvoice(invoice);
+            await this.webhooksService.triggerEvent(user.tenantId, 'invoice.generated', {
+                invoice: mappedInvoice,
+            });
+            return mappedInvoice;
         }
         catch (error) {
             if (this.isUniqueConflict(error)) {
@@ -635,7 +642,11 @@ let InvoicesService = class InvoicesService {
             entityId: invoice.id,
             details: `Invoice ${invoice.invoiceNumber} marked paid`,
         });
-        return this.mapInvoice(invoice);
+        const mappedInvoice = this.mapInvoice(invoice);
+        await this.webhooksService.triggerEvent(user.tenantId, 'invoice.paid', {
+            invoice: mappedInvoice,
+        });
+        return mappedInvoice;
     }
     async cancelInvoice(user, id) {
         const existing = await this.findInvoiceOrThrow(user, id);
@@ -851,6 +862,7 @@ exports.InvoicesService = InvoicesService;
 exports.InvoicesService = InvoicesService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        audit_service_1.AuditService])
+        audit_service_1.AuditService,
+        webhooks_service_1.WebhooksService])
 ], InvoicesService);
 //# sourceMappingURL=invoices.service.js.map

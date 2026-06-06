@@ -10,18 +10,18 @@ import {
 } from '@nestjs/common';
 import { ActivitiesService } from './activities.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { PermissionGuard } from '../auth/guards/permission.guard';
+import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 
 @Controller('activities')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@UseGuards(JwtAuthGuard, PermissionGuard)
 export class ActivitiesController {
   constructor(private readonly activitiesService: ActivitiesService) {}
 
   @Post()
+  @RequirePermission('activities.manage')
   create(@Body() body: any, @GetUser() user: ActiveUser) {
     return this.activitiesService.create({
       ...body,
@@ -31,11 +31,13 @@ export class ActivitiesController {
   }
 
   @Get()
+  @RequirePermission('activities.view')
   findAll(@Query('dealId') dealId: string, @GetUser() user: ActiveUser) {
     return this.activitiesService.findAll(user.tenantId, dealId);
   }
 
   @Patch(':id/status')
+  @RequirePermission('activities.manage')
   updateStatus(
     @Param('id') id: string,
     @Body('status') status: string,

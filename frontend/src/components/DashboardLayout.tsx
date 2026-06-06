@@ -9,13 +9,31 @@ import { Menu } from 'lucide-react';
 interface DashboardLayoutProps {
   children: React.ReactNode;
   allowedRoles?: User['role'][];
+  requiredPermissions?: string | string[];
 }
 
-export default function DashboardLayout({ children, allowedRoles }: DashboardLayoutProps) {
-  const { user, loading } = useAuth();
+export default function DashboardLayout({ children, allowedRoles, requiredPermissions }: DashboardLayoutProps) {
+  const { user, loading, can } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const isBlocked = Boolean(user && allowedRoles && !allowedRoles.includes(user.role));
+  const permissionsBlocked = Boolean(user && requiredPermissions && !can(requiredPermissions));
+  const isBlocked = Boolean(
+    user &&
+      ((allowedRoles && !allowedRoles.includes(user.role)) || permissionsBlocked),
+  );
+
+  const fallbackPath = () => {
+    const permissions = new Set(user?.permissions || []);
+    if (user?.role === 'client') return '/client/dashboard';
+    if (permissions.has('dashboard.view')) return '/';
+    if (permissions.has('shifts.view')) return '/shifts';
+    if (permissions.has('finance.view')) return '/finance';
+    if (permissions.has('invoices.view')) return '/invoices';
+    if (permissions.has('leads.view')) return '/leads';
+    if (permissions.has('integrations.view')) return '/integrations';
+    if (permissions.has('api_keys.view')) return '/settings/api-keys';
+    return '/login';
+  };
 
   useEffect(() => {
     if (!loading && !user) {
@@ -25,7 +43,7 @@ export default function DashboardLayout({ children, allowedRoles }: DashboardLay
 
   useEffect(() => {
     if (!loading && user && isBlocked) {
-      router.push(user.role === 'client' ? '/client/dashboard' : '/login');
+      router.push(fallbackPath());
     }
   }, [isBlocked, loading, router, user]);
 

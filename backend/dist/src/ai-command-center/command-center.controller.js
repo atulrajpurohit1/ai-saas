@@ -15,9 +15,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CommandCenterController = void 0;
 const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
+const permission_guard_1 = require("../auth/guards/permission.guard");
 const command_center_service_1 = require("./command-center.service");
 let CommandCenterController = class CommandCenterController {
     commandCenterService;
@@ -68,8 +68,8 @@ __decorate([
 ], CommandCenterController.prototype, "getRisks", null);
 exports.CommandCenterController = CommandCenterController = __decorate([
     (0, common_1.Controller)('ai-command-center'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin', 'finance'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.RequirePermission)('ai.view'),
     __metadata("design:paramtypes", [command_center_service_1.CommandCenterService])
 ], CommandCenterController);
 //# sourceMappingURL=command-center.controller.js.map

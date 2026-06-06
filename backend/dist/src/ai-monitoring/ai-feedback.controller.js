@@ -15,9 +15,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AiFeedbackController = void 0;
 const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
+const permission_guard_1 = require("../auth/guards/permission.guard");
 const ai_monitoring_service_1 = require("./ai-monitoring.service");
 const create_ai_feedback_dto_1 = require("./dto/create-ai-feedback.dto");
 let AiFeedbackController = class AiFeedbackController {
@@ -50,8 +50,8 @@ __decorate([
 ], AiFeedbackController.prototype, "findAll", null);
 exports.AiFeedbackController = AiFeedbackController = __decorate([
     (0, common_1.Controller)('ai-feedback'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.RequirePermission)('ai.manage'),
     __metadata("design:paramtypes", [ai_monitoring_service_1.AiMonitoringService])
 ], AiFeedbackController);
 //# sourceMappingURL=ai-feedback.controller.js.map

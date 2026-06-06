@@ -17,8 +17,8 @@ const common_1 = require("@nestjs/common");
 const ai_service_1 = require("./ai.service");
 const generate_proposal_dto_1 = require("./dto/generate-proposal.dto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permission_guard_1 = require("../auth/guards/permission.guard");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 let AiController = class AiController {
     aiService;
     constructor(aiService) {
@@ -30,8 +30,8 @@ let AiController = class AiController {
 };
 exports.AiController = AiController;
 __decorate([
-    (0, roles_decorator_1.Roles)('admin'),
     (0, common_1.Post)('proposal-draft'),
+    (0, permissions_decorator_1.RequirePermission)('ai.view', 'proposals.create'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -39,7 +39,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AiController.prototype, "generateProposalDraft", null);
 exports.AiController = AiController = __decorate([
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     (0, common_1.Controller)('ai'),
     __metadata("design:paramtypes", [ai_service_1.AiService])
 ], AiController);

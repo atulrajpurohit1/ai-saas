@@ -3,10 +3,12 @@ import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
+import { WebhooksService } from '../webhooks/webhooks.service';
 export declare class ClientsService {
     private prisma;
     private auditService;
-    constructor(prisma: PrismaService, auditService: AuditService);
+    private webhooksService;
+    constructor(prisma: PrismaService, auditService: AuditService, webhooksService: WebhooksService);
     create(user: ActiveUser, dto: CreateClientDto): Promise<{
         id: string;
         name: string;

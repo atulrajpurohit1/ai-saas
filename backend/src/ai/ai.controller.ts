@@ -9,16 +9,16 @@ import {
 import { AiService, AiProposalDraftResponse } from './ai.service';
 import { GenerateProposalDto } from './dto/generate-proposal.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { PermissionGuard } from '../auth/guards/permission.guard';
+import { RequirePermission } from '../auth/decorators/permissions.decorator';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('ai')
 export class AiController {
   constructor(private readonly aiService: AiService) {}
 
-  @Roles('admin')
   @Post('proposal-draft')
+  @RequirePermission('ai.view', 'proposals.create')
   @HttpCode(HttpStatus.OK)
   generateProposalDraft(
     @Body() dto: GenerateProposalDto,

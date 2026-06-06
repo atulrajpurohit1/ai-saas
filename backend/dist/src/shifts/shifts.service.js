@@ -15,14 +15,17 @@ const prisma_service_1 = require("../prisma/prisma.service");
 const audit_service_1 = require("../audit/audit.service");
 const recommendation_service_1 = require("../ai-insights/recommendation.service");
 const branch_scope_1 = require("../branches/branch-scope");
+const webhooks_service_1 = require("../webhooks/webhooks.service");
 let ShiftsService = class ShiftsService {
     prisma;
     auditService;
     recommendationService;
-    constructor(prisma, auditService, recommendationService) {
+    webhooksService;
+    constructor(prisma, auditService, recommendationService, webhooksService) {
         this.prisma = prisma;
         this.auditService = auditService;
         this.recommendationService = recommendationService;
+        this.webhooksService = webhooksService;
     }
     summarizeAttendance(events) {
         const checkIn = events.find((event) => event.type === 'CHECK_IN');
@@ -68,6 +71,7 @@ let ShiftsService = class ShiftsService {
             entityId: shift.id,
             details: `Shift created for site "${site.name}" (${dto.requiredGuards} guards)`,
         });
+        await this.webhooksService.triggerEvent(user.tenantId, 'shift.created', { shift });
         return shift;
     }
     async findAll(user, requestedBranchId) {
@@ -201,6 +205,11 @@ let ShiftsService = class ShiftsService {
             entityId: shiftId,
             details: `Guard "${guard.name}" assigned to shift at "${shiftId}"`,
         });
+        await this.webhooksService.triggerEvent(user.tenantId, 'shift.assigned', {
+            shift_id: shiftId,
+            guard_id: guardId,
+            assignment: result,
+        });
         if (selectedRecommendation) {
             await this.auditService.log({
                 tenantId: user.tenantId,
@@ -250,6 +259,7 @@ exports.ShiftsService = ShiftsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         audit_service_1.AuditService,
-        recommendation_service_1.RecommendationService])
+        recommendation_service_1.RecommendationService,
+        webhooks_service_1.WebhooksService])
 ], ShiftsService);
 //# sourceMappingURL=shifts.service.js.map

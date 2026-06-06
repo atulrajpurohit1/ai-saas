@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
+import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { GuardRecommendation } from '@/lib/ai-insights';
 import { branchParams, BranchSummary } from '@/lib/branches';
@@ -42,6 +43,9 @@ interface Shift {
 }
 
 export default function ShiftsPage() {
+  const { can } = useAuth();
+  const canCreateShift = can('shifts.create');
+  const canAssignShift = can('shifts.assign');
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [guards, setGuards] = useState<Guard[]>([]);
@@ -93,9 +97,9 @@ export default function ShiftsPage() {
 
   useEffect(() => {
     fetchShifts();
-    fetchSites();
-    fetchGuards();
-  }, [selectedBranchId]);
+    if (canCreateShift) fetchSites();
+    if (canAssignShift) fetchGuards();
+  }, [selectedBranchId, canCreateShift, canAssignShift]);
 
   const resetAssignModal = () => {
     setShowAssignModal(false);
@@ -122,6 +126,7 @@ export default function ShiftsPage() {
   };
 
   const openAssignModal = (shiftId: string) => {
+    if (!canAssignShift) return;
     setSelectedShift(shiftId);
     setSelectedGuard('');
     setShowAssignModal(true);
@@ -157,6 +162,7 @@ export default function ShiftsPage() {
 
   const handleCreateShift = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canCreateShift) return;
     try {
       await api.post('v2/shifts', { ...newShift, branch_id: selectedBranchId || null });
       setShowModal(false);
@@ -197,19 +203,21 @@ export default function ShiftsPage() {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout requiredPermissions="shifts.view">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
           <h2 className="text-2xl font-bold sm:text-3xl">Shift Management</h2>
           <p className="text-muted-foreground">Schedule and manage guard presence at client sites.</p>
         </div>
-        <button 
-          onClick={() => setShowModal(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-indigo-500 sm:w-auto"
-        >
-          <Plus size={20} />
-          <span>Create Shift</span>
-        </button>
+        {canCreateShift && (
+          <button 
+            onClick={() => setShowModal(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-indigo-500 sm:w-auto"
+          >
+            <Plus size={20} />
+            <span>Create Shift</span>
+          </button>
+        )}
       </div>
 
       <div className="glass-card rounded-3xl overflow-hidden border border-white/5">
@@ -304,7 +312,9 @@ export default function ShiftsPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-right" data-label="Actions">
-                    {shift.assignments && shift.assignments.length > 0 ? (
+                    {!canAssignShift ? (
+                      <span className="text-xs font-semibold text-slate-500">No actions</span>
+                    ) : shift.assignments && shift.assignments.length > 0 ? (
                        <button 
                          onClick={() => handleUnassign(shift.id)}
                          className="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-500 px-3 py-1.5 rounded-lg font-medium transition-colors"

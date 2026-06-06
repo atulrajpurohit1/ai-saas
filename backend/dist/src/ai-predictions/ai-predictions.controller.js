@@ -15,9 +15,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AiPredictionsController = void 0;
 const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
+const permission_guard_1 = require("../auth/guards/permission.guard");
 const prediction_engine_service_1 = require("./prediction-engine.service");
 let AiPredictionsController = class AiPredictionsController {
     predictionEngineService;
@@ -38,8 +38,8 @@ __decorate([
 ], AiPredictionsController.prototype, "dashboard", null);
 exports.AiPredictionsController = AiPredictionsController = __decorate([
     (0, common_1.Controller)('ai-predictions'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.RequirePermission)('ai.manage'),
     __metadata("design:paramtypes", [prediction_engine_service_1.PredictionEngineService])
 ], AiPredictionsController);
 //# sourceMappingURL=ai-predictions.controller.js.map

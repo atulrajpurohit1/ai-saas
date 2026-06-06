@@ -40,11 +40,23 @@ import { AiCopilotModule } from './ai-copilot/ai-copilot.module';
 import { AiPredictionsModule } from './ai-predictions/ai-predictions.module';
 import { AiExecutiveCenterModule } from './ai-executive-center/ai-executive-center.module';
 import { BranchesModule } from './branches/branches.module';
+import { RolesModule } from './roles/roles.module';
+import { ApiKeysModule } from './api-keys/api-keys.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
+import { PublicApiModule } from './public-api/public-api.module';
+import { IntegrationsModule } from './integrations/integrations.module';
+import { ApiDocsModule } from './api-docs/api-docs.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    RolesModule,
+    ApiKeysModule,
+    WebhooksModule,
+    PublicApiModule,
+    IntegrationsModule,
+    ApiDocsModule,
     UsersModule,
     AuthModule,
     ClientAuthModule,

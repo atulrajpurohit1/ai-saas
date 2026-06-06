@@ -19,8 +19,6 @@ const register_dto_1 = require("./dto/register.dto");
 const login_dto_1 = require("./dto/login.dto");
 const jwt_auth_guard_1 = require("./guards/jwt-auth.guard");
 const jwt_refresh_guard_1 = require("./guards/jwt-refresh.guard");
-const roles_guard_1 = require("./guards/roles.guard");
-const roles_decorator_1 = require("./decorators/roles.decorator");
 let AuthController = class AuthController {
     authService;
     constructor(authService) {
@@ -59,8 +57,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "login", null);
 __decorate([
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin', 'finance'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Post)('logout'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __param(0, (0, common_1.Req)()),
@@ -69,8 +66,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "logout", null);
 __decorate([
-    (0, common_1.UseGuards)(jwt_refresh_guard_1.JwtRefreshGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin', 'finance'),
+    (0, common_1.UseGuards)(jwt_refresh_guard_1.JwtRefreshGuard),
     (0, common_1.Post)('refresh'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __param(0, (0, common_1.Req)()),

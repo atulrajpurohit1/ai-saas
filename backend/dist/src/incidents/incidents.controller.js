@@ -15,9 +15,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.IncidentsController = void 0;
 const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
+const permission_guard_1 = require("../auth/guards/permission.guard");
 const review_incident_dto_1 = require("./dto/review-incident.dto");
 const incidents_service_1 = require("./incidents.service");
 let IncidentsController = class IncidentsController {
@@ -65,6 +65,7 @@ __decorate([
 ], IncidentsController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Post)(':id/review'),
+    (0, permissions_decorator_1.RequirePermission)('incidents.review'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)()),
@@ -74,8 +75,8 @@ __decorate([
 ], IncidentsController.prototype, "review", null);
 exports.IncidentsController = IncidentsController = __decorate([
     (0, common_1.Controller)('incidents'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin', 'supervisor'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.RequirePermission)('incidents.view'),
     __metadata("design:paramtypes", [incidents_service_1.IncidentsService])
 ], IncidentsController);
 //# sourceMappingURL=incidents.controller.js.map

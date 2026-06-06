@@ -15,9 +15,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AiInsightsController = void 0;
 const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
+const permission_guard_1 = require("../auth/guards/permission.guard");
 const ai_insights_service_1 = require("./ai-insights.service");
 const revenue_insights_service_1 = require("./revenue-insights.service");
 let AiInsightsController = class AiInsightsController {
@@ -99,7 +99,7 @@ __decorate([
 ], AiInsightsController.prototype, "billing", null);
 __decorate([
     (0, common_1.Get)('incidents'),
-    (0, roles_decorator_1.Roles)('admin', 'supervisor'),
+    (0, permissions_decorator_1.RequirePermission)('incidents.view'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -107,7 +107,7 @@ __decorate([
 ], AiInsightsController.prototype, "incidents", null);
 __decorate([
     (0, common_1.Get)('revenue'),
-    (0, roles_decorator_1.Roles)('admin', 'finance'),
+    (0, permissions_decorator_1.RequirePermission)('finance.view'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -115,7 +115,7 @@ __decorate([
 ], AiInsightsController.prototype, "revenue", null);
 __decorate([
     (0, common_1.Get)('contracts'),
-    (0, roles_decorator_1.Roles)('admin', 'finance'),
+    (0, permissions_decorator_1.RequirePermission)('finance.view'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -123,7 +123,7 @@ __decorate([
 ], AiInsightsController.prototype, "contracts", null);
 __decorate([
     (0, common_1.Get)('client-value'),
-    (0, roles_decorator_1.Roles)('admin', 'finance'),
+    (0, permissions_decorator_1.RequirePermission)('finance.view'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -131,7 +131,7 @@ __decorate([
 ], AiInsightsController.prototype, "clientValue", null);
 __decorate([
     (0, common_1.Get)('renewals'),
-    (0, roles_decorator_1.Roles)('admin', 'finance'),
+    (0, permissions_decorator_1.RequirePermission)('finance.view'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -139,7 +139,7 @@ __decorate([
 ], AiInsightsController.prototype, "renewals", null);
 __decorate([
     (0, common_1.Get)('recommendations'),
-    (0, roles_decorator_1.Roles)('admin', 'finance'),
+    (0, permissions_decorator_1.RequirePermission)('finance.view'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -147,8 +147,8 @@ __decorate([
 ], AiInsightsController.prototype, "recommendations", null);
 exports.AiInsightsController = AiInsightsController = __decorate([
     (0, common_1.Controller)('ai-insights'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.RequirePermission)('ai.view'),
     __metadata("design:paramtypes", [ai_insights_service_1.AiInsightsService,
         revenue_insights_service_1.RevenueInsightsService])
 ], AiInsightsController);

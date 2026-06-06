@@ -7,9 +7,10 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
+import { RolesModule } from '../roles/roles.module';
 
 @Module({
-  imports: [UsersModule, PrismaModule, ConfigModule, JwtModule.register({})],
+  imports: [UsersModule, PrismaModule, ConfigModule, JwtModule.register({}), RolesModule],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, JwtRefreshStrategy],
 })

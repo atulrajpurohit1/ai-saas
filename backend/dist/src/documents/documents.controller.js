@@ -16,8 +16,8 @@ exports.DocumentsController = void 0;
 const common_1 = require("@nestjs/common");
 const documents_service_1 = require("./documents.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permission_guard_1 = require("../auth/guards/permission.guard");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const create_document_dto_1 = require("./dto/create-document.dto");
 let DocumentsController = class DocumentsController {
     documentsService;
@@ -43,7 +43,6 @@ let DocumentsController = class DocumentsController {
 };
 exports.DocumentsController = DocumentsController;
 __decorate([
-    (0, roles_decorator_1.Roles)('admin'),
     (0, common_1.Post)(),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
@@ -52,7 +51,6 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], DocumentsController.prototype, "create", null);
 __decorate([
-    (0, roles_decorator_1.Roles)('admin'),
     (0, common_1.Get)(),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Query)('clientId')),
@@ -61,7 +59,6 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], DocumentsController.prototype, "findAll", null);
 __decorate([
-    (0, roles_decorator_1.Roles)('admin'),
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),
@@ -70,7 +67,6 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], DocumentsController.prototype, "findOne", null);
 __decorate([
-    (0, roles_decorator_1.Roles)('admin'),
     (0, common_1.Delete)(':id'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),
@@ -80,7 +76,8 @@ __decorate([
 ], DocumentsController.prototype, "remove", null);
 exports.DocumentsController = DocumentsController = __decorate([
     (0, common_1.Controller)('documents'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.RequirePermission)('documents.manage'),
     __metadata("design:paramtypes", [documents_service_1.DocumentsService])
 ], DocumentsController);
 //# sourceMappingURL=documents.controller.js.map

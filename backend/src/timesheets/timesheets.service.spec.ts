@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { PrismaService } from '../prisma/prisma.service';
 import { TimesheetsService } from './timesheets.service';
 
@@ -8,6 +9,7 @@ describe('TimesheetsService', () => {
   let prisma: {
     timesheet: {
       findFirst: jest.Mock;
+      findMany: jest.Mock;
       update: jest.Mock;
     };
     invoiceItem: {
@@ -20,6 +22,7 @@ describe('TimesheetsService', () => {
     prisma = {
       timesheet: {
         findFirst: jest.fn(),
+        findMany: jest.fn(),
         update: jest.fn(),
       },
       invoiceItem: {
@@ -29,6 +32,14 @@ describe('TimesheetsService', () => {
     auditService = { log: jest.fn().mockResolvedValue(undefined) };
     service = new TimesheetsService(prisma as unknown as PrismaService, auditService as unknown as AuditService);
   });
+
+  const adminUser: ActiveUser = {
+    sub: 'admin-1',
+    tenantId: 'tenant-1',
+    role: 'admin',
+    branchId: 'branch-1',
+    isSuperAdmin: false,
+  };
 
   it('does not approve a zero-hour timesheet', async () => {
     prisma.timesheet.findFirst.mockResolvedValue({
@@ -72,22 +83,31 @@ describe('TimesheetsService', () => {
     });
 
     await expect(
-      service.approve({
-        tenantId: 'tenant-1',
-        userId: 'admin-1',
-        userRole: 'admin',
-        timesheetId: 'timesheet-1',
-      }),
+      service.approve(adminUser, 'timesheet-1'),
     ).rejects.toThrow(BadRequestException);
     await expect(
-      service.approve({
-        tenantId: 'tenant-1',
-        userId: 'admin-1',
-        userRole: 'admin',
-        timesheetId: 'timesheet-1',
-      }),
+      service.approve(adminUser, 'timesheet-1'),
     ).rejects.toThrow('Timesheet must have billable hours before approval. Correct the hours first.');
     expect(prisma.timesheet.update).not.toHaveBeenCalled();
     expect(auditService.log).not.toHaveBeenCalled();
+  });
+
+  it('limits branch admins to their branch and unassigned timesheets', async () => {
+    prisma.timesheet.findMany.mockResolvedValue([]);
+
+    await service.findAllForAdmin(adminUser, 'pending');
+
+    expect(prisma.timesheet.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenantId: 'tenant-1',
+          status: 'pending',
+          OR: [
+            { shift: { branchId: 'branch-1' } },
+            { shift: { branchId: null } },
+          ],
+        }),
+      }),
+    );
   });
 });

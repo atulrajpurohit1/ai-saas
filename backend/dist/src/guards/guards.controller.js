@@ -16,8 +16,8 @@ exports.GuardsController = void 0;
 const common_1 = require("@nestjs/common");
 const guards_service_1 = require("./guards.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permission_guard_1 = require("../auth/guards/permission.guard");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const create_guard_dto_1 = require("./dto/create-guard.dto");
 const update_guard_dto_1 = require("./dto/update-guard.dto");
@@ -46,6 +46,7 @@ let GuardsController = class GuardsController {
 exports.GuardsController = GuardsController;
 __decorate([
     (0, common_1.Post)(),
+    (0, permissions_decorator_1.RequirePermission)('guards.manage'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -62,6 +63,7 @@ __decorate([
 ], GuardsController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Put)(':id'),
+    (0, permissions_decorator_1.RequirePermission)('guards.manage'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)()),
@@ -79,6 +81,7 @@ __decorate([
 ], GuardsController.prototype, "getAvailability", null);
 __decorate([
     (0, common_1.Put)(':id/availability'),
+    (0, permissions_decorator_1.RequirePermission)('guards.manage'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)()),
@@ -88,8 +91,8 @@ __decorate([
 ], GuardsController.prototype, "updateAvailability", null);
 exports.GuardsController = GuardsController = __decorate([
     (0, common_1.Controller)('v2/guards'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.RequirePermission)('guards.view'),
     __metadata("design:paramtypes", [guards_service_1.GuardsService])
 ], GuardsController);
 //# sourceMappingURL=guards.controller.js.map

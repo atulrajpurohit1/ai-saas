@@ -15,9 +15,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TimesheetsController = void 0;
 const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
+const permission_guard_1 = require("../auth/guards/permission.guard");
 const correct_timesheet_dto_1 = require("./dto/correct-timesheet.dto");
 const reject_timesheet_dto_1 = require("./dto/reject-timesheet.dto");
 const timesheets_service_1 = require("./timesheets.service");
@@ -26,26 +26,20 @@ let TimesheetsController = class TimesheetsController {
     constructor(timesheetsService) {
         this.timesheetsService = timesheetsService;
     }
-    findAll(user, status) {
-        return this.timesheetsService.findAllForAdmin(user.tenantId, status);
+    findAll(user, status, branchId) {
+        return this.timesheetsService.findAllForAdmin(user, status, branchId);
     }
     findOne(user, id) {
-        return this.timesheetsService.findOneForAdmin(user.tenantId, id);
+        return this.timesheetsService.findOneForAdmin(user, id);
     }
     approve(user, id) {
-        return this.timesheetsService.approve({
-            tenantId: user.tenantId,
-            userId: user.sub,
-            userRole: user.role,
-            guardId: user.guardId,
-            timesheetId: id,
-        });
+        return this.timesheetsService.approve(user, id);
     }
     reject(user, id, dto) {
-        return this.timesheetsService.reject(user.tenantId, user.sub, id, dto);
+        return this.timesheetsService.reject(user, id, dto);
     }
     correct(user, id, dto) {
-        return this.timesheetsService.correct(user.tenantId, user.sub, id, dto);
+        return this.timesheetsService.correct(user, id, dto);
     }
 };
 exports.TimesheetsController = TimesheetsController;
@@ -53,8 +47,9 @@ __decorate([
     (0, common_1.Get)(),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Query)('status')),
+    __param(2, (0, common_1.Query)('branch_id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:paramtypes", [Object, String, String]),
     __metadata("design:returntype", void 0)
 ], TimesheetsController.prototype, "findAll", null);
 __decorate([
@@ -67,6 +62,7 @@ __decorate([
 ], TimesheetsController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Post)(':id/approve'),
+    (0, permissions_decorator_1.RequirePermission)('timesheets.approve'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
@@ -75,6 +71,7 @@ __decorate([
 ], TimesheetsController.prototype, "approve", null);
 __decorate([
     (0, common_1.Post)(':id/reject'),
+    (0, permissions_decorator_1.RequirePermission)('timesheets.approve'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)()),
@@ -84,6 +81,7 @@ __decorate([
 ], TimesheetsController.prototype, "reject", null);
 __decorate([
     (0, common_1.Put)(':id/correct'),
+    (0, permissions_decorator_1.RequirePermission)('timesheets.correct'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)()),
@@ -93,8 +91,8 @@ __decorate([
 ], TimesheetsController.prototype, "correct", null);
 exports.TimesheetsController = TimesheetsController = __decorate([
     (0, common_1.Controller)('timesheets'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, roles_decorator_1.Roles)('admin', 'supervisor'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.RequirePermission)('timesheets.view'),
     __metadata("design:paramtypes", [timesheets_service_1.TimesheetsService])
 ], TimesheetsController);
 //# sourceMappingURL=timesheets.controller.js.map

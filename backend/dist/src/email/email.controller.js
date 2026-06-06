@@ -16,8 +16,8 @@ exports.EmailController = void 0;
 const common_1 = require("@nestjs/common");
 const email_service_1 = require("./email.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const roles_guard_1 = require("../auth/guards/roles.guard");
-const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const permission_guard_1 = require("../auth/guards/permission.guard");
+const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 let EmailController = class EmailController {
     emailService;
     constructor(emailService) {
@@ -34,8 +34,8 @@ let EmailController = class EmailController {
 };
 exports.EmailController = EmailController;
 __decorate([
-    (0, roles_decorator_1.Roles)('admin'),
     (0, common_1.Post)('send'),
+    (0, permissions_decorator_1.RequirePermission)('proposals.update'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)('leadId')),
     __metadata("design:type", Function),
@@ -43,15 +43,15 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], EmailController.prototype, "sendEmail", null);
 __decorate([
-    (0, roles_decorator_1.Roles)('admin'),
     (0, common_1.Post)('send-bulk'),
+    (0, permissions_decorator_1.RequirePermission)('proposals.update'),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], EmailController.prototype, "sendBulkEmails", null);
 exports.EmailController = EmailController = __decorate([
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     (0, common_1.Controller)('email'),
     __metadata("design:paramtypes", [email_service_1.EmailService])
 ], EmailController);
