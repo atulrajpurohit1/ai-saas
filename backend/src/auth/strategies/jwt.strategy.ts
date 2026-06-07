@@ -18,6 +18,8 @@ interface JwtPayload {
   client_id?: string;
   guardId?: string;
   guard_id?: string;
+  sessionId?: string;
+  session_id?: string;
 }
 
 @Injectable()
@@ -35,6 +37,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     const branchId = payload.branchId ?? payload.branch_id ?? null;
     const clientId = payload.clientId ?? payload.client_id;
     const guardId = payload.guardId ?? payload.guard_id;
+    const sessionId = payload.sessionId ?? payload.session_id;
     const isSuperAdmin = payload.isSuperAdmin ?? payload.is_super_admin ?? false;
 
     return {
@@ -47,6 +50,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       isSuperAdmin,
       clientId,
       guardId,
+      sessionId,
     };
   }
 }

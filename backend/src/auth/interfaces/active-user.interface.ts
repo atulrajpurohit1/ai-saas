@@ -8,4 +8,5 @@ export interface ActiveUser {
   isSuperAdmin?: boolean;
   clientId?: string;
   guardId?: string;
+  sessionId?: string;
 }

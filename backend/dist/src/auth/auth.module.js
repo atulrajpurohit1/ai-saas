@@ -17,14 +17,16 @@ const config_1 = require("@nestjs/config");
 const jwt_strategy_1 = require("./strategies/jwt.strategy");
 const jwt_refresh_strategy_1 = require("./strategies/jwt-refresh.strategy");
 const roles_module_1 = require("../roles/roles.module");
+const sessions_module_1 = require("../sessions/sessions.module");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
 exports.AuthModule = AuthModule = __decorate([
     (0, common_1.Module)({
-        imports: [users_module_1.UsersModule, prisma_module_1.PrismaModule, config_1.ConfigModule, jwt_1.JwtModule.register({}), roles_module_1.RolesModule],
+        imports: [users_module_1.UsersModule, prisma_module_1.PrismaModule, config_1.ConfigModule, jwt_1.JwtModule.register({}), roles_module_1.RolesModule, sessions_module_1.SessionsModule],
         controllers: [auth_controller_1.AuthController],
         providers: [auth_service_1.AuthService, jwt_strategy_1.JwtStrategy, jwt_refresh_strategy_1.JwtRefreshStrategy],
+        exports: [auth_service_1.AuthService],
     })
 ], AuthModule);
 //# sourceMappingURL=auth.module.js.map

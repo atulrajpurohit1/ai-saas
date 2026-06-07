@@ -151,34 +151,26 @@ let AiCopilotService = class AiCopilotService {
         return [...exports.COPILOT_SUGGESTED_QUESTIONS];
     }
     async createConversation(input) {
-        const rows = await this.prisma.$queryRaw(client_1.Prisma.sql `
-      INSERT INTO "AiConversation" (
-        "tenant_id",
-        "user_id",
-        "question",
-        "answer",
-        "confidence_score",
-        "sources_used"
-      )
-      VALUES (
-        ${input.tenantId},
-        ${input.userId},
-        ${input.question},
-        ${input.answer},
-        ${input.confidenceScore},
-        ${JSON.stringify(input.sources)}::jsonb
-      )
-      RETURNING
-        "id",
-        "tenant_id" AS "tenantId",
-        "user_id" AS "userId",
-        "question",
-        "answer",
-        "confidence_score" AS "confidenceScore",
-        "sources_used" AS "sourcesUsed",
-        "created_at" AS "createdAt"
-    `);
-        return rows[0];
+        const conversation = await this.prisma.aiConversation.create({
+            data: {
+                tenantId: input.tenantId,
+                userId: input.userId,
+                question: input.question,
+                answer: input.answer,
+                confidenceScore: input.confidenceScore,
+                sourcesUsed: input.sources,
+            },
+        });
+        return {
+            id: conversation.id,
+            tenantId: conversation.tenantId,
+            userId: conversation.userId,
+            question: conversation.question,
+            answer: conversation.answer,
+            confidenceScore: conversation.confidenceScore,
+            sourcesUsed: conversation.sourcesUsed,
+            createdAt: conversation.createdAt,
+        };
     }
     knowledgeCategoriesForIntent(intent) {
         switch (intent) {

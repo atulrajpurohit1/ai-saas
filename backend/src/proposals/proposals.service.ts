@@ -4,6 +4,7 @@ import { CreateProposalDto } from './dto/create-proposal.dto';
 import { UpdateProposalDto } from './dto/update-proposal.dto';
 import { AiService } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
+import { BrandingService } from '../branding/branding.service';
 
 @Injectable()
 export class ProposalsService {
@@ -11,6 +12,7 @@ export class ProposalsService {
     private prisma: PrismaService,
     private aiService: AiService,
     private auditService: AuditService,
+    private brandingService: BrandingService,
   ) {}
 
   private async ensureLeadBelongsToTenant(tenantId: string, leadId?: string) {
@@ -57,20 +59,21 @@ export class ProposalsService {
   }
 
   private async buildPdfBuffer(
-    proposal: { title: string; content: string },
+    proposal: { tenantId: string; title: string; content: string },
   ): Promise<Buffer> {
     const PDFDocument = require('pdfkit');
     const doc = new PDFDocument({ margin: 50 });
     const chunks: Buffer[] = [];
+    const branding = await this.brandingService.brandingSnapshot(proposal.tenantId);
 
     return new Promise((resolve, reject) => {
       doc.on('data', (chunk) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      doc.fontSize(25).text(proposal.title, { align: 'center' });
+      this.brandingService.addPdfHeader(doc, proposal.title, branding);
       doc.moveDown();
-      doc.fontSize(12).text(`Generated on: ${new Date().toLocaleDateString()}`, {
+      doc.fontSize(12).fillColor(branding.secondary_color).text(`Generated on: ${new Date().toLocaleDateString()}`, {
         align: 'right',
       });
       doc.moveDown();

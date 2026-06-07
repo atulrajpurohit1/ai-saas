@@ -55,6 +55,9 @@ const webhooks_module_1 = require("./webhooks/webhooks.module");
 const public_api_module_1 = require("./public-api/public-api.module");
 const integrations_module_1 = require("./integrations/integrations.module");
 const api_docs_module_1 = require("./api-docs/api-docs.module");
+const sessions_module_1 = require("./sessions/sessions.module");
+const sso_module_1 = require("./sso/sso.module");
+const branding_module_1 = require("./branding/branding.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -69,6 +72,9 @@ exports.AppModule = AppModule = __decorate([
             public_api_module_1.PublicApiModule,
             integrations_module_1.IntegrationsModule,
             api_docs_module_1.ApiDocsModule,
+            sessions_module_1.SessionsModule,
+            sso_module_1.SsoModule,
+            branding_module_1.BrandingModule,
             users_module_1.UsersModule,
             auth_module_1.AuthModule,
             client_auth_module_1.ClientAuthModule,

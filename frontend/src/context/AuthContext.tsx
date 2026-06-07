@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import type { TenantBranding } from '@/lib/branding';
 
 export interface User {
   id?: string;
@@ -14,6 +15,7 @@ export interface User {
   branchId?: string | null;
   isSuperAdmin?: boolean;
   permissions?: string[];
+  branding?: TenantBranding;
   roles?: {
     assignmentId: string;
     id: string;

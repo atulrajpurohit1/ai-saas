@@ -21,14 +21,14 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  register(@Body() dto: RegisterDto, @Req() req: Request) {
+    return this.authService.register(dto, this.requestContext(req));
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(@Body() dto: LoginDto, @Req() req: Request) {
+    return this.authService.login(dto, this.requestContext(req));
   }
 
 
@@ -38,7 +38,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   logout(@Req() req: Request) {
     const user = req.user as unknown as ActiveUser;
-    return this.authService.logout(user.sub);
+    return this.authService.logout(user.sub, user.tenantId, user.sessionId);
   }
 
   @UseGuards(JwtRefreshGuard)
@@ -50,6 +50,14 @@ export class AuthController {
       user.sub,
       user.refreshToken,
       user.role,
+      user.sessionId,
     );
+  }
+
+  private requestContext(req: Request) {
+    return {
+      ipAddress: (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() || req.ip,
+      userAgent: req.headers['user-agent'] || null,
+    };
   }
 }

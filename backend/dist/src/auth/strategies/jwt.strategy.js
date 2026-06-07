@@ -27,6 +27,7 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
         const branchId = payload.branchId ?? payload.branch_id ?? null;
         const clientId = payload.clientId ?? payload.client_id;
         const guardId = payload.guardId ?? payload.guard_id;
+        const sessionId = payload.sessionId ?? payload.session_id;
         const isSuperAdmin = payload.isSuperAdmin ?? payload.is_super_admin ?? false;
         return {
             sub: payload.sub,
@@ -38,6 +39,7 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
             isSuperAdmin,
             clientId,
             guardId,
+            sessionId,
         };
     }
 };

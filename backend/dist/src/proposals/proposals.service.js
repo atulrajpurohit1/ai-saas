@@ -14,14 +14,17 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const ai_service_1 = require("../ai/ai.service");
 const audit_service_1 = require("../audit/audit.service");
+const branding_service_1 = require("../branding/branding.service");
 let ProposalsService = class ProposalsService {
     prisma;
     aiService;
     auditService;
-    constructor(prisma, aiService, auditService) {
+    brandingService;
+    constructor(prisma, aiService, auditService, brandingService) {
         this.prisma = prisma;
         this.aiService = aiService;
         this.auditService = auditService;
+        this.brandingService = brandingService;
     }
     async ensureLeadBelongsToTenant(tenantId, leadId) {
         if (!leadId)
@@ -63,13 +66,14 @@ let ProposalsService = class ProposalsService {
         const PDFDocument = require('pdfkit');
         const doc = new PDFDocument({ margin: 50 });
         const chunks = [];
+        const branding = await this.brandingService.brandingSnapshot(proposal.tenantId);
         return new Promise((resolve, reject) => {
             doc.on('data', (chunk) => chunks.push(chunk));
             doc.on('end', () => resolve(Buffer.concat(chunks)));
             doc.on('error', reject);
-            doc.fontSize(25).text(proposal.title, { align: 'center' });
+            this.brandingService.addPdfHeader(doc, proposal.title, branding);
             doc.moveDown();
-            doc.fontSize(12).text(`Generated on: ${new Date().toLocaleDateString()}`, {
+            doc.fontSize(12).fillColor(branding.secondary_color).text(`Generated on: ${new Date().toLocaleDateString()}`, {
                 align: 'right',
             });
             doc.moveDown();
@@ -277,6 +281,7 @@ exports.ProposalsService = ProposalsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         ai_service_1.AiService,
-        audit_service_1.AuditService])
+        audit_service_1.AuditService,
+        branding_service_1.BrandingService])
 ], ProposalsService);
 //# sourceMappingURL=proposals.service.js.map

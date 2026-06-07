@@ -1,9 +1,12 @@
 import { Request } from 'express';
 import { RolesService } from '../roles/roles.service';
+import { BrandingService } from '../branding/branding.service';
 export declare class UsersController {
     private readonly rolesService;
-    constructor(rolesService: RolesService);
+    private readonly brandingService;
+    constructor(rolesService: RolesService, brandingService: BrandingService);
     getMe(req: Request): Promise<{
+        branding: import("../branding/branding.service").BrandingSnapshot;
         id: string;
         email: string;
         name: string | null;

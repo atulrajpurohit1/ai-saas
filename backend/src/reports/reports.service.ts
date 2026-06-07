@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { BrandingService } from '../branding/branding.service';
 import { branchScopedWhere, branchWhere } from '../branches/branch-scope';
 import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -84,6 +85,7 @@ export class ReportsService {
     private prisma: PrismaService,
     private auditService: AuditService,
     private knowledgeBaseService: KnowledgeBaseService,
+    private brandingService: BrandingService,
   ) {}
 
   private parseReportDate(value: string) {
@@ -361,16 +363,17 @@ export class ReportsService {
     const doc = new PDFDocument({ margin: 50, size: 'LETTER' });
     const chunks: Buffer[] = [];
     const summary = this.parseStoredSummary(report.summary);
+    const branding = await this.brandingService.brandingSnapshot(report.tenantId);
 
     return new Promise((resolve, reject) => {
       doc.on('data', (chunk) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      doc.fontSize(23).fillColor('#111827').text('Daily Service Report', { align: 'center' });
+      this.brandingService.addPdfHeader(doc, 'Daily Service Report', branding);
       doc.moveDown(0.3);
-      doc.fontSize(11).fillColor('#4b5563').text(`Report date: ${this.formatDate(report.reportDate)}`, {
-        align: 'center',
+      doc.fontSize(11).fillColor(branding.secondary_color).text(`Report date: ${this.formatDate(report.reportDate)}`, {
+        align: 'right',
       });
       doc.moveDown();
 

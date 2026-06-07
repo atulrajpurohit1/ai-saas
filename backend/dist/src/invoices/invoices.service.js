@@ -13,6 +13,7 @@ exports.InvoicesService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const audit_service_1 = require("../audit/audit.service");
+const branding_service_1 = require("../branding/branding.service");
 const branch_scope_1 = require("../branches/branch-scope");
 const prisma_service_1 = require("../prisma/prisma.service");
 const webhooks_service_1 = require("../webhooks/webhooks.service");
@@ -23,10 +24,12 @@ let InvoicesService = class InvoicesService {
     prisma;
     auditService;
     webhooksService;
-    constructor(prisma, auditService, webhooksService) {
+    brandingService;
+    constructor(prisma, auditService, webhooksService, brandingService) {
         this.prisma = prisma;
         this.auditService = auditService;
         this.webhooksService = webhooksService;
+        this.brandingService = brandingService;
     }
     parseBillingDate(value, fieldName) {
         const trimmed = value?.trim();
@@ -781,13 +784,14 @@ let InvoicesService = class InvoicesService {
         const PDFDocument = require('pdfkit');
         const doc = new PDFDocument({ margin: 50, size: 'LETTER' });
         const chunks = [];
+        const branding = await this.brandingService.brandingSnapshot(invoice.tenantId);
         return new Promise((resolve, reject) => {
             doc.on('data', (chunk) => chunks.push(chunk));
             doc.on('end', () => resolve(Buffer.concat(chunks)));
             doc.on('error', reject);
-            doc.fontSize(24).fillColor('#111827').text('Invoice', { align: 'center' });
+            this.brandingService.addPdfHeader(doc, 'Invoice', branding);
             doc.moveDown(0.3);
-            doc.fontSize(12).fillColor('#4b5563').text(invoice.invoiceNumber, { align: 'center' });
+            doc.fontSize(12).fillColor(branding.secondary_color).text(invoice.invoiceNumber, { align: 'right' });
             doc.moveDown();
             doc.fontSize(11).fillColor('#374151');
             doc.text(`Status: ${invoice.status}`);
@@ -863,6 +867,7 @@ exports.InvoicesService = InvoicesService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         audit_service_1.AuditService,
-        webhooks_service_1.WebhooksService])
+        webhooks_service_1.WebhooksService,
+        branding_service_1.BrandingService])
 ], InvoicesService);
 //# sourceMappingURL=invoices.service.js.map

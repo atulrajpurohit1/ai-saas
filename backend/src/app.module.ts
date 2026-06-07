@@ -46,6 +46,9 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 import { PublicApiModule } from './public-api/public-api.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { ApiDocsModule } from './api-docs/api-docs.module';
+import { SessionsModule } from './sessions/sessions.module';
+import { SsoModule } from './sso/sso.module';
+import { BrandingModule } from './branding/branding.module';
 
 @Module({
   imports: [
@@ -57,6 +60,9 @@ import { ApiDocsModule } from './api-docs/api-docs.module';
     PublicApiModule,
     IntegrationsModule,
     ApiDocsModule,
+    SessionsModule,
+    SsoModule,
+    BrandingModule,
     UsersModule,
     AuthModule,
     ClientAuthModule,

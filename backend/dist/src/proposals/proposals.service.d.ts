@@ -3,11 +3,13 @@ import { CreateProposalDto } from './dto/create-proposal.dto';
 import { UpdateProposalDto } from './dto/update-proposal.dto';
 import { AiService } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
+import { BrandingService } from '../branding/branding.service';
 export declare class ProposalsService {
     private prisma;
     private aiService;
     private auditService;
-    constructor(prisma: PrismaService, aiService: AiService, auditService: AuditService);
+    private brandingService;
+    constructor(prisma: PrismaService, aiService: AiService, auditService: AuditService, brandingService: BrandingService);
     private ensureLeadBelongsToTenant;
     private ensureDealBelongsToTenant;
     private ensureClientBelongsToTenant;

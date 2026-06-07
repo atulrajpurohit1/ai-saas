@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReportsService = void 0;
 const common_1 = require("@nestjs/common");
 const audit_service_1 = require("../audit/audit.service");
+const branding_service_1 = require("../branding/branding.service");
 const branch_scope_1 = require("../branches/branch-scope");
 const knowledge_base_service_1 = require("../knowledge-base/knowledge-base.service");
 const prisma_service_1 = require("../prisma/prisma.service");
@@ -19,10 +20,12 @@ let ReportsService = class ReportsService {
     prisma;
     auditService;
     knowledgeBaseService;
-    constructor(prisma, auditService, knowledgeBaseService) {
+    brandingService;
+    constructor(prisma, auditService, knowledgeBaseService, brandingService) {
         this.prisma = prisma;
         this.auditService = auditService;
         this.knowledgeBaseService = knowledgeBaseService;
+        this.brandingService = brandingService;
     }
     parseReportDate(value) {
         const trimmed = value?.trim();
@@ -248,14 +251,15 @@ let ReportsService = class ReportsService {
         const doc = new PDFDocument({ margin: 50, size: 'LETTER' });
         const chunks = [];
         const summary = this.parseStoredSummary(report.summary);
+        const branding = await this.brandingService.brandingSnapshot(report.tenantId);
         return new Promise((resolve, reject) => {
             doc.on('data', (chunk) => chunks.push(chunk));
             doc.on('end', () => resolve(Buffer.concat(chunks)));
             doc.on('error', reject);
-            doc.fontSize(23).fillColor('#111827').text('Daily Service Report', { align: 'center' });
+            this.brandingService.addPdfHeader(doc, 'Daily Service Report', branding);
             doc.moveDown(0.3);
-            doc.fontSize(11).fillColor('#4b5563').text(`Report date: ${this.formatDate(report.reportDate)}`, {
-                align: 'center',
+            doc.fontSize(11).fillColor(branding.secondary_color).text(`Report date: ${this.formatDate(report.reportDate)}`, {
+                align: 'right',
             });
             doc.moveDown();
             doc.fontSize(12).fillColor('#111827').text(`Client: ${report.client.companyName || report.client.name}`);
@@ -554,6 +558,7 @@ exports.ReportsService = ReportsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         audit_service_1.AuditService,
-        knowledge_base_service_1.KnowledgeBaseService])
+        knowledge_base_service_1.KnowledgeBaseService,
+        branding_service_1.BrandingService])
 ], ReportsService);
 //# sourceMappingURL=reports.service.js.map

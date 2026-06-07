@@ -57,6 +57,11 @@ model Tenant {
   apiKeys             ApiKey[]
   webhooks            Webhook[]
   apiRequestLogs      ApiRequestLog[]
+  ssoProviders        SSOProvider[]
+  ssoLoginStates      SSOLoginState[]
+  userSessions        UserSession[]
+  branding            TenantBranding?
+  customDomains       CustomDomain[]
 }
 
 model Branch {
@@ -102,6 +107,7 @@ model User {
   tenant            Tenant     @relation(fields: [tenantId], references: [id])
   reviewedIncidents Incident[] @relation("IncidentReviewer")
   roleAssignments   UserRoleAssignment[]
+  sessions          UserSession[]
 
   @@index([tenantId])
   @@index([branchId])
@@ -924,4 +930,132 @@ model ApiRequestLog {
   @@index([apiKeyId])
   @@index([tenantId, createdAt])
   @@map("ApiRequestLog")
+}
+
+model SSOProvider {
+  id              String           @id @default(uuid())
+  tenantId        String           @map("tenant_id")
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  providerType    String           @map("provider_type")
+  providerName    String           @map("provider_name")
+  clientId        String?          @map("client_id")
+  clientSecret    String?          @map("client_secret")
+  issuerUrl       String?          @map("issuer_url")
+  metadataUrl     String?          @map("metadata_url")
+  samlMetadata    String?          @map("saml_metadata")
+  emailDomains    String[]         @default([]) @map("email_domains")
+  autoProvision   Boolean          @default(true) @map("auto_provision")
+  defaultRoleId   String?          @map("default_role_id")
+  defaultBranchId String?          @map("default_branch_id")
+  status          String           @default("inactive")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  roleMappings    SSORoleMapping[]
+  loginStates     SSOLoginState[]
+  sessions        UserSession[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, providerType])
+  @@map("SSOProvider")
+}
+
+model SSORoleMapping {
+  id            String      @id @default(uuid())
+  providerId    String      @map("provider_id")
+  provider      SSOProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  externalGroup String      @map("external_group")
+  roleId        String      @map("role_id")
+  branchId      String?     @map("branch_id")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  @@index([providerId])
+  @@index([roleId])
+  @@index([branchId])
+  @@unique([providerId, externalGroup, roleId, branchId], map: "SSORoleMapping_provider_group_role_branch_key")
+  @@map("SSORoleMapping")
+}
+
+model SSOLoginState {
+  id           String      @id @default(uuid())
+  tenantId     String      @map("tenant_id")
+  tenant       Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  providerId   String      @map("provider_id")
+  provider     SSOProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  email        String
+  state        String      @unique
+  nonce        String
+  codeVerifier String      @map("code_verifier")
+  redirectUri  String      @map("redirect_uri")
+  expiresAt    DateTime    @map("expires_at")
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([providerId])
+  @@index([expiresAt])
+  @@map("SSOLoginState")
+}
+
+model UserSession {
+  id               String       @id @default(uuid())
+  tenantId         String       @map("tenant_id")
+  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId           String       @map("user_id")
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId       String?      @map("provider_id")
+  provider         SSOProvider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  source           String       @default("password")
+  refreshTokenHash String?      @map("refresh_token_hash")
+  status           String       @default("active")
+  ipAddress        String?      @map("ip_address")
+  userAgent        String?      @map("user_agent")
+  lastSeenAt       DateTime     @default(now()) @map("last_seen_at")
+  expiresAt        DateTime     @map("expires_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  revokedAt        DateTime?    @map("revoked_at")
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([providerId])
+  @@index([tenantId, status])
+  @@index([expiresAt])
+  @@map("UserSession")
+}
+
+model TenantBranding {
+  id              String   @id @default(uuid())
+  tenantId        String   @unique @map("tenant_id")
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyName     String?  @map("company_name")
+  logoUrl         String?  @map("logo_url")
+  faviconUrl      String?  @map("favicon_url")
+  primaryColor    String   @default("#6366f1") @map("primary_color")
+  secondaryColor  String   @default("#334155") @map("secondary_color")
+  accentColor     String   @default("#818cf8") @map("accent_color")
+  loginBackground String?  @map("login_background")
+  welcomeMessage  String?  @map("welcome_message")
+  supportEmail    String?  @map("support_email")
+  supportPhone    String?  @map("support_phone")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("TenantBranding")
+}
+
+model CustomDomain {
+  id                 String    @id @default(uuid())
+  tenantId           String    @map("tenant_id")
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  domain             String    @unique
+  verificationStatus String    @default("pending") @map("verification_status")
+  sslStatus          String    @default("pending") @map("ssl_status")
+  verificationToken  String    @map("verification_token")
+  verifiedAt         DateTime? @map("verified_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([tenantId, verificationStatus])
+  @@map("CustomDomain")
 }

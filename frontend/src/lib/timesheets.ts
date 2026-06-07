@@ -25,6 +25,7 @@ export interface Timesheet {
   } | null;
   shift: {
     id: string;
+    branchId?: string | null;
     startTime: string;
     endTime: string;
     status: string;

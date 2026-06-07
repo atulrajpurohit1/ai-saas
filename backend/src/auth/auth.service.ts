@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RolesService } from '../roles/roles.service';
+import { SessionsService } from '../sessions/sessions.service';
 
 type AdminPortalRole = string;
 
@@ -21,13 +22,14 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private rolesService: RolesService,
+    private sessionsService: SessionsService,
   ) {}
 
   private mapUserRole(role: string): AdminPortalRole {
     return role.toLowerCase() === 'finance' ? 'finance' : 'admin';
   }
 
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto, context?: { ipAddress?: string | null; userAgent?: string | null }) {
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     try {
@@ -55,6 +57,7 @@ export class AuthService {
       await this.rolesService.ensureDefaultAssignmentForUser(result.user.id);
       const profile = await this.rolesService.getUserAccessProfile(result.user.id);
 
+      const sessionId = this.sessionsService.generateSessionId();
       const tokens = await this.getTokens(
         result.user.id,
         result.user.email,
@@ -62,6 +65,7 @@ export class AuthService {
         profile.role,
         profile.branchId,
         profile.isSuperAdmin,
+        sessionId,
       );
 
       await this.updateRefreshTokenHash(
@@ -69,6 +73,15 @@ export class AuthService {
         tokens.refresh_token,
         profile.role,
       );
+      await this.sessionsService.createSession({
+        id: sessionId,
+        tenantId: result.tenant.id,
+        userId: result.user.id,
+        refreshToken: tokens.refresh_token,
+        source: 'password',
+        ipAddress: context?.ipAddress,
+        userAgent: context?.userAgent,
+      });
 
       return tokens;
     } catch (error: unknown) {
@@ -87,7 +100,7 @@ export class AuthService {
     }
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, context?: { ipAddress?: string | null; userAgent?: string | null }) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
       include: { tenant: true },
@@ -101,6 +114,7 @@ export class AuthService {
 
     await this.rolesService.ensureDefaultAssignmentForUser(user.id);
     const profile = await this.rolesService.getUserAccessProfile(user.id);
+    const sessionId = this.sessionsService.generateSessionId();
     const tokens = await this.getTokens(
       user.id,
       user.email,
@@ -108,15 +122,29 @@ export class AuthService {
       profile.role,
       profile.branchId,
       profile.isSuperAdmin,
+      sessionId,
     );
 
     await this.updateRefreshTokenHash(user.id, tokens.refresh_token, profile.role);
+    await this.sessionsService.createSession({
+      id: sessionId,
+      tenantId: user.tenantId,
+      userId: user.id,
+      refreshToken: tokens.refresh_token,
+      source: 'password',
+      ipAddress: context?.ipAddress,
+      userAgent: context?.userAgent,
+    });
     return tokens;
   }
 
 
 
-  async logout(userId: string) {
+  async logout(userId: string, tenantId?: string, sessionId?: string) {
+    if (tenantId && sessionId) {
+      await this.sessionsService.revokeById(tenantId, sessionId, 'USER_LOGOUT');
+    }
+
     // Try both models as controller doesn't specify role
     await this.prisma.user.updateMany({
       where: { id: userId, refreshToken: { not: null } },
@@ -125,7 +153,11 @@ export class AuthService {
     return true;
   }
 
-  async refreshTokens(userId: string, rt: string, role: string) {
+  async refreshTokens(userId: string, rt: string, role: string, sessionId?: string) {
+    if (sessionId) {
+      await this.sessionsService.validateRefreshSession(sessionId, rt);
+    }
+
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
     if (!user || !user.refreshToken)
@@ -151,6 +183,7 @@ export class AuthService {
       profile.role,
       profile.branchId,
       profile.isSuperAdmin,
+      sessionId,
     );
 
     await this.updateRefreshTokenHash(
@@ -158,6 +191,9 @@ export class AuthService {
       tokens.refresh_token,
       profile.role,
     );
+    if (sessionId) {
+      await this.sessionsService.rotateRefreshToken(sessionId, tokens.refresh_token);
+    }
     return tokens;
   }
 
@@ -176,6 +212,7 @@ export class AuthService {
     role: AdminPortalRole,
     branchId: string | null = null,
     isSuperAdmin = true,
+    sessionId?: string,
   ) {
     const atSecret = this.configService.get<string>('JWT_ACCESS_SECRET');
     const atExpires = this.configService.get<string>('JWT_ACCESS_EXPIRES_IN');
@@ -184,14 +221,14 @@ export class AuthService {
 
     const [at, rt] = await Promise.all([
       this.jwtService.signAsync(
-        { sub: userId, email, tenantId, role, branchId, isSuperAdmin },
+        { sub: userId, email, tenantId, role, branchId, isSuperAdmin, sessionId },
         {
           secret: atSecret,
           expiresIn: atExpires as unknown as number,
         },
       ),
       this.jwtService.signAsync(
-        { sub: userId, email, tenantId, role, branchId, isSuperAdmin },
+        { sub: userId, email, tenantId, role, branchId, isSuperAdmin, sessionId },
         {
           secret: rtSecret,
           expiresIn: rtExpires as unknown as number,

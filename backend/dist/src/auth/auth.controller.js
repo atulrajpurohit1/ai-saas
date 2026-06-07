@@ -24,19 +24,25 @@ let AuthController = class AuthController {
     constructor(authService) {
         this.authService = authService;
     }
-    register(dto) {
-        return this.authService.register(dto);
+    register(dto, req) {
+        return this.authService.register(dto, this.requestContext(req));
     }
-    login(dto) {
-        return this.authService.login(dto);
+    login(dto, req) {
+        return this.authService.login(dto, this.requestContext(req));
     }
     logout(req) {
         const user = req.user;
-        return this.authService.logout(user.sub);
+        return this.authService.logout(user.sub, user.tenantId, user.sessionId);
     }
     refreshTokens(req) {
         const user = req.user;
-        return this.authService.refreshTokens(user.sub, user.refreshToken, user.role);
+        return this.authService.refreshTokens(user.sub, user.refreshToken, user.role, user.sessionId);
+    }
+    requestContext(req) {
+        return {
+            ipAddress: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip,
+            userAgent: req.headers['user-agent'] || null,
+        };
     }
 };
 exports.AuthController = AuthController;
@@ -44,16 +50,18 @@ __decorate([
     (0, common_1.Post)('register'),
     (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [register_dto_1.RegisterDto]),
+    __metadata("design:paramtypes", [register_dto_1.RegisterDto, Object]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "register", null);
 __decorate([
     (0, common_1.Post)('login'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [login_dto_1.LoginDto]),
+    __metadata("design:paramtypes", [login_dto_1.LoginDto, Object]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "login", null);
 __decorate([

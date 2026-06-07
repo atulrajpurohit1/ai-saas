@@ -30,9 +30,12 @@ import {
   GitBranch,
   Settings,
   KeyRound,
-  Plug
+  Plug,
+  Palette,
+  Globe
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useBranding } from '@/lib/branding';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -50,6 +53,7 @@ interface SidebarProps {
 export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout, canAny } = useAuth();
+  const { branding } = useBranding();
   const navRef = useRef<HTMLElement | null>(null);
 
   const adminLinks = [
@@ -80,6 +84,10 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     { href: '/ai-insights', label: 'AI Insights', icon: BrainCircuit, permissions: ['ai.view'] },
     { href: '/integrations', label: 'Integrations', icon: Plug, permissions: ['integrations.view'] },
     { href: '/settings/api-keys', label: 'API Keys', icon: KeyRound, permissions: ['api_keys.view'] },
+    { href: '/settings/sso', label: 'SSO', icon: ShieldCheck, permissions: ['sso.view'] },
+    { href: '/settings/sessions', label: 'Sessions', icon: Activity, permissions: ['sessions.view'] },
+    { href: '/settings/branding', label: 'Branding', icon: Palette, permissions: ['branding.view'] },
+    { href: '/settings/domains', label: 'Domains', icon: Globe, permissions: ['domains.view'] },
     { href: '/settings/roles', label: 'Roles', icon: Settings, permissions: ['roles.view'] },
     { href: '/audit', label: 'Activity', icon: Activity, permissions: ['audit.view'] },
   ];
@@ -116,9 +124,13 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     >
       <div className="flex items-start justify-between gap-4 p-5 sm:p-6">
         <div>
-          <h1 className="pb-2 text-2xl font-bold gradient-text">Ai Saas</h1>
+          {branding.logo_url ? (
+            <img src={branding.logo_url} alt={branding.company_name} className="mb-3 max-h-12 max-w-40 object-contain" />
+          ) : (
+            <h1 className="pb-2 text-2xl font-bold gradient-text">{branding.company_name || 'Ai Saas'}</h1>
+          )}
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            {user?.tenantName || 'Management'}
+            {user?.tenantName || branding.company_name || 'Management'}
           </p>
         </div>
         <button

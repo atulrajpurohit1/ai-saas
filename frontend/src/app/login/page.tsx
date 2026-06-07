@@ -3,8 +3,10 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
-import { Lock, Mail, Building2, User, Shield, Briefcase } from 'lucide-react';
+import { Lock, Mail, Building2, User, Shield, Briefcase, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { startSsoLogin } from '@/lib/sso';
+import { useBranding } from '@/lib/branding';
 
 interface ApiError {
   response?: {
@@ -23,7 +25,9 @@ export default function LoginPage() {
   const [role, setRole] = useState<'admin' | 'client'>('admin');
   const [isRegister, setIsRegister] = useState(false);
   const [error, setError] = useState('');
+  const [ssoLoading, setSsoLoading] = useState(false);
   const { login } = useAuth();
+  const { branding } = useBranding();
   const router = useRouter();
 
   const completeAdminLogin = async (accessToken: string, fallbackName: string, fallbackTenantName?: string) => {
@@ -78,16 +82,42 @@ export default function LoginPage() {
     }
   };
 
+  const handleSsoLogin = async () => {
+    setError('');
+    setSsoLoading(true);
+    try {
+      const result = await startSsoLogin(email);
+      window.location.href = result.redirect_url;
+    } catch (err: unknown) {
+      const errorMessage = (err as ApiError).response?.data?.message || 'SSO login failed';
+      setError(errorMessage);
+      setSsoLoading(false);
+    }
+  };
+
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#05050a] px-4 py-8">
+    <div
+      className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#05050a] px-4 py-8"
+      style={{
+        backgroundImage: branding.login_background ? `linear-gradient(rgba(5,5,10,.78), rgba(5,5,10,.78)), url(${branding.login_background})` : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
        {/* Background decoration */}
        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full"></div>
        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full"></div>
 
       <div className="relative z-10 w-full max-w-md">
         <div className="mb-8 text-center sm:mb-10">
-          <h1 className="mb-2 text-4xl font-black italic tracking-tighter text-white sm:text-5xl">Ai Saas</h1>
-          <p className="text-slate-500 font-medium tracking-wide">Next Generation Security CRM</p>
+          {branding.logo_url ? (
+            <img src={branding.logo_url} alt={branding.company_name} className="mx-auto mb-4 max-h-20 max-w-64 object-contain" />
+          ) : (
+            <h1 className="mb-2 text-4xl font-black italic tracking-tighter text-white sm:text-5xl">{branding.company_name || 'Ai Saas'}</h1>
+          )}
+          <p className="text-slate-500 font-medium tracking-wide">
+            {branding.welcome_message || 'Next Generation Security CRM'}
+          </p>
         </div>
 
         <div className="glass-card rounded-[2rem] border-white/5 bg-[#0a0a14]/80 p-5 shadow-2xl backdrop-blur-xl sm:rounded-[2.5rem] sm:p-10">
@@ -208,6 +238,18 @@ export default function LoginPage() {
               {isRegister ? 'Create Account' : 'Sign In'}
             </button>
           </form>
+
+          {!isRegister && role === 'admin' && (
+            <button
+              type="button"
+              onClick={handleSsoLogin}
+              disabled={ssoLoading || !email}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 py-4 font-bold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {ssoLoading ? <Loader2 className="animate-spin" size={18} /> : <Shield size={18} />}
+              Continue with SSO
+            </button>
+          )}
 
           <div className="mt-8 text-center">
             <button 

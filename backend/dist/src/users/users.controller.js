@@ -16,14 +16,21 @@ exports.UsersController = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const roles_service_1 = require("../roles/roles.service");
+const branding_service_1 = require("../branding/branding.service");
 let UsersController = class UsersController {
     rolesService;
-    constructor(rolesService) {
+    brandingService;
+    constructor(rolesService, brandingService) {
         this.rolesService = rolesService;
+        this.brandingService = brandingService;
     }
     async getMe(req) {
         const user = req.user;
-        return this.rolesService.getUserAccessProfile(user.sub);
+        const profile = await this.rolesService.getUserAccessProfile(user.sub);
+        return {
+            ...profile,
+            branding: await this.brandingService.getForTenant(profile.tenantId),
+        };
     }
 };
 exports.UsersController = UsersController;
@@ -37,6 +44,7 @@ __decorate([
 exports.UsersController = UsersController = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Controller)('users'),
-    __metadata("design:paramtypes", [roles_service_1.RolesService])
+    __metadata("design:paramtypes", [roles_service_1.RolesService,
+        branding_service_1.BrandingService])
 ], UsersController);
 //# sourceMappingURL=users.controller.js.map

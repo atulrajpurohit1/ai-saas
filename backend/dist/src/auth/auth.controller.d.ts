@@ -5,11 +5,11 @@ import { Request } from 'express';
 export declare class AuthController {
     private authService;
     constructor(authService: AuthService);
-    register(dto: RegisterDto): Promise<{
+    register(dto: RegisterDto, req: Request): Promise<{
         access_token: string;
         refresh_token: string;
     }>;
-    login(dto: LoginDto): Promise<{
+    login(dto: LoginDto, req: Request): Promise<{
         access_token: string;
         refresh_token: string;
     }>;
@@ -18,4 +18,5 @@ export declare class AuthController {
         access_token: string;
         refresh_token: string;
     }>;
+    private requestContext;
 }

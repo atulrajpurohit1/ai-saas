@@ -49,21 +49,24 @@ const jwt_1 = require("@nestjs/jwt");
 const config_1 = require("@nestjs/config");
 const bcrypt = __importStar(require("bcrypt"));
 const roles_service_1 = require("../roles/roles.service");
+const sessions_service_1 = require("../sessions/sessions.service");
 let AuthService = class AuthService {
     prisma;
     jwtService;
     configService;
     rolesService;
-    constructor(prisma, jwtService, configService, rolesService) {
+    sessionsService;
+    constructor(prisma, jwtService, configService, rolesService, sessionsService) {
         this.prisma = prisma;
         this.jwtService = jwtService;
         this.configService = configService;
         this.rolesService = rolesService;
+        this.sessionsService = sessionsService;
     }
     mapUserRole(role) {
         return role.toLowerCase() === 'finance' ? 'finance' : 'admin';
     }
-    async register(dto) {
+    async register(dto, context) {
         const hashedPassword = await bcrypt.hash(dto.password, 10);
         try {
             const result = await this.prisma.$transaction(async (tx) => {
@@ -86,8 +89,18 @@ let AuthService = class AuthService {
             await this.rolesService.ensureTenantSystemRoles(result.tenant.id);
             await this.rolesService.ensureDefaultAssignmentForUser(result.user.id);
             const profile = await this.rolesService.getUserAccessProfile(result.user.id);
-            const tokens = await this.getTokens(result.user.id, result.user.email, result.tenant.id, profile.role, profile.branchId, profile.isSuperAdmin);
+            const sessionId = this.sessionsService.generateSessionId();
+            const tokens = await this.getTokens(result.user.id, result.user.email, result.tenant.id, profile.role, profile.branchId, profile.isSuperAdmin, sessionId);
             await this.updateRefreshTokenHash(result.user.id, tokens.refresh_token, profile.role);
+            await this.sessionsService.createSession({
+                id: sessionId,
+                tenantId: result.tenant.id,
+                userId: result.user.id,
+                refreshToken: tokens.refresh_token,
+                source: 'password',
+                ipAddress: context?.ipAddress,
+                userAgent: context?.userAgent,
+            });
             return tokens;
         }
         catch (error) {
@@ -101,7 +114,7 @@ let AuthService = class AuthService {
             throw error;
         }
     }
-    async login(dto) {
+    async login(dto, context) {
         const user = await this.prisma.user.findUnique({
             where: { email: dto.email },
             include: { tenant: true },
@@ -113,18 +126,34 @@ let AuthService = class AuthService {
             throw new common_1.UnauthorizedException('Invalid credentials');
         await this.rolesService.ensureDefaultAssignmentForUser(user.id);
         const profile = await this.rolesService.getUserAccessProfile(user.id);
-        const tokens = await this.getTokens(user.id, user.email, user.tenantId, profile.role, profile.branchId, profile.isSuperAdmin);
+        const sessionId = this.sessionsService.generateSessionId();
+        const tokens = await this.getTokens(user.id, user.email, user.tenantId, profile.role, profile.branchId, profile.isSuperAdmin, sessionId);
         await this.updateRefreshTokenHash(user.id, tokens.refresh_token, profile.role);
+        await this.sessionsService.createSession({
+            id: sessionId,
+            tenantId: user.tenantId,
+            userId: user.id,
+            refreshToken: tokens.refresh_token,
+            source: 'password',
+            ipAddress: context?.ipAddress,
+            userAgent: context?.userAgent,
+        });
         return tokens;
     }
-    async logout(userId) {
+    async logout(userId, tenantId, sessionId) {
+        if (tenantId && sessionId) {
+            await this.sessionsService.revokeById(tenantId, sessionId, 'USER_LOGOUT');
+        }
         await this.prisma.user.updateMany({
             where: { id: userId, refreshToken: { not: null } },
             data: { refreshToken: null },
         });
         return true;
     }
-    async refreshTokens(userId, rt, role) {
+    async refreshTokens(userId, rt, role, sessionId) {
+        if (sessionId) {
+            await this.sessionsService.validateRefreshSession(sessionId, rt);
+        }
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
         if (!user || !user.refreshToken)
             throw new common_1.ForbiddenException('Access Denied');
@@ -134,8 +163,11 @@ let AuthService = class AuthService {
         const typedUser = user;
         await this.rolesService.ensureDefaultAssignmentForUser(user.id);
         const profile = await this.rolesService.getUserAccessProfile(user.id);
-        const tokens = await this.getTokens(typedUser.id, typedUser.email, typedUser.tenantId, profile.role, profile.branchId, profile.isSuperAdmin);
+        const tokens = await this.getTokens(typedUser.id, typedUser.email, typedUser.tenantId, profile.role, profile.branchId, profile.isSuperAdmin, sessionId);
         await this.updateRefreshTokenHash(typedUser.id, tokens.refresh_token, profile.role);
+        if (sessionId) {
+            await this.sessionsService.rotateRefreshToken(sessionId, tokens.refresh_token);
+        }
         return tokens;
     }
     async updateRefreshTokenHash(userId, rt, role) {
@@ -145,17 +177,17 @@ let AuthService = class AuthService {
             data: { refreshToken: hash },
         });
     }
-    async getTokens(userId, email, tenantId, role, branchId = null, isSuperAdmin = true) {
+    async getTokens(userId, email, tenantId, role, branchId = null, isSuperAdmin = true, sessionId) {
         const atSecret = this.configService.get('JWT_ACCESS_SECRET');
         const atExpires = this.configService.get('JWT_ACCESS_EXPIRES_IN');
         const rtSecret = this.configService.get('JWT_REFRESH_SECRET');
         const rtExpires = this.configService.get('JWT_REFRESH_EXPIRES_IN');
         const [at, rt] = await Promise.all([
-            this.jwtService.signAsync({ sub: userId, email, tenantId, role, branchId, isSuperAdmin }, {
+            this.jwtService.signAsync({ sub: userId, email, tenantId, role, branchId, isSuperAdmin, sessionId }, {
                 secret: atSecret,
                 expiresIn: atExpires,
             }),
-            this.jwtService.signAsync({ sub: userId, email, tenantId, role, branchId, isSuperAdmin }, {
+            this.jwtService.signAsync({ sub: userId, email, tenantId, role, branchId, isSuperAdmin, sessionId }, {
                 secret: rtSecret,
                 expiresIn: rtExpires,
             }),
@@ -172,6 +204,7 @@ exports.AuthService = AuthService = __decorate([
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         jwt_1.JwtService,
         config_1.ConfigService,
-        roles_service_1.RolesService])
+        roles_service_1.RolesService,
+        sessions_service_1.SessionsService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

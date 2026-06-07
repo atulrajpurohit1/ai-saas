@@ -18,6 +18,7 @@ export declare class JwtRefreshStrategy extends JwtRefreshStrategy_base {
         isSuperAdmin?: boolean;
         clientId?: string;
         guardId?: string;
+        sessionId?: string;
     };
 }
 export {};

@@ -8,6 +8,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { BrandingService } from '../branding/branding.service';
 import { branchScopedWhere, branchWhere } from '../branches/branch-scope';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
@@ -24,6 +25,7 @@ export class InvoicesService {
     private prisma: PrismaService,
     private auditService: AuditService,
     private webhooksService: WebhooksService,
+    private brandingService: BrandingService,
   ) {}
 
   private parseBillingDate(value: string, fieldName: string) {
@@ -929,15 +931,16 @@ export class InvoicesService {
     const PDFDocument = require('pdfkit');
     const doc = new PDFDocument({ margin: 50, size: 'LETTER' });
     const chunks: Buffer[] = [];
+    const branding = await this.brandingService.brandingSnapshot(invoice.tenantId);
 
     return new Promise((resolve, reject) => {
       doc.on('data', (chunk) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      doc.fontSize(24).fillColor('#111827').text('Invoice', { align: 'center' });
+      this.brandingService.addPdfHeader(doc, 'Invoice', branding);
       doc.moveDown(0.3);
-      doc.fontSize(12).fillColor('#4b5563').text(invoice.invoiceNumber, { align: 'center' });
+      doc.fontSize(12).fillColor(branding.secondary_color).text(invoice.invoiceNumber, { align: 'right' });
       doc.moveDown();
 
       doc.fontSize(11).fillColor('#374151');

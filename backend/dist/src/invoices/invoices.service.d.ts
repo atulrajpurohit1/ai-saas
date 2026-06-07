@@ -1,5 +1,6 @@
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { BrandingService } from '../branding/branding.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { DisputeInvoiceDto } from './dto/dispute-invoice.dto';
@@ -8,7 +9,8 @@ export declare class InvoicesService {
     private prisma;
     private auditService;
     private webhooksService;
-    constructor(prisma: PrismaService, auditService: AuditService, webhooksService: WebhooksService);
+    private brandingService;
+    constructor(prisma: PrismaService, auditService: AuditService, webhooksService: WebhooksService, brandingService: BrandingService);
     private parseBillingDate;
     private parseBillingRange;
     private roundHours;
