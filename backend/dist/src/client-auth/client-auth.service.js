@@ -47,6 +47,7 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const jwt_1 = require("@nestjs/jwt");
 const config_1 = require("@nestjs/config");
+const client_1 = require("@prisma/client");
 const bcrypt = __importStar(require("bcrypt"));
 const class_validator_1 = require("class-validator");
 class ClientRegisterDto {
@@ -85,8 +86,9 @@ let ClientAuthService = class ClientAuthService {
         this.configService = configService;
     }
     async login(dto) {
+        const email = dto.email.trim().toLowerCase();
         const user = await this.prisma.clientUser.findUnique({
-            where: { email: dto.email },
+            where: { email },
             include: { client: true },
         });
         if (!user)
@@ -100,41 +102,46 @@ let ClientAuthService = class ClientAuthService {
     }
     async register(dto) {
         try {
-            const tenant = await this.prisma.tenant.findUnique({
-                where: { slug: dto.tenantSlug },
-            });
-            if (!tenant) {
-                throw new common_1.ForbiddenException('Company not found. Please check the slug.');
+            const email = dto.email.trim().toLowerCase();
+            const name = dto.name.trim();
+            const tenantSlug = this.normalizeSlug(dto.tenantSlug);
+            const companyName = this.companyNameFromSlug(tenantSlug);
+            if (!name) {
+                throw new common_1.BadRequestException('Full name is required.');
             }
             const hashedPassword = await bcrypt.hash(dto.password, 10);
             const result = await this.prisma.$transaction(async (tx) => {
+                const tenant = await tx.tenant.create({
+                    data: {
+                        name: companyName,
+                        slug: tenantSlug,
+                    },
+                });
                 const client = await tx.client.create({
                     data: {
-                        name: dto.name,
-                        email: dto.email,
+                        name,
+                        companyName,
+                        email,
                         tenantId: tenant.id,
                     },
                 });
                 const user = await tx.clientUser.create({
                     data: {
-                        email: dto.email,
+                        email,
                         password: hashedPassword,
                         clientId: client.id,
                         tenantId: tenant.id,
                     },
                 });
-                const tokens = await this.getTokens(user.id, user.email, user.tenantId, user.clientId);
-                return { user, tokens };
+                return { user };
             });
-            await this.updateRefreshTokenHash(result.user.id, result.tokens.refresh_token);
-            return result.tokens;
+            const tokens = await this.getTokens(result.user.id, result.user.email, result.user.tenantId, result.user.clientId);
+            await this.updateRefreshTokenHash(result.user.id, tokens.refresh_token);
+            return tokens;
         }
         catch (error) {
-            if (typeof error === 'object' &&
-                error !== null &&
-                'code' in error &&
-                error.code === 'P2002') {
-                throw new common_1.ConflictException('A client or client portal account already exists for this email.');
+            if (error instanceof client_1.Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+                throw this.uniqueConflict(error);
             }
             throw error;
         }
@@ -180,6 +187,36 @@ let ClientAuthService = class ClientAuthService {
             access_token: at,
             refresh_token: rt,
         };
+    }
+    normalizeSlug(value) {
+        const slug = value
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+        if (!slug) {
+            throw new common_1.BadRequestException('Company slug must include letters or numbers.');
+        }
+        return slug;
+    }
+    companyNameFromSlug(slug) {
+        return slug
+            .split('-')
+            .filter(Boolean)
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(' ');
+    }
+    uniqueConflict(error) {
+        const target = Array.isArray(error.meta?.target)
+            ? error.meta.target.join(',')
+            : String(error.meta?.target || '');
+        if (target.includes('slug')) {
+            return new common_1.ConflictException('A company with this slug already exists.');
+        }
+        if (target.includes('email')) {
+            return new common_1.ConflictException('A client portal account already exists for this email.');
+        }
+        return new common_1.ConflictException('A client account with these details already exists.');
     }
 };
 exports.ClientAuthService = ClientAuthService;

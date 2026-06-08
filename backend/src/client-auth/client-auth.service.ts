@@ -1,7 +1,14 @@
-import { Injectable, UnauthorizedException, ForbiddenException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+  ForbiddenException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { ClientLoginDto } from './dto/client-login.dto';
 import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
@@ -32,8 +39,9 @@ export class ClientAuthService {
   ) {}
 
   async login(dto: ClientLoginDto) {
+    const email = dto.email.trim().toLowerCase();
     const user = await this.prisma.clientUser.findUnique({
-      where: { email: dto.email },
+      where: { email },
       include: { client: true },
     });
 
@@ -55,56 +63,58 @@ export class ClientAuthService {
 
   async register(dto: ClientRegisterDto) {
     try {
-      const tenant = await this.prisma.tenant.findUnique({
-        where: { slug: dto.tenantSlug },
-      });
+      const email = dto.email.trim().toLowerCase();
+      const name = dto.name.trim();
+      const tenantSlug = this.normalizeSlug(dto.tenantSlug);
+      const companyName = this.companyNameFromSlug(tenantSlug);
 
-      if (!tenant) {
-        throw new ForbiddenException('Company not found. Please check the slug.');
+      if (!name) {
+        throw new BadRequestException('Full name is required.');
       }
 
       const hashedPassword = await bcrypt.hash(dto.password, 10);
 
       const result = await this.prisma.$transaction(async (tx) => {
+        const tenant = await tx.tenant.create({
+          data: {
+            name: companyName,
+            slug: tenantSlug,
+          },
+        });
+
         const client = await tx.client.create({
           data: {
-            name: dto.name,
-            email: dto.email,
+            name,
+            companyName,
+            email,
             tenantId: tenant.id,
           },
         });
 
         const user = await tx.clientUser.create({
           data: {
-            email: dto.email,
+            email,
             password: hashedPassword,
             clientId: client.id,
             tenantId: tenant.id,
           },
         });
 
-        const tokens = await this.getTokens(
-          user.id,
-          user.email,
-          user.tenantId,
-          user.clientId,
-        );
-
-        return { user, tokens };
+        return { user };
       });
 
-      await this.updateRefreshTokenHash(result.user.id, result.tokens.refresh_token);
-      return result.tokens;
+      const tokens = await this.getTokens(
+        result.user.id,
+        result.user.email,
+        result.user.tenantId,
+        result.user.clientId,
+      );
+
+      await this.updateRefreshTokenHash(result.user.id, tokens.refresh_token);
+      return tokens;
     } catch (error: unknown) {
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        (error as { code?: string }).code === 'P2002'
-      ) {
-        throw new ConflictException(
-          'A client or client portal account already exists for this email.',
-        );
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw this.uniqueConflict(error);
       }
 
       throw error;
@@ -170,5 +180,45 @@ export class ClientAuthService {
       access_token: at,
       refresh_token: rt,
     };
+  }
+
+  private normalizeSlug(value: string) {
+    const slug = value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    if (!slug) {
+      throw new BadRequestException('Company slug must include letters or numbers.');
+    }
+
+    return slug;
+  }
+
+  private companyNameFromSlug(slug: string) {
+    return slug
+      .split('-')
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  }
+
+  private uniqueConflict(error: Prisma.PrismaClientKnownRequestError) {
+    const target = Array.isArray(error.meta?.target)
+      ? error.meta.target.join(',')
+      : String(error.meta?.target || '');
+
+    if (target.includes('slug')) {
+      return new ConflictException('A company with this slug already exists.');
+    }
+
+    if (target.includes('email')) {
+      return new ConflictException(
+        'A client portal account already exists for this email.',
+      );
+    }
+
+    return new ConflictException('A client account with these details already exists.');
   }
 }

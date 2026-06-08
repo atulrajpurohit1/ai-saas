@@ -82,7 +82,46 @@ let ClientsService = class ClientsService {
         await this.webhooksService.triggerEvent(user.tenantId, 'client.created', { client });
         return client;
     }
-    async findAll(user, requestedBranchId) {
+    async findAll(user, requestedBranchId, includeAllClients = false) {
+        if (includeAllClients && user.isSuperAdmin) {
+            return this.prisma.client.findMany({
+                where: requestedBranchId ? { branchId: requestedBranchId } : {},
+                select: {
+                    id: true,
+                    name: true,
+                    companyName: true,
+                    email: true,
+                    phone: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    tenantId: true,
+                    tenant: {
+                        select: {
+                            id: true,
+                            name: true,
+                            slug: true,
+                        },
+                    },
+                    branchId: true,
+                    branch: {
+                        select: {
+                            id: true,
+                            name: true,
+                            location: true,
+                            status: true,
+                        },
+                    },
+                    users: {
+                        select: {
+                            id: true,
+                            email: true,
+                            createdAt: true,
+                        },
+                    },
+                },
+                orderBy: { createdAt: 'desc' },
+            });
+        }
         return this.prisma.client.findMany({
             where: (0, branch_scope_1.branchScopedWhere)(user, requestedBranchId),
             select: {

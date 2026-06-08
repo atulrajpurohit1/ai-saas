@@ -26,6 +26,11 @@ interface ClientOption {
   id: string;
   name: string;
   companyName: string | null;
+  tenant?: {
+    id: string;
+    name: string;
+    slug: string;
+  };
 }
 
 export default function DealsPage() {
@@ -36,11 +41,21 @@ export default function DealsPage() {
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [newDeal, setNewDeal] = useState({ name: '', leadId: '', clientId: '' });
 
+  const getClientLabel = (client: ClientOption) => {
+    const companyName = client.companyName || client.tenant?.name;
+
+    if (!companyName || companyName === client.name) {
+      return client.name;
+    }
+
+    return `${companyName} (${client.name})`;
+  };
+
   const fetchData = async () => {
     const [dealsResult, leadsResult, clientsResult] = await Promise.allSettled([
       api.get('deals'),
       api.get('leads'),
-      api.get('clients'),
+      api.get('clients', { params: { scope: 'all' } }),
     ]);
 
     if (dealsResult.status === 'fulfilled') {
@@ -195,7 +210,7 @@ export default function DealsPage() {
                   <option value="">Choose a client...</option>
                   {clients.length === 0 && <option value="" disabled>No clients available</option>}
                   {clients.map(client => (
-                    <option key={client.id} value={client.id}>{client.name} ({client.companyName || 'Individual'})</option>
+                    <option key={client.id} value={client.id}>{getClientLabel(client)}</option>
                   ))}
                 </select>
               </div>

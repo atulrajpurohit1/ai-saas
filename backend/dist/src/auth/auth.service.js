@@ -68,19 +68,23 @@ let AuthService = class AuthService {
     }
     async register(dto, context) {
         const hashedPassword = await bcrypt.hash(dto.password, 10);
+        const email = dto.email.trim().toLowerCase();
+        const name = dto.name.trim();
+        const tenantName = dto.tenantName.trim();
+        const tenantSlug = dto.tenantSlug.trim().toLowerCase();
         try {
             const result = await this.prisma.$transaction(async (tx) => {
                 const tenant = await tx.tenant.create({
                     data: {
-                        name: dto.tenantName,
-                        slug: dto.tenantSlug,
+                        name: tenantName,
+                        slug: tenantSlug,
                     },
                 });
                 const user = await tx.user.create({
                     data: {
-                        email: dto.email,
+                        email,
                         password: hashedPassword,
-                        name: dto.name,
+                        name,
                         tenantId: tenant.id,
                     },
                 });
@@ -115,8 +119,9 @@ let AuthService = class AuthService {
         }
     }
     async login(dto, context) {
+        const email = dto.email.trim().toLowerCase();
         const user = await this.prisma.user.findUnique({
-            where: { email: dto.email },
+            where: { email },
             include: { tenant: true },
         });
         if (!user)

@@ -28,6 +28,7 @@ export declare class TimesheetsController {
         } | null;
         shift: {
             id: any;
+            branchId: any;
             startTime: any;
             endTime: any;
             status: any;
@@ -67,6 +68,7 @@ export declare class TimesheetsController {
         } | null;
         shift: {
             id: any;
+            branchId: any;
             startTime: any;
             endTime: any;
             status: any;
@@ -106,6 +108,7 @@ export declare class TimesheetsController {
         } | null;
         shift: {
             id: any;
+            branchId: any;
             startTime: any;
             endTime: any;
             status: any;
@@ -145,6 +148,7 @@ export declare class TimesheetsController {
         } | null;
         shift: {
             id: any;
+            branchId: any;
             startTime: any;
             endTime: any;
             status: any;
@@ -184,6 +188,7 @@ export declare class TimesheetsController {
         } | null;
         shift: {
             id: any;
+            branchId: any;
             startTime: any;
             endTime: any;
             status: any;

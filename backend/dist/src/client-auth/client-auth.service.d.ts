@@ -28,4 +28,7 @@ export declare class ClientAuthService {
     }>;
     private updateRefreshTokenHash;
     private getTokens;
+    private normalizeSlug;
+    private companyNameFromSlug;
+    private uniqueConflict;
 }

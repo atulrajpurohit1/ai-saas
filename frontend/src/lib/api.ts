@@ -27,7 +27,7 @@ api.interceptors.request.use((config) => {
     const token = isGuardRoute
       ? localStorage.getItem('guard_token')
       : isClientRoute
-        ? localStorage.getItem('client_token') || localStorage.getItem('token')
+        ? localStorage.getItem('client_token')
         : localStorage.getItem('token');
       
     if (token) {

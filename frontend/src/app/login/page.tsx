@@ -16,6 +16,13 @@ interface ApiError {
   };
 }
 
+const normalizeSlug = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,10 +32,13 @@ export default function LoginPage() {
   const [role, setRole] = useState<'admin' | 'client'>('admin');
   const [isRegister, setIsRegister] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [ssoLoading, setSsoLoading] = useState(false);
   const { login } = useAuth();
   const { branding } = useBranding();
   const router = useRouter();
+  const slugLabel = 'Company Slug';
+  const slugPlaceholder = 'acme-security';
 
   const completeAdminLogin = async (accessToken: string, fallbackName: string, fallbackTenantName?: string) => {
     localStorage.setItem('token', accessToken);
@@ -42,35 +52,49 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
+    setLoading(true);
+    const normalizedTenantSlug = normalizeSlug(tenantSlug);
+    setTenantSlug(normalizedTenantSlug);
     
     try {
       if (role === 'admin') {
         if (isRegister) {
+          localStorage.removeItem('client_token');
+          localStorage.removeItem('guard_token');
           const res = await api.post('auth/register', {
             name: name || 'Admin',
             email,
             password,
             tenantName,
-            tenantSlug
+            tenantSlug: normalizedTenantSlug
           });
           await completeAdminLogin(res.data.access_token, name || 'Admin', tenantName);
         } else {
+          localStorage.removeItem('client_token');
+          localStorage.removeItem('guard_token');
           const res = await api.post('auth/login', { email, password });
           await completeAdminLogin(res.data.access_token, 'Admin User');
         }
       } else {
         // Client Flow
         if (isRegister) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          localStorage.removeItem('guard_token');
           const res = await api.post('client-auth/register', {
             name,
             email,
             password,
-            tenantSlug
+            tenantSlug: normalizedTenantSlug
           });
           localStorage.setItem('client_token', res.data.access_token);
           router.push('/client/dashboard');
         } else {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          localStorage.removeItem('guard_token');
           const res = await api.post('client-auth/login', { email, password });
           localStorage.setItem('client_token', res.data.access_token);
           router.push('/client/dashboard');
@@ -79,6 +103,8 @@ export default function LoginPage() {
     } catch (err: unknown) {
       const errorMessage = (err as ApiError).response?.data?.message || 'Authentication failed';
       setError(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -184,13 +210,15 @@ export default function LoginPage() {
 
             {isRegister && (
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Company Slug</label>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">{slugLabel}</label>
                 <div className="relative group">
                   <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-indigo-400 transition-colors" size={18} />
                   <input
                     type="text"
+                    autoCapitalize="none"
+                    spellCheck={false}
                     className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
-                    placeholder="acme-security"
+                    placeholder={slugPlaceholder}
                     value={tenantSlug}
                     onChange={(e) => setTenantSlug(e.target.value)}
                     required
@@ -233,8 +261,10 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-indigo-600/20 mt-6"
+              disabled={loading}
+              className="flex w-full items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-indigo-600/20 mt-6 disabled:cursor-not-allowed disabled:opacity-70"
             >
+              {loading && <Loader2 className="animate-spin" size={18} />}
               {isRegister ? 'Create Account' : 'Sign In'}
             </button>
           </form>

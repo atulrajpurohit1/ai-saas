@@ -39,6 +39,7 @@ export declare class TimesheetsService {
         } | null;
         shift: {
             id: any;
+            branchId: any;
             startTime: any;
             endTime: any;
             status: any;
@@ -78,6 +79,7 @@ export declare class TimesheetsService {
         } | null;
         shift: {
             id: any;
+            branchId: any;
             startTime: any;
             endTime: any;
             status: any;
@@ -117,6 +119,7 @@ export declare class TimesheetsService {
         } | null;
         shift: {
             id: any;
+            branchId: any;
             startTime: any;
             endTime: any;
             status: any;
@@ -156,6 +159,7 @@ export declare class TimesheetsService {
         } | null;
         shift: {
             id: any;
+            branchId: any;
             startTime: any;
             endTime: any;
             status: any;
@@ -195,6 +199,7 @@ export declare class TimesheetsService {
         } | null;
         shift: {
             id: any;
+            branchId: any;
             startTime: any;
             endTime: any;
             status: any;
@@ -211,5 +216,7 @@ export declare class TimesheetsService {
             email: any;
         } | null;
     }>;
+    private guardLabel;
+    private siteLabel;
 }
 export {};

@@ -67,6 +67,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
 
     const hydrate = async () => {
+      const pathname = window.location.pathname;
+      const isAuthScreen =
+        pathname === '/login' ||
+        pathname === '/client' ||
+        pathname.startsWith('/client/') ||
+        pathname === '/guard' ||
+        pathname.startsWith('/guard/');
+      if (isAuthScreen) {
+        setLoading(false);
+        return;
+      }
+
       const token = localStorage.getItem('token');
       const storedUser = localStorage.getItem('user');
       if (!token) {
@@ -91,6 +103,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(nextUser);
       } catch (e) {
         console.error('Failed to refresh current user', e);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        if (mounted) setUser(null);
       } finally {
         if (mounted) setLoading(false);
       }

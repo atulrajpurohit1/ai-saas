@@ -37,6 +37,7 @@ let TimesheetsService = class TimesheetsService {
             shift: {
                 select: {
                     id: true,
+                    branchId: true,
                     startTime: true,
                     endTime: true,
                     status: true,
@@ -86,6 +87,7 @@ let TimesheetsService = class TimesheetsService {
             shift: timesheet.shift
                 ? {
                     id: timesheet.shift.id,
+                    branchId: timesheet.shift.branchId,
                     startTime: timesheet.shift.startTime,
                     endTime: timesheet.shift.endTime,
                     status: timesheet.shift.status,
@@ -114,17 +116,12 @@ let TimesheetsService = class TimesheetsService {
             return branchId ? { shift: { branchId } } : {};
         }
         if (!user.branchId) {
-            return { shift: { branchId: null } };
+            return { id: '__no_branch_access__' };
         }
         if (branchId && branchId !== user.branchId) {
             throw new common_1.ForbiddenException('You do not have access to this branch');
         }
-        return {
-            OR: [
-                { shift: { branchId: user.branchId } },
-                { shift: { branchId: null } },
-            ],
-        };
+        return { shift: { branchId: user.branchId } };
     }
     async findTimesheetOrThrow(user, id) {
         const timesheet = await this.prisma.timesheet.findFirst({
@@ -185,6 +182,7 @@ let TimesheetsService = class TimesheetsService {
         if (existing.status === 'approved') {
             return this.mapTimesheet(existing);
         }
+        await this.assertNotInvoiced(existing.id);
         if (existing.totalHours <= 0) {
             throw new common_1.BadRequestException('Timesheet must have billable hours before approval. Correct the hours first.');
         }
@@ -207,7 +205,7 @@ let TimesheetsService = class TimesheetsService {
             action: 'TIMESHEET_APPROVED',
             entityType: 'Timesheet',
             entityId: timesheet.id,
-            details: `Approved ${timesheet.totalHours}h for guard "${timesheet.guard.name}" at "${timesheet.site.name}"`,
+            details: `Approved ${timesheet.totalHours}h for guard "${this.guardLabel(timesheet)}" at "${this.siteLabel(timesheet)}"`,
         });
         return this.mapTimesheet(timesheet);
     }
@@ -237,7 +235,7 @@ let TimesheetsService = class TimesheetsService {
             action: 'TIMESHEET_REJECTED',
             entityType: 'Timesheet',
             entityId: timesheet.id,
-            details: `Rejected timesheet for guard "${timesheet.guard.name}": ${reason}`,
+            details: `Rejected timesheet for guard "${this.guardLabel(timesheet)}": ${reason}`,
         });
         return this.mapTimesheet(timesheet);
     }
@@ -289,6 +287,12 @@ let TimesheetsService = class TimesheetsService {
             }),
         });
         return this.mapTimesheet(timesheet);
+    }
+    guardLabel(timesheet) {
+        return timesheet.guard?.name || timesheet.guardId || 'Unknown guard';
+    }
+    siteLabel(timesheet) {
+        return timesheet.site?.name || timesheet.siteId || 'Unknown site';
     }
 };
 exports.TimesheetsService = TimesheetsService;

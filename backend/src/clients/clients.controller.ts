@@ -24,8 +24,12 @@ export class ClientsController {
 
   @Get()
   @RequireAnyPermission('clients.view', 'invoices.generate', 'finance.view')
-  findAll(@GetUser() user: ActiveUser, @Query('branch_id') branchId?: string) {
-    return this.clientsService.findAll(user, branchId);
+  findAll(
+    @GetUser() user: ActiveUser,
+    @Query('branch_id') branchId?: string,
+    @Query('scope') scope?: string,
+  ) {
+    return this.clientsService.findAll(user, branchId, scope === 'all');
   }
 
   @Get(':id')

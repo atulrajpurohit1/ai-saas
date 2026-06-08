@@ -29,8 +29,8 @@ let ClientsController = class ClientsController {
     create(user, dto) {
         return this.clientsService.create(user, dto);
     }
-    findAll(user, branchId) {
-        return this.clientsService.findAll(user, branchId);
+    findAll(user, branchId, scope) {
+        return this.clientsService.findAll(user, branchId, scope === 'all');
     }
     findOne(user, id) {
         return this.clientsService.findOne(user, id);
@@ -57,8 +57,9 @@ __decorate([
     (0, permissions_decorator_1.RequireAnyPermission)('clients.view', 'invoices.generate', 'finance.view'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
     __param(1, (0, common_1.Query)('branch_id')),
+    __param(2, (0, common_1.Query)('scope')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:paramtypes", [Object, String, String]),
     __metadata("design:returntype", void 0)
 ], ClientsController.prototype, "findAll", null);
 __decorate([

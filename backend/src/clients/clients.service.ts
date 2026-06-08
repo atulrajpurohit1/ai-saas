@@ -44,7 +44,51 @@ export class ClientsService {
     return client;
   }
 
-  async findAll(user: ActiveUser, requestedBranchId?: string | null) {
+  async findAll(
+    user: ActiveUser,
+    requestedBranchId?: string | null,
+    includeAllClients = false,
+  ) {
+    if (includeAllClients && user.isSuperAdmin) {
+      return this.prisma.client.findMany({
+        where: requestedBranchId ? { branchId: requestedBranchId } : {},
+        select: {
+          id: true,
+          name: true,
+          companyName: true,
+          email: true,
+          phone: true,
+          createdAt: true,
+          updatedAt: true,
+          tenantId: true,
+          tenant: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          },
+          branchId: true,
+          branch: {
+            select: {
+              id: true,
+              name: true,
+              location: true,
+              status: true,
+            },
+          },
+          users: {
+            select: {
+              id: true,
+              email: true,
+              createdAt: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
     return this.prisma.client.findMany({
       where: branchScopedWhere(user, requestedBranchId),
       select: {
