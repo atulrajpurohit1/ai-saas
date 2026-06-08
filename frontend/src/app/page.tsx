@@ -9,9 +9,83 @@ import {
   Briefcase, 
   FileText, 
   TrendingUp, 
-  Clock,
-  ArrowUpRight
+  Clock
 } from 'lucide-react';
+
+interface DashboardEntity {
+  id: string;
+  name?: string | null;
+  company?: string | null;
+  title?: string | null;
+  createdAt?: string | null;
+  lead?: {
+    name?: string | null;
+    company?: string | null;
+  } | null;
+}
+
+interface ActivityItem {
+  id: string;
+  title: string;
+  subject: string;
+  timestamp: number;
+}
+
+const getTimestamp = (value?: string | null) => {
+  if (!value) return 0;
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+};
+
+const formatRelativeTime = (timestamp: number) => {
+  if (!timestamp) return 'recently';
+
+  const elapsedMs = Date.now() - timestamp;
+  if (elapsedMs < 60_000) return 'just now';
+
+  const minutes = Math.floor(elapsedMs / 60_000);
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`;
+
+  return new Date(timestamp).toLocaleDateString();
+};
+
+const buildRecentActivities = (
+  leads: DashboardEntity[],
+  deals: DashboardEntity[],
+  proposals: DashboardEntity[],
+) => {
+  const activities: ActivityItem[] = [
+    ...leads.map((lead) => ({
+      id: `lead-${lead.id}`,
+      title: 'New Lead Created',
+      subject: lead.company || lead.name || 'Lead',
+      timestamp: getTimestamp(lead.createdAt),
+    })),
+    ...deals.map((deal) => ({
+      id: `deal-${deal.id}`,
+      title: 'Deal Started',
+      subject: deal.name || deal.lead?.company || 'Deal',
+      timestamp: getTimestamp(deal.createdAt),
+    })),
+    ...proposals.map((proposal) => ({
+      id: `proposal-${proposal.id}`,
+      title: 'Proposal Created',
+      subject: proposal.title || proposal.lead?.company || 'Proposal',
+      timestamp: getTimestamp(proposal.createdAt),
+    })),
+  ];
+
+  return activities
+    .filter((activity) => activity.timestamp > 0)
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 3);
+};
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -20,6 +94,7 @@ export default function DashboardPage() {
     deals: 0,
     proposals: 0,
   });
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -31,11 +106,16 @@ export default function DashboardPage() {
           api.get('proposals'),
         ]);
 
+        const leads = leadsRes.status === 'fulfilled' && Array.isArray(leadsRes.value.data) ? leadsRes.value.data : [];
+        const deals = dealsRes.status === 'fulfilled' && Array.isArray(dealsRes.value.data) ? dealsRes.value.data : [];
+        const proposals = proposalsRes.status === 'fulfilled' && Array.isArray(proposalsRes.value.data) ? proposalsRes.value.data : [];
+
         setStats({
-          leads: leadsRes.status === 'fulfilled' && Array.isArray(leadsRes.value.data) ? leadsRes.value.data.length : 0,
-          deals: dealsRes.status === 'fulfilled' && Array.isArray(dealsRes.value.data) ? dealsRes.value.data.length : 0,
-          proposals: proposalsRes.status === 'fulfilled' && Array.isArray(proposalsRes.value.data) ? proposalsRes.value.data.length : 0,
+          leads: leads.length,
+          deals: deals.length,
+          proposals: proposals.length,
         });
+        setActivities(buildRecentActivities(leads, deals, proposals));
         setError(
           [leadsRes, dealsRes, proposalsRes].some((result) => result.status === 'rejected')
             ? 'Some dashboard stats could not be loaded. Check that the backend API is running.'
@@ -89,43 +169,36 @@ export default function DashboardPage() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-8">
-        <div className="glass-card rounded-3xl p-5 sm:p-6">
-          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="glass-card rounded-3xl p-5 sm:p-6">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-xl font-bold flex items-center gap-2">
               <Clock className="text-indigo-400" size={20} />
               Recent Activity
             </h3>
-            <button className="text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
-              View All <ArrowUpRight size={16} />
-            </button>
+            <span className="rounded-full border border-indigo-400/20 bg-indigo-400/10 px-3 py-1 text-xs font-bold text-indigo-300">
+              Latest 3
+            </span>
           </div>
           <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 hover:bg-white/10 transition-colors border border-transparent hover:border-white/5">
+            {activities.length === 0 ? (
+              <div className="rounded-2xl border border-white/5 bg-white/5 p-5 text-sm text-muted-foreground">
+                No recent activity yet.
+              </div>
+            ) : (
+              activities.map((activity, index) => (
+              <div key={activity.id} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 hover:bg-white/10 transition-colors border border-transparent hover:border-white/5">
                 <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold">
-                  {i}
+                  {index + 1}
                 </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-sm">New Lead Created</p>
-                  <p className="text-xs text-muted-foreground">ABC Security • 2 hours ago</p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold">{activity.title}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {activity.subject} - {formatRelativeTime(activity.timestamp)}
+                  </p>
                 </div>
               </div>
-            ))}
+            )))}
           </div>
-        </div>
-
-        <div className="glass-card flex flex-col justify-between rounded-3xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 p-5 sm:p-6">
-          <div>
-            <h3 className="text-xl font-bold mb-4">AI Service Insight</h3>
-            <p className="text-muted-foreground leading-relaxed">
-              Based on your recent activity, we recommend generating a proposal for your <strong>3 new leads</strong> in the pipeline. Use our AI Assistant to get a draft ready in seconds.
-            </p>
-          </div>
-          <button className="mt-8 bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-2xl transition-all border border-white/10">
-            Generate New Proposal
-          </button>
-        </div>
       </div>
     </DashboardLayout>
   );

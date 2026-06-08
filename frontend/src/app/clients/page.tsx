@@ -41,6 +41,7 @@ export default function ClientsPage() {
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     companyName: '',
@@ -190,6 +191,8 @@ export default function ClientsPage() {
               <input 
                 type="text" 
                 placeholder="Search clients..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all text-white placeholder:text-slate-600"
               />
             </div>
@@ -213,7 +216,9 @@ export default function ClientsPage() {
                 <tr><td colSpan={5} className="px-8 py-20 text-center text-slate-500 animate-pulse">Loading clients...</td></tr>
               ) : clients.length === 0 ? (
                 <tr><td colSpan={5} className="px-8 py-20 text-center text-slate-500 italic">No clients found. Add your first client above.</td></tr>
-              ) : clients.map((client) => (
+              ) : clients.filter(client => !searchQuery || client.name.toLowerCase().includes(searchQuery.toLowerCase()) || (client.companyName || '').toLowerCase().includes(searchQuery.toLowerCase())).length === 0 ? (
+                <tr><td colSpan={5} className="px-8 py-20 text-center text-slate-500 italic">No clients match your search.</td></tr>
+              ) : clients.filter(client => !searchQuery || client.name.toLowerCase().includes(searchQuery.toLowerCase()) || (client.companyName || '').toLowerCase().includes(searchQuery.toLowerCase())).map((client) => (
                 <tr key={client.id} className="hover:bg-white/5 transition-all group">
                   <td className="px-8 py-6" data-label="Client">
                     <div className="flex items-center gap-4">

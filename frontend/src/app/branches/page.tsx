@@ -11,6 +11,7 @@ export default function BranchesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({ name: '', location: '' });
 
   const fetchBranches = async () => {
@@ -82,6 +83,8 @@ export default function BranchesPage() {
             <input
               type="text"
               placeholder="Search branches..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/40"
             />
           </div>
@@ -93,12 +96,12 @@ export default function BranchesPage() {
               <Loader2 className="mx-auto mb-3 animate-spin text-indigo-300" />
               Loading branches...
             </div>
-          ) : branches.length === 0 ? (
+          ) : branches.filter(branch => !searchQuery || branch.name.toLowerCase().includes(searchQuery.toLowerCase()) || branch.location.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 ? (
             <div className="col-span-full rounded-3xl border border-dashed border-white/10 py-16 text-center text-slate-400">
-              No branches created yet.
+              No branches match your search.
             </div>
           ) : (
-            branches.map((branch) => (
+            branches.filter(branch => !searchQuery || branch.name.toLowerCase().includes(searchQuery.toLowerCase()) || branch.location.toLowerCase().includes(searchQuery.toLowerCase())).map((branch) => (
               <div key={branch.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                 <div className="mb-5 flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-3">

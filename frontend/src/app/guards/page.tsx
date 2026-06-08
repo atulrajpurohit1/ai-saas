@@ -36,6 +36,7 @@ export default function GuardsPage() {
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({ name: '', phone: '', email: '', password: '', branch_id: '' });
   
   const fetchGuards = async () => {
@@ -142,6 +143,8 @@ export default function GuardsPage() {
               <input 
                 type="text" 
                 placeholder="Search guards..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
@@ -180,7 +183,9 @@ export default function GuardsPage() {
                 </td></tr>
               ) : guards.length === 0 ? (
                 <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">No guards found. Administrators can add new personnel above.</td></tr>
-              ) : guards.map((guard) => (
+              ) : guards.filter(guard => !searchQuery || guard.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 ? (
+                <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">No guards match your search.</td></tr>
+              ) : guards.filter(guard => !searchQuery || guard.name.toLowerCase().includes(searchQuery.toLowerCase())).map((guard) => (
                 <tr key={guard.id} className="hover:bg-white/5 transition-colors group">
                   <td className="px-6 py-4" data-label="Guard">
                     <div className="flex items-center gap-3">

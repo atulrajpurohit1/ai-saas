@@ -36,8 +36,7 @@ export default function ClientDocumentsPage() {
   }, []);
 
   const filteredDocs = documents.filter(doc => 
-    doc.name.toLowerCase().includes(search.toLowerCase()) || 
-    doc.description?.toLowerCase().includes(search.toLowerCase())
+    doc.name.toLowerCase().includes(search.toLowerCase())
   );
 
   return (

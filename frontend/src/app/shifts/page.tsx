@@ -58,6 +58,7 @@ export default function ShiftsPage() {
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
   const [recommendationsError, setRecommendationsError] = useState('');
   const [selectedBranchId, setSelectedBranchId] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   
   const [newShift, setNewShift] = useState({
     siteId: '',
@@ -228,6 +229,8 @@ export default function ShiftsPage() {
               <input 
                 type="text" 
                 placeholder="Search shifts..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
@@ -255,7 +258,21 @@ export default function ShiftsPage() {
                 <tr><td colSpan={9} className="px-6 py-10 text-center text-muted-foreground">Loading shifts...</td></tr>
               ) : shifts.length === 0 ? (
                 <tr><td colSpan={9} className="px-6 py-10 text-center text-muted-foreground">No shifts scheduled yet.</td></tr>
-              ) : shifts.map((shift) => (
+              ) : shifts.filter(shift => {
+                if (!searchQuery) return true;
+                const query = searchQuery.toLowerCase();
+                const siteNameMatch = shift.site?.name?.toLowerCase().includes(query);
+                const guardNameMatch = shift.assignments?.some(a => a.guard.name.toLowerCase().includes(query));
+                return siteNameMatch || guardNameMatch;
+              }).length === 0 ? (
+                <tr><td colSpan={9} className="px-6 py-10 text-center text-muted-foreground">No shifts match your search.</td></tr>
+              ) : shifts.filter(shift => {
+                if (!searchQuery) return true;
+                const query = searchQuery.toLowerCase();
+                const siteNameMatch = shift.site?.name?.toLowerCase().includes(query);
+                const guardNameMatch = shift.assignments?.some(a => a.guard.name.toLowerCase().includes(query));
+                return siteNameMatch || guardNameMatch;
+              }).map((shift) => (
                 <tr key={shift.id} className="hover:bg-white/5 transition-colors group">
                   <td className="px-6 py-4" data-label="Site">
                     <div className="flex items-center gap-3">
@@ -268,15 +285,15 @@ export default function ShiftsPage() {
                   <td className="px-6 py-4" data-label="Branch">
                     <BranchBadge branch={shift.branch} />
                   </td>
-                  <td className="px-6 py-4" data-label="Start">
+                  <td className="px-6 py-4 whitespace-nowrap" data-label="Start">
                     <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                      <Calendar size={14} className="text-indigo-400" />
+                      <Calendar size={14} className="text-indigo-400 shrink-0" />
                       <span>{formatDateTime(shift.startTime)}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4" data-label="End">
+                  <td className="px-6 py-4 whitespace-nowrap" data-label="End">
                     <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                      <Clock size={14} className="text-indigo-400" />
+                      <Clock size={14} className="text-indigo-400 shrink-0" />
                       <span>{formatDateTime(shift.endTime)}</span>
                     </div>
                   </td>
@@ -286,7 +303,7 @@ export default function ShiftsPage() {
                        <span className="font-medium">{shift.requiredGuards}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4" data-label="Assigned">
+                  <td className="px-6 py-4 whitespace-nowrap" data-label="Assigned">
                     <span className={`font-medium ${shift.assignments && shift.assignments.length > 0 ? 'text-indigo-300' : 'text-muted-foreground'}`}>
                       {shift.assignments && shift.assignments.length > 0 
                         ? shift.assignments[0].guard.name 
@@ -298,7 +315,7 @@ export default function ShiftsPage() {
                       {shift.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4" data-label="Attendance">
+                  <td className="px-6 py-4 whitespace-nowrap" data-label="Attendance">
                     <div className="space-y-1.5">
                       <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${attendanceBadgeClass(shift.attendanceStatus)}`}>
                         {formatAttendanceStatus(shift.attendanceStatus)}
@@ -311,20 +328,20 @@ export default function ShiftsPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-right" data-label="Actions">
+                  <td className="px-6 py-4 text-right whitespace-nowrap" data-label="Actions">
                     {!canAssignShift ? (
                       <span className="text-xs font-semibold text-slate-500">No actions</span>
                     ) : shift.assignments && shift.assignments.length > 0 ? (
                        <button 
                          onClick={() => handleUnassign(shift.id)}
-                         className="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-500 px-3 py-1.5 rounded-lg font-medium transition-colors"
+                         className="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-500 px-3 py-1.5 rounded-lg font-medium transition-colors whitespace-nowrap"
                        >
                          Unassign
                        </button>
                     ) : (
                        <button 
                          onClick={() => openAssignModal(shift.id)}
-                         className="text-xs bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-3 py-1.5 rounded-lg font-medium transition-colors"
+                         className="text-xs bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-3 py-1.5 rounded-lg font-medium transition-colors whitespace-nowrap"
                        >
                          Assign Guard
                        </button>

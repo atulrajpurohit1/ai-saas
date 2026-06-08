@@ -66,8 +66,7 @@ export default function ClientInvoicesPage() {
     const normalized = search.toLowerCase();
     return invoices.filter((invoice) => {
       const invoiceNumber = invoice.invoiceNumber || '';
-      const siteName = invoice.site?.name || '';
-      return invoiceNumber.toLowerCase().includes(normalized) || siteName.toLowerCase().includes(normalized);
+      return invoiceNumber.toLowerCase().includes(normalized);
     });
   }, [invoices, search]);
 

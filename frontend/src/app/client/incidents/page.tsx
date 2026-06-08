@@ -49,8 +49,7 @@ export default function ClientIncidentsPage() {
   }, []);
 
   const filteredIncidents = incidents.filter((incident) => (
-    incident.title.toLowerCase().includes(search.toLowerCase()) ||
-    incident.site.name.toLowerCase().includes(search.toLowerCase())
+    incident.title.toLowerCase().includes(search.toLowerCase())
   ));
 
   const formatDate = (value: string) => new Date(value).toLocaleString([], {

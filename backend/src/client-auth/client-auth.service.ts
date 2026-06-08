@@ -4,6 +4,7 @@ import {
   UnauthorizedException,
   ForbiddenException,
   ConflictException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
@@ -65,8 +66,8 @@ export class ClientAuthService {
     try {
       const email = dto.email.trim().toLowerCase();
       const name = dto.name.trim();
-      const tenantSlug = this.normalizeSlug(dto.tenantSlug);
-      const companyName = this.companyNameFromSlug(tenantSlug);
+      const companySlug = this.normalizeSlug(dto.tenantSlug);
+      const companyName = this.companyNameFromSlug(companySlug);
 
       if (!name) {
         throw new BadRequestException('Full name is required.');
@@ -75,12 +76,7 @@ export class ClientAuthService {
       const hashedPassword = await bcrypt.hash(dto.password, 10);
 
       const result = await this.prisma.$transaction(async (tx) => {
-        const tenant = await tx.tenant.create({
-          data: {
-            name: companyName,
-            slug: tenantSlug,
-          },
-        });
+        const tenant = await this.resolveSignupTenant(tx);
 
         const client = await tx.client.create({
           data: {
@@ -190,7 +186,7 @@ export class ClientAuthService {
       .replace(/^-+|-+$/g, '');
 
     if (!slug) {
-      throw new BadRequestException('Company slug must include letters or numbers.');
+      throw new BadRequestException('Company name must include letters or numbers.');
     }
 
     return slug;
@@ -202,6 +198,79 @@ export class ClientAuthService {
       .filter(Boolean)
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(' ');
+  }
+
+  private async resolveSignupTenant(tx: Prisma.TransactionClient) {
+    const configuredTenantId = this.configService
+      .get<string>('CLIENT_SIGNUP_TENANT_ID')
+      ?.trim();
+    const configuredTenantSlug = this.configService
+      .get<string>('CLIENT_SIGNUP_TENANT_SLUG')
+      ?.trim()
+      .toLowerCase();
+
+    const select = {
+      id: true,
+      name: true,
+      slug: true,
+    };
+
+    if (configuredTenantId) {
+      const tenant = await tx.tenant.findUnique({
+        where: { id: configuredTenantId },
+        select,
+      });
+
+      if (!tenant) {
+        throw new InternalServerErrorException(
+          'Client signup tenant ID does not match an existing workspace.',
+        );
+      }
+
+      return tenant;
+    }
+
+    if (configuredTenantSlug) {
+      const tenant = await tx.tenant.findUnique({
+        where: { slug: configuredTenantSlug },
+        select,
+      });
+
+      if (!tenant) {
+        throw new InternalServerErrorException(
+          'Client signup tenant slug does not match an existing workspace.',
+        );
+      }
+
+      return tenant;
+    }
+
+    const latestAdminTenant = await tx.tenant.findFirst({
+      where: {
+        users: {
+          some: { isSuperAdmin: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      select,
+    });
+
+    if (latestAdminTenant) {
+      return latestAdminTenant;
+    }
+
+    const defaultTenant = await tx.tenant.findUnique({
+      where: { slug: 'admin-tenant' },
+      select,
+    });
+
+    if (defaultTenant) {
+      return defaultTenant;
+    }
+
+    throw new InternalServerErrorException(
+      'Client signup workspace is not configured.',
+    );
   }
 
   private uniqueConflict(error: Prisma.PrismaClientKnownRequestError) {

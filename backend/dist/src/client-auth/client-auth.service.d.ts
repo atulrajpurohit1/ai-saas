@@ -30,5 +30,6 @@ export declare class ClientAuthService {
     private getTokens;
     private normalizeSlug;
     private companyNameFromSlug;
+    private resolveSignupTenant;
     private uniqueConflict;
 }

@@ -26,11 +26,6 @@ interface ClientOption {
   id: string;
   name: string;
   companyName: string | null;
-  tenant?: {
-    id: string;
-    name: string;
-    slug: string;
-  };
 }
 
 export default function DealsPage() {
@@ -40,9 +35,10 @@ export default function DealsPage() {
   const [leads, setLeads] = useState<LeadOption[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [newDeal, setNewDeal] = useState({ name: '', leadId: '', clientId: '' });
+  const [searchQuery, setSearchQuery] = useState('');
 
   const getClientLabel = (client: ClientOption) => {
-    const companyName = client.companyName || client.tenant?.name;
+    const companyName = client.companyName;
 
     if (!companyName || companyName === client.name) {
       return client.name;
@@ -55,7 +51,7 @@ export default function DealsPage() {
     const [dealsResult, leadsResult, clientsResult] = await Promise.allSettled([
       api.get('deals'),
       api.get('leads'),
-      api.get('clients', { params: { scope: 'all' } }),
+      api.get('clients'),
     ]);
 
     if (dealsResult.status === 'fulfilled') {
@@ -122,6 +118,8 @@ export default function DealsPage() {
             <input 
               type="text" 
               placeholder="Filter deals..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
@@ -132,7 +130,17 @@ export default function DealsPage() {
             <div className="col-span-full py-20 text-center text-muted-foreground italic">Syncing with pipeline...</div>
           ) : deals.length === 0 ? (
             <div className="col-span-full py-20 text-center text-muted-foreground">No active deals. Start by converting a lead!</div>
-          ) : deals.map((deal) => (
+          ) : deals.filter(deal => {
+              if (!searchQuery) return true;
+              const query = searchQuery.toLowerCase();
+              return deal.name.toLowerCase().includes(query);
+            }).length === 0 ? (
+              <div className="col-span-full py-20 text-center text-muted-foreground">No active deals match your search.</div>
+          ) : deals.filter(deal => {
+              if (!searchQuery) return true;
+              const query = searchQuery.toLowerCase();
+              return deal.name.toLowerCase().includes(query);
+            }).map((deal) => (
             <div key={deal.id} className="glass-card p-6 rounded-2xl border-white/5 hover:border-indigo-500/50 transition-all group">
               <div className="flex items-center justify-between mb-4">
                 <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">

@@ -21,6 +21,7 @@ export default function LeadsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [newLead, setNewLead] = useState({ name: '', email: '', company: '' });
+  const [searchQuery, setSearchQuery] = useState('');
   
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -119,6 +120,8 @@ export default function LeadsPage() {
             <input 
               type="text" 
               placeholder="Search leads..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
@@ -141,7 +144,21 @@ export default function LeadsPage() {
                 <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">Loading leads...</td></tr>
               ) : leads.length === 0 ? (
                 <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">No leads found.</td></tr>
-              ) : leads.map((lead) => (
+              ) : leads.filter(lead => {
+                if (!searchQuery) return true;
+                const query = searchQuery.toLowerCase();
+                return lead.name.toLowerCase().includes(query) || 
+                       lead.company.toLowerCase().includes(query) || 
+                       (lead.email || '').toLowerCase().includes(query);
+              }).length === 0 ? (
+                <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">No leads match your search.</td></tr>
+              ) : leads.filter(lead => {
+                if (!searchQuery) return true;
+                const query = searchQuery.toLowerCase();
+                return lead.name.toLowerCase().includes(query) || 
+                       lead.company.toLowerCase().includes(query) || 
+                       (lead.email || '').toLowerCase().includes(query);
+              }).map((lead) => (
                 <tr key={lead.id} className="hover:bg-white/5 transition-colors group">
                   <td className="px-6 py-4" data-label="Lead">
                     <div className="flex items-center gap-3">
@@ -185,10 +202,10 @@ export default function LeadsPage() {
                     {new Date(lead.createdAt).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 text-right" data-label="Actions">
-                    <div className="flex flex-wrap items-center justify-start gap-2 md:justify-end">
+                    <div className="flex items-center justify-end gap-2">
                       <Link
                         href={`/leads/${lead.id}`}
-                        className="text-xs font-bold bg-white/5 text-slate-300 border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-all"
+                        className="text-xs font-bold bg-white/5 text-slate-300 border border-white/10 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-all whitespace-nowrap"
                       >
                         DETAILS
                       </Link>
@@ -204,11 +221,11 @@ export default function LeadsPage() {
                              }
                            }
                          }}
-                         className="text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-lg hover:bg-emerald-500/20 transition-all"
+                         className="text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-lg hover:bg-emerald-500/20 transition-all whitespace-nowrap"
                       >
                         CONVERT
                       </button>
-                      <button className="p-2 hover:bg-white/10 rounded-lg transition-colors text-muted-foreground hover:text-white">
+                      <button className="p-2 hover:bg-white/10 rounded-lg transition-colors text-muted-foreground hover:text-white shrink-0">
                         <MoreVertical size={18} />
                       </button>
                     </div>

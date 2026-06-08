@@ -104,19 +104,14 @@ let ClientAuthService = class ClientAuthService {
         try {
             const email = dto.email.trim().toLowerCase();
             const name = dto.name.trim();
-            const tenantSlug = this.normalizeSlug(dto.tenantSlug);
-            const companyName = this.companyNameFromSlug(tenantSlug);
+            const companySlug = this.normalizeSlug(dto.tenantSlug);
+            const companyName = this.companyNameFromSlug(companySlug);
             if (!name) {
                 throw new common_1.BadRequestException('Full name is required.');
             }
             const hashedPassword = await bcrypt.hash(dto.password, 10);
             const result = await this.prisma.$transaction(async (tx) => {
-                const tenant = await tx.tenant.create({
-                    data: {
-                        name: companyName,
-                        slug: tenantSlug,
-                    },
-                });
+                const tenant = await this.resolveSignupTenant(tx);
                 const client = await tx.client.create({
                     data: {
                         name,
@@ -195,7 +190,7 @@ let ClientAuthService = class ClientAuthService {
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/^-+|-+$/g, '');
         if (!slug) {
-            throw new common_1.BadRequestException('Company slug must include letters or numbers.');
+            throw new common_1.BadRequestException('Company name must include letters or numbers.');
         }
         return slug;
     }
@@ -205,6 +200,60 @@ let ClientAuthService = class ClientAuthService {
             .filter(Boolean)
             .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
             .join(' ');
+    }
+    async resolveSignupTenant(tx) {
+        const configuredTenantId = this.configService
+            .get('CLIENT_SIGNUP_TENANT_ID')
+            ?.trim();
+        const configuredTenantSlug = this.configService
+            .get('CLIENT_SIGNUP_TENANT_SLUG')
+            ?.trim()
+            .toLowerCase();
+        const select = {
+            id: true,
+            name: true,
+            slug: true,
+        };
+        if (configuredTenantId) {
+            const tenant = await tx.tenant.findUnique({
+                where: { id: configuredTenantId },
+                select,
+            });
+            if (!tenant) {
+                throw new common_1.InternalServerErrorException('Client signup tenant ID does not match an existing workspace.');
+            }
+            return tenant;
+        }
+        if (configuredTenantSlug) {
+            const tenant = await tx.tenant.findUnique({
+                where: { slug: configuredTenantSlug },
+                select,
+            });
+            if (!tenant) {
+                throw new common_1.InternalServerErrorException('Client signup tenant slug does not match an existing workspace.');
+            }
+            return tenant;
+        }
+        const latestAdminTenant = await tx.tenant.findFirst({
+            where: {
+                users: {
+                    some: { isSuperAdmin: true },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+            select,
+        });
+        if (latestAdminTenant) {
+            return latestAdminTenant;
+        }
+        const defaultTenant = await tx.tenant.findUnique({
+            where: { slug: 'admin-tenant' },
+            select,
+        });
+        if (defaultTenant) {
+            return defaultTenant;
+        }
+        throw new common_1.InternalServerErrorException('Client signup workspace is not configured.');
     }
     uniqueConflict(error) {
         const target = Array.isArray(error.meta?.target)

@@ -51,9 +51,8 @@ export default function ClientReportsPage() {
   const filteredReports = useMemo(() => {
     const normalized = search.toLowerCase();
     return reports.filter((report) => {
-      const siteName = report.site?.name || '';
-      const clientName = report.client?.companyName || report.client?.name || '';
-      return siteName.toLowerCase().includes(normalized) || clientName.toLowerCase().includes(normalized);
+      const siteName = report.site?.name || 'Daily service report';
+      return siteName.toLowerCase().includes(normalized);
     });
   }, [reports, search]);
 

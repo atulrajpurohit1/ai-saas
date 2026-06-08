@@ -199,18 +199,18 @@ export default function AiPromptsPage() {
                     <td className="px-5 py-4" data-label="Versions">
                       <div className="space-y-3">
                         {entry.versions.map((item) => (
-                          <div key={item.id} className="flex flex-wrap items-center gap-2">
-                            <span className={`rounded-full border px-3 py-1 text-xs font-bold ${statusClass[item.status]}`}>
+                          <div key={item.id} className="flex items-center gap-3 whitespace-nowrap">
+                            <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${statusClass[item.status]}`}>
                               {item.status}
                             </span>
-                            <span className="font-bold text-white">{item.version}</span>
-                            <span className="text-xs text-slate-500">{new Date(item.createdAt).toLocaleString()}</span>
+                            <span className="font-bold text-white shrink-0">{item.version}</span>
+                            <span className="text-xs text-slate-500 shrink-0">{new Date(item.createdAt).toLocaleString()}</span>
                             {item.status === 'active' ? (
                               <button
                                 type="button"
                                 onClick={() => handleStatusChange(item.id, 'deactivate')}
                                 disabled={busyId === item.id}
-                                className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-white/10 disabled:opacity-60"
+                                className="inline-flex shrink-0 min-h-9 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-white/10 disabled:opacity-60 whitespace-nowrap"
                               >
                                 {busyId === item.id ? <Loader2 className="animate-spin" size={14} /> : <XCircle size={14} />}
                                 Deactivate
@@ -220,7 +220,7 @@ export default function AiPromptsPage() {
                                 type="button"
                                 onClick={() => handleStatusChange(item.id, 'activate')}
                                 disabled={busyId === item.id}
-                                className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white transition hover:opacity-90 disabled:opacity-60"
+                                className="inline-flex shrink-0 min-h-9 items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white transition hover:opacity-90 disabled:opacity-60 whitespace-nowrap"
                               >
                                 {busyId === item.id ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}
                                 Activate

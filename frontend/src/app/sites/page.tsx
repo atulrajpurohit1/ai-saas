@@ -36,6 +36,7 @@ export default function SitesPage() {
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({ name: '', address: '', instructions: '', client_id: '', branch_id: '' });
   
   const fetchSites = async () => {
@@ -129,6 +130,8 @@ export default function SitesPage() {
               <input 
                 type="text" 
                 placeholder="Search sites..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
@@ -153,7 +156,9 @@ export default function SitesPage() {
                 <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">Loading sites...</td></tr>
               ) : sites.length === 0 ? (
                 <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">No sites found.</td></tr>
-              ) : sites.map((site) => (
+              ) : sites.filter(site => !searchQuery || site.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 ? (
+                <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">No sites match your search.</td></tr>
+              ) : sites.filter(site => !searchQuery || site.name.toLowerCase().includes(searchQuery.toLowerCase())).map((site) => (
                 <tr key={site.id} className="hover:bg-white/5 transition-colors group">
                   <td className="px-6 py-4" data-label="Site">
                     <div className="flex items-center gap-3">

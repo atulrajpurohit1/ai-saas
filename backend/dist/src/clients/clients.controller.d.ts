@@ -16,7 +16,7 @@ export declare class ClientsController {
         companyName: string | null;
         phone: string | null;
     }>;
-    findAll(user: ActiveUser, branchId?: string, scope?: string): Promise<{
+    findAll(user: ActiveUser, branchId?: string): Promise<{
         id: string;
         name: string;
         createdAt: Date;

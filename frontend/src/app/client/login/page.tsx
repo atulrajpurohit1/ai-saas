@@ -77,7 +77,7 @@ export default function ClientLoginPage() {
             {isRegister ? 'Create Client Account' : 'Client Portal'}
           </h1>
           <p className="text-slate-400 font-medium">
-            {isRegister ? 'Register your company client workspace.' : 'Access your proposals and secure service details.'}
+            {isRegister ? 'Register your client portal account.' : 'Access your proposals and secure service details.'}
           </p>
         </div>
 
@@ -103,7 +103,7 @@ export default function ClientLoginPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-300 ml-1">Company Slug</label>
+                  <label className="text-sm font-semibold text-slate-300 ml-1">Company Name</label>
                   <div className="relative group">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
                       <Briefcase size={18} />
@@ -113,7 +113,7 @@ export default function ClientLoginPage() {
                       autoCapitalize="none"
                       spellCheck={false}
                       className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600"
-                      placeholder="acme-security"
+                      placeholder="Acme Security"
                       value={tenantSlug}
                       onChange={(e) => setTenantSlug(e.target.value)}
                       required

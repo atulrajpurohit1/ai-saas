@@ -82,15 +82,7 @@ export default function InvoiceDisputesPage() {
         (statusFilter === 'active'
           ? dispute.status === 'open' || dispute.status === 'under_review'
           : dispute.status === statusFilter);
-      const matchesSearch = [
-        dispute.reason,
-        dispute.description,
-        dispute.adminResponse || '',
-        dispute.invoice?.invoiceNumber || '',
-        dispute.client?.companyName || dispute.client?.name || '',
-        dispute.invoice?.site?.name || '',
-      ].some((value) => value.toLowerCase().includes(normalized));
-
+      const matchesSearch = dispute.reason.toLowerCase().includes(normalized);
       return matchesStatus && matchesSearch;
     });
   }, [disputes, search, statusFilter]);

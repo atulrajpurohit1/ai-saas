@@ -37,8 +37,8 @@ export default function LoginPage() {
   const { login } = useAuth();
   const { branding } = useBranding();
   const router = useRouter();
-  const slugLabel = 'Company Slug';
-  const slugPlaceholder = 'acme-security';
+  const slugLabel = role === 'admin' ? 'Company Slug' : 'Company Name';
+  const slugPlaceholder = role === 'admin' ? 'acme-security' : 'Acme Security';
 
   const completeAdminLogin = async (accessToken: string, fallbackName: string, fallbackTenantName?: string) => {
     localStorage.setItem('token', accessToken);

@@ -20,7 +20,7 @@ export declare class ClientsService {
         companyName: string | null;
         phone: string | null;
     }>;
-    findAll(user: ActiveUser, requestedBranchId?: string | null, includeAllClients?: boolean): Promise<{
+    findAll(user: ActiveUser, requestedBranchId?: string | null): Promise<{
         id: string;
         name: string;
         createdAt: Date;
