@@ -23,6 +23,14 @@ export declare class LeadsService {
         id: string;
         name: string;
         createdAt: Date;
+        salesAssessments: {
+            createdAt: Date;
+            leadScore: number | null;
+            priorityTier: string | null;
+            closeReadinessScore: number | null;
+            discoveryQualityScore: number | null;
+            recommendedNextAction: string | null;
+        }[];
         email: string | null;
         status: string;
         company: string;

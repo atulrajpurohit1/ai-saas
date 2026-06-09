@@ -52,6 +52,8 @@ model Tenant {
   promptVersions      PromptVersion[]
   knowledgeEntries    KnowledgeEntry[]
   aiConversations     AiConversation[]
+  discoverySessions   DiscoverySession[]
+  salesAssessments    SalesAssessment[]
   roles               Role[]
   userRoleAssignments UserRoleAssignment[]
   apiKeys             ApiKey[]
@@ -193,6 +195,8 @@ model Lead {
   tenant    Tenant     @relation(fields: [tenantId], references: [id])
   proposals Proposal[]
   notes     Note[]
+  discoverySessions DiscoverySession[]
+  salesAssessments  SalesAssessment[]
 
   @@index([tenantId])
 }
@@ -212,6 +216,8 @@ model Deal {
   proposals  Proposal[]
   clientId   String?
   client     Client?    @relation(fields: [clientId], references: [id])
+  discoverySessions DiscoverySession[]
+  salesAssessments  SalesAssessment[]
 
   @@index([tenantId])
   @@index([leadId])
@@ -281,6 +287,74 @@ model ProposalVersion {
   createdAt     DateTime @default(now())
 
   @@index([proposalId])
+}
+
+model DiscoverySession {
+  id                String            @id @default(uuid())
+  tenantId          String            @map("tenant_id")
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leadId            String?           @map("lead_id")
+  lead              Lead?             @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  dealId            String?           @map("deal_id")
+  deal              Deal?             @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  propertyType      String?           @map("property_type")
+  buyerRole         String?           @map("buyer_role")
+  currentProvider   String?           @map("current_provider")
+  guardCount        Int?              @map("guard_count")
+  serviceHours      String?           @map("service_hours")
+  painPoints        String[]          @default([]) @map("pain_points")
+  riskConcerns      String[]          @default([]) @map("risk_concerns")
+  decisionTimeline  String?           @map("decision_timeline")
+  budgetSensitivity String?           @map("budget_sensitivity")
+  objections        String[]          @default([])
+  notes             String?
+  createdBy         String?           @map("created_by")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  assessments       SalesAssessment[]
+
+  @@index([tenantId])
+  @@index([leadId])
+  @@index([dealId])
+  @@index([tenantId, leadId])
+  @@index([tenantId, dealId])
+  @@map("DiscoverySession")
+}
+
+model SalesAssessment {
+  id                    String            @id @default(uuid())
+  tenantId              String            @map("tenant_id")
+  tenant                Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leadId                String?           @map("lead_id")
+  lead                  Lead?             @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  dealId                String?           @map("deal_id")
+  deal                  Deal?             @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  discoverySessionId    String?           @map("discovery_session_id")
+  discoverySession      DiscoverySession? @relation(fields: [discoverySessionId], references: [id], onDelete: SetNull)
+  assessmentType        String            @default("sales_assessment") @map("assessment_type")
+  leadScore             Int?              @map("lead_score")
+  priorityTier          String?           @map("priority_tier")
+  closeReadinessScore   Int?              @map("close_readiness_score")
+  discoveryQualityScore Int?              @map("discovery_quality_score")
+  riskProfile           String?           @map("risk_profile")
+  proposalAngle         String?           @map("proposal_angle")
+  recommendedNextAction String?           @map("recommended_next_action")
+  missingQuestions      String[]          @default([]) @map("missing_questions")
+  objectionRisks        String[]          @default([]) @map("objection_risks")
+  summary               String?
+  generatedOutput       Json?             @map("generated_output")
+  aiGenerationId        String?           @map("ai_generation_id")
+  createdBy             String?           @map("created_by")
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([leadId])
+  @@index([dealId])
+  @@index([discoverySessionId])
+  @@index([tenantId, assessmentType])
+  @@index([tenantId, createdAt])
+  @@map("SalesAssessment")
 }
 
 model AuditLog {

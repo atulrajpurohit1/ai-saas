@@ -37,6 +37,14 @@ export declare class DealsController {
         stage: string;
     }>;
     findAll(req: Request): Promise<({
+        salesAssessments: {
+            createdAt: Date;
+            leadScore: number | null;
+            priorityTier: string | null;
+            closeReadinessScore: number | null;
+            discoveryQualityScore: number | null;
+            recommendedNextAction: string | null;
+        }[];
         client: {
             id: string;
             name: string;

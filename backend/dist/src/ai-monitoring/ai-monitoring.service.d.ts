@@ -14,12 +14,12 @@ export declare class AiMonitoringService {
         tenantId: string;
         status: string;
         promptVersion: string;
+        generatedOutput: Prisma.JsonValue;
         createdBy: string | null;
         promptVersionId: string | null;
         modelUsed: string;
         sourceModule: string;
         inputSource: Prisma.JsonValue | null;
-        generatedOutput: Prisma.JsonValue;
         fallbackUsed: boolean;
         errorMessage: string | null;
         clientVisible: boolean;
@@ -40,8 +40,8 @@ export declare class AiMonitoringService {
         id: string;
         createdAt: Date;
         tenantId: string;
-        createdBy: string;
         aiGenerationId: string;
+        createdBy: string;
         recommendationId: string | null;
         actionId: string | null;
         rating: number;
@@ -63,8 +63,8 @@ export declare class AiMonitoringService {
         id: string;
         createdAt: Date;
         tenantId: string;
-        createdBy: string;
         aiGenerationId: string;
+        createdBy: string;
         recommendationId: string | null;
         actionId: string | null;
         rating: number;

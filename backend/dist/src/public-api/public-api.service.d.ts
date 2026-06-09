@@ -255,8 +255,8 @@ export declare class PublicApiService {
         branchId: string | null;
         clientId: string;
         status: string;
-        siteId: string;
         summary: string;
+        siteId: string;
         reportDate: Date;
         publishedAt: Date | null;
     })[]>;

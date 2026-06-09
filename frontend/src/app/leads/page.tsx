@@ -13,7 +13,24 @@ interface Lead {
   company: string;
   status: string;
   createdAt: string;
+  salesAssessments?: Array<{
+    leadScore: number | null;
+    priorityTier: string | null;
+    closeReadinessScore: number | null;
+    discoveryQualityScore: number | null;
+    recommendedNextAction: string | null;
+    createdAt: string;
+  }>;
 }
+
+const scoreClass = (score?: number | null) => {
+  if ((score || 0) >= 75) return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
+  if ((score || 0) >= 50) return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
+  if (typeof score === 'number') return 'border-rose-500/20 bg-rose-500/10 text-rose-300';
+  return 'border-white/10 bg-white/5 text-slate-500';
+};
+
+const priorityLabel = (value?: string | null) => value ? value.toUpperCase() : 'UNSCORED';
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -135,15 +152,16 @@ export default function LeadsPage() {
                 <th className="px-6 py-4 font-semibold">Email</th>
                 <th className="px-6 py-4 font-semibold">Company</th>
                 <th className="px-6 py-4 font-semibold">Status</th>
+                <th className="px-6 py-4 font-semibold">Sales AI</th>
                 <th className="px-6 py-4 font-semibold">Created</th>
                 <th className="px-6 py-4 font-semibold"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {loading ? (
-                <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">Loading leads...</td></tr>
+                <tr><td colSpan={7} className="px-6 py-10 text-center text-muted-foreground">Loading leads...</td></tr>
               ) : leads.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">No leads found.</td></tr>
+                <tr><td colSpan={7} className="px-6 py-10 text-center text-muted-foreground">No leads found.</td></tr>
               ) : leads.filter(lead => {
                 if (!searchQuery) return true;
                 const query = searchQuery.toLowerCase();
@@ -151,7 +169,7 @@ export default function LeadsPage() {
                        lead.company.toLowerCase().includes(query) || 
                        (lead.email || '').toLowerCase().includes(query);
               }).length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">No leads match your search.</td></tr>
+                <tr><td colSpan={7} className="px-6 py-10 text-center text-muted-foreground">No leads match your search.</td></tr>
               ) : leads.filter(lead => {
                 if (!searchQuery) return true;
                 const query = searchQuery.toLowerCase();
@@ -197,6 +215,21 @@ export default function LeadsPage() {
                       <option value="responded">Responded</option>
                       <option value="closed">Closed</option>
                     </select>
+                  </td>
+                  <td className="px-6 py-4" data-label="Sales AI">
+                    {(() => {
+                      const assessment = lead.salesAssessments?.[0];
+                      return (
+                        <div className="space-y-1">
+                          <span className={`inline-flex whitespace-nowrap rounded-full border px-3 py-1 text-xs font-bold ${scoreClass(assessment?.leadScore)}`}>
+                            {assessment?.leadScore ?? '--'} score
+                          </span>
+                          <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                            {priorityLabel(assessment?.priorityTier)}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="px-6 py-4 text-sm text-muted-foreground" data-label="Created">
                     {new Date(lead.createdAt).toLocaleDateString()}

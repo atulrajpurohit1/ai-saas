@@ -56,6 +56,18 @@ let LeadsService = class LeadsService {
                 company: true,
                 status: true,
                 createdAt: true,
+                salesAssessments: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                    select: {
+                        leadScore: true,
+                        priorityTier: true,
+                        closeReadinessScore: true,
+                        discoveryQualityScore: true,
+                        recommendedNextAction: true,
+                        createdAt: true,
+                    },
+                },
             },
             orderBy: { createdAt: 'desc' },
         });

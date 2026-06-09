@@ -13,9 +13,9 @@ export declare class AiActionsController {
             title: string;
             status: string;
             description: string;
+            aiGenerationId: string | null;
             approvedBy: string | null;
             approvedAt: Date | null;
-            aiGenerationId: string | null;
             recommendationId: string;
             actionType: string;
             targetModule: string;
@@ -31,9 +31,9 @@ export declare class AiActionsController {
         title: string;
         status: string;
         description: string;
+        aiGenerationId: string | null;
         approvedBy: string | null;
         approvedAt: Date | null;
-        aiGenerationId: string | null;
         recommendationId: string;
         actionType: string;
         targetModule: string;
@@ -48,9 +48,9 @@ export declare class AiActionsController {
         title: string;
         status: string;
         description: string;
+        aiGenerationId: string | null;
         approvedBy: string | null;
         approvedAt: Date | null;
-        aiGenerationId: string | null;
         recommendationId: string;
         actionType: string;
         targetModule: string;
@@ -65,9 +65,9 @@ export declare class AiActionsController {
         title: string;
         status: string;
         description: string;
+        aiGenerationId: string | null;
         approvedBy: string | null;
         approvedAt: Date | null;
-        aiGenerationId: string | null;
         recommendationId: string;
         actionType: string;
         targetModule: string;
@@ -82,9 +82,9 @@ export declare class AiActionsController {
         title: string;
         status: string;
         description: string;
+        aiGenerationId: string | null;
         approvedBy: string | null;
         approvedAt: Date | null;
-        aiGenerationId: string | null;
         recommendationId: string;
         actionType: string;
         targetModule: string;

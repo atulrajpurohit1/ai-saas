@@ -58,6 +58,7 @@ const api_docs_module_1 = require("./api-docs/api-docs.module");
 const sessions_module_1 = require("./sessions/sessions.module");
 const sso_module_1 = require("./sso/sso.module");
 const branding_module_1 = require("./branding/branding.module");
+const sales_accelerator_module_1 = require("./sales-accelerator/sales-accelerator.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -75,6 +76,7 @@ exports.AppModule = AppModule = __decorate([
             sessions_module_1.SessionsModule,
             sso_module_1.SsoModule,
             branding_module_1.BrandingModule,
+            sales_accelerator_module_1.SalesAcceleratorModule,
             users_module_1.UsersModule,
             auth_module_1.AuthModule,
             client_auth_module_1.ClientAuthModule,

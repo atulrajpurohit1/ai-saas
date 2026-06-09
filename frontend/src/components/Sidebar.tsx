@@ -60,6 +60,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     { href: '/ai-command-center', label: 'Command Center', icon: Command, permissions: ['ai.view'] },
     { href: '/ai-executive-center', label: 'Executive Center', icon: Briefcase, permissions: ['ai.view'] },
     { href: '/ai-copilot', label: 'AI Copilot', icon: Bot, permissions: ['ai.view'] },
+    { href: '/sales-accelerator', label: 'Sales Accelerator', icon: BrainCircuit, permissions: ['ai.view', 'leads.view'] },
     { href: '/ai-predictions', label: 'AI Predictions', icon: TrendingDown, permissions: ['ai.manage'] },
     { href: '/ai-prompts', label: 'AI Prompts', icon: ScrollText, permissions: ['ai.governance'] },
     { href: '/ai-audit', label: 'AI Audit', icon: FileSearch, permissions: ['ai.governance'] },

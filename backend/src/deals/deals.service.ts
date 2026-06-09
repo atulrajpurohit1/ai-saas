@@ -80,7 +80,22 @@ export class DealsService {
   async findAll(tenantId: string) {
     return this.prisma.deal.findMany({
       where: { tenantId },
-      include: { lead: true, client: true },
+      include: {
+        lead: true,
+        client: true,
+        salesAssessments: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: {
+            leadScore: true,
+            priorityTier: true,
+            closeReadinessScore: true,
+            discoveryQualityScore: true,
+            recommendedNextAction: true,
+            createdAt: true,
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }

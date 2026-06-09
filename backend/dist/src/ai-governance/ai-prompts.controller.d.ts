@@ -10,22 +10,22 @@ export declare class AiPromptsController {
             createdAt: Date;
             tenantId: string;
             status: string;
+            createdBy: string | null;
             version: string;
             moduleName: string;
             promptKey: string;
             promptText: string;
-            createdBy: string | null;
         } | null;
         versions: {
             id: string;
             createdAt: Date;
             tenantId: string;
             status: string;
+            createdBy: string | null;
             version: string;
             moduleName: string;
             promptKey: string;
             promptText: string;
-            createdBy: string | null;
         }[];
         moduleName: string;
         promptKey: string;
@@ -38,32 +38,32 @@ export declare class AiPromptsController {
         createdAt: Date;
         tenantId: string;
         status: string;
+        createdBy: string | null;
         version: string;
         moduleName: string;
         promptKey: string;
         promptText: string;
-        createdBy: string | null;
     }>;
     activate(user: ActiveUser, id: string): Promise<{
         id: string;
         createdAt: Date;
         tenantId: string;
         status: string;
+        createdBy: string | null;
         version: string;
         moduleName: string;
         promptKey: string;
         promptText: string;
-        createdBy: string | null;
     }>;
     deactivate(user: ActiveUser, id: string): Promise<{
         id: string;
         createdAt: Date;
         tenantId: string;
         status: string;
+        createdBy: string | null;
         version: string;
         moduleName: string;
         promptKey: string;
         promptText: string;
-        createdBy: string | null;
     }>;
 }

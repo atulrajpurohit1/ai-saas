@@ -64,6 +64,35 @@ let AiService = AiService_1 = class AiService {
             return null;
         return promptTemplate.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key) => String(variables[key] ?? ''));
     }
+    parseJsonFromText(rawText) {
+        const cleaned = rawText.replace(/```json|```/g, '').trim();
+        try {
+            return JSON.parse(cleaned);
+        }
+        catch {
+            const start = cleaned.indexOf('{');
+            const end = cleaned.lastIndexOf('}');
+            if (start >= 0 && end > start) {
+                return JSON.parse(cleaned.slice(start, end + 1));
+            }
+            throw new Error('AI response did not contain valid JSON.');
+        }
+    }
+    clampScore(value, fallback) {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric))
+            return fallback;
+        return Math.max(0, Math.min(100, Math.round(numeric)));
+    }
+    normalizeStringArray(value, fallback = []) {
+        if (!Array.isArray(value))
+            return fallback;
+        return value
+            .filter((item) => typeof item === 'string')
+            .map((item) => item.trim())
+            .filter(Boolean)
+            .slice(0, 8);
+    }
     async generateText(prompt, action, fallbackFactory) {
         if (!this.isAiAvailable()) {
             if (this.getFallbackEnabled())
@@ -85,6 +114,127 @@ let AiService = AiService_1 = class AiService {
                 return fallbackFactory();
             throw new common_1.InternalServerErrorException(this.getUnavailableMessage(action));
         }
+    }
+    async generateSalesAssessment(context) {
+        const fallback = this.fallbackSalesAssessment();
+        const prompt = `
+      You are a security guard industry sales execution advisor.
+      Analyze this tenant-scoped lead/deal context and return JSON only.
+
+      CONTEXT:
+      ${context}
+
+      Return exactly this JSON shape:
+      {
+        "leadScore": 0,
+        "priorityTier": "medium",
+        "closeReadinessScore": 0,
+        "discoveryQualityScore": 0,
+        "riskProfile": "one concise security-risk summary",
+        "proposalAngle": "how to frame value around risk reduction",
+        "recommendedNextAction": "one concrete next action for the sales rep",
+        "missingQuestions": ["question"],
+        "objectionRisks": ["risk"],
+        "summary": "one concise executive sales assessment"
+      }
+
+      Rules:
+      - Scores must be 0-100.
+      - priorityTier must be high, medium, or low.
+      - Do not invent private personal data.
+      - Focus on security risk, decision process, scope clarity, and sales momentum.
+    `;
+        const rawText = await this.generateText(prompt, 'sales assessment generation', () => JSON.stringify(fallback));
+        try {
+            const parsed = this.parseJsonFromText(rawText);
+            const priorityTier = parsed.priorityTier === 'high' ||
+                parsed.priorityTier === 'medium' ||
+                parsed.priorityTier === 'low'
+                ? parsed.priorityTier
+                : fallback.priorityTier;
+            return {
+                leadScore: this.clampScore(parsed.leadScore, fallback.leadScore),
+                priorityTier,
+                closeReadinessScore: this.clampScore(parsed.closeReadinessScore, fallback.closeReadinessScore),
+                discoveryQualityScore: this.clampScore(parsed.discoveryQualityScore, fallback.discoveryQualityScore),
+                riskProfile: typeof parsed.riskProfile === 'string' && parsed.riskProfile.trim()
+                    ? parsed.riskProfile.trim()
+                    : fallback.riskProfile,
+                proposalAngle: typeof parsed.proposalAngle === 'string' && parsed.proposalAngle.trim()
+                    ? parsed.proposalAngle.trim()
+                    : fallback.proposalAngle,
+                recommendedNextAction: typeof parsed.recommendedNextAction === 'string' &&
+                    parsed.recommendedNextAction.trim()
+                    ? parsed.recommendedNextAction.trim()
+                    : fallback.recommendedNextAction,
+                missingQuestions: this.normalizeStringArray(parsed.missingQuestions, fallback.missingQuestions),
+                objectionRisks: this.normalizeStringArray(parsed.objectionRisks, fallback.objectionRisks),
+                summary: typeof parsed.summary === 'string' && parsed.summary.trim()
+                    ? parsed.summary.trim()
+                    : fallback.summary,
+            };
+        }
+        catch (error) {
+            this.logger.warn(`Sales assessment JSON parsing failed: ${error instanceof Error ? error.message : String(error)}`);
+            return fallback;
+        }
+    }
+    async generateDiscoveryGuide(context) {
+        const fallback = this.fallbackDiscoveryGuide();
+        const prompt = `
+      You are coaching a security guard sales rep before a discovery call.
+      Use only this lead/deal context:
+      ${context}
+
+      Return JSON only in this exact shape:
+      {
+        "questions": ["specific discovery question"],
+        "talkingPoints": ["security-specific talking point"],
+        "followUpAngles": ["follow-up angle"],
+        "qualificationChecklist": ["qualification item"]
+      }
+
+      Keep the guidance specific to contract security guard services.
+      Focus on risk, property exposure, operating hours, incident history, decision makers, timeline, and scope.
+    `;
+        const rawText = await this.generateText(prompt, 'discovery guide generation', () => JSON.stringify(fallback));
+        try {
+            const parsed = this.parseJsonFromText(rawText);
+            return {
+                questions: this.normalizeStringArray(parsed.questions, fallback.questions),
+                talkingPoints: this.normalizeStringArray(parsed.talkingPoints, fallback.talkingPoints),
+                followUpAngles: this.normalizeStringArray(parsed.followUpAngles, fallback.followUpAngles),
+                qualificationChecklist: this.normalizeStringArray(parsed.qualificationChecklist, fallback.qualificationChecklist),
+            };
+        }
+        catch (error) {
+            this.logger.warn(`Discovery guide JSON parsing failed: ${error instanceof Error ? error.message : String(error)}`);
+            return fallback;
+        }
+    }
+    async generateDiscoveryProposal(context) {
+        const prompt = `
+      You are a senior security consultant writing a proposal for contract security guard services.
+      Use this discovery context:
+      ${context}
+
+      Write a professional proposal in Markdown with:
+      # Security Services Proposal
+      ## Executive Summary
+      ## Risk Profile
+      ## Recommended Scope
+      ## Staffing and Deployment Approach
+      ## Operational Controls
+      ## Value Justification
+      ## Next Steps
+
+      Requirements:
+      - Frame the service around risk reduction, continuity, and accountability.
+      - Tie recommendations to the discovery details.
+      - Avoid invented pricing.
+      - Keep it concise and client-ready.
+    `;
+        return this.generateText(prompt, 'discovery-based proposal generation', () => this.fallbackDiscoveryProposal());
     }
     async generateProposalDraft(dto) {
         const prompt = `
@@ -380,6 +530,75 @@ Custom deployment tailored for ${lead.company}.
     }
     fallbackSummarizeNotes(notes) {
         return `**Summary:**\n- ${notes.join('\n- ')}`;
+    }
+    fallbackSalesAssessment() {
+        return {
+            leadScore: 55,
+            priorityTier: 'medium',
+            closeReadinessScore: 45,
+            discoveryQualityScore: 40,
+            riskProfile: 'Discovery is still incomplete, so the risk profile should be validated before proposal.',
+            proposalAngle: 'Frame the service around reducing site risk and creating accountable coverage rather than selling guard hours.',
+            recommendedNextAction: 'Complete discovery around property risk, decision timeline, current provider, and required coverage.',
+            missingQuestions: [
+                'What incidents or risks triggered the security review?',
+                'Who approves the final service scope and budget?',
+                'What coverage hours and guard count are required?',
+            ],
+            objectionRisks: ['Price pressure may appear if risk and scope are not clearly established.'],
+            summary: 'The opportunity has usable early signals, but needs stronger discovery before a confident proposal.',
+        };
+    }
+    fallbackDiscoveryGuide() {
+        return {
+            questions: [
+                'What recent incidents, complaints, or liability concerns caused this security review?',
+                'Which areas, shifts, or access points create the highest exposure?',
+                'Who is involved in approving the final scope and timeline?',
+                'What would make this security program successful after the first 90 days?',
+            ],
+            talkingPoints: [
+                'Position coverage as risk reduction, not just guard labor.',
+                'Connect staffing recommendations to property exposure and operating hours.',
+                'Clarify how reporting and accountability will reduce management workload.',
+            ],
+            followUpAngles: [
+                'Offer a site walkthrough to validate coverage assumptions.',
+                'Send a risk-framed proposal tied to the buyer priorities captured on the call.',
+            ],
+            qualificationChecklist: [
+                'Decision maker identified',
+                'Coverage hours confirmed',
+                'Primary risks documented',
+                'Timeline and approval process confirmed',
+            ],
+        };
+    }
+    fallbackDiscoveryProposal() {
+        return `
+# Security Services Proposal
+
+## Executive Summary
+This proposal outlines a risk-focused security guard program based on the discovery information captured so far.
+
+## Risk Profile
+The current opportunity requires validation of site exposure, operating hours, incident history, and decision timeline.
+
+## Recommended Scope
+We recommend confirming post orders, coverage windows, guard count, reporting expectations, and escalation procedures before final pricing.
+
+## Staffing and Deployment Approach
+Deployment should match the property's highest-risk hours and locations, with clear accountability for patrols, access control, and incident reporting.
+
+## Operational Controls
+The program should include supervisor oversight, daily reporting, incident escalation, and regular client review points.
+
+## Value Justification
+The value should be framed around reduced liability, improved visibility, and consistent coverage rather than guard hours alone.
+
+## Next Steps
+Complete discovery, confirm scope, and finalize a proposal aligned to the client's risk priorities.
+    `.trim();
     }
     async extractLeadFromText(text) {
         const prompt = `Extract JSON with {name, company, email} from this text: "${text}". Only return JSON.`;

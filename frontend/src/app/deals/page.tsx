@@ -14,6 +14,14 @@ interface Deal {
   createdAt: string;
   clientId: string | null;
   client?: { name: string; companyName: string };
+  salesAssessments?: Array<{
+    leadScore: number | null;
+    priorityTier: string | null;
+    closeReadinessScore: number | null;
+    discoveryQualityScore: number | null;
+    recommendedNextAction: string | null;
+    createdAt: string;
+  }>;
 }
 
 interface LeadOption {
@@ -27,6 +35,13 @@ interface ClientOption {
   name: string;
   companyName: string | null;
 }
+
+const scoreClass = (score?: number | null) => {
+  if ((score || 0) >= 75) return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
+  if ((score || 0) >= 50) return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
+  if (typeof score === 'number') return 'border-rose-500/20 bg-rose-500/10 text-rose-300';
+  return 'border-white/10 bg-white/5 text-slate-500';
+};
 
 export default function DealsPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -142,13 +157,22 @@ export default function DealsPage() {
               return deal.name.toLowerCase().includes(query);
             }).map((deal) => (
             <div key={deal.id} className="glass-card p-6 rounded-2xl border-white/5 hover:border-indigo-500/50 transition-all group">
+              {(() => {
+                const assessment = deal.salesAssessments?.[0];
+                return (
+                  <>
               <div className="flex items-center justify-between mb-4">
                 <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
                   <Briefcase size={20} />
                 </div>
-                <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 bg-indigo-400/10 px-2 py-1 rounded-md">
-                  {deal.stage}
-                </span>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 bg-indigo-400/10 px-2 py-1 rounded-md">
+                    {deal.stage}
+                  </span>
+                  <span className={`rounded-md border px-2 py-1 text-xs font-bold uppercase tracking-wider ${scoreClass(assessment?.closeReadinessScore)}`}>
+                    {assessment?.closeReadinessScore ?? '--'} ready
+                  </span>
+                </div>
               </div>
               <Link href={`/deals/${deal.id}`} className="block text-xl font-bold mb-1 truncate transition hover:text-indigo-300">
                 {deal.name}
@@ -162,6 +186,9 @@ export default function DealsPage() {
                   Client: {deal.client.name}
                 </p>
               )}
+              <div className="min-h-10 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs leading-5 text-slate-400">
+                {assessment?.recommendedNextAction || 'Run Sales Accelerator scoring from deal details.'}
+              </div>
               
               <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-4">
                 <div className="flex items-center gap-1 text-emerald-400 font-bold">
@@ -172,6 +199,9 @@ export default function DealsPage() {
                   VIEW DETAILS
                 </Link>
               </div>
+                  </>
+                );
+              })()}
             </div>
           ))}
         </div>

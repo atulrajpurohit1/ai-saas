@@ -14,22 +14,22 @@ export declare class AiGovernanceService {
             createdAt: Date;
             tenantId: string;
             status: string;
+            createdBy: string | null;
             version: string;
             moduleName: string;
             promptKey: string;
             promptText: string;
-            createdBy: string | null;
         } | null;
         versions: {
             id: string;
             createdAt: Date;
             tenantId: string;
             status: string;
+            createdBy: string | null;
             version: string;
             moduleName: string;
             promptKey: string;
             promptText: string;
-            createdBy: string | null;
         }[];
         moduleName: string;
         promptKey: string;
@@ -42,33 +42,33 @@ export declare class AiGovernanceService {
         createdAt: Date;
         tenantId: string;
         status: string;
+        createdBy: string | null;
         version: string;
         moduleName: string;
         promptKey: string;
         promptText: string;
-        createdBy: string | null;
     }>;
     activatePromptVersion(id: string, tenantId: string, userId: string): Promise<{
         id: string;
         createdAt: Date;
         tenantId: string;
         status: string;
+        createdBy: string | null;
         version: string;
         moduleName: string;
         promptKey: string;
         promptText: string;
-        createdBy: string | null;
     }>;
     deactivatePromptVersion(id: string, tenantId: string, userId: string): Promise<{
         id: string;
         createdAt: Date;
         tenantId: string;
         status: string;
+        createdBy: string | null;
         version: string;
         moduleName: string;
         promptKey: string;
         promptText: string;
-        createdBy: string | null;
     }>;
     resolvePromptVersion(input: {
         tenantId: string;

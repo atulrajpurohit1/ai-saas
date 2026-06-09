@@ -49,6 +49,7 @@ import { ApiDocsModule } from './api-docs/api-docs.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { SsoModule } from './sso/sso.module';
 import { BrandingModule } from './branding/branding.module';
+import { SalesAcceleratorModule } from './sales-accelerator/sales-accelerator.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { BrandingModule } from './branding/branding.module';
     SessionsModule,
     SsoModule,
     BrandingModule,
+    SalesAcceleratorModule,
     UsersModule,
     AuthModule,
     ClientAuthModule,

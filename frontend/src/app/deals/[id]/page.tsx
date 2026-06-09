@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import NotesPanel from '@/components/NotesPanel';
+import SalesAcceleratorPanel from '@/components/SalesAcceleratorPanel';
 import api from '@/lib/api';
 import {
   ArrowLeft,
@@ -138,6 +139,8 @@ export default function DealDetailsPage() {
               </div>
             </div>
           </section>
+
+          <SalesAcceleratorPanel entityType="deal" entityId={deal.id} />
 
           <NotesPanel entityType="deal" entityId={deal.id} title="Deal Notes" />
         </div>
