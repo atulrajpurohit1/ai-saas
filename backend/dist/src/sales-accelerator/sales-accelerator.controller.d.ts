@@ -1,4 +1,6 @@
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { AnalyzeDiscoveryCallDto } from './dto/analyze-discovery-call.dto';
+import { CreateFollowUpTaskDto } from './dto/create-follow-up-task.dto';
 import { GenerateDiscoveryProposalDto } from './dto/generate-discovery-proposal.dto';
 import { SaveDiscoveryDto } from './dto/save-discovery.dto';
 import { SalesAcceleratorService } from './sales-accelerator.service';
@@ -14,6 +16,12 @@ export declare class SalesAcceleratorController {
             assessedDeals: number;
             highPriorityLeads: number;
             dealsBelowReadiness: number;
+            stalledDeals: number;
+            overdueDealActivities: number;
+            trackedObjections: number;
+            objectionPatternCount: number;
+            forecastAtRiskDeals: number;
+            averageForecastConfidence: number | null;
             leadsMissingDiscovery: number;
             dealsMissingDiscovery: number;
             averageLeadScore: number | null;
@@ -63,7 +71,159 @@ export declare class SalesAcceleratorController {
                 riskProfile: string | null;
                 proposalAngle: string | null;
                 recommendedNextAction: string | null;
+                summary: string | null;
             };
+            momentum: import("./sales-accelerator.service").DealMomentum;
+            forecast: import("./sales-accelerator.service").DealForecast;
+            id: string;
+            name: string;
+            createdAt: Date;
+            activities: {
+                id: string;
+                createdAt: Date;
+                status: string;
+                subject: string;
+                type: string;
+                dueDate: Date | null;
+            }[];
+            discoverySessions: {
+                id: string;
+                createdAt: Date;
+            }[];
+            salesAssessments: {
+                id: string;
+                createdAt: Date;
+                leadScore: number | null;
+                priorityTier: string | null;
+                closeReadinessScore: number | null;
+                discoveryQualityScore: number | null;
+                riskProfile: string | null;
+                proposalAngle: string | null;
+                recommendedNextAction: string | null;
+                summary: string | null;
+            }[];
+            client: {
+                id: string;
+                name: string;
+                companyName: string | null;
+            } | null;
+            lead: {
+                id: string;
+                name: string;
+                company: string;
+            };
+            stage: string;
+        }[];
+        stalledDeals: {
+            assessment: {
+                id: string;
+                createdAt: Date;
+                leadScore: number | null;
+                priorityTier: string | null;
+                closeReadinessScore: number | null;
+                discoveryQualityScore: number | null;
+                riskProfile: string | null;
+                proposalAngle: string | null;
+                recommendedNextAction: string | null;
+                summary: string | null;
+            };
+            momentum: import("./sales-accelerator.service").DealMomentum;
+            forecast: import("./sales-accelerator.service").DealForecast;
+            id: string;
+            name: string;
+            createdAt: Date;
+            activities: {
+                id: string;
+                createdAt: Date;
+                status: string;
+                subject: string;
+                type: string;
+                dueDate: Date | null;
+            }[];
+            discoverySessions: {
+                id: string;
+                createdAt: Date;
+            }[];
+            salesAssessments: {
+                id: string;
+                createdAt: Date;
+                leadScore: number | null;
+                priorityTier: string | null;
+                closeReadinessScore: number | null;
+                discoveryQualityScore: number | null;
+                riskProfile: string | null;
+                proposalAngle: string | null;
+                recommendedNextAction: string | null;
+                summary: string | null;
+            }[];
+            client: {
+                id: string;
+                name: string;
+                companyName: string | null;
+            } | null;
+            lead: {
+                id: string;
+                name: string;
+                company: string;
+            };
+            stage: string;
+        }[];
+        forecastRiskDeals: {
+            assessment: {
+                id: string;
+                createdAt: Date;
+                leadScore: number | null;
+                priorityTier: string | null;
+                closeReadinessScore: number | null;
+                discoveryQualityScore: number | null;
+                riskProfile: string | null;
+                proposalAngle: string | null;
+                recommendedNextAction: string | null;
+                summary: string | null;
+            };
+            momentum: import("./sales-accelerator.service").DealMomentum;
+            forecast: import("./sales-accelerator.service").DealForecast;
+            id: string;
+            name: string;
+            createdAt: Date;
+            activities: {
+                id: string;
+                createdAt: Date;
+                status: string;
+                subject: string;
+                type: string;
+                dueDate: Date | null;
+            }[];
+            discoverySessions: {
+                id: string;
+                createdAt: Date;
+            }[];
+            salesAssessments: {
+                id: string;
+                createdAt: Date;
+                leadScore: number | null;
+                priorityTier: string | null;
+                closeReadinessScore: number | null;
+                discoveryQualityScore: number | null;
+                riskProfile: string | null;
+                proposalAngle: string | null;
+                recommendedNextAction: string | null;
+                summary: string | null;
+            }[];
+            client: {
+                id: string;
+                name: string;
+                companyName: string | null;
+            } | null;
+            lead: {
+                id: string;
+                name: string;
+                company: string;
+            };
+            stage: string;
+        }[];
+        objectionPatterns: import("./sales-accelerator.service").ObjectionPattern[];
+        missingDiscoveryLeads: {
             id: string;
             name: string;
             createdAt: Date;
@@ -81,6 +241,51 @@ export declare class SalesAcceleratorController {
                 riskProfile: string | null;
                 proposalAngle: string | null;
                 recommendedNextAction: string | null;
+            }[];
+            status: string;
+            company: string;
+        }[];
+        missingDiscoveryDeals: {
+            assessment: {
+                id: string;
+                createdAt: Date;
+                leadScore: number | null;
+                priorityTier: string | null;
+                closeReadinessScore: number | null;
+                discoveryQualityScore: number | null;
+                riskProfile: string | null;
+                proposalAngle: string | null;
+                recommendedNextAction: string | null;
+                summary: string | null;
+            };
+            momentum: import("./sales-accelerator.service").DealMomentum;
+            forecast: import("./sales-accelerator.service").DealForecast;
+            id: string;
+            name: string;
+            createdAt: Date;
+            activities: {
+                id: string;
+                createdAt: Date;
+                status: string;
+                subject: string;
+                type: string;
+                dueDate: Date | null;
+            }[];
+            discoverySessions: {
+                id: string;
+                createdAt: Date;
+            }[];
+            salesAssessments: {
+                id: string;
+                createdAt: Date;
+                leadScore: number | null;
+                priorityTier: string | null;
+                closeReadinessScore: number | null;
+                discoveryQualityScore: number | null;
+                riskProfile: string | null;
+                proposalAngle: string | null;
+                recommendedNextAction: string | null;
+                summary: string | null;
             }[];
             client: {
                 id: string;
@@ -149,7 +354,7 @@ export declare class SalesAcceleratorController {
             dealId: string | null;
             leadId: string | null;
             guardCount: number | null;
-            createdBy: string | null;
+            objections: string[];
             propertyType: string | null;
             buyerRole: string | null;
             currentProvider: string | null;
@@ -158,7 +363,7 @@ export declare class SalesAcceleratorController {
             riskConcerns: string[];
             decisionTimeline: string | null;
             budgetSensitivity: string | null;
-            objections: string[];
+            createdBy: string | null;
         } | null;
         assessment: {
             id: string;
@@ -183,6 +388,7 @@ export declare class SalesAcceleratorController {
             aiGenerationId: string | null;
             createdBy: string | null;
         } | null;
+        objectionPatterns: import("./sales-accelerator.service").ObjectionPattern[];
     }>;
     getDealWorkspace(dealId: string, user: ActiveUser): Promise<{
         deal: {
@@ -190,6 +396,14 @@ export declare class SalesAcceleratorController {
                 createdAt: Date;
                 title: string;
                 status: string;
+            }[];
+            activities: {
+                id: string;
+                createdAt: Date;
+                status: string;
+                subject: string;
+                type: string;
+                dueDate: Date | null;
             }[];
             notes: {
                 id: string;
@@ -247,7 +461,7 @@ export declare class SalesAcceleratorController {
             dealId: string | null;
             leadId: string | null;
             guardCount: number | null;
-            createdBy: string | null;
+            objections: string[];
             propertyType: string | null;
             buyerRole: string | null;
             currentProvider: string | null;
@@ -256,7 +470,7 @@ export declare class SalesAcceleratorController {
             riskConcerns: string[];
             decisionTimeline: string | null;
             budgetSensitivity: string | null;
-            objections: string[];
+            createdBy: string | null;
         } | null;
         assessment: {
             id: string;
@@ -281,6 +495,9 @@ export declare class SalesAcceleratorController {
             aiGenerationId: string | null;
             createdBy: string | null;
         } | null;
+        objectionPatterns: import("./sales-accelerator.service").ObjectionPattern[];
+        momentum: import("./sales-accelerator.service").DealMomentum;
+        forecast: import("./sales-accelerator.service").DealForecast;
     }>;
     saveLeadDiscovery(leadId: string, dto: SaveDiscoveryDto, user: ActiveUser): Promise<{
         id: string;
@@ -291,7 +508,7 @@ export declare class SalesAcceleratorController {
         dealId: string | null;
         leadId: string | null;
         guardCount: number | null;
-        createdBy: string | null;
+        objections: string[];
         propertyType: string | null;
         buyerRole: string | null;
         currentProvider: string | null;
@@ -300,7 +517,7 @@ export declare class SalesAcceleratorController {
         riskConcerns: string[];
         decisionTimeline: string | null;
         budgetSensitivity: string | null;
-        objections: string[];
+        createdBy: string | null;
     }>;
     saveDealDiscovery(dealId: string, dto: SaveDiscoveryDto, user: ActiveUser): Promise<{
         id: string;
@@ -311,7 +528,7 @@ export declare class SalesAcceleratorController {
         dealId: string | null;
         leadId: string | null;
         guardCount: number | null;
-        createdBy: string | null;
+        objections: string[];
         propertyType: string | null;
         buyerRole: string | null;
         currentProvider: string | null;
@@ -320,7 +537,7 @@ export declare class SalesAcceleratorController {
         riskConcerns: string[];
         decisionTimeline: string | null;
         budgetSensitivity: string | null;
-        objections: string[];
+        createdBy: string | null;
     }>;
     generateLeadDiscoveryGuide(leadId: string, user: ActiveUser): Promise<{
         guide: import("../ai/ai.service").AiDiscoveryGuideDraft;
@@ -329,6 +546,26 @@ export declare class SalesAcceleratorController {
     }>;
     generateDealDiscoveryGuide(dealId: string, user: ActiveUser): Promise<{
         guide: import("../ai/ai.service").AiDiscoveryGuideDraft;
+        aiGenerationId: string | null;
+        fallbackUsed: boolean;
+    }>;
+    analyzeLeadDiscoveryCall(leadId: string, dto: AnalyzeDiscoveryCallDto, user: ActiveUser): Promise<{
+        intelligence: import("../ai/ai.service").AiDiscoveryCallIntelligenceDraft;
+        aiGenerationId: string | null;
+        fallbackUsed: boolean;
+    }>;
+    analyzeDealDiscoveryCall(dealId: string, dto: AnalyzeDiscoveryCallDto, user: ActiveUser): Promise<{
+        intelligence: import("../ai/ai.service").AiDiscoveryCallIntelligenceDraft;
+        aiGenerationId: string | null;
+        fallbackUsed: boolean;
+    }>;
+    generateLeadOutreach(leadId: string, user: ActiveUser): Promise<{
+        outreach: import("../ai/ai.service").AiOutreachDraft;
+        aiGenerationId: string | null;
+        fallbackUsed: boolean;
+    }>;
+    generateDealOutreach(dealId: string, user: ActiveUser): Promise<{
+        outreach: import("../ai/ai.service").AiOutreachDraft;
         aiGenerationId: string | null;
         fallbackUsed: boolean;
     }>;
@@ -401,5 +638,16 @@ export declare class SalesAcceleratorController {
         };
         aiGenerationId: string | null;
         fallbackUsed: boolean;
+    }>;
+    createDealFollowUp(dealId: string, dto: CreateFollowUpTaskDto, user: ActiveUser): Promise<{
+        id: string;
+        createdAt: Date;
+        tenantId: string;
+        status: string;
+        dealId: string | null;
+        description: string | null;
+        subject: string;
+        type: string;
+        dueDate: Date | null;
     }>;
 }

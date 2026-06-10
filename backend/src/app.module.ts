@@ -50,6 +50,7 @@ import { SessionsModule } from './sessions/sessions.module';
 import { SsoModule } from './sso/sso.module';
 import { BrandingModule } from './branding/branding.module';
 import { SalesAcceleratorModule } from './sales-accelerator/sales-accelerator.module';
+import { PatrolsModule } from './patrols/patrols.module';
 
 @Module({
   imports: [
@@ -102,6 +103,7 @@ import { SalesAcceleratorModule } from './sales-accelerator/sales-accelerator.mo
     AssignmentsModule,
     ClientsModule,
     DocumentsModule,
+    PatrolsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -39,6 +39,43 @@ export interface AiDiscoveryGuideDraft {
   qualificationChecklist: string[];
 }
 
+export interface AiOutreachDraft {
+  callOpener: string;
+  talkingPoints: string[];
+  voicemailScript: string;
+  emailSubject: string;
+  emailBody: string;
+  gatekeeperStrategy: string;
+  bestCallWindow: string;
+  followUpPlan: string[];
+}
+
+export interface AiCallDiscoveryDraft {
+  propertyType: string | null;
+  buyerRole: string | null;
+  currentProvider: string | null;
+  guardCount: number | null;
+  serviceHours: string | null;
+  painPoints: string[];
+  riskConcerns: string[];
+  decisionTimeline: string | null;
+  budgetSensitivity: string | null;
+  objections: string[];
+  notes: string | null;
+}
+
+export interface AiDiscoveryCallIntelligenceDraft {
+  summary: string;
+  discovery: AiCallDiscoveryDraft;
+  buyingSignals: string[];
+  riskSignals: string[];
+  unansweredQuestions: string[];
+  objections: string[];
+  decisionMakers: string[];
+  recommendedNextAction: string;
+  confidenceScore: number;
+}
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
@@ -127,6 +164,24 @@ export class AiService {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return fallback;
     return Math.max(0, Math.min(100, Math.round(numeric)));
+  }
+
+  private normalizeOptionalString(
+    value: unknown,
+    fallback: string | null = null,
+  ) {
+    if (typeof value !== 'string') return fallback;
+    const trimmed = value.trim();
+    return trimmed || fallback;
+  }
+
+  private normalizeOptionalNumber(
+    value: unknown,
+    fallback: number | null = null,
+  ) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) return fallback;
+    return Math.round(numeric);
   }
 
   private normalizeStringArray(value: unknown, fallback: string[] = []) {
@@ -310,6 +365,237 @@ export class AiService {
     } catch (error) {
       this.logger.warn(
         `Discovery guide JSON parsing failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return fallback;
+    }
+  }
+
+  async generateOutreachPlan(context: string): Promise<AiOutreachDraft> {
+    const fallback = this.fallbackOutreachPlan();
+    const prompt = `
+      You are coaching a security guard sales rep before a cold outreach attempt.
+      Use only this lead/deal context:
+      ${context}
+
+      Return JSON only in this exact shape:
+      {
+        "callOpener": "one concise phone opener",
+        "talkingPoints": ["specific security sales talking point"],
+        "voicemailScript": "short voicemail script",
+        "emailSubject": "short email subject",
+        "emailBody": "plain text email body",
+        "gatekeeperStrategy": "how to handle receptionist or office manager screening",
+        "bestCallWindow": "recommended timing for first call",
+        "followUpPlan": ["specific follow-up step"]
+      }
+
+      Requirements:
+      - Make the outreach specific to contract security guard services.
+      - Lead with property risk, operational exposure, accountability, or current-provider pain.
+      - Keep the tone helpful and consultative.
+      - Do not suggest robocalls, scraping, spam, or mass automation.
+    `;
+
+    const rawText = await this.generateText(
+      prompt,
+      'outreach plan generation',
+      () => JSON.stringify(fallback),
+    );
+
+    try {
+      const parsed = this.parseJsonFromText<Partial<AiOutreachDraft>>(rawText);
+
+      return {
+        callOpener:
+          typeof parsed.callOpener === 'string' && parsed.callOpener.trim()
+            ? parsed.callOpener.trim()
+            : fallback.callOpener,
+        talkingPoints: this.normalizeStringArray(
+          parsed.talkingPoints,
+          fallback.talkingPoints,
+        ),
+        voicemailScript:
+          typeof parsed.voicemailScript === 'string' &&
+          parsed.voicemailScript.trim()
+            ? parsed.voicemailScript.trim()
+            : fallback.voicemailScript,
+        emailSubject:
+          typeof parsed.emailSubject === 'string' && parsed.emailSubject.trim()
+            ? parsed.emailSubject.trim()
+            : fallback.emailSubject,
+        emailBody:
+          typeof parsed.emailBody === 'string' && parsed.emailBody.trim()
+            ? parsed.emailBody.trim()
+            : fallback.emailBody,
+        gatekeeperStrategy:
+          typeof parsed.gatekeeperStrategy === 'string' &&
+          parsed.gatekeeperStrategy.trim()
+            ? parsed.gatekeeperStrategy.trim()
+            : fallback.gatekeeperStrategy,
+        bestCallWindow:
+          typeof parsed.bestCallWindow === 'string' &&
+          parsed.bestCallWindow.trim()
+            ? parsed.bestCallWindow.trim()
+            : fallback.bestCallWindow,
+        followUpPlan: this.normalizeStringArray(
+          parsed.followUpPlan,
+          fallback.followUpPlan,
+        ),
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Outreach plan JSON parsing failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return fallback;
+    }
+  }
+
+  async generateDiscoveryCallIntelligence(
+    context: string,
+    transcript: string,
+  ): Promise<AiDiscoveryCallIntelligenceDraft> {
+    const fallback = this.fallbackDiscoveryCallIntelligence(transcript);
+    const prompt = `
+      You are a security guard sales discovery analyst.
+      Analyze the call notes or transcript and extract only information supported by the text.
+
+      EXISTING LEAD/DEAL CONTEXT:
+      ${context}
+
+      CALL NOTES OR TRANSCRIPT:
+      ${transcript}
+
+      Return JSON only in this exact shape:
+      {
+        "summary": "short call summary",
+        "discovery": {
+          "propertyType": null,
+          "buyerRole": null,
+          "currentProvider": null,
+          "guardCount": null,
+          "serviceHours": null,
+          "painPoints": ["captured pain point"],
+          "riskConcerns": ["captured risk concern"],
+          "decisionTimeline": null,
+          "budgetSensitivity": null,
+          "objections": ["captured objection"],
+          "notes": "short discovery note"
+        },
+        "buyingSignals": ["signal that buyer may move forward"],
+        "riskSignals": ["security or deal risk signal"],
+        "unansweredQuestions": ["question the sales rep still needs to ask"],
+        "objections": ["sales objection from the call"],
+        "decisionMakers": ["person or role involved in decision"],
+        "recommendedNextAction": "one concrete next action",
+        "confidenceScore": 0
+      }
+
+      Rules:
+      - confidenceScore must be 0-100.
+      - Use null when a field is not supported by the transcript.
+      - Do not invent pricing, private personal data, or facts not present.
+      - Focus on contract security guard services, property risk, coverage scope, provider pain, approval path, and timeline.
+    `;
+
+    const rawText = await this.generateText(
+      prompt,
+      'discovery call intelligence generation',
+      () => JSON.stringify(fallback),
+    );
+
+    try {
+      const parsed =
+        this.parseJsonFromText<Partial<AiDiscoveryCallIntelligenceDraft>>(rawText);
+      const parsedDiscovery =
+        parsed.discovery && typeof parsed.discovery === 'object'
+          ? (parsed.discovery as Partial<AiCallDiscoveryDraft>)
+          : {};
+
+      return {
+        summary:
+          typeof parsed.summary === 'string' && parsed.summary.trim()
+            ? parsed.summary.trim()
+            : fallback.summary,
+        discovery: {
+          propertyType: this.normalizeOptionalString(
+            parsedDiscovery.propertyType,
+            fallback.discovery.propertyType,
+          ),
+          buyerRole: this.normalizeOptionalString(
+            parsedDiscovery.buyerRole,
+            fallback.discovery.buyerRole,
+          ),
+          currentProvider: this.normalizeOptionalString(
+            parsedDiscovery.currentProvider,
+            fallback.discovery.currentProvider,
+          ),
+          guardCount: this.normalizeOptionalNumber(
+            parsedDiscovery.guardCount,
+            fallback.discovery.guardCount,
+          ),
+          serviceHours: this.normalizeOptionalString(
+            parsedDiscovery.serviceHours,
+            fallback.discovery.serviceHours,
+          ),
+          painPoints: this.normalizeStringArray(
+            parsedDiscovery.painPoints,
+            fallback.discovery.painPoints,
+          ),
+          riskConcerns: this.normalizeStringArray(
+            parsedDiscovery.riskConcerns,
+            fallback.discovery.riskConcerns,
+          ),
+          decisionTimeline: this.normalizeOptionalString(
+            parsedDiscovery.decisionTimeline,
+            fallback.discovery.decisionTimeline,
+          ),
+          budgetSensitivity: this.normalizeOptionalString(
+            parsedDiscovery.budgetSensitivity,
+            fallback.discovery.budgetSensitivity,
+          ),
+          objections: this.normalizeStringArray(
+            parsedDiscovery.objections,
+            fallback.discovery.objections,
+          ),
+          notes: this.normalizeOptionalString(
+            parsedDiscovery.notes,
+            fallback.discovery.notes,
+          ),
+        },
+        buyingSignals: this.normalizeStringArray(
+          parsed.buyingSignals,
+          fallback.buyingSignals,
+        ),
+        riskSignals: this.normalizeStringArray(
+          parsed.riskSignals,
+          fallback.riskSignals,
+        ),
+        unansweredQuestions: this.normalizeStringArray(
+          parsed.unansweredQuestions,
+          fallback.unansweredQuestions,
+        ),
+        objections: this.normalizeStringArray(parsed.objections, fallback.objections),
+        decisionMakers: this.normalizeStringArray(
+          parsed.decisionMakers,
+          fallback.decisionMakers,
+        ),
+        recommendedNextAction:
+          typeof parsed.recommendedNextAction === 'string' &&
+          parsed.recommendedNextAction.trim()
+            ? parsed.recommendedNextAction.trim()
+            : fallback.recommendedNextAction,
+        confidenceScore: this.clampScore(
+          parsed.confidenceScore,
+          fallback.confidenceScore,
+        ),
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Discovery call intelligence JSON parsing failed: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
@@ -779,6 +1065,132 @@ Custom deployment tailored for ${lead.company}.
         'Timeline and approval process confirmed',
       ],
     };
+  }
+
+  private fallbackOutreachPlan(): AiOutreachDraft {
+    return {
+      callOpener:
+        'Hi, this is a quick security coverage question. Are you the right person to speak with about guard services and site risk?',
+      talkingPoints: [
+        'Ask what prompted the current security review before discussing guard hours.',
+        'Connect coverage recommendations to risks, access points, incident history, and accountability.',
+        'Offer a short site walkthrough or discovery call before proposing a scope.',
+      ],
+      voicemailScript:
+        'Hi, I am calling about security coverage and risk at your property. I had a few quick questions about current guard needs and whether a short coverage review would be useful. I will follow up by email as well.',
+      emailSubject: 'Security coverage review',
+      emailBody:
+        'Hi,\n\nI wanted to reach out about your security coverage needs. We help properties align guard staffing, reporting, and escalation procedures with real site risk rather than just selling hours.\n\nWould it be worth a short conversation to understand current concerns, coverage windows, and whether a site walkthrough would help?\n\nBest regards,',
+      gatekeeperStrategy:
+        'Ask for the person responsible for facilities, property operations, risk, or vendor management, and frame the call as a coverage review rather than a sales pitch.',
+      bestCallWindow:
+        'Start with mid-morning or early afternoon, then follow with a concise email the same day.',
+      followUpPlan: [
+        'Call once with the risk-based opener.',
+        'Send a short email that references property risk and accountability.',
+        'Follow up with a site walkthrough offer if there is no reply.',
+      ],
+    };
+  }
+
+  private fallbackDiscoveryCallIntelligence(
+    transcript: string,
+  ): AiDiscoveryCallIntelligenceDraft {
+    const summarySnippet =
+      transcript
+        .split(/\r?\n|[.!?]+/)
+        .map((item) => item.trim())
+        .find((item) => item.length > 20)
+        ?.slice(0, 220) ||
+      'Call notes captured. Confirm scope, buyer authority, risks, and next step before proposal.';
+    const buyingSignals = this.transcriptSnippets(
+      transcript,
+      /(interested|need|start|walkthrough|proposal|quote|approve|timeline|soon|urgent)/i,
+      ['Buyer interest exists, but the rep should confirm urgency and next step.'],
+    );
+    const riskSignals = this.transcriptSnippets(
+      transcript,
+      /(incident|risk|liability|theft|trespass|complaint|access|parking|after hours|break-in|vandal)/i,
+      ['Risk drivers need to be clarified before final scope.'],
+    );
+    const objections = this.transcriptSnippets(
+      transcript,
+      /(price|budget|cost|current provider|already have|approval|not now|contract|legal|procurement)/i,
+    );
+    const decisionMakers = this.transcriptSnippets(
+      transcript,
+      /(owner|board|manager|director|committee|procurement|approval|approver|decision|sign off)/i,
+    );
+    const guardMatch = transcript.match(
+      /(\d+)\s+(?:armed\s+|unarmed\s+)?guards?/i,
+    );
+    const propertyMatch = transcript.match(
+      /\b(apartment|warehouse|office|retail|construction|hospital|school|parking|mall|industrial|commercial|residential|hotel)\b/i,
+    );
+    const roleMatch = transcript.match(
+      /\b(owner|property manager|facilities manager|operations manager|director|procurement|board member|general manager)\b/i,
+    );
+    const timeline = this.transcriptSnippets(
+      transcript,
+      /(asap|urgent|start|timeline|deadline|next week|next month|quarter|renewal|contract end)/i,
+    )[0];
+    const budget = this.transcriptSnippets(
+      transcript,
+      /(budget|price|cost|rate|expensive|quote|bid|pricing)/i,
+    )[0];
+    const serviceHours = this.transcriptSnippets(
+      transcript,
+      /(24\/7|overnight|after hours|business hours|weekend|weekday|shift|hours|evening|night)/i,
+    )[0];
+    const confidenceScore =
+      transcript.length > 700 ? 55 : transcript.length > 250 ? 45 : 35;
+
+    return {
+      summary: summarySnippet,
+      discovery: {
+        propertyType: propertyMatch?.[0] ?? null,
+        buyerRole: roleMatch?.[0] ?? null,
+        currentProvider: null,
+        guardCount: guardMatch ? Number(guardMatch[1]) : null,
+        serviceHours: serviceHours ?? null,
+        painPoints: this.transcriptSnippets(
+          transcript,
+          /(problem|pain|issue|missed|no show|turnover|complaint|poor|unreliable|slow)/i,
+        ),
+        riskConcerns: riskSignals,
+        decisionTimeline: timeline ?? null,
+        budgetSensitivity: budget ?? null,
+        objections,
+        notes: summarySnippet,
+      },
+      buyingSignals,
+      riskSignals,
+      unansweredQuestions: [
+        'Who signs off on the final scope and budget?',
+        'What coverage hours and guard count are required?',
+        'What start date or decision deadline should we plan around?',
+      ],
+      objections,
+      decisionMakers,
+      recommendedNextAction:
+        'Confirm missing scope details, decision authority, and timeline before drafting the proposal.',
+      confidenceScore,
+    };
+  }
+
+  private transcriptSnippets(
+    transcript: string,
+    pattern: RegExp,
+    fallback: string[] = [],
+  ) {
+    const snippets = transcript
+      .split(/\r?\n|[.!?]+/)
+      .map((item) => item.trim())
+      .filter((item) => item.length > 8 && pattern.test(item))
+      .map((item) => item.slice(0, 180));
+
+    const unique = Array.from(new Set(snippets)).slice(0, 5);
+    return unique.length ? unique : fallback;
   }
 
   private fallbackDiscoveryProposal(): string {

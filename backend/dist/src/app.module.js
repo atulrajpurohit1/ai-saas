@@ -59,6 +59,7 @@ const sessions_module_1 = require("./sessions/sessions.module");
 const sso_module_1 = require("./sso/sso.module");
 const branding_module_1 = require("./branding/branding.module");
 const sales_accelerator_module_1 = require("./sales-accelerator/sales-accelerator.module");
+const patrols_module_1 = require("./patrols/patrols.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -114,6 +115,7 @@ exports.AppModule = AppModule = __decorate([
             assignments_module_1.AssignmentsModule,
             clients_module_1.ClientsModule,
             documents_module_1.DocumentsModule,
+            patrols_module_1.PatrolsModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

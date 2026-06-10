@@ -28,6 +28,40 @@ export interface AiDiscoveryGuideDraft {
     followUpAngles: string[];
     qualificationChecklist: string[];
 }
+export interface AiOutreachDraft {
+    callOpener: string;
+    talkingPoints: string[];
+    voicemailScript: string;
+    emailSubject: string;
+    emailBody: string;
+    gatekeeperStrategy: string;
+    bestCallWindow: string;
+    followUpPlan: string[];
+}
+export interface AiCallDiscoveryDraft {
+    propertyType: string | null;
+    buyerRole: string | null;
+    currentProvider: string | null;
+    guardCount: number | null;
+    serviceHours: string | null;
+    painPoints: string[];
+    riskConcerns: string[];
+    decisionTimeline: string | null;
+    budgetSensitivity: string | null;
+    objections: string[];
+    notes: string | null;
+}
+export interface AiDiscoveryCallIntelligenceDraft {
+    summary: string;
+    discovery: AiCallDiscoveryDraft;
+    buyingSignals: string[];
+    riskSignals: string[];
+    unansweredQuestions: string[];
+    objections: string[];
+    decisionMakers: string[];
+    recommendedNextAction: string;
+    confidenceScore: number;
+}
 export declare class AiService {
     private configService;
     private readonly logger;
@@ -43,10 +77,14 @@ export declare class AiService {
     private renderPrompt;
     private parseJsonFromText;
     private clampScore;
+    private normalizeOptionalString;
+    private normalizeOptionalNumber;
     private normalizeStringArray;
     private generateText;
     generateSalesAssessment(context: string): Promise<AiSalesAssessmentDraft>;
     generateDiscoveryGuide(context: string): Promise<AiDiscoveryGuideDraft>;
+    generateOutreachPlan(context: string): Promise<AiOutreachDraft>;
+    generateDiscoveryCallIntelligence(context: string, transcript: string): Promise<AiDiscoveryCallIntelligenceDraft>;
     generateDiscoveryProposal(context: string): Promise<string>;
     generateProposalDraft(dto: GenerateProposalDto): Promise<AiProposalDraftResponse>;
     generateForLead(lead: Lead & {
@@ -67,6 +105,9 @@ export declare class AiService {
     private fallbackSummarizeNotes;
     private fallbackSalesAssessment;
     private fallbackDiscoveryGuide;
+    private fallbackOutreachPlan;
+    private fallbackDiscoveryCallIntelligence;
+    private transcriptSnippets;
     private fallbackDiscoveryProposal;
     extractLeadFromText(text: string): Promise<{
         name: string;

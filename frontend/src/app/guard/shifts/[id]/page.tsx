@@ -7,7 +7,7 @@ import GuardLayout from '@/components/GuardLayout';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { createGuardIncident, IncidentSeverity } from '@/lib/incidents';
-import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, Clock, FileWarning, Loader2, LogIn, LogOut, MapPin, Send, ShieldCheck, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, Clock, FileWarning, Loader2, LogIn, LogOut, MapPin, Navigation, Send, ShieldCheck, X } from 'lucide-react';
 
 interface GuardShiftDetail {
   id: string;
@@ -224,15 +224,24 @@ export default function GuardShiftDetailPage() {
                 )}
 
                 {shift.attendanceStatus === 'checked_in' && (
-                  <button
-                    type="button"
-                    onClick={() => handleAttendanceAction('check-out')}
-                    disabled={actionLoading !== null}
-                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-sky-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {actionLoading === 'check-out' ? <Loader2 size={18} className="animate-spin" /> : <LogOut size={18} />}
-                    Check Out
-                  </button>
+                  <>
+                    <Link
+                      href={`/guard/shifts/${id}/patrols`}
+                      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-500 shadow-md shadow-indigo-600/20 animate-in fade-in zoom-in-95 duration-200"
+                    >
+                      <Navigation size={18} />
+                      Perform Patrols
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => handleAttendanceAction('check-out')}
+                      disabled={actionLoading !== null}
+                      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-sky-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {actionLoading === 'check-out' ? <Loader2 size={18} className="animate-spin" /> : <LogOut size={18} />}
+                      Check Out
+                    </button>
+                  </>
                 )}
 
                 {shift.attendanceStatus === 'completed' && (

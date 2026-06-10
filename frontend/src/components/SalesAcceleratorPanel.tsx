@@ -3,10 +3,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
+  AlertTriangle,
   BrainCircuit,
+  CalendarPlus,
+  Clock3,
   ClipboardList,
   FileText,
   Loader2,
+  PhoneCall,
   Save,
   Sparkles,
   Target,
@@ -53,6 +57,108 @@ interface DiscoveryGuide {
   qualificationChecklist: string[];
 }
 
+interface OutreachPlan {
+  callOpener: string;
+  talkingPoints: string[];
+  voicemailScript: string;
+  emailSubject: string;
+  emailBody: string;
+  gatekeeperStrategy: string;
+  bestCallWindow: string;
+  followUpPlan: string[];
+}
+
+interface CallDiscoveryDraft {
+  propertyType: string | null;
+  buyerRole: string | null;
+  currentProvider: string | null;
+  guardCount: number | null;
+  serviceHours: string | null;
+  painPoints: string[];
+  riskConcerns: string[];
+  decisionTimeline: string | null;
+  budgetSensitivity: string | null;
+  objections: string[];
+  notes: string | null;
+}
+
+interface DiscoveryCallIntelligence {
+  summary: string;
+  discovery: CallDiscoveryDraft;
+  buyingSignals: string[];
+  riskSignals: string[];
+  unansweredQuestions: string[];
+  objections: string[];
+  decisionMakers: string[];
+  recommendedNextAction: string;
+  confidenceScore: number;
+}
+
+interface ActivitySnapshot {
+  id: string;
+  type: string;
+  subject: string;
+  status: string;
+  dueDate: string | null;
+  createdAt: string;
+}
+
+interface DealMomentum {
+  status: 'healthy' | 'watch' | 'stalled' | 'urgent' | 'closed';
+  score: number;
+  daysOpen: number;
+  daysSinceActivity: number | null;
+  overdueActivityCount: number;
+  pendingActivityCount: number;
+  nextActivity: ActivitySnapshot | null;
+  lastActivity: ActivitySnapshot | null;
+  reasons: string[];
+  recommendedAction: string;
+}
+
+interface ForecastHistoryPoint {
+  id: string;
+  score: number | null;
+  discoveryQualityScore: number | null;
+  createdAt: string;
+}
+
+interface DealForecast {
+  status: 'commit' | 'likely' | 'watch' | 'at_risk' | 'unscored' | 'closed_won' | 'closed_lost';
+  label: string;
+  confidence: number;
+  probability: number;
+  currentReadiness: number | null;
+  previousReadiness: number | null;
+  readinessChange: number | null;
+  trend: 'improving' | 'flat' | 'declining' | 'unknown';
+  history: ForecastHistoryPoint[];
+  reasons: string[];
+  recommendedAction: string;
+}
+
+interface ObjectionPattern {
+  key: string;
+  label: string;
+  count: number;
+  severity: 'high' | 'medium' | 'low';
+  examples: string[];
+  recommendedResponse: string;
+  playbook: string[];
+  relatedLeads: Array<{
+    id: string;
+    name: string;
+    company: string;
+    status: string;
+  }>;
+  relatedDeals: Array<{
+    id: string;
+    name: string;
+    stage: string;
+    company: string;
+  }>;
+}
+
 interface DiscoveryForm {
   propertyType: string;
   buyerRole: string;
@@ -94,6 +200,21 @@ const textToList = (value: string) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+const mergeListText = (current: string, next?: string[] | null) =>
+  Array.from(
+    new Set([
+      ...textToList(current),
+      ...(next || []).map((item) => item.trim()).filter(Boolean),
+    ]),
+  ).join('\n');
+
+const mergeNotes = (current: string, next?: string | null) => {
+  const cleaned = next?.trim();
+  if (!cleaned) return current;
+  if (current.toLowerCase().includes(cleaned.toLowerCase())) return current;
+  return [current, cleaned].filter(Boolean).join('\n\n');
+};
+
 const formFromDiscovery = (discovery?: DiscoverySession | null): DiscoveryForm => {
   if (!discovery) return emptyForm;
 
@@ -118,6 +239,28 @@ const scoreColor = (score?: number | null) => {
   return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
 };
 
+const momentumColor = (status?: DealMomentum['status']) => {
+  if (status === 'healthy') return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
+  if (status === 'watch') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
+  if (status === 'stalled') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
+  if (status === 'urgent') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
+  return 'text-slate-300 border-white/10 bg-white/5';
+};
+
+const forecastColor = (status?: DealForecast['status']) => {
+  if (status === 'commit' || status === 'closed_won') return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
+  if (status === 'likely') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
+  if (status === 'watch') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
+  if (status === 'at_risk' || status === 'closed_lost') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
+  return 'text-slate-300 border-white/10 bg-white/5';
+};
+
+const severityColor = (severity?: ObjectionPattern['severity']) => {
+  if (severity === 'high') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
+  if (severity === 'medium') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
+  return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
+};
+
 const fieldClass =
   'w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-600';
 
@@ -129,6 +272,12 @@ export default function SalesAcceleratorPanel({
   const [discovery, setDiscovery] = useState<DiscoverySession | null>(null);
   const [assessment, setAssessment] = useState<SalesAssessment | null>(null);
   const [guide, setGuide] = useState<DiscoveryGuide | null>(null);
+  const [outreach, setOutreach] = useState<OutreachPlan | null>(null);
+  const [callTranscript, setCallTranscript] = useState('');
+  const [callIntelligence, setCallIntelligence] = useState<DiscoveryCallIntelligence | null>(null);
+  const [momentum, setMomentum] = useState<DealMomentum | null>(null);
+  const [forecast, setForecast] = useState<DealForecast | null>(null);
+  const [objectionPatterns, setObjectionPatterns] = useState<ObjectionPattern[]>([]);
   const [generatedProposalId, setGeneratedProposalId] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
@@ -149,7 +298,12 @@ export default function SalesAcceleratorPanel({
         const response = await api.get(basePath);
         setDiscovery(response.data.discovery || null);
         setAssessment(response.data.assessment || null);
+        setMomentum(response.data.momentum || null);
+        setForecast(response.data.forecast || null);
+        setObjectionPatterns(response.data.objectionPatterns || []);
         setForm(formFromDiscovery(response.data.discovery));
+        setCallTranscript('');
+        setCallIntelligence(null);
       } catch (err) {
         console.error('Failed to load sales accelerator workspace', err);
         setError('Could not load sales accelerator details.');
@@ -187,6 +341,10 @@ export default function SalesAcceleratorPanel({
     try {
       const response = await api.post(`${basePath}/discovery`, payload());
       setDiscovery(response.data);
+      const workspace = await api.get(basePath);
+      setObjectionPatterns(workspace.data.objectionPatterns || []);
+      setMomentum(workspace.data.momentum || null);
+      setForecast(workspace.data.forecast || null);
       setMessage('Discovery saved.');
     } catch (err) {
       console.error('Failed to save discovery', err);
@@ -213,6 +371,75 @@ export default function SalesAcceleratorPanel({
     }
   };
 
+  const analyzeCall = async () => {
+    const transcript = callTranscript.trim();
+
+    if (transcript.length < 20) {
+      setMessage('');
+      setError('Add at least 20 characters of call notes before analyzing.');
+      return;
+    }
+
+    setBusy('call');
+    setError('');
+    setMessage('');
+
+    try {
+      const response = await api.post(`${basePath}/discovery-call`, {
+        transcript,
+      });
+      setCallIntelligence(response.data.intelligence);
+      setMessage(response.data.fallbackUsed ? 'Call analyzed with fallback logic.' : 'Call analyzed.');
+    } catch (err) {
+      console.error('Failed to analyze discovery call', err);
+      setError('Could not analyze call notes.');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const applyCallDiscovery = () => {
+    if (!callIntelligence) return;
+
+    const draft = callIntelligence.discovery;
+    setForm((current) => ({
+      ...current,
+      propertyType: draft.propertyType || current.propertyType,
+      buyerRole: draft.buyerRole || current.buyerRole,
+      currentProvider: draft.currentProvider || current.currentProvider,
+      guardCount: draft.guardCount ? String(draft.guardCount) : current.guardCount,
+      serviceHours: draft.serviceHours || current.serviceHours,
+      painPoints: mergeListText(current.painPoints, draft.painPoints),
+      riskConcerns: mergeListText(current.riskConcerns, draft.riskConcerns),
+      decisionTimeline: draft.decisionTimeline || current.decisionTimeline,
+      budgetSensitivity: draft.budgetSensitivity || current.budgetSensitivity,
+      objections: mergeListText(current.objections, [
+        ...draft.objections,
+        ...callIntelligence.objections,
+      ]),
+      notes: mergeNotes(current.notes, draft.notes || callIntelligence.summary),
+    }));
+    setError('');
+    setMessage('Call intelligence applied to discovery form. Review and save.');
+  };
+
+  const generateOutreach = async () => {
+    setBusy('outreach');
+    setError('');
+    setMessage('');
+
+    try {
+      const response = await api.post(`${basePath}/outreach`);
+      setOutreach(response.data.outreach);
+      setMessage(response.data.fallbackUsed ? 'Outreach drafted with fallback logic.' : 'Outreach drafted.');
+    } catch (err) {
+      console.error('Failed to generate outreach plan', err);
+      setError('Could not generate outreach plan.');
+    } finally {
+      setBusy('');
+    }
+  };
+
   const score = async () => {
     setBusy('score');
     setError('');
@@ -221,6 +448,10 @@ export default function SalesAcceleratorPanel({
     try {
       const response = await api.post(`${basePath}/score`);
       setAssessment(response.data.assessment);
+      const workspace = await api.get(basePath);
+      setObjectionPatterns(workspace.data.objectionPatterns || []);
+      setMomentum(workspace.data.momentum || null);
+      setForecast(workspace.data.forecast || null);
       setMessage(response.data.fallbackUsed ? 'Assessment generated with fallback logic.' : 'Assessment generated.');
     } catch (err) {
       console.error('Failed to generate sales assessment', err);
@@ -247,6 +478,31 @@ export default function SalesAcceleratorPanel({
     }
   };
 
+  const createFollowUp = async () => {
+    if (entityType !== 'deal') return;
+
+    setBusy('follow-up');
+    setError('');
+    setMessage('');
+
+    try {
+      await api.post(`${basePath}/follow-up`, {
+        subject: assessment?.recommendedNextAction || 'Follow up on Sales Accelerator recommendation',
+        description: assessment?.summary || assessment?.riskProfile || 'Sales Accelerator follow-up task',
+      });
+      const workspace = await api.get(basePath);
+      setMomentum(workspace.data.momentum || null);
+      setForecast(workspace.data.forecast || null);
+      setObjectionPatterns(workspace.data.objectionPatterns || []);
+      setMessage('Follow-up task created for tomorrow morning.');
+    } catch (err) {
+      console.error('Failed to create follow-up task', err);
+      setError('Could not create follow-up task.');
+    } finally {
+      setBusy('');
+    }
+  };
+
   const renderList = (items: string[]) =>
     items.length === 0 ? (
       <p className="text-sm text-slate-500">No items yet.</p>
@@ -259,6 +515,23 @@ export default function SalesAcceleratorPanel({
         ))}
       </ul>
     );
+
+  const callDiscoveryHighlights = callIntelligence
+    ? [
+        { label: 'Property', value: callIntelligence.discovery.propertyType },
+        { label: 'Buyer Role', value: callIntelligence.discovery.buyerRole },
+        { label: 'Provider', value: callIntelligence.discovery.currentProvider },
+        {
+          label: 'Guard Count',
+          value: callIntelligence.discovery.guardCount
+            ? String(callIntelligence.discovery.guardCount)
+            : null,
+        },
+        { label: 'Hours', value: callIntelligence.discovery.serviceHours },
+        { label: 'Timeline', value: callIntelligence.discovery.decisionTimeline },
+        { label: 'Budget', value: callIntelligence.discovery.budgetSensitivity },
+      ].filter((item) => item.value)
+    : [];
 
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-8">
@@ -292,6 +565,24 @@ export default function SalesAcceleratorPanel({
           </button>
           <button
             type="button"
+            onClick={analyzeCall}
+            disabled={!!busy || loading}
+            className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs font-bold text-cyan-200 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {busy === 'call' ? <Loader2 className="animate-spin" size={15} /> : <ClipboardList size={15} />}
+            Analyze Call
+          </button>
+          <button
+            type="button"
+            onClick={generateOutreach}
+            disabled={!!busy || loading}
+            className="inline-flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs font-bold text-amber-200 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {busy === 'outreach' ? <Loader2 className="animate-spin" size={15} /> : <PhoneCall size={15} />}
+            Outreach
+          </button>
+          <button
+            type="button"
             onClick={score}
             disabled={!!busy || loading}
             className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-200 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60"
@@ -308,6 +599,17 @@ export default function SalesAcceleratorPanel({
             >
               {busy === 'proposal' ? <Loader2 className="animate-spin" size={15} /> : <FileText size={15} />}
               Proposal
+            </button>
+          )}
+          {entityType === 'deal' && (
+            <button
+              type="button"
+              onClick={createFollowUp}
+              disabled={!!busy || loading || !assessment}
+              className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs font-bold text-cyan-200 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {busy === 'follow-up' ? <Loader2 className="animate-spin" size={15} /> : <CalendarPlus size={15} />}
+              Follow-Up
             </button>
           )}
         </div>
@@ -373,6 +675,214 @@ export default function SalesAcceleratorPanel({
             </div>
           )}
 
+          {entityType === 'deal' && forecast && (
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                    <Target size={14} />
+                    Forecast
+                  </div>
+                  <p className="text-sm leading-6 text-slate-300">{forecast.recommendedAction}</p>
+                </div>
+                <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${forecastColor(forecast.status)}`}>
+                  {forecast.label} {forecast.confidence}%
+                </span>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-4">
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Probability</div>
+                  <div className="mt-2 text-sm font-bold text-white">{forecast.probability}%</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Current</div>
+                  <div className="mt-2 text-sm font-bold text-white">{forecast.currentReadiness ?? '--'}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Change</div>
+                  <div className="mt-2 text-sm font-bold text-white">
+                    {forecast.readinessChange === null
+                      ? '--'
+                      : `${forecast.readinessChange > 0 ? '+' : ''}${forecast.readinessChange}`}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Trend</div>
+                  <div className="mt-2 text-sm font-bold capitalize text-white">{forecast.trend}</div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Forecast Reasons</div>
+                  {renderList(forecast.reasons)}
+                </div>
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Readiness History</div>
+                  {forecast.history.length === 0 ? (
+                    <p className="text-sm text-slate-500">No history yet.</p>
+                  ) : (
+                    <div className="flex h-28 items-end gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                      {forecast.history.map((point) => (
+                        <div key={point.id} className="flex min-w-0 flex-1 flex-col items-center gap-2">
+                          <div className="flex h-16 w-full items-end rounded-lg bg-black/20">
+                            <div
+                              className="w-full rounded-lg bg-cyan-400/60"
+                              style={{ height: `${Math.max(8, point.score ?? 0)}%` }}
+                            />
+                          </div>
+                          <div className="text-[10px] font-bold text-slate-500">{point.score ?? '--'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {entityType === 'deal' && momentum && (
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                    <Clock3 size={14} />
+                    Deal Momentum
+                  </div>
+                  <p className="text-sm leading-6 text-slate-300">{momentum.recommendedAction}</p>
+                </div>
+                <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${momentumColor(momentum.status)}`}>
+                  {momentum.status} {momentum.score}
+                </span>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Last Touch</div>
+                  <div className="mt-2 text-sm font-bold text-white">
+                    {momentum.daysSinceActivity === null ? 'None' : `${momentum.daysSinceActivity}d ago`}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Pending</div>
+                  <div className="mt-2 text-sm font-bold text-white">{momentum.pendingActivityCount}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Overdue</div>
+                  <div className="mt-2 text-sm font-bold text-white">{momentum.overdueActivityCount}</div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Momentum Reasons</div>
+                  {renderList(momentum.reasons)}
+                </div>
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Next Scheduled Step</div>
+                  {momentum.nextActivity ? (
+                    <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-slate-300">
+                      <div className="font-bold text-white">{momentum.nextActivity.subject}</div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        {momentum.nextActivity.dueDate
+                          ? new Date(momentum.nextActivity.dueDate).toLocaleString()
+                          : 'No due date'}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500">No next step scheduled.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                <PhoneCall size={14} />
+                Discovery Call
+              </div>
+              <button
+                type="button"
+                onClick={analyzeCall}
+                disabled={!!busy || loading}
+                className="inline-flex w-fit items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs font-bold text-cyan-200 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {busy === 'call' ? <Loader2 className="animate-spin" size={15} /> : <ClipboardList size={15} />}
+                Analyze
+              </button>
+            </div>
+
+            <textarea
+              className={`${fieldClass} min-h-32 resize-y`}
+              placeholder="Paste call notes or transcript"
+              value={callTranscript}
+              onChange={(event) => setCallTranscript(event.target.value)}
+            />
+
+            {callIntelligence && (
+              <div className="mt-4 space-y-4">
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Call Summary</div>
+                      <p className="mt-2 text-sm leading-6 text-slate-300">{callIntelligence.summary}</p>
+                    </div>
+                    <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${scoreColor(callIntelligence.confidenceScore)}`}>
+                      {callIntelligence.confidenceScore}% confidence
+                    </span>
+                  </div>
+                  <div className="mt-3 text-xs font-bold uppercase tracking-widest text-slate-500">Next Action</div>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">{callIntelligence.recommendedNextAction}</p>
+                  <button
+                    type="button"
+                    onClick={applyCallDiscovery}
+                    className="mt-3 inline-flex items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-200 transition hover:bg-emerald-400/20"
+                  >
+                    <Save size={15} />
+                    Apply to Form
+                  </button>
+                </div>
+
+                {callDiscoveryHighlights.length > 0 && (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {callDiscoveryHighlights.map((item) => (
+                      <div key={item.label} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{item.label}</div>
+                        <div className="mt-2 text-sm font-bold text-white">{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div>
+                    <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Buying Signals</div>
+                    {renderList(callIntelligence.buyingSignals)}
+                  </div>
+                  <div>
+                    <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Risk Signals</div>
+                    {renderList(callIntelligence.riskSignals)}
+                  </div>
+                  <div>
+                    <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Unanswered Questions</div>
+                    {renderList(callIntelligence.unansweredQuestions)}
+                  </div>
+                  <div>
+                    <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Decision Makers</div>
+                    {renderList(callIntelligence.decisionMakers)}
+                  </div>
+                  <div>
+                    <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Call Objections</div>
+                    {renderList(callIntelligence.objections)}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -398,6 +908,88 @@ export default function SalesAcceleratorPanel({
                   Missing Questions
                 </div>
                 {renderList(assessment?.missingQuestions || [])}
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                  <AlertTriangle size={14} />
+                  Objection Coaching
+                </div>
+                {renderList(
+                  assessment?.objectionRisks?.length
+                    ? assessment.objectionRisks
+                    : textToList(form.objections),
+                  )}
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                  <AlertTriangle size={14} />
+                  Objection Patterns
+                </div>
+                {objectionPatterns.length === 0 ? (
+                  <p className="text-sm text-slate-500">No learned pattern for these objections yet.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {objectionPatterns.map((pattern) => (
+                      <div key={pattern.key} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                        <div className="mb-2 flex items-start justify-between gap-3">
+                          <div>
+                            <div className="font-bold text-white">{pattern.label}</div>
+                            <div className="mt-1 text-xs text-slate-500">{pattern.count} historical mentions</div>
+                          </div>
+                          <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold uppercase ${severityColor(pattern.severity)}`}>
+                            {pattern.severity}
+                          </span>
+                        </div>
+                        <p className="text-sm leading-6 text-slate-300">{pattern.recommendedResponse}</p>
+                        <div className="mt-3">{renderList(pattern.playbook.slice(0, 3))}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                  <PhoneCall size={14} />
+                  Outreach
+                </div>
+                {outreach ? (
+                  <div className="space-y-4 text-sm leading-6 text-slate-300">
+                    <div>
+                      <div className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">Call Opener</div>
+                      <p>{outreach.callOpener}</p>
+                    </div>
+                    <div>
+                      <div className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">Best Call Window</div>
+                      <p>{outreach.bestCallWindow}</p>
+                    </div>
+                    <div>
+                      <div className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">Talking Points</div>
+                      {renderList(outreach.talkingPoints)}
+                    </div>
+                    <div>
+                      <div className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">Voicemail</div>
+                      <p>{outreach.voicemailScript}</p>
+                    </div>
+                    <div>
+                      <div className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">Email</div>
+                      <p className="font-bold text-white">{outreach.emailSubject}</p>
+                      <p className="mt-2 whitespace-pre-line">{outreach.emailBody}</p>
+                    </div>
+                    <div>
+                      <div className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">Gatekeeper Strategy</div>
+                      <p>{outreach.gatekeeperStrategy}</p>
+                    </div>
+                    <div>
+                      <div className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">Follow-Up Plan</div>
+                      {renderList(outreach.followUpPlan)}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">No outreach generated yet.</p>
+                )}
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-black/20 p-4">

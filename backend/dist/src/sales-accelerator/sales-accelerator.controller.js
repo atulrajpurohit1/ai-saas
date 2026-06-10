@@ -18,6 +18,8 @@ const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const permission_guard_1 = require("../auth/guards/permission.guard");
+const analyze_discovery_call_dto_1 = require("./dto/analyze-discovery-call.dto");
+const create_follow_up_task_dto_1 = require("./dto/create-follow-up-task.dto");
 const generate_discovery_proposal_dto_1 = require("./dto/generate-discovery-proposal.dto");
 const save_discovery_dto_1 = require("./dto/save-discovery.dto");
 const sales_accelerator_service_1 = require("./sales-accelerator.service");
@@ -47,6 +49,18 @@ let SalesAcceleratorController = class SalesAcceleratorController {
     generateDealDiscoveryGuide(dealId, user) {
         return this.salesAcceleratorService.generateDealDiscoveryGuide(user.tenantId, dealId, user.sub);
     }
+    analyzeLeadDiscoveryCall(leadId, dto, user) {
+        return this.salesAcceleratorService.analyzeLeadDiscoveryCall(user.tenantId, leadId, dto, user.sub);
+    }
+    analyzeDealDiscoveryCall(dealId, dto, user) {
+        return this.salesAcceleratorService.analyzeDealDiscoveryCall(user.tenantId, dealId, dto, user.sub);
+    }
+    generateLeadOutreach(leadId, user) {
+        return this.salesAcceleratorService.generateLeadOutreach(user.tenantId, leadId, user.sub);
+    }
+    generateDealOutreach(dealId, user) {
+        return this.salesAcceleratorService.generateDealOutreach(user.tenantId, dealId, user.sub);
+    }
     scoreLead(leadId, user) {
         return this.salesAcceleratorService.scoreLead(user.tenantId, leadId, user.sub);
     }
@@ -55,6 +69,9 @@ let SalesAcceleratorController = class SalesAcceleratorController {
     }
     generateProposalFromDiscovery(dealId, dto, user) {
         return this.salesAcceleratorService.generateProposalFromDiscovery(user.tenantId, dealId, dto, user.sub);
+    }
+    createDealFollowUp(dealId, dto, user) {
+        return this.salesAcceleratorService.createDealFollowUp(user.tenantId, dealId, dto, user.sub);
     }
 };
 exports.SalesAcceleratorController = SalesAcceleratorController;
@@ -125,6 +142,48 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], SalesAcceleratorController.prototype, "generateDealDiscoveryGuide", null);
 __decorate([
+    (0, common_1.Post)('leads/:leadId/discovery-call'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, permissions_decorator_1.RequireAnyPermission)('ai.view', 'leads.view'),
+    __param(0, (0, common_1.Param)('leadId')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, analyze_discovery_call_dto_1.AnalyzeDiscoveryCallDto, Object]),
+    __metadata("design:returntype", void 0)
+], SalesAcceleratorController.prototype, "analyzeLeadDiscoveryCall", null);
+__decorate([
+    (0, common_1.Post)('deals/:dealId/discovery-call'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, permissions_decorator_1.RequireAnyPermission)('ai.view', 'deals.view'),
+    __param(0, (0, common_1.Param)('dealId')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, analyze_discovery_call_dto_1.AnalyzeDiscoveryCallDto, Object]),
+    __metadata("design:returntype", void 0)
+], SalesAcceleratorController.prototype, "analyzeDealDiscoveryCall", null);
+__decorate([
+    (0, common_1.Post)('leads/:leadId/outreach'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, permissions_decorator_1.RequireAnyPermission)('ai.view', 'leads.view'),
+    __param(0, (0, common_1.Param)('leadId')),
+    __param(1, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], SalesAcceleratorController.prototype, "generateLeadOutreach", null);
+__decorate([
+    (0, common_1.Post)('deals/:dealId/outreach'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, permissions_decorator_1.RequireAnyPermission)('ai.view', 'deals.view'),
+    __param(0, (0, common_1.Param)('dealId')),
+    __param(1, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], SalesAcceleratorController.prototype, "generateDealOutreach", null);
+__decorate([
     (0, common_1.Post)('leads/:leadId/score'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     (0, permissions_decorator_1.RequireAnyPermission)('ai.view', 'leads.view'),
@@ -155,6 +214,17 @@ __decorate([
     __metadata("design:paramtypes", [String, generate_discovery_proposal_dto_1.GenerateDiscoveryProposalDto, Object]),
     __metadata("design:returntype", void 0)
 ], SalesAcceleratorController.prototype, "generateProposalFromDiscovery", null);
+__decorate([
+    (0, common_1.Post)('deals/:dealId/follow-up'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, permissions_decorator_1.RequireAnyPermission)('activities.manage', 'deals.update'),
+    __param(0, (0, common_1.Param)('dealId')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, create_follow_up_task_dto_1.CreateFollowUpTaskDto, Object]),
+    __metadata("design:returntype", void 0)
+], SalesAcceleratorController.prototype, "createDealFollowUp", null);
 exports.SalesAcceleratorController = SalesAcceleratorController = __decorate([
     (0, common_1.Controller)('sales-accelerator'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),

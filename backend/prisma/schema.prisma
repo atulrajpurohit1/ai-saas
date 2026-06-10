@@ -64,6 +64,10 @@ model Tenant {
   userSessions        UserSession[]
   branding            TenantBranding?
   customDomains       CustomDomain[]
+  checkpoints         Checkpoint[]
+  patrolRoutes        PatrolRoute[]
+  patrolRuns          PatrolRun[]
+  patrolEvents        PatrolEvent[]
 }
 
 model Branch {
@@ -389,6 +393,8 @@ model Site {
   timesheets          Timesheet[]
   rateCards           RateCard[]
   createdAt           DateTime             @default(now())
+  checkpoints         Checkpoint[]
+  patrolRoutes        PatrolRoute[]
 
   @@index([tenantId])
   @@index([branchId])
@@ -412,6 +418,8 @@ model Guard {
   invoiceItems     InvoiceItem[]
   timesheets       Timesheet[]
   createdAt        DateTime          @default(now())
+  patrolRuns       PatrolRun[]
+  patrolEvents     PatrolEvent[]
 
   @@index([tenantId])
   @@index([branchId])
@@ -437,6 +445,7 @@ model Shift {
   invoiceItems     InvoiceItem[]
   timesheets       Timesheet[]
   createdAt        DateTime          @default(now())
+  patrolRuns       PatrolRun[]
 
   @@index([tenantId])
   @@index([branchId])
@@ -1132,4 +1141,110 @@ model CustomDomain {
   @@index([tenantId])
   @@index([tenantId, verificationStatus])
   @@map("CustomDomain")
+}
+
+model Checkpoint {
+  id           String                   @id @default(uuid())
+  tenantId     String                   @map("tenant_id")
+  tenant       Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId       String                   @map("site_id")
+  site         Site                     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  locationNote String?                  @map("location_note")
+  qrCodeValue  String?                  @map("qr_code_value")
+  status       String                   @default("active")
+  createdAt    DateTime                 @default(now()) @map("created_at")
+  updatedAt    DateTime                 @updatedAt @map("updated_at")
+
+  patrolRouteCheckpoints PatrolRouteCheckpoint[]
+  patrolEvents           PatrolEvent[]
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([status])
+  @@map("Checkpoint")
+}
+
+model PatrolRoute {
+  id          String                   @id @default(uuid())
+  tenantId    String                   @map("tenant_id")
+  tenant       Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId       String                   @map("site_id")
+  site         Site                     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name         String
+  description String?
+  status      String                   @default("active")
+  createdAt   DateTime                 @default(now()) @map("created_at")
+  updatedAt   DateTime                 @updatedAt @map("updated_at")
+
+  checkpoints PatrolRouteCheckpoint[]
+  patrolRuns  PatrolRun[]
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([status])
+  @@map("PatrolRoute")
+}
+
+model PatrolRouteCheckpoint {
+  id            String      @id @default(uuid())
+  patrolRouteId String      @map("patrol_route_id")
+  patrolRoute   PatrolRoute @relation(fields: [patrolRouteId], references: [id], onDelete: Cascade)
+  checkpointId  String      @map("checkpoint_id")
+  checkpoint    Checkpoint  @relation(fields: [checkpointId], references: [id], onDelete: Cascade)
+  sequenceOrder Int         @map("sequence_order")
+
+  @@unique([patrolRouteId, checkpointId])
+  @@index([patrolRouteId])
+  @@index([checkpointId])
+  @@map("PatrolRouteCheckpoint")
+}
+
+model PatrolRun {
+  id            String        @id @default(uuid())
+  tenantId      String        @map("tenant_id")
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  shiftId       String        @map("shift_id")
+  shift         Shift         @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  guardId       String        @map("guard_id")
+  guard         Guard         @relation(fields: [guardId], references: [id], onDelete: Cascade)
+  patrolRouteId String        @map("patrol_route_id")
+  patrolRoute   PatrolRoute   @relation(fields: [patrolRouteId], references: [id], onDelete: Cascade)
+  status        String        @default("not_started")
+  startedAt     DateTime?     @map("started_at")
+  completedAt   DateTime?     @map("completed_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  events        PatrolEvent[]
+
+  @@index([tenantId])
+  @@index([shiftId])
+  @@index([guardId])
+  @@index([patrolRouteId])
+  @@index([status])
+  @@map("PatrolRun")
+}
+
+model PatrolEvent {
+  id           String      @id @default(uuid())
+  tenantId     String      @map("tenant_id")
+  tenant       Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patrolRunId  String      @map("patrol_run_id")
+  patrolRun    PatrolRun   @relation(fields: [patrolRunId], references: [id], onDelete: Cascade)
+  checkpointId String      @map("checkpoint_id")
+  checkpoint   Checkpoint  @relation(fields: [checkpointId], references: [id], onDelete: Cascade)
+  guardId      String      @map("guard_id")
+  guard         Guard       @relation(fields: [guardId], references: [id], onDelete: Cascade)
+  scannedAt    DateTime    @default(now()) @map("scanned_at")
+  status       String      @default("completed")
+  notes        String?
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([patrolRunId])
+  @@index([checkpointId])
+  @@index([guardId])
+  @@map("PatrolEvent")
 }

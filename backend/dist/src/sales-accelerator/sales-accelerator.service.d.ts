@@ -1,19 +1,83 @@
 import { Prisma } from '@prisma/client';
-import { AiDiscoveryGuideDraft, AiService } from '../ai/ai.service';
+import { AiDiscoveryCallIntelligenceDraft, AiDiscoveryGuideDraft, AiOutreachDraft, AiService } from '../ai/ai.service';
 import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { AuditService } from '../audit/audit.service';
+import { ActivitiesService } from '../activities/activities.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProposalsService } from '../proposals/proposals.service';
+import { AnalyzeDiscoveryCallDto } from './dto/analyze-discovery-call.dto';
+import { CreateFollowUpTaskDto } from './dto/create-follow-up-task.dto';
 import { GenerateDiscoveryProposalDto } from './dto/generate-discovery-proposal.dto';
 import { SaveDiscoveryDto } from './dto/save-discovery.dto';
+export interface ActivitySnapshot {
+    id: string;
+    type: string;
+    subject: string;
+    status: string;
+    dueDate: Date | null;
+    createdAt: Date;
+}
+export interface DealMomentum {
+    status: 'healthy' | 'watch' | 'stalled' | 'urgent' | 'closed';
+    score: number;
+    daysOpen: number;
+    daysSinceActivity: number | null;
+    overdueActivityCount: number;
+    pendingActivityCount: number;
+    nextActivity: ActivitySnapshot | null;
+    lastActivity: ActivitySnapshot | null;
+    reasons: string[];
+    recommendedAction: string;
+}
+export interface ForecastHistoryPoint {
+    id: string;
+    score: number | null;
+    discoveryQualityScore: number | null;
+    createdAt: Date;
+}
+export interface DealForecast {
+    status: 'commit' | 'likely' | 'watch' | 'at_risk' | 'unscored' | 'closed_won' | 'closed_lost';
+    label: string;
+    confidence: number;
+    probability: number;
+    currentReadiness: number | null;
+    previousReadiness: number | null;
+    readinessChange: number | null;
+    trend: 'improving' | 'flat' | 'declining' | 'unknown';
+    history: ForecastHistoryPoint[];
+    reasons: string[];
+    recommendedAction: string;
+}
+export interface ObjectionPattern {
+    key: string;
+    label: string;
+    count: number;
+    severity: 'high' | 'medium' | 'low';
+    examples: string[];
+    recommendedResponse: string;
+    playbook: string[];
+    relatedLeads: Array<{
+        id: string;
+        name: string;
+        company: string;
+        status: string;
+    }>;
+    relatedDeals: Array<{
+        id: string;
+        name: string;
+        stage: string;
+        company: string;
+    }>;
+}
 export declare class SalesAcceleratorService {
     private readonly prisma;
     private readonly aiService;
     private readonly aiMonitoringService;
     private readonly auditService;
+    private readonly activitiesService;
     private readonly proposalsService;
     private readonly logger;
-    constructor(prisma: PrismaService, aiService: AiService, aiMonitoringService: AiMonitoringService, auditService: AuditService, proposalsService: ProposalsService);
+    constructor(prisma: PrismaService, aiService: AiService, aiMonitoringService: AiMonitoringService, auditService: AuditService, activitiesService: ActivitiesService, proposalsService: ProposalsService);
     getDashboard(tenantId: string): Promise<{
         generatedAt: string;
         metrics: {
@@ -23,6 +87,12 @@ export declare class SalesAcceleratorService {
             assessedDeals: number;
             highPriorityLeads: number;
             dealsBelowReadiness: number;
+            stalledDeals: number;
+            overdueDealActivities: number;
+            trackedObjections: number;
+            objectionPatternCount: number;
+            forecastAtRiskDeals: number;
+            averageForecastConfidence: number | null;
             leadsMissingDiscovery: number;
             dealsMissingDiscovery: number;
             averageLeadScore: number | null;
@@ -72,7 +142,159 @@ export declare class SalesAcceleratorService {
                 riskProfile: string | null;
                 proposalAngle: string | null;
                 recommendedNextAction: string | null;
+                summary: string | null;
             };
+            momentum: DealMomentum;
+            forecast: DealForecast;
+            id: string;
+            name: string;
+            createdAt: Date;
+            activities: {
+                id: string;
+                createdAt: Date;
+                status: string;
+                subject: string;
+                type: string;
+                dueDate: Date | null;
+            }[];
+            discoverySessions: {
+                id: string;
+                createdAt: Date;
+            }[];
+            salesAssessments: {
+                id: string;
+                createdAt: Date;
+                leadScore: number | null;
+                priorityTier: string | null;
+                closeReadinessScore: number | null;
+                discoveryQualityScore: number | null;
+                riskProfile: string | null;
+                proposalAngle: string | null;
+                recommendedNextAction: string | null;
+                summary: string | null;
+            }[];
+            client: {
+                id: string;
+                name: string;
+                companyName: string | null;
+            } | null;
+            lead: {
+                id: string;
+                name: string;
+                company: string;
+            };
+            stage: string;
+        }[];
+        stalledDeals: {
+            assessment: {
+                id: string;
+                createdAt: Date;
+                leadScore: number | null;
+                priorityTier: string | null;
+                closeReadinessScore: number | null;
+                discoveryQualityScore: number | null;
+                riskProfile: string | null;
+                proposalAngle: string | null;
+                recommendedNextAction: string | null;
+                summary: string | null;
+            };
+            momentum: DealMomentum;
+            forecast: DealForecast;
+            id: string;
+            name: string;
+            createdAt: Date;
+            activities: {
+                id: string;
+                createdAt: Date;
+                status: string;
+                subject: string;
+                type: string;
+                dueDate: Date | null;
+            }[];
+            discoverySessions: {
+                id: string;
+                createdAt: Date;
+            }[];
+            salesAssessments: {
+                id: string;
+                createdAt: Date;
+                leadScore: number | null;
+                priorityTier: string | null;
+                closeReadinessScore: number | null;
+                discoveryQualityScore: number | null;
+                riskProfile: string | null;
+                proposalAngle: string | null;
+                recommendedNextAction: string | null;
+                summary: string | null;
+            }[];
+            client: {
+                id: string;
+                name: string;
+                companyName: string | null;
+            } | null;
+            lead: {
+                id: string;
+                name: string;
+                company: string;
+            };
+            stage: string;
+        }[];
+        forecastRiskDeals: {
+            assessment: {
+                id: string;
+                createdAt: Date;
+                leadScore: number | null;
+                priorityTier: string | null;
+                closeReadinessScore: number | null;
+                discoveryQualityScore: number | null;
+                riskProfile: string | null;
+                proposalAngle: string | null;
+                recommendedNextAction: string | null;
+                summary: string | null;
+            };
+            momentum: DealMomentum;
+            forecast: DealForecast;
+            id: string;
+            name: string;
+            createdAt: Date;
+            activities: {
+                id: string;
+                createdAt: Date;
+                status: string;
+                subject: string;
+                type: string;
+                dueDate: Date | null;
+            }[];
+            discoverySessions: {
+                id: string;
+                createdAt: Date;
+            }[];
+            salesAssessments: {
+                id: string;
+                createdAt: Date;
+                leadScore: number | null;
+                priorityTier: string | null;
+                closeReadinessScore: number | null;
+                discoveryQualityScore: number | null;
+                riskProfile: string | null;
+                proposalAngle: string | null;
+                recommendedNextAction: string | null;
+                summary: string | null;
+            }[];
+            client: {
+                id: string;
+                name: string;
+                companyName: string | null;
+            } | null;
+            lead: {
+                id: string;
+                name: string;
+                company: string;
+            };
+            stage: string;
+        }[];
+        objectionPatterns: ObjectionPattern[];
+        missingDiscoveryLeads: {
             id: string;
             name: string;
             createdAt: Date;
@@ -90,6 +312,51 @@ export declare class SalesAcceleratorService {
                 riskProfile: string | null;
                 proposalAngle: string | null;
                 recommendedNextAction: string | null;
+            }[];
+            status: string;
+            company: string;
+        }[];
+        missingDiscoveryDeals: {
+            assessment: {
+                id: string;
+                createdAt: Date;
+                leadScore: number | null;
+                priorityTier: string | null;
+                closeReadinessScore: number | null;
+                discoveryQualityScore: number | null;
+                riskProfile: string | null;
+                proposalAngle: string | null;
+                recommendedNextAction: string | null;
+                summary: string | null;
+            };
+            momentum: DealMomentum;
+            forecast: DealForecast;
+            id: string;
+            name: string;
+            createdAt: Date;
+            activities: {
+                id: string;
+                createdAt: Date;
+                status: string;
+                subject: string;
+                type: string;
+                dueDate: Date | null;
+            }[];
+            discoverySessions: {
+                id: string;
+                createdAt: Date;
+            }[];
+            salesAssessments: {
+                id: string;
+                createdAt: Date;
+                leadScore: number | null;
+                priorityTier: string | null;
+                closeReadinessScore: number | null;
+                discoveryQualityScore: number | null;
+                riskProfile: string | null;
+                proposalAngle: string | null;
+                recommendedNextAction: string | null;
+                summary: string | null;
             }[];
             client: {
                 id: string;
@@ -158,7 +425,7 @@ export declare class SalesAcceleratorService {
             dealId: string | null;
             leadId: string | null;
             guardCount: number | null;
-            createdBy: string | null;
+            objections: string[];
             propertyType: string | null;
             buyerRole: string | null;
             currentProvider: string | null;
@@ -167,7 +434,7 @@ export declare class SalesAcceleratorService {
             riskConcerns: string[];
             decisionTimeline: string | null;
             budgetSensitivity: string | null;
-            objections: string[];
+            createdBy: string | null;
         } | null;
         assessment: {
             id: string;
@@ -192,6 +459,7 @@ export declare class SalesAcceleratorService {
             aiGenerationId: string | null;
             createdBy: string | null;
         } | null;
+        objectionPatterns: ObjectionPattern[];
     }>;
     getDealWorkspace(tenantId: string, dealId: string): Promise<{
         deal: {
@@ -199,6 +467,14 @@ export declare class SalesAcceleratorService {
                 createdAt: Date;
                 title: string;
                 status: string;
+            }[];
+            activities: {
+                id: string;
+                createdAt: Date;
+                status: string;
+                subject: string;
+                type: string;
+                dueDate: Date | null;
             }[];
             notes: {
                 id: string;
@@ -256,7 +532,7 @@ export declare class SalesAcceleratorService {
             dealId: string | null;
             leadId: string | null;
             guardCount: number | null;
-            createdBy: string | null;
+            objections: string[];
             propertyType: string | null;
             buyerRole: string | null;
             currentProvider: string | null;
@@ -265,7 +541,7 @@ export declare class SalesAcceleratorService {
             riskConcerns: string[];
             decisionTimeline: string | null;
             budgetSensitivity: string | null;
-            objections: string[];
+            createdBy: string | null;
         } | null;
         assessment: {
             id: string;
@@ -290,6 +566,9 @@ export declare class SalesAcceleratorService {
             aiGenerationId: string | null;
             createdBy: string | null;
         } | null;
+        objectionPatterns: ObjectionPattern[];
+        momentum: DealMomentum;
+        forecast: DealForecast;
     }>;
     saveLeadDiscovery(tenantId: string, leadId: string, dto: SaveDiscoveryDto, userId?: string): Promise<{
         id: string;
@@ -300,7 +579,7 @@ export declare class SalesAcceleratorService {
         dealId: string | null;
         leadId: string | null;
         guardCount: number | null;
-        createdBy: string | null;
+        objections: string[];
         propertyType: string | null;
         buyerRole: string | null;
         currentProvider: string | null;
@@ -309,7 +588,7 @@ export declare class SalesAcceleratorService {
         riskConcerns: string[];
         decisionTimeline: string | null;
         budgetSensitivity: string | null;
-        objections: string[];
+        createdBy: string | null;
     }>;
     saveDealDiscovery(tenantId: string, dealId: string, dto: SaveDiscoveryDto, userId?: string): Promise<{
         id: string;
@@ -320,7 +599,7 @@ export declare class SalesAcceleratorService {
         dealId: string | null;
         leadId: string | null;
         guardCount: number | null;
-        createdBy: string | null;
+        objections: string[];
         propertyType: string | null;
         buyerRole: string | null;
         currentProvider: string | null;
@@ -329,7 +608,7 @@ export declare class SalesAcceleratorService {
         riskConcerns: string[];
         decisionTimeline: string | null;
         budgetSensitivity: string | null;
-        objections: string[];
+        createdBy: string | null;
     }>;
     generateLeadDiscoveryGuide(tenantId: string, leadId: string, userId?: string): Promise<{
         guide: AiDiscoveryGuideDraft;
@@ -338,6 +617,26 @@ export declare class SalesAcceleratorService {
     }>;
     generateDealDiscoveryGuide(tenantId: string, dealId: string, userId?: string): Promise<{
         guide: AiDiscoveryGuideDraft;
+        aiGenerationId: string | null;
+        fallbackUsed: boolean;
+    }>;
+    generateLeadOutreach(tenantId: string, leadId: string, userId?: string): Promise<{
+        outreach: AiOutreachDraft;
+        aiGenerationId: string | null;
+        fallbackUsed: boolean;
+    }>;
+    generateDealOutreach(tenantId: string, dealId: string, userId?: string): Promise<{
+        outreach: AiOutreachDraft;
+        aiGenerationId: string | null;
+        fallbackUsed: boolean;
+    }>;
+    analyzeLeadDiscoveryCall(tenantId: string, leadId: string, dto: AnalyzeDiscoveryCallDto, userId?: string): Promise<{
+        intelligence: AiDiscoveryCallIntelligenceDraft;
+        aiGenerationId: string | null;
+        fallbackUsed: boolean;
+    }>;
+    analyzeDealDiscoveryCall(tenantId: string, dealId: string, dto: AnalyzeDiscoveryCallDto, userId?: string): Promise<{
+        intelligence: AiDiscoveryCallIntelligenceDraft;
         aiGenerationId: string | null;
         fallbackUsed: boolean;
     }>;
@@ -411,26 +710,56 @@ export declare class SalesAcceleratorService {
         aiGenerationId: string | null;
         fallbackUsed: boolean;
     }>;
+    createDealFollowUp(tenantId: string, dealId: string, dto: CreateFollowUpTaskDto, userId?: string): Promise<{
+        id: string;
+        createdAt: Date;
+        tenantId: string;
+        status: string;
+        dealId: string | null;
+        description: string | null;
+        subject: string;
+        type: string;
+        dueDate: Date | null;
+    }>;
     private generateDiscoveryGuide;
+    private generateOutreachPlan;
+    private analyzeDiscoveryCall;
     private createAssessment;
     private getLeadOrThrow;
     private getDealOrThrow;
     private latestDiscovery;
     private latestAssessment;
+    private assessmentHistory;
     private discoveryData;
     private contextText;
+    private entityObjectionPatterns;
+    private buildObjectionPatterns;
+    private objectionDefinition;
+    private objectionSeverity;
+    private dealForecast;
+    private readinessTrend;
+    private forecastStatus;
+    private forecastLabel;
+    private forecastAction;
+    private dealMomentum;
+    private momentumAction;
     private ruleAssessment;
     private mergeAssessmentDefaults;
     private assessmentDraftFromRecord;
     private missingQuestions;
     private ruleDiscoveryGuide;
+    private ruleOutreachPlan;
+    private ruleDiscoveryCallIntelligence;
     private ruleProposal;
     private timelineSignal;
     private budgetPenalty;
     private priorityTier;
     private clamp;
+    private daysBetween;
     private cleanString;
     private cleanList;
     private displayList;
+    private callSnippets;
     private average;
+    private tomorrow;
 }

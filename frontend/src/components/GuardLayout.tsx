@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { CalendarDays, FileWarning, LayoutDashboard, LogOut, ShieldCheck } from 'lucide-react';
+import { CalendarDays, FileWarning, LayoutDashboard, LogOut, ShieldCheck, Navigation } from 'lucide-react';
 
 export default function GuardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -26,6 +26,7 @@ export default function GuardLayout({ children }: { children: React.ReactNode })
     { href: '/guard/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/guard/shifts', label: 'Shifts', icon: CalendarDays },
     { href: '/guard/incidents', label: 'Incidents', icon: FileWarning },
+    { href: '/guard/patrol-runs', label: 'Patrols', icon: Navigation },
   ];
 
   return (
@@ -78,7 +79,7 @@ export default function GuardLayout({ children }: { children: React.ReactNode })
         {children}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-40 grid grid-cols-3 border-t border-white/10 bg-[#071013]/95 px-2 pb-[env(safe-area-inset-bottom)] pt-2 backdrop-blur sm:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 grid grid-cols-4 border-t border-white/10 bg-[#071013]/95 px-2 pb-[env(safe-area-inset-bottom)] pt-2 backdrop-blur sm:hidden">
         {links.map((link) => {
           const Icon = link.icon;
           const active = pathname === link.href || pathname.startsWith(`${link.href}/`);

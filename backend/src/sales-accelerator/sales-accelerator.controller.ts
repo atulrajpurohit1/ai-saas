@@ -13,6 +13,8 @@ import { RequireAnyPermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { AnalyzeDiscoveryCallDto } from './dto/analyze-discovery-call.dto';
+import { CreateFollowUpTaskDto } from './dto/create-follow-up-task.dto';
 import { GenerateDiscoveryProposalDto } from './dto/generate-discovery-proposal.dto';
 import { SaveDiscoveryDto } from './dto/save-discovery.dto';
 import { SalesAcceleratorService } from './sales-accelerator.service';
@@ -100,6 +102,66 @@ export class SalesAcceleratorController {
     );
   }
 
+  @Post('leads/:leadId/discovery-call')
+  @HttpCode(HttpStatus.OK)
+  @RequireAnyPermission('ai.view', 'leads.view')
+  analyzeLeadDiscoveryCall(
+    @Param('leadId') leadId: string,
+    @Body() dto: AnalyzeDiscoveryCallDto,
+    @GetUser() user: ActiveUser,
+  ) {
+    return this.salesAcceleratorService.analyzeLeadDiscoveryCall(
+      user.tenantId,
+      leadId,
+      dto,
+      user.sub,
+    );
+  }
+
+  @Post('deals/:dealId/discovery-call')
+  @HttpCode(HttpStatus.OK)
+  @RequireAnyPermission('ai.view', 'deals.view')
+  analyzeDealDiscoveryCall(
+    @Param('dealId') dealId: string,
+    @Body() dto: AnalyzeDiscoveryCallDto,
+    @GetUser() user: ActiveUser,
+  ) {
+    return this.salesAcceleratorService.analyzeDealDiscoveryCall(
+      user.tenantId,
+      dealId,
+      dto,
+      user.sub,
+    );
+  }
+
+  @Post('leads/:leadId/outreach')
+  @HttpCode(HttpStatus.OK)
+  @RequireAnyPermission('ai.view', 'leads.view')
+  generateLeadOutreach(
+    @Param('leadId') leadId: string,
+    @GetUser() user: ActiveUser,
+  ) {
+    return this.salesAcceleratorService.generateLeadOutreach(
+      user.tenantId,
+      leadId,
+      user.sub,
+    );
+  }
+
+  @Post('deals/:dealId/outreach')
+  @HttpCode(HttpStatus.OK)
+  @RequireAnyPermission('ai.view', 'deals.view')
+  generateDealOutreach(
+    @Param('dealId') dealId: string,
+    @GetUser() user: ActiveUser,
+  ) {
+    return this.salesAcceleratorService.generateDealOutreach(
+      user.tenantId,
+      dealId,
+      user.sub,
+    );
+  }
+
   @Post('leads/:leadId/score')
   @HttpCode(HttpStatus.OK)
   @RequireAnyPermission('ai.view', 'leads.view')
@@ -131,6 +193,22 @@ export class SalesAcceleratorController {
     @GetUser() user: ActiveUser,
   ) {
     return this.salesAcceleratorService.generateProposalFromDiscovery(
+      user.tenantId,
+      dealId,
+      dto,
+      user.sub,
+    );
+  }
+
+  @Post('deals/:dealId/follow-up')
+  @HttpCode(HttpStatus.OK)
+  @RequireAnyPermission('activities.manage', 'deals.update')
+  createDealFollowUp(
+    @Param('dealId') dealId: string,
+    @Body() dto: CreateFollowUpTaskDto,
+    @GetUser() user: ActiveUser,
+  ) {
+    return this.salesAcceleratorService.createDealFollowUp(
       user.tenantId,
       dealId,
       dto,
