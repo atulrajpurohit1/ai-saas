@@ -22,28 +22,32 @@ export const PROMPT_USAGE_REGISTRY: PromptUsageDefinition[] = [
     moduleName: 'ai_insights.dashboard',
     promptKey: 'business_recommendations',
     label: 'AI Insights',
-    description: 'Operational recommendations for clients, guards, sites, and billing.',
+    description:
+      'Operational recommendations for clients, guards, sites, and billing.',
     defaultVersion: DEFAULT_PROMPT_VERSION,
   },
   {
     moduleName: 'ai_insights.incident_risk',
     promptKey: 'incident_risk_summary',
     label: 'Incident Risk Analysis',
-    description: 'Incident trends, high-risk sites, client risk, and guard risk summaries.',
+    description:
+      'Incident trends, high-risk sites, client risk, and guard risk summaries.',
     defaultVersion: DEFAULT_PROMPT_VERSION,
   },
   {
     moduleName: 'ai_insights.revenue',
     promptKey: 'revenue_summary',
     label: 'Revenue Forecasting',
-    description: 'Executive revenue, renewal, collections, and contract-risk summary.',
+    description:
+      'Executive revenue, renewal, collections, and contract-risk summary.',
     defaultVersion: DEFAULT_PROMPT_VERSION,
   },
   {
     moduleName: 'ai_insights.revenue',
     promptKey: 'financial_recommendations',
     label: 'Revenue Recommendations',
-    description: 'Finance actions generated from forecasts, collections, renewals, and contract health.',
+    description:
+      'Finance actions generated from forecasts, collections, renewals, and contract health.',
     defaultVersion: DEFAULT_PROMPT_VERSION,
   },
   {
@@ -51,13 +55,6 @@ export const PROMPT_USAGE_REGISTRY: PromptUsageDefinition[] = [
     promptKey: 'guard_recommendation_explanation',
     label: 'AI Smart Scheduling',
     description: 'Guard recommendation explanations for scheduling admins.',
-    defaultVersion: DEFAULT_PROMPT_VERSION,
-  },
-  {
-    moduleName: 'ai_command_center.dashboard',
-    promptKey: 'daily_summary',
-    label: 'AI Command Center',
-    description: 'Daily executive narrative across operations, incidents, staffing, and finance.',
     defaultVersion: DEFAULT_PROMPT_VERSION,
   },
 ];
@@ -365,19 +362,29 @@ export class AiGovernanceService {
       });
     }
 
-    if (/\b(automatically|auto)\b.{0,40}\b(assign|terminate|fire|charge|refund|publish|execute|send)\b/i.test(text)) {
+    if (
+      /\b(automatically|auto)\b.{0,40}\b(assign|terminate|fire|charge|refund|publish|execute|send)\b/i.test(
+        text,
+      )
+    ) {
       findings.push({
         rule: 'unsafe_automation',
         severity: 'blocked',
-        message: 'Output appears to recommend unsafe automation without approval.',
+        message:
+          'Output appears to recommend unsafe automation without approval.',
       });
     }
 
-    if (/\b(legal advice|tax advice|investment advice|guarantee(?:d)? returns?|legally binding)\b/i.test(text)) {
+    if (
+      /\b(legal advice|tax advice|investment advice|guarantee(?:d)? returns?|legally binding)\b/i.test(
+        text,
+      )
+    ) {
       findings.push({
         rule: 'unsupported_financial_or_legal_claim',
         severity: 'blocked',
-        message: 'Output includes unsupported legal or financial claim language.',
+        message:
+          'Output includes unsupported legal or financial claim language.',
       });
     }
 
@@ -388,7 +395,8 @@ export class AiGovernanceService {
       findings.push({
         rule: 'client_cross_data_exposure',
         severity: 'review_required',
-        message: 'Client-visible output was generated from multiple client contexts.',
+        message:
+          'Client-visible output was generated from multiple client contexts.',
       });
     }
 
@@ -451,13 +459,16 @@ export class AiGovernanceService {
   private defaultVersionFor(moduleName: string, promptKey: string) {
     return (
       PROMPT_USAGE_REGISTRY.find(
-        (item) => item.moduleName === moduleName && item.promptKey === promptKey,
+        (item) =>
+          item.moduleName === moduleName && item.promptKey === promptKey,
       )?.defaultVersion ?? DEFAULT_PROMPT_VERSION
     );
   }
 
   private serializeGeneration(generation: any) {
-    const feedback = Array.isArray(generation.feedback) ? generation.feedback : [];
+    const feedback = Array.isArray(generation.feedback)
+      ? generation.feedback
+      : [];
     const feedbackScore =
       feedback.length === 0
         ? null
@@ -506,8 +517,9 @@ export class AiGovernanceService {
     };
 
     return (
-      Array.isArray(source.clientIds) &&
-      new Set(source.clientIds.filter(Boolean)).size > 1
-    ) || source.scope === 'multi_client';
+      (Array.isArray(source.clientIds) &&
+        new Set(source.clientIds.filter(Boolean)).size > 1) ||
+      source.scope === 'multi_client'
+    );
   }
 }

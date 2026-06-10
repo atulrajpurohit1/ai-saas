@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import { CheckCircle2, Loader2, MessageSquare, Star, ThumbsDown, ThumbsUp } from 'lucide-react';
+import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { submitAiFeedback } from '@/lib/ai-monitoring';
 
 interface AiFeedbackControlProps {
   aiGenerationId?: string;
@@ -34,7 +34,7 @@ export default function AiFeedbackControl({
 
     setSubmitting(true);
     try {
-      await submitAiFeedback({
+      await api.post('ai-feedback', {
         aiGenerationId,
         recommendationId,
         actionId,

@@ -55,6 +55,7 @@ export default function AiCopilotPage() {
   const [historyLoading, setHistoryLoading] = useState(true);
   const [error, setError] = useState('');
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const messageIdRef = useRef(0);
 
   const latestAnswer = useMemo(
     () => [...messages].reverse().find((message): message is Extract<ChatMessage, { role: 'assistant' }> => message.role === 'assistant'),
@@ -91,8 +92,9 @@ export default function AiCopilotPage() {
     if (!trimmed || loading) return;
 
     const now = new Date().toISOString();
+    messageIdRef.current += 1;
     const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
+      id: `user-${messageIdRef.current}`,
       role: 'user',
       content: trimmed,
       createdAt: now,
@@ -108,7 +110,7 @@ export default function AiCopilotPage() {
       setMessages((current) => [
         ...current,
         {
-          id: answer.conversationId || `assistant-${Date.now()}`,
+          id: answer.conversationId || `assistant-${messageIdRef.current}`,
           role: 'assistant',
           content: answer.answer,
           createdAt: answer.createdAt,

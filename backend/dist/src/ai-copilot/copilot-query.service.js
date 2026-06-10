@@ -138,7 +138,9 @@ let CopilotQueryService = class CopilotQueryService {
             answer,
             confidenceScore: 0.9,
             sources: invoices.map((invoice) => this.source('invoice', invoice.id, invoice.invoiceNumber, `/invoices/${invoice.id}`, `${this.clientName(invoice.client)} - ${this.formatCurrency(invoice.totalAmount)} - ${invoice.status}`)),
-            actions: invoices.slice(0, 5).map((invoice) => this.action('View Invoice', 'invoice', `/invoices/${invoice.id}`)),
+            actions: invoices
+                .slice(0, 5)
+                .map((invoice) => this.action('View Invoice', 'invoice', `/invoices/${invoice.id}`)),
             knowledgeQuery: `${question} overdue unpaid invoice dispute billing ${invoices.map((invoice) => `${invoice.invoiceNumber} ${this.clientName(invoice.client)}`).join(' ')}`,
             context: {
                 overdueInvoices: invoices.map((invoice) => ({
@@ -178,8 +180,12 @@ let CopilotQueryService = class CopilotQueryService {
             intent: 'guards',
             answer,
             confidenceScore: 0.84,
-            sources: missed.slice(0, 5).map((row) => this.source('guard', row.guardId, row.guardName, `/guards/${row.guardId}`, `${row.missedShifts} missed shift${row.missedShifts === 1 ? '' : 's'}`)),
-            actions: missed.slice(0, 5).map((row) => this.action('View Guard', 'guard', `/guards/${row.guardId}`)),
+            sources: missed
+                .slice(0, 5)
+                .map((row) => this.source('guard', row.guardId, row.guardName, `/guards/${row.guardId}`, `${row.missedShifts} missed shift${row.missedShifts === 1 ? '' : 's'}`)),
+            actions: missed
+                .slice(0, 5)
+                .map((row) => this.action('View Guard', 'guard', `/guards/${row.guardId}`)),
             knowledgeQuery: `${question} missed shifts attendance guards ${missed.map((row) => row.guardName).join(' ')}`,
             context: { missedShiftsLast7Days: missed },
         };
@@ -195,7 +201,9 @@ let CopilotQueryService = class CopilotQueryService {
                 sources: [
                     this.source('revenue_forecast', null, 'Revenue Forecast', '/ai-insights/revenue', revenue.forecast.methodology),
                 ],
-                actions: [this.action('Open Revenue AI', 'dashboard', '/ai-insights/revenue')],
+                actions: [
+                    this.action('Open Revenue AI', 'dashboard', '/ai-insights/revenue'),
+                ],
                 knowledgeQuery: `${question} revenue forecast collections growth`,
                 context: { forecast: revenue.forecast },
             };
@@ -275,14 +283,14 @@ let CopilotQueryService = class CopilotQueryService {
             sources: [
                 this.source('dashboard', null, 'AI Insights', '/ai-insights', 'Business insights dashboard'),
                 this.source('dashboard', null, 'Revenue AI', '/ai-insights/revenue', 'Revenue intelligence dashboard'),
-                this.source('dashboard', null, 'Command Center', '/ai-command-center', 'Operational command center'),
             ],
-            actions: [
-                this.action('Open AI Insights', 'dashboard', '/ai-insights'),
-                this.action('Open Command Center', 'dashboard', '/ai-command-center'),
-            ],
+            actions: [this.action('Open AI Insights', 'dashboard', '/ai-insights')],
             knowledgeQuery: question,
-            context: { dashboardOverview: dashboard.overview, revenueForecast: revenue.forecast, scheduling },
+            context: {
+                dashboardOverview: dashboard.overview,
+                revenueForecast: revenue.forecast,
+                scheduling,
+            },
         };
     }
     async getMissedShiftsLastWeek(tenantId) {
@@ -324,7 +332,8 @@ let CopilotQueryService = class CopilotQueryService {
                 rows.set(assignment.guardId, row);
             });
         });
-        return Array.from(rows.values()).sort((left, right) => right.missedShifts - left.missedShifts || left.guardName.localeCompare(right.guardName));
+        return Array.from(rows.values()).sort((left, right) => right.missedShifts - left.missedShifts ||
+            left.guardName.localeCompare(right.guardName));
     }
     source(type, id, title, url, snippet) {
         return { type, id, title, url, snippet };

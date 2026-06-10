@@ -31,14 +31,12 @@ import { FinanceModule } from './finance/finance.module';
 import { TimesheetsModule } from './timesheets/timesheets.module';
 import { RateCardsModule } from './rate-cards/rate-cards.module';
 import { AiInsightsModule } from './ai-insights/ai-insights.module';
-import { CommandCenterModule } from './ai-command-center/command-center.module';
 import { AiActionsModule } from './ai-actions/ai-actions.module';
 import { AiMonitoringModule } from './ai-monitoring/ai-monitoring.module';
 import { AiGovernanceModule } from './ai-governance/ai-governance.module';
 import { KnowledgeBaseModule } from './knowledge-base/knowledge-base.module';
 import { AiCopilotModule } from './ai-copilot/ai-copilot.module';
 import { AiPredictionsModule } from './ai-predictions/ai-predictions.module';
-import { AiExecutiveCenterModule } from './ai-executive-center/ai-executive-center.module';
 import { BranchesModule } from './branches/branches.module';
 import { RolesModule } from './roles/roles.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
@@ -79,14 +77,12 @@ import { PatrolsModule } from './patrols/patrols.module';
     InvoiceDisputesModule,
     FinanceModule,
     AiInsightsModule,
-    CommandCenterModule,
     AiActionsModule,
     AiGovernanceModule,
     AiMonitoringModule,
     KnowledgeBaseModule,
     AiCopilotModule,
     AiPredictionsModule,
-    AiExecutiveCenterModule,
     TimesheetsModule,
     RateCardsModule,
     LeadsModule,

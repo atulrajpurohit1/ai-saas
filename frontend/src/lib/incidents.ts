@@ -1,6 +1,5 @@
 import api from './api';
 import { branchParams, BranchSummary } from './branches';
-import { KnowledgeEntry } from './knowledge-base';
 
 export type IncidentSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type IncidentStatus = 'submitted' | 'under_review' | 'approved' | 'rejected';
@@ -45,7 +44,15 @@ export interface Incident {
     startTime: string;
     endTime: string;
   };
-  similarHistoricalCases?: KnowledgeEntry[];
+  similarHistoricalCases?: {
+    id: string;
+    title: string;
+    category: string;
+    sourceType?: string | null;
+    summary: string;
+    tags: string[];
+    relevanceScore?: number;
+  }[];
   branch?: BranchSummary | null;
 }
 

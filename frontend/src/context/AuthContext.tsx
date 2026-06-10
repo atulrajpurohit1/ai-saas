@@ -3,7 +3,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import type { TenantBranding } from '@/lib/branding';
 
 export interface User {
   id?: string;
@@ -15,7 +14,6 @@ export interface User {
   branchId?: string | null;
   isSuperAdmin?: boolean;
   permissions?: string[];
-  branding?: TenantBranding;
   roles?: {
     assignmentId: string;
     id: string;
@@ -57,7 +55,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (permissions.has('invoices.view')) return '/invoices';
       if (permissions.has('leads.view')) return '/leads';
       if (permissions.has('integrations.view')) return '/integrations';
-      if (permissions.has('api_keys.view')) return '/settings/api-keys';
       if (permissions.has('roles.view')) return '/settings/roles';
     }
     return '/';

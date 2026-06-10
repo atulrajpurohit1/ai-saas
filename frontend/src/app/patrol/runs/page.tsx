@@ -63,7 +63,7 @@ export default function PatrolRunsPage() {
   const formatDuration = (start?: string | null, end?: string | null) => {
     if (!start) return 'N/A';
     const startTime = new Date(start).getTime();
-    const endTime = end ? new Date(end).getTime() : Date.now();
+    const endTime = end ? new Date(end).getTime() : new Date().getTime();
     const diffMs = endTime - startTime;
     const diffMins = Math.round(diffMs / 60000);
     return `${diffMins} min${diffMins !== 1 ? 's' : ''}`;

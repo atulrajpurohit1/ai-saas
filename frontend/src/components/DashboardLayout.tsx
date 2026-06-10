@@ -5,7 +5,6 @@ import Sidebar from '@/components/Sidebar';
 import { useAuth, type User } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Menu } from 'lucide-react';
-import { useBranding } from '@/lib/branding';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -15,7 +14,6 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children, allowedRoles, requiredPermissions }: DashboardLayoutProps) {
   const { user, loading, can } = useAuth();
-  const { branding } = useBranding();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const permissionsBlocked = Boolean(user && requiredPermissions && !can(requiredPermissions));
@@ -33,7 +31,6 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
     if (permissions.has('invoices.view')) return '/invoices';
     if (permissions.has('leads.view')) return '/leads';
     if (permissions.has('integrations.view')) return '/integrations';
-    if (permissions.has('api_keys.view')) return '/settings/api-keys';
     return '/login';
   };
 
@@ -81,7 +78,7 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
               <Menu size={22} />
             </button>
             <div className="min-w-0 text-right">
-              <div className="truncate text-sm font-bold text-white">{user?.tenantName || branding.company_name || 'Ai Saas'}</div>
+              <div className="truncate text-sm font-bold text-white">{user?.tenantName || 'Ai Saas'}</div>
               <div className="text-xs text-muted-foreground">{user.role === 'finance' ? 'Finance workspace' : 'Admin workspace'}</div>
             </div>
           </div>

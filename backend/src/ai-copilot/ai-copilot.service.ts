@@ -54,22 +54,24 @@ export class AiCopilotService {
       question,
     );
 
-    const knowledgeEntries = await this.knowledgeRetrievalService.retrieveRelevant({
-      tenantId: input.tenantId,
-      userId: input.userId,
-      sourceModule: 'ai_copilot.chat',
-      query: structured.knowledgeQuery || question,
-      categories: this.knowledgeCategoriesForIntent(structured.intent),
-      limit: 6,
-    });
+    const knowledgeEntries =
+      await this.knowledgeRetrievalService.retrieveRelevant({
+        tenantId: input.tenantId,
+        userId: input.userId,
+        sourceModule: 'ai_copilot.chat',
+        query: structured.knowledgeQuery || question,
+        categories: this.knowledgeCategoriesForIntent(structured.intent),
+        limit: 6,
+      });
 
-    const knowledgeSources: CopilotSourceReference[] = knowledgeEntries.map((entry) => ({
-      type: 'knowledge',
-      id: entry.id,
-      title: entry.title,
-      url: '/knowledge-base',
-      snippet: entry.summary,
-    }));
+    const knowledgeSources: CopilotSourceReference[] = knowledgeEntries.map(
+      (entry) => ({
+        type: 'knowledge',
+        id: entry.id,
+        title: entry.title,
+        snippet: entry.summary,
+      }),
+    );
 
     const aiAnswer = await this.aiService.generateCopilotAnswer(
       JSON.stringify({
@@ -86,11 +88,19 @@ export class AiCopilotService {
       }),
     );
 
-    const sources = this.dedupeSources([...structured.sources, ...knowledgeSources]);
+    const sources = this.dedupeSources([
+      ...structured.sources,
+      ...knowledgeSources,
+    ]);
     const answer = aiAnswer || structured.answer;
-    const source: CopilotAnswer['source'] = aiAnswer ? 'ai_assisted' : 'rule_based';
+    const source: CopilotAnswer['source'] = aiAnswer
+      ? 'ai_assisted'
+      : 'rule_based';
     const confidenceScore = this.roundConfidence(
-      Math.min(0.98, structured.confidenceScore + (knowledgeEntries.length > 0 ? 0.03 : 0)),
+      Math.min(
+        0.98,
+        structured.confidenceScore + (knowledgeEntries.length > 0 ? 0.03 : 0),
+      ),
     );
 
     const conversation = await this.createConversation({
@@ -135,7 +145,11 @@ export class AiCopilotService {
     };
   }
 
-  async history(tenantId: string, userId: string, limit = 25): Promise<AiConversationRecord[]> {
+  async history(
+    tenantId: string,
+    userId: string,
+    limit = 25,
+  ): Promise<AiConversationRecord[]> {
     const rows = await this.prisma.$queryRaw<ConversationRow[]>(Prisma.sql`
       SELECT
         "id",
@@ -160,7 +174,9 @@ export class AiCopilotService {
       question: row.question,
       answer: row.answer,
       confidenceScore: row.confidenceScore,
-      sourcesUsed: Array.isArray(row.sourcesUsed) ? row.sourcesUsed as CopilotSourceReference[] : [],
+      sourcesUsed: Array.isArray(row.sourcesUsed)
+        ? (row.sourcesUsed as CopilotSourceReference[])
+        : [],
       createdAt: row.createdAt,
     }));
   }
@@ -210,7 +226,9 @@ export class AiCopilotService {
     } satisfies ConversationRow;
   }
 
-  private knowledgeCategoriesForIntent(intent: string): KnowledgeCategory[] | undefined {
+  private knowledgeCategoriesForIntent(
+    intent: string,
+  ): KnowledgeCategory[] | undefined {
     switch (intent) {
       case 'incidents':
       case 'sites':

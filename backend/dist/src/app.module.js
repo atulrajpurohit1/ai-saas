@@ -40,14 +40,12 @@ const finance_module_1 = require("./finance/finance.module");
 const timesheets_module_1 = require("./timesheets/timesheets.module");
 const rate_cards_module_1 = require("./rate-cards/rate-cards.module");
 const ai_insights_module_1 = require("./ai-insights/ai-insights.module");
-const command_center_module_1 = require("./ai-command-center/command-center.module");
 const ai_actions_module_1 = require("./ai-actions/ai-actions.module");
 const ai_monitoring_module_1 = require("./ai-monitoring/ai-monitoring.module");
 const ai_governance_module_1 = require("./ai-governance/ai-governance.module");
 const knowledge_base_module_1 = require("./knowledge-base/knowledge-base.module");
 const ai_copilot_module_1 = require("./ai-copilot/ai-copilot.module");
 const ai_predictions_module_1 = require("./ai-predictions/ai-predictions.module");
-const ai_executive_center_module_1 = require("./ai-executive-center/ai-executive-center.module");
 const branches_module_1 = require("./branches/branches.module");
 const roles_module_1 = require("./roles/roles.module");
 const api_keys_module_1 = require("./api-keys/api-keys.module");
@@ -91,14 +89,12 @@ exports.AppModule = AppModule = __decorate([
             invoice_disputes_module_1.InvoiceDisputesModule,
             finance_module_1.FinanceModule,
             ai_insights_module_1.AiInsightsModule,
-            command_center_module_1.CommandCenterModule,
             ai_actions_module_1.AiActionsModule,
             ai_governance_module_1.AiGovernanceModule,
             ai_monitoring_module_1.AiMonitoringModule,
             knowledge_base_module_1.KnowledgeBaseModule,
             ai_copilot_module_1.AiCopilotModule,
             ai_predictions_module_1.AiPredictionsModule,
-            ai_executive_center_module_1.AiExecutiveCenterModule,
             timesheets_module_1.TimesheetsModule,
             rate_cards_module_1.RateCardsModule,
             leads_module_1.LeadsModule,

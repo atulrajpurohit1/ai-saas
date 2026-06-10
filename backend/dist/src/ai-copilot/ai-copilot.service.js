@@ -52,7 +52,6 @@ let AiCopilotService = class AiCopilotService {
             type: 'knowledge',
             id: entry.id,
             title: entry.title,
-            url: '/knowledge-base',
             snippet: entry.summary,
         }));
         const aiAnswer = await this.aiService.generateCopilotAnswer(JSON.stringify({
@@ -67,9 +66,14 @@ let AiCopilotService = class AiCopilotService {
                 tags: entry.tags,
             })),
         }));
-        const sources = this.dedupeSources([...structured.sources, ...knowledgeSources]);
+        const sources = this.dedupeSources([
+            ...structured.sources,
+            ...knowledgeSources,
+        ]);
         const answer = aiAnswer || structured.answer;
-        const source = aiAnswer ? 'ai_assisted' : 'rule_based';
+        const source = aiAnswer
+            ? 'ai_assisted'
+            : 'rule_based';
         const confidenceScore = this.roundConfidence(Math.min(0.98, structured.confidenceScore + (knowledgeEntries.length > 0 ? 0.03 : 0)));
         const conversation = await this.createConversation({
             tenantId: input.tenantId,
@@ -134,7 +138,9 @@ let AiCopilotService = class AiCopilotService {
             question: row.question,
             answer: row.answer,
             confidenceScore: row.confidenceScore,
-            sourcesUsed: Array.isArray(row.sourcesUsed) ? row.sourcesUsed : [],
+            sourcesUsed: Array.isArray(row.sourcesUsed)
+                ? row.sourcesUsed
+                : [],
             createdAt: row.createdAt,
         }));
     }

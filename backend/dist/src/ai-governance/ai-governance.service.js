@@ -50,13 +50,6 @@ exports.PROMPT_USAGE_REGISTRY = [
         description: 'Guard recommendation explanations for scheduling admins.',
         defaultVersion: DEFAULT_PROMPT_VERSION,
     },
-    {
-        moduleName: 'ai_command_center.dashboard',
-        promptKey: 'daily_summary',
-        label: 'AI Command Center',
-        description: 'Daily executive narrative across operations, incidents, staffing, and finance.',
-        defaultVersion: DEFAULT_PROMPT_VERSION,
-    },
 ];
 let AiGovernanceService = class AiGovernanceService {
     prisma;
@@ -370,7 +363,9 @@ let AiGovernanceService = class AiGovernanceService {
         return (exports.PROMPT_USAGE_REGISTRY.find((item) => item.moduleName === moduleName && item.promptKey === promptKey)?.defaultVersion ?? DEFAULT_PROMPT_VERSION);
     }
     serializeGeneration(generation) {
-        const feedback = Array.isArray(generation.feedback) ? generation.feedback : [];
+        const feedback = Array.isArray(generation.feedback)
+            ? generation.feedback
+            : [];
         const feedbackScore = feedback.length === 0
             ? null
             : Math.round((feedback.reduce((sum, item) => sum + item.rating, 0) /
@@ -407,8 +402,9 @@ let AiGovernanceService = class AiGovernanceService {
         if (!value || typeof value !== 'object')
             return false;
         const source = value;
-        return (Array.isArray(source.clientIds) &&
-            new Set(source.clientIds.filter(Boolean)).size > 1) || source.scope === 'multi_client';
+        return ((Array.isArray(source.clientIds) &&
+            new Set(source.clientIds.filter(Boolean)).size > 1) ||
+            source.scope === 'multi_client');
     }
 };
 exports.AiGovernanceService = AiGovernanceService;

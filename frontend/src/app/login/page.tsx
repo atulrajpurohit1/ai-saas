@@ -6,7 +6,6 @@ import api from '@/lib/api';
 import { Lock, Mail, Building2, User, Shield, Briefcase, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { startSsoLogin } from '@/lib/sso';
-import { useBranding } from '@/lib/branding';
 
 interface ApiError {
   response?: {
@@ -35,7 +34,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [ssoLoading, setSsoLoading] = useState(false);
   const { login } = useAuth();
-  const { branding } = useBranding();
   const router = useRouter();
   const slugLabel = role === 'admin' ? 'Company Slug' : 'Company Name';
   const slugPlaceholder = role === 'admin' ? 'acme-security' : 'Acme Security';
@@ -122,27 +120,16 @@ export default function LoginPage() {
   };
 
   return (
-    <div
-      className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#05050a] px-4 py-8"
-      style={{
-        backgroundImage: branding.login_background ? `linear-gradient(rgba(5,5,10,.78), rgba(5,5,10,.78)), url(${branding.login_background})` : undefined,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }}
-    >
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#05050a] px-4 py-8">
        {/* Background decoration */}
        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full"></div>
        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full"></div>
 
       <div className="relative z-10 w-full max-w-md">
         <div className="mb-8 text-center sm:mb-10">
-          {branding.logo_url ? (
-            <img src={branding.logo_url} alt={branding.company_name} className="mx-auto mb-4 max-h-20 max-w-64 object-contain" />
-          ) : (
-            <h1 className="mb-2 text-4xl font-black italic tracking-tighter text-white sm:text-5xl">{branding.company_name || 'Ai Saas'}</h1>
-          )}
+          <h1 className="mb-2 text-4xl font-black italic tracking-tighter text-white sm:text-5xl">Ai Saas</h1>
           <p className="text-slate-500 font-medium tracking-wide">
-            {branding.welcome_message || 'Next Generation Security CRM'}
+            Next Generation Security CRM
           </p>
         </div>
 

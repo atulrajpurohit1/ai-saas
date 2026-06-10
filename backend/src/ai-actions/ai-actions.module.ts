@@ -3,12 +3,10 @@ import { ActivitiesModule } from '../activities/activities.module';
 import { AuditModule } from '../audit/audit.module';
 import { KnowledgeBaseModule } from '../knowledge-base/knowledge-base.module';
 import { PrismaModule } from '../prisma/prisma.module';
-import { AiActionsController } from './ai-actions.controller';
 import { AiActionsService } from './ai-actions.service';
 
 @Module({
   imports: [PrismaModule, AuditModule, ActivitiesModule, KnowledgeBaseModule],
-  controllers: [AiActionsController],
   providers: [AiActionsService],
   exports: [AiActionsService],
 })
