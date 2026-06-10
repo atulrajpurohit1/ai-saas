@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { AnalyzeDiscoveryCallDto } from './dto/analyze-discovery-call.dto';
+import { CoachDiscoveryCallDto } from './dto/coach-discovery-call.dto';
 import { CreateFollowUpTaskDto } from './dto/create-follow-up-task.dto';
 import { GenerateDiscoveryProposalDto } from './dto/generate-discovery-proposal.dto';
 import { SaveDiscoveryDto } from './dto/save-discovery.dto';
@@ -127,6 +128,38 @@ export class SalesAcceleratorController {
     @GetUser() user: ActiveUser,
   ) {
     return this.salesAcceleratorService.analyzeDealDiscoveryCall(
+      user.tenantId,
+      dealId,
+      dto,
+      user.sub,
+    );
+  }
+
+  @Post('leads/:leadId/live-coach')
+  @HttpCode(HttpStatus.OK)
+  @RequireAnyPermission('ai.view', 'leads.view')
+  coachLeadDiscoveryCall(
+    @Param('leadId') leadId: string,
+    @Body() dto: CoachDiscoveryCallDto,
+    @GetUser() user: ActiveUser,
+  ) {
+    return this.salesAcceleratorService.coachLeadDiscoveryCall(
+      user.tenantId,
+      leadId,
+      dto,
+      user.sub,
+    );
+  }
+
+  @Post('deals/:dealId/live-coach')
+  @HttpCode(HttpStatus.OK)
+  @RequireAnyPermission('ai.view', 'deals.view')
+  coachDealDiscoveryCall(
+    @Param('dealId') dealId: string,
+    @Body() dto: CoachDiscoveryCallDto,
+    @GetUser() user: ActiveUser,
+  ) {
+    return this.salesAcceleratorService.coachDealDiscoveryCall(
       user.tenantId,
       dealId,
       dto,

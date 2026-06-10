@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   AlertTriangle,
   BrainCircuit,
+  Briefcase,
   CalendarPlus,
   Clock3,
   ClipboardList,
@@ -94,6 +95,19 @@ interface DiscoveryCallIntelligence {
   confidenceScore: number;
 }
 
+interface DiscoveryLiveCoach {
+  completenessScore: number;
+  nextBestQuestion: string;
+  missedQuestions: string[];
+  livePrompts: string[];
+  qualificationGaps: string[];
+  riskPrompts: string[];
+  followUpAngles: string[];
+  coachingNote: string;
+  confidenceScore: number;
+  shouldPauseProposal: boolean;
+}
+
 interface ActivitySnapshot {
   id: string;
   type: string;
@@ -137,11 +151,57 @@ interface DealForecast {
   recommendedAction: string;
 }
 
+interface PostCloseFeedback {
+  status: 'healthy' | 'watch' | 'risk' | 'oversold' | 'learning';
+  score: number;
+  clientId: string;
+  clientName: string;
+  dealId: string;
+  dealName: string;
+  incidentCount: number;
+  highSeverityIncidentCount: number;
+  openShiftCount: number;
+  understaffedShiftCount: number;
+  overdueInvoiceCount: number;
+  disputedInvoiceCount: number;
+  reportCount: number;
+  signals: string[];
+  salesLessons: string[];
+  recommendedAction: string;
+}
+
+interface PricingGuardrails {
+  status: 'ready' | 'review' | 'protect_margin' | 'blocked';
+  confidenceScore: number;
+  floorGuidance: string;
+  scopeWarnings: string[];
+  pricingRisks: string[];
+  requiredClarifications: string[];
+  recommendedTerms: string[];
+  proposalInstruction: string;
+}
+
+interface MarketSignalProfile {
+  score: number;
+  segment: string;
+  existingSecurityLikelihood: 'high' | 'medium' | 'low' | 'unknown';
+  renewalTimingSignal: 'active' | 'near_term' | 'future' | 'unknown';
+  decisionAuthoritySignal: 'identified' | 'influencer' | 'unknown';
+  indicators: string[];
+  risks: string[];
+  recommendedAction: string;
+}
+
 interface ObjectionPattern {
   key: string;
   label: string;
   count: number;
   severity: 'high' | 'medium' | 'low';
+  lostDealCount: number;
+  wonDealCount: number;
+  openDealCount: number;
+  lossRate: number | null;
+  outcomeSignal: string;
   examples: string[];
   recommendedResponse: string;
   playbook: string[];
@@ -255,6 +315,22 @@ const forecastColor = (status?: DealForecast['status']) => {
   return 'text-slate-300 border-white/10 bg-white/5';
 };
 
+const postCloseColor = (status?: PostCloseFeedback['status']) => {
+  if (status === 'healthy') return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
+  if (status === 'watch') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
+  if (status === 'risk') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
+  if (status === 'oversold') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
+  return 'text-slate-300 border-white/10 bg-white/5';
+};
+
+const pricingGuardrailColor = (status?: PricingGuardrails['status']) => {
+  if (status === 'ready') return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
+  if (status === 'review') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
+  if (status === 'protect_margin') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
+  if (status === 'blocked') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
+  return 'text-slate-300 border-white/10 bg-white/5';
+};
+
 const severityColor = (severity?: ObjectionPattern['severity']) => {
   if (severity === 'high') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
   if (severity === 'medium') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
@@ -275,8 +351,11 @@ export default function SalesAcceleratorPanel({
   const [outreach, setOutreach] = useState<OutreachPlan | null>(null);
   const [callTranscript, setCallTranscript] = useState('');
   const [callIntelligence, setCallIntelligence] = useState<DiscoveryCallIntelligence | null>(null);
+  const [liveCoach, setLiveCoach] = useState<DiscoveryLiveCoach | null>(null);
   const [momentum, setMomentum] = useState<DealMomentum | null>(null);
   const [forecast, setForecast] = useState<DealForecast | null>(null);
+  const [postCloseFeedback, setPostCloseFeedback] = useState<PostCloseFeedback | null>(null);
+  const [pricingGuardrails, setPricingGuardrails] = useState<PricingGuardrails | null>(null);
   const [objectionPatterns, setObjectionPatterns] = useState<ObjectionPattern[]>([]);
   const [generatedProposalId, setGeneratedProposalId] = useState('');
   const [loading, setLoading] = useState(true);
@@ -300,10 +379,13 @@ export default function SalesAcceleratorPanel({
         setAssessment(response.data.assessment || null);
         setMomentum(response.data.momentum || null);
         setForecast(response.data.forecast || null);
+        setPostCloseFeedback(response.data.postCloseFeedback || null);
+        setPricingGuardrails(response.data.pricingGuardrails || null);
         setObjectionPatterns(response.data.objectionPatterns || []);
         setForm(formFromDiscovery(response.data.discovery));
         setCallTranscript('');
         setCallIntelligence(null);
+        setLiveCoach(null);
       } catch (err) {
         console.error('Failed to load sales accelerator workspace', err);
         setError('Could not load sales accelerator details.');
@@ -345,6 +427,8 @@ export default function SalesAcceleratorPanel({
       setObjectionPatterns(workspace.data.objectionPatterns || []);
       setMomentum(workspace.data.momentum || null);
       setForecast(workspace.data.forecast || null);
+      setPostCloseFeedback(workspace.data.postCloseFeedback || null);
+      setPricingGuardrails(workspace.data.pricingGuardrails || null);
       setMessage('Discovery saved.');
     } catch (err) {
       console.error('Failed to save discovery', err);
@@ -366,6 +450,25 @@ export default function SalesAcceleratorPanel({
     } catch (err) {
       console.error('Failed to generate discovery guide', err);
       setError('Could not generate discovery guide.');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const coachCall = async () => {
+    setBusy('coach');
+    setError('');
+    setMessage('');
+
+    try {
+      const response = await api.post(`${basePath}/live-coach`, {
+        transcript: callTranscript.trim(),
+      });
+      setLiveCoach(response.data.coach);
+      setMessage(response.data.fallbackUsed ? 'Live coach refreshed with fallback logic.' : 'Live coach refreshed.');
+    } catch (err) {
+      console.error('Failed to refresh discovery live coach', err);
+      setError('Could not refresh live coach.');
     } finally {
       setBusy('');
     }
@@ -452,6 +555,8 @@ export default function SalesAcceleratorPanel({
       setObjectionPatterns(workspace.data.objectionPatterns || []);
       setMomentum(workspace.data.momentum || null);
       setForecast(workspace.data.forecast || null);
+      setPostCloseFeedback(workspace.data.postCloseFeedback || null);
+      setPricingGuardrails(workspace.data.pricingGuardrails || null);
       setMessage(response.data.fallbackUsed ? 'Assessment generated with fallback logic.' : 'Assessment generated.');
     } catch (err) {
       console.error('Failed to generate sales assessment', err);
@@ -469,6 +574,7 @@ export default function SalesAcceleratorPanel({
     try {
       const response = await api.post(`${basePath}/proposal-from-discovery`);
       setGeneratedProposalId(response.data.proposal.id);
+      setPricingGuardrails(response.data.pricingGuardrails || null);
       setMessage(response.data.fallbackUsed ? 'Proposal drafted with fallback logic.' : 'Proposal drafted.');
     } catch (err) {
       console.error('Failed to generate proposal from discovery', err);
@@ -494,6 +600,8 @@ export default function SalesAcceleratorPanel({
       setMomentum(workspace.data.momentum || null);
       setForecast(workspace.data.forecast || null);
       setObjectionPatterns(workspace.data.objectionPatterns || []);
+      setPostCloseFeedback(workspace.data.postCloseFeedback || null);
+      setPricingGuardrails(workspace.data.pricingGuardrails || null);
       setMessage('Follow-up task created for tomorrow morning.');
     } catch (err) {
       console.error('Failed to create follow-up task', err);
@@ -571,6 +679,15 @@ export default function SalesAcceleratorPanel({
           >
             {busy === 'call' ? <Loader2 className="animate-spin" size={15} /> : <ClipboardList size={15} />}
             Analyze Call
+          </button>
+          <button
+            type="button"
+            onClick={coachCall}
+            disabled={!!busy || loading}
+            className="inline-flex items-center gap-2 rounded-xl border border-fuchsia-400/20 bg-fuchsia-400/10 px-3 py-2 text-xs font-bold text-fuchsia-200 transition hover:bg-fuchsia-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {busy === 'coach' ? <Loader2 className="animate-spin" size={15} /> : <BrainCircuit size={15} />}
+            Live Coach
           </button>
           <button
             type="button"
@@ -742,6 +859,47 @@ export default function SalesAcceleratorPanel({
             </div>
           )}
 
+          {entityType === 'deal' && pricingGuardrails && (
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                    <AlertTriangle size={14} />
+                    Pricing Guardrails
+                  </div>
+                  <p className="text-sm leading-6 text-slate-300">{pricingGuardrails.floorGuidance}</p>
+                </div>
+                <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${pricingGuardrailColor(pricingGuardrails.status)}`}>
+                  {pricingGuardrails.status.replace('_', ' ')} {pricingGuardrails.confidenceScore}
+                </span>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Proposal Instruction</div>
+                <p className="mt-2 text-sm leading-6 text-slate-300">{pricingGuardrails.proposalInstruction}</p>
+              </div>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Scope Warnings</div>
+                  {renderList(pricingGuardrails.scopeWarnings)}
+                </div>
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Pricing Risks</div>
+                  {renderList(pricingGuardrails.pricingRisks)}
+                </div>
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Clarify Before Pricing</div>
+                  {renderList(pricingGuardrails.requiredClarifications)}
+                </div>
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Recommended Terms</div>
+                  {renderList(pricingGuardrails.recommendedTerms)}
+                </div>
+              </div>
+            </div>
+          )}
+
           {entityType === 'deal' && momentum && (
             <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -798,21 +956,79 @@ export default function SalesAcceleratorPanel({
             </div>
           )}
 
+          {entityType === 'deal' && postCloseFeedback && (
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                    <Briefcase size={14} />
+                    Post-Close Feedback
+                  </div>
+                  <p className="text-sm leading-6 text-slate-300">{postCloseFeedback.recommendedAction}</p>
+                </div>
+                <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${postCloseColor(postCloseFeedback.status)}`}>
+                  {postCloseFeedback.status} {postCloseFeedback.score}
+                </span>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-4">
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Incidents</div>
+                  <div className="mt-2 text-sm font-bold text-white">{postCloseFeedback.incidentCount}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Understaffed</div>
+                  <div className="mt-2 text-sm font-bold text-white">{postCloseFeedback.understaffedShiftCount}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Disputes</div>
+                  <div className="mt-2 text-sm font-bold text-white">{postCloseFeedback.disputedInvoiceCount}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Reports</div>
+                  <div className="mt-2 text-sm font-bold text-white">{postCloseFeedback.reportCount}</div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Operational Signals</div>
+                  {renderList(postCloseFeedback.signals)}
+                </div>
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Sales Lessons</div>
+                  {renderList(postCloseFeedback.salesLessons)}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
             <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
                 <PhoneCall size={14} />
                 Discovery Call
               </div>
-              <button
-                type="button"
-                onClick={analyzeCall}
-                disabled={!!busy || loading}
-                className="inline-flex w-fit items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs font-bold text-cyan-200 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {busy === 'call' ? <Loader2 className="animate-spin" size={15} /> : <ClipboardList size={15} />}
-                Analyze
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={coachCall}
+                  disabled={!!busy || loading}
+                  className="inline-flex w-fit items-center gap-2 rounded-xl border border-fuchsia-400/20 bg-fuchsia-400/10 px-3 py-2 text-xs font-bold text-fuchsia-200 transition hover:bg-fuchsia-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {busy === 'coach' ? <Loader2 className="animate-spin" size={15} /> : <BrainCircuit size={15} />}
+                  Coach
+                </button>
+                <button
+                  type="button"
+                  onClick={analyzeCall}
+                  disabled={!!busy || loading}
+                  className="inline-flex w-fit items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs font-bold text-cyan-200 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {busy === 'call' ? <Loader2 className="animate-spin" size={15} /> : <ClipboardList size={15} />}
+                  Analyze
+                </button>
+              </div>
             </div>
 
             <textarea
@@ -821,6 +1037,53 @@ export default function SalesAcceleratorPanel({
               value={callTranscript}
               onChange={(event) => setCallTranscript(event.target.value)}
             />
+
+            {liveCoach && (
+              <div className="mt-4 space-y-4">
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Next Best Question</div>
+                      <p className="mt-2 text-sm leading-6 text-white">{liveCoach.nextBestQuestion}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${scoreColor(liveCoach.completenessScore)}`}>
+                        {liveCoach.completenessScore}% complete
+                      </span>
+                      {liveCoach.shouldPauseProposal && (
+                        <span className="inline-flex w-fit shrink-0 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs font-bold text-amber-300">
+                          pause proposal
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-sm leading-6 text-slate-300">{liveCoach.coachingNote}</p>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div>
+                    <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Live Prompts</div>
+                    {renderList(liveCoach.livePrompts)}
+                  </div>
+                  <div>
+                    <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Missed Questions</div>
+                    {renderList(liveCoach.missedQuestions)}
+                  </div>
+                  <div>
+                    <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Qualification Gaps</div>
+                    {renderList(liveCoach.qualificationGaps)}
+                  </div>
+                  <div>
+                    <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Risk Prompts</div>
+                    {renderList(liveCoach.riskPrompts)}
+                  </div>
+                  <div className="lg:col-span-2">
+                    <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Follow-Up Angles</div>
+                    {renderList(liveCoach.followUpAngles)}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {callIntelligence && (
               <div className="mt-4 space-y-4">
@@ -943,6 +1206,16 @@ export default function SalesAcceleratorPanel({
                           </span>
                         </div>
                         <p className="text-sm leading-6 text-slate-300">{pattern.recommendedResponse}</p>
+                        <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
+                          <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">Outcome Signal</div>
+                          <p className="text-sm leading-6 text-slate-300">{pattern.outcomeSignal}</p>
+                          <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                            <span>{pattern.lostDealCount} lost</span>
+                            <span>{pattern.wonDealCount} won</span>
+                            <span>{pattern.openDealCount} open</span>
+                            <span>{pattern.lossRate === null ? '--' : `${pattern.lossRate}%`} loss</span>
+                          </div>
+                        </div>
                         <div className="mt-3">{renderList(pattern.playbook.slice(0, 3))}</div>
                       </div>
                     ))}

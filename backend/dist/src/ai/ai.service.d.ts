@@ -62,6 +62,18 @@ export interface AiDiscoveryCallIntelligenceDraft {
     recommendedNextAction: string;
     confidenceScore: number;
 }
+export interface AiDiscoveryLiveCoachDraft {
+    completenessScore: number;
+    nextBestQuestion: string;
+    missedQuestions: string[];
+    livePrompts: string[];
+    qualificationGaps: string[];
+    riskPrompts: string[];
+    followUpAngles: string[];
+    coachingNote: string;
+    confidenceScore: number;
+    shouldPauseProposal: boolean;
+}
 export declare class AiService {
     private configService;
     private readonly logger;
@@ -85,6 +97,7 @@ export declare class AiService {
     generateDiscoveryGuide(context: string): Promise<AiDiscoveryGuideDraft>;
     generateOutreachPlan(context: string): Promise<AiOutreachDraft>;
     generateDiscoveryCallIntelligence(context: string, transcript: string): Promise<AiDiscoveryCallIntelligenceDraft>;
+    generateDiscoveryLiveCoach(context: string, transcript: string): Promise<AiDiscoveryLiveCoachDraft>;
     generateDiscoveryProposal(context: string): Promise<string>;
     generateProposalDraft(dto: GenerateProposalDto): Promise<AiProposalDraftResponse>;
     generateForLead(lead: Lead & {
@@ -107,6 +120,7 @@ export declare class AiService {
     private fallbackDiscoveryGuide;
     private fallbackOutreachPlan;
     private fallbackDiscoveryCallIntelligence;
+    private fallbackDiscoveryLiveCoach;
     private transcriptSnippets;
     private fallbackDiscoveryProposal;
     extractLeadFromText(text: string): Promise<{

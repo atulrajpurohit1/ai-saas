@@ -19,6 +19,7 @@ const permissions_decorator_1 = require("../auth/decorators/permissions.decorato
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const permission_guard_1 = require("../auth/guards/permission.guard");
 const analyze_discovery_call_dto_1 = require("./dto/analyze-discovery-call.dto");
+const coach_discovery_call_dto_1 = require("./dto/coach-discovery-call.dto");
 const create_follow_up_task_dto_1 = require("./dto/create-follow-up-task.dto");
 const generate_discovery_proposal_dto_1 = require("./dto/generate-discovery-proposal.dto");
 const save_discovery_dto_1 = require("./dto/save-discovery.dto");
@@ -54,6 +55,12 @@ let SalesAcceleratorController = class SalesAcceleratorController {
     }
     analyzeDealDiscoveryCall(dealId, dto, user) {
         return this.salesAcceleratorService.analyzeDealDiscoveryCall(user.tenantId, dealId, dto, user.sub);
+    }
+    coachLeadDiscoveryCall(leadId, dto, user) {
+        return this.salesAcceleratorService.coachLeadDiscoveryCall(user.tenantId, leadId, dto, user.sub);
+    }
+    coachDealDiscoveryCall(dealId, dto, user) {
+        return this.salesAcceleratorService.coachDealDiscoveryCall(user.tenantId, dealId, dto, user.sub);
     }
     generateLeadOutreach(leadId, user) {
         return this.salesAcceleratorService.generateLeadOutreach(user.tenantId, leadId, user.sub);
@@ -163,6 +170,28 @@ __decorate([
     __metadata("design:paramtypes", [String, analyze_discovery_call_dto_1.AnalyzeDiscoveryCallDto, Object]),
     __metadata("design:returntype", void 0)
 ], SalesAcceleratorController.prototype, "analyzeDealDiscoveryCall", null);
+__decorate([
+    (0, common_1.Post)('leads/:leadId/live-coach'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, permissions_decorator_1.RequireAnyPermission)('ai.view', 'leads.view'),
+    __param(0, (0, common_1.Param)('leadId')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, coach_discovery_call_dto_1.CoachDiscoveryCallDto, Object]),
+    __metadata("design:returntype", void 0)
+], SalesAcceleratorController.prototype, "coachLeadDiscoveryCall", null);
+__decorate([
+    (0, common_1.Post)('deals/:dealId/live-coach'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, permissions_decorator_1.RequireAnyPermission)('ai.view', 'deals.view'),
+    __param(0, (0, common_1.Param)('dealId')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, coach_discovery_call_dto_1.CoachDiscoveryCallDto, Object]),
+    __metadata("design:returntype", void 0)
+], SalesAcceleratorController.prototype, "coachDealDiscoveryCall", null);
 __decorate([
     (0, common_1.Post)('leads/:leadId/outreach'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),

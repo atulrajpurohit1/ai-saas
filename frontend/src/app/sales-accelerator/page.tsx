@@ -34,6 +34,18 @@ interface DashboardLead {
   company: string;
   status: string;
   assessment: Assessment | null;
+  marketSignalProfile: MarketSignalProfile;
+}
+
+interface MarketSignalProfile {
+  score: number;
+  segment: string;
+  existingSecurityLikelihood: 'high' | 'medium' | 'low' | 'unknown';
+  renewalTimingSignal: 'active' | 'near_term' | 'future' | 'unknown';
+  decisionAuthoritySignal: 'identified' | 'influencer' | 'unknown';
+  indicators: string[];
+  risks: string[];
+  recommendedAction: string;
 }
 
 interface ActivitySnapshot {
@@ -79,11 +91,35 @@ interface DealForecast {
   recommendedAction: string;
 }
 
+interface PostCloseFeedback {
+  status: 'healthy' | 'watch' | 'risk' | 'oversold' | 'learning';
+  score: number;
+  clientId: string;
+  clientName: string;
+  dealId: string;
+  dealName: string;
+  incidentCount: number;
+  highSeverityIncidentCount: number;
+  openShiftCount: number;
+  understaffedShiftCount: number;
+  overdueInvoiceCount: number;
+  disputedInvoiceCount: number;
+  reportCount: number;
+  signals: string[];
+  salesLessons: string[];
+  recommendedAction: string;
+}
+
 interface ObjectionPattern {
   key: string;
   label: string;
   count: number;
   severity: 'high' | 'medium' | 'low';
+  lostDealCount: number;
+  wonDealCount: number;
+  openDealCount: number;
+  lossRate: number | null;
+  outcomeSignal: string;
   examples: string[];
   recommendedResponse: string;
   playbook: string[];
@@ -110,6 +146,8 @@ interface DashboardDeal {
   assessment: Assessment | null;
   momentum: DealMomentum;
   forecast: DealForecast;
+  postCloseFeedback?: PostCloseFeedback;
+  marketSignalProfile: MarketSignalProfile;
 }
 
 interface RecentAssessment extends Assessment {
@@ -148,6 +186,9 @@ interface SalesDashboard {
     trackedObjections: number;
     objectionPatternCount: number;
     forecastAtRiskDeals: number;
+    postCloseReviewedDeals: number;
+    postCloseRiskDeals: number;
+    postCloseLearningDeals: number;
     averageForecastConfidence: number | null;
     leadsMissingDiscovery: number;
     dealsMissingDiscovery: number;
@@ -158,13 +199,14 @@ interface SalesDashboard {
   atRiskDeals: DashboardDeal[];
   stalledDeals: DashboardDeal[];
   forecastRiskDeals: DashboardDeal[];
+  postCloseFeedbackDeals: DashboardDeal[];
   objectionPatterns: ObjectionPattern[];
   missingDiscoveryLeads: MissingDiscoveryLead[];
   missingDiscoveryDeals: MissingDiscoveryDeal[];
   recentAssessments: RecentAssessment[];
 }
 
-type FocusMode = 'priority' | 'risk' | 'momentum' | 'forecast' | 'missing';
+type FocusMode = 'priority' | 'risk' | 'momentum' | 'forecast' | 'feedback' | 'missing';
 
 const scoreClass = (score?: number | null) => {
   if ((score || 0) >= 75) return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
@@ -186,6 +228,14 @@ const forecastClass = (status?: DealForecast['status']) => {
   if (status === 'likely') return 'border-cyan-500/20 bg-cyan-500/10 text-cyan-300';
   if (status === 'watch') return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
   if (status === 'at_risk' || status === 'closed_lost') return 'border-rose-500/20 bg-rose-500/10 text-rose-300';
+  return 'border-white/10 bg-white/5 text-slate-500';
+};
+
+const postCloseClass = (status?: PostCloseFeedback['status']) => {
+  if (status === 'healthy') return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
+  if (status === 'watch') return 'border-cyan-500/20 bg-cyan-500/10 text-cyan-300';
+  if (status === 'risk') return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
+  if (status === 'oversold') return 'border-rose-500/20 bg-rose-500/10 text-rose-300';
   return 'border-white/10 bg-white/5 text-slate-500';
 };
 
@@ -233,6 +283,7 @@ export default function SalesAcceleratorDashboardPage() {
           score: lead.assessment?.leadScore,
           label: lead.assessment?.priorityTier || 'priority',
           nextAction: lead.assessment?.recommendedNextAction || 'Open lead details to improve discovery.',
+          marketSignal: lead.marketSignalProfile,
         }))
       : focusMode === 'risk'
         ? dashboard.atRiskDeals.map((deal) => ({
@@ -243,6 +294,7 @@ export default function SalesAcceleratorDashboardPage() {
             score: deal.assessment?.closeReadinessScore,
             label: 'readiness',
             nextAction: deal.assessment?.recommendedNextAction || 'Open deal details to improve readiness.',
+            marketSignal: deal.marketSignalProfile,
           }))
         : focusMode === 'momentum'
           ? dashboard.stalledDeals.map((deal) => ({
@@ -253,6 +305,7 @@ export default function SalesAcceleratorDashboardPage() {
               score: deal.momentum.score,
               label: 'momentum',
               nextAction: deal.momentum.recommendedAction,
+              marketSignal: deal.marketSignalProfile,
             }))
           : focusMode === 'forecast'
             ? dashboard.forecastRiskDeals.map((deal) => ({
@@ -263,6 +316,18 @@ export default function SalesAcceleratorDashboardPage() {
                 score: deal.forecast.confidence,
                 label: 'forecast confidence',
                 nextAction: deal.forecast.recommendedAction,
+                marketSignal: deal.marketSignalProfile,
+              }))
+          : focusMode === 'feedback'
+            ? dashboard.postCloseFeedbackDeals.map((deal) => ({
+                id: deal.id,
+                title: deal.name,
+                subtitle: `${deal.postCloseFeedback?.clientName || deal.lead.company} - ${deal.postCloseFeedback?.status || 'feedback'}`,
+                href: `/deals/${deal.id}`,
+                score: deal.postCloseFeedback?.score,
+                label: 'post-close score',
+                nextAction: deal.postCloseFeedback?.recommendedAction || 'Review post-close operations feedback.',
+                marketSignal: deal.marketSignalProfile,
               }))
         : [
             ...dashboard.missingDiscoveryLeads.map((lead) => ({
@@ -273,6 +338,7 @@ export default function SalesAcceleratorDashboardPage() {
               score: null,
               label: 'missing discovery',
               nextAction: 'Capture discovery details and run scoring.',
+              marketSignal: null,
             })),
             ...dashboard.missingDiscoveryDeals.map((deal) => ({
               id: `deal-${deal.id}`,
@@ -282,6 +348,7 @@ export default function SalesAcceleratorDashboardPage() {
               score: null,
               label: 'missing discovery',
               nextAction: 'Capture discovery details and run close-readiness scoring.',
+              marketSignal: deal.marketSignalProfile,
             })),
           ]
     : [];
@@ -328,6 +395,8 @@ export default function SalesAcceleratorDashboardPage() {
               { label: 'Objections', value: metrics.trackedObjections, icon: AlertTriangle },
               { label: 'Forecast Risk', value: metrics.forecastAtRiskDeals, icon: TrendingUp },
               { label: 'Forecast Conf.', value: formatScore(metrics.averageForecastConfidence), icon: Target },
+              { label: 'Post-Close Risk', value: metrics.postCloseRiskDeals, icon: Briefcase },
+              { label: 'Learning Gaps', value: metrics.postCloseLearningDeals, icon: BrainCircuit },
             ].map((item) => {
               const Icon = item.icon;
               return (
@@ -348,12 +417,13 @@ export default function SalesAcceleratorDashboardPage() {
                 <h3 className="text-lg font-bold">Focus Queue</h3>
                 <p className="mt-1 text-sm text-slate-500">Switch views to decide what sales should work next.</p>
               </div>
-              <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1 sm:grid-cols-5">
+              <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1 sm:grid-cols-6">
                 {[
                   { key: 'priority', label: 'Priority' },
                   { key: 'risk', label: 'At Risk' },
                   { key: 'momentum', label: 'Momentum' },
                   { key: 'forecast', label: 'Forecast' },
+                  { key: 'feedback', label: 'Feedback' },
                   { key: 'missing', label: 'Discovery' },
                 ].map((item) => (
                   <button
@@ -396,6 +466,13 @@ export default function SalesAcceleratorDashboardPage() {
                     <div className="mt-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">
                       {item.label}
                     </div>
+                    {item.marketSignal && (
+                      <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                        <span>{item.marketSignal.segment}</span>
+                        <span>{item.marketSignal.score} market</span>
+                        <span>{item.marketSignal.renewalTimingSignal.replace('_', ' ')}</span>
+                      </div>
+                    )}
                     <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-400">{item.nextAction}</p>
                   </Link>
                 ))}
@@ -437,6 +514,11 @@ export default function SalesAcceleratorDashboardPage() {
                     <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-400">
                       {lead.assessment?.recommendedNextAction || 'Open lead details to run discovery.'}
                     </p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                      <span>{lead.marketSignalProfile.segment}</span>
+                      <span>{lead.marketSignalProfile.score} market</span>
+                      <span>{lead.marketSignalProfile.existingSecurityLikelihood} security</span>
+                    </div>
                   </Link>
                 ))}
               </div>
@@ -475,6 +557,11 @@ export default function SalesAcceleratorDashboardPage() {
                     <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-400">
                       {deal.assessment?.recommendedNextAction || 'Open deal details to run close-readiness scoring.'}
                     </p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                      <span>{deal.marketSignalProfile.segment}</span>
+                      <span>{deal.marketSignalProfile.score} market</span>
+                      <span>{deal.marketSignalProfile.renewalTimingSignal.replace('_', ' ')}</span>
+                    </div>
                   </Link>
                 ))}
               </div>
@@ -568,6 +655,58 @@ export default function SalesAcceleratorDashboardPage() {
           <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
             <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="flex items-center gap-2 text-lg font-bold">
+                <Briefcase size={18} className="text-cyan-300" />
+                Post-Close Feedback
+              </h3>
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                {metrics.postCloseReviewedDeals} reviewed / {metrics.postCloseRiskDeals} risk
+              </span>
+            </div>
+
+            {dashboard.postCloseFeedbackDeals.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-white/10 py-10 text-center text-sm text-slate-500">
+                No closed-won operation feedback yet.
+              </div>
+            ) : (
+              <div className="grid gap-4 lg:grid-cols-3">
+                {dashboard.postCloseFeedbackDeals.map((deal) => {
+                  const feedback = deal.postCloseFeedback;
+                  if (!feedback) return null;
+
+                  return (
+                    <Link
+                      key={deal.id}
+                      href={`/deals/${deal.id}`}
+                      className="rounded-2xl border border-white/10 bg-black/20 p-4 transition hover:border-cyan-400/30 hover:bg-white/[0.06]"
+                    >
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="truncate font-bold text-white">{deal.name}</div>
+                          <div className="mt-1 truncate text-sm text-slate-400">{feedback.clientName}</div>
+                        </div>
+                        <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${postCloseClass(feedback.status)}`}>
+                          {feedback.status} {feedback.score}
+                        </span>
+                      </div>
+                      <p className="line-clamp-2 text-sm leading-6 text-slate-300">{feedback.recommendedAction}</p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                        <span>{feedback.incidentCount} incidents</span>
+                        <span>{feedback.understaffedShiftCount} understaffed</span>
+                        <span>{feedback.disputedInvoiceCount} disputes</span>
+                      </div>
+                      <div className="mt-3 text-sm leading-6 text-slate-400">
+                        {feedback.salesLessons[0] || feedback.signals[0]}
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+            <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h3 className="flex items-center gap-2 text-lg font-bold">
                 <AlertTriangle size={18} className="text-rose-300" />
                 Objection Patterns
               </h3>
@@ -594,6 +733,17 @@ export default function SalesAcceleratorDashboardPage() {
                       </span>
                     </div>
                     <p className="text-sm leading-6 text-slate-300">{pattern.recommendedResponse}</p>
+
+                    <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                      <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">Outcome Signal</div>
+                      <p className="text-sm leading-6 text-slate-300">{pattern.outcomeSignal}</p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                        <span>{pattern.lostDealCount} lost</span>
+                        <span>{pattern.wonDealCount} won</span>
+                        <span>{pattern.openDealCount} open</span>
+                        <span>{pattern.lossRate === null ? '--' : `${pattern.lossRate}%`} loss</span>
+                      </div>
+                    </div>
 
                     <div className="mt-4">
                       <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">Playbook</div>

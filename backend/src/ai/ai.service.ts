@@ -76,6 +76,19 @@ export interface AiDiscoveryCallIntelligenceDraft {
   confidenceScore: number;
 }
 
+export interface AiDiscoveryLiveCoachDraft {
+  completenessScore: number;
+  nextBestQuestion: string;
+  missedQuestions: string[];
+  livePrompts: string[];
+  qualificationGaps: string[];
+  riskPrompts: string[];
+  followUpAngles: string[];
+  coachingNote: string;
+  confidenceScore: number;
+  shouldPauseProposal: boolean;
+}
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
@@ -596,6 +609,106 @@ export class AiService {
     } catch (error) {
       this.logger.warn(
         `Discovery call intelligence JSON parsing failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return fallback;
+    }
+  }
+
+  async generateDiscoveryLiveCoach(
+    context: string,
+    transcript: string,
+  ): Promise<AiDiscoveryLiveCoachDraft> {
+    const fallback = this.fallbackDiscoveryLiveCoach(transcript);
+    const prompt = `
+      You are coaching a security guard sales rep during a live discovery call.
+      Use only the current lead/deal context and the in-progress call notes.
+
+      EXISTING LEAD/DEAL CONTEXT:
+      ${context}
+
+      IN-PROGRESS CALL NOTES OR TRANSCRIPT:
+      ${transcript || 'No call notes captured yet.'}
+
+      Return JSON only in this exact shape:
+      {
+        "completenessScore": 0,
+        "nextBestQuestion": "one question the rep should ask next",
+        "missedQuestions": ["question"],
+        "livePrompts": ["short real-time coaching prompt"],
+        "qualificationGaps": ["gap"],
+        "riskPrompts": ["risk-based question or prompt"],
+        "followUpAngles": ["follow-up angle"],
+        "coachingNote": "one concise coaching note",
+        "confidenceScore": 0,
+        "shouldPauseProposal": true
+      }
+
+      Rules:
+      - Scores must be 0-100.
+      - Keep prompts short enough to glance at during a call.
+      - Focus on property risk, service scope, current provider pain, guard count, coverage hours, approval path, timeline, and budget sensitivity.
+      - Set shouldPauseProposal true if scope, decision authority, service hours, or risk drivers are still unclear.
+      - Do not invent pricing or facts not present.
+    `;
+
+    const rawText = await this.generateText(
+      prompt,
+      'discovery live coaching generation',
+      () => JSON.stringify(fallback),
+    );
+
+    try {
+      const parsed =
+        this.parseJsonFromText<Partial<AiDiscoveryLiveCoachDraft>>(rawText);
+
+      return {
+        completenessScore: this.clampScore(
+          parsed.completenessScore,
+          fallback.completenessScore,
+        ),
+        nextBestQuestion:
+          typeof parsed.nextBestQuestion === 'string' &&
+          parsed.nextBestQuestion.trim()
+            ? parsed.nextBestQuestion.trim()
+            : fallback.nextBestQuestion,
+        missedQuestions: this.normalizeStringArray(
+          parsed.missedQuestions,
+          fallback.missedQuestions,
+        ),
+        livePrompts: this.normalizeStringArray(
+          parsed.livePrompts,
+          fallback.livePrompts,
+        ),
+        qualificationGaps: this.normalizeStringArray(
+          parsed.qualificationGaps,
+          fallback.qualificationGaps,
+        ),
+        riskPrompts: this.normalizeStringArray(
+          parsed.riskPrompts,
+          fallback.riskPrompts,
+        ),
+        followUpAngles: this.normalizeStringArray(
+          parsed.followUpAngles,
+          fallback.followUpAngles,
+        ),
+        coachingNote:
+          typeof parsed.coachingNote === 'string' && parsed.coachingNote.trim()
+            ? parsed.coachingNote.trim()
+            : fallback.coachingNote,
+        confidenceScore: this.clampScore(
+          parsed.confidenceScore,
+          fallback.confidenceScore,
+        ),
+        shouldPauseProposal:
+          typeof parsed.shouldPauseProposal === 'boolean'
+            ? parsed.shouldPauseProposal
+            : fallback.shouldPauseProposal,
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Discovery live coach JSON parsing failed: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
@@ -1175,6 +1288,93 @@ Custom deployment tailored for ${lead.company}.
       recommendedNextAction:
         'Confirm missing scope details, decision authority, and timeline before drafting the proposal.',
       confidenceScore,
+    };
+  }
+
+  private fallbackDiscoveryLiveCoach(
+    transcript: string,
+  ): AiDiscoveryLiveCoachDraft {
+    const hasRisk = /(incident|risk|liability|theft|trespass|complaint|access|parking|after hours|break-in|vandal)/i.test(
+      transcript,
+    );
+    const hasScope = /(guard|coverage|hours|shift|post|patrol|24\/7|overnight|weekend)/i.test(
+      transcript,
+    );
+    const hasAuthority = /(owner|board|manager|director|committee|procurement|approval|approver|decision|sign off)/i.test(
+      transcript,
+    );
+    const hasTimeline = /(asap|urgent|start|timeline|deadline|next week|next month|quarter|renewal|contract end)/i.test(
+      transcript,
+    );
+    const hasBudget = /(budget|price|cost|rate|expensive|quote|bid|pricing)/i.test(
+      transcript,
+    );
+    const missedQuestions: string[] = [];
+    const qualificationGaps: string[] = [];
+
+    if (!hasRisk) {
+      missedQuestions.push('What incidents, complaints, or risks triggered this security review?');
+      qualificationGaps.push('Risk driver is not confirmed.');
+    }
+    if (!hasScope) {
+      missedQuestions.push('Which posts, patrol areas, shifts, and service hours need coverage?');
+      qualificationGaps.push('Coverage scope is not confirmed.');
+    }
+    if (!hasAuthority) {
+      missedQuestions.push('Who approves the final scope, budget, and contract?');
+      qualificationGaps.push('Decision authority is not mapped.');
+    }
+    if (!hasTimeline) {
+      missedQuestions.push('When does coverage need to start, and what deadline is driving that timing?');
+      qualificationGaps.push('Decision timeline is not confirmed.');
+    }
+    if (!hasBudget) {
+      missedQuestions.push('How are you weighing budget against risk reduction and accountability?');
+      qualificationGaps.push('Budget sensitivity is not understood.');
+    }
+
+    const captured = [hasRisk, hasScope, hasAuthority, hasTimeline, hasBudget].filter(
+      Boolean,
+    ).length;
+    const completenessScore = Math.max(15, captured * 20);
+    const nextBestQuestion =
+      missedQuestions[0] ||
+      'What would make the first 90 days of this security program successful?';
+
+    return {
+      completenessScore,
+      nextBestQuestion,
+      missedQuestions:
+        missedQuestions.length > 0
+          ? missedQuestions
+          : ['Confirm success criteria and internal handoff needs before ending the call.'],
+      livePrompts: [
+        'Anchor the conversation on risk before discussing guard hours.',
+        'Map each requested post or patrol to a specific exposure.',
+        'Confirm who can approve or block the final scope.',
+      ],
+      qualificationGaps:
+        qualificationGaps.length > 0
+          ? qualificationGaps
+          : ['Core qualification areas are mostly covered.'],
+      riskPrompts: this.transcriptSnippets(
+        transcript,
+        /(incident|risk|liability|theft|trespass|complaint|access|parking|after hours|break-in|vandal)/i,
+        [
+          'Ask which risk would be most costly if coverage fails.',
+          'Ask where incidents or complaints happen most often.',
+        ],
+      ),
+      followUpAngles: [
+        'Offer a site walkthrough to validate post orders and patrol routes.',
+        'Send a risk-framed summary the buyer can forward to approvers.',
+      ],
+      coachingNote:
+        completenessScore >= 80
+          ? 'Discovery is strong enough to move toward a scoped proposal after confirming success criteria.'
+          : 'Keep discovery open. The proposal is not protected until risk, scope, authority, and timing are clear.',
+      confidenceScore: transcript.length > 500 ? 65 : transcript.length > 120 ? 50 : 35,
+      shouldPauseProposal: completenessScore < 80,
     };
   }
 
