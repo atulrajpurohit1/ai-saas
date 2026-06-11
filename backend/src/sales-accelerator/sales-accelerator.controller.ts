@@ -248,4 +248,18 @@ export class SalesAcceleratorController {
       user.sub,
     );
   }
+
+  @Post('deals/:dealId/follow-up-sequence')
+  @HttpCode(HttpStatus.OK)
+  @RequireAnyPermission('activities.manage', 'deals.update')
+  createDealFollowUpSequence(
+    @Param('dealId') dealId: string,
+    @GetUser() user: ActiveUser,
+  ) {
+    return this.salesAcceleratorService.createDealFollowUpSequence(
+      user.tenantId,
+      dealId,
+      user.sub,
+    );
+  }
 }

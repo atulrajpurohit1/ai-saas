@@ -192,6 +192,41 @@ interface MarketSignalProfile {
   recommendedAction: string;
 }
 
+interface ValueJustification {
+  status: 'proposal_ready' | 'needs_quantification' | 'weak_value_case' | 'blocked';
+  score: number;
+  estimatedMonthlyGuardHours: number | null;
+  scopeComplexity: 'standard' | 'expanded' | 'complex' | 'unknown';
+  valueHypothesis: string;
+  costOfInaction: string;
+  proofPoints: string[];
+  quantifiedInputs: string[];
+  discoveryGaps: string[];
+  proposalBullets: string[];
+  recommendedAction: string;
+}
+
+interface FollowUpSequenceStep {
+  dayOffset: number;
+  channel: 'call' | 'email' | 'meeting' | 'task';
+  subject: string;
+  objective: string;
+  description: string;
+  dueDate: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
+interface FollowUpSequence {
+  status: 'ready' | 'watch' | 'nurture' | 'blocked';
+  cadence: 'accelerated' | 'standard' | 'nurture' | 'rescue';
+  score: number;
+  recommendedAction: string;
+  rationale: string;
+  steps: FollowUpSequenceStep[];
+  objectionsToAddress: string[];
+  stopConditions: string[];
+}
+
 interface ObjectionPattern {
   key: string;
   label: string;
@@ -331,6 +366,22 @@ const pricingGuardrailColor = (status?: PricingGuardrails['status']) => {
   return 'text-slate-300 border-white/10 bg-white/5';
 };
 
+const valueJustificationColor = (status?: ValueJustification['status']) => {
+  if (status === 'proposal_ready') return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
+  if (status === 'needs_quantification') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
+  if (status === 'weak_value_case') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
+  if (status === 'blocked') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
+  return 'text-slate-300 border-white/10 bg-white/5';
+};
+
+const followUpSequenceColor = (status?: FollowUpSequence['status']) => {
+  if (status === 'ready') return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
+  if (status === 'watch') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
+  if (status === 'nurture') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
+  if (status === 'blocked') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
+  return 'text-slate-300 border-white/10 bg-white/5';
+};
+
 const severityColor = (severity?: ObjectionPattern['severity']) => {
   if (severity === 'high') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
   if (severity === 'medium') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
@@ -356,6 +407,9 @@ export default function SalesAcceleratorPanel({
   const [forecast, setForecast] = useState<DealForecast | null>(null);
   const [postCloseFeedback, setPostCloseFeedback] = useState<PostCloseFeedback | null>(null);
   const [pricingGuardrails, setPricingGuardrails] = useState<PricingGuardrails | null>(null);
+  const [marketSignalProfile, setMarketSignalProfile] = useState<MarketSignalProfile | null>(null);
+  const [valueJustification, setValueJustification] = useState<ValueJustification | null>(null);
+  const [followUpSequence, setFollowUpSequence] = useState<FollowUpSequence | null>(null);
   const [objectionPatterns, setObjectionPatterns] = useState<ObjectionPattern[]>([]);
   const [generatedProposalId, setGeneratedProposalId] = useState('');
   const [loading, setLoading] = useState(true);
@@ -381,6 +435,9 @@ export default function SalesAcceleratorPanel({
         setForecast(response.data.forecast || null);
         setPostCloseFeedback(response.data.postCloseFeedback || null);
         setPricingGuardrails(response.data.pricingGuardrails || null);
+        setMarketSignalProfile(response.data.marketSignalProfile || null);
+        setValueJustification(response.data.valueJustification || null);
+        setFollowUpSequence(response.data.followUpSequence || null);
         setObjectionPatterns(response.data.objectionPatterns || []);
         setForm(formFromDiscovery(response.data.discovery));
         setCallTranscript('');
@@ -429,6 +486,9 @@ export default function SalesAcceleratorPanel({
       setForecast(workspace.data.forecast || null);
       setPostCloseFeedback(workspace.data.postCloseFeedback || null);
       setPricingGuardrails(workspace.data.pricingGuardrails || null);
+      setMarketSignalProfile(workspace.data.marketSignalProfile || null);
+      setValueJustification(workspace.data.valueJustification || null);
+      setFollowUpSequence(workspace.data.followUpSequence || null);
       setMessage('Discovery saved.');
     } catch (err) {
       console.error('Failed to save discovery', err);
@@ -557,6 +617,9 @@ export default function SalesAcceleratorPanel({
       setForecast(workspace.data.forecast || null);
       setPostCloseFeedback(workspace.data.postCloseFeedback || null);
       setPricingGuardrails(workspace.data.pricingGuardrails || null);
+      setMarketSignalProfile(workspace.data.marketSignalProfile || null);
+      setValueJustification(workspace.data.valueJustification || null);
+      setFollowUpSequence(workspace.data.followUpSequence || null);
       setMessage(response.data.fallbackUsed ? 'Assessment generated with fallback logic.' : 'Assessment generated.');
     } catch (err) {
       console.error('Failed to generate sales assessment', err);
@@ -575,6 +638,8 @@ export default function SalesAcceleratorPanel({
       const response = await api.post(`${basePath}/proposal-from-discovery`);
       setGeneratedProposalId(response.data.proposal.id);
       setPricingGuardrails(response.data.pricingGuardrails || null);
+      setValueJustification(response.data.valueJustification || null);
+      setFollowUpSequence(response.data.followUpSequence || null);
       setMessage(response.data.fallbackUsed ? 'Proposal drafted with fallback logic.' : 'Proposal drafted.');
     } catch (err) {
       console.error('Failed to generate proposal from discovery', err);
@@ -602,10 +667,44 @@ export default function SalesAcceleratorPanel({
       setObjectionPatterns(workspace.data.objectionPatterns || []);
       setPostCloseFeedback(workspace.data.postCloseFeedback || null);
       setPricingGuardrails(workspace.data.pricingGuardrails || null);
+      setMarketSignalProfile(workspace.data.marketSignalProfile || null);
+      setValueJustification(workspace.data.valueJustification || null);
+      setFollowUpSequence(workspace.data.followUpSequence || null);
       setMessage('Follow-up task created for tomorrow morning.');
     } catch (err) {
       console.error('Failed to create follow-up task', err);
       setError('Could not create follow-up task.');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const createFollowUpSequence = async () => {
+    if (entityType !== 'deal') return;
+
+    setBusy('sequence');
+    setError('');
+    setMessage('');
+
+    try {
+      const response = await api.post(`${basePath}/follow-up-sequence`);
+      const workspace = await api.get(basePath);
+      setMomentum(workspace.data.momentum || null);
+      setForecast(workspace.data.forecast || null);
+      setObjectionPatterns(workspace.data.objectionPatterns || []);
+      setPostCloseFeedback(workspace.data.postCloseFeedback || null);
+      setPricingGuardrails(workspace.data.pricingGuardrails || null);
+      setMarketSignalProfile(workspace.data.marketSignalProfile || null);
+      setValueJustification(workspace.data.valueJustification || null);
+      setFollowUpSequence(workspace.data.followUpSequence || response.data.sequence || null);
+      setMessage(
+        response.data.skippedDuplicateCount
+          ? `Created ${response.data.createdActivities.length} sequence tasks. Skipped ${response.data.skippedDuplicateCount} duplicates.`
+          : `Created ${response.data.createdActivities.length} sequence tasks.`,
+      );
+    } catch (err) {
+      console.error('Failed to create follow-up sequence', err);
+      setError('Could not create follow-up sequence.');
     } finally {
       setBusy('');
     }
@@ -729,6 +828,17 @@ export default function SalesAcceleratorPanel({
               Follow-Up
             </button>
           )}
+          {entityType === 'deal' && (
+            <button
+              type="button"
+              onClick={createFollowUpSequence}
+              disabled={!!busy || loading || !followUpSequence}
+              className="inline-flex items-center gap-2 rounded-xl border border-teal-400/20 bg-teal-400/10 px-3 py-2 text-xs font-bold text-teal-200 transition hover:bg-teal-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {busy === 'sequence' ? <Loader2 className="animate-spin" size={15} /> : <CalendarPlus size={15} />}
+              Sequence
+            </button>
+          )}
         </div>
       </div>
 
@@ -774,6 +884,205 @@ export default function SalesAcceleratorPanel({
               <div className="mt-3 text-lg font-extrabold uppercase text-white">{assessment?.priorityTier || '--'}</div>
             </div>
           </div>
+
+          {marketSignalProfile && (
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                    <Target size={14} />
+                    Market Signals
+                  </div>
+                  <p className="text-sm leading-6 text-slate-300">{marketSignalProfile.recommendedAction}</p>
+                </div>
+                <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${scoreColor(marketSignalProfile.score)}`}>
+                  {marketSignalProfile.score} market
+                </span>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-4">
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Segment</div>
+                  <div className="mt-2 text-sm font-bold capitalize text-white">{marketSignalProfile.segment}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Security</div>
+                  <div className="mt-2 text-sm font-bold capitalize text-white">{marketSignalProfile.existingSecurityLikelihood}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Renewal</div>
+                  <div className="mt-2 text-sm font-bold capitalize text-white">
+                    {marketSignalProfile.renewalTimingSignal.replace(/_/g, ' ')}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Authority</div>
+                  <div className="mt-2 text-sm font-bold capitalize text-white">{marketSignalProfile.decisionAuthoritySignal}</div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Indicators</div>
+                  {renderList(marketSignalProfile.indicators)}
+                </div>
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Risks</div>
+                  {renderList(marketSignalProfile.risks)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {valueJustification && (
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                    <FileText size={14} />
+                    Value Justification
+                  </div>
+                  <p className="text-sm leading-6 text-slate-300">{valueJustification.recommendedAction}</p>
+                </div>
+                <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${valueJustificationColor(valueJustification.status)}`}>
+                  {valueJustification.status.replace(/_/g, ' ')} {valueJustification.score}
+                </span>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Monthly Hours</div>
+                  <div className="mt-2 text-sm font-bold text-white">
+                    {valueJustification.estimatedMonthlyGuardHours ?? '--'}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Scope</div>
+                  <div className="mt-2 text-sm font-bold capitalize text-white">
+                    {valueJustification.scopeComplexity}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Status</div>
+                  <div className="mt-2 text-sm font-bold capitalize text-white">
+                    {valueJustification.status.replace(/_/g, ' ')}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Value Hypothesis</div>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">{valueJustification.valueHypothesis}</p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Cost Of Inaction</div>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">{valueJustification.costOfInaction}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Proof Points</div>
+                  {renderList(valueJustification.proofPoints)}
+                </div>
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Quantified Inputs</div>
+                  {renderList(valueJustification.quantifiedInputs)}
+                </div>
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Discovery Gaps</div>
+                  {renderList(valueJustification.discoveryGaps)}
+                </div>
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Proposal Bullets</div>
+                  {renderList(valueJustification.proposalBullets)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {entityType === 'deal' && followUpSequence && (
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                    <CalendarPlus size={14} />
+                    Follow-Up Sequence
+                  </div>
+                  <p className="text-sm leading-6 text-slate-300">{followUpSequence.recommendedAction}</p>
+                </div>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <span className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-bold uppercase ${followUpSequenceColor(followUpSequence.status)}`}>
+                    {followUpSequence.status} {followUpSequence.score}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={createFollowUpSequence}
+                    disabled={!!busy || loading}
+                    className="inline-flex w-fit items-center gap-2 rounded-xl border border-teal-400/20 bg-teal-400/10 px-3 py-2 text-xs font-bold text-teal-200 transition hover:bg-teal-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {busy === 'sequence' ? <Loader2 className="animate-spin" size={15} /> : <CalendarPlus size={15} />}
+                    Create Sequence
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Cadence</div>
+                  <div className="mt-2 text-sm font-bold capitalize text-white">{followUpSequence.cadence}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Steps</div>
+                  <div className="mt-2 text-sm font-bold text-white">{followUpSequence.steps.length}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Status</div>
+                  <div className="mt-2 text-sm font-bold capitalize text-white">{followUpSequence.status}</div>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Rationale</div>
+                <p className="mt-2 text-sm leading-6 text-slate-300">{followUpSequence.rationale}</p>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {followUpSequence.steps.map((step) => (
+                  <div
+                    key={`${step.dayOffset}-${step.subject}`}
+                    className="rounded-xl border border-white/10 bg-white/[0.03] p-3"
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="text-sm font-bold text-white">{step.subject}</div>
+                        <div className="mt-1 text-xs capitalize text-slate-500">
+                          {step.channel} - day {step.dayOffset} - {new Date(step.dueDate).toLocaleString()}
+                        </div>
+                      </div>
+                      <span className={`inline-flex w-fit rounded-full border px-2 py-1 text-[10px] font-bold uppercase ${severityColor(step.priority === 'high' ? 'high' : step.priority === 'medium' ? 'medium' : 'low')}`}>
+                        {step.priority}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-slate-300">{step.objective}</p>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">{step.description}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Objections To Address</div>
+                  {renderList(followUpSequence.objectionsToAddress)}
+                </div>
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Stop Conditions</div>
+                  {renderList(followUpSequence.stopConditions)}
+                </div>
+              </div>
+            </div>
+          )}
 
           {assessment && (
             <div className="grid gap-4 lg:grid-cols-3">

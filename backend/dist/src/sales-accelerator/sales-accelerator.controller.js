@@ -80,6 +80,9 @@ let SalesAcceleratorController = class SalesAcceleratorController {
     createDealFollowUp(dealId, dto, user) {
         return this.salesAcceleratorService.createDealFollowUp(user.tenantId, dealId, dto, user.sub);
     }
+    createDealFollowUpSequence(dealId, user) {
+        return this.salesAcceleratorService.createDealFollowUpSequence(user.tenantId, dealId, user.sub);
+    }
 };
 exports.SalesAcceleratorController = SalesAcceleratorController;
 __decorate([
@@ -254,6 +257,16 @@ __decorate([
     __metadata("design:paramtypes", [String, create_follow_up_task_dto_1.CreateFollowUpTaskDto, Object]),
     __metadata("design:returntype", void 0)
 ], SalesAcceleratorController.prototype, "createDealFollowUp", null);
+__decorate([
+    (0, common_1.Post)('deals/:dealId/follow-up-sequence'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, permissions_decorator_1.RequireAnyPermission)('activities.manage', 'deals.update'),
+    __param(0, (0, common_1.Param)('dealId')),
+    __param(1, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], SalesAcceleratorController.prototype, "createDealFollowUpSequence", null);
 exports.SalesAcceleratorController = SalesAcceleratorController = __decorate([
     (0, common_1.Controller)('sales-accelerator'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),

@@ -170,10 +170,22 @@ interface MissingDiscoveryDeal {
   stage: string;
   createdAt: string;
   lead: { id: string; name: string; company: string };
+  marketSignalProfile: MarketSignalProfile;
+}
+
+interface SalesCoachSummary {
+  score: number;
+  status: 'strong' | 'watch' | 'at_risk';
+  headline: string;
+  focusAreas: string[];
+  coachingActions: string[];
+  pipelineRisks: string[];
+  positiveSignals: string[];
 }
 
 interface SalesDashboard {
   generatedAt: string;
+  salesCoachSummary: SalesCoachSummary;
   metrics: {
     totalLeads: number;
     totalDeals: number;
@@ -236,6 +248,13 @@ const postCloseClass = (status?: PostCloseFeedback['status']) => {
   if (status === 'watch') return 'border-cyan-500/20 bg-cyan-500/10 text-cyan-300';
   if (status === 'risk') return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
   if (status === 'oversold') return 'border-rose-500/20 bg-rose-500/10 text-rose-300';
+  return 'border-white/10 bg-white/5 text-slate-500';
+};
+
+const coachClass = (status?: SalesCoachSummary['status']) => {
+  if (status === 'strong') return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
+  if (status === 'watch') return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
+  if (status === 'at_risk') return 'border-rose-500/20 bg-rose-500/10 text-rose-300';
   return 'border-white/10 bg-white/5 text-slate-500';
 };
 
@@ -410,6 +429,56 @@ export default function SalesAcceleratorDashboardPage() {
               );
             })}
           </div>
+
+          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+            <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h3 className="flex items-center gap-2 text-lg font-bold">
+                  <BrainCircuit size={18} className="text-cyan-300" />
+                  Sales Coach
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-slate-400">{dashboard.salesCoachSummary.headline}</p>
+              </div>
+              <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${coachClass(dashboard.salesCoachSummary.status)}`}>
+                {dashboard.salesCoachSummary.status.replace('_', ' ')} {dashboard.salesCoachSummary.score}
+              </span>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-4">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-500">Focus Areas</div>
+                <ul className="space-y-2">
+                  {dashboard.salesCoachSummary.focusAreas.map((item) => (
+                    <li key={item} className="text-sm leading-6 text-slate-300">{item}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-500">Coach Actions</div>
+                <ul className="space-y-2">
+                  {dashboard.salesCoachSummary.coachingActions.map((item) => (
+                    <li key={item} className="text-sm leading-6 text-slate-300">{item}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-500">Pipeline Risks</div>
+                <ul className="space-y-2">
+                  {dashboard.salesCoachSummary.pipelineRisks.map((item) => (
+                    <li key={item} className="text-sm leading-6 text-slate-300">{item}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-500">Positive Signals</div>
+                <ul className="space-y-2">
+                  {dashboard.salesCoachSummary.positiveSignals.map((item) => (
+                    <li key={item} className="text-sm leading-6 text-slate-300">{item}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
 
           <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
             <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

@@ -161,6 +161,51 @@ export interface MarketSignalProfile {
   recommendedAction: string;
 }
 
+export interface ValueJustification {
+  status: 'proposal_ready' | 'needs_quantification' | 'weak_value_case' | 'blocked';
+  score: number;
+  estimatedMonthlyGuardHours: number | null;
+  scopeComplexity: 'standard' | 'expanded' | 'complex' | 'unknown';
+  valueHypothesis: string;
+  costOfInaction: string;
+  proofPoints: string[];
+  quantifiedInputs: string[];
+  discoveryGaps: string[];
+  proposalBullets: string[];
+  recommendedAction: string;
+}
+
+export interface FollowUpSequenceStep {
+  dayOffset: number;
+  channel: 'call' | 'email' | 'meeting' | 'task';
+  subject: string;
+  objective: string;
+  description: string;
+  dueDate: Date;
+  priority: 'high' | 'medium' | 'low';
+}
+
+export interface FollowUpSequence {
+  status: 'ready' | 'watch' | 'nurture' | 'blocked';
+  cadence: 'accelerated' | 'standard' | 'nurture' | 'rescue';
+  score: number;
+  recommendedAction: string;
+  rationale: string;
+  steps: FollowUpSequenceStep[];
+  objectionsToAddress: string[];
+  stopConditions: string[];
+}
+
+export interface SalesCoachSummary {
+  score: number;
+  status: 'strong' | 'watch' | 'at_risk';
+  headline: string;
+  focusAreas: string[];
+  coachingActions: string[];
+  pipelineRisks: string[];
+  positiveSignals: string[];
+}
+
 export interface ObjectionPattern {
   key: string;
   label: string;
@@ -301,6 +346,9 @@ export class SalesAcceleratorService {
               riskProfile: true,
               proposalAngle: true,
               recommendedNextAction: true,
+              missingQuestions: true,
+              objectionRisks: true,
+              summary: true,
               createdAt: true,
             },
           },
@@ -358,6 +406,8 @@ export class SalesAcceleratorService {
               riskProfile: true,
               proposalAngle: true,
               recommendedNextAction: true,
+              missingQuestions: true,
+              objectionRisks: true,
               summary: true,
               createdAt: true,
             },
@@ -574,9 +624,21 @@ export class SalesAcceleratorService {
         (a, b) => a.postCloseFeedback.score - b.postCloseFeedback.score,
       )
       .slice(0, 6);
+    const salesCoachSummary = this.salesCoachSummary({
+      leads,
+      assessedLeads,
+      dealsWithMomentum,
+      assessedDeals,
+      missingDiscoveryLeads,
+      missingDiscoveryDeals,
+      objectionPatterns: allObjectionPatterns,
+      forecastRiskDeals,
+      postCloseFeedbackDeals: allPostCloseFeedbackDeals,
+    });
 
     return {
       generatedAt: new Date().toISOString(),
+      salesCoachSummary,
       metrics: {
         totalLeads: leads.length,
         totalDeals: deals.length,
@@ -650,11 +712,20 @@ export class SalesAcceleratorService {
       discovery,
       assessment,
     );
+    const assessmentDraft = assessment
+      ? this.assessmentDraftFromRecord(assessment)
+      : null;
     const marketSignalProfile = this.marketSignalProfile({
       entityType: 'lead',
       lead,
       discovery,
-      assessment: assessment ? this.assessmentDraftFromRecord(assessment) : null,
+      assessment: assessmentDraft,
+    });
+    const valueJustification = this.valueJustification({
+      entityType: 'lead',
+      discovery,
+      assessment: assessmentDraft,
+      marketSignalProfile,
     });
 
     return {
@@ -663,6 +734,7 @@ export class SalesAcceleratorService {
       assessment,
       objectionPatterns,
       marketSignalProfile,
+      valueJustification,
     };
   }
 
@@ -678,6 +750,9 @@ export class SalesAcceleratorService {
       discovery,
       assessment,
     );
+    const assessmentDraft = assessment
+      ? this.assessmentDraftFromRecord(assessment)
+      : null;
     const momentum = this.dealMomentum(
       {
         ...deal,
@@ -687,6 +762,7 @@ export class SalesAcceleratorService {
       },
       assessment,
     );
+    const forecast = this.dealForecast(deal, assessmentHistory, momentum);
     const postCloseFeedback =
       deal.client && this.isClosedWonStage(deal.stage)
         ? this.postCloseFeedback(
@@ -705,7 +781,26 @@ export class SalesAcceleratorService {
       lead: deal.lead,
       deal,
       discovery,
-      assessment: assessment ? this.assessmentDraftFromRecord(assessment) : null,
+      assessment: assessmentDraft,
+    });
+    const valueJustification = this.valueJustification({
+      entityType: 'deal',
+      discovery,
+      assessment: assessmentDraft,
+      pricingGuardrails,
+      marketSignalProfile,
+      forecast,
+      postCloseFeedback,
+    });
+    const followUpSequence = this.followUpSequence({
+      deal,
+      discovery,
+      assessment: assessmentDraft,
+      momentum,
+      forecast,
+      pricingGuardrails,
+      marketSignalProfile,
+      valueJustification,
     });
 
     return {
@@ -714,10 +809,12 @@ export class SalesAcceleratorService {
       assessment,
       objectionPatterns,
       momentum,
-      forecast: this.dealForecast(deal, assessmentHistory, momentum),
+      forecast,
       postCloseFeedback,
       pricingGuardrails,
       marketSignalProfile,
+      valueJustification,
+      followUpSequence,
     };
   }
 
@@ -1056,14 +1153,43 @@ export class SalesAcceleratorService {
       assessment,
       postCloseFeedback,
     );
-
-    const context = this.contextText({
+    const assessmentDraft = assessment
+      ? this.assessmentDraftFromRecord(assessment)
+      : null;
+    const marketSignalProfile = this.marketSignalProfile({
       entityType: 'deal',
       lead: deal.lead,
       deal,
       discovery,
-      assessment: assessment ? this.assessmentDraftFromRecord(assessment) : null,
+      assessment: assessmentDraft,
     });
+    const valueJustification = this.valueJustification({
+      entityType: 'deal',
+      discovery,
+      assessment: assessmentDraft,
+      pricingGuardrails,
+      marketSignalProfile,
+      postCloseFeedback,
+    });
+    const followUpSequence = this.followUpSequence({
+      deal,
+      discovery,
+      assessment: assessmentDraft,
+      pricingGuardrails,
+      marketSignalProfile,
+      valueJustification,
+    });
+
+    const context = [
+      this.contextText({
+        entityType: 'deal',
+        lead: deal.lead,
+        deal,
+        discovery,
+        assessment: assessmentDraft,
+      }),
+      this.valueJustificationContext(valueJustification),
+    ].join('\n\n');
 
     let content: string;
     let fallbackUsed = false;
@@ -1089,7 +1215,7 @@ export class SalesAcceleratorService {
         dealId,
         discoverySessionId: discovery.id,
       },
-      generatedOutput: { content, pricingGuardrails },
+      generatedOutput: { content, pricingGuardrails, valueJustification },
       fallbackUsed,
       status: fallbackUsed ? 'fallback' : 'success',
       errorMessage,
@@ -1114,6 +1240,8 @@ export class SalesAcceleratorService {
     return {
       proposal,
       pricingGuardrails,
+      valueJustification,
+      followUpSequence,
       aiGenerationId: generation?.id ?? null,
       fallbackUsed,
     };
@@ -1161,6 +1289,126 @@ export class SalesAcceleratorService {
     });
 
     return activity;
+  }
+
+  async createDealFollowUpSequence(
+    tenantId: string,
+    dealId: string,
+    userId?: string,
+  ) {
+    const deal = await this.getDealOrThrow(tenantId, dealId);
+    const [discovery, assessment, assessmentHistory] = await Promise.all([
+      this.latestDiscovery(tenantId, { dealId }),
+      this.latestAssessment(tenantId, { dealId }),
+      this.assessmentHistory(tenantId, { dealId }),
+    ]);
+    const assessmentDraft = assessment
+      ? this.assessmentDraftFromRecord(assessment)
+      : null;
+    const momentum = this.dealMomentum(
+      {
+        ...deal,
+        discoverySessions: discovery
+          ? [{ id: discovery.id, createdAt: discovery.createdAt }]
+          : [],
+      },
+      assessment,
+    );
+    const forecast = this.dealForecast(deal, assessmentHistory, momentum);
+    const postCloseFeedback =
+      deal.client && this.isClosedWonStage(deal.stage)
+        ? this.postCloseFeedback(
+            deal,
+            discovery,
+            await this.postCloseOperationsForClient(tenantId, deal.client.id),
+          )
+        : null;
+    const pricingGuardrails = this.pricingGuardrails(
+      discovery,
+      assessment,
+      postCloseFeedback,
+    );
+    const marketSignalProfile = this.marketSignalProfile({
+      entityType: 'deal',
+      lead: deal.lead,
+      deal,
+      discovery,
+      assessment: assessmentDraft,
+    });
+    const valueJustification = this.valueJustification({
+      entityType: 'deal',
+      discovery,
+      assessment: assessmentDraft,
+      pricingGuardrails,
+      marketSignalProfile,
+      forecast,
+      postCloseFeedback,
+    });
+    const sequence = this.followUpSequence({
+      deal,
+      discovery,
+      assessment: assessmentDraft,
+      momentum,
+      forecast,
+      pricingGuardrails,
+      marketSignalProfile,
+      valueJustification,
+    });
+    const existingSubjects = new Set(
+      (deal.activities || [])
+        .filter((activity) => activity.status !== 'completed')
+        .map((activity) => activity.subject.toLowerCase()),
+    );
+    const createdActivities: ActivitySnapshot[] = [];
+    let skippedDuplicateCount = 0;
+
+    for (const step of sequence.steps) {
+      const subject = `[Sales Sequence] ${step.subject}`;
+
+      if (existingSubjects.has(subject.toLowerCase())) {
+        skippedDuplicateCount += 1;
+        continue;
+      }
+
+      const activity = await this.activitiesService.create({
+        type: step.channel === 'email' ? 'task' : step.channel,
+        subject,
+        description: [
+          `Objective: ${step.objective}`,
+          step.description,
+          sequence.objectionsToAddress.length
+            ? `Objections to address: ${sequence.objectionsToAddress.join('; ')}`
+            : null,
+          sequence.stopConditions.length
+            ? `Stop conditions: ${sequence.stopConditions.join('; ')}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
+        dueDate: step.dueDate,
+        dealId,
+        tenantId,
+        userId,
+      });
+
+      existingSubjects.add(subject.toLowerCase());
+      createdActivities.push(activity);
+    }
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'CREATE_FOLLOW_UP_SEQUENCE',
+      entityType: 'Deal',
+      entityId: dealId,
+      details: `Created ${createdActivities.length} Sales Accelerator sequence activities`,
+    });
+
+    return {
+      sequence,
+      createdActivities,
+      skippedDuplicateCount,
+    };
   }
 
   private async generateDiscoveryGuide(
@@ -1478,6 +1726,186 @@ export class SalesAcceleratorService {
 
     if (!deal) throw new NotFoundException('Deal not found');
     return deal;
+  }
+
+  private salesCoachSummary(context: {
+    leads: Array<{ discoverySessions: DiscoverySnapshot[] }>;
+    assessedLeads: Array<{
+      assessment: {
+        leadScore: number | null;
+        discoveryQualityScore: number | null;
+      } | null;
+    }>;
+    dealsWithMomentum: Array<{
+      name: string;
+      assessment: {
+        closeReadinessScore: number | null;
+        discoveryQualityScore: number | null;
+      } | null;
+      momentum: DealMomentum;
+      forecast: DealForecast;
+    }>;
+    assessedDeals: Array<{
+      assessment: {
+        closeReadinessScore: number | null;
+        discoveryQualityScore: number | null;
+      } | null;
+    }>;
+    missingDiscoveryLeads: unknown[];
+    missingDiscoveryDeals: unknown[];
+    objectionPatterns: ObjectionPattern[];
+    forecastRiskDeals: Array<{ name: string; forecast: DealForecast }>;
+    postCloseFeedbackDeals: Array<{ postCloseFeedback: PostCloseFeedback }>;
+  }): SalesCoachSummary {
+    const focusAreas: string[] = [];
+    const coachingActions: string[] = [];
+    const pipelineRisks: string[] = [];
+    const positiveSignals: string[] = [];
+    const totalRecords = context.leads.length + context.dealsWithMomentum.length;
+    const missingDiscoveryCount =
+      context.missingDiscoveryLeads.length + context.missingDiscoveryDeals.length;
+    const missingDiscoveryRate =
+      totalRecords === 0 ? 0 : Math.round((missingDiscoveryCount / totalRecords) * 100);
+    const averageLeadScore = this.average(
+      context.assessedLeads.map((lead) => lead.assessment?.leadScore ?? null),
+    );
+    const averageCloseReadiness = this.average(
+      context.assessedDeals.map(
+        (deal) => deal.assessment?.closeReadinessScore ?? null,
+      ),
+    );
+    const averageDiscoveryQuality = this.average([
+      ...context.assessedLeads.map(
+        (lead) => lead.assessment?.discoveryQualityScore ?? null,
+      ),
+      ...context.assessedDeals.map(
+        (deal) => deal.assessment?.discoveryQualityScore ?? null,
+      ),
+    ]);
+    const stalledDeals = context.dealsWithMomentum.filter((deal) =>
+      ['urgent', 'stalled'].includes(deal.momentum.status),
+    );
+    const overdueTasks = context.dealsWithMomentum.reduce(
+      (sum, deal) => sum + deal.momentum.overdueActivityCount,
+      0,
+    );
+    const highLossObjections = context.objectionPatterns.filter(
+      (pattern) =>
+        pattern.lossRate !== null &&
+        pattern.lossRate >= 50 &&
+        pattern.lostDealCount > 0,
+    );
+    const postCloseRiskDeals = context.postCloseFeedbackDeals.filter((deal) =>
+      ['risk', 'oversold'].includes(deal.postCloseFeedback.status),
+    );
+
+    let score = 100;
+
+    if (missingDiscoveryRate >= 35) {
+      score -= 18;
+      focusAreas.push('Discovery coverage is the main coaching gap.');
+      coachingActions.push('Coach reps to capture risk driver, guard count, hours, buyer role, timeline, and budget before proposal.');
+      pipelineRisks.push(`${missingDiscoveryCount} records are missing discovery, which weakens scoring and proposal quality.`);
+    } else if (missingDiscoveryCount > 0) {
+      score -= 8;
+      coachingActions.push('Clear the remaining missing discovery queue before adding more proposal work.');
+    } else {
+      positiveSignals.push('Discovery coverage is complete across the active dashboard lists.');
+    }
+
+    if ((averageDiscoveryQuality ?? 100) < 60) {
+      score -= 14;
+      focusAreas.push('Discovery quality needs tighter qualification.');
+      coachingActions.push('Review recent calls for missing authority, budget, risk, scope, and timing questions.');
+    } else if (averageDiscoveryQuality !== null) {
+      positiveSignals.push(`Average discovery quality is ${averageDiscoveryQuality}.`);
+    }
+
+    if ((averageCloseReadiness ?? 100) < 55) {
+      score -= 16;
+      focusAreas.push('Close readiness is low.');
+      coachingActions.push('Use readiness scoring to decide which deals need more discovery before proposal follow-up.');
+      pipelineRisks.push('Low readiness may cause proposal churn or price-only comparisons.');
+    } else if (averageCloseReadiness !== null) {
+      positiveSignals.push(`Average close readiness is ${averageCloseReadiness}.`);
+    }
+
+    if (stalledDeals.length > 0) {
+      score -= Math.min(18, stalledDeals.length * 5);
+      focusAreas.push('Deal momentum needs inspection.');
+      coachingActions.push('Run rescue sequences for stalled deals and check whether each has a dated next step.');
+      pipelineRisks.push(`${stalledDeals.length} deals are stalled or urgent.`);
+    }
+    if (overdueTasks > 0) {
+      score -= Math.min(14, overdueTasks * 2);
+      coachingActions.push('Clear overdue follow-up tasks before creating new sequences.');
+      pipelineRisks.push(`${overdueTasks} follow-up activities are overdue.`);
+    }
+
+    if (context.forecastRiskDeals.length > 0) {
+      score -= Math.min(14, context.forecastRiskDeals.length * 4);
+      focusAreas.push('Forecast risk needs manager review.');
+      coachingActions.push('Review at-risk forecast deals for missing decision criteria, timeline, and objections.');
+      pipelineRisks.push(`${context.forecastRiskDeals.length} deals are flagged by forecast risk.`);
+    }
+
+    if (highLossObjections.length > 0) {
+      score -= Math.min(16, highLossObjections.length * 5);
+      focusAreas.push('Objection handling is affecting outcomes.');
+      coachingActions.push(`Practice responses for ${highLossObjections[0].label.toLowerCase()} objections using the objection playbook.`);
+      pipelineRisks.push(`${highLossObjections.length} objection patterns have a high loss signal.`);
+    } else if (context.objectionPatterns.length > 0) {
+      positiveSignals.push('Objection patterns are being captured for coaching.');
+    }
+
+    if (postCloseRiskDeals.length > 0) {
+      score -= Math.min(12, postCloseRiskDeals.length * 4);
+      focusAreas.push('Post-close feedback should update sales promises.');
+      coachingActions.push('Review oversold/risk accounts and convert the lessons into proposal guardrails.');
+      pipelineRisks.push(`${postCloseRiskDeals.length} closed-won deals show post-close risk.`);
+    } else if (context.postCloseFeedbackDeals.length > 0) {
+      positiveSignals.push('Post-close feedback loop has usable sales learning data.');
+    }
+
+    if ((averageLeadScore ?? 0) >= 70) {
+      positiveSignals.push(`Average lead score is ${averageLeadScore}.`);
+    }
+    if (focusAreas.length === 0) {
+      focusAreas.push('Pipeline execution is healthy; keep reinforcing value-based discovery and timely follow-up.');
+    }
+    if (coachingActions.length === 0) {
+      coachingActions.push('Use one weekly review to inspect discovery quality, value justification, and next-step hygiene.');
+    }
+    if (pipelineRisks.length === 0) {
+      pipelineRisks.push('No major dashboard-level pipeline risk detected.');
+    }
+    if (positiveSignals.length === 0) {
+      positiveSignals.push('Sales intelligence is active; continue capturing data to strengthen coaching signals.');
+    }
+
+    const coachScore = this.clamp(score);
+    const status: SalesCoachSummary['status'] =
+      coachScore >= 75 ? 'strong' : coachScore >= 55 ? 'watch' : 'at_risk';
+
+    return {
+      score: coachScore,
+      status,
+      headline: this.salesCoachHeadline(status),
+      focusAreas: Array.from(new Set(focusAreas)).slice(0, 5),
+      coachingActions: Array.from(new Set(coachingActions)).slice(0, 6),
+      pipelineRisks: Array.from(new Set(pipelineRisks)).slice(0, 5),
+      positiveSignals: Array.from(new Set(positiveSignals)).slice(0, 5),
+    };
+  }
+
+  private salesCoachHeadline(status: SalesCoachSummary['status']) {
+    if (status === 'strong') {
+      return 'Sales execution is healthy. Keep coaching consistency and proposal discipline.';
+    }
+    if (status === 'watch') {
+      return 'Sales execution needs focused coaching before risk turns into lost deals.';
+    }
+    return 'Sales execution is at risk. Prioritize discovery, follow-up, and objection coaching now.';
   }
 
   private latestDiscovery(
@@ -3105,6 +3533,640 @@ export class SalesAcceleratorService {
     return 'Use discovery to strengthen market fit, urgency, and decision authority before proposal.';
   }
 
+  private followUpSequence(context: {
+    deal: {
+      name: string;
+      stage: string;
+      activities?: ActivitySnapshot[];
+      proposals?: Array<{ title: string; status: string; createdAt: Date }>;
+    };
+    discovery?: DiscoverySnapshot | null;
+    assessment?: AiSalesAssessmentDraft | null;
+    momentum?: DealMomentum | null;
+    forecast?: DealForecast | null;
+    pricingGuardrails?: PricingGuardrails | null;
+    marketSignalProfile?: MarketSignalProfile | null;
+    valueJustification?: ValueJustification | null;
+  }): FollowUpSequence {
+    const discovery = context.discovery;
+    const objectionsToAddress = this.cleanList([
+      ...(discovery?.objections || []),
+      ...(context.assessment?.objectionRisks || []),
+    ]).slice(0, 5);
+    const proposals = context.deal.proposals || [];
+    const hasActiveProposal = proposals.some((proposal) =>
+      /(draft|sent|pending|review)/i.test(proposal.status),
+    );
+    const pendingSequenceCount = (context.deal.activities || []).filter(
+      (activity) =>
+        activity.status !== 'completed' &&
+        activity.subject.toLowerCase().includes('[sales sequence]'),
+    ).length;
+    const readiness = context.assessment?.closeReadinessScore;
+    const valueScore = context.valueJustification?.score ?? 0;
+    const marketScore = context.marketSignalProfile?.score ?? 0;
+    const forecastProbability = context.forecast?.probability ?? 0;
+    const baseScore = this.average([
+      readiness ?? null,
+      valueScore || null,
+      marketScore || null,
+      forecastProbability || null,
+    ]);
+    const sequenceScore = this.clamp(
+      (baseScore ?? 35) -
+        pendingSequenceCount * 8 -
+        (context.pricingGuardrails?.status === 'blocked' ? 20 : 0),
+    );
+    const stopConditions = [
+      'Buyer confirms approval, rejection, or a decision meeting.',
+      'Scope, guard count, or coverage hours change enough to revise the proposal.',
+      'A new pricing, contract, or procurement objection appears.',
+    ];
+    const step = (
+      dayOffset: number,
+      channel: FollowUpSequenceStep['channel'],
+      subject: string,
+      objective: string,
+      description: string,
+      priority: FollowUpSequenceStep['priority'],
+    ): FollowUpSequenceStep => ({
+      dayOffset,
+      channel,
+      subject,
+      objective,
+      description,
+      dueDate: this.dateAfter(dayOffset),
+      priority,
+    });
+
+    if (
+      !discovery ||
+      context.pricingGuardrails?.status === 'blocked' ||
+      context.valueJustification?.status === 'blocked'
+    ) {
+      const gaps = context.valueJustification?.discoveryGaps || [
+        'Complete discovery before proposal follow-up.',
+      ];
+
+      return {
+        status: 'blocked',
+        cadence: 'standard',
+        score: sequenceScore,
+        recommendedAction:
+          'Do not automate proposal follow-up yet. Complete the missing discovery items first.',
+        rationale:
+          'The opportunity does not have enough scope and value proof to support a proposal sequence.',
+        objectionsToAddress,
+        stopConditions,
+        steps: [
+          step(
+            1,
+            'task',
+            'Complete proposal-safe discovery',
+            'Capture the missing scope and value inputs before follow-up.',
+            gaps.join('\n'),
+            'high',
+          ),
+          step(
+            3,
+            'call',
+            'Confirm decision path and proposal blockers',
+            'Identify the buyer, approval path, and missing proposal requirements.',
+            'Ask who approves scope, budget, contract terms, and start date.',
+            'medium',
+          ),
+        ],
+      };
+    }
+
+    const rescueNeeded =
+      ['urgent', 'stalled'].includes(context.momentum?.status || '') ||
+      context.forecast?.status === 'at_risk';
+    const proposalReady =
+      hasActiveProposal ||
+      context.valueJustification?.status === 'proposal_ready' ||
+      ['commit', 'likely'].includes(context.forecast?.status || '');
+    const accelerated =
+      proposalReady &&
+      (context.marketSignalProfile?.renewalTimingSignal === 'active' ||
+        context.marketSignalProfile?.renewalTimingSignal === 'near_term' ||
+        sequenceScore >= 75);
+    const weakValueCase =
+      context.valueJustification?.status === 'weak_value_case' ||
+      (readiness ?? 0) < 45;
+
+    if (rescueNeeded) {
+      return {
+        status: 'watch',
+        cadence: 'rescue',
+        score: sequenceScore,
+        recommendedAction:
+          'Run a short rescue sequence focused on blockers, objections, and a clear decision checkpoint.',
+        rationale:
+          context.momentum?.recommendedAction ||
+          context.forecast?.recommendedAction ||
+          'Momentum or forecast signals show the deal may stall without direct follow-up.',
+        objectionsToAddress,
+        stopConditions,
+        steps: [
+          step(
+            0,
+            'call',
+            'Rescue stalled proposal decision',
+            'Surface the real blocker and secure a decision checkpoint.',
+            'Open with the value hypothesis, then ask what would prevent approval this week.',
+            'high',
+          ),
+          step(
+            1,
+            'email',
+            'Send objection-specific value recap',
+            'Re-anchor the buyer on risk, scope, and cost of inaction.',
+            [
+              context.valueJustification?.valueHypothesis,
+              context.valueJustification?.costOfInaction,
+              objectionsToAddress.length
+                ? `Address: ${objectionsToAddress.join('; ')}`
+                : null,
+            ]
+              .filter(Boolean)
+              .join('\n'),
+            'high',
+          ),
+          step(
+            3,
+            'meeting',
+            'Decision checkpoint with approver',
+            'Get the buyer to approve, reject, or define the exact remaining step.',
+            'Invite all approval owners and confirm scope, pricing assumptions, and start date.',
+            'medium',
+          ),
+        ],
+      };
+    }
+
+    if (accelerated) {
+      return {
+        status: 'ready',
+        cadence: 'accelerated',
+        score: sequenceScore,
+        recommendedAction:
+          'Use an accelerated proposal follow-up cadence and ask for a concrete decision checkpoint.',
+        rationale:
+          'The value case, timing, and close-readiness signals are strong enough for direct proposal follow-up.',
+        objectionsToAddress,
+        stopConditions,
+        steps: [
+          step(
+            0,
+            'email',
+            'Send proposal value recap',
+            'Make the proposal easy to review and defend internally.',
+            [
+              context.valueJustification?.proposalBullets.join('\n'),
+              context.pricingGuardrails?.proposalInstruction,
+            ]
+              .filter(Boolean)
+              .join('\n'),
+            'high',
+          ),
+          step(
+            2,
+            'call',
+            'Confirm proposal review and blockers',
+            'Verify who reviewed the proposal and what remains to approve.',
+            'Ask for objections, procurement steps, contract review needs, and target start date.',
+            'high',
+          ),
+          step(
+            5,
+            'meeting',
+            'Proposal decision checkpoint',
+            'Convert the review into a yes, no, or final revision list.',
+            'Review scope, assumptions, pricing guardrails, and timeline with the approval owner.',
+            'medium',
+          ),
+        ],
+      };
+    }
+
+    if (weakValueCase) {
+      return {
+        status: 'nurture',
+        cadence: 'nurture',
+        score: sequenceScore,
+        recommendedAction:
+          'Nurture this opportunity with stronger risk proof before pushing a proposal decision.',
+        rationale:
+          'The value case or readiness score is not strong enough for a hard proposal follow-up.',
+        objectionsToAddress,
+        stopConditions,
+        steps: [
+          step(
+            2,
+            'call',
+            'Re-qualify risk and buying urgency',
+            'Find the business reason for action and confirm whether timing is real.',
+            'Ask what incident, renewal, coverage gap, or stakeholder pressure is driving the conversation.',
+            'medium',
+          ),
+          step(
+            5,
+            'email',
+            'Share risk and coverage proof',
+            'Build value before asking for a proposal decision.',
+            context.valueJustification?.costOfInaction ||
+              'Send a concise security risk recap tied to their site conditions.',
+            'medium',
+          ),
+          step(
+            10,
+            'task',
+            'Re-score opportunity after nurture touches',
+            'Decide whether the deal should move to proposal follow-up or stay in nurture.',
+            'Update discovery, run scoring, and confirm next action.',
+            'low',
+          ),
+        ],
+      };
+    }
+
+    return {
+      status: 'ready',
+      cadence: proposalReady ? 'standard' : 'nurture',
+      score: sequenceScore,
+      recommendedAction:
+        'Run a standard follow-up sequence that reinforces value, confirms blockers, and asks for the decision path.',
+      rationale:
+        'The deal has enough value signal for structured follow-up, but not enough urgency for an accelerated cadence.',
+      objectionsToAddress,
+      stopConditions,
+      steps: [
+        step(
+          1,
+          'email',
+          'Send value recap and next step',
+          'Summarize the security value case and ask for a review time.',
+          context.valueJustification?.valueHypothesis ||
+            'Summarize the buyer risk, proposed coverage, and next step.',
+          'medium',
+        ),
+        step(
+          3,
+          'call',
+          'Walk through scope and pricing assumptions',
+          'Confirm that the proposal assumptions match the buyer expectation.',
+          context.pricingGuardrails?.proposalInstruction ||
+            'Review coverage windows, guard count, supervision, reporting, and contract assumptions.',
+          'medium',
+        ),
+        step(
+          7,
+          'task',
+          'Confirm decision path',
+          'Document the next approver, procurement step, and target decision date.',
+          'If the buyer is unresponsive, decide whether to rescue, nurture, or pause the deal.',
+          'low',
+        ),
+      ],
+    };
+  }
+
+  private valueJustification(context: {
+    entityType: SalesEntityType;
+    discovery?: DiscoverySnapshot | null;
+    assessment?: AiSalesAssessmentDraft | null;
+    pricingGuardrails?: PricingGuardrails | null;
+    marketSignalProfile?: MarketSignalProfile | null;
+    forecast?: DealForecast | null;
+    postCloseFeedback?: PostCloseFeedback | null;
+  }): ValueJustification {
+    const discovery = context.discovery;
+
+    if (!discovery) {
+      return {
+        status: 'blocked',
+        score: 0,
+        estimatedMonthlyGuardHours: null,
+        scopeComplexity: 'unknown',
+        valueHypothesis:
+          'No value case can be defended until discovery captures risk, scope, and buyer priorities.',
+        costOfInaction:
+          'The buyer may default to hourly-rate comparison because the operational risk is not documented yet.',
+        proofPoints: ['Discovery has not been captured.'],
+        quantifiedInputs: ['No quantifiable scope inputs captured yet.'],
+        discoveryGaps: [
+          'Capture property type, guard count, service hours, risk drivers, buyer role, decision timing, and budget sensitivity.',
+        ],
+        proposalBullets: [
+          'Keep proposal value language pending until the risk and scope story is confirmed.',
+        ],
+        recommendedAction:
+          'Run discovery before building ROI, value justification, or final proposal language.',
+      };
+    }
+
+    const riskConcerns = this.cleanList(discovery.riskConcerns);
+    const painPoints = this.cleanList(discovery.painPoints);
+    const objections = this.cleanList([
+      ...discovery.objections,
+      ...(context.assessment?.objectionRisks || []),
+    ]);
+    const estimatedMonthlyGuardHours = this.estimatedMonthlyGuardHours(
+      discovery.guardCount,
+      discovery.serviceHours,
+    );
+    const scopeComplexity = this.valueScopeComplexity(
+      discovery.guardCount,
+      estimatedMonthlyGuardHours,
+      discovery.serviceHours,
+    );
+    const discoveryGaps = this.valueDiscoveryGaps(discovery);
+    const pricePressure = [
+      discovery.budgetSensitivity,
+      ...objections,
+      discovery.notes,
+    ].some((item) => /(price|cost|cheap|lowest|budget|expensive|rate|discount)/i.test(item || ''));
+    const primaryRisk =
+      riskConcerns[0] ||
+      painPoints[0] ||
+      discovery.propertyType ||
+      'unquantified security exposure';
+
+    const proofPoints: string[] = [
+      ...riskConcerns.slice(0, 3).map((item) => `Risk driver: ${item}.`),
+      ...painPoints.slice(0, 2).map((item) => `Operational pain: ${item}.`),
+    ];
+    if (discovery.currentProvider) {
+      proofPoints.push(`Incumbent/provider context: ${discovery.currentProvider}.`);
+    }
+    if (context.marketSignalProfile?.segment && context.marketSignalProfile.segment !== 'Unknown') {
+      proofPoints.push(`Market segment: ${context.marketSignalProfile.segment}.`);
+    }
+    if (estimatedMonthlyGuardHours !== null) {
+      proofPoints.push(`Estimated monthly coverage load: ${estimatedMonthlyGuardHours} guard-hours.`);
+    }
+    if (context.postCloseFeedback?.signals.length) {
+      proofPoints.push(`Post-close learning signal: ${context.postCloseFeedback.signals[0]}`);
+    }
+    if (proofPoints.length === 0) {
+      proofPoints.push('Value proof is thin because risk, pain, and scope are not captured yet.');
+    }
+
+    const quantifiedInputs: string[] = [];
+    if (discovery.propertyType) quantifiedInputs.push(`Property type: ${discovery.propertyType}.`);
+    if (discovery.guardCount) quantifiedInputs.push(`Guard/post count: ${discovery.guardCount}.`);
+    if (discovery.serviceHours) quantifiedInputs.push(`Coverage hours: ${discovery.serviceHours}.`);
+    if (estimatedMonthlyGuardHours !== null) {
+      quantifiedInputs.push(`Estimated monthly guard-hours: ${estimatedMonthlyGuardHours}.`);
+    }
+    if (discovery.decisionTimeline) quantifiedInputs.push(`Decision timing: ${discovery.decisionTimeline}.`);
+    if (discovery.currentProvider) quantifiedInputs.push(`Current provider: ${discovery.currentProvider}.`);
+    if (discovery.buyerRole) quantifiedInputs.push(`Buyer role: ${discovery.buyerRole}.`);
+    if (context.forecast) quantifiedInputs.push(`Forecast probability: ${context.forecast.probability}%.`);
+    if (context.pricingGuardrails) {
+      quantifiedInputs.push(`Pricing guardrail: ${context.pricingGuardrails.status.replace('_', ' ')}.`);
+    }
+    if (quantifiedInputs.length === 0) {
+      quantifiedInputs.push('No quantifiable scope inputs captured yet.');
+    }
+
+    const proposalBullets: string[] = [
+      `Anchor the proposal around reducing ${primaryRisk}.`,
+      'Connect guard coverage, supervision, reporting, and escalation process to the buyer risk.',
+    ];
+    if (estimatedMonthlyGuardHours !== null) {
+      proposalBullets.push(
+        `Show the coverage model as approximately ${estimatedMonthlyGuardHours} monthly guard-hours before pricing.`,
+      );
+    }
+    if (discovery.currentProvider) {
+      proposalBullets.push('Compare the incumbent provider against accountability, reporting, and response expectations.');
+    }
+    if (pricePressure) {
+      proposalBullets.push('Use good/better/best scope options instead of discounting required baseline coverage.');
+    }
+    if (context.pricingGuardrails?.status === 'blocked') {
+      proposalBullets.push('Do not publish final pricing until missing scope assumptions are confirmed.');
+    }
+
+    let score = 25;
+    score += Math.min(24, riskConcerns.length * 8);
+    score += Math.min(18, painPoints.length * 6);
+    if (estimatedMonthlyGuardHours !== null) score += 14;
+    if (discovery.guardCount) score += 8;
+    if (discovery.serviceHours) score += 8;
+    if (discovery.buyerRole) score += 8;
+    if (discovery.decisionTimeline) score += 6;
+    if (context.marketSignalProfile) {
+      score += Math.round((context.marketSignalProfile.score - 50) / 5);
+    }
+    if ((context.assessment?.closeReadinessScore ?? 0) >= 70) score += 6;
+    if ((context.assessment?.discoveryQualityScore ?? 100) < 55) score -= 8;
+    if (context.forecast?.status === 'commit' || context.forecast?.status === 'likely') score += 5;
+    if (context.forecast?.status === 'at_risk') score -= 8;
+    if (context.pricingGuardrails?.status === 'ready') score += 5;
+    if (context.pricingGuardrails?.status === 'protect_margin') score -= 8;
+    if (context.pricingGuardrails?.status === 'blocked') score -= 15;
+    if (context.postCloseFeedback?.status === 'oversold') score -= 8;
+    if (context.postCloseFeedback?.status === 'risk') score -= 4;
+    if (pricePressure) score -= 8;
+    score -= Math.min(24, discoveryGaps.length * 5);
+
+    const valueScore = this.clamp(score);
+    const status = this.valueJustificationStatus(
+      valueScore,
+      discoveryGaps.length,
+      estimatedMonthlyGuardHours,
+      riskConcerns.length + painPoints.length,
+    );
+
+    return {
+      status,
+      score: valueScore,
+      estimatedMonthlyGuardHours,
+      scopeComplexity,
+      valueHypothesis: this.valueHypothesis(
+        context.entityType,
+        discovery,
+        context.marketSignalProfile,
+        estimatedMonthlyGuardHours,
+        primaryRisk,
+      ),
+      costOfInaction: this.valueCostOfInaction(
+        primaryRisk,
+        context.marketSignalProfile?.segment,
+      ),
+      proofPoints: Array.from(new Set(proofPoints)).slice(0, 6),
+      quantifiedInputs: Array.from(new Set(quantifiedInputs)).slice(0, 7),
+      discoveryGaps: Array.from(new Set(discoveryGaps)).slice(0, 7),
+      proposalBullets: Array.from(new Set(proposalBullets)).slice(0, 6),
+      recommendedAction: this.valueRecommendedAction(
+        status,
+        discoveryGaps,
+        estimatedMonthlyGuardHours,
+      ),
+    };
+  }
+
+  private valueJustificationStatus(
+    score: number,
+    gapCount: number,
+    estimatedMonthlyGuardHours: number | null,
+    proofCount: number,
+  ): ValueJustification['status'] {
+    if (score < 35) return 'blocked';
+    if (score < 55 || proofCount === 0) return 'weak_value_case';
+    if (score < 75 || gapCount > 1 || estimatedMonthlyGuardHours === null) {
+      return 'needs_quantification';
+    }
+    return 'proposal_ready';
+  }
+
+  private valueRecommendedAction(
+    status: ValueJustification['status'],
+    discoveryGaps: string[],
+    estimatedMonthlyGuardHours: number | null,
+  ) {
+    if (status === 'proposal_ready') {
+      return 'Use this value case in the proposal and defend pricing with scope, risk, and coverage proof.';
+    }
+    if (status === 'needs_quantification') {
+      return estimatedMonthlyGuardHours === null
+        ? 'Quantify guard count and coverage hours before final pricing or ROI language.'
+        : 'Close the remaining discovery gaps, then turn the proof points into proposal language.';
+    }
+    if (status === 'weak_value_case') {
+      return 'Strengthen risk drivers, pain points, buyer outcomes, and success criteria before proposing.';
+    }
+    return discoveryGaps[0] || 'Complete discovery before building value justification.';
+  }
+
+  private valueHypothesis(
+    entityType: SalesEntityType,
+    discovery: DiscoverySnapshot,
+    marketSignalProfile: MarketSignalProfile | null | undefined,
+    estimatedMonthlyGuardHours: number | null,
+    primaryRisk: string,
+  ) {
+    const segment =
+      marketSignalProfile?.segment && marketSignalProfile.segment !== 'Unknown'
+        ? marketSignalProfile.segment.toLowerCase()
+        : discovery.propertyType || 'security';
+    const scope =
+      estimatedMonthlyGuardHours !== null
+        ? ` across about ${estimatedMonthlyGuardHours} monthly guard-hours`
+        : '';
+    const motion = entityType === 'deal' ? 'proposal' : 'conversion';
+
+    return `The ${motion} should frame ${segment} coverage${scope} as a way to reduce ${primaryRisk}, improve accountability, and make security performance visible.`;
+  }
+
+  private valueCostOfInaction(primaryRisk: string, segment?: string | null) {
+    const source = `${primaryRisk} ${segment || ''}`.toLowerCase();
+    if (/(theft|trespass|access|break.?in|vandal)/.test(source)) {
+      return 'Unchecked access and property incidents can compound into losses, tenant complaints, insurance pressure, and emergency response costs.';
+    }
+    if (/(liability|safety|injury|incident|assault)/.test(source)) {
+      return 'Weak prevention and response visibility can increase liability exposure and make incidents harder to defend after the fact.';
+    }
+    if (/(staff|coverage|post|shift|attendance|no.?show)/.test(source)) {
+      return 'Coverage gaps can leave posts unattended, slow response, and erode confidence with tenants, staff, and visitors.';
+    }
+    if (/(retail|mall|parking|hospitality)/.test(source)) {
+      return 'Poor site experience and visible disorder can affect customer trust, tenant satisfaction, and revenue-facing operations.';
+    }
+    return 'Without a quantified security value case, the buyer may delay action or compare vendors only by hourly rate.';
+  }
+
+  private valueDiscoveryGaps(discovery: DiscoverySnapshot) {
+    const gaps: string[] = [];
+    if (!discovery.guardCount) gaps.push('Confirm guard/post count.');
+    if (!discovery.serviceHours) gaps.push('Confirm service hours and coverage windows.');
+    if (!discovery.riskConcerns.length) gaps.push('Document specific risk drivers or incidents.');
+    if (!discovery.painPoints.length) gaps.push('Capture what is not working today.');
+    if (!discovery.buyerRole) gaps.push('Identify the buyer role and approval owner.');
+    if (!discovery.decisionTimeline) gaps.push('Confirm decision timeline or desired start date.');
+    if (!discovery.budgetSensitivity) gaps.push('Clarify budget sensitivity and value expectations.');
+    return gaps;
+  }
+
+  private valueScopeComplexity(
+    guardCount?: number | null,
+    estimatedMonthlyGuardHours?: number | null,
+    serviceHours?: string | null,
+  ): ValueJustification['scopeComplexity'] {
+    const text = serviceHours?.toLowerCase() || '';
+    if (!guardCount && estimatedMonthlyGuardHours === null && !text) return 'unknown';
+    if (
+      (guardCount || 0) >= 6 ||
+      (estimatedMonthlyGuardHours || 0) >= 1500 ||
+      /(multi.?site|campus|24\/7|24x7|around.?the.?clock)/.test(text)
+    ) {
+      return 'complex';
+    }
+    if ((guardCount || 0) >= 3 || (estimatedMonthlyGuardHours || 0) >= 650) {
+      return 'expanded';
+    }
+    return 'standard';
+  }
+
+  private estimatedMonthlyGuardHours(
+    guardCount?: number | null,
+    serviceHours?: string | null,
+  ) {
+    if (!guardCount || guardCount <= 0) return null;
+    const weeklyHours = this.estimatedWeeklyServiceHours(serviceHours);
+    if (weeklyHours === null) return null;
+    return Math.round(guardCount * weeklyHours * 4.33);
+  }
+
+  private estimatedWeeklyServiceHours(serviceHours?: string | null) {
+    const text = serviceHours?.toLowerCase() || '';
+    if (!text) return null;
+
+    if (/(24\s*\/\s*7|24x7|24-7|round.?the.?clock|around.?the.?clock)/.test(text)) {
+      return 168;
+    }
+
+    const weekly = text.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\s*(?:\/|per)?\s*(?:week|weekly|wk)/);
+    if (weekly) return Number(weekly[1]);
+
+    const daily = text.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\s*(?:\/|per)?\s*(?:day|daily)/);
+    if (daily) {
+      const days = text.match(/(\d+(?:\.\d+)?)\s*(?:days?|d)\s*(?:\/|per)?\s*(?:week|weekly|wk)?/);
+      return Number(daily[1]) * (days ? Number(days[1]) : 7);
+    }
+
+    const shift = text.match(/(\d+(?:\.\d+)?)\s*(?:hour|hr)\s*shift/);
+    if (shift) {
+      const days = text.match(/(\d+(?:\.\d+)?)\s*(?:days?|d)\s*(?:\/|per)?\s*(?:week|weekly|wk)?/);
+      return Number(shift[1]) * (days ? Number(days[1]) : 5);
+    }
+
+    if (/(business hours|office hours)/.test(text)) return 45;
+    if (/(overnight|night)/.test(text) && /(weekend)/.test(text)) return 40;
+    if (/(overnight|night)/.test(text)) return 56;
+    if (/weekend/.test(text)) return 24;
+
+    return null;
+  }
+
+  private valueJustificationContext(value: ValueJustification) {
+    return [
+      'Value justification:',
+      `Status: ${value.status}`,
+      `Score: ${value.score}`,
+      `Estimated monthly guard-hours: ${value.estimatedMonthlyGuardHours ?? 'unknown'}`,
+      `Scope complexity: ${value.scopeComplexity}`,
+      `Value hypothesis: ${value.valueHypothesis}`,
+      `Cost of inaction: ${value.costOfInaction}`,
+      `Proof points: ${value.proofPoints.join('; ')}`,
+      `Proposal bullets: ${value.proposalBullets.join('; ')}`,
+      `Discovery gaps: ${value.discoveryGaps.join('; ')}`,
+    ].join('\n');
+  }
+
   private ruleAssessment(context: SalesEntityContext): AiSalesAssessmentDraft {
     const discovery = context.discovery;
     const missingQuestions = this.missingQuestions(discovery);
@@ -3576,6 +4638,19 @@ Confirm final coverage hours, decision timeline, and approval stakeholders, then
   private tomorrow() {
     const date = new Date();
     date.setDate(date.getDate() + 1);
+    date.setHours(9, 0, 0, 0);
+    return date;
+  }
+
+  private dateAfter(days: number) {
+    const date = new Date();
+
+    if (days <= 0) {
+      date.setHours(date.getHours() + 1, 0, 0, 0);
+      return date;
+    }
+
+    date.setDate(date.getDate() + days);
     date.setHours(9, 0, 0, 0);
     return date;
   }
