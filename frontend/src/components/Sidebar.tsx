@@ -57,6 +57,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const adminLinks = [
     { href: '/ai-copilot', label: 'AI Copilot', icon: Bot, permissions: ['ai.view'] },
     { href: '/sales-accelerator', label: 'Sales Accelerator', icon: BrainCircuit, permissions: ['ai.view', 'leads.view'] },
+    { href: '/sales-automation', label: 'Sales Automation', icon: Bot, permissions: ['ai.view', 'deals.view'] },
     { href: '/ai-predictions', label: 'AI Predictions', icon: TrendingDown, permissions: ['ai.manage'] },
     { href: '/ai-prompts', label: 'AI Prompts', icon: ScrollText, permissions: ['ai.governance'] },
     { href: '/ai-audit', label: 'AI Audit', icon: FileSearch, permissions: ['ai.governance'] },

@@ -48,6 +48,7 @@ import { SessionsModule } from './sessions/sessions.module';
 import { SsoModule } from './sso/sso.module';
 import { BrandingModule } from './branding/branding.module';
 import { SalesAcceleratorModule } from './sales-accelerator/sales-accelerator.module';
+import { SalesAutomationModule } from './sales-automation/sales-automation.module';
 import { SalesImportsModule } from './sales-imports/sales-imports.module';
 import { PatrolsModule } from './patrols/patrols.module';
 import { FieldPermissionsModule } from './field-permissions/field-permissions.module';
@@ -67,6 +68,7 @@ import { FieldPermissionsModule } from './field-permissions/field-permissions.mo
     SsoModule,
     BrandingModule,
     SalesAcceleratorModule,
+    SalesAutomationModule,
     SalesImportsModule,
     UsersModule,
     AuthModule,
