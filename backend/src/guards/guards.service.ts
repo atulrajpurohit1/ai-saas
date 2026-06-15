@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { branchScopedWhere, branchWhere, resolveWriteBranchId } from '../branches/branch-scope';
+import { FieldPermissionsService } from '../field-permissions/field-permissions.service';
 import { CreateGuardDto } from './dto/create-guard.dto';
 import { UpdateGuardDto } from './dto/update-guard.dto';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
@@ -15,6 +16,7 @@ export class GuardsService {
     private prisma: PrismaService,
     private auditService: AuditService,
     private webhooksService: WebhooksService,
+    private fieldPermissionsService: FieldPermissionsService,
   ) {}
 
   private normalizeContact(dto: CreateGuardDto | UpdateGuardDto) {
@@ -29,7 +31,33 @@ export class GuardsService {
     return safeGuard;
   }
 
+  private optionalText(value?: string | null) {
+    if (value === undefined) return undefined;
+    const trimmed = value?.trim();
+    return trimmed || null;
+  }
+
+  private sensitiveGuardData(dto: CreateGuardDto | UpdateGuardDto) {
+    const bankDetails = dto.bank_details ?? dto.bankDetails;
+    const personalNotes = dto.personal_notes ?? dto.personalNotes;
+
+    return {
+      ...(dto.salary !== undefined ? { salary: dto.salary } : {}),
+      ...(bankDetails !== undefined
+        ? { bankDetails: this.optionalText(bankDetails) }
+        : {}),
+      ...(dto.documents !== undefined
+        ? { documents: this.optionalText(dto.documents) }
+        : {}),
+      ...(personalNotes !== undefined
+        ? { personalNotes: this.optionalText(personalNotes) }
+        : {}),
+    };
+  }
+
   async create(user: ActiveUser, dto: CreateGuardDto) {
+    await this.fieldPermissionsService.assertCanEditFields(user, 'guard', dto);
+
     const name = dto.name?.trim();
     const { phone, email } = this.normalizeContact(dto);
     const branchId = resolveWriteBranchId(user, dto.branch_id);
@@ -50,6 +78,7 @@ export class GuardsService {
         phone,
         email,
         passwordHash,
+        ...this.sensitiveGuardData(dto),
         tenantId: user.tenantId,
         branchId,
       },
@@ -67,7 +96,11 @@ export class GuardsService {
     const safeGuard = this.withoutPasswordHash(guard);
     await this.webhooksService.triggerEvent(user.tenantId, 'guard.created', { guard: safeGuard });
 
-    return safeGuard;
+    return this.fieldPermissionsService.filterFieldsByPermission(
+      user,
+      'guard',
+      safeGuard,
+    );
   }
 
   async findAll(user: ActiveUser, requestedBranchId?: string | null) {
@@ -83,13 +116,39 @@ export class GuardsService {
         orderBy: { createdAt: 'desc' },
       });
 
-      return guards.map((guard) => this.withoutPasswordHash(guard));
+      return this.fieldPermissionsService.filterFieldsByPermission(
+        user,
+        'guard',
+        guards.map((guard) => this.withoutPasswordHash(guard)),
+      );
     } catch (error) {
       console.error('Guards findAll error:', error.message);
       throw new InternalServerErrorException(
         'Failed to fetch guards. The database may be unavailable.',
       );
     }
+  }
+
+  async findOne(user: ActiveUser, id: string) {
+    const guard = await this.prisma.guard.findFirst({
+      where: { id, tenantId: user.tenantId, ...branchWhere(user) },
+      include: {
+        branch: {
+          select: { id: true, name: true, location: true, status: true },
+        },
+        availability: true,
+      },
+    });
+
+    if (!guard) {
+      throw new NotFoundException('Guard not found');
+    }
+
+    return this.fieldPermissionsService.filterFieldsByPermission(
+      user,
+      'guard',
+      this.withoutPasswordHash(guard),
+    );
   }
 
   async update(user: ActiveUser, id: string, dto: UpdateGuardDto) {
@@ -100,6 +159,8 @@ export class GuardsService {
     if (!guard) {
       throw new NotFoundException('Guard not found');
     }
+
+    await this.fieldPermissionsService.assertCanEditFields(user, 'guard', dto, id);
 
     const { phone, email } = this.normalizeContact(dto);
     const branchId =
@@ -112,6 +173,7 @@ export class GuardsService {
       ...(dto.email !== undefined ? { email } : {}),
       ...(dto.password ? { passwordHash: await bcrypt.hash(dto.password, 10) } : {}),
       ...(branchId !== undefined ? { branchId } : {}),
+      ...this.sensitiveGuardData(dto),
     };
 
     if (data.name !== undefined && !data.name) {
@@ -132,7 +194,11 @@ export class GuardsService {
       details: `Guard "${guard.name}" updated`,
     });
 
-    return this.withoutPasswordHash(updatedGuard);
+    return this.fieldPermissionsService.filterFieldsByPermission(
+      user,
+      'guard',
+      this.withoutPasswordHash(updatedGuard),
+    );
   }
 
   async getAvailability(user: ActiveUser, id: string) {

@@ -10,6 +10,7 @@ exports.ApiKeysModule = void 0;
 const common_1 = require("@nestjs/common");
 const audit_module_1 = require("../audit/audit.module");
 const prisma_module_1 = require("../prisma/prisma.module");
+const api_keys_controller_1 = require("./api-keys.controller");
 const api_keys_service_1 = require("./api-keys.service");
 let ApiKeysModule = class ApiKeysModule {
 };
@@ -18,6 +19,7 @@ exports.ApiKeysModule = ApiKeysModule = __decorate([
     (0, common_1.Global)(),
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule],
+        controllers: [api_keys_controller_1.ApiKeysController],
         providers: [api_keys_service_1.ApiKeysService],
         exports: [api_keys_service_1.ApiKeysService],
     })

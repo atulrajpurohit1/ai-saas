@@ -15,6 +15,8 @@ export declare class ClientsController {
         branchId: string | null;
         companyName: string | null;
         phone: string | null;
+        billingNotes: string | null;
+        internalNotes: string | null;
     }>;
     findAll(user: ActiveUser, branchId?: string): Promise<{
         id: string;
@@ -36,6 +38,8 @@ export declare class ClientsController {
         } | null;
         companyName: string | null;
         phone: string | null;
+        billingNotes: string | null;
+        internalNotes: string | null;
     }[]>;
     findOne(user: ActiveUser, id: string): Promise<{
         users: {
@@ -59,6 +63,8 @@ export declare class ClientsController {
         branchId: string | null;
         companyName: string | null;
         phone: string | null;
+        billingNotes: string | null;
+        internalNotes: string | null;
     }>;
     update(user: ActiveUser, id: string, dto: UpdateClientDto): Promise<{
         id: string;
@@ -70,6 +76,8 @@ export declare class ClientsController {
         branchId: string | null;
         companyName: string | null;
         phone: string | null;
+        billingNotes: string | null;
+        internalNotes: string | null;
     }>;
     createUser(user: ActiveUser, id: string, email: string): Promise<{
         id: string;

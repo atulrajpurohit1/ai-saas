@@ -15,6 +15,7 @@ import {
   completePatrolRun,
   getGuardPatrolRuns,
 } from '@/lib/patrols';
+import { OfflineSync } from '@/lib/offline-sync';
 import {
   ArrowLeft,
   Navigation,
@@ -123,15 +124,42 @@ export default function GuardPatrolPage() {
 
     try {
       setSubmittingScan(true);
-      await scanPatrolCheckpoint(activeRun.id, scanningCheckpointId, {
+
+      const dto = {
         notes: scanNotes.trim() || undefined,
         status: scanStatus,
-      });
+      };
 
-      // Refresh run details
-      const fullRun = await api.get<PatrolRun>(`guard/patrol-runs/${activeRun.id}`);
-      setActiveRun(fullRun.data);
-      setScanningCheckpointId(null);
+      if (!navigator.onLine) {
+        OfflineSync.enqueueAction('patrol_checkpoint_scan', {
+          runId: activeRun.id,
+          checkpointId: scanningCheckpointId,
+          dto,
+        });
+        
+        // Optimistic update
+        setActiveRun(prev => prev ? {
+          ...prev,
+          events: [
+            ...(prev.events || []),
+            {
+              id: `offline-${Date.now()}`,
+              checkpointId: scanningCheckpointId,
+              status: scanStatus,
+              notes: dto.notes || null,
+              scannedAt: new Date().toISOString(),
+            } as any
+          ]
+        } : prev);
+        setScanningCheckpointId(null);
+      } else {
+        await scanPatrolCheckpoint(activeRun.id, scanningCheckpointId, dto);
+
+        // Refresh run details
+        const fullRun = await api.get<PatrolRun>(`guard/patrol-runs/${activeRun.id}`);
+        setActiveRun(fullRun.data);
+        setScanningCheckpointId(null);
+      }
     } catch (err) {
       alert(getApiErrorMessage(err, 'Failed to submit checkpoint scan.'));
     } finally {
@@ -147,10 +175,17 @@ export default function GuardPatrolPage() {
 
     try {
       setLoading(true);
-      await completePatrolRun(activeRun.id);
-      setActiveRun(null);
-      alert('Patrol run completed successfully.');
-      router.push(`/guard/shifts/${id}`);
+      if (!navigator.onLine) {
+        OfflineSync.enqueueAction('patrol_run_complete', { runId: activeRun.id });
+        setActiveRun(null);
+        alert('Saved offline, will sync later. (Patrol Run Complete)');
+        router.push(`/guard/shifts/${id}`);
+      } else {
+        await completePatrolRun(activeRun.id);
+        setActiveRun(null);
+        alert('Patrol run completed successfully.');
+        router.push(`/guard/shifts/${id}`);
+      }
     } catch (err) {
       alert(getApiErrorMessage(err, 'Failed to complete patrol run.'));
     } finally {

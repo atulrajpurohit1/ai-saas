@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   AlertTriangle,
+  BadgeDollarSign,
   BrainCircuit,
   Briefcase,
   CalendarPlus,
@@ -181,6 +182,44 @@ interface PricingGuardrails {
   proposalInstruction: string;
 }
 
+interface RateCardPricingInsight {
+  status: 'ready' | 'review' | 'needs_scope' | 'missing_rate_card';
+  benchmarkSource: 'client_rate_card' | 'tenant_benchmark' | 'none';
+  rateCardCount: number;
+  averageHourlyRate: number | null;
+  minHourlyRate: number | null;
+  maxHourlyRate: number | null;
+  averageOvertimeRate: number | null;
+  averageHolidayRate: number | null;
+  estimatedMonthlyRevenue: number | null;
+  lowMonthlyRevenue: number | null;
+  highMonthlyRevenue: number | null;
+  marginDataAvailable: boolean;
+  assumptions: string[];
+  risks: string[];
+  recommendedAction: string;
+}
+
+interface ProposalEngagement {
+  status: 'not_started' | 'draft' | 'sent' | 'engaged' | 'approved' | 'rejected' | 'stale';
+  score: number;
+  proposalCount: number;
+  latestProposal: {
+    id: string;
+    title: string;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+    ageDays: number;
+    commentCount: number;
+  } | null;
+  totalCommentCount: number;
+  daysSinceLatestProposal: number | null;
+  signals: string[];
+  risks: string[];
+  recommendedAction: string;
+}
+
 interface MarketSignalProfile {
   score: number;
   segment: string;
@@ -225,6 +264,21 @@ interface FollowUpSequence {
   steps: FollowUpSequenceStep[];
   objectionsToAddress: string[];
   stopConditions: string[];
+}
+
+interface FollowUpSequenceProgress {
+  status: 'not_started' | 'active' | 'overdue' | 'completed' | 'stalled';
+  totalSteps: number;
+  completedSteps: number;
+  pendingSteps: number;
+  overdueSteps: number;
+  completionRate: number;
+  nextStep: ActivitySnapshot | null;
+  lastCompletedStep: ActivitySnapshot | null;
+  daysSinceLastSequenceActivity: number | null;
+  signals: string[];
+  risks: string[];
+  recommendedAction: string;
 }
 
 interface ObjectionPattern {
@@ -366,6 +420,31 @@ const pricingGuardrailColor = (status?: PricingGuardrails['status']) => {
   return 'text-slate-300 border-white/10 bg-white/5';
 };
 
+const rateCardPricingColor = (status?: RateCardPricingInsight['status']) => {
+  if (status === 'ready') return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
+  if (status === 'review') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
+  if (status === 'needs_scope') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
+  if (status === 'missing_rate_card') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
+  return 'text-slate-300 border-white/10 bg-white/5';
+};
+
+const proposalEngagementColor = (status?: ProposalEngagement['status']) => {
+  if (status === 'approved' || status === 'engaged') return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
+  if (status === 'sent' || status === 'draft') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
+  if (status === 'stale') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
+  if (status === 'rejected') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
+  return 'text-slate-300 border-white/10 bg-white/5';
+};
+
+const formatMoney = (value?: number | null) =>
+  typeof value === 'number'
+    ? value.toLocaleString(undefined, {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0,
+      })
+    : '--';
+
 const valueJustificationColor = (status?: ValueJustification['status']) => {
   if (status === 'proposal_ready') return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
   if (status === 'needs_quantification') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
@@ -379,6 +458,13 @@ const followUpSequenceColor = (status?: FollowUpSequence['status']) => {
   if (status === 'watch') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
   if (status === 'nurture') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
   if (status === 'blocked') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
+  return 'text-slate-300 border-white/10 bg-white/5';
+};
+
+const followUpProgressColor = (status?: FollowUpSequenceProgress['status']) => {
+  if (status === 'completed') return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
+  if (status === 'active') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
+  if (status === 'overdue' || status === 'stalled') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
   return 'text-slate-300 border-white/10 bg-white/5';
 };
 
@@ -407,9 +493,12 @@ export default function SalesAcceleratorPanel({
   const [forecast, setForecast] = useState<DealForecast | null>(null);
   const [postCloseFeedback, setPostCloseFeedback] = useState<PostCloseFeedback | null>(null);
   const [pricingGuardrails, setPricingGuardrails] = useState<PricingGuardrails | null>(null);
+  const [rateCardPricing, setRateCardPricing] = useState<RateCardPricingInsight | null>(null);
+  const [proposalEngagement, setProposalEngagement] = useState<ProposalEngagement | null>(null);
   const [marketSignalProfile, setMarketSignalProfile] = useState<MarketSignalProfile | null>(null);
   const [valueJustification, setValueJustification] = useState<ValueJustification | null>(null);
   const [followUpSequence, setFollowUpSequence] = useState<FollowUpSequence | null>(null);
+  const [followUpSequenceProgress, setFollowUpSequenceProgress] = useState<FollowUpSequenceProgress | null>(null);
   const [objectionPatterns, setObjectionPatterns] = useState<ObjectionPattern[]>([]);
   const [generatedProposalId, setGeneratedProposalId] = useState('');
   const [loading, setLoading] = useState(true);
@@ -435,9 +524,12 @@ export default function SalesAcceleratorPanel({
         setForecast(response.data.forecast || null);
         setPostCloseFeedback(response.data.postCloseFeedback || null);
         setPricingGuardrails(response.data.pricingGuardrails || null);
+        setRateCardPricing(response.data.rateCardPricing || null);
+        setProposalEngagement(response.data.proposalEngagement || null);
         setMarketSignalProfile(response.data.marketSignalProfile || null);
         setValueJustification(response.data.valueJustification || null);
         setFollowUpSequence(response.data.followUpSequence || null);
+        setFollowUpSequenceProgress(response.data.followUpSequenceProgress || null);
         setObjectionPatterns(response.data.objectionPatterns || []);
         setForm(formFromDiscovery(response.data.discovery));
         setCallTranscript('');
@@ -486,9 +578,12 @@ export default function SalesAcceleratorPanel({
       setForecast(workspace.data.forecast || null);
       setPostCloseFeedback(workspace.data.postCloseFeedback || null);
       setPricingGuardrails(workspace.data.pricingGuardrails || null);
+      setRateCardPricing(workspace.data.rateCardPricing || null);
+      setProposalEngagement(workspace.data.proposalEngagement || null);
       setMarketSignalProfile(workspace.data.marketSignalProfile || null);
       setValueJustification(workspace.data.valueJustification || null);
       setFollowUpSequence(workspace.data.followUpSequence || null);
+      setFollowUpSequenceProgress(workspace.data.followUpSequenceProgress || null);
       setMessage('Discovery saved.');
     } catch (err) {
       console.error('Failed to save discovery', err);
@@ -617,9 +712,12 @@ export default function SalesAcceleratorPanel({
       setForecast(workspace.data.forecast || null);
       setPostCloseFeedback(workspace.data.postCloseFeedback || null);
       setPricingGuardrails(workspace.data.pricingGuardrails || null);
+      setRateCardPricing(workspace.data.rateCardPricing || null);
+      setProposalEngagement(workspace.data.proposalEngagement || null);
       setMarketSignalProfile(workspace.data.marketSignalProfile || null);
       setValueJustification(workspace.data.valueJustification || null);
       setFollowUpSequence(workspace.data.followUpSequence || null);
+      setFollowUpSequenceProgress(workspace.data.followUpSequenceProgress || null);
       setMessage(response.data.fallbackUsed ? 'Assessment generated with fallback logic.' : 'Assessment generated.');
     } catch (err) {
       console.error('Failed to generate sales assessment', err);
@@ -638,8 +736,11 @@ export default function SalesAcceleratorPanel({
       const response = await api.post(`${basePath}/proposal-from-discovery`);
       setGeneratedProposalId(response.data.proposal.id);
       setPricingGuardrails(response.data.pricingGuardrails || null);
+      setRateCardPricing(response.data.rateCardPricing || null);
+      setProposalEngagement(response.data.proposalEngagement || null);
       setValueJustification(response.data.valueJustification || null);
       setFollowUpSequence(response.data.followUpSequence || null);
+      setFollowUpSequenceProgress(response.data.followUpSequenceProgress || followUpSequenceProgress);
       setMessage(response.data.fallbackUsed ? 'Proposal drafted with fallback logic.' : 'Proposal drafted.');
     } catch (err) {
       console.error('Failed to generate proposal from discovery', err);
@@ -667,9 +768,12 @@ export default function SalesAcceleratorPanel({
       setObjectionPatterns(workspace.data.objectionPatterns || []);
       setPostCloseFeedback(workspace.data.postCloseFeedback || null);
       setPricingGuardrails(workspace.data.pricingGuardrails || null);
+      setRateCardPricing(workspace.data.rateCardPricing || null);
+      setProposalEngagement(workspace.data.proposalEngagement || null);
       setMarketSignalProfile(workspace.data.marketSignalProfile || null);
       setValueJustification(workspace.data.valueJustification || null);
       setFollowUpSequence(workspace.data.followUpSequence || null);
+      setFollowUpSequenceProgress(workspace.data.followUpSequenceProgress || null);
       setMessage('Follow-up task created for tomorrow morning.');
     } catch (err) {
       console.error('Failed to create follow-up task', err);
@@ -694,9 +798,12 @@ export default function SalesAcceleratorPanel({
       setObjectionPatterns(workspace.data.objectionPatterns || []);
       setPostCloseFeedback(workspace.data.postCloseFeedback || null);
       setPricingGuardrails(workspace.data.pricingGuardrails || null);
+      setRateCardPricing(workspace.data.rateCardPricing || null);
+      setProposalEngagement(workspace.data.proposalEngagement || null);
       setMarketSignalProfile(workspace.data.marketSignalProfile || null);
       setValueJustification(workspace.data.valueJustification || null);
       setFollowUpSequence(workspace.data.followUpSequence || response.data.sequence || null);
+      setFollowUpSequenceProgress(workspace.data.followUpSequenceProgress || response.data.sequenceProgress || null);
       setMessage(
         response.data.skippedDuplicateCount
           ? `Created ${response.data.createdActivities.length} sequence tasks. Skipped ${response.data.skippedDuplicateCount} duplicates.`
@@ -1002,6 +1109,135 @@ export default function SalesAcceleratorPanel({
             </div>
           )}
 
+          {entityType === 'deal' && rateCardPricing && (
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                    <BadgeDollarSign size={14} />
+                    Rate-Card Pricing
+                  </div>
+                  <p className="text-sm leading-6 text-slate-300">{rateCardPricing.recommendedAction}</p>
+                </div>
+                <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${rateCardPricingColor(rateCardPricing.status)}`}>
+                  {rateCardPricing.status.replace(/_/g, ' ')}
+                </span>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-4">
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Monthly Revenue</div>
+                  <div className="mt-2 text-sm font-bold text-white">{formatMoney(rateCardPricing.estimatedMonthlyRevenue)}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Avg Rate</div>
+                  <div className="mt-2 text-sm font-bold text-white">{formatMoney(rateCardPricing.averageHourlyRate)}/hr</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Range</div>
+                  <div className="mt-2 text-sm font-bold text-white">
+                    {formatMoney(rateCardPricing.lowMonthlyRevenue)} - {formatMoney(rateCardPricing.highMonthlyRevenue)}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Source</div>
+                  <div className="mt-2 text-sm font-bold capitalize text-white">
+                    {rateCardPricing.benchmarkSource.replace(/_/g, ' ')}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Assumptions</div>
+                  {renderList(rateCardPricing.assumptions)}
+                </div>
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Pricing Risks</div>
+                  {renderList(rateCardPricing.risks)}
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Rate Cards</div>
+                  <div className="mt-2 text-sm font-bold text-white">{rateCardPricing.rateCardCount}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Overtime</div>
+                  <div className="mt-2 text-sm font-bold text-white">{formatMoney(rateCardPricing.averageOvertimeRate)}/hr</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Margin Data</div>
+                  <div className="mt-2 text-sm font-bold text-white">
+                    {rateCardPricing.marginDataAvailable ? 'Available' : 'Not captured'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {entityType === 'deal' && proposalEngagement && (
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                    <FileText size={14} />
+                    Proposal Engagement
+                  </div>
+                  <p className="text-sm leading-6 text-slate-300">{proposalEngagement.recommendedAction}</p>
+                </div>
+                <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${proposalEngagementColor(proposalEngagement.status)}`}>
+                  {proposalEngagement.status.replace(/_/g, ' ')} {proposalEngagement.score}
+                </span>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-4">
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Proposals</div>
+                  <div className="mt-2 text-sm font-bold text-white">{proposalEngagement.proposalCount}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Latest Age</div>
+                  <div className="mt-2 text-sm font-bold text-white">
+                    {proposalEngagement.daysSinceLatestProposal === null ? '--' : `${proposalEngagement.daysSinceLatestProposal}d`}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Comments</div>
+                  <div className="mt-2 text-sm font-bold text-white">{proposalEngagement.totalCommentCount}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Latest Status</div>
+                  <div className="mt-2 text-sm font-bold capitalize text-white">
+                    {proposalEngagement.latestProposal?.status || '--'}
+                  </div>
+                </div>
+              </div>
+
+              {proposalEngagement.latestProposal && (
+                <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Latest Proposal</div>
+                  <div className="mt-2 text-sm font-bold text-white">{proposalEngagement.latestProposal.title}</div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    Updated {new Date(proposalEngagement.latestProposal.updatedAt).toLocaleString()}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Engagement Signals</div>
+                  {renderList(proposalEngagement.signals)}
+                </div>
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Engagement Risks</div>
+                  {renderList(proposalEngagement.risks)}
+                </div>
+              </div>
+            </div>
+          )}
+
           {entityType === 'deal' && followUpSequence && (
             <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1079,6 +1315,75 @@ export default function SalesAcceleratorPanel({
                 <div>
                   <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Stop Conditions</div>
                   {renderList(followUpSequence.stopConditions)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {entityType === 'deal' && followUpSequenceProgress && (
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                    <Clock3 size={14} />
+                    Sequence Progress
+                  </div>
+                  <p className="text-sm leading-6 text-slate-300">{followUpSequenceProgress.recommendedAction}</p>
+                </div>
+                <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${followUpProgressColor(followUpSequenceProgress.status)}`}>
+                  {followUpSequenceProgress.status.replace(/_/g, ' ')} {followUpSequenceProgress.completionRate}%
+                </span>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-5">
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Total</div>
+                  <div className="mt-2 text-sm font-bold text-white">{followUpSequenceProgress.totalSteps}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Completed</div>
+                  <div className="mt-2 text-sm font-bold text-white">{followUpSequenceProgress.completedSteps}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Pending</div>
+                  <div className="mt-2 text-sm font-bold text-white">{followUpSequenceProgress.pendingSteps}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Overdue</div>
+                  <div className="mt-2 text-sm font-bold text-white">{followUpSequenceProgress.overdueSteps}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Last Activity</div>
+                  <div className="mt-2 text-sm font-bold text-white">
+                    {followUpSequenceProgress.daysSinceLastSequenceActivity === null
+                      ? '--'
+                      : `${followUpSequenceProgress.daysSinceLastSequenceActivity}d`}
+                  </div>
+                </div>
+              </div>
+
+              {followUpSequenceProgress.nextStep && (
+                <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Next Sequence Step</div>
+                  <div className="mt-2 text-sm font-bold text-white">
+                    {followUpSequenceProgress.nextStep.subject.replace('[Sales Sequence] ', '')}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    {followUpSequenceProgress.nextStep.dueDate
+                      ? new Date(followUpSequenceProgress.nextStep.dueDate).toLocaleString()
+                      : 'No due date'}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Progress Signals</div>
+                  {renderList(followUpSequenceProgress.signals)}
+                </div>
+                <div>
+                  <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Execution Risks</div>
+                  {renderList(followUpSequenceProgress.risks)}
                 </div>
               </div>
             </div>

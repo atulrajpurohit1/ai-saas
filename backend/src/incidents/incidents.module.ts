@@ -11,5 +11,6 @@ import { IncidentsService } from './incidents.service';
   imports: [PrismaModule, AuditModule, KnowledgeBaseModule],
   controllers: [IncidentsController, GuardIncidentsController, ClientIncidentsController],
   providers: [IncidentsService],
+  exports: [IncidentsService],
 })
 export class IncidentsModule {}

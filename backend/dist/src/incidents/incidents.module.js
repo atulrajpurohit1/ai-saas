@@ -23,6 +23,7 @@ exports.IncidentsModule = IncidentsModule = __decorate([
         imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule, knowledge_base_module_1.KnowledgeBaseModule],
         controllers: [incidents_controller_1.IncidentsController, guard_incidents_controller_1.GuardIncidentsController, client_incidents_controller_1.ClientIncidentsController],
         providers: [incidents_service_1.IncidentsService],
+        exports: [incidents_service_1.IncidentsService],
     })
 ], IncidentsModule);
 //# sourceMappingURL=incidents.module.js.map

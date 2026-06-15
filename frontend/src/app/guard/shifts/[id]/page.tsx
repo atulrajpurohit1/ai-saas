@@ -7,6 +7,7 @@ import GuardLayout from '@/components/GuardLayout';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { createGuardIncident, IncidentSeverity } from '@/lib/incidents';
+import { OfflineSync } from '@/lib/offline-sync';
 import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, Clock, FileWarning, Loader2, LogIn, LogOut, MapPin, Navigation, Send, ShieldCheck, X } from 'lucide-react';
 
 interface GuardShiftDetail {
@@ -113,9 +114,23 @@ export default function GuardShiftDetailPage() {
     setActionError('');
 
     try {
-      await api.post(`guard/shifts/${id}/${action}`);
-      setActionMessage(action === 'check-in' ? 'Checked in successfully.' : 'Checked out successfully.');
-      await fetchShift(false);
+      if (!navigator.onLine) {
+        OfflineSync.enqueueAction(action === 'check-in' ? 'check_in' : 'check_out', { shiftId: id });
+        setActionMessage(`Saved offline, will sync later. (${action === 'check-in' ? 'Check in' : 'Check out'})`);
+        
+        // Optimistic update
+        setShift(prev => prev ? {
+          ...prev,
+          attendanceStatus: action === 'check-in' ? 'checked_in' : 'completed',
+          checkInTime: action === 'check-in' ? new Date().toISOString() : prev.checkInTime,
+          checkOutTime: action === 'check-out' ? new Date().toISOString() : prev.checkOutTime,
+          status: action === 'check-in' ? 'in_progress' : 'completed',
+        } : prev);
+      } else {
+        await api.post(`guard/shifts/${id}/${action}`);
+        setActionMessage(action === 'check-in' ? 'Checked in successfully.' : 'Checked out successfully.');
+        await fetchShift(false);
+      }
     } catch (err) {
       setActionError(getApiErrorMessage(err, `Could not ${action.replace('-', ' ')}.`));
     } finally {
@@ -144,16 +159,24 @@ export default function GuardShiftDetailPage() {
     setIncidentError('');
     setIncidentMessage('');
 
+    const dto = {
+      title: incidentForm.title.trim(),
+      description: incidentForm.description.trim(),
+      severity: incidentForm.severity,
+      occurred_at: new Date(incidentForm.occurredAt).toISOString(),
+      attachment_url: incidentForm.attachmentUrl.trim() || undefined,
+    };
+
     try {
-      await createGuardIncident(id, {
-        title: incidentForm.title.trim(),
-        description: incidentForm.description.trim(),
-        severity: incidentForm.severity,
-        occurred_at: new Date(incidentForm.occurredAt).toISOString(),
-        attachment_url: incidentForm.attachmentUrl.trim() || undefined,
-      });
-      setIncidentMessage('Incident submitted successfully.');
-      setShowIncidentModal(false);
+      if (!navigator.onLine) {
+        OfflineSync.enqueueAction('incident_create', { shiftId: id, dto });
+        setIncidentMessage('Saved offline, will sync later. (Incident)');
+        setShowIncidentModal(false);
+      } else {
+        await createGuardIncident(id, dto);
+        setIncidentMessage('Incident submitted successfully.');
+        setShowIncidentModal(false);
+      }
     } catch (err) {
       setIncidentError(getApiErrorMessage(err, 'Could not submit incident.'));
     } finally {

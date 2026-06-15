@@ -19,6 +19,7 @@ const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const roles_guard_1 = require("../auth/guards/roles.guard");
 const guard_portal_service_1 = require("./guard-portal.service");
+const sync_offline_actions_dto_1 = require("./dto/sync-offline-actions.dto");
 let GuardPortalController = class GuardPortalController {
     guardPortalService;
     constructor(guardPortalService) {
@@ -52,6 +53,14 @@ let GuardPortalController = class GuardPortalController {
     checkOut(user, id) {
         const { tenantId, guardId } = this.getGuardContext(user);
         return this.guardPortalService.checkOut(tenantId, guardId, id);
+    }
+    syncOfflineActions(user, dto) {
+        const { tenantId, guardId } = this.getGuardContext(user);
+        return this.guardPortalService.processSyncQueue(tenantId, guardId, dto);
+    }
+    syncStatus(user) {
+        const { tenantId, guardId } = this.getGuardContext(user);
+        return this.guardPortalService.getSyncStatus(tenantId, guardId);
     }
 };
 exports.GuardPortalController = GuardPortalController;
@@ -93,6 +102,21 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], GuardPortalController.prototype, "checkOut", null);
+__decorate([
+    (0, common_1.Post)('sync'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, sync_offline_actions_dto_1.SyncOfflineActionsDto]),
+    __metadata("design:returntype", void 0)
+], GuardPortalController.prototype, "syncOfflineActions", null);
+__decorate([
+    (0, common_1.Get)('sync/status'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], GuardPortalController.prototype, "syncStatus", null);
 exports.GuardPortalController = GuardPortalController = __decorate([
     (0, common_1.Controller)('guard'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),

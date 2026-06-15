@@ -1,6 +1,7 @@
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { BrandingService } from '../branding/branding.service';
+import { FieldPermissionsService } from '../field-permissions/field-permissions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { DisputeInvoiceDto } from './dto/dispute-invoice.dto';
@@ -10,7 +11,8 @@ export declare class InvoicesService {
     private auditService;
     private webhooksService;
     private brandingService;
-    constructor(prisma: PrismaService, auditService: AuditService, webhooksService: WebhooksService, brandingService: BrandingService);
+    private fieldPermissionsService;
+    constructor(prisma: PrismaService, auditService: AuditService, webhooksService: WebhooksService, brandingService: BrandingService, fieldPermissionsService: FieldPermissionsService);
     private parseBillingDate;
     private parseBillingRange;
     private roundHours;
@@ -21,6 +23,9 @@ export declare class InvoicesService {
     private invoiceInclude;
     private mapInvoiceDispute;
     private mapInvoice;
+    private filterInvoiceForAdmin;
+    private filterInvoicesForAdmin;
+    private mapClientInvoice;
     private findInvoiceOrThrow;
     private findClientInvoiceOrThrow;
     private findClientOwnedInvoiceOrThrow;
@@ -54,6 +59,7 @@ export declare class InvoicesService {
         issuedAt: any;
         paidAt: any;
         dueDate: any;
+        internalAdjustments: any;
         rateCardId: any;
         rateSource: any;
         rateCard: {
@@ -108,6 +114,7 @@ export declare class InvoicesService {
         issuedAt: any;
         paidAt: any;
         dueDate: any;
+        internalAdjustments: any;
         rateCardId: any;
         rateSource: any;
         rateCard: {
@@ -162,6 +169,7 @@ export declare class InvoicesService {
         issuedAt: any;
         paidAt: any;
         dueDate: any;
+        internalAdjustments: any;
         rateCardId: any;
         rateSource: any;
         rateCard: {
@@ -216,6 +224,7 @@ export declare class InvoicesService {
         issuedAt: any;
         paidAt: any;
         dueDate: any;
+        internalAdjustments: any;
         rateCardId: any;
         rateSource: any;
         rateCard: {
@@ -270,6 +279,7 @@ export declare class InvoicesService {
         issuedAt: any;
         paidAt: any;
         dueDate: any;
+        internalAdjustments: any;
         rateCardId: any;
         rateSource: any;
         rateCard: {
@@ -324,6 +334,7 @@ export declare class InvoicesService {
         issuedAt: any;
         paidAt: any;
         dueDate: any;
+        internalAdjustments: any;
         rateCardId: any;
         rateSource: any;
         rateCard: {
@@ -569,6 +580,18 @@ export declare class InvoicesService {
         items: any;
         disputes: any;
     }>;
+    getDisputeForClient(tenantId: string, clientId: string, invoiceId: string): Promise<{
+        id: any;
+        invoiceId: any;
+        clientId: any;
+        tenantId: any;
+        reason: any;
+        description: any;
+        status: any;
+        adminResponse: any;
+        createdAt: any;
+        resolvedAt: any;
+    }>;
     private addPdfSectionTitle;
     private buildPdfBuffer;
     exportForAdmin(user: ActiveUser, id: string): Promise<{
@@ -598,6 +621,7 @@ export declare class InvoicesService {
             issuedAt: any;
             paidAt: any;
             dueDate: any;
+            internalAdjustments: any;
             rateCardId: any;
             rateSource: any;
             rateCard: {
@@ -655,6 +679,7 @@ export declare class InvoicesService {
             issuedAt: any;
             paidAt: any;
             dueDate: any;
+            internalAdjustments: any;
             rateCardId: any;
             rateSource: any;
             rateCard: {

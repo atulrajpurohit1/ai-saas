@@ -99,9 +99,9 @@ export declare class GuardPatrolsController {
         tenantId: string;
         status: string;
         guardId: string;
-        patrolRunId: string;
         checkpointId: string;
         scannedAt: Date;
+        patrolRunId: string;
     }>;
     completePatrolRun(user: ActiveUser, runId: string): Promise<{
         events: ({
@@ -124,9 +124,9 @@ export declare class GuardPatrolsController {
             tenantId: string;
             status: string;
             guardId: string;
-            patrolRunId: string;
             checkpointId: string;
             scannedAt: Date;
+            patrolRunId: string;
         })[];
     } & {
         id: string;

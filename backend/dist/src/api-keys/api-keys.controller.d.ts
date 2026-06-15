@@ -1,0 +1,86 @@
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { ApiKeysService } from './api-keys.service';
+import { CreateApiKeyDto } from './dto/create-api-key.dto';
+import { UpdateApiKeyDto } from './dto/update-api-key.dto';
+export declare class ApiKeysController {
+    private readonly apiKeysService;
+    constructor(apiKeysService: ApiKeysService);
+    listPermissionDefinitions(): import("./public-api-permissions").PublicApiPermissionDefinition[];
+    list(user: ActiveUser): Promise<{
+        id: any;
+        tenant_id: any;
+        name: any;
+        key_prefix: any;
+        masked_key: string;
+        permissions: any;
+        status: any;
+        expires_at: any;
+        rate_limit_per_minute: any;
+        last_used_at: any;
+        created_at: any;
+        updated_at: any;
+        requests_last_24h: number;
+    }[]>;
+    create(user: ActiveUser, dto: CreateApiKeyDto): Promise<{
+        api_key: string;
+        id: any;
+        tenant_id: any;
+        name: any;
+        key_prefix: any;
+        masked_key: string;
+        permissions: any;
+        status: any;
+        expires_at: any;
+        rate_limit_per_minute: any;
+        last_used_at: any;
+        created_at: any;
+        updated_at: any;
+        requests_last_24h: number;
+    }>;
+    update(user: ActiveUser, id: string, dto: UpdateApiKeyDto): Promise<{
+        id: any;
+        tenant_id: any;
+        name: any;
+        key_prefix: any;
+        masked_key: string;
+        permissions: any;
+        status: any;
+        expires_at: any;
+        rate_limit_per_minute: any;
+        last_used_at: any;
+        created_at: any;
+        updated_at: any;
+        requests_last_24h: number;
+    }>;
+    revoke(user: ActiveUser, id: string): Promise<{
+        id: any;
+        tenant_id: any;
+        name: any;
+        key_prefix: any;
+        masked_key: string;
+        permissions: any;
+        status: any;
+        expires_at: any;
+        rate_limit_per_minute: any;
+        last_used_at: any;
+        created_at: any;
+        updated_at: any;
+        requests_last_24h: number;
+    }>;
+    regenerate(user: ActiveUser, id: string): Promise<{
+        api_key: string;
+        id: any;
+        tenant_id: any;
+        name: any;
+        key_prefix: any;
+        masked_key: string;
+        permissions: any;
+        status: any;
+        expires_at: any;
+        rate_limit_per_minute: any;
+        last_used_at: any;
+        created_at: any;
+        updated_at: any;
+        requests_last_24h: number;
+    }>;
+}

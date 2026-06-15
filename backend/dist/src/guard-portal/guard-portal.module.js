@@ -11,12 +11,14 @@ const common_1 = require("@nestjs/common");
 const audit_module_1 = require("../audit/audit.module");
 const guard_portal_controller_1 = require("./guard-portal.controller");
 const guard_portal_service_1 = require("./guard-portal.service");
+const incidents_module_1 = require("../incidents/incidents.module");
+const patrols_module_1 = require("../patrols/patrols.module");
 let GuardPortalModule = class GuardPortalModule {
 };
 exports.GuardPortalModule = GuardPortalModule;
 exports.GuardPortalModule = GuardPortalModule = __decorate([
     (0, common_1.Module)({
-        imports: [audit_module_1.AuditModule],
+        imports: [audit_module_1.AuditModule, incidents_module_1.IncidentsModule, patrols_module_1.PatrolsModule],
         controllers: [guard_portal_controller_1.GuardPortalController],
         providers: [guard_portal_service_1.GuardPortalService],
     })

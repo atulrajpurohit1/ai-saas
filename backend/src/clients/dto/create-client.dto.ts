@@ -20,4 +20,20 @@ export class CreateClientDto {
   @IsString()
   @IsOptional()
   branch_id?: string | null;
+
+  @IsString()
+  @IsOptional()
+  billing_notes?: string;
+
+  @IsString()
+  @IsOptional()
+  billingNotes?: string;
+
+  @IsString()
+  @IsOptional()
+  internal_notes?: string;
+
+  @IsString()
+  @IsOptional()
+  internalNotes?: string;
 }

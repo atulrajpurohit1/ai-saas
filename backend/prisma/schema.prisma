@@ -18,76 +18,78 @@ enum AttendanceEventType {
 }
 
 model Tenant {
-  id                  String               @id @default(uuid())
-  name                String
-  slug                String               @unique
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  branches            Branch[]
-  deals               Deal[]
-  leads               Lead[]
-  proposals           Proposal[]
-  users               User[]
-  activities          Activity[]
-  notes               Note[]
-  auditLogs           AuditLog[]
-  sites               Site[]
-  guards              Guard[]
-  shifts              Shift[]
-  availabilities      Availability[]
-  clients             Client[]
-  clientUsers         ClientUser[]
-  comments            ProposalComment[]
-  documents           SharedDocument[]
-  attendanceEvents    AttendanceEvent[]
-  incidents           Incident[]
-  dailyServiceReports DailyServiceReport[]
-  invoices            Invoice[]
-  invoiceDisputes     InvoiceDispute[]
-  timesheets          Timesheet[]
-  rateCards           RateCard[]
+  id                    String                 @id @default(uuid())
+  name                  String
+  slug                  String                 @unique
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  branches              Branch[]
+  deals                 Deal[]
+  leads                 Lead[]
+  proposals             Proposal[]
+  users                 User[]
+  activities            Activity[]
+  notes                 Note[]
+  auditLogs             AuditLog[]
+  sites                 Site[]
+  guards                Guard[]
+  shifts                Shift[]
+  availabilities        Availability[]
+  clients               Client[]
+  clientUsers           ClientUser[]
+  comments              ProposalComment[]
+  documents             SharedDocument[]
+  attendanceEvents      AttendanceEvent[]
+  incidents             Incident[]
+  dailyServiceReports   DailyServiceReport[]
+  invoices              Invoice[]
+  invoiceDisputes       InvoiceDispute[]
+  timesheets            Timesheet[]
+  rateCards             RateCard[]
   recommendationActions RecommendationAction[]
-  aiGenerations       AiGeneration[]
-  aiFeedback          AiFeedback[]
-  promptVersions      PromptVersion[]
-  knowledgeEntries    KnowledgeEntry[]
-  aiConversations     AiConversation[]
-  discoverySessions   DiscoverySession[]
-  salesAssessments    SalesAssessment[]
-  roles               Role[]
-  userRoleAssignments UserRoleAssignment[]
-  apiKeys             ApiKey[]
-  webhooks            Webhook[]
-  apiRequestLogs      ApiRequestLog[]
-  ssoProviders        SSOProvider[]
-  ssoLoginStates      SSOLoginState[]
-  userSessions        UserSession[]
-  branding            TenantBranding?
-  customDomains       CustomDomain[]
-  checkpoints         Checkpoint[]
-  patrolRoutes        PatrolRoute[]
-  patrolRuns          PatrolRun[]
-  patrolEvents        PatrolEvent[]
+  aiGenerations         AiGeneration[]
+  aiFeedback            AiFeedback[]
+  promptVersions        PromptVersion[]
+  knowledgeEntries      KnowledgeEntry[]
+  aiConversations       AiConversation[]
+  discoverySessions     DiscoverySession[]
+  salesAssessments      SalesAssessment[]
+  roles                 Role[]
+  userRoleAssignments   UserRoleAssignment[]
+  fieldPermissions      FieldPermission[]
+  apiKeys               ApiKey[]
+  webhooks              Webhook[]
+  apiRequestLogs        ApiRequestLog[]
+  ssoProviders          SSOProvider[]
+  ssoLoginStates        SSOLoginState[]
+  userSessions          UserSession[]
+  branding              TenantBranding?
+  customDomains         CustomDomain[]
+  checkpoints           Checkpoint[]
+  patrolRoutes          PatrolRoute[]
+  patrolRuns            PatrolRun[]
+  patrolEvents          PatrolEvent[]
+  guardSyncQueues       GuardSyncQueue[]
 }
 
 model Branch {
-  id             String               @id @default(uuid())
-  tenantId       String               @map("tenant_id")
-  tenant         Tenant               @relation(fields: [tenantId], references: [id])
-  name           String
-  location       String
-  managerId      String?              @map("manager_id")
-  manager        User?                @relation("BranchManager", fields: [managerId], references: [id], onDelete: SetNull)
-  status         String               @default("active")
-  createdAt      DateTime             @default(now()) @map("created_at")
-  users          User[]               @relation("UserBranch")
-  clients        Client[]
-  sites          Site[]
-  guards         Guard[]
-  shifts         Shift[]
-  incidents      Incident[]
-  reports        DailyServiceReport[]
-  invoices       Invoice[]
+  id              String               @id @default(uuid())
+  tenantId        String               @map("tenant_id")
+  tenant          Tenant               @relation(fields: [tenantId], references: [id])
+  name            String
+  location        String
+  managerId       String?              @map("manager_id")
+  manager         User?                @relation("BranchManager", fields: [managerId], references: [id], onDelete: SetNull)
+  status          String               @default("active")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  users           User[]               @relation("UserBranch")
+  clients         Client[]
+  sites           Site[]
+  guards          Guard[]
+  shifts          Shift[]
+  incidents       Incident[]
+  reports         DailyServiceReport[]
+  invoices        Invoice[]
   roleAssignments UserRoleAssignment[]
 
   @@index([tenantId])
@@ -97,21 +99,21 @@ model Branch {
 }
 
 model User {
-  id                String     @id @default(uuid())
-  email             String     @unique
+  id                String               @id @default(uuid())
+  email             String               @unique
   password          String
   name              String?
   refreshToken      String?
-  role              UserRole   @default(ADMIN)
+  role              UserRole             @default(ADMIN)
   tenantId          String
-  branchId          String?    @map("branch_id")
-  branch            Branch?    @relation("UserBranch", fields: [branchId], references: [id], onDelete: SetNull)
-  managedBranches   Branch[]   @relation("BranchManager")
-  isSuperAdmin      Boolean    @default(true) @map("is_super_admin")
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
-  tenant            Tenant     @relation(fields: [tenantId], references: [id])
-  reviewedIncidents Incident[] @relation("IncidentReviewer")
+  branchId          String?              @map("branch_id")
+  branch            Branch?              @relation("UserBranch", fields: [branchId], references: [id], onDelete: SetNull)
+  managedBranches   Branch[]             @relation("BranchManager")
+  isSuperAdmin      Boolean              @default(true) @map("is_super_admin")
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  tenant            Tenant               @relation(fields: [tenantId], references: [id])
+  reviewedIncidents Incident[]           @relation("IncidentReviewer")
   roleAssignments   UserRoleAssignment[]
   sessions          UserSession[]
 
@@ -133,17 +135,18 @@ model Permission {
 }
 
 model Role {
-  id             String               @id @default(uuid())
-  tenantId       String               @map("tenant_id")
-  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name           String
-  description    String?
-  isSystemRole   Boolean              @default(false) @map("is_system_role")
-  isActive       Boolean              @default(true) @map("is_active")
-  createdAt      DateTime             @default(now()) @map("created_at")
-  updatedAt      DateTime             @updatedAt @map("updated_at")
-  permissions    RolePermission[]
-  assignments    UserRoleAssignment[]
+  id               String               @id @default(uuid())
+  tenantId         String               @map("tenant_id")
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name             String
+  description      String?
+  isSystemRole     Boolean              @default(false) @map("is_system_role")
+  isActive         Boolean              @default(true) @map("is_active")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+  permissions      RolePermission[]
+  assignments      UserRoleAssignment[]
+  fieldPermissions FieldPermission[]
 
   @@unique([tenantId, name], map: "Role_tenant_name_key")
   @@index([tenantId])
@@ -178,27 +181,46 @@ model UserRoleAssignment {
   assignedAt DateTime  @default(now()) @map("assigned_at")
   revokedAt  DateTime? @map("revoked_at")
 
+  @@unique([userId, roleId, branchId], map: "UserRoleAssignment_user_role_branch_key")
   @@index([tenantId])
   @@index([userId])
   @@index([roleId])
   @@index([branchId])
-  @@unique([userId, roleId, branchId], map: "UserRoleAssignment_user_role_branch_key")
   @@map("UserRoleAssignment")
 }
 
+model FieldPermission {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  roleId    String   @map("role_id")
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  entity    String
+  field     String
+  canView   Boolean  @default(true) @map("can_view")
+  canEdit   Boolean  @default(true) @map("can_edit")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([roleId, entity, field], map: "FieldPermission_role_entity_field_key")
+  @@index([tenantId])
+  @@index([roleId])
+  @@index([tenantId, entity])
+  @@map("FieldPermission")
+}
+
 model Lead {
-  id        String     @id @default(uuid())
-  name      String
-  company   String
-  status    String     @default("new")
-  tenantId  String
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  email     String?
-  deals     Deal[]
-  tenant    Tenant     @relation(fields: [tenantId], references: [id])
-  proposals Proposal[]
-  notes     Note[]
+  id                String             @id @default(uuid())
+  name              String
+  company           String
+  status            String             @default("new")
+  tenantId          String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  email             String?
+  deals             Deal[]
+  tenant            Tenant             @relation(fields: [tenantId], references: [id])
+  proposals         Proposal[]
+  notes             Note[]
   discoverySessions DiscoverySession[]
   salesAssessments  SalesAssessment[]
 
@@ -206,20 +228,20 @@ model Lead {
 }
 
 model Deal {
-  id         String     @id @default(uuid())
-  name       String
-  stage      String     @default("new")
-  tenantId   String
-  leadId     String
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  lead       Lead       @relation(fields: [leadId], references: [id])
-  tenant     Tenant     @relation(fields: [tenantId], references: [id])
-  activities Activity[]
-  notes      Note[]
-  proposals  Proposal[]
-  clientId   String?
-  client     Client?    @relation(fields: [clientId], references: [id])
+  id                String             @id @default(uuid())
+  name              String
+  stage             String             @default("new")
+  tenantId          String
+  leadId            String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  lead              Lead               @relation(fields: [leadId], references: [id])
+  tenant            Tenant             @relation(fields: [tenantId], references: [id])
+  activities        Activity[]
+  notes             Note[]
+  proposals         Proposal[]
+  clientId          String?
+  client            Client?            @relation(fields: [clientId], references: [id])
   discoverySessions DiscoverySession[]
   salesAssessments  SalesAssessment[]
 
@@ -407,6 +429,10 @@ model Guard {
   phone            String?
   email            String?
   passwordHash     String?           @map("password_hash")
+  salary           Float?
+  bankDetails      String?           @map("bank_details")
+  documents        String?
+  personalNotes    String?           @map("personal_notes")
   tenantId         String
   tenant           Tenant            @relation(fields: [tenantId], references: [id])
   branchId         String?           @map("branch_id")
@@ -420,6 +446,7 @@ model Guard {
   createdAt        DateTime          @default(now())
   patrolRuns       PatrolRun[]
   patrolEvents     PatrolEvent[]
+  syncQueues       GuardSyncQueue[]
 
   @@index([tenantId])
   @@index([branchId])
@@ -543,6 +570,8 @@ model Client {
   companyName         String?
   email               String
   phone               String?
+  billingNotes        String?              @map("billing_notes")
+  internalNotes       String?              @map("internal_notes")
   tenantId            String
   tenant              Tenant               @relation(fields: [tenantId], references: [id])
   branchId            String?              @map("branch_id")
@@ -590,33 +619,34 @@ model DailyServiceReport {
 }
 
 model Invoice {
-  id               String        @id @default(uuid())
-  tenantId         String        @map("tenant_id")
-  tenant           Tenant        @relation(fields: [tenantId], references: [id])
-  branchId         String?       @map("branch_id")
-  branch           Branch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  clientId         String        @map("client_id")
-  client           Client        @relation(fields: [clientId], references: [id])
-  siteId           String        @map("site_id")
-  site             Site          @relation(fields: [siteId], references: [id])
-  invoiceNumber    String        @map("invoice_number")
-  billingStartDate DateTime      @map("billing_start_date")
-  billingEndDate   DateTime      @map("billing_end_date")
-  totalHours       Float         @map("total_hours")
-  hourlyRate       Float         @map("hourly_rate")
-  subtotal         Float
-  tax              Float
-  totalAmount      Float         @map("total_amount")
-  status           String        @default("draft")
-  createdAt        DateTime      @default(now()) @map("created_at")
-  issuedAt         DateTime?     @map("issued_at")
-  paidAt           DateTime?     @map("paid_at")
-  dueDate          DateTime?     @map("due_date")
-  rateCardId       String?       @map("rate_card_id")
-  rateCard         RateCard?     @relation(fields: [rateCardId], references: [id], onDelete: SetNull)
-  rateSource       String        @default("manual") @map("rate_source")
-  items            InvoiceItem[]
-  disputes         InvoiceDispute[]
+  id                  String           @id @default(uuid())
+  tenantId            String           @map("tenant_id")
+  tenant              Tenant           @relation(fields: [tenantId], references: [id])
+  branchId            String?          @map("branch_id")
+  branch              Branch?          @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  clientId            String           @map("client_id")
+  client              Client           @relation(fields: [clientId], references: [id])
+  siteId              String           @map("site_id")
+  site                Site             @relation(fields: [siteId], references: [id])
+  invoiceNumber       String           @map("invoice_number")
+  billingStartDate    DateTime         @map("billing_start_date")
+  billingEndDate      DateTime         @map("billing_end_date")
+  totalHours          Float            @map("total_hours")
+  hourlyRate          Float            @map("hourly_rate")
+  subtotal            Float
+  tax                 Float
+  totalAmount         Float            @map("total_amount")
+  status              String           @default("draft")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  issuedAt            DateTime?        @map("issued_at")
+  paidAt              DateTime?        @map("paid_at")
+  dueDate             DateTime?        @map("due_date")
+  internalAdjustments String?          @map("internal_adjustments")
+  rateCardId          String?          @map("rate_card_id")
+  rateCard            RateCard?        @relation(fields: [rateCardId], references: [id], onDelete: SetNull)
+  rateSource          String           @default("manual") @map("rate_source")
+  items               InvoiceItem[]
+  disputes            InvoiceDispute[]
 
   @@unique([tenantId, invoiceNumber], map: "Invoice_tenant_invoice_number_key")
   @@unique([tenantId, clientId, siteId, billingStartDate, billingEndDate], map: "Invoice_period_key")
@@ -774,6 +804,25 @@ model ProposalComment {
   @@index([tenantId])
 }
 
+model GuardSyncQueue {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  guardId       String   @map("guard_id")
+  guard         Guard    @relation(fields: [guardId], references: [id])
+  actionType    String   @map("action_type") // check_in, check_out, incident_create, patrol_checkpoint_scan, patrol_run_complete
+  payload       Json
+  status        String   @default("pending") // pending, synced, failed
+  errorMessage  String?  @map("error_message")
+  createdAt     DateTime @default(now()) @map("created_at")
+  syncedAt      DateTime? @map("synced_at")
+
+  @@index([tenantId])
+  @@index([guardId])
+  @@index([status])
+  @@map("GuardSyncQueue")
+}
+
 model SharedDocument {
   id          String   @id @default(uuid())
   name        String
@@ -791,24 +840,24 @@ model SharedDocument {
 }
 
 model RecommendationAction {
-  id               String    @id @default(uuid())
-  tenantId         String    @map("tenant_id")
-  tenant           Tenant    @relation(fields: [tenantId], references: [id])
-  aiGenerationId   String?   @map("ai_generation_id")
+  id               String        @id @default(uuid())
+  tenantId         String        @map("tenant_id")
+  tenant           Tenant        @relation(fields: [tenantId], references: [id])
+  aiGenerationId   String?       @map("ai_generation_id")
   aiGeneration     AiGeneration? @relation(fields: [aiGenerationId], references: [id], onDelete: SetNull)
-  recommendationId String    @map("recommendation_id")
-  actionType       String    @map("action_type")
+  recommendationId String        @map("recommendation_id")
+  actionType       String        @map("action_type")
   title            String
   description      String
-  status           String    @default("pending")
-  targetModule     String    @map("target_module")
-  targetEntityId   String?   @map("target_entity_id")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  approvedBy       String?   @map("approved_by")
-  approvedAt       DateTime? @map("approved_at")
-  executedAt       DateTime? @map("executed_at")
-  failureReason    String?   @map("failure_reason")
-  feedback          AiFeedback[]
+  status           String        @default("pending")
+  targetModule     String        @map("target_module")
+  targetEntityId   String?       @map("target_entity_id")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  approvedBy       String?       @map("approved_by")
+  approvedAt       DateTime?     @map("approved_at")
+  executedAt       DateTime?     @map("executed_at")
+  failureReason    String?       @map("failure_reason")
+  feedback         AiFeedback[]
 
   @@unique([tenantId, recommendationId], map: "RecommendationAction_tenant_recommendation_key")
   @@index([tenantId])
@@ -839,29 +888,29 @@ model PromptVersion {
 }
 
 model AiGeneration {
-  id              String      @id @default(uuid())
-  tenantId        String      @map("tenant_id")
-  tenant          Tenant      @relation(fields: [tenantId], references: [id])
-  promptVersion   String      @map("prompt_version")
-  promptVersionId String?     @map("prompt_version_id")
-  promptVersionRecord PromptVersion? @relation(fields: [promptVersionId], references: [id], onDelete: SetNull)
-  modelUsed       String      @map("model_used")
-  sourceModule    String      @map("source_module")
-  inputSource     Json?       @map("input_source")
-  generatedOutput Json        @map("generated_output")
-  fallbackUsed    Boolean     @default(false) @map("fallback_used")
-  status          String      @default("success")
-  errorMessage    String?     @map("error_message")
-  clientVisible   Boolean     @default(false) @map("client_visible")
-  approvalStatus  String      @default("not_required") @map("approval_status")
-  approvedBy      String?     @map("approved_by")
-  approvedAt      DateTime?   @map("approved_at")
-  safetyStatus    String      @default("passed") @map("safety_status")
-  safetyFindings  Json?       @map("safety_findings")
-  createdBy       String?     @map("created_by")
-  createdAt       DateTime    @default(now()) @map("created_at")
-  feedback        AiFeedback[]
-  actions         RecommendationAction[]
+  id                  String                 @id @default(uuid())
+  tenantId            String                 @map("tenant_id")
+  tenant              Tenant                 @relation(fields: [tenantId], references: [id])
+  promptVersion       String                 @map("prompt_version")
+  promptVersionId     String?                @map("prompt_version_id")
+  promptVersionRecord PromptVersion?         @relation(fields: [promptVersionId], references: [id], onDelete: SetNull)
+  modelUsed           String                 @map("model_used")
+  sourceModule        String                 @map("source_module")
+  inputSource         Json?                  @map("input_source")
+  generatedOutput     Json                   @map("generated_output")
+  fallbackUsed        Boolean                @default(false) @map("fallback_used")
+  status              String                 @default("success")
+  errorMessage        String?                @map("error_message")
+  clientVisible       Boolean                @default(false) @map("client_visible")
+  approvalStatus      String                 @default("not_required") @map("approval_status")
+  approvedBy          String?                @map("approved_by")
+  approvedAt          DateTime?              @map("approved_at")
+  safetyStatus        String                 @default("passed") @map("safety_status")
+  safetyFindings      Json?                  @map("safety_findings")
+  createdBy           String?                @map("created_by")
+  createdAt           DateTime               @default(now()) @map("created_at")
+  feedback            AiFeedback[]
+  actions             RecommendationAction[]
 
   @@index([tenantId])
   @@index([promptVersionId])
@@ -875,20 +924,20 @@ model AiGeneration {
 }
 
 model AiFeedback {
-  id               String       @id @default(uuid())
-  tenantId         String       @map("tenant_id")
-  tenant           Tenant       @relation(fields: [tenantId], references: [id])
-  aiGenerationId   String       @map("ai_generation_id")
-  aiGeneration     AiGeneration @relation(fields: [aiGenerationId], references: [id], onDelete: Cascade)
-  recommendationId String?      @map("recommendation_id")
-  actionId         String?      @map("action_id")
+  id               String                @id @default(uuid())
+  tenantId         String                @map("tenant_id")
+  tenant           Tenant                @relation(fields: [tenantId], references: [id])
+  aiGenerationId   String                @map("ai_generation_id")
+  aiGeneration     AiGeneration          @relation(fields: [aiGenerationId], references: [id], onDelete: Cascade)
+  recommendationId String?               @map("recommendation_id")
+  actionId         String?               @map("action_id")
   action           RecommendationAction? @relation(fields: [actionId], references: [id], onDelete: SetNull)
   rating           Int
-  feedbackText     String?      @map("feedback_text")
-  isUseful         Boolean      @map("is_useful")
-  isAccurate       Boolean      @map("is_accurate")
-  createdBy        String       @map("created_by")
-  createdAt        DateTime     @default(now()) @map("created_at")
+  feedbackText     String?               @map("feedback_text")
+  isUseful         Boolean               @map("is_useful")
+  isAccurate       Boolean               @map("is_accurate")
+  createdBy        String                @map("created_by")
+  createdAt        DateTime              @default(now()) @map("created_at")
 
   @@index([tenantId])
   @@index([aiGenerationId])
@@ -1052,10 +1101,10 @@ model SSORoleMapping {
   branchId      String?     @map("branch_id")
   createdAt     DateTime    @default(now()) @map("created_at")
 
+  @@unique([providerId, externalGroup, roleId, branchId], map: "SSORoleMapping_provider_group_role_branch_key")
   @@index([providerId])
   @@index([roleId])
   @@index([branchId])
-  @@unique([providerId, externalGroup, roleId, branchId], map: "SSORoleMapping_provider_group_role_branch_key")
   @@map("SSORoleMapping")
 }
 
@@ -1144,18 +1193,18 @@ model CustomDomain {
 }
 
 model Checkpoint {
-  id           String                   @id @default(uuid())
-  tenantId     String                   @map("tenant_id")
-  tenant       Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  siteId       String                   @map("site_id")
-  site         Site                     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId       String   @map("site_id")
+  site         Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   name         String
   description  String?
-  locationNote String?                  @map("location_note")
-  qrCodeValue  String?                  @map("qr_code_value")
-  status       String                   @default("active")
-  createdAt    DateTime                 @default(now()) @map("created_at")
-  updatedAt    DateTime                 @updatedAt @map("updated_at")
+  locationNote String?  @map("location_note")
+  qrCodeValue  String?  @map("qr_code_value")
+  status       String   @default("active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   patrolRouteCheckpoints PatrolRouteCheckpoint[]
   patrolEvents           PatrolEvent[]
@@ -1167,16 +1216,16 @@ model Checkpoint {
 }
 
 model PatrolRoute {
-  id          String                   @id @default(uuid())
-  tenantId    String                   @map("tenant_id")
-  tenant       Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  siteId       String                   @map("site_id")
-  site         Site                     @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  name         String
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId      String   @map("site_id")
+  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name        String
   description String?
-  status      String                   @default("active")
-  createdAt   DateTime                 @default(now()) @map("created_at")
-  updatedAt   DateTime                 @updatedAt @map("updated_at")
+  status      String   @default("active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   checkpoints PatrolRouteCheckpoint[]
   patrolRuns  PatrolRun[]
@@ -1202,22 +1251,22 @@ model PatrolRouteCheckpoint {
 }
 
 model PatrolRun {
-  id            String        @id @default(uuid())
-  tenantId      String        @map("tenant_id")
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  shiftId       String        @map("shift_id")
-  shift         Shift         @relation(fields: [shiftId], references: [id], onDelete: Cascade)
-  guardId       String        @map("guard_id")
-  guard         Guard         @relation(fields: [guardId], references: [id], onDelete: Cascade)
-  patrolRouteId String        @map("patrol_route_id")
-  patrolRoute   PatrolRoute   @relation(fields: [patrolRouteId], references: [id], onDelete: Cascade)
-  status        String        @default("not_started")
-  startedAt     DateTime?     @map("started_at")
-  completedAt   DateTime?     @map("completed_at")
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
+  id            String      @id @default(uuid())
+  tenantId      String      @map("tenant_id")
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  shiftId       String      @map("shift_id")
+  shift         Shift       @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  guardId       String      @map("guard_id")
+  guard         Guard       @relation(fields: [guardId], references: [id], onDelete: Cascade)
+  patrolRouteId String      @map("patrol_route_id")
+  patrolRoute   PatrolRoute @relation(fields: [patrolRouteId], references: [id], onDelete: Cascade)
+  status        String      @default("not_started")
+  startedAt     DateTime?   @map("started_at")
+  completedAt   DateTime?   @map("completed_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
 
-  events        PatrolEvent[]
+  events PatrolEvent[]
 
   @@index([tenantId])
   @@index([shiftId])
@@ -1228,19 +1277,19 @@ model PatrolRun {
 }
 
 model PatrolEvent {
-  id           String      @id @default(uuid())
-  tenantId     String      @map("tenant_id")
-  tenant       Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  patrolRunId  String      @map("patrol_run_id")
-  patrolRun    PatrolRun   @relation(fields: [patrolRunId], references: [id], onDelete: Cascade)
-  checkpointId String      @map("checkpoint_id")
-  checkpoint   Checkpoint  @relation(fields: [checkpointId], references: [id], onDelete: Cascade)
-  guardId      String      @map("guard_id")
-  guard         Guard       @relation(fields: [guardId], references: [id], onDelete: Cascade)
-  scannedAt    DateTime    @default(now()) @map("scanned_at")
-  status       String      @default("completed")
+  id           String     @id @default(uuid())
+  tenantId     String     @map("tenant_id")
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patrolRunId  String     @map("patrol_run_id")
+  patrolRun    PatrolRun  @relation(fields: [patrolRunId], references: [id], onDelete: Cascade)
+  checkpointId String     @map("checkpoint_id")
+  checkpoint   Checkpoint @relation(fields: [checkpointId], references: [id], onDelete: Cascade)
+  guardId      String     @map("guard_id")
+  guard        Guard      @relation(fields: [guardId], references: [id], onDelete: Cascade)
+  scannedAt    DateTime   @default(now()) @map("scanned_at")
+  status       String     @default("completed")
   notes        String?
-  createdAt    DateTime    @default(now()) @map("created_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
 
   @@index([tenantId])
   @@index([patrolRunId])

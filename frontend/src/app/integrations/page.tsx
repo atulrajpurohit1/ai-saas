@@ -5,20 +5,28 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
+  ApiKeyRecord,
   IntegrationOverview,
+  PublicApiPermissionDefinition,
   WebhookRecord,
+  createApiKey,
   createWebhook,
+  getApiKeyPermissions,
+  getApiKeys,
   getIntegrationOverview,
   getWebhookEvents,
   getWebhooks,
+  regenerateApiKey,
   retryFailedWebhookDeliveries,
   retryWebhookDelivery,
+  revokeApiKey,
   revokeWebhook,
   rotateWebhookSecret,
 } from '@/lib/integrations';
 import {
   Ban,
   Copy,
+  KeyRound,
   Loader2,
   Plug,
   RefreshCw,
@@ -34,11 +42,22 @@ function formatDate(value?: string | null) {
 
 export default function IntegrationsPage() {
   const { can } = useAuth();
+  const canViewApiKeys = can('api_keys.view');
+  const canManageApiKeys = can('api_keys.manage');
   const canManageWebhooks = can('webhooks.manage');
   const [overview, setOverview] = useState<IntegrationOverview | null>(null);
+  const [apiKeys, setApiKeys] = useState<ApiKeyRecord[]>([]);
+  const [apiKeyPermissions, setApiKeyPermissions] = useState<PublicApiPermissionDefinition[]>([]);
   const [webhooks, setWebhooks] = useState<WebhookRecord[]>([]);
   const [events, setEvents] = useState<string[]>([]);
+  const [apiKeyForm, setApiKeyForm] = useState({
+    name: '',
+    permissions: [] as string[],
+    expiresAt: '',
+    rateLimit: '120',
+  });
   const [form, setForm] = useState({ eventType: '', endpointUrl: '' });
+  const [newApiKey, setNewApiKey] = useState('');
   const [newSecret, setNewSecret] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -48,14 +67,18 @@ export default function IntegrationsPage() {
     setLoading(true);
     setError('');
     try {
-      const [overviewData, eventData, webhookData] = await Promise.all([
+      const [overviewData, eventData, webhookData, apiKeyPermissionData, apiKeyData] = await Promise.all([
         getIntegrationOverview(),
         getWebhookEvents(),
         getWebhooks(),
+        canViewApiKeys ? getApiKeyPermissions() : Promise.resolve([] as PublicApiPermissionDefinition[]),
+        canViewApiKeys ? getApiKeys() : Promise.resolve([] as ApiKeyRecord[]),
       ]);
       setOverview(overviewData);
       setEvents(eventData);
       setWebhooks(webhookData);
+      setApiKeyPermissions(apiKeyPermissionData);
+      setApiKeys(apiKeyData);
       setForm((current) => ({
         ...current,
         eventType: current.eventType || eventData[0] || '',
@@ -70,6 +93,66 @@ export default function IntegrationsPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  const toggleApiPermission = (permission: string) => {
+    setApiKeyForm((current) => ({
+      ...current,
+      permissions: current.permissions.includes(permission)
+        ? current.permissions.filter((item) => item !== permission)
+        : [...current.permissions, permission],
+    }));
+  };
+
+  const submitApiKey = async () => {
+    setSaving(true);
+    setError('');
+    setNewApiKey('');
+    try {
+      const created = await createApiKey({
+        name: apiKeyForm.name.trim(),
+        permissions: apiKeyForm.permissions,
+        expires_at: apiKeyForm.expiresAt ? new Date(`${apiKeyForm.expiresAt}T23:59:59.000Z`).toISOString() : undefined,
+        rate_limit_per_minute: Number(apiKeyForm.rateLimit) || 120,
+      });
+      setNewApiKey(created.api_key || '');
+      setApiKeyForm({ name: '', permissions: [], expiresAt: '', rateLimit: '120' });
+      await loadData();
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not create API key.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const revokeKey = async (apiKey: ApiKeyRecord) => {
+    if (!confirm(`Revoke ${apiKey.name}?`)) return;
+    setSaving(true);
+    setError('');
+    try {
+      await revokeApiKey(apiKey.id);
+      await loadData();
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not revoke API key.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const regenerateKey = async (apiKey: ApiKeyRecord) => {
+    if (!confirm(`Regenerate ${apiKey.name}? The old key will stop working.`)) return;
+    setSaving(true);
+    setError('');
+    setNewApiKey('');
+    try {
+      const updated = await regenerateApiKey(apiKey.id);
+      setNewApiKey(updated.api_key || '');
+      await loadData();
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not regenerate API key.'));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const submitWebhook = async () => {
     setSaving(true);
@@ -149,6 +232,20 @@ export default function IntegrationsPage() {
     await navigator.clipboard.writeText(newSecret);
   };
 
+  const copyApiKey = async () => {
+    if (!newApiKey) return;
+    await navigator.clipboard.writeText(newApiKey);
+  };
+
+  const permissionGroups = apiKeyPermissions.reduce<Record<string, PublicApiPermissionDefinition[]>>(
+    (groups, permission) => {
+      const group = permission.group || 'General';
+      groups[group] = [...(groups[group] || []), permission];
+      return groups;
+    },
+    {},
+  );
+
   return (
     <DashboardLayout requiredPermissions="integrations.view">
       <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -175,6 +272,25 @@ export default function IntegrationsPage() {
       {error && (
         <div className="mb-6 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-300">
           {error}
+        </div>
+      )}
+
+      {newApiKey && (
+        <div className="mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+          <div className="mb-2 text-sm font-black uppercase tracking-widest text-emerald-300">API Key</div>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <code className="min-w-0 flex-1 overflow-x-auto rounded-lg bg-slate-950/70 px-3 py-2 text-sm text-emerald-100">
+              {newApiKey}
+            </code>
+            <button
+              type="button"
+              onClick={copyApiKey}
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-bold text-white transition hover:bg-white/10"
+            >
+              <Copy size={16} />
+              Copy
+            </button>
+          </div>
         </div>
       )}
 
@@ -220,6 +336,136 @@ export default function IntegrationsPage() {
               <div className="mt-2 text-3xl font-black text-white">{overview?.failures_last_24h || 0}</div>
             </div>
           </div>
+
+          {canViewApiKeys && (
+            <section className="rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
+              <div className="mb-5 flex items-center gap-3">
+                <KeyRound className="text-amber-300" size={22} />
+                <h3 className="text-xl font-bold">API Keys</h3>
+              </div>
+
+              {canManageApiKeys && (
+                <div className="mb-6 rounded-xl border border-white/10 bg-slate-950/20 p-4">
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_160px_160px_auto]">
+                    <input
+                      value={apiKeyForm.name}
+                      onChange={(event) => setApiKeyForm({ ...apiKeyForm, name: event.target.value })}
+                      placeholder="Key name"
+                      className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    />
+                    <input
+                      value={apiKeyForm.rateLimit}
+                      onChange={(event) => setApiKeyForm({ ...apiKeyForm, rateLimit: event.target.value })}
+                      type="number"
+                      min="1"
+                      max="5000"
+                      className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      aria-label="Rate limit per minute"
+                    />
+                    <input
+                      value={apiKeyForm.expiresAt}
+                      onChange={(event) => setApiKeyForm({ ...apiKeyForm, expiresAt: event.target.value })}
+                      type="date"
+                      className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      aria-label="Expiry date"
+                    />
+                    <button
+                      type="button"
+                      onClick={submitApiKey}
+                      disabled={saving || !apiKeyForm.name.trim() || apiKeyForm.permissions.length === 0}
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:opacity-60"
+                    >
+                      {saving ? <Loader2 className="animate-spin" size={17} /> : <KeyRound size={17} />}
+                      Create
+                    </button>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {Object.entries(permissionGroups).map(([group, permissions]) => (
+                      <div key={group} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                        <div className="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">{group}</div>
+                        <div className="space-y-2">
+                          {permissions.map((permission) => (
+                            <label key={permission.key} className="flex items-start gap-3 rounded-lg p-2 transition hover:bg-white/5">
+                              <input
+                                type="checkbox"
+                                checked={apiKeyForm.permissions.includes(permission.key)}
+                                onChange={() => toggleApiPermission(permission.key)}
+                                className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-950"
+                              />
+                              <span>
+                                <span className="block text-sm font-bold text-white">{permission.name}</span>
+                                <span className="block text-xs text-slate-500">{permission.description}</span>
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid gap-3">
+                {apiKeys.map((apiKey) => (
+                  <div key={apiKey.id} className="rounded-xl border border-white/10 bg-slate-950/20 p-4">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-white">{apiKey.name}</span>
+                          <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-widest ${
+                            apiKey.status === 'active'
+                              ? 'bg-emerald-400/10 text-emerald-300'
+                              : 'bg-rose-400/10 text-rose-300'
+                          }`}>
+                            {apiKey.status}
+                          </span>
+                        </div>
+                        <div className="mt-2 font-mono text-sm text-indigo-200">{apiKey.masked_key}</div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {apiKey.permissions.map((permission) => (
+                            <span key={permission} className="rounded-lg bg-white/5 px-2 py-1 text-xs text-slate-300">
+                              {permission}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="mt-2 text-xs text-slate-500">
+                          {apiKey.requests_last_24h} requests in 24h | last used {formatDate(apiKey.last_used_at)} | expires {formatDate(apiKey.expires_at)}
+                        </div>
+                      </div>
+                      {canManageApiKeys && (
+                        <div className="flex shrink-0 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => regenerateKey(apiKey)}
+                            disabled={saving}
+                            className="inline-flex min-h-10 items-center justify-center rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 text-sky-300 transition hover:bg-sky-400/20"
+                            aria-label="Regenerate API key"
+                          >
+                            <RefreshCw size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => revokeKey(apiKey)}
+                            disabled={saving || apiKey.status === 'revoked'}
+                            className="inline-flex min-h-10 items-center justify-center rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 text-rose-300 transition hover:bg-rose-400/20 disabled:opacity-50"
+                            aria-label="Revoke API key"
+                          >
+                            <Ban size={16} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {apiKeys.length === 0 && (
+                  <div className="rounded-xl border border-white/10 bg-slate-950/20 p-4 text-sm text-slate-400">
+                    No API keys.
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
 
           {canManageWebhooks && (
             <section className="rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">

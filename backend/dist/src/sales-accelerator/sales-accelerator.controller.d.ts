@@ -492,10 +492,123 @@ export declare class SalesAcceleratorController {
             assessmentType: string;
         }[];
     }>;
+    getAlerts(user: ActiveUser): Promise<{
+        generatedAt: string;
+        summary: {
+            total: number;
+            critical: number;
+            high: number;
+            overdueActivities: number;
+            stalledDeals: number;
+        };
+        alerts: ({
+            id: string;
+            severity: string;
+            type: string;
+            title: string;
+            subject: string;
+            href: string;
+            score: number;
+            reason: string;
+            recommendedAction: string;
+            dueLabel: string;
+        } | {
+            id: string;
+            severity: string;
+            type: string;
+            title: string;
+            subject: string;
+            href: string;
+            score: null;
+            reason: string;
+            recommendedAction: string;
+            dueLabel: string;
+        })[];
+    }>;
+    getForecastReport(user: ActiveUser): Promise<{
+        generatedAt: string;
+        summary: {
+            forecastRiskDeals: number;
+            averageForecastConfidence: number | null;
+            averageCloseReadiness: number | null;
+            weightedPipelineScore: number | null;
+        };
+        statusBuckets: {
+            status: string;
+            count: number;
+        }[];
+        deals: {
+            id: string;
+            name: string;
+            company: string;
+            stage: string;
+            href: string;
+            readiness: number | null;
+            discoveryQuality: number | null;
+            forecast: import("./sales-accelerator.service").DealForecast;
+            momentum: import("./sales-accelerator.service").DealMomentum;
+            recommendedAction: string;
+        }[];
+    }>;
+    getCoachingAnalytics(user: ActiveUser): Promise<{
+        generatedAt: string;
+        salesCoachSummary: import("./sales-accelerator.service").SalesCoachSummary;
+        metrics: {
+            averageLeadScore: number | null;
+            averageCloseReadiness: number | null;
+            trackedObjections: number;
+            missingDiscovery: number;
+        };
+        reps: {
+            repId: string;
+            name: string;
+            assessmentCount: number;
+            discoveryCount: number;
+            averageDiscoveryQuality: number | null;
+            averageCloseReadiness: number | null;
+            riskCoverage: number | null;
+            painCoverage: number | null;
+            objectionSignals: number;
+            coachingScore: number;
+            recommendedAction: string;
+        }[];
+        objectionPatterns: import("./sales-accelerator.service").ObjectionPattern[];
+    }>;
+    getLearningLoop(user: ActiveUser): Promise<{
+        generatedAt: string;
+        summary: {
+            reviewedDeals: number;
+            riskDeals: number;
+            learningDeals: number;
+        };
+        recommendedPlaybookUpdates: {
+            type: string;
+            title: string;
+            recommendation: string;
+            support: string;
+        }[];
+        learnings: {
+            id: string;
+            name: string;
+            company: string;
+            href: string;
+            status: "healthy" | "watch" | "risk" | "oversold" | "learning";
+            score: number;
+            signals: string[];
+            salesLessons: string[];
+            recommendedAction: string;
+            proposalWarning: string;
+        }[];
+    }>;
     getLeadWorkspace(leadId: string, user: ActiveUser): Promise<{
         lead: {
             proposals: {
+                id: string;
                 createdAt: Date;
+                updatedAt: Date;
+                _count: {
+                    comments: number;
+                };
                 title: string;
                 status: string;
             }[];
@@ -567,7 +680,12 @@ export declare class SalesAcceleratorController {
     getDealWorkspace(dealId: string, user: ActiveUser): Promise<{
         deal: {
             proposals: {
+                id: string;
                 createdAt: Date;
+                updatedAt: Date;
+                _count: {
+                    comments: number;
+                };
                 title: string;
                 status: string;
             }[];
@@ -594,7 +712,12 @@ export declare class SalesAcceleratorController {
             } | null;
             lead: {
                 proposals: {
+                    id: string;
                     createdAt: Date;
+                    updatedAt: Date;
+                    _count: {
+                        comments: number;
+                    };
                     title: string;
                     status: string;
                 }[];
@@ -674,9 +797,12 @@ export declare class SalesAcceleratorController {
         forecast: import("./sales-accelerator.service").DealForecast;
         postCloseFeedback: import("./sales-accelerator.service").PostCloseFeedback | null;
         pricingGuardrails: import("./sales-accelerator.service").PricingGuardrails;
+        rateCardPricing: import("./sales-accelerator.service").RateCardPricingInsight;
+        proposalEngagement: import("./sales-accelerator.service").ProposalEngagement;
         marketSignalProfile: import("./sales-accelerator.service").MarketSignalProfile;
         valueJustification: import("./sales-accelerator.service").ValueJustification;
         followUpSequence: import("./sales-accelerator.service").FollowUpSequence;
+        followUpSequenceProgress: import("./sales-accelerator.service").FollowUpSequenceProgress;
     }>;
     saveLeadDiscovery(leadId: string, dto: SaveDiscoveryDto, user: ActiveUser): Promise<{
         id: string;
@@ -827,6 +953,8 @@ export declare class SalesAcceleratorController {
         };
         pricingGuardrails: import("./sales-accelerator.service").PricingGuardrails;
         valueJustification: import("./sales-accelerator.service").ValueJustification;
+        rateCardPricing: import("./sales-accelerator.service").RateCardPricingInsight;
+        proposalEngagement: import("./sales-accelerator.service").ProposalEngagement;
         followUpSequence: import("./sales-accelerator.service").FollowUpSequence;
         aiGenerationId: string | null;
         fallbackUsed: boolean;
@@ -844,6 +972,7 @@ export declare class SalesAcceleratorController {
     }>;
     createDealFollowUpSequence(dealId: string, user: ActiveUser): Promise<{
         sequence: import("./sales-accelerator.service").FollowUpSequence;
+        sequenceProgress: import("./sales-accelerator.service").FollowUpSequenceProgress;
         createdActivities: import("./sales-accelerator.service").ActivitySnapshot[];
         skippedDuplicateCount: number;
     }>;

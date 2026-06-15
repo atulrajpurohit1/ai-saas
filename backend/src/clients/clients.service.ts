@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { branchScopedWhere, branchWhere, resolveWriteBranchId } from '../branches/branch-scope';
+import { FieldPermissionsService } from '../field-permissions/field-permissions.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import * as bcrypt from 'bcrypt';
@@ -15,9 +16,32 @@ export class ClientsService {
     private prisma: PrismaService,
     private auditService: AuditService,
     private webhooksService: WebhooksService,
+    private fieldPermissionsService: FieldPermissionsService,
   ) {}
 
+  private optionalText(value?: string | null) {
+    if (value === undefined) return undefined;
+    const trimmed = value?.trim();
+    return trimmed || null;
+  }
+
+  private sensitiveClientData(dto: CreateClientDto | UpdateClientDto) {
+    const billingNotes = dto.billing_notes ?? dto.billingNotes;
+    const internalNotes = dto.internal_notes ?? dto.internalNotes;
+
+    return {
+      ...(billingNotes !== undefined
+        ? { billingNotes: this.optionalText(billingNotes) }
+        : {}),
+      ...(internalNotes !== undefined
+        ? { internalNotes: this.optionalText(internalNotes) }
+        : {}),
+    };
+  }
+
   async create(user: ActiveUser, dto: CreateClientDto) {
+    await this.fieldPermissionsService.assertCanEditFields(user, 'client', dto);
+
     const branchId = resolveWriteBranchId(user, dto.branch_id);
     const client = await this.prisma.client.create({
       data: {
@@ -25,6 +49,7 @@ export class ClientsService {
         companyName: dto.companyName,
         email: dto.email,
         phone: dto.phone,
+        ...this.sensitiveClientData(dto),
         tenantId: user.tenantId,
         branchId,
       },
@@ -41,11 +66,15 @@ export class ClientsService {
 
     await this.webhooksService.triggerEvent(user.tenantId, 'client.created', { client });
 
-    return client;
+    return this.fieldPermissionsService.filterFieldsByPermission(
+      user,
+      'client',
+      client,
+    );
   }
 
   async findAll(user: ActiveUser, requestedBranchId?: string | null) {
-    return this.prisma.client.findMany({
+    const clients = await this.prisma.client.findMany({
       where: branchScopedWhere(user, requestedBranchId),
       select: {
         id: true,
@@ -53,6 +82,8 @@ export class ClientsService {
         companyName: true,
         email: true,
         phone: true,
+        billingNotes: true,
+        internalNotes: true,
         createdAt: true,
         updatedAt: true,
         branchId: true,
@@ -74,6 +105,12 @@ export class ClientsService {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    return this.fieldPermissionsService.filterFieldsByPermission(
+      user,
+      'client',
+      clients,
+    );
   }
 
   async findOne(user: ActiveUser, id: string) {
@@ -102,7 +139,11 @@ export class ClientsService {
       throw new NotFoundException('Client not found');
     }
 
-    return client;
+    return this.fieldPermissionsService.filterFieldsByPermission(
+      user,
+      'client',
+      client,
+    );
   }
 
   async update(user: ActiveUser, id: string, dto: UpdateClientDto) {
@@ -113,6 +154,8 @@ export class ClientsService {
     if (!client) {
       throw new NotFoundException('Client not found');
     }
+
+    await this.fieldPermissionsService.assertCanEditFields(user, 'client', dto, id);
 
     const branchId =
       dto.branch_id === undefined
@@ -127,6 +170,7 @@ export class ClientsService {
         ...(dto.email !== undefined ? { email: dto.email } : {}),
         ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
         ...(branchId !== undefined ? { branchId } : {}),
+        ...this.sensitiveClientData(dto),
       },
     });
 
@@ -139,7 +183,11 @@ export class ClientsService {
       details: `Client "${client.name}" updated`,
     });
 
-    return updatedClient;
+    return this.fieldPermissionsService.filterFieldsByPermission(
+      user,
+      'client',
+      updatedClient,
+    );
   }
 
   async createClientUser(user: ActiveUser, clientId: string, email: string) {

@@ -47,16 +47,19 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const audit_service_1 = require("../audit/audit.service");
 const branch_scope_1 = require("../branches/branch-scope");
+const field_permissions_service_1 = require("../field-permissions/field-permissions.service");
 const bcrypt = __importStar(require("bcrypt"));
 const webhooks_service_1 = require("../webhooks/webhooks.service");
 let GuardsService = class GuardsService {
     prisma;
     auditService;
     webhooksService;
-    constructor(prisma, auditService, webhooksService) {
+    fieldPermissionsService;
+    constructor(prisma, auditService, webhooksService, fieldPermissionsService) {
         this.prisma = prisma;
         this.auditService = auditService;
         this.webhooksService = webhooksService;
+        this.fieldPermissionsService = fieldPermissionsService;
     }
     normalizeContact(dto) {
         const phone = dto.phone?.trim() || undefined;
@@ -67,7 +70,30 @@ let GuardsService = class GuardsService {
         const { passwordHash, ...safeGuard } = guard;
         return safeGuard;
     }
+    optionalText(value) {
+        if (value === undefined)
+            return undefined;
+        const trimmed = value?.trim();
+        return trimmed || null;
+    }
+    sensitiveGuardData(dto) {
+        const bankDetails = dto.bank_details ?? dto.bankDetails;
+        const personalNotes = dto.personal_notes ?? dto.personalNotes;
+        return {
+            ...(dto.salary !== undefined ? { salary: dto.salary } : {}),
+            ...(bankDetails !== undefined
+                ? { bankDetails: this.optionalText(bankDetails) }
+                : {}),
+            ...(dto.documents !== undefined
+                ? { documents: this.optionalText(dto.documents) }
+                : {}),
+            ...(personalNotes !== undefined
+                ? { personalNotes: this.optionalText(personalNotes) }
+                : {}),
+        };
+    }
     async create(user, dto) {
+        await this.fieldPermissionsService.assertCanEditFields(user, 'guard', dto);
         const name = dto.name?.trim();
         const { phone, email } = this.normalizeContact(dto);
         const branchId = (0, branch_scope_1.resolveWriteBranchId)(user, dto.branch_id);
@@ -84,6 +110,7 @@ let GuardsService = class GuardsService {
                 phone,
                 email,
                 passwordHash,
+                ...this.sensitiveGuardData(dto),
                 tenantId: user.tenantId,
                 branchId,
             },
@@ -98,7 +125,7 @@ let GuardsService = class GuardsService {
         });
         const safeGuard = this.withoutPasswordHash(guard);
         await this.webhooksService.triggerEvent(user.tenantId, 'guard.created', { guard: safeGuard });
-        return safeGuard;
+        return this.fieldPermissionsService.filterFieldsByPermission(user, 'guard', safeGuard);
     }
     async findAll(user, requestedBranchId) {
         try {
@@ -112,12 +139,27 @@ let GuardsService = class GuardsService {
                 },
                 orderBy: { createdAt: 'desc' },
             });
-            return guards.map((guard) => this.withoutPasswordHash(guard));
+            return this.fieldPermissionsService.filterFieldsByPermission(user, 'guard', guards.map((guard) => this.withoutPasswordHash(guard)));
         }
         catch (error) {
             console.error('Guards findAll error:', error.message);
             throw new common_1.InternalServerErrorException('Failed to fetch guards. The database may be unavailable.');
         }
+    }
+    async findOne(user, id) {
+        const guard = await this.prisma.guard.findFirst({
+            where: { id, tenantId: user.tenantId, ...(0, branch_scope_1.branchWhere)(user) },
+            include: {
+                branch: {
+                    select: { id: true, name: true, location: true, status: true },
+                },
+                availability: true,
+            },
+        });
+        if (!guard) {
+            throw new common_1.NotFoundException('Guard not found');
+        }
+        return this.fieldPermissionsService.filterFieldsByPermission(user, 'guard', this.withoutPasswordHash(guard));
     }
     async update(user, id, dto) {
         const guard = await this.prisma.guard.findFirst({
@@ -126,6 +168,7 @@ let GuardsService = class GuardsService {
         if (!guard) {
             throw new common_1.NotFoundException('Guard not found');
         }
+        await this.fieldPermissionsService.assertCanEditFields(user, 'guard', dto, id);
         const { phone, email } = this.normalizeContact(dto);
         const branchId = dto.branch_id === undefined
             ? undefined
@@ -136,6 +179,7 @@ let GuardsService = class GuardsService {
             ...(dto.email !== undefined ? { email } : {}),
             ...(dto.password ? { passwordHash: await bcrypt.hash(dto.password, 10) } : {}),
             ...(branchId !== undefined ? { branchId } : {}),
+            ...this.sensitiveGuardData(dto),
         };
         if (data.name !== undefined && !data.name) {
             throw new common_1.BadRequestException('Guard name is required');
@@ -152,7 +196,7 @@ let GuardsService = class GuardsService {
             entityId: guard.id,
             details: `Guard "${guard.name}" updated`,
         });
-        return this.withoutPasswordHash(updatedGuard);
+        return this.fieldPermissionsService.filterFieldsByPermission(user, 'guard', this.withoutPasswordHash(updatedGuard));
     }
     async getAvailability(user, id) {
         const guard = await this.prisma.guard.findFirst({
@@ -207,6 +251,7 @@ exports.GuardsService = GuardsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         audit_service_1.AuditService,
-        webhooks_service_1.WebhooksService])
+        webhooks_service_1.WebhooksService,
+        field_permissions_service_1.FieldPermissionsService])
 ], GuardsService);
 //# sourceMappingURL=guards.service.js.map

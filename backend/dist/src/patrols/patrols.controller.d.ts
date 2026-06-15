@@ -239,9 +239,9 @@ export declare class PatrolsController {
             tenantId: string;
             status: string;
             guardId: string;
-            patrolRunId: string;
             checkpointId: string;
             scannedAt: Date;
+            patrolRunId: string;
         })[];
     } & {
         id: string;

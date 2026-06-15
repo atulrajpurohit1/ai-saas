@@ -27,6 +27,8 @@ export declare class PublicApiService {
         branchId: string | null;
         companyName: string | null;
         phone: string | null;
+        billingNotes: string | null;
+        internalNotes: string | null;
     }>;
     listSites(apiKey: ApiKeyContext, query: Record<string, string | undefined>): Promise<{
         id: string;
@@ -210,9 +212,9 @@ export declare class PublicApiService {
             hourlyRate: number;
             rateCardId: string | null;
             invoiceId: string;
+            timesheetId: string | null;
             workedHours: number;
             amount: number;
-            timesheetId: string | null;
         }[];
     } & {
         id: string;
@@ -222,6 +224,7 @@ export declare class PublicApiService {
         clientId: string;
         status: string;
         dueDate: Date | null;
+        internalAdjustments: string | null;
         siteId: string;
         invoiceNumber: string;
         billingStartDate: Date;

@@ -27,7 +27,12 @@ import {
   TrendingDown,
   GitBranch,
   Settings,
-  Plug
+  Plug,
+  LockKeyhole,
+  Palette,
+  BookOpen,
+  BarChart3,
+  FileSpreadsheet
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { clsx, type ClassValue } from 'clsx';
@@ -72,10 +77,15 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     { href: '/invoice-disputes', label: 'Disputes', icon: FileWarning, permissions: ['invoice_disputes.view'] },
     { href: '/finance', label: 'Finance', icon: DollarSign, permissions: ['finance.view'] },
     { href: '/ai-insights', label: 'AI Insights', icon: BrainCircuit, permissions: ['ai.view'] },
+    { href: '/sales-accelerator/reports', label: 'Sales Reports', icon: BarChart3, permissions: ['ai.view', 'deals.view'] },
+    { href: '/sales-imports', label: 'Sales Imports', icon: FileSpreadsheet, permissions: ['leads.import', 'deals.create'] },
+    { href: '/settings/knowledge-base', label: 'Knowledge', icon: BookOpen, permissions: ['knowledge.view'] },
     { href: '/integrations', label: 'Integrations', icon: Plug, permissions: ['integrations.view'] },
+    { href: '/settings/branding', label: 'Branding', icon: Palette, permissions: ['branding.view'] },
     { href: '/settings/sso', label: 'SSO', icon: ShieldCheck, permissions: ['sso.view'] },
     { href: '/settings/sessions', label: 'Sessions', icon: Activity, permissions: ['sessions.view'] },
     { href: '/settings/roles', label: 'Roles', icon: Settings, permissions: ['roles.view'] },
+    { href: '/settings/field-permissions', label: 'Field RBAC', icon: LockKeyhole, permissions: ['roles.view'] },
     { href: '/audit', label: 'Activity', icon: Activity, permissions: ['audit.view'] },
   ];
 

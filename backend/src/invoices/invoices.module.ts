@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
+import { FieldPermissionsModule } from '../field-permissions/field-permissions.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ClientInvoicesController } from './client-invoices.controller';
 import { InvoicesController } from './invoices.controller';
 import { InvoicesService } from './invoices.service';
 
 @Module({
-  imports: [PrismaModule, AuditModule],
+  imports: [PrismaModule, AuditModule, FieldPermissionsModule],
   controllers: [InvoicesController, ClientInvoicesController],
   providers: [InvoicesService],
 })

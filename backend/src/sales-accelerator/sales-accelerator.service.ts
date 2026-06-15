@@ -36,7 +36,7 @@ interface SalesEntityContext {
     status: string;
     createdAt: Date;
     notes?: Array<{ content: string; createdAt: Date }>;
-    proposals?: Array<{ title: string; status: string; createdAt: Date }>;
+    proposals?: Array<ProposalEngagementRecord>;
   };
   deal?: {
     id: string;
@@ -44,7 +44,7 @@ interface SalesEntityContext {
     stage: string;
     createdAt: Date;
     notes?: Array<{ content: string; createdAt: Date }>;
-    proposals?: Array<{ title: string; status: string; createdAt: Date }>;
+    proposals?: Array<ProposalEngagementRecord>;
     client?: { id: string; name: string; companyName: string | null } | null;
   };
   discovery?: DiscoverySnapshot | null;
@@ -120,6 +120,15 @@ export interface DealForecast {
   recommendedAction: string;
 }
 
+interface ProposalEngagementRecord {
+  id: string;
+  title: string;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+  _count?: { comments: number };
+}
+
 export interface PostCloseFeedback {
   status: 'healthy' | 'watch' | 'risk' | 'oversold' | 'learning';
   score: number;
@@ -148,6 +157,44 @@ export interface PricingGuardrails {
   requiredClarifications: string[];
   recommendedTerms: string[];
   proposalInstruction: string;
+}
+
+export interface RateCardPricingInsight {
+  status: 'ready' | 'review' | 'needs_scope' | 'missing_rate_card';
+  benchmarkSource: 'client_rate_card' | 'tenant_benchmark' | 'none';
+  rateCardCount: number;
+  averageHourlyRate: number | null;
+  minHourlyRate: number | null;
+  maxHourlyRate: number | null;
+  averageOvertimeRate: number | null;
+  averageHolidayRate: number | null;
+  estimatedMonthlyRevenue: number | null;
+  lowMonthlyRevenue: number | null;
+  highMonthlyRevenue: number | null;
+  marginDataAvailable: boolean;
+  assumptions: string[];
+  risks: string[];
+  recommendedAction: string;
+}
+
+export interface ProposalEngagement {
+  status: 'not_started' | 'draft' | 'sent' | 'engaged' | 'approved' | 'rejected' | 'stale';
+  score: number;
+  proposalCount: number;
+  latestProposal: {
+    id: string;
+    title: string;
+    status: string;
+    createdAt: Date;
+    updatedAt: Date;
+    ageDays: number;
+    commentCount: number;
+  } | null;
+  totalCommentCount: number;
+  daysSinceLatestProposal: number | null;
+  signals: string[];
+  risks: string[];
+  recommendedAction: string;
 }
 
 export interface MarketSignalProfile {
@@ -194,6 +241,21 @@ export interface FollowUpSequence {
   steps: FollowUpSequenceStep[];
   objectionsToAddress: string[];
   stopConditions: string[];
+}
+
+export interface FollowUpSequenceProgress {
+  status: 'not_started' | 'active' | 'overdue' | 'completed' | 'stalled';
+  totalSteps: number;
+  completedSteps: number;
+  pendingSteps: number;
+  overdueSteps: number;
+  completionRate: number;
+  nextStep: ActivitySnapshot | null;
+  lastCompletedStep: ActivitySnapshot | null;
+  daysSinceLastSequenceActivity: number | null;
+  signals: string[];
+  risks: string[];
+  recommendedAction: string;
 }
 
 export interface SalesCoachSummary {
@@ -701,6 +763,277 @@ export class SalesAcceleratorService {
     };
   }
 
+  async getAlerts(tenantId: string) {
+    const dashboard = await this.getDashboard(tenantId);
+    const alerts = [
+      ...dashboard.stalledDeals.map((deal) => ({
+        id: `momentum-${deal.id}`,
+        severity: deal.momentum.status === 'urgent' ? 'critical' : 'high',
+        type: 'deal_momentum',
+        title: `${deal.name} needs follow-up`,
+        subject: deal.lead.company,
+        href: `/deals/${deal.id}`,
+        score: deal.momentum.score,
+        reason: deal.momentum.reasons[0] || 'Deal momentum is weak.',
+        recommendedAction: deal.momentum.recommendedAction,
+        dueLabel: deal.momentum.nextActivity?.dueDate
+          ? `Next activity due ${deal.momentum.nextActivity.dueDate.toISOString()}`
+          : 'No next activity scheduled',
+      })),
+      ...dashboard.forecastRiskDeals.map((deal) => ({
+        id: `forecast-${deal.id}`,
+        severity: deal.forecast.status === 'at_risk' ? 'critical' : 'medium',
+        type: 'forecast_risk',
+        title: `${deal.name} forecast is ${deal.forecast.label}`,
+        subject: deal.lead.company,
+        href: `/deals/${deal.id}`,
+        score: deal.forecast.confidence,
+        reason: deal.forecast.reasons[0] || 'Forecast confidence needs review.',
+        recommendedAction: deal.forecast.recommendedAction,
+        dueLabel: `${deal.forecast.probability}% probability`,
+      })),
+      ...dashboard.postCloseFeedbackDeals
+        .filter((deal) => ['risk', 'oversold'].includes(deal.postCloseFeedback.status))
+        .map((deal) => ({
+          id: `post-close-${deal.id}`,
+          severity: deal.postCloseFeedback.status === 'oversold' ? 'critical' : 'high',
+          type: 'post_close_learning',
+          title: `${deal.name} has post-close risk`,
+          subject: deal.postCloseFeedback.clientName,
+          href: `/deals/${deal.id}`,
+          score: deal.postCloseFeedback.score,
+          reason: deal.postCloseFeedback.signals[0] || 'Operations feedback needs sales review.',
+          recommendedAction: deal.postCloseFeedback.recommendedAction,
+          dueLabel: `${deal.postCloseFeedback.incidentCount} incidents, ${deal.postCloseFeedback.understaffedShiftCount} understaffed shifts`,
+        })),
+      ...dashboard.missingDiscoveryDeals.slice(0, 5).map((deal) => ({
+        id: `missing-discovery-deal-${deal.id}`,
+        severity: 'medium',
+        type: 'missing_discovery',
+        title: `${deal.name} is missing discovery`,
+        subject: deal.lead.company,
+        href: `/deals/${deal.id}`,
+        score: null,
+        reason: 'Forecast and proposal quality are limited without discovery.',
+        recommendedAction: 'Capture discovery details and run close-readiness scoring.',
+        dueLabel: 'Discovery needed',
+      })),
+      ...dashboard.missingDiscoveryLeads.slice(0, 5).map((lead) => ({
+        id: `missing-discovery-lead-${lead.id}`,
+        severity: 'low',
+        type: 'missing_discovery',
+        title: `${lead.company} is missing discovery`,
+        subject: lead.name,
+        href: `/leads/${lead.id}`,
+        score: null,
+        reason: 'Lead priority is weaker without discovery.',
+        recommendedAction: 'Capture discovery details and run lead scoring.',
+        dueLabel: 'Discovery needed',
+      })),
+    ];
+
+    const severityRank = { critical: 0, high: 1, medium: 2, low: 3 } as Record<string, number>;
+    return {
+      generatedAt: dashboard.generatedAt,
+      summary: {
+        total: alerts.length,
+        critical: alerts.filter((alert) => alert.severity === 'critical').length,
+        high: alerts.filter((alert) => alert.severity === 'high').length,
+        overdueActivities: dashboard.metrics.overdueDealActivities,
+        stalledDeals: dashboard.metrics.stalledDeals,
+      },
+      alerts: alerts.sort((left, right) => severityRank[left.severity] - severityRank[right.severity]),
+    };
+  }
+
+  async getForecastReport(tenantId: string) {
+    const dashboard = await this.getDashboard(tenantId);
+    const forecastDeals = [
+      ...dashboard.forecastRiskDeals,
+      ...dashboard.atRiskDeals,
+      ...dashboard.stalledDeals,
+    ];
+    const uniqueDeals = Array.from(
+      new Map(forecastDeals.map((deal) => [deal.id, deal])).values(),
+    );
+    const weightedPipeline = uniqueDeals.reduce(
+      (sum, deal) => sum + deal.forecast.probability,
+      0,
+    );
+
+    return {
+      generatedAt: dashboard.generatedAt,
+      summary: {
+        forecastRiskDeals: dashboard.metrics.forecastAtRiskDeals,
+        averageForecastConfidence: dashboard.metrics.averageForecastConfidence,
+        averageCloseReadiness: dashboard.metrics.averageCloseReadiness,
+        weightedPipelineScore: uniqueDeals.length
+          ? Math.round(weightedPipeline / uniqueDeals.length)
+          : null,
+      },
+      statusBuckets: ['commit', 'likely', 'watch', 'at_risk', 'unscored', 'closed_won', 'closed_lost'].map((status) => ({
+        status,
+        count: uniqueDeals.filter((deal) => deal.forecast.status === status).length,
+      })),
+      deals: uniqueDeals
+        .sort((left, right) => left.forecast.confidence - right.forecast.confidence)
+        .map((deal) => ({
+          id: deal.id,
+          name: deal.name,
+          company: deal.lead.company,
+          stage: deal.stage,
+          href: `/deals/${deal.id}`,
+          readiness: deal.assessment?.closeReadinessScore ?? null,
+          discoveryQuality: deal.assessment?.discoveryQualityScore ?? null,
+          forecast: deal.forecast,
+          momentum: deal.momentum,
+          recommendedAction: deal.forecast.recommendedAction,
+        })),
+    };
+  }
+
+  async getCoachingAnalytics(tenantId: string) {
+    const dashboard = await this.getDashboard(tenantId);
+    const [assessments, discoveries] = await Promise.all([
+      this.prisma.salesAssessment.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: 'desc' },
+        take: 500,
+        select: {
+          createdBy: true,
+          leadScore: true,
+          closeReadinessScore: true,
+          discoveryQualityScore: true,
+          objectionRisks: true,
+          createdAt: true,
+        },
+      }),
+      this.prisma.discoverySession.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: 'desc' },
+        take: 500,
+        select: {
+          createdBy: true,
+          objections: true,
+          painPoints: true,
+          riskConcerns: true,
+          createdAt: true,
+        },
+      }),
+    ]);
+    const userIds = Array.from(new Set([
+      ...assessments.map((item) => item.createdBy).filter(Boolean),
+      ...discoveries.map((item) => item.createdBy).filter(Boolean),
+    ])) as string[];
+    const users = await this.prisma.user.findMany({
+      where: { tenantId, id: { in: userIds } },
+      select: { id: true, name: true, email: true },
+    });
+    const userMap = new Map(users.map((user) => [user.id, user]));
+    const repIds = userIds.length ? userIds : ['unassigned'];
+
+    const reps = repIds.map((repId) => {
+      const repAssessments = assessments.filter((item) => (item.createdBy || 'unassigned') === repId);
+      const repDiscoveries = discoveries.filter((item) => (item.createdBy || 'unassigned') === repId);
+      const avgDiscovery = this.average(repAssessments.map((item) => item.discoveryQualityScore));
+      const avgReadiness = this.average(repAssessments.map((item) => item.closeReadinessScore));
+      const objectionCount =
+        repAssessments.reduce((sum, item) => sum + item.objectionRisks.length, 0) +
+        repDiscoveries.reduce((sum, item) => sum + item.objections.length, 0);
+      const riskCoverage = this.average(
+        repDiscoveries.map((item) => (item.riskConcerns.length > 0 ? 100 : 0)),
+      );
+      const painCoverage = this.average(
+        repDiscoveries.map((item) => (item.painPoints.length > 0 ? 100 : 0)),
+      );
+      const user = userMap.get(repId);
+      const coachingScore = this.clamp(
+        (avgDiscovery ?? 50) * 0.35 +
+        (avgReadiness ?? 50) * 0.35 +
+        (riskCoverage ?? 50) * 0.15 +
+        (painCoverage ?? 50) * 0.15 -
+        Math.min(15, objectionCount),
+      );
+
+      return {
+        repId,
+        name: user?.name || user?.email || 'Unassigned',
+        assessmentCount: repAssessments.length,
+        discoveryCount: repDiscoveries.length,
+        averageDiscoveryQuality: avgDiscovery,
+        averageCloseReadiness: avgReadiness,
+        riskCoverage,
+        painCoverage,
+        objectionSignals: objectionCount,
+        coachingScore,
+        recommendedAction:
+          avgDiscovery !== null && avgDiscovery < 60
+            ? 'Coach discovery completeness and qualification discipline.'
+            : objectionCount > 3
+              ? 'Practice objection handling using the current objection playbook.'
+              : 'Keep reinforcing risk-framed discovery and follow-up consistency.',
+      };
+    });
+
+    return {
+      generatedAt: dashboard.generatedAt,
+      salesCoachSummary: dashboard.salesCoachSummary,
+      metrics: {
+        averageLeadScore: dashboard.metrics.averageLeadScore,
+        averageCloseReadiness: dashboard.metrics.averageCloseReadiness,
+        trackedObjections: dashboard.metrics.trackedObjections,
+        missingDiscovery: dashboard.metrics.leadsMissingDiscovery + dashboard.metrics.dealsMissingDiscovery,
+      },
+      reps: reps.sort((left, right) => right.coachingScore - left.coachingScore),
+      objectionPatterns: dashboard.objectionPatterns,
+    };
+  }
+
+  async getLearningLoop(tenantId: string) {
+    const dashboard = await this.getDashboard(tenantId);
+    const learnings = dashboard.postCloseFeedbackDeals.map((deal) => ({
+      id: deal.id,
+      name: deal.name,
+      company: deal.postCloseFeedback.clientName,
+      href: `/deals/${deal.id}`,
+      status: deal.postCloseFeedback.status,
+      score: deal.postCloseFeedback.score,
+      signals: deal.postCloseFeedback.signals,
+      salesLessons: deal.postCloseFeedback.salesLessons,
+      recommendedAction: deal.postCloseFeedback.recommendedAction,
+      proposalWarning:
+        deal.postCloseFeedback.status === 'oversold'
+          ? 'Review scope assumptions before using this deal as a proposal pattern.'
+          : deal.postCloseFeedback.status === 'risk'
+            ? 'Use operations feedback to tighten discovery questions and pricing guardrails.'
+            : 'Capture reusable lessons for future discovery and proposal guidance.',
+    }));
+
+    return {
+      generatedAt: dashboard.generatedAt,
+      summary: {
+        reviewedDeals: dashboard.metrics.postCloseReviewedDeals,
+        riskDeals: dashboard.metrics.postCloseRiskDeals,
+        learningDeals: dashboard.metrics.postCloseLearningDeals,
+      },
+      recommendedPlaybookUpdates: [
+        ...dashboard.objectionPatterns.slice(0, 3).map((pattern) => ({
+          type: 'objection_playbook',
+          title: pattern.label,
+          recommendation: pattern.recommendedResponse,
+          support: pattern.outcomeSignal,
+        })),
+        ...learnings.slice(0, 3).map((learning) => ({
+          type: 'post_close_learning',
+          title: learning.name,
+          recommendation: learning.salesLessons[0] || learning.recommendedAction,
+          support: learning.signals[0] || learning.proposalWarning,
+        })),
+      ],
+      learnings,
+    };
+  }
+
   async getLeadWorkspace(tenantId: string, leadId: string) {
     const lead = await this.getLeadOrThrow(tenantId, leadId);
     const [discovery, assessment] = await Promise.all([
@@ -792,6 +1125,13 @@ export class SalesAcceleratorService {
       forecast,
       postCloseFeedback,
     });
+    const rateCardPricing = await this.rateCardPricingInsight(
+      tenantId,
+      deal,
+      discovery,
+      valueJustification,
+    );
+    const proposalEngagement = this.proposalEngagement(deal.proposals || []);
     const followUpSequence = this.followUpSequence({
       deal,
       discovery,
@@ -802,6 +1142,9 @@ export class SalesAcceleratorService {
       marketSignalProfile,
       valueJustification,
     });
+    const followUpSequenceProgress = this.followUpSequenceProgress(
+      deal.activities || [],
+    );
 
     return {
       deal,
@@ -812,9 +1155,12 @@ export class SalesAcceleratorService {
       forecast,
       postCloseFeedback,
       pricingGuardrails,
+      rateCardPricing,
+      proposalEngagement,
       marketSignalProfile,
       valueJustification,
       followUpSequence,
+      followUpSequenceProgress,
     };
   }
 
@@ -1171,6 +1517,12 @@ export class SalesAcceleratorService {
       marketSignalProfile,
       postCloseFeedback,
     });
+    const rateCardPricing = await this.rateCardPricingInsight(
+      tenantId,
+      deal,
+      discovery,
+      valueJustification,
+    );
     const followUpSequence = this.followUpSequence({
       deal,
       discovery,
@@ -1189,6 +1541,7 @@ export class SalesAcceleratorService {
         assessment: assessmentDraft,
       }),
       this.valueJustificationContext(valueJustification),
+      this.rateCardPricingContext(rateCardPricing),
     ].join('\n\n');
 
     let content: string;
@@ -1215,7 +1568,12 @@ export class SalesAcceleratorService {
         dealId,
         discoverySessionId: discovery.id,
       },
-      generatedOutput: { content, pricingGuardrails, valueJustification },
+      generatedOutput: {
+        content,
+        pricingGuardrails,
+        valueJustification,
+        rateCardPricing,
+      },
       fallbackUsed,
       status: fallbackUsed ? 'fallback' : 'success',
       errorMessage,
@@ -1236,11 +1594,24 @@ export class SalesAcceleratorService {
       },
       userId,
     );
+    const proposalEngagement = this.proposalEngagement([
+      {
+        id: proposal.id,
+        title: proposal.title,
+        status: proposal.status,
+        createdAt: proposal.createdAt,
+        updatedAt: proposal.updatedAt,
+        _count: { comments: 0 },
+      },
+      ...(deal.proposals || []),
+    ]);
 
     return {
       proposal,
       pricingGuardrails,
       valueJustification,
+      rateCardPricing,
+      proposalEngagement,
       followUpSequence,
       aiGenerationId: generation?.id ?? null,
       fallbackUsed,
@@ -1406,6 +1777,10 @@ export class SalesAcceleratorService {
 
     return {
       sequence,
+      sequenceProgress: this.followUpSequenceProgress([
+        ...(deal.activities || []),
+        ...createdActivities,
+      ]),
       createdActivities,
       skippedDuplicateCount,
     };
@@ -1677,7 +2052,14 @@ export class SalesAcceleratorService {
         proposals: {
           orderBy: { createdAt: 'desc' },
           take: 5,
-          select: { title: true, status: true, createdAt: true },
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+            _count: { select: { comments: true } },
+          },
         },
       },
     });
@@ -1696,7 +2078,14 @@ export class SalesAcceleratorService {
             proposals: {
               orderBy: { createdAt: 'desc' },
               take: 5,
-              select: { title: true, status: true, createdAt: true },
+              select: {
+                id: true,
+                title: true,
+                status: true,
+                createdAt: true,
+                updatedAt: true,
+                _count: { select: { comments: true } },
+              },
             },
           },
         },
@@ -1716,7 +2105,14 @@ export class SalesAcceleratorService {
         proposals: {
           orderBy: { createdAt: 'desc' },
           take: 5,
-          select: { title: true, status: true, createdAt: true },
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+            _count: { select: { comments: true } },
+          },
         },
         client: {
           select: { id: true, name: true, companyName: true },
@@ -3533,6 +3929,316 @@ export class SalesAcceleratorService {
     return 'Use discovery to strengthen market fit, urgency, and decision authority before proposal.';
   }
 
+  private async rateCardPricingInsight(
+    tenantId: string,
+    deal: {
+      clientId?: string | null;
+      client?: { id: string; name: string; companyName: string | null } | null;
+    },
+    discovery?: DiscoverySnapshot | null,
+    valueJustification?: ValueJustification | null,
+  ): Promise<RateCardPricingInsight> {
+    const now = new Date();
+    const baseWhere = {
+      tenantId,
+      status: 'active',
+      effectiveFrom: { lte: now },
+      OR: [{ effectiveTo: null }, { effectiveTo: { gte: now } }],
+    };
+    const clientId = deal.clientId || deal.client?.id || null;
+    let benchmarkSource: RateCardPricingInsight['benchmarkSource'] = 'none';
+    let rateCards = clientId
+      ? await this.prisma.rateCard.findMany({
+          where: { ...baseWhere, clientId },
+          orderBy: { effectiveFrom: 'desc' },
+          take: 12,
+          select: {
+            id: true,
+            roleName: true,
+            hourlyRate: true,
+            overtimeRate: true,
+            holidayRate: true,
+            siteId: true,
+            effectiveFrom: true,
+            effectiveTo: true,
+          },
+        })
+      : [];
+
+    if (rateCards.length > 0) {
+      benchmarkSource = 'client_rate_card';
+    } else {
+      rateCards = await this.prisma.rateCard.findMany({
+        where: baseWhere,
+        orderBy: { effectiveFrom: 'desc' },
+        take: 20,
+        select: {
+          id: true,
+          roleName: true,
+          hourlyRate: true,
+          overtimeRate: true,
+          holidayRate: true,
+          siteId: true,
+          effectiveFrom: true,
+          effectiveTo: true,
+        },
+      });
+      benchmarkSource = rateCards.length > 0 ? 'tenant_benchmark' : 'none';
+    }
+
+    const hourlyRates = rateCards.map((rateCard) => rateCard.hourlyRate);
+    const overtimeRates = rateCards
+      .map((rateCard) => rateCard.overtimeRate)
+      .filter((rate): rate is number => typeof rate === 'number');
+    const holidayRates = rateCards
+      .map((rateCard) => rateCard.holidayRate)
+      .filter((rate): rate is number => typeof rate === 'number');
+    const averageHourlyRate = this.averageCurrency(hourlyRates);
+    const minHourlyRate = hourlyRates.length
+      ? this.roundCurrency(Math.min(...hourlyRates))
+      : null;
+    const maxHourlyRate = hourlyRates.length
+      ? this.roundCurrency(Math.max(...hourlyRates))
+      : null;
+    const averageOvertimeRate = this.averageCurrency(overtimeRates);
+    const averageHolidayRate = this.averageCurrency(holidayRates);
+    const estimatedMonthlyGuardHours =
+      valueJustification?.estimatedMonthlyGuardHours ??
+      this.estimatedMonthlyGuardHours(
+        discovery?.guardCount,
+        discovery?.serviceHours,
+      );
+    const estimatedMonthlyRevenue =
+      estimatedMonthlyGuardHours !== null && averageHourlyRate !== null
+        ? this.roundCurrency(estimatedMonthlyGuardHours * averageHourlyRate)
+        : null;
+    const lowMonthlyRevenue =
+      estimatedMonthlyGuardHours !== null && minHourlyRate !== null
+        ? this.roundCurrency(estimatedMonthlyGuardHours * minHourlyRate)
+        : null;
+    const highMonthlyRevenue =
+      estimatedMonthlyGuardHours !== null && maxHourlyRate !== null
+        ? this.roundCurrency(estimatedMonthlyGuardHours * maxHourlyRate)
+        : null;
+    const assumptions: string[] = [];
+    const risks: string[] = [];
+
+    if (benchmarkSource === 'client_rate_card') {
+      assumptions.push('Client-specific active rate cards were used as the pricing benchmark.');
+    } else if (benchmarkSource === 'tenant_benchmark') {
+      assumptions.push('No client-specific active rate card was found, so tenant active rate cards were used as a benchmark.');
+      risks.push('Benchmark is not client-specific; confirm final pricing before proposal.');
+    } else {
+      risks.push('No active rate cards are available for pricing benchmark.');
+    }
+
+    if (estimatedMonthlyGuardHours !== null) {
+      assumptions.push(`Estimated monthly guard-hours: ${estimatedMonthlyGuardHours}.`);
+    } else {
+      risks.push('Guard count or service hours are missing, so monthly revenue cannot be estimated.');
+    }
+    if (averageHourlyRate !== null) {
+      assumptions.push(`Average hourly bill rate benchmark: $${averageHourlyRate}.`);
+    }
+    if (averageOvertimeRate !== null) {
+      assumptions.push(`Average overtime bill rate benchmark: $${averageOvertimeRate}.`);
+    }
+    if (averageHolidayRate !== null) {
+      assumptions.push(`Average holiday bill rate benchmark: $${averageHolidayRate}.`);
+    }
+
+    risks.push('True gross margin cannot be calculated until guard labor cost/pay-rate assumptions are captured.');
+
+    const status: RateCardPricingInsight['status'] =
+      benchmarkSource === 'none'
+        ? 'missing_rate_card'
+        : estimatedMonthlyGuardHours === null
+          ? 'needs_scope'
+          : benchmarkSource === 'tenant_benchmark'
+            ? 'review'
+            : 'ready';
+
+    return {
+      status,
+      benchmarkSource,
+      rateCardCount: rateCards.length,
+      averageHourlyRate,
+      minHourlyRate,
+      maxHourlyRate,
+      averageOvertimeRate,
+      averageHolidayRate,
+      estimatedMonthlyRevenue,
+      lowMonthlyRevenue,
+      highMonthlyRevenue,
+      marginDataAvailable: false,
+      assumptions: Array.from(new Set(assumptions)).slice(0, 6),
+      risks: Array.from(new Set(risks)).slice(0, 6),
+      recommendedAction: this.rateCardPricingAction(status),
+    };
+  }
+
+  private rateCardPricingAction(status: RateCardPricingInsight['status']) {
+    if (status === 'ready') {
+      return 'Use the client rate-card benchmark to frame estimated monthly revenue and confirm final scope before proposal.';
+    }
+    if (status === 'review') {
+      return 'Review tenant benchmark rates with a manager and create or select a client-specific rate card before final pricing.';
+    }
+    if (status === 'needs_scope') {
+      return 'Confirm guard count and coverage hours so monthly revenue can be estimated from rate-card benchmarks.';
+    }
+    return 'Create an active rate card before issuing final pricing or revenue guidance.';
+  }
+
+  private rateCardPricingContext(pricing: RateCardPricingInsight) {
+    return [
+      'Rate-card pricing intelligence:',
+      `Status: ${pricing.status}`,
+      `Benchmark source: ${pricing.benchmarkSource}`,
+      `Active rate cards used: ${pricing.rateCardCount}`,
+      `Average hourly rate: ${pricing.averageHourlyRate ?? 'unknown'}`,
+      `Estimated monthly revenue: ${pricing.estimatedMonthlyRevenue ?? 'unknown'}`,
+      `Revenue range: ${pricing.lowMonthlyRevenue ?? 'unknown'} - ${pricing.highMonthlyRevenue ?? 'unknown'}`,
+      `Margin data available: ${pricing.marginDataAvailable ? 'yes' : 'no'}`,
+      `Assumptions: ${pricing.assumptions.join('; ')}`,
+      `Risks: ${pricing.risks.join('; ')}`,
+    ].join('\n');
+  }
+
+  private proposalEngagement(
+    proposals: ProposalEngagementRecord[],
+  ): ProposalEngagement {
+    const sorted = [...proposals].sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    );
+    const latest = sorted[0] ?? null;
+    const totalCommentCount = sorted.reduce(
+      (sum, proposal) => sum + (proposal._count?.comments ?? 0),
+      0,
+    );
+
+    if (!latest) {
+      return {
+        status: 'not_started',
+        score: 20,
+        proposalCount: 0,
+        latestProposal: null,
+        totalCommentCount: 0,
+        daysSinceLatestProposal: null,
+        signals: ['No proposal has been created for this deal yet.'],
+        risks: ['Proposal engagement cannot be tracked until a proposal exists.'],
+        recommendedAction:
+          'Generate a discovery-based proposal once scope, value, pricing, and approval path are ready.',
+      };
+    }
+
+    const ageDays = this.daysBetween(latest.createdAt, new Date());
+    const latestStatus = latest.status.toLowerCase();
+    const signals: string[] = [];
+    const risks: string[] = [];
+    let score = 45;
+
+    if (/approved|accepted|won/.test(latestStatus)) {
+      score += 40;
+      signals.push('Latest proposal is approved or accepted.');
+    } else if (/reject|declin|lost/.test(latestStatus)) {
+      score -= 25;
+      risks.push('Latest proposal was rejected or declined.');
+    } else if (/sent|shared|pending|review/.test(latestStatus)) {
+      score += 18;
+      signals.push('Latest proposal has been sent or is under review.');
+    } else if (/draft/.test(latestStatus)) {
+      score += 5;
+      risks.push('Latest proposal is still in draft status.');
+    }
+
+    if (latest._count?.comments) {
+      score += Math.min(20, latest._count.comments * 6);
+      signals.push(`${latest._count.comments} comments captured on the latest proposal.`);
+    } else {
+      risks.push('No comments are captured on the latest proposal.');
+    }
+
+    if (ageDays > 14 && !/approved|accepted|reject|declin|lost/.test(latestStatus)) {
+      score -= 22;
+      risks.push('Latest proposal is older than 14 days without a final outcome.');
+    } else if (ageDays > 7 && !/approved|accepted|reject|declin|lost/.test(latestStatus)) {
+      score -= 12;
+      risks.push('Latest proposal is older than 7 days and may need follow-up.');
+    } else {
+      signals.push('Latest proposal is fresh enough for timely follow-up.');
+    }
+
+    if (sorted.length > 1) {
+      signals.push(`${sorted.length} proposals exist for this deal.`);
+    }
+
+    const engagementScore = this.clamp(score);
+    const status = this.proposalEngagementStatus(
+      latestStatus,
+      engagementScore,
+      ageDays,
+      latest._count?.comments ?? 0,
+    );
+
+    return {
+      status,
+      score: engagementScore,
+      proposalCount: sorted.length,
+      latestProposal: {
+        id: latest.id,
+        title: latest.title,
+        status: latest.status,
+        createdAt: latest.createdAt,
+        updatedAt: latest.updatedAt,
+        ageDays,
+        commentCount: latest._count?.comments ?? 0,
+      },
+      totalCommentCount,
+      daysSinceLatestProposal: ageDays,
+      signals: Array.from(new Set(signals)).slice(0, 5),
+      risks: Array.from(new Set(risks)).slice(0, 5),
+      recommendedAction: this.proposalEngagementAction(status),
+    };
+  }
+
+  private proposalEngagementStatus(
+    latestStatus: string,
+    score: number,
+    ageDays: number,
+    commentCount: number,
+  ): ProposalEngagement['status'] {
+    if (/approved|accepted|won/.test(latestStatus)) return 'approved';
+    if (/reject|declin|lost/.test(latestStatus)) return 'rejected';
+    if (/draft/.test(latestStatus)) return 'draft';
+    if (ageDays > 14) return 'stale';
+    if (commentCount > 0 || score >= 70) return 'engaged';
+    if (/sent|shared|pending|review/.test(latestStatus)) return 'sent';
+    return score < 45 ? 'stale' : 'sent';
+  }
+
+  private proposalEngagementAction(status: ProposalEngagement['status']) {
+    if (status === 'approved') {
+      return 'Move toward handoff, confirm start date, and preserve the winning proposal assumptions for future coaching.';
+    }
+    if (status === 'rejected') {
+      return 'Capture rejection reason, update objection patterns, and decide whether to re-scope or close lost.';
+    }
+    if (status === 'stale') {
+      return 'Run a rescue follow-up: confirm whether the proposal is still active, blocked, or should be closed.';
+    }
+    if (status === 'engaged') {
+      return 'Respond to proposal activity quickly and convert comments into a decision checkpoint.';
+    }
+    if (status === 'sent') {
+      return 'Follow up with the buyer, confirm who reviewed the proposal, and ask for the next decision step.';
+    }
+    if (status === 'draft') {
+      return 'Review pricing, value justification, and approval path before sending the proposal.';
+    }
+    return 'Generate a proposal when discovery, value, and pricing are ready.';
+  }
+
   private followUpSequence(context: {
     deal: {
       name: string;
@@ -3830,6 +4536,154 @@ export class SalesAcceleratorService {
         ),
       ],
     };
+  }
+
+  private followUpSequenceProgress(
+    activities?: ActivitySnapshot[],
+  ): FollowUpSequenceProgress {
+    const sequenceActivities = (activities || [])
+      .filter((activity) =>
+        activity.subject.toLowerCase().includes('[sales sequence]'),
+      )
+      .sort((a, b) => {
+        const aTime = (a.dueDate || a.createdAt).getTime();
+        const bTime = (b.dueDate || b.createdAt).getTime();
+        return aTime - bTime;
+      });
+
+    if (sequenceActivities.length === 0) {
+      return {
+        status: 'not_started',
+        totalSteps: 0,
+        completedSteps: 0,
+        pendingSteps: 0,
+        overdueSteps: 0,
+        completionRate: 0,
+        nextStep: null,
+        lastCompletedStep: null,
+        daysSinceLastSequenceActivity: null,
+        signals: ['No Sales Accelerator follow-up sequence has been created yet.'],
+        risks: ['Sequence progress cannot be tracked until sequence activities exist.'],
+        recommendedAction:
+          'Create a follow-up sequence when the deal is ready for structured follow-up.',
+      };
+    }
+
+    const now = new Date();
+    const completedActivities = sequenceActivities.filter((activity) =>
+      /(completed|done|closed)/i.test(activity.status),
+    );
+    const pendingActivities = sequenceActivities.filter(
+      (activity) => !/(completed|done|closed)/i.test(activity.status),
+    );
+    const overdueActivities = pendingActivities.filter(
+      (activity) => activity.dueDate && activity.dueDate.getTime() < now.getTime(),
+    );
+    const nextStep =
+      pendingActivities.find(
+        (activity) => !activity.dueDate || activity.dueDate.getTime() >= now.getTime(),
+      ) ||
+      overdueActivities[0] ||
+      null;
+    const lastCompletedStep =
+      [...completedActivities].sort(
+        (a, b) =>
+          (b.dueDate || b.createdAt).getTime() -
+          (a.dueDate || a.createdAt).getTime(),
+      )[0] || null;
+    const latestSequenceActivity =
+      [...sequenceActivities].sort(
+        (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+      )[0] || null;
+    const daysSinceLastSequenceActivity = latestSequenceActivity
+      ? this.daysBetween(latestSequenceActivity.createdAt, now)
+      : null;
+    const completionRate = Math.round(
+      (completedActivities.length / sequenceActivities.length) * 100,
+    );
+    const risks: string[] = [];
+    const signals: string[] = [];
+
+    if (completedActivities.length > 0) {
+      signals.push(`${completedActivities.length} sequence steps are completed.`);
+    }
+    if (pendingActivities.length > 0) {
+      signals.push(`${pendingActivities.length} sequence steps are still pending.`);
+    }
+    if (overdueActivities.length > 0) {
+      risks.push(`${overdueActivities.length} sequence steps are overdue.`);
+    }
+    if (completionRate === 100) {
+      signals.push('All sequence steps are completed.');
+    }
+    if (
+      daysSinceLastSequenceActivity !== null &&
+      daysSinceLastSequenceActivity > 10 &&
+      pendingActivities.length > 0
+    ) {
+      risks.push('Sequence has pending work and no new sequence activity in over 10 days.');
+    }
+
+    const status = this.followUpSequenceProgressStatus(
+      completionRate,
+      overdueActivities.length,
+      pendingActivities.length,
+      daysSinceLastSequenceActivity,
+    );
+
+    return {
+      status,
+      totalSteps: sequenceActivities.length,
+      completedSteps: completedActivities.length,
+      pendingSteps: pendingActivities.length,
+      overdueSteps: overdueActivities.length,
+      completionRate,
+      nextStep,
+      lastCompletedStep,
+      daysSinceLastSequenceActivity,
+      signals: signals.length ? signals : ['Sequence activity is being tracked.'],
+      risks: risks.length ? risks : ['No major sequence execution risk detected.'],
+      recommendedAction: this.followUpSequenceProgressAction(status, nextStep),
+    };
+  }
+
+  private followUpSequenceProgressStatus(
+    completionRate: number,
+    overdueCount: number,
+    pendingCount: number,
+    daysSinceLastSequenceActivity: number | null,
+  ): FollowUpSequenceProgress['status'] {
+    if (completionRate === 100) return 'completed';
+    if (overdueCount > 0) return 'overdue';
+    if (
+      pendingCount > 0 &&
+      daysSinceLastSequenceActivity !== null &&
+      daysSinceLastSequenceActivity > 10
+    ) {
+      return 'stalled';
+    }
+    return 'active';
+  }
+
+  private followUpSequenceProgressAction(
+    status: FollowUpSequenceProgress['status'],
+    nextStep: ActivitySnapshot | null,
+  ) {
+    if (status === 'completed') {
+      return 'Review sequence outcome and decide whether to close, re-scope, or create a new decision checkpoint.';
+    }
+    if (status === 'overdue') {
+      return 'Clear overdue sequence tasks before creating more follow-up activity.';
+    }
+    if (status === 'stalled') {
+      return 'Restart the sequence with a direct buyer checkpoint or mark the deal inactive.';
+    }
+    if (status === 'active') {
+      return nextStep
+        ? `Work the next sequence step: ${nextStep.subject.replace('[Sales Sequence] ', '')}.`
+        : 'Keep the sequence moving and confirm the next buyer action.';
+    }
+    return 'Create a follow-up sequence to begin tracking progress.';
   }
 
   private valueJustification(context: {
@@ -4633,6 +5487,17 @@ Confirm final coverage hours, decision timeline, and approval stakeholders, then
     return this.clamp(
       numeric.reduce((sum, value) => sum + value, 0) / numeric.length,
     );
+  }
+
+  private averageCurrency(values: number[]) {
+    if (values.length === 0) return null;
+    return this.roundCurrency(
+      values.reduce((sum, value) => sum + value, 0) / values.length,
+    );
+  }
+
+  private roundCurrency(value: number) {
+    return Math.round(value * 100) / 100;
   }
 
   private tomorrow() {

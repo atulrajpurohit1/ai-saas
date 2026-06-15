@@ -10,6 +10,7 @@ exports.BrandingModule = void 0;
 const common_1 = require("@nestjs/common");
 const audit_module_1 = require("../audit/audit.module");
 const prisma_module_1 = require("../prisma/prisma.module");
+const branding_controller_1 = require("./branding.controller");
 const branding_service_1 = require("./branding.service");
 let BrandingModule = class BrandingModule {
 };
@@ -18,6 +19,7 @@ exports.BrandingModule = BrandingModule = __decorate([
     (0, common_1.Global)(),
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule],
+        controllers: [branding_controller_1.BrandingController],
         providers: [branding_service_1.BrandingService],
         exports: [branding_service_1.BrandingService],
     })

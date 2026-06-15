@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
 import api from '@/lib/api';
 import { branchParams, BranchSummary } from '@/lib/branches';
+import { FieldAccessMap, getEffectiveFieldPermissions } from '@/lib/field-permissions';
 import { Plus, Search, ShieldCheck, Edit2, Phone, AlertTriangle, RefreshCw, Mail, KeyRound } from 'lucide-react';
 
 interface Guard {
@@ -12,6 +13,10 @@ interface Guard {
   name: string;
   phone?: string;
   email?: string;
+  salary?: number | null;
+  bankDetails?: string | null;
+  documents?: string | null;
+  personalNotes?: string | null;
   branchId?: string | null;
   branch?: BranchSummary | null;
   createdAt: string;
@@ -37,7 +42,18 @@ export default function GuardsPage() {
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '', password: '', branch_id: '' });
+  const [fieldAccess, setFieldAccess] = useState<FieldAccessMap>({});
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    password: '',
+    branch_id: '',
+    salary: '',
+    bank_details: '',
+    documents: '',
+    personal_notes: '',
+  });
   
   const fetchGuards = async () => {
     setError(null);
@@ -66,6 +82,17 @@ export default function GuardsPage() {
     fetchGuards();
   }, [selectedBranchId]);
 
+  useEffect(() => {
+    getEffectiveFieldPermissions('guard')
+      .then(setFieldAccess)
+      .catch((err) => console.error('Failed to load guard field permissions', err));
+  }, []);
+
+  const canViewField = (field: string) => fieldAccess[field]?.canView !== false;
+  const canEditField = (field: string) => fieldAccess[field]?.canEdit !== false;
+  const showSalary = canViewField('salary');
+  const tableColumnCount = showSalary ? 7 : 6;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -75,6 +102,18 @@ export default function GuardsPage() {
         email: formData.email.trim() || undefined,
         ...(formData.password ? { password: formData.password } : {}),
         branch_id: formData.branch_id || null,
+        ...(canEditField('salary') && formData.salary.trim() !== ''
+          ? { salary: Number(formData.salary) }
+          : {}),
+        ...(canEditField('bank_details')
+          ? { bank_details: formData.bank_details.trim() || null }
+          : {}),
+        ...(canEditField('documents')
+          ? { documents: formData.documents.trim() || null }
+          : {}),
+        ...(canEditField('personal_notes')
+          ? { personal_notes: formData.personal_notes.trim() || null }
+          : {}),
       };
 
       if (isEditing) {
@@ -98,13 +137,27 @@ export default function GuardsPage() {
       email: guard.email || '',
       password: '',
       branch_id: guard.branchId || '',
+      salary: guard.salary === null || guard.salary === undefined ? '' : String(guard.salary),
+      bank_details: guard.bankDetails || '',
+      documents: guard.documents || '',
+      personal_notes: guard.personalNotes || '',
     });
     setIsEditing(guard.id);
     setShowModal(true);
   };
 
   const resetForm = () => {
-    setFormData({ name: '', phone: '', email: '', password: '', branch_id: selectedBranchId });
+    setFormData({
+      name: '',
+      phone: '',
+      email: '',
+      password: '',
+      branch_id: selectedBranchId,
+      salary: '',
+      bank_details: '',
+      documents: '',
+      personal_notes: '',
+    });
     setIsEditing(null);
   };
 
@@ -158,6 +211,7 @@ export default function GuardsPage() {
               <tr className="text-muted-foreground text-sm uppercase tracking-wider">
                 <th className="px-6 py-4 font-semibold">Guard Detail</th>
                 <th className="px-6 py-4 font-semibold">Contact Info</th>
+                {showSalary && <th className="px-6 py-4 font-semibold">Salary</th>}
                 <th className="px-6 py-4 font-semibold">Branch</th>
                 <th className="px-6 py-4 font-semibold">Availability</th>
                 <th className="px-6 py-4 font-semibold">Date Added</th>
@@ -166,9 +220,9 @@ export default function GuardsPage() {
             </thead>
             <tbody className="divide-y divide-white/5">
               {loading ? (
-                <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">Loading guards...</td></tr>
+                <tr><td colSpan={tableColumnCount} className="px-6 py-10 text-center text-muted-foreground">Loading guards...</td></tr>
               ) : error ? (
-                <tr><td colSpan={6} className="px-6 py-10 text-center">
+                <tr><td colSpan={tableColumnCount} className="px-6 py-10 text-center">
                   <div className="flex flex-col items-center gap-3">
                     <AlertTriangle size={32} className="text-amber-400" />
                     <p className="text-amber-400 font-medium">{error}</p>
@@ -182,9 +236,9 @@ export default function GuardsPage() {
                   </div>
                 </td></tr>
               ) : guards.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">No guards found. Administrators can add new personnel above.</td></tr>
+                <tr><td colSpan={tableColumnCount} className="px-6 py-10 text-center text-muted-foreground">No guards found. Administrators can add new personnel above.</td></tr>
               ) : guards.filter(guard => !searchQuery || guard.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">No guards match your search.</td></tr>
+                <tr><td colSpan={tableColumnCount} className="px-6 py-10 text-center text-muted-foreground">No guards match your search.</td></tr>
               ) : guards.filter(guard => !searchQuery || guard.name.toLowerCase().includes(searchQuery.toLowerCase())).map((guard) => (
                 <tr key={guard.id} className="hover:bg-white/5 transition-colors group">
                   <td className="px-6 py-4" data-label="Guard">
@@ -207,6 +261,19 @@ export default function GuardsPage() {
                       </div>
                     )}
                   </td>
+                  {showSalary && (
+                    <td className="px-6 py-4 align-middle" data-label="Salary">
+                      <span className="text-sm font-semibold text-slate-300">
+                        {guard.salary === null || guard.salary === undefined
+                          ? 'Not set'
+                          : new Intl.NumberFormat(undefined, {
+                              style: 'currency',
+                              currency: 'USD',
+                              maximumFractionDigits: 0,
+                            }).format(guard.salary)}
+                      </span>
+                    </td>
+                  )}
                   <td className="px-6 py-4 align-middle" data-label="Branch">
                     <BranchBadge branch={guard.branch} />
                   </td>
@@ -308,6 +375,68 @@ export default function GuardsPage() {
                 onChange={(branchId) => setFormData({ ...formData, branch_id: branchId })}
                 includeAll={false}
               />
+
+              {(canViewField('salary') ||
+                canViewField('bank_details') ||
+                canViewField('documents') ||
+                canViewField('personal_notes')) && (
+                <div className="grid gap-4 border-t border-white/10 pt-4 sm:grid-cols-2">
+                  {canViewField('salary') && (
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-muted-foreground">Salary</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        disabled={!canEditField('salary')}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60"
+                        placeholder="e.g. 52000"
+                        value={formData.salary}
+                        onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
+                      />
+                    </div>
+                  )}
+
+                  {canViewField('bank_details') && (
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-muted-foreground">Bank Details</label>
+                      <textarea
+                        disabled={!canEditField('bank_details')}
+                        className="min-h-24 w-full resize-y bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60"
+                        placeholder="Payroll bank details"
+                        value={formData.bank_details}
+                        onChange={(e) => setFormData({ ...formData, bank_details: e.target.value })}
+                      />
+                    </div>
+                  )}
+
+                  {canViewField('documents') && (
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-muted-foreground">Documents</label>
+                      <textarea
+                        disabled={!canEditField('documents')}
+                        className="min-h-24 w-full resize-y bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60"
+                        placeholder="Private document notes or links"
+                        value={formData.documents}
+                        onChange={(e) => setFormData({ ...formData, documents: e.target.value })}
+                      />
+                    </div>
+                  )}
+
+                  {canViewField('personal_notes') && (
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-muted-foreground">Personal Notes</label>
+                      <textarea
+                        disabled={!canEditField('personal_notes')}
+                        className="min-h-24 w-full resize-y bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60"
+                        placeholder="Internal personal notes"
+                        value={formData.personal_notes}
+                        onChange={(e) => setFormData({ ...formData, personal_notes: e.target.value })}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="mt-8 flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:gap-4">
                 <button 

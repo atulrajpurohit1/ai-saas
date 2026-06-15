@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
 import api from '@/lib/api';
 import { branchParams, BranchSummary } from '@/lib/branches';
+import { FieldAccessMap, getEffectiveFieldPermissions } from '@/lib/field-permissions';
 import { Plus, Search, User, Mail, Phone, Building, Edit2, Folder, FileText, Download, Trash2, Loader2, X } from 'lucide-react';
 
 interface Client {
@@ -13,6 +14,8 @@ interface Client {
   companyName: string;
   email: string;
   phone: string;
+  billingNotes?: string | null;
+  internalNotes?: string | null;
   branchId?: string | null;
   branch?: BranchSummary | null;
   createdAt: string;
@@ -42,12 +45,15 @@ export default function ClientsPage() {
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [fieldAccess, setFieldAccess] = useState<FieldAccessMap>({});
   const [formData, setFormData] = useState({
     name: '',
     companyName: '',
     email: '',
     phone: '',
-    branch_id: ''
+    branch_id: '',
+    billing_notes: '',
+    internal_notes: '',
   });
 
   // Document management state
@@ -88,13 +94,36 @@ export default function ClientsPage() {
     fetchClients();
   }, [selectedBranchId]);
 
+  useEffect(() => {
+    getEffectiveFieldPermissions('client')
+      .then(setFieldAccess)
+      .catch((err) => console.error('Failed to load client field permissions', err));
+  }, []);
+
+  const canViewField = (field: string) => fieldAccess[field]?.canView !== false;
+  const canEditField = (field: string) => fieldAccess[field]?.canEdit !== false;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const payload = {
+        name: formData.name,
+        companyName: formData.companyName,
+        email: formData.email,
+        phone: formData.phone,
+        branch_id: formData.branch_id,
+        ...(canEditField('billing_notes')
+          ? { billing_notes: formData.billing_notes.trim() || null }
+          : {}),
+        ...(canEditField('internal_notes')
+          ? { internal_notes: formData.internal_notes.trim() || null }
+          : {}),
+      };
+
       if (isEditing) {
-        await api.put(`clients/${isEditing}`, formData);
+        await api.put(`clients/${isEditing}`, payload);
       } else {
-        await api.post('clients', formData);
+        await api.post('clients', payload);
       }
       setShowModal(false);
       resetForm();
@@ -156,14 +185,24 @@ export default function ClientsPage() {
       companyName: client.companyName || '',
       email: client.email,
       phone: client.phone || '',
-      branch_id: client.branchId || ''
+      branch_id: client.branchId || '',
+      billing_notes: client.billingNotes || '',
+      internal_notes: client.internalNotes || '',
     });
     setIsEditing(client.id);
     setShowModal(true);
   };
 
   const resetForm = () => {
-    setFormData({ name: '', companyName: '', email: '', phone: '', branch_id: selectedBranchId });
+    setFormData({
+      name: '',
+      companyName: '',
+      email: '',
+      phone: '',
+      branch_id: selectedBranchId,
+      billing_notes: '',
+      internal_notes: '',
+    });
     setIsEditing(null);
   };
 
@@ -456,6 +495,36 @@ export default function ClientsPage() {
                 onChange={(branchId) => setFormData({ ...formData, branch_id: branchId })}
                 includeAll={false}
               />
+
+              {(canViewField('billing_notes') || canViewField('internal_notes')) && (
+                <div className="grid gap-4 border-t border-white/10 pt-4 sm:grid-cols-2">
+                  {canViewField('billing_notes') && (
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-muted-foreground">Billing Notes</label>
+                      <textarea
+                        disabled={!canEditField('billing_notes')}
+                        className="min-h-24 w-full resize-y bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white disabled:cursor-not-allowed disabled:opacity-60"
+                        placeholder="Private billing notes"
+                        value={formData.billing_notes}
+                        onChange={(e) => setFormData({ ...formData, billing_notes: e.target.value })}
+                      />
+                    </div>
+                  )}
+
+                  {canViewField('internal_notes') && (
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-muted-foreground">Internal Notes</label>
+                      <textarea
+                        disabled={!canEditField('internal_notes')}
+                        className="min-h-24 w-full resize-y bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white disabled:cursor-not-allowed disabled:opacity-60"
+                        placeholder="Internal relationship notes"
+                        value={formData.internal_notes}
+                        onChange={(e) => setFormData({ ...formData, internal_notes: e.target.value })}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="mt-8 flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:gap-4">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-3 rounded-2xl transition-all border border-white/10">

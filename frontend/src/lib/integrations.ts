@@ -1,5 +1,29 @@
 import api from '@/lib/api';
 
+export interface PublicApiPermissionDefinition {
+  key: string;
+  name: string;
+  description: string;
+  group: string;
+}
+
+export interface ApiKeyRecord {
+  id: string;
+  tenant_id: string;
+  name: string;
+  key_prefix: string;
+  masked_key: string;
+  permissions: string[];
+  status: string;
+  expires_at?: string | null;
+  rate_limit_per_minute: number;
+  last_used_at?: string | null;
+  created_at: string;
+  updated_at?: string;
+  requests_last_24h: number;
+  api_key?: string;
+}
+
 export interface WebhookRecord {
   id: string;
   event_type: string;
@@ -57,6 +81,47 @@ export interface IntegrationOverview {
 
 export async function getIntegrationOverview() {
   const res = await api.get<IntegrationOverview>('integrations');
+  return res.data;
+}
+
+export async function getApiKeyPermissions() {
+  const res = await api.get<PublicApiPermissionDefinition[]>('api-keys/permissions');
+  return res.data;
+}
+
+export async function getApiKeys() {
+  const res = await api.get<ApiKeyRecord[]>('api-keys');
+  return res.data;
+}
+
+export async function createApiKey(data: {
+  name: string;
+  permissions: string[];
+  expires_at?: string;
+  rate_limit_per_minute?: number;
+}) {
+  const res = await api.post<ApiKeyRecord>('api-keys', data);
+  return res.data;
+}
+
+export async function updateApiKey(id: string, data: {
+  name?: string;
+  permissions?: string[];
+  expires_at?: string;
+  status?: string;
+  rate_limit_per_minute?: number;
+}) {
+  const res = await api.patch<ApiKeyRecord>(`api-keys/${id}`, data);
+  return res.data;
+}
+
+export async function revokeApiKey(id: string) {
+  const res = await api.post<ApiKeyRecord>(`api-keys/${id}/revoke`);
+  return res.data;
+}
+
+export async function regenerateApiKey(id: string) {
+  const res = await api.post<ApiKeyRecord>(`api-keys/${id}/regenerate`);
   return res.data;
 }
 

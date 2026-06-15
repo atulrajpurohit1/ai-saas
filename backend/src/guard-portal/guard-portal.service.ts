@@ -2,6 +2,9 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { IncidentsService } from '../incidents/incidents.service';
+import { PatrolsService } from '../patrols/patrols.service';
+import { SyncOfflineActionsDto } from './dto/sync-offline-actions.dto';
 
 type AttendanceStatus = 'not_started' | 'checked_in' | 'completed';
 
@@ -15,6 +18,8 @@ export class GuardPortalService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
+    private incidentsService: IncidentsService,
+    private patrolsService: PatrolsService,
   ) {}
 
   private summarizeAttendance(events: AttendanceEventSummary[]): {
@@ -402,5 +407,119 @@ export class GuardPortalService {
 
       throw error;
     }
+  }
+
+  async getSyncStatus(tenantId: string, guardId: string) {
+    return this.prisma.guardSyncQueue.findMany({
+      where: { tenantId, guardId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+  }
+
+  async processSyncQueue(tenantId: string, guardId: string, dto: SyncOfflineActionsDto) {
+    const results: Awaited<ReturnType<typeof this.prisma.guardSyncQueue.create>>[] = [];
+    
+    // Sort actions by original createdAt
+    const sortedActions = [...dto.actions].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+
+    for (const action of sortedActions) {
+      // Check if action already exists
+      const existing = await this.prisma.guardSyncQueue.findFirst({
+        where: { tenantId, guardId, id: action.id },
+      });
+
+      if (existing) {
+        results.push(existing);
+        continue;
+      }
+
+      // Initial save
+      const record = await this.prisma.guardSyncQueue.create({
+        data: {
+          id: action.id,
+          tenantId,
+          guardId,
+          actionType: action.actionType,
+          payload: action.payload,
+          status: 'pending',
+          createdAt: new Date(action.createdAt),
+        },
+      });
+
+      try {
+        if (action.actionType === 'check_in') {
+          try {
+            await this.checkIn(tenantId, guardId, action.payload.shiftId);
+          } catch (error) {
+            if (error.message === 'Guard has already checked in for this shift') {
+              // Ignore already checked in
+            } else {
+              throw error;
+            }
+          }
+        } else if (action.actionType === 'check_out') {
+          try {
+            await this.checkOut(tenantId, guardId, action.payload.shiftId);
+          } catch (error) {
+            if (error.message === 'Guard has already checked out for this shift') {
+              // Ignore already checked out
+            } else {
+              throw error;
+            }
+          }
+        } else if (action.actionType === 'incident_create') {
+          await this.incidentsService.createForGuard(
+            tenantId,
+            guardId,
+            action.payload.shiftId,
+            action.payload.dto,
+          );
+        } else if (action.actionType === 'patrol_checkpoint_scan') {
+          await this.patrolsService.scanCheckpoint(
+            tenantId,
+            guardId,
+            action.payload.runId,
+            action.payload.checkpointId,
+            action.payload.dto,
+          );
+        } else if (action.actionType === 'patrol_run_complete') {
+          await this.patrolsService.completePatrolRun(
+            tenantId,
+            guardId,
+            action.payload.runId,
+          );
+        } else {
+          throw new Error(`Unknown action type: ${action.actionType}`);
+        }
+
+        // Mark as synced
+        const synced = await this.prisma.guardSyncQueue.update({
+          where: { id: action.id },
+          data: { status: 'synced', syncedAt: new Date() },
+        });
+        results.push(synced);
+
+      } catch (error) {
+        // Mark as failed
+        const failed = await this.prisma.guardSyncQueue.update({
+          where: { id: action.id },
+          data: { status: 'failed', errorMessage: error instanceof Error ? error.message : 'Unknown error' },
+        });
+        results.push(failed);
+      }
+    }
+
+    await this.auditService.log({
+      tenantId,
+      userId: guardId,
+      action: 'GUARD_OFFLINE_SYNC_COMPLETED',
+      entityType: 'GuardSyncQueue',
+      details: `Processed ${dto.actions.length} offline actions for guard`,
+    });
+
+    return results;
   }
 }

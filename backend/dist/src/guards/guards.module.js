@@ -12,13 +12,14 @@ const guards_service_1 = require("./guards.service");
 const guards_controller_1 = require("./guards.controller");
 const prisma_module_1 = require("../prisma/prisma.module");
 const audit_module_1 = require("../audit/audit.module");
+const field_permissions_module_1 = require("../field-permissions/field-permissions.module");
 let GuardsModule = class GuardsModule {
 };
 exports.GuardsModule = GuardsModule;
 exports.GuardsModule = GuardsModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule],
-        controllers: [guards_controller_1.GuardsController],
+        imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule, field_permissions_module_1.FieldPermissionsModule],
+        controllers: [guards_controller_1.GuardsController, guards_controller_1.GuardsAliasController],
         providers: [guards_service_1.GuardsService],
     })
 ], GuardsModule);

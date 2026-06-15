@@ -8,11 +8,15 @@ export declare class AssignmentsController {
             id: string;
             name: string;
             createdAt: Date;
+            documents: string | null;
             email: string | null;
             tenantId: string;
             branchId: string | null;
             phone: string | null;
             passwordHash: string | null;
+            salary: number | null;
+            bankDetails: string | null;
+            personalNotes: string | null;
         };
         shift: {
             site: {

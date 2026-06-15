@@ -48,13 +48,16 @@ import { SessionsModule } from './sessions/sessions.module';
 import { SsoModule } from './sso/sso.module';
 import { BrandingModule } from './branding/branding.module';
 import { SalesAcceleratorModule } from './sales-accelerator/sales-accelerator.module';
+import { SalesImportsModule } from './sales-imports/sales-imports.module';
 import { PatrolsModule } from './patrols/patrols.module';
+import { FieldPermissionsModule } from './field-permissions/field-permissions.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     RolesModule,
+    FieldPermissionsModule,
     ApiKeysModule,
     WebhooksModule,
     PublicApiModule,
@@ -64,6 +67,7 @@ import { PatrolsModule } from './patrols/patrols.module';
     SsoModule,
     BrandingModule,
     SalesAcceleratorModule,
+    SalesImportsModule,
     UsersModule,
     AuthModule,
     ClientAuthModule,

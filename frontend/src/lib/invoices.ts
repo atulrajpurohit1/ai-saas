@@ -65,6 +65,7 @@ export interface Invoice {
   issuedAt: string | null;
   paidAt: string | null;
   dueDate: string | null;
+  internalAdjustments?: string | null;
   rateCardId: string | null;
   rateSource: 'site_rate_card' | 'client_rate_card' | 'manual';
   rateCard: {

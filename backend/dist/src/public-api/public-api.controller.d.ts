@@ -23,6 +23,8 @@ export declare class PublicApiController {
         branchId: string | null;
         companyName: string | null;
         phone: string | null;
+        billingNotes: string | null;
+        internalNotes: string | null;
     }>;
     listSites(request: PublicApiRequest, query: Record<string, string | undefined>): Promise<{
         id: string;
@@ -206,9 +208,9 @@ export declare class PublicApiController {
             hourlyRate: number;
             rateCardId: string | null;
             invoiceId: string;
+            timesheetId: string | null;
             workedHours: number;
             amount: number;
-            timesheetId: string | null;
         }[];
     } & {
         id: string;
@@ -218,6 +220,7 @@ export declare class PublicApiController {
         clientId: string;
         status: string;
         dueDate: Date | null;
+        internalAdjustments: string | null;
         siteId: string;
         invoiceNumber: string;
         billingStartDate: Date;

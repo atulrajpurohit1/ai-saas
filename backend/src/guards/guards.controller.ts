@@ -30,6 +30,11 @@ export class GuardsController {
     return this.guardsService.findAll(user, branchId);
   }
 
+  @Get(':id')
+  findOne(@GetUser() user: ActiveUser, @Param('id') id: string) {
+    return this.guardsService.findOne(user, id);
+  }
+
   @Put(':id')
   @RequirePermission('guards.manage')
   update(
@@ -56,5 +61,32 @@ export class GuardsController {
     @Body() dto: UpdateAvailabilityDto,
   ) {
     return this.guardsService.updateAvailability(user, id, dto);
+  }
+}
+
+@Controller('guards')
+@UseGuards(JwtAuthGuard, PermissionGuard)
+@RequirePermission('guards.view')
+export class GuardsAliasController {
+  constructor(private readonly guardsService: GuardsService) {}
+
+  @Get()
+  findAll(@GetUser() user: ActiveUser, @Query('branch_id') branchId?: string) {
+    return this.guardsService.findAll(user, branchId);
+  }
+
+  @Get(':id')
+  findOne(@GetUser() user: ActiveUser, @Param('id') id: string) {
+    return this.guardsService.findOne(user, id);
+  }
+
+  @Put(':id')
+  @RequirePermission('guards.manage')
+  update(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Body() updateGuardDto: UpdateGuardDto,
+  ) {
+    return this.guardsService.update(user, id, updateGuardDto);
   }
 }

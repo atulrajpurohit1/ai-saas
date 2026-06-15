@@ -61,6 +61,10 @@ let ClientInvoicesController = class ClientInvoicesController {
         const { tenantId, clientId, userId } = this.getClientContext(user);
         return this.invoicesService.disputeInvoice(tenantId, clientId, userId, id, dto);
     }
+    async getDispute(user, id) {
+        const { tenantId, clientId } = this.getClientContext(user);
+        return this.invoicesService.getDisputeForClient(tenantId, clientId, id);
+    }
 };
 exports.ClientInvoicesController = ClientInvoicesController;
 __decorate([
@@ -104,6 +108,14 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, dispute_invoice_dto_1.DisputeInvoiceDto]),
     __metadata("design:returntype", void 0)
 ], ClientInvoicesController.prototype, "dispute", null);
+__decorate([
+    (0, common_1.Get)(':id/dispute'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], ClientInvoicesController.prototype, "getDispute", null);
 exports.ClientInvoicesController = ClientInvoicesController = __decorate([
     (0, common_1.Controller)('client/invoices'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),

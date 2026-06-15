@@ -55,6 +55,8 @@ export declare class DealsController {
             branchId: string | null;
             companyName: string | null;
             phone: string | null;
+            billingNotes: string | null;
+            internalNotes: string | null;
         } | null;
         lead: {
             id: string;
@@ -87,6 +89,8 @@ export declare class DealsController {
             branchId: string | null;
             companyName: string | null;
             phone: string | null;
+            billingNotes: string | null;
+            internalNotes: string | null;
         } | null;
         lead: {
             id: string;

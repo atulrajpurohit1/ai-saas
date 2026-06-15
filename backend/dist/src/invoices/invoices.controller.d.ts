@@ -30,6 +30,7 @@ export declare class InvoicesController {
         issuedAt: any;
         paidAt: any;
         dueDate: any;
+        internalAdjustments: any;
         rateCardId: any;
         rateSource: any;
         rateCard: {
@@ -84,6 +85,7 @@ export declare class InvoicesController {
         issuedAt: any;
         paidAt: any;
         dueDate: any;
+        internalAdjustments: any;
         rateCardId: any;
         rateSource: any;
         rateCard: {
@@ -139,6 +141,7 @@ export declare class InvoicesController {
         issuedAt: any;
         paidAt: any;
         dueDate: any;
+        internalAdjustments: any;
         rateCardId: any;
         rateSource: any;
         rateCard: {
@@ -193,6 +196,7 @@ export declare class InvoicesController {
         issuedAt: any;
         paidAt: any;
         dueDate: any;
+        internalAdjustments: any;
         rateCardId: any;
         rateSource: any;
         rateCard: {
@@ -247,6 +251,7 @@ export declare class InvoicesController {
         issuedAt: any;
         paidAt: any;
         dueDate: any;
+        internalAdjustments: any;
         rateCardId: any;
         rateSource: any;
         rateCard: {
@@ -301,6 +306,7 @@ export declare class InvoicesController {
         issuedAt: any;
         paidAt: any;
         dueDate: any;
+        internalAdjustments: any;
         rateCardId: any;
         rateSource: any;
         rateCard: {

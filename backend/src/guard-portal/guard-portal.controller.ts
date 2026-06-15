@@ -1,10 +1,11 @@
-import { Controller, Get, Param, Post, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards, ForbiddenException } from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { GuardPortalService } from './guard-portal.service';
+import { SyncOfflineActionsDto } from './dto/sync-offline-actions.dto';
 
 @Controller('guard')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -51,5 +52,17 @@ export class GuardPortalController {
   checkOut(@GetUser() user: ActiveUser, @Param('id') id: string) {
     const { tenantId, guardId } = this.getGuardContext(user);
     return this.guardPortalService.checkOut(tenantId, guardId, id);
+  }
+
+  @Post('sync')
+  syncOfflineActions(@GetUser() user: ActiveUser, @Body() dto: SyncOfflineActionsDto) {
+    const { tenantId, guardId } = this.getGuardContext(user);
+    return this.guardPortalService.processSyncQueue(tenantId, guardId, dto);
+  }
+
+  @Get('sync/status')
+  syncStatus(@GetUser() user: ActiveUser) {
+    const { tenantId, guardId } = this.getGuardContext(user);
+    return this.guardPortalService.getSyncStatus(tenantId, guardId);
   }
 }

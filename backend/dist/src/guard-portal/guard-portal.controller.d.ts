@@ -1,5 +1,6 @@
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { GuardPortalService } from './guard-portal.service';
+import { SyncOfflineActionsDto } from './dto/sync-offline-actions.dto';
 export declare class GuardPortalController {
     private readonly guardPortalService;
     constructor(guardPortalService: GuardPortalService);
@@ -64,4 +65,26 @@ export declare class GuardPortalController {
         timesheetStatus: string;
         totalHours: number;
     }>;
+    syncOfflineActions(user: ActiveUser, dto: SyncOfflineActionsDto): Promise<{
+        id: string;
+        createdAt: Date;
+        tenantId: string;
+        status: string;
+        payload: import("@prisma/client/runtime/library").JsonValue;
+        guardId: string;
+        errorMessage: string | null;
+        actionType: string;
+        syncedAt: Date | null;
+    }[]>;
+    syncStatus(user: ActiveUser): Promise<{
+        id: string;
+        createdAt: Date;
+        tenantId: string;
+        status: string;
+        payload: import("@prisma/client/runtime/library").JsonValue;
+        guardId: string;
+        errorMessage: string | null;
+        actionType: string;
+        syncedAt: Date | null;
+    }[]>;
 }

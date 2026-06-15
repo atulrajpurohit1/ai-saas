@@ -63,4 +63,10 @@ export class ClientInvoicesController {
     const { tenantId, clientId, userId } = this.getClientContext(user);
     return this.invoicesService.disputeInvoice(tenantId, clientId, userId, id, dto);
   }
+
+  @Get(':id/dispute')
+  async getDispute(@GetUser() user: ActiveUser, @Param('id') id: string) {
+    const { tenantId, clientId } = this.getClientContext(user);
+    return this.invoicesService.getDisputeForClient(tenantId, clientId, id);
+  }
 }

@@ -12,12 +12,13 @@ const clients_service_1 = require("./clients.service");
 const clients_controller_1 = require("./clients.controller");
 const prisma_module_1 = require("../prisma/prisma.module");
 const audit_module_1 = require("../audit/audit.module");
+const field_permissions_module_1 = require("../field-permissions/field-permissions.module");
 let ClientsModule = class ClientsModule {
 };
 exports.ClientsModule = ClientsModule;
 exports.ClientsModule = ClientsModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule],
+        imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule, field_permissions_module_1.FieldPermissionsModule],
         controllers: [clients_controller_1.ClientsController],
         providers: [clients_service_1.ClientsService],
         exports: [clients_service_1.ClientsService],

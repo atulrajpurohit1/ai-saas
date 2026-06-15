@@ -223,4 +223,16 @@ export declare class ClientInvoicesController {
         items: any;
         disputes: any;
     }>;
+    getDispute(user: ActiveUser, id: string): Promise<{
+        id: any;
+        invoiceId: any;
+        clientId: any;
+        tenantId: any;
+        reason: any;
+        description: any;
+        status: any;
+        adminResponse: any;
+        createdAt: any;
+        resolvedAt: any;
+    }>;
 }

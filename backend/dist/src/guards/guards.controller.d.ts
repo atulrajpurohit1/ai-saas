@@ -10,11 +10,15 @@ export declare class GuardsController {
         id: string;
         name: string;
         createdAt: Date;
+        documents: string | null;
         email: string | null;
         tenantId: string;
         branchId: string | null;
         phone: string | null;
         passwordHash: string | null;
+        salary: number | null;
+        bankDetails: string | null;
+        personalNotes: string | null;
     }, "passwordHash">>;
     findAll(user: ActiveUser, branchId?: string): Promise<Omit<{
         branch: {
@@ -37,21 +41,60 @@ export declare class GuardsController {
         id: string;
         name: string;
         createdAt: Date;
+        documents: string | null;
         email: string | null;
         tenantId: string;
         branchId: string | null;
         phone: string | null;
         passwordHash: string | null;
+        salary: number | null;
+        bankDetails: string | null;
+        personalNotes: string | null;
     }, "passwordHash">[]>;
+    findOne(user: ActiveUser, id: string): Promise<Omit<{
+        branch: {
+            id: string;
+            name: string;
+            status: string;
+            location: string;
+        } | null;
+        availability: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            status: string;
+            startDate: Date | null;
+            endDate: Date | null;
+            guardId: string;
+        } | null;
+    } & {
+        id: string;
+        name: string;
+        createdAt: Date;
+        documents: string | null;
+        email: string | null;
+        tenantId: string;
+        branchId: string | null;
+        phone: string | null;
+        passwordHash: string | null;
+        salary: number | null;
+        bankDetails: string | null;
+        personalNotes: string | null;
+    }, "passwordHash">>;
     update(user: ActiveUser, id: string, updateGuardDto: UpdateGuardDto): Promise<Omit<{
         id: string;
         name: string;
         createdAt: Date;
+        documents: string | null;
         email: string | null;
         tenantId: string;
         branchId: string | null;
         phone: string | null;
         passwordHash: string | null;
+        salary: number | null;
+        bankDetails: string | null;
+        personalNotes: string | null;
     }, "passwordHash">>;
     getAvailability(user: ActiveUser, id: string): Promise<{
         id: string;
@@ -75,4 +118,84 @@ export declare class GuardsController {
         endDate: Date | null;
         guardId: string;
     }>;
+}
+export declare class GuardsAliasController {
+    private readonly guardsService;
+    constructor(guardsService: GuardsService);
+    findAll(user: ActiveUser, branchId?: string): Promise<Omit<{
+        branch: {
+            id: string;
+            name: string;
+            status: string;
+            location: string;
+        } | null;
+        availability: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            status: string;
+            startDate: Date | null;
+            endDate: Date | null;
+            guardId: string;
+        } | null;
+    } & {
+        id: string;
+        name: string;
+        createdAt: Date;
+        documents: string | null;
+        email: string | null;
+        tenantId: string;
+        branchId: string | null;
+        phone: string | null;
+        passwordHash: string | null;
+        salary: number | null;
+        bankDetails: string | null;
+        personalNotes: string | null;
+    }, "passwordHash">[]>;
+    findOne(user: ActiveUser, id: string): Promise<Omit<{
+        branch: {
+            id: string;
+            name: string;
+            status: string;
+            location: string;
+        } | null;
+        availability: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            status: string;
+            startDate: Date | null;
+            endDate: Date | null;
+            guardId: string;
+        } | null;
+    } & {
+        id: string;
+        name: string;
+        createdAt: Date;
+        documents: string | null;
+        email: string | null;
+        tenantId: string;
+        branchId: string | null;
+        phone: string | null;
+        passwordHash: string | null;
+        salary: number | null;
+        bankDetails: string | null;
+        personalNotes: string | null;
+    }, "passwordHash">>;
+    update(user: ActiveUser, id: string, updateGuardDto: UpdateGuardDto): Promise<Omit<{
+        id: string;
+        name: string;
+        createdAt: Date;
+        documents: string | null;
+        email: string | null;
+        tenantId: string;
+        branchId: string | null;
+        phone: string | null;
+        passwordHash: string | null;
+        salary: number | null;
+        bankDetails: string | null;
+        personalNotes: string | null;
+    }, "passwordHash">>;
 }

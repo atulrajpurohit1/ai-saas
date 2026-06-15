@@ -166,6 +166,10 @@ export default function InvoiceDetailPage() {
     }
   };
 
+  const showInternalAdjustments = invoice
+    ? Object.prototype.hasOwnProperty.call(invoice, 'internalAdjustments')
+    : false;
+
   return (
     <DashboardLayout>
       <div className="mb-6">
@@ -306,6 +310,17 @@ export default function InvoiceDetailPage() {
               <div className="mt-1 text-sm text-slate-400">Created {formatDate(invoice.createdAt)}</div>
             </div>
           </section>
+
+          {showInternalAdjustments && (
+            <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+              <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                Internal Adjustments
+              </div>
+              <p className="whitespace-pre-wrap text-sm leading-6 text-slate-300">
+                {invoice.internalAdjustments || 'No internal adjustments recorded.'}
+              </p>
+            </section>
+          )}
 
           <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
             <div className="mb-4 flex items-center justify-between gap-3">

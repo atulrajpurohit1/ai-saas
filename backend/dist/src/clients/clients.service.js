@@ -47,6 +47,7 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const audit_service_1 = require("../audit/audit.service");
 const branch_scope_1 = require("../branches/branch-scope");
+const field_permissions_service_1 = require("../field-permissions/field-permissions.service");
 const bcrypt = __importStar(require("bcrypt"));
 const crypto_1 = require("crypto");
 const webhooks_service_1 = require("../webhooks/webhooks.service");
@@ -54,12 +55,33 @@ let ClientsService = class ClientsService {
     prisma;
     auditService;
     webhooksService;
-    constructor(prisma, auditService, webhooksService) {
+    fieldPermissionsService;
+    constructor(prisma, auditService, webhooksService, fieldPermissionsService) {
         this.prisma = prisma;
         this.auditService = auditService;
         this.webhooksService = webhooksService;
+        this.fieldPermissionsService = fieldPermissionsService;
+    }
+    optionalText(value) {
+        if (value === undefined)
+            return undefined;
+        const trimmed = value?.trim();
+        return trimmed || null;
+    }
+    sensitiveClientData(dto) {
+        const billingNotes = dto.billing_notes ?? dto.billingNotes;
+        const internalNotes = dto.internal_notes ?? dto.internalNotes;
+        return {
+            ...(billingNotes !== undefined
+                ? { billingNotes: this.optionalText(billingNotes) }
+                : {}),
+            ...(internalNotes !== undefined
+                ? { internalNotes: this.optionalText(internalNotes) }
+                : {}),
+        };
     }
     async create(user, dto) {
+        await this.fieldPermissionsService.assertCanEditFields(user, 'client', dto);
         const branchId = (0, branch_scope_1.resolveWriteBranchId)(user, dto.branch_id);
         const client = await this.prisma.client.create({
             data: {
@@ -67,6 +89,7 @@ let ClientsService = class ClientsService {
                 companyName: dto.companyName,
                 email: dto.email,
                 phone: dto.phone,
+                ...this.sensitiveClientData(dto),
                 tenantId: user.tenantId,
                 branchId,
             },
@@ -80,10 +103,10 @@ let ClientsService = class ClientsService {
             details: `Client "${client.name}" created`,
         });
         await this.webhooksService.triggerEvent(user.tenantId, 'client.created', { client });
-        return client;
+        return this.fieldPermissionsService.filterFieldsByPermission(user, 'client', client);
     }
     async findAll(user, requestedBranchId) {
-        return this.prisma.client.findMany({
+        const clients = await this.prisma.client.findMany({
             where: (0, branch_scope_1.branchScopedWhere)(user, requestedBranchId),
             select: {
                 id: true,
@@ -91,6 +114,8 @@ let ClientsService = class ClientsService {
                 companyName: true,
                 email: true,
                 phone: true,
+                billingNotes: true,
+                internalNotes: true,
                 createdAt: true,
                 updatedAt: true,
                 branchId: true,
@@ -112,6 +137,7 @@ let ClientsService = class ClientsService {
             },
             orderBy: { createdAt: 'desc' },
         });
+        return this.fieldPermissionsService.filterFieldsByPermission(user, 'client', clients);
     }
     async findOne(user, id) {
         const client = await this.prisma.client.findFirst({
@@ -137,7 +163,7 @@ let ClientsService = class ClientsService {
         if (!client) {
             throw new common_1.NotFoundException('Client not found');
         }
-        return client;
+        return this.fieldPermissionsService.filterFieldsByPermission(user, 'client', client);
     }
     async update(user, id, dto) {
         const client = await this.prisma.client.findFirst({
@@ -146,6 +172,7 @@ let ClientsService = class ClientsService {
         if (!client) {
             throw new common_1.NotFoundException('Client not found');
         }
+        await this.fieldPermissionsService.assertCanEditFields(user, 'client', dto, id);
         const branchId = dto.branch_id === undefined
             ? undefined
             : (0, branch_scope_1.resolveWriteBranchId)(user, dto.branch_id);
@@ -157,6 +184,7 @@ let ClientsService = class ClientsService {
                 ...(dto.email !== undefined ? { email: dto.email } : {}),
                 ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
                 ...(branchId !== undefined ? { branchId } : {}),
+                ...this.sensitiveClientData(dto),
             },
         });
         await this.auditService.log({
@@ -167,7 +195,7 @@ let ClientsService = class ClientsService {
             entityId: client.id,
             details: `Client "${client.name}" updated`,
         });
-        return updatedClient;
+        return this.fieldPermissionsService.filterFieldsByPermission(user, 'client', updatedClient);
     }
     async createClientUser(user, clientId, email) {
         const client = await this.prisma.client.findFirst({
@@ -216,6 +244,7 @@ exports.ClientsService = ClientsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         audit_service_1.AuditService,
-        webhooks_service_1.WebhooksService])
+        webhooks_service_1.WebhooksService,
+        field_permissions_service_1.FieldPermissionsService])
 ], ClientsService);
 //# sourceMappingURL=clients.service.js.map

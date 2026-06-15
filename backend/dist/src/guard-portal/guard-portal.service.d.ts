@@ -1,10 +1,16 @@
+import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { IncidentsService } from '../incidents/incidents.service';
+import { PatrolsService } from '../patrols/patrols.service';
+import { SyncOfflineActionsDto } from './dto/sync-offline-actions.dto';
 type AttendanceStatus = 'not_started' | 'checked_in' | 'completed';
 export declare class GuardPortalService {
     private prisma;
     private auditService;
-    constructor(prisma: PrismaService, auditService: AuditService);
+    private incidentsService;
+    private patrolsService;
+    constructor(prisma: PrismaService, auditService: AuditService, incidentsService: IncidentsService, patrolsService: PatrolsService);
     private summarizeAttendance;
     private logInvalidAttendanceAttempt;
     private isDuplicateAttendanceEvent;
@@ -70,5 +76,27 @@ export declare class GuardPortalService {
         timesheetStatus: string;
         totalHours: number;
     }>;
+    getSyncStatus(tenantId: string, guardId: string): Promise<{
+        id: string;
+        createdAt: Date;
+        tenantId: string;
+        status: string;
+        payload: Prisma.JsonValue;
+        guardId: string;
+        errorMessage: string | null;
+        actionType: string;
+        syncedAt: Date | null;
+    }[]>;
+    processSyncQueue(tenantId: string, guardId: string, dto: SyncOfflineActionsDto): Promise<{
+        id: string;
+        createdAt: Date;
+        tenantId: string;
+        status: string;
+        payload: Prisma.JsonValue;
+        guardId: string;
+        errorMessage: string | null;
+        actionType: string;
+        syncedAt: Date | null;
+    }[]>;
 }
 export {};

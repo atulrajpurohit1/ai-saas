@@ -1,6 +1,7 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { FieldPermissionsService } from '../field-permissions/field-permissions.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { WebhooksService } from '../webhooks/webhooks.service';
@@ -8,7 +9,10 @@ export declare class ClientsService {
     private prisma;
     private auditService;
     private webhooksService;
-    constructor(prisma: PrismaService, auditService: AuditService, webhooksService: WebhooksService);
+    private fieldPermissionsService;
+    constructor(prisma: PrismaService, auditService: AuditService, webhooksService: WebhooksService, fieldPermissionsService: FieldPermissionsService);
+    private optionalText;
+    private sensitiveClientData;
     create(user: ActiveUser, dto: CreateClientDto): Promise<{
         id: string;
         name: string;
@@ -19,6 +23,8 @@ export declare class ClientsService {
         branchId: string | null;
         companyName: string | null;
         phone: string | null;
+        billingNotes: string | null;
+        internalNotes: string | null;
     }>;
     findAll(user: ActiveUser, requestedBranchId?: string | null): Promise<{
         id: string;
@@ -40,6 +46,8 @@ export declare class ClientsService {
         } | null;
         companyName: string | null;
         phone: string | null;
+        billingNotes: string | null;
+        internalNotes: string | null;
     }[]>;
     findOne(user: ActiveUser, id: string): Promise<{
         users: {
@@ -63,6 +71,8 @@ export declare class ClientsService {
         branchId: string | null;
         companyName: string | null;
         phone: string | null;
+        billingNotes: string | null;
+        internalNotes: string | null;
     }>;
     update(user: ActiveUser, id: string, dto: UpdateClientDto): Promise<{
         id: string;
@@ -74,6 +84,8 @@ export declare class ClientsService {
         branchId: string | null;
         companyName: string | null;
         phone: string | null;
+        billingNotes: string | null;
+        internalNotes: string | null;
     }>;
     createClientUser(user: ActiveUser, clientId: string, email: string): Promise<{
         id: string;

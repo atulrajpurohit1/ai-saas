@@ -77,6 +77,42 @@ export interface PricingGuardrails {
     recommendedTerms: string[];
     proposalInstruction: string;
 }
+export interface RateCardPricingInsight {
+    status: 'ready' | 'review' | 'needs_scope' | 'missing_rate_card';
+    benchmarkSource: 'client_rate_card' | 'tenant_benchmark' | 'none';
+    rateCardCount: number;
+    averageHourlyRate: number | null;
+    minHourlyRate: number | null;
+    maxHourlyRate: number | null;
+    averageOvertimeRate: number | null;
+    averageHolidayRate: number | null;
+    estimatedMonthlyRevenue: number | null;
+    lowMonthlyRevenue: number | null;
+    highMonthlyRevenue: number | null;
+    marginDataAvailable: boolean;
+    assumptions: string[];
+    risks: string[];
+    recommendedAction: string;
+}
+export interface ProposalEngagement {
+    status: 'not_started' | 'draft' | 'sent' | 'engaged' | 'approved' | 'rejected' | 'stale';
+    score: number;
+    proposalCount: number;
+    latestProposal: {
+        id: string;
+        title: string;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        ageDays: number;
+        commentCount: number;
+    } | null;
+    totalCommentCount: number;
+    daysSinceLatestProposal: number | null;
+    signals: string[];
+    risks: string[];
+    recommendedAction: string;
+}
 export interface MarketSignalProfile {
     score: number;
     segment: string;
@@ -118,6 +154,20 @@ export interface FollowUpSequence {
     steps: FollowUpSequenceStep[];
     objectionsToAddress: string[];
     stopConditions: string[];
+}
+export interface FollowUpSequenceProgress {
+    status: 'not_started' | 'active' | 'overdue' | 'completed' | 'stalled';
+    totalSteps: number;
+    completedSteps: number;
+    pendingSteps: number;
+    overdueSteps: number;
+    completionRate: number;
+    nextStep: ActivitySnapshot | null;
+    lastCompletedStep: ActivitySnapshot | null;
+    daysSinceLastSequenceActivity: number | null;
+    signals: string[];
+    risks: string[];
+    recommendedAction: string;
 }
 export interface SalesCoachSummary {
     score: number;
@@ -647,10 +697,123 @@ export declare class SalesAcceleratorService {
             assessmentType: string;
         }[];
     }>;
+    getAlerts(tenantId: string): Promise<{
+        generatedAt: string;
+        summary: {
+            total: number;
+            critical: number;
+            high: number;
+            overdueActivities: number;
+            stalledDeals: number;
+        };
+        alerts: ({
+            id: string;
+            severity: string;
+            type: string;
+            title: string;
+            subject: string;
+            href: string;
+            score: number;
+            reason: string;
+            recommendedAction: string;
+            dueLabel: string;
+        } | {
+            id: string;
+            severity: string;
+            type: string;
+            title: string;
+            subject: string;
+            href: string;
+            score: null;
+            reason: string;
+            recommendedAction: string;
+            dueLabel: string;
+        })[];
+    }>;
+    getForecastReport(tenantId: string): Promise<{
+        generatedAt: string;
+        summary: {
+            forecastRiskDeals: number;
+            averageForecastConfidence: number | null;
+            averageCloseReadiness: number | null;
+            weightedPipelineScore: number | null;
+        };
+        statusBuckets: {
+            status: string;
+            count: number;
+        }[];
+        deals: {
+            id: string;
+            name: string;
+            company: string;
+            stage: string;
+            href: string;
+            readiness: number | null;
+            discoveryQuality: number | null;
+            forecast: DealForecast;
+            momentum: DealMomentum;
+            recommendedAction: string;
+        }[];
+    }>;
+    getCoachingAnalytics(tenantId: string): Promise<{
+        generatedAt: string;
+        salesCoachSummary: SalesCoachSummary;
+        metrics: {
+            averageLeadScore: number | null;
+            averageCloseReadiness: number | null;
+            trackedObjections: number;
+            missingDiscovery: number;
+        };
+        reps: {
+            repId: string;
+            name: string;
+            assessmentCount: number;
+            discoveryCount: number;
+            averageDiscoveryQuality: number | null;
+            averageCloseReadiness: number | null;
+            riskCoverage: number | null;
+            painCoverage: number | null;
+            objectionSignals: number;
+            coachingScore: number;
+            recommendedAction: string;
+        }[];
+        objectionPatterns: ObjectionPattern[];
+    }>;
+    getLearningLoop(tenantId: string): Promise<{
+        generatedAt: string;
+        summary: {
+            reviewedDeals: number;
+            riskDeals: number;
+            learningDeals: number;
+        };
+        recommendedPlaybookUpdates: {
+            type: string;
+            title: string;
+            recommendation: string;
+            support: string;
+        }[];
+        learnings: {
+            id: string;
+            name: string;
+            company: string;
+            href: string;
+            status: "healthy" | "watch" | "risk" | "oversold" | "learning";
+            score: number;
+            signals: string[];
+            salesLessons: string[];
+            recommendedAction: string;
+            proposalWarning: string;
+        }[];
+    }>;
     getLeadWorkspace(tenantId: string, leadId: string): Promise<{
         lead: {
             proposals: {
+                id: string;
                 createdAt: Date;
+                updatedAt: Date;
+                _count: {
+                    comments: number;
+                };
                 title: string;
                 status: string;
             }[];
@@ -722,7 +885,12 @@ export declare class SalesAcceleratorService {
     getDealWorkspace(tenantId: string, dealId: string): Promise<{
         deal: {
             proposals: {
+                id: string;
                 createdAt: Date;
+                updatedAt: Date;
+                _count: {
+                    comments: number;
+                };
                 title: string;
                 status: string;
             }[];
@@ -749,7 +917,12 @@ export declare class SalesAcceleratorService {
             } | null;
             lead: {
                 proposals: {
+                    id: string;
                     createdAt: Date;
+                    updatedAt: Date;
+                    _count: {
+                        comments: number;
+                    };
                     title: string;
                     status: string;
                 }[];
@@ -829,9 +1002,12 @@ export declare class SalesAcceleratorService {
         forecast: DealForecast;
         postCloseFeedback: PostCloseFeedback | null;
         pricingGuardrails: PricingGuardrails;
+        rateCardPricing: RateCardPricingInsight;
+        proposalEngagement: ProposalEngagement;
         marketSignalProfile: MarketSignalProfile;
         valueJustification: ValueJustification;
         followUpSequence: FollowUpSequence;
+        followUpSequenceProgress: FollowUpSequenceProgress;
     }>;
     saveLeadDiscovery(tenantId: string, leadId: string, dto: SaveDiscoveryDto, userId?: string): Promise<{
         id: string;
@@ -982,6 +1158,8 @@ export declare class SalesAcceleratorService {
         };
         pricingGuardrails: PricingGuardrails;
         valueJustification: ValueJustification;
+        rateCardPricing: RateCardPricingInsight;
+        proposalEngagement: ProposalEngagement;
         followUpSequence: FollowUpSequence;
         aiGenerationId: string | null;
         fallbackUsed: boolean;
@@ -999,6 +1177,7 @@ export declare class SalesAcceleratorService {
     }>;
     createDealFollowUpSequence(tenantId: string, dealId: string, userId?: string): Promise<{
         sequence: FollowUpSequence;
+        sequenceProgress: FollowUpSequenceProgress;
         createdActivities: ActivitySnapshot[];
         skippedDuplicateCount: number;
     }>;
@@ -1047,7 +1226,16 @@ export declare class SalesAcceleratorService {
     private renewalTimingSignal;
     private decisionAuthoritySignal;
     private marketSignalAction;
+    private rateCardPricingInsight;
+    private rateCardPricingAction;
+    private rateCardPricingContext;
+    private proposalEngagement;
+    private proposalEngagementStatus;
+    private proposalEngagementAction;
     private followUpSequence;
+    private followUpSequenceProgress;
+    private followUpSequenceProgressStatus;
+    private followUpSequenceProgressAction;
     private valueJustification;
     private valueJustificationStatus;
     private valueRecommendedAction;
@@ -1078,6 +1266,8 @@ export declare class SalesAcceleratorService {
     private displayList;
     private callSnippets;
     private average;
+    private averageCurrency;
+    private roundCurrency;
     private tomorrow;
     private dateAfter;
 }

@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { CalendarDays, FileWarning, LayoutDashboard, LogOut, ShieldCheck, Navigation } from 'lucide-react';
+import { SyncIndicator } from './SyncIndicator';
 
 export default function GuardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -100,6 +101,8 @@ export default function GuardLayout({ children }: { children: React.ReactNode })
           );
         })}
       </nav>
+      
+      <SyncIndicator />
     </div>
   );
 }

@@ -32,6 +32,18 @@ let SalesAcceleratorController = class SalesAcceleratorController {
     getDashboard(user) {
         return this.salesAcceleratorService.getDashboard(user.tenantId);
     }
+    getAlerts(user) {
+        return this.salesAcceleratorService.getAlerts(user.tenantId);
+    }
+    getForecastReport(user) {
+        return this.salesAcceleratorService.getForecastReport(user.tenantId);
+    }
+    getCoachingAnalytics(user) {
+        return this.salesAcceleratorService.getCoachingAnalytics(user.tenantId);
+    }
+    getLearningLoop(user) {
+        return this.salesAcceleratorService.getLearningLoop(user.tenantId);
+    }
     getLeadWorkspace(leadId, user) {
         return this.salesAcceleratorService.getLeadWorkspace(user.tenantId, leadId);
     }
@@ -93,6 +105,38 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], SalesAcceleratorController.prototype, "getDashboard", null);
+__decorate([
+    (0, common_1.Get)('alerts'),
+    (0, permissions_decorator_1.RequireAnyPermission)('ai.view', 'leads.view', 'deals.view'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], SalesAcceleratorController.prototype, "getAlerts", null);
+__decorate([
+    (0, common_1.Get)('forecast-report'),
+    (0, permissions_decorator_1.RequireAnyPermission)('ai.view', 'deals.view'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], SalesAcceleratorController.prototype, "getForecastReport", null);
+__decorate([
+    (0, common_1.Get)('coaching-analytics'),
+    (0, permissions_decorator_1.RequireAnyPermission)('ai.view', 'leads.view', 'deals.view'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], SalesAcceleratorController.prototype, "getCoachingAnalytics", null);
+__decorate([
+    (0, common_1.Get)('learning-loop'),
+    (0, permissions_decorator_1.RequireAnyPermission)('ai.view', 'deals.view'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], SalesAcceleratorController.prototype, "getLearningLoop", null);
 __decorate([
     (0, common_1.Get)('leads/:leadId'),
     (0, permissions_decorator_1.RequireAnyPermission)('ai.view', 'leads.view'),

@@ -33,6 +33,30 @@ export class SalesAcceleratorController {
     return this.salesAcceleratorService.getDashboard(user.tenantId);
   }
 
+  @Get('alerts')
+  @RequireAnyPermission('ai.view', 'leads.view', 'deals.view')
+  getAlerts(@GetUser() user: ActiveUser) {
+    return this.salesAcceleratorService.getAlerts(user.tenantId);
+  }
+
+  @Get('forecast-report')
+  @RequireAnyPermission('ai.view', 'deals.view')
+  getForecastReport(@GetUser() user: ActiveUser) {
+    return this.salesAcceleratorService.getForecastReport(user.tenantId);
+  }
+
+  @Get('coaching-analytics')
+  @RequireAnyPermission('ai.view', 'leads.view', 'deals.view')
+  getCoachingAnalytics(@GetUser() user: ActiveUser) {
+    return this.salesAcceleratorService.getCoachingAnalytics(user.tenantId);
+  }
+
+  @Get('learning-loop')
+  @RequireAnyPermission('ai.view', 'deals.view')
+  getLearningLoop(@GetUser() user: ActiveUser) {
+    return this.salesAcceleratorService.getLearningLoop(user.tenantId);
+  }
+
   @Get('leads/:leadId')
   @RequireAnyPermission('ai.view', 'leads.view')
   getLeadWorkspace(@Param('leadId') leadId: string, @GetUser() user: ActiveUser) {

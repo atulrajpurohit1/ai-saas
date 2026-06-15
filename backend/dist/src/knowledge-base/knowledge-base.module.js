@@ -10,6 +10,7 @@ exports.KnowledgeBaseModule = void 0;
 const common_1 = require("@nestjs/common");
 const audit_module_1 = require("../audit/audit.module");
 const prisma_module_1 = require("../prisma/prisma.module");
+const knowledge_base_controller_1 = require("./knowledge-base.controller");
 const knowledge_base_service_1 = require("./knowledge-base.service");
 const knowledge_retrieval_service_1 = require("./knowledge-retrieval.service");
 let KnowledgeBaseModule = class KnowledgeBaseModule {
@@ -18,6 +19,7 @@ exports.KnowledgeBaseModule = KnowledgeBaseModule;
 exports.KnowledgeBaseModule = KnowledgeBaseModule = __decorate([
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule],
+        controllers: [knowledge_base_controller_1.KnowledgeBaseController],
         providers: [knowledge_base_service_1.KnowledgeBaseService, knowledge_retrieval_service_1.KnowledgeRetrievalService],
         exports: [knowledge_base_service_1.KnowledgeBaseService, knowledge_retrieval_service_1.KnowledgeRetrievalService],
     })

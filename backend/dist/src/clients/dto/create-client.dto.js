@@ -17,6 +17,10 @@ class CreateClientDto {
     email;
     phone;
     branch_id;
+    billing_notes;
+    billingNotes;
+    internal_notes;
+    internalNotes;
 }
 exports.CreateClientDto = CreateClientDto;
 __decorate([
@@ -44,4 +48,24 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Object)
 ], CreateClientDto.prototype, "branch_id", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateClientDto.prototype, "billing_notes", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateClientDto.prototype, "billingNotes", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateClientDto.prototype, "internal_notes", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateClientDto.prototype, "internalNotes", void 0);
 //# sourceMappingURL=create-client.dto.js.map

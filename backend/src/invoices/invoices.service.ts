@@ -10,6 +10,7 @@ import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { BrandingService } from '../branding/branding.service';
 import { branchScopedWhere, branchWhere } from '../branches/branch-scope';
+import { FieldPermissionsService } from '../field-permissions/field-permissions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { DisputeInvoiceDto } from './dto/dispute-invoice.dto';
@@ -26,6 +27,7 @@ export class InvoicesService {
     private auditService: AuditService,
     private webhooksService: WebhooksService,
     private brandingService: BrandingService,
+    private fieldPermissionsService: FieldPermissionsService,
   ) {}
 
   private parseBillingDate(value: string, fieldName: string) {
@@ -234,6 +236,7 @@ export class InvoicesService {
       issuedAt: invoice.issuedAt,
       paidAt: invoice.paidAt,
       dueDate: invoice.dueDate,
+      internalAdjustments: invoice.internalAdjustments,
       rateCardId: invoice.rateCardId,
       rateSource: invoice.rateSource,
       rateCard: invoice.rateCard
@@ -306,6 +309,27 @@ export class InvoicesService {
         ? invoice.disputes.map((dispute) => this.mapInvoiceDispute(dispute))
         : [],
     };
+  }
+
+  private filterInvoiceForAdmin(user: ActiveUser, invoice: any) {
+    return this.fieldPermissionsService.filterFieldsByPermission(
+      user,
+      'invoice',
+      this.mapInvoice(invoice),
+    );
+  }
+
+  private filterInvoicesForAdmin(user: ActiveUser, invoices: any[]) {
+    return this.fieldPermissionsService.filterFieldsByPermission(
+      user,
+      'invoice',
+      invoices.map((invoice) => this.mapInvoice(invoice)),
+    );
+  }
+
+  private mapClientInvoice(invoice: any) {
+    const { internalAdjustments, ...publicInvoice } = this.mapInvoice(invoice);
+    return publicInvoice;
   }
 
   private async findInvoiceOrThrow(user: ActiveUser, id: string) {
@@ -672,7 +696,11 @@ export class InvoicesService {
         invoice: mappedInvoice,
       });
 
-      return mappedInvoice;
+      return this.fieldPermissionsService.filterFieldsByPermission(
+        user,
+        'invoice',
+        mappedInvoice,
+      );
     } catch (error) {
       if (this.isUniqueConflict(error)) {
         throw new ConflictException('An invoice already exists for this billing period or invoice number');
@@ -689,19 +717,19 @@ export class InvoicesService {
       orderBy: [{ createdAt: 'desc' }, { invoiceNumber: 'desc' }],
     });
 
-    return invoices.map((invoice) => this.mapInvoice(invoice));
+    return this.filterInvoicesForAdmin(user, invoices);
   }
 
   async findOneForAdmin(user: ActiveUser, id: string) {
     const invoice = await this.findInvoiceOrThrow(user, id);
-    return this.mapInvoice(invoice);
+    return this.filterInvoiceForAdmin(user, invoice);
   }
 
   async issueInvoice(user: ActiveUser, id: string) {
     const existing = await this.findInvoiceOrThrow(user, id);
 
     if (existing.status === 'issued' || existing.status === 'paid') {
-      return this.mapInvoice(existing);
+      return this.filterInvoiceForAdmin(user, existing);
     }
 
     if (!['draft', 'resolved'].includes(existing.status)) {
@@ -726,14 +754,14 @@ export class InvoicesService {
       details: `Invoice ${invoice.invoiceNumber} issued`,
     });
 
-    return this.mapInvoice(invoice);
+    return this.filterInvoiceForAdmin(user, invoice);
   }
 
   async markPaid(user: ActiveUser, id: string) {
     const existing = await this.findInvoiceOrThrow(user, id);
 
     if (existing.status === 'paid') {
-      return this.mapInvoice(existing);
+      return this.filterInvoiceForAdmin(user, existing);
     }
 
     if (!PAYABLE_STATUSES.includes(existing.status)) {
@@ -760,14 +788,18 @@ export class InvoicesService {
       invoice: mappedInvoice,
     });
 
-    return mappedInvoice;
+    return this.fieldPermissionsService.filterFieldsByPermission(
+      user,
+      'invoice',
+      mappedInvoice,
+    );
   }
 
   async cancelInvoice(user: ActiveUser, id: string) {
     const existing = await this.findInvoiceOrThrow(user, id);
 
     if (existing.status === 'cancelled') {
-      return this.mapInvoice(existing);
+      return this.filterInvoiceForAdmin(user, existing);
     }
 
     if (existing.status === 'paid') {
@@ -789,7 +821,7 @@ export class InvoicesService {
       details: `Invoice ${invoice.invoiceNumber} cancelled`,
     });
 
-    return this.mapInvoice(invoice);
+    return this.filterInvoiceForAdmin(user, invoice);
   }
 
   async acceptInvoice(tenantId: string, clientId: string, userId: string, id: string) {
@@ -820,7 +852,7 @@ export class InvoicesService {
       details: `Client accepted invoice ${invoice.invoiceNumber}`,
     });
 
-    return this.mapInvoice(invoice);
+    return this.mapClientInvoice(invoice);
   }
 
   async disputeInvoice(
@@ -889,7 +921,7 @@ export class InvoicesService {
       details: `Client disputed invoice ${invoice.invoiceNumber}: ${reason}`,
     });
 
-    return this.mapInvoice(invoice);
+    return this.mapClientInvoice(invoice);
   }
 
   async findAllForClient(tenantId: string, clientId: string) {
@@ -907,7 +939,7 @@ export class InvoicesService {
       orderBy: [{ issuedAt: 'desc' }, { createdAt: 'desc' }],
     });
 
-    return invoices.map((invoice) => this.mapInvoice(invoice));
+    return invoices.map((invoice) => this.mapClientInvoice(invoice));
   }
 
   async findOneForClient(tenantId: string, clientId: string, id: string) {
@@ -916,7 +948,31 @@ export class InvoicesService {
     }
 
     const invoice = await this.findClientInvoiceOrThrow(tenantId, clientId, id);
-    return this.mapInvoice(invoice);
+    return this.mapClientInvoice(invoice);
+  }
+
+  async getDisputeForClient(tenantId: string, clientId: string, invoiceId: string) {
+    if (!clientId) {
+      throw new ForbiddenException('Client access required');
+    }
+
+    // Check if the invoice exists and belongs to the client
+    await this.findClientInvoiceOrThrow(tenantId, clientId, invoiceId);
+
+    const dispute = await this.prisma.invoiceDispute.findFirst({
+      where: {
+        tenantId,
+        clientId,
+        invoiceId,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!dispute) {
+      throw new NotFoundException('Dispute not found for this invoice');
+    }
+
+    return this.mapInvoiceDispute(dispute);
   }
 
   private addPdfSectionTitle(doc: any, title: string) {

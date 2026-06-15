@@ -243,9 +243,9 @@ export declare class PatrolsService {
             tenantId: string;
             status: string;
             guardId: string;
-            patrolRunId: string;
             checkpointId: string;
             scannedAt: Date;
+            patrolRunId: string;
         })[];
     } & {
         id: string;
@@ -352,9 +352,9 @@ export declare class PatrolsService {
         tenantId: string;
         status: string;
         guardId: string;
-        patrolRunId: string;
         checkpointId: string;
         scannedAt: Date;
+        patrolRunId: string;
     }>;
     completePatrolRun(tenantId: string, guardId: string, runId: string): Promise<{
         events: ({
@@ -377,9 +377,9 @@ export declare class PatrolsService {
             tenantId: string;
             status: string;
             guardId: string;
-            patrolRunId: string;
             checkpointId: string;
             scannedAt: Date;
+            patrolRunId: string;
         })[];
     } & {
         id: string;

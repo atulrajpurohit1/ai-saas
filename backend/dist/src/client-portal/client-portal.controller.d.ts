@@ -114,5 +114,7 @@ export declare class ClientPortalController {
         branchId: string | null;
         companyName: string | null;
         phone: string | null;
+        billingNotes: string | null;
+        internalNotes: string | null;
     }>;
 }

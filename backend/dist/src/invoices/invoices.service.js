@@ -15,6 +15,7 @@ const client_1 = require("@prisma/client");
 const audit_service_1 = require("../audit/audit.service");
 const branding_service_1 = require("../branding/branding.service");
 const branch_scope_1 = require("../branches/branch-scope");
+const field_permissions_service_1 = require("../field-permissions/field-permissions.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const webhooks_service_1 = require("../webhooks/webhooks.service");
 const TAX_RATE = 0;
@@ -25,11 +26,13 @@ let InvoicesService = class InvoicesService {
     auditService;
     webhooksService;
     brandingService;
-    constructor(prisma, auditService, webhooksService, brandingService) {
+    fieldPermissionsService;
+    constructor(prisma, auditService, webhooksService, brandingService, fieldPermissionsService) {
         this.prisma = prisma;
         this.auditService = auditService;
         this.webhooksService = webhooksService;
         this.brandingService = brandingService;
+        this.fieldPermissionsService = fieldPermissionsService;
     }
     parseBillingDate(value, fieldName) {
         const trimmed = value?.trim();
@@ -219,6 +222,7 @@ let InvoicesService = class InvoicesService {
             issuedAt: invoice.issuedAt,
             paidAt: invoice.paidAt,
             dueDate: invoice.dueDate,
+            internalAdjustments: invoice.internalAdjustments,
             rateCardId: invoice.rateCardId,
             rateSource: invoice.rateSource,
             rateCard: invoice.rateCard
@@ -291,6 +295,16 @@ let InvoicesService = class InvoicesService {
                 ? invoice.disputes.map((dispute) => this.mapInvoiceDispute(dispute))
                 : [],
         };
+    }
+    filterInvoiceForAdmin(user, invoice) {
+        return this.fieldPermissionsService.filterFieldsByPermission(user, 'invoice', this.mapInvoice(invoice));
+    }
+    filterInvoicesForAdmin(user, invoices) {
+        return this.fieldPermissionsService.filterFieldsByPermission(user, 'invoice', invoices.map((invoice) => this.mapInvoice(invoice)));
+    }
+    mapClientInvoice(invoice) {
+        const { internalAdjustments, ...publicInvoice } = this.mapInvoice(invoice);
+        return publicInvoice;
     }
     async findInvoiceOrThrow(user, id) {
         const invoice = await this.prisma.invoice.findFirst({
@@ -577,7 +591,7 @@ let InvoicesService = class InvoicesService {
             await this.webhooksService.triggerEvent(user.tenantId, 'invoice.generated', {
                 invoice: mappedInvoice,
             });
-            return mappedInvoice;
+            return this.fieldPermissionsService.filterFieldsByPermission(user, 'invoice', mappedInvoice);
         }
         catch (error) {
             if (this.isUniqueConflict(error)) {
@@ -592,16 +606,16 @@ let InvoicesService = class InvoicesService {
             include: this.invoiceInclude(),
             orderBy: [{ createdAt: 'desc' }, { invoiceNumber: 'desc' }],
         });
-        return invoices.map((invoice) => this.mapInvoice(invoice));
+        return this.filterInvoicesForAdmin(user, invoices);
     }
     async findOneForAdmin(user, id) {
         const invoice = await this.findInvoiceOrThrow(user, id);
-        return this.mapInvoice(invoice);
+        return this.filterInvoiceForAdmin(user, invoice);
     }
     async issueInvoice(user, id) {
         const existing = await this.findInvoiceOrThrow(user, id);
         if (existing.status === 'issued' || existing.status === 'paid') {
-            return this.mapInvoice(existing);
+            return this.filterInvoiceForAdmin(user, existing);
         }
         if (!['draft', 'resolved'].includes(existing.status)) {
             throw new common_1.BadRequestException('Only draft or resolved invoices can be issued');
@@ -622,12 +636,12 @@ let InvoicesService = class InvoicesService {
             entityId: invoice.id,
             details: `Invoice ${invoice.invoiceNumber} issued`,
         });
-        return this.mapInvoice(invoice);
+        return this.filterInvoiceForAdmin(user, invoice);
     }
     async markPaid(user, id) {
         const existing = await this.findInvoiceOrThrow(user, id);
         if (existing.status === 'paid') {
-            return this.mapInvoice(existing);
+            return this.filterInvoiceForAdmin(user, existing);
         }
         if (!PAYABLE_STATUSES.includes(existing.status)) {
             throw new common_1.BadRequestException('Only issued or resolved invoices can be marked paid');
@@ -649,12 +663,12 @@ let InvoicesService = class InvoicesService {
         await this.webhooksService.triggerEvent(user.tenantId, 'invoice.paid', {
             invoice: mappedInvoice,
         });
-        return mappedInvoice;
+        return this.fieldPermissionsService.filterFieldsByPermission(user, 'invoice', mappedInvoice);
     }
     async cancelInvoice(user, id) {
         const existing = await this.findInvoiceOrThrow(user, id);
         if (existing.status === 'cancelled') {
-            return this.mapInvoice(existing);
+            return this.filterInvoiceForAdmin(user, existing);
         }
         if (existing.status === 'paid') {
             throw new common_1.BadRequestException('Paid invoices cannot be cancelled');
@@ -672,7 +686,7 @@ let InvoicesService = class InvoicesService {
             entityId: invoice.id,
             details: `Invoice ${invoice.invoiceNumber} cancelled`,
         });
-        return this.mapInvoice(invoice);
+        return this.filterInvoiceForAdmin(user, invoice);
     }
     async acceptInvoice(tenantId, clientId, userId, id) {
         if (!clientId) {
@@ -697,7 +711,7 @@ let InvoicesService = class InvoicesService {
             entityId: invoice.id,
             details: `Client accepted invoice ${invoice.invoiceNumber}`,
         });
-        return this.mapInvoice(invoice);
+        return this.mapClientInvoice(invoice);
     }
     async disputeInvoice(tenantId, clientId, userId, id, dto) {
         if (!clientId) {
@@ -749,7 +763,7 @@ let InvoicesService = class InvoicesService {
             entityId: invoice.id,
             details: `Client disputed invoice ${invoice.invoiceNumber}: ${reason}`,
         });
-        return this.mapInvoice(invoice);
+        return this.mapClientInvoice(invoice);
     }
     async findAllForClient(tenantId, clientId) {
         if (!clientId) {
@@ -764,14 +778,32 @@ let InvoicesService = class InvoicesService {
             include: this.invoiceInclude(),
             orderBy: [{ issuedAt: 'desc' }, { createdAt: 'desc' }],
         });
-        return invoices.map((invoice) => this.mapInvoice(invoice));
+        return invoices.map((invoice) => this.mapClientInvoice(invoice));
     }
     async findOneForClient(tenantId, clientId, id) {
         if (!clientId) {
             throw new common_1.ForbiddenException('Client access required');
         }
         const invoice = await this.findClientInvoiceOrThrow(tenantId, clientId, id);
-        return this.mapInvoice(invoice);
+        return this.mapClientInvoice(invoice);
+    }
+    async getDisputeForClient(tenantId, clientId, invoiceId) {
+        if (!clientId) {
+            throw new common_1.ForbiddenException('Client access required');
+        }
+        await this.findClientInvoiceOrThrow(tenantId, clientId, invoiceId);
+        const dispute = await this.prisma.invoiceDispute.findFirst({
+            where: {
+                tenantId,
+                clientId,
+                invoiceId,
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+        if (!dispute) {
+            throw new common_1.NotFoundException('Dispute not found for this invoice');
+        }
+        return this.mapInvoiceDispute(dispute);
     }
     addPdfSectionTitle(doc, title) {
         doc.moveDown(0.8);
@@ -868,6 +900,7 @@ exports.InvoicesService = InvoicesService = __decorate([
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         audit_service_1.AuditService,
         webhooks_service_1.WebhooksService,
-        branding_service_1.BrandingService])
+        branding_service_1.BrandingService,
+        field_permissions_service_1.FieldPermissionsService])
 ], InvoicesService);
 //# sourceMappingURL=invoices.service.js.map
