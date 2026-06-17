@@ -25,27 +25,6 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [syncPending, setSyncPending] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setIsOnline(navigator.onLine);
-
-    const handleOnline = () => {
-      setIsOnline(true);
-      triggerSync();
-    };
-
-    const handleOffline = () => {
-      setIsOnline(false);
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
   const triggerSync = async () => {
     if (!navigator.onLine) return;
 
@@ -66,6 +45,27 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setSyncPending(false);
     }
   };
+
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      triggerSync();
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   return (
     <NetworkContext.Provider value={{ isOnline, syncPending, syncError, triggerSync }}>

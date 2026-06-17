@@ -13,6 +13,7 @@ import { deflateRawSync } from 'zlib';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { BillingService } from '../billing/billing.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RolesService } from '../roles/roles.service';
 import { SessionsService } from '../sessions/sessions.service';
@@ -43,6 +44,7 @@ export class SsoService {
     private readonly authService: AuthService,
     private readonly sessionsService: SessionsService,
     private readonly configService: ConfigService,
+    private readonly billingService: BillingService,
   ) {}
 
   async listProviders(user: ActiveUser) {
@@ -291,6 +293,7 @@ export class SsoService {
       if (!provider.autoProvision) {
         throw new ForbiddenException('User auto provisioning is disabled');
       }
+      await this.billingService.assertCanAddAdminUser(provider.tenantId);
       user = await this.prisma.user.create({
         data: {
           email,

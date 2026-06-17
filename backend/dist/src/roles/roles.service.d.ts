@@ -112,9 +112,9 @@ export declare class RolesService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                isActive: boolean;
                 description: string | null;
                 isSystemRole: boolean;
+                isActive: boolean;
             };
             branch: {
                 id: string;
@@ -124,8 +124,8 @@ export declare class RolesService {
             id: string;
             tenantId: string;
             branchId: string | null;
-            isActive: boolean;
             userId: string;
+            isActive: boolean;
             roleId: string;
             assignedBy: string | null;
             assignedAt: Date;
@@ -139,9 +139,9 @@ export declare class RolesService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            isActive: boolean;
             description: string | null;
             isSystemRole: boolean;
+            isActive: boolean;
         };
         branch: {
             id: string;
@@ -151,8 +151,8 @@ export declare class RolesService {
         id: string;
         tenantId: string;
         branchId: string | null;
-        isActive: boolean;
         userId: string;
+        isActive: boolean;
         roleId: string;
         assignedBy: string | null;
         assignedAt: Date;
@@ -162,8 +162,8 @@ export declare class RolesService {
         id: string;
         tenantId: string;
         branchId: string | null;
-        isActive: boolean;
         userId: string;
+        isActive: boolean;
         roleId: string;
         assignedBy: string | null;
         assignedAt: Date;

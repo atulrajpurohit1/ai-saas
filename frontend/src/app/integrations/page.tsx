@@ -6,16 +6,21 @@ import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
   ApiKeyRecord,
+  CrmConnectorStatus,
   IntegrationOverview,
   PublicApiPermissionDefinition,
   WebhookRecord,
   createApiKey,
   createWebhook,
+  disconnectHubSpot,
   getApiKeyPermissions,
+  getCrmConnectorStatus,
+  getHubSpotConnectUrl,
   getApiKeys,
   getIntegrationOverview,
   getWebhookEvents,
   getWebhooks,
+  importHubSpotContacts,
   regenerateApiKey,
   retryFailedWebhookDeliveries,
   retryWebhookDelivery,
@@ -32,6 +37,7 @@ import {
   RefreshCw,
   RotateCcw,
   Send,
+  Unplug,
   Webhook,
 } from 'lucide-react';
 
@@ -45,7 +51,9 @@ export default function IntegrationsPage() {
   const canViewApiKeys = can('api_keys.view');
   const canManageApiKeys = can('api_keys.manage');
   const canManageWebhooks = can('webhooks.manage');
+  const canManageCrm = can('integrations.manage') || can('crm.manage');
   const [overview, setOverview] = useState<IntegrationOverview | null>(null);
+  const [crmStatus, setCrmStatus] = useState<CrmConnectorStatus | null>(null);
   const [apiKeys, setApiKeys] = useState<ApiKeyRecord[]>([]);
   const [apiKeyPermissions, setApiKeyPermissions] = useState<PublicApiPermissionDefinition[]>([]);
   const [webhooks, setWebhooks] = useState<WebhookRecord[]>([]);
@@ -62,19 +70,23 @@ export default function IntegrationsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   const loadData = async () => {
     setLoading(true);
     setError('');
+    setNotice('');
     try {
-      const [overviewData, eventData, webhookData, apiKeyPermissionData, apiKeyData] = await Promise.all([
+      const [overviewData, crmData, eventData, webhookData, apiKeyPermissionData, apiKeyData] = await Promise.all([
         getIntegrationOverview(),
+        getCrmConnectorStatus(),
         getWebhookEvents(),
         getWebhooks(),
         canViewApiKeys ? getApiKeyPermissions() : Promise.resolve([] as PublicApiPermissionDefinition[]),
         canViewApiKeys ? getApiKeys() : Promise.resolve([] as ApiKeyRecord[]),
       ]);
       setOverview(overviewData);
+      setCrmStatus(crmData);
       setEvents(eventData);
       setWebhooks(webhookData);
       setApiKeyPermissions(apiKeyPermissionData);
@@ -106,6 +118,7 @@ export default function IntegrationsPage() {
   const submitApiKey = async () => {
     setSaving(true);
     setError('');
+    setNotice('');
     setNewApiKey('');
     try {
       const created = await createApiKey({
@@ -227,6 +240,48 @@ export default function IntegrationsPage() {
     }
   };
 
+  const connectHubSpot = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const result = await getHubSpotConnectUrl();
+      window.location.href = result.url;
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not start HubSpot connection.'));
+      setSaving(false);
+    }
+  };
+
+  const syncHubSpot = async () => {
+    setSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      const result = await importHubSpotContacts();
+      await loadData();
+      setNotice(`HubSpot import complete: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped.`);
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not import HubSpot contacts.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const disconnectCrm = async () => {
+    if (!confirm('Disconnect HubSpot? Existing imported leads will remain.')) return;
+    setSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      await disconnectHubSpot();
+      await loadData();
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not disconnect HubSpot.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const copySecret = async () => {
     if (!newSecret) return;
     await navigator.clipboard.writeText(newSecret);
@@ -272,6 +327,12 @@ export default function IntegrationsPage() {
       {error && (
         <div className="mb-6 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-300">
           {error}
+        </div>
+      )}
+
+      {notice && (
+        <div className="mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-300">
+          {notice}
         </div>
       )}
 
@@ -336,6 +397,102 @@ export default function IntegrationsPage() {
               <div className="mt-2 text-3xl font-black text-white">{overview?.failures_last_24h || 0}</div>
             </div>
           </div>
+
+          <section className="rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
+            <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <div className="mb-2 flex items-center gap-3">
+                  <Plug className="text-orange-300" size={22} />
+                  <h3 className="text-xl font-bold">HubSpot CRM</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Connect HubSpot and import contacts into leads.
+                </p>
+              </div>
+              <div className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-widest ${
+                crmStatus?.hubspot.connected
+                  ? 'bg-emerald-400/10 text-emerald-300'
+                  : crmStatus?.hubspot.configured
+                    ? 'bg-amber-400/10 text-amber-300'
+                    : 'bg-rose-400/10 text-rose-300'
+              }`}>
+                {crmStatus?.hubspot.connected
+                  ? 'Connected'
+                  : crmStatus?.hubspot.configured
+                    ? 'Ready'
+                    : 'Env Required'}
+              </div>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-xl border border-white/10 bg-slate-950/20 p-4">
+                  <div className="text-xs font-black uppercase tracking-widest text-slate-500">Portal</div>
+                  <div className="mt-2 truncate font-bold text-white">
+                    {crmStatus?.hubspot.external_account_name || crmStatus?.hubspot.portal_id || 'Not connected'}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-slate-950/20 p-4">
+                  <div className="text-xs font-black uppercase tracking-widest text-slate-500">Last Sync</div>
+                  <div className="mt-2 font-bold text-white">{formatDate(crmStatus?.hubspot.last_sync_at)}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-slate-950/20 p-4">
+                  <div className="text-xs font-black uppercase tracking-widest text-slate-500">Scopes</div>
+                  <div className="mt-2 truncate font-bold text-white">
+                    {(crmStatus?.hubspot.scopes || []).join(', ') || 'crm.objects.contacts.read'}
+                  </div>
+                </div>
+              </div>
+
+              {canManageCrm && (
+                <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+                  {!crmStatus?.hubspot.connected ? (
+                    <button
+                      type="button"
+                      onClick={connectHubSpot}
+                      disabled={saving || !crmStatus?.hubspot.configured}
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:opacity-60"
+                    >
+                      {saving ? <Loader2 className="animate-spin" size={17} /> : <Plug size={17} />}
+                      Connect
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={syncHubSpot}
+                        disabled={saving}
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:opacity-60"
+                      >
+                        {saving ? <Loader2 className="animate-spin" size={17} /> : <RefreshCw size={17} />}
+                        Import Contacts
+                      </button>
+                      <button
+                        type="button"
+                        onClick={disconnectCrm}
+                        disabled={saving}
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-rose-400/20 bg-rose-400/10 px-5 py-3 text-sm font-bold text-rose-300 transition hover:bg-rose-400/20 disabled:opacity-60"
+                      >
+                        <Unplug size={17} />
+                        Disconnect
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {!crmStatus?.hubspot.configured && (
+              <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                Configure HUBSPOT_CLIENT_ID, HUBSPOT_CLIENT_SECRET, and HUBSPOT_REDIRECT_URI to enable OAuth.
+              </div>
+            )}
+            {crmStatus?.hubspot.last_error && (
+              <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                {crmStatus.hubspot.last_error}
+              </div>
+            )}
+          </section>
 
           {canViewApiKeys && (
             <section className="rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">

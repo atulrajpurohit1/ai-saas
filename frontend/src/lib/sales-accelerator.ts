@@ -19,3 +19,25 @@ export async function getSalesLearningLoop() {
   const res = await api.get('sales-accelerator/learning-loop');
   return res.data;
 }
+
+export async function analyzeDiscoveryCall(
+  entityType: 'leads' | 'deals',
+  entityId: string,
+  transcript: string,
+) {
+  const res = await api.post(`sales-accelerator/${entityType}/${entityId}/discovery-call`, {
+    transcript,
+  });
+  return res.data;
+}
+
+export async function coachDiscoveryCall(
+  entityType: 'leads' | 'deals',
+  entityId: string,
+  transcript: string,
+) {
+  const res = await api.post(`sales-accelerator/${entityType}/${entityId}/live-coach`, {
+    transcript,
+  });
+  return res.data;
+}

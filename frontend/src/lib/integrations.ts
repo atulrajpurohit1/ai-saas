@@ -79,6 +79,20 @@ export interface IntegrationOverview {
   failures_last_24h: number;
 }
 
+export interface CrmConnectorStatus {
+  hubspot: {
+    configured: boolean;
+    connected: boolean;
+    status: string;
+    portal_id?: string | null;
+    external_account_name?: string | null;
+    scopes: string[];
+    token_expires_at?: string | null;
+    last_sync_at?: string | null;
+    last_error?: string | null;
+  };
+}
+
 export async function getIntegrationOverview() {
   const res = await api.get<IntegrationOverview>('integrations');
   return res.data;
@@ -173,5 +187,27 @@ export async function retryWebhookDelivery(id: string) {
 
 export async function retryFailedWebhookDeliveries() {
   const res = await api.post<{ retried: number; deliveries: WebhookDelivery[] }>('webhooks/deliveries/retry-failed');
+  return res.data;
+}
+
+export async function getCrmConnectorStatus() {
+  const res = await api.get<CrmConnectorStatus>('crm-connectors/status');
+  return res.data;
+}
+
+export async function getHubSpotConnectUrl() {
+  const res = await api.get<{ provider: string; url: string }>('crm-connectors/hubspot/connect-url');
+  return res.data;
+}
+
+export async function importHubSpotContacts() {
+  const res = await api.post<{ provider: string; total: number; created: number; updated: number; skipped: number }>(
+    'crm-connectors/hubspot/import-contacts',
+  );
+  return res.data;
+}
+
+export async function disconnectHubSpot() {
+  const res = await api.post('crm-connectors/hubspot/disconnect');
   return res.data;
 }

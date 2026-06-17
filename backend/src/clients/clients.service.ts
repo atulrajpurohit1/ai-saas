@@ -8,6 +8,7 @@ import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
+import { BillingService } from '../billing/billing.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 
 @Injectable()
@@ -17,6 +18,7 @@ export class ClientsService {
     private auditService: AuditService,
     private webhooksService: WebhooksService,
     private fieldPermissionsService: FieldPermissionsService,
+    private billingService: BillingService,
   ) {}
 
   private optionalText(value?: string | null) {
@@ -191,6 +193,8 @@ export class ClientsService {
   }
 
   async createClientUser(user: ActiveUser, clientId: string, email: string) {
+    await this.billingService.assertCanAddClientUser(user.tenantId);
+
     // Security check: verify client belongs to tenant
     const client = await this.prisma.client.findFirst({
       where: { id: clientId, tenantId: user.tenantId, ...branchWhere(user) },

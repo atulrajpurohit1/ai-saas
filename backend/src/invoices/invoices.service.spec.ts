@@ -1,6 +1,9 @@
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
+import { BrandingService } from '../branding/branding.service';
+import { FieldPermissionsService } from '../field-permissions/field-permissions.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { GenerateInvoiceDto } from './dto/generate-invoice.dto';
 import { InvoicesService } from './invoices.service';
 
@@ -16,9 +19,13 @@ describe('InvoicesService', () => {
     $transaction: jest.Mock;
   };
   let auditService: { log: jest.Mock };
+  let webhooksService: { triggerEvent: jest.Mock };
+  let brandingService: { brandingSnapshot: jest.Mock; emailShell: jest.Mock; addPdfHeader: jest.Mock };
+  let fieldPermissionsService: { filterFieldsByPermission: jest.Mock };
 
   const tenantId = 'tenant-1';
   const userId = 'user-1';
+  const activeUser = { sub: userId, tenantId, role: 'admin' } as any;
   const clientId = 'client-1';
   const siteId = 'site-1';
 
@@ -166,7 +173,29 @@ describe('InvoicesService', () => {
       $transaction: jest.fn(),
     };
     auditService = { log: jest.fn().mockResolvedValue(undefined) };
-    service = new InvoicesService(prisma as unknown as PrismaService, auditService as unknown as AuditService);
+    webhooksService = { triggerEvent: jest.fn().mockResolvedValue(undefined) };
+    brandingService = {
+      brandingSnapshot: jest.fn().mockResolvedValue({
+        company_name: 'Acme Security',
+        support_email: 'support@example.com',
+        primary_color: '#111827',
+        secondary_color: '#4b5563',
+      }),
+      emailShell: jest.fn((_branding, _title, body) => body),
+      addPdfHeader: jest.fn((doc, title) => {
+        doc.fontSize(18).text(title);
+      }),
+    };
+    fieldPermissionsService = {
+      filterFieldsByPermission: jest.fn(async (_user, _entity, data) => data),
+    };
+    service = new InvoicesService(
+      prisma as unknown as PrismaService,
+      auditService as unknown as AuditService,
+      webhooksService as unknown as WebhooksService,
+      brandingService as unknown as BrandingService,
+      fieldPermissionsService as unknown as FieldPermissionsService,
+    );
   });
 
   function mockBillableClientAndSite() {
@@ -225,7 +254,7 @@ describe('InvoicesService', () => {
     mockApprovedTimesheets();
     const tx = mockInvoiceCreateTransaction();
 
-    const invoice = await service.generateInvoice(tenantId, userId, dto);
+    const invoice = await service.generateInvoice(activeUser, dto);
 
     expect(prisma.timesheet.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -266,7 +295,7 @@ describe('InvoicesService', () => {
       },
     ]);
 
-    await expect(service.generateInvoice(tenantId, userId, dto)).rejects.toThrow(
+    await expect(service.generateInvoice(activeUser, dto)).rejects.toThrow(
       'Approved timesheets found for this billing period, but they have 0 billable hours. Correct the timesheet hours before generating an invoice.',
     );
     expect(prisma.$transaction).not.toHaveBeenCalled();
@@ -277,8 +306,8 @@ describe('InvoicesService', () => {
     prisma.rateCard.findFirst.mockResolvedValue(rateCard);
     prisma.timesheet.findMany.mockResolvedValue([]);
 
-    await expect(service.generateInvoice(tenantId, userId, dto)).rejects.toThrow(BadRequestException);
-    await expect(service.generateInvoice(tenantId, userId, dto)).rejects.toThrow(
+    await expect(service.generateInvoice(activeUser, dto)).rejects.toThrow(BadRequestException);
+    await expect(service.generateInvoice(activeUser, dto)).rejects.toThrow(
       'No approved timesheets found for this billing period',
     );
   });
@@ -287,13 +316,13 @@ describe('InvoicesService', () => {
     mockBillableClientAndSite();
     prisma.rateCard.findFirst.mockResolvedValue(null);
 
-    await expect(service.generateInvoice(tenantId, userId, dto)).rejects.toThrow(BadRequestException);
+    await expect(service.generateInvoice(activeUser, dto)).rejects.toThrow(BadRequestException);
     expect(prisma.timesheet.findMany).not.toHaveBeenCalled();
   });
 
   it('rejects invalid billing date ranges before querying invoice data', async () => {
     await expect(
-      service.generateInvoice(tenantId, userId, {
+      service.generateInvoice(activeUser, {
         ...dto,
         billing_start_date: '2026-05-15',
         billing_end_date: '2026-05-01',
@@ -309,7 +338,7 @@ describe('InvoicesService', () => {
     mockApprovedTimesheets();
     const tx = mockInvoiceCreateTransaction();
 
-    await service.generateInvoice(tenantId, userId, dto);
+    await service.generateInvoice(activeUser, dto);
 
     expect(tx.invoice.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -352,7 +381,7 @@ describe('InvoicesService', () => {
       totalAmount: 1240,
     });
 
-    await service.generateInvoice(tenantId, userId, {
+    await service.generateInvoice(activeUser, {
       ...dto,
       allow_manual_rate: true,
       hourly_rate: 100,
@@ -375,7 +404,7 @@ describe('InvoicesService', () => {
     prisma.site.findFirst.mockResolvedValue(site);
     prisma.invoice.findFirst.mockResolvedValue({ id: 'existing-invoice', invoiceNumber: 'INV-EXISTING' });
 
-    await expect(service.generateInvoice(tenantId, userId, dto)).rejects.toThrow(ConflictException);
+    await expect(service.generateInvoice(activeUser, dto)).rejects.toThrow(ConflictException);
     expect(prisma.rateCard.findFirst).not.toHaveBeenCalled();
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
@@ -412,7 +441,7 @@ describe('InvoicesService', () => {
       issuedAt: new Date('2026-05-16T00:00:00.000Z'),
     });
 
-    const { buffer, invoice } = await service.exportForAdmin(tenantId, userId, 'invoice-1');
+    const { buffer, invoice } = await service.exportForAdmin(activeUser, 'invoice-1');
 
     expect(Buffer.isBuffer(buffer)).toBe(true);
     expect(buffer.length).toBeGreaterThan(0);

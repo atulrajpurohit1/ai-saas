@@ -2,6 +2,7 @@ import { AuditService } from '../audit/audit.service';
 import { RecommendationService } from '../ai-insights/recommendation.service';
 import { AiService } from '../ai/ai.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { ShiftsService } from './shifts.service';
 
 describe('ShiftsService smart guard recommendations', () => {
@@ -14,6 +15,7 @@ describe('ShiftsService smart guard recommendations', () => {
       update?: jest.Mock;
     };
     guard: {
+      findFirst: jest.Mock;
       findMany: jest.Mock;
       findUnique: jest.Mock;
     };
@@ -27,10 +29,12 @@ describe('ShiftsService smart guard recommendations', () => {
   };
   let auditService: { log: jest.Mock };
   let aiService: { explainGuardRecommendation: jest.Mock };
+  let webhooksService: { triggerEvent: jest.Mock };
   let recommendationService: RecommendationService;
 
   const tenantId = 'tenant-1';
   const userId = 'admin-1';
+  const activeUser = { sub: userId, tenantId, role: 'admin' } as any;
   const shiftId = 'shift-new';
   const siteId = 'site-1';
   const targetShift = {
@@ -56,6 +60,7 @@ describe('ShiftsService smart guard recommendations', () => {
         findUnique: jest.fn(),
       },
       guard: {
+        findFirst: jest.fn(),
         findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn(),
       },
@@ -66,6 +71,7 @@ describe('ShiftsService smart guard recommendations', () => {
     };
     auditService = { log: jest.fn().mockResolvedValue(undefined) };
     aiService = { explainGuardRecommendation: jest.fn().mockResolvedValue(null) };
+    webhooksService = { triggerEvent: jest.fn().mockResolvedValue(undefined) };
     recommendationService = new RecommendationService(
       prisma as unknown as PrismaService,
       aiService as unknown as AiService,
@@ -74,6 +80,7 @@ describe('ShiftsService smart guard recommendations', () => {
       prisma as unknown as PrismaService,
       auditService as unknown as AuditService,
       recommendationService,
+      webhooksService as unknown as WebhooksService,
     );
   });
 
@@ -97,7 +104,7 @@ describe('ShiftsService smart guard recommendations', () => {
       upcomingShift('upcoming-5', 'guard-smith', '2026-06-25T08:00:00.000Z'),
     ]);
 
-    const recommendations = await service.recommendGuards(userId, tenantId, shiftId);
+    const recommendations = await service.recommendGuards(activeUser, shiftId);
 
     expect(recommendations[0]).toEqual(
       expect.objectContaining({
@@ -143,7 +150,7 @@ describe('ShiftsService smart guard recommendations', () => {
       },
     ]);
 
-    const recommendations = await service.recommendGuards(userId, tenantId, shiftId);
+    const recommendations = await service.recommendGuards(activeUser, shiftId);
 
     expect(recommendations).toHaveLength(1);
     expect(recommendations[0].guard_id).toBe('guard-available');
@@ -155,7 +162,7 @@ describe('ShiftsService smart guard recommendations', () => {
       tenantId,
       assignments: [],
     });
-    prisma.guard.findUnique.mockResolvedValue({
+    prisma.guard.findFirst.mockResolvedValue({
       id: 'guard-ramesh',
       tenantId,
       name: 'Ramesh',
@@ -181,7 +188,7 @@ describe('ShiftsService smart guard recommendations', () => {
     };
     prisma.$transaction.mockImplementation(async (callback: (tx: typeof tx) => Promise<unknown>) => callback(tx));
 
-    await service.assign(userId, tenantId, shiftId, 'guard-ramesh');
+    await service.assign(activeUser, shiftId, 'guard-ramesh');
 
     expect(auditService.log).toHaveBeenCalledWith(
       expect.objectContaining({

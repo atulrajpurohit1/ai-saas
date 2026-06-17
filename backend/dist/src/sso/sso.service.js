@@ -51,6 +51,7 @@ const crypto_1 = require("crypto");
 const zlib_1 = require("zlib");
 const audit_service_1 = require("../audit/audit.service");
 const auth_service_1 = require("../auth/auth.service");
+const billing_service_1 = require("../billing/billing.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const roles_service_1 = require("../roles/roles.service");
 const sessions_service_1 = require("../sessions/sessions.service");
@@ -62,13 +63,15 @@ let SsoService = class SsoService {
     authService;
     sessionsService;
     configService;
-    constructor(prisma, auditService, rolesService, authService, sessionsService, configService) {
+    billingService;
+    constructor(prisma, auditService, rolesService, authService, sessionsService, configService, billingService) {
         this.prisma = prisma;
         this.auditService = auditService;
         this.rolesService = rolesService;
         this.authService = authService;
         this.sessionsService = sessionsService;
         this.configService = configService;
+        this.billingService = billingService;
     }
     async listProviders(user) {
         const providers = await this.prisma.sSOProvider.findMany({
@@ -277,6 +280,7 @@ let SsoService = class SsoService {
             if (!provider.autoProvision) {
                 throw new common_1.ForbiddenException('User auto provisioning is disabled');
             }
+            await this.billingService.assertCanAddAdminUser(provider.tenantId);
             user = await this.prisma.user.create({
                 data: {
                     email,
@@ -591,6 +595,7 @@ exports.SsoService = SsoService = __decorate([
         roles_service_1.RolesService,
         auth_service_1.AuthService,
         sessions_service_1.SessionsService,
-        config_1.ConfigService])
+        config_1.ConfigService,
+        billing_service_1.BillingService])
 ], SsoService);
 //# sourceMappingURL=sso.service.js.map

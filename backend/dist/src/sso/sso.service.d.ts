@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { BillingService } from '../billing/billing.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RolesService } from '../roles/roles.service';
 import { SessionsService } from '../sessions/sessions.service';
@@ -20,7 +21,8 @@ export declare class SsoService {
     private readonly authService;
     private readonly sessionsService;
     private readonly configService;
-    constructor(prisma: PrismaService, auditService: AuditService, rolesService: RolesService, authService: AuthService, sessionsService: SessionsService, configService: ConfigService);
+    private readonly billingService;
+    constructor(prisma: PrismaService, auditService: AuditService, rolesService: RolesService, authService: AuthService, sessionsService: SessionsService, configService: ConfigService, billingService: BillingService);
     listProviders(user: ActiveUser): Promise<{
         id: any;
         tenant_id: any;

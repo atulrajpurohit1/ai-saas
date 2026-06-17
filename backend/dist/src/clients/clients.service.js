@@ -50,17 +50,20 @@ const branch_scope_1 = require("../branches/branch-scope");
 const field_permissions_service_1 = require("../field-permissions/field-permissions.service");
 const bcrypt = __importStar(require("bcrypt"));
 const crypto_1 = require("crypto");
+const billing_service_1 = require("../billing/billing.service");
 const webhooks_service_1 = require("../webhooks/webhooks.service");
 let ClientsService = class ClientsService {
     prisma;
     auditService;
     webhooksService;
     fieldPermissionsService;
-    constructor(prisma, auditService, webhooksService, fieldPermissionsService) {
+    billingService;
+    constructor(prisma, auditService, webhooksService, fieldPermissionsService, billingService) {
         this.prisma = prisma;
         this.auditService = auditService;
         this.webhooksService = webhooksService;
         this.fieldPermissionsService = fieldPermissionsService;
+        this.billingService = billingService;
     }
     optionalText(value) {
         if (value === undefined)
@@ -198,6 +201,7 @@ let ClientsService = class ClientsService {
         return this.fieldPermissionsService.filterFieldsByPermission(user, 'client', updatedClient);
     }
     async createClientUser(user, clientId, email) {
+        await this.billingService.assertCanAddClientUser(user.tenantId);
         const client = await this.prisma.client.findFirst({
             where: { id: clientId, tenantId: user.tenantId, ...(0, branch_scope_1.branchWhere)(user) },
             include: {
@@ -245,6 +249,7 @@ exports.ClientsService = ClientsService = __decorate([
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         audit_service_1.AuditService,
         webhooks_service_1.WebhooksService,
-        field_permissions_service_1.FieldPermissionsService])
+        field_permissions_service_1.FieldPermissionsService,
+        billing_service_1.BillingService])
 ], ClientsService);
 //# sourceMappingURL=clients.service.js.map

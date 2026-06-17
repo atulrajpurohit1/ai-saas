@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EmailController } from './email.controller';
 import { EmailService } from './email.service';
+import { RolesService } from '../roles/roles.service';
 
 describe('EmailController', () => {
   let controller: EmailController;
@@ -8,7 +9,16 @@ describe('EmailController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [EmailController],
-      providers: [{ provide: EmailService, useValue: {} }],
+      providers: [
+        { provide: EmailService, useValue: {} },
+        {
+          provide: RolesService,
+          useValue: {
+            hasPermissions: jest.fn().mockResolvedValue(true),
+            hasAnyPermission: jest.fn().mockResolvedValue(true),
+          },
+        },
+      ],
     }).compile();
 
     controller = module.get<EmailController>(EmailController);

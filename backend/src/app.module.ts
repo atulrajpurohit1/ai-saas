@@ -43,12 +43,16 @@ import { ApiKeysModule } from './api-keys/api-keys.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { PublicApiModule } from './public-api/public-api.module';
 import { IntegrationsModule } from './integrations/integrations.module';
+import { CrmConnectorsModule } from './crm-connectors/crm-connectors.module';
+import { CallTranscriptionModule } from './call-transcription/call-transcription.module';
 import { ApiDocsModule } from './api-docs/api-docs.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { SsoModule } from './sso/sso.module';
 import { BrandingModule } from './branding/branding.module';
+import { BillingModule } from './billing/billing.module';
 import { SalesAcceleratorModule } from './sales-accelerator/sales-accelerator.module';
 import { SalesAutomationModule } from './sales-automation/sales-automation.module';
+import { SalesDeliveryModule } from './sales-delivery/sales-delivery.module';
 import { SalesImportsModule } from './sales-imports/sales-imports.module';
 import { PatrolsModule } from './patrols/patrols.module';
 import { FieldPermissionsModule } from './field-permissions/field-permissions.module';
@@ -63,12 +67,16 @@ import { FieldPermissionsModule } from './field-permissions/field-permissions.mo
     WebhooksModule,
     PublicApiModule,
     IntegrationsModule,
+    CrmConnectorsModule,
+    CallTranscriptionModule,
     ApiDocsModule,
     SessionsModule,
     SsoModule,
     BrandingModule,
+    BillingModule,
     SalesAcceleratorModule,
     SalesAutomationModule,
+    SalesDeliveryModule,
     SalesImportsModule,
     UsersModule,
     AuthModule,

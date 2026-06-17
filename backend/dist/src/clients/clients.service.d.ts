@@ -4,13 +4,15 @@ import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { FieldPermissionsService } from '../field-permissions/field-permissions.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
+import { BillingService } from '../billing/billing.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 export declare class ClientsService {
     private prisma;
     private auditService;
     private webhooksService;
     private fieldPermissionsService;
-    constructor(prisma: PrismaService, auditService: AuditService, webhooksService: WebhooksService, fieldPermissionsService: FieldPermissionsService);
+    private billingService;
+    constructor(prisma: PrismaService, auditService: AuditService, webhooksService: WebhooksService, fieldPermissionsService: FieldPermissionsService, billingService: BillingService);
     private optionalText;
     private sensitiveClientData;
     create(user: ActiveUser, dto: CreateClientDto): Promise<{

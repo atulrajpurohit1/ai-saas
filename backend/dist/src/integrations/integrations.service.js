@@ -19,7 +19,7 @@ let IntegrationsService = class IntegrationsService {
     }
     async getOverview(user) {
         const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        const [activeApiKeys, activeWebhooks, apiRequests24h, failedDeliveries24h, recentRequests, recentDeliveries, webhooks,] = await Promise.all([
+        const [activeApiKeys, activeWebhooks, apiRequests24h, failedDeliveries24h, connectedCrm, recentRequests, recentDeliveries, webhooks,] = await Promise.all([
             this.prisma.apiKey.count({
                 where: { tenantId: user.tenantId, status: 'active' },
             }),
@@ -35,6 +35,9 @@ let IntegrationsService = class IntegrationsService {
                     createdAt: { gte: since },
                     webhook: { tenantId: user.tenantId },
                 },
+            }),
+            this.prisma.crmConnection.count({
+                where: { tenantId: user.tenantId, status: 'connected' },
             }),
             this.prisma.apiRequestLog.findMany({
                 where: { tenantId: user.tenantId },
@@ -69,6 +72,7 @@ let IntegrationsService = class IntegrationsService {
             active_integrations: [
                 { type: 'api_keys', label: 'API keys', active: activeApiKeys },
                 { type: 'webhooks', label: 'Webhooks', active: activeWebhooks },
+                { type: 'crm', label: 'CRM connectors', active: connectedCrm },
             ],
             api_usage: {
                 requests_last_24h: apiRequests24h,

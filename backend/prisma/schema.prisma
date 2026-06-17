@@ -60,6 +60,7 @@ model Tenant {
   apiKeys               ApiKey[]
   webhooks              Webhook[]
   apiRequestLogs        ApiRequestLog[]
+  crmConnections        CrmConnection[]
   ssoProviders          SSOProvider[]
   ssoLoginStates        SSOLoginState[]
   userSessions          UserSession[]
@@ -1062,6 +1063,29 @@ model ApiRequestLog {
   @@index([apiKeyId])
   @@index([tenantId, createdAt])
   @@map("ApiRequestLog")
+}
+
+model CrmConnection {
+  id                  String    @id @default(uuid())
+  tenantId            String    @map("tenant_id")
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  provider            String
+  status              String    @default("connected")
+  accessToken         String    @map("access_token")
+  refreshToken        String?   @map("refresh_token")
+  tokenExpiresAt      DateTime? @map("token_expires_at")
+  scopes              String[]  @default([])
+  portalId            String?   @map("portal_id")
+  externalAccountName String?   @map("external_account_name")
+  lastSyncAt          DateTime? @map("last_sync_at")
+  lastError           String?   @map("last_error")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, provider], map: "CrmConnection_tenant_provider_key")
+  @@index([tenantId])
+  @@index([tenantId, provider])
+  @@map("CrmConnection")
 }
 
 model SSOProvider {

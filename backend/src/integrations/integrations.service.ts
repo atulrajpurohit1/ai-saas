@@ -13,6 +13,7 @@ export class IntegrationsService {
       activeWebhooks,
       apiRequests24h,
       failedDeliveries24h,
+      connectedCrm,
       recentRequests,
       recentDeliveries,
       webhooks,
@@ -32,6 +33,9 @@ export class IntegrationsService {
           createdAt: { gte: since },
           webhook: { tenantId: user.tenantId },
         },
+      }),
+      this.prisma.crmConnection.count({
+        where: { tenantId: user.tenantId, status: 'connected' },
       }),
       this.prisma.apiRequestLog.findMany({
         where: { tenantId: user.tenantId },
@@ -67,6 +71,7 @@ export class IntegrationsService {
       active_integrations: [
         { type: 'api_keys', label: 'API keys', active: activeApiKeys },
         { type: 'webhooks', label: 'Webhooks', active: activeWebhooks },
+        { type: 'crm', label: 'CRM connectors', active: connectedCrm },
       ],
       api_usage: {
         requests_last_24h: apiRequests24h,

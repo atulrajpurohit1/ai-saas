@@ -52,12 +52,16 @@ const api_keys_module_1 = require("./api-keys/api-keys.module");
 const webhooks_module_1 = require("./webhooks/webhooks.module");
 const public_api_module_1 = require("./public-api/public-api.module");
 const integrations_module_1 = require("./integrations/integrations.module");
+const crm_connectors_module_1 = require("./crm-connectors/crm-connectors.module");
+const call_transcription_module_1 = require("./call-transcription/call-transcription.module");
 const api_docs_module_1 = require("./api-docs/api-docs.module");
 const sessions_module_1 = require("./sessions/sessions.module");
 const sso_module_1 = require("./sso/sso.module");
 const branding_module_1 = require("./branding/branding.module");
+const billing_module_1 = require("./billing/billing.module");
 const sales_accelerator_module_1 = require("./sales-accelerator/sales-accelerator.module");
 const sales_automation_module_1 = require("./sales-automation/sales-automation.module");
+const sales_delivery_module_1 = require("./sales-delivery/sales-delivery.module");
 const sales_imports_module_1 = require("./sales-imports/sales-imports.module");
 const patrols_module_1 = require("./patrols/patrols.module");
 const field_permissions_module_1 = require("./field-permissions/field-permissions.module");
@@ -75,12 +79,16 @@ exports.AppModule = AppModule = __decorate([
             webhooks_module_1.WebhooksModule,
             public_api_module_1.PublicApiModule,
             integrations_module_1.IntegrationsModule,
+            crm_connectors_module_1.CrmConnectorsModule,
+            call_transcription_module_1.CallTranscriptionModule,
             api_docs_module_1.ApiDocsModule,
             sessions_module_1.SessionsModule,
             sso_module_1.SsoModule,
             branding_module_1.BrandingModule,
+            billing_module_1.BillingModule,
             sales_accelerator_module_1.SalesAcceleratorModule,
             sales_automation_module_1.SalesAutomationModule,
+            sales_delivery_module_1.SalesDeliveryModule,
             sales_imports_module_1.SalesImportsModule,
             users_module_1.UsersModule,
             auth_module_1.AuthModule,

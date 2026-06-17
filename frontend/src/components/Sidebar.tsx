@@ -32,7 +32,10 @@ import {
   Palette,
   BookOpen,
   BarChart3,
-  FileSpreadsheet
+  FileSpreadsheet,
+  PhoneCall,
+  Mail,
+  CreditCard
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { clsx, type ClassValue } from 'clsx';
@@ -57,7 +60,9 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const adminLinks = [
     { href: '/ai-copilot', label: 'AI Copilot', icon: Bot, permissions: ['ai.view'] },
     { href: '/sales-accelerator', label: 'Sales Accelerator', icon: BrainCircuit, permissions: ['ai.view', 'leads.view'] },
+    { href: '/sales-calls', label: 'Sales Calls', icon: PhoneCall, permissions: ['ai.view', 'deals.view'] },
     { href: '/sales-automation', label: 'Sales Automation', icon: Bot, permissions: ['ai.view', 'deals.view'] },
+    { href: '/sales-delivery', label: 'Sales Delivery', icon: Mail, permissions: ['ai.view', 'deals.view'] },
     { href: '/ai-predictions', label: 'AI Predictions', icon: TrendingDown, permissions: ['ai.manage'] },
     { href: '/ai-prompts', label: 'AI Prompts', icon: ScrollText, permissions: ['ai.governance'] },
     { href: '/ai-audit', label: 'AI Audit', icon: FileSearch, permissions: ['ai.governance'] },
@@ -83,6 +88,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     { href: '/settings/knowledge-base', label: 'Knowledge', icon: BookOpen, permissions: ['knowledge.view'] },
     { href: '/integrations', label: 'Integrations', icon: Plug, permissions: ['integrations.view'] },
     { href: '/settings/branding', label: 'Branding', icon: Palette, permissions: ['branding.view'] },
+    { href: '/settings/billing', label: 'Billing', icon: CreditCard, permissions: ['billing.view'] },
     { href: '/settings/sso', label: 'SSO', icon: ShieldCheck, permissions: ['sso.view'] },
     { href: '/settings/sessions', label: 'Sessions', icon: Activity, permissions: ['sessions.view'] },
     { href: '/settings/roles', label: 'Roles', icon: Settings, permissions: ['roles.view'] },
