@@ -162,8 +162,8 @@ export default function AiCopilotPage() {
 
   return (
     <DashboardLayout allowedRoles={['admin', 'finance']}>
-      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
           <h2 className="flex items-center gap-3 text-2xl font-bold sm:text-3xl">
             <Bot className="text-sky-300" size={30} />
             AI Copilot
@@ -174,7 +174,7 @@ export default function AiCopilotPage() {
           type="button"
           onClick={loadSidebarData}
           disabled={historyLoading}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-white transition hover:bg-white/10 disabled:opacity-60"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-white transition hover:bg-white/10 disabled:opacity-60 sm:w-auto"
         >
           {historyLoading ? <Loader2 className="animate-spin" size={17} /> : <RefreshCcw size={17} />}
           Refresh
@@ -188,8 +188,8 @@ export default function AiCopilotPage() {
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <section className="flex min-h-[680px] flex-col rounded-2xl border border-white/10 bg-white/[0.04]">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-6">
+        <section className="flex min-h-[560px] min-w-0 flex-col rounded-2xl border border-white/10 bg-white/[0.04] sm:min-h-[680px]">
           <div className="border-b border-white/10 px-5 py-4">
             <div className="flex items-center gap-2 text-sm font-bold text-slate-300">
               <MessageSquare size={18} className="text-sky-300" />
@@ -225,7 +225,7 @@ export default function AiCopilotPage() {
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[92%] rounded-2xl px-5 py-4 ${
+                  className={`max-w-[96%] rounded-2xl px-4 py-4 sm:max-w-[92%] sm:px-5 ${
                     message.role === 'user'
                       ? 'bg-indigo-500 text-white'
                       : 'border border-white/10 bg-slate-950/45 text-slate-200'
@@ -309,7 +309,7 @@ export default function AiCopilotPage() {
             }}
             className="border-t border-white/10 p-4 sm:p-5"
           >
-            <div className="flex gap-3">
+            <div className="flex min-w-0 gap-3">
               <textarea
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
@@ -335,7 +335,7 @@ export default function AiCopilotPage() {
           </form>
         </section>
 
-        <aside className="space-y-5">
+        <aside className="min-w-0 space-y-5">
           <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
             <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-white">
               <CheckCircle2 className="text-emerald-300" size={20} />

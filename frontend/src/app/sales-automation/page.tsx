@@ -57,12 +57,12 @@ export default function SalesAutomationPage() {
 
   return (
     <DashboardLayout>
-      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
           <h2 className="text-2xl font-bold sm:text-3xl">Sales Automation</h2>
           <p className="text-muted-foreground">Create follow-up tasks for stalled, risky, or under-discovered deals.</p>
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="grid w-full grid-cols-1 gap-3 sm:w-auto sm:grid-cols-2">
           <button
             type="button"
             onClick={loadStatus}
@@ -91,8 +91,8 @@ export default function SalesAutomationPage() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
-        <section className="glass-card rounded-lg border border-white/10 p-5 sm:p-6">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+        <section className="glass-card min-w-0 rounded-lg border border-white/10 p-4 sm:p-6">
           <div className="mb-5 flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-indigo-500/20 bg-indigo-500/10 text-indigo-300">
               <Bot size={22} />
@@ -122,9 +122,9 @@ export default function SalesAutomationPage() {
           </div>
         </section>
 
-        <section className="glass-card rounded-lg border border-white/10 p-5 sm:p-6">
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <div>
+        <section className="glass-card min-w-0 rounded-lg border border-white/10 p-4 sm:p-6">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
               <h3 className="text-lg font-bold">Latest Scan</h3>
               <p className="text-sm text-muted-foreground">Deal follow-up task creation summary.</p>
             </div>

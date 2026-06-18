@@ -23,8 +23,8 @@ export function SyncIndicator() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-xl flex items-center gap-4 text-sm max-w-sm">
-      <div className="flex flex-col gap-1">
+    <div className="fixed bottom-4 left-3 right-3 z-50 flex max-w-sm flex-col gap-3 rounded-lg bg-gray-900 px-4 py-3 text-sm text-white shadow-xl sm:left-auto sm:right-4 sm:flex-row sm:items-center sm:gap-4">
+      <div className="min-w-0 flex flex-col gap-1">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
           <span className="font-semibold">{isOnline ? 'Online' : 'Offline'}</span>
@@ -41,7 +41,7 @@ export function SyncIndicator() {
       {isOnline && pendingCount > 0 && !syncPending && (
         <button
           onClick={triggerSync}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs transition-colors"
+          className="min-h-9 rounded bg-blue-600 px-3 py-1.5 text-xs text-white transition-colors hover:bg-blue-700"
         >
           Retry Sync
         </button>

@@ -95,8 +95,8 @@ export declare class RolesController {
             userId: string;
             isActive: boolean;
             roleId: string;
-            assignedBy: string | null;
             assignedAt: Date;
+            assignedBy: string | null;
             revokedAt: Date | null;
         })[];
     }[]>;
@@ -122,8 +122,8 @@ export declare class RolesController {
         userId: string;
         isActive: boolean;
         roleId: string;
-        assignedBy: string | null;
         assignedAt: Date;
+        assignedBy: string | null;
         revokedAt: Date | null;
     }>;
     revokeAssignment(user: ActiveUser, id: string): Promise<{
@@ -133,8 +133,8 @@ export declare class RolesController {
         userId: string;
         isActive: boolean;
         roleId: string;
-        assignedBy: string | null;
         assignedAt: Date;
+        assignedBy: string | null;
         revokedAt: Date | null;
     }>;
 }

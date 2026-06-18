@@ -21,14 +21,46 @@ import {
 
 @Injectable()
 export class RolesService {
+  private permissionsReady = false;
+  private readonly tenantSystemRolesReady = new Set<string>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
   ) {}
 
   async ensurePermissions() {
+    if (this.permissionsReady) return;
+
+    const existingPermissions = await this.prisma.permission.findMany({
+      where: { key: { in: ALL_PERMISSION_KEYS } },
+      select: {
+        key: true,
+        name: true,
+        description: true,
+        module: true,
+      },
+    });
+    const existingByKey = new Map(
+      existingPermissions.map((permission) => [permission.key, permission]),
+    );
+    const permissionsToSync = PERMISSIONS.filter((permission) => {
+      const existing = existingByKey.get(permission.key);
+      return (
+        !existing ||
+        existing.name !== permission.name ||
+        existing.description !== permission.description ||
+        existing.module !== permission.module
+      );
+    });
+
+    if (permissionsToSync.length === 0 && existingPermissions.length === PERMISSIONS.length) {
+      this.permissionsReady = true;
+      return;
+    }
+
     await Promise.all(
-      PERMISSIONS.map((permission) =>
+      permissionsToSync.map((permission) =>
         this.prisma.permission.upsert({
           where: { key: permission.key },
           update: {
@@ -46,10 +78,50 @@ export class RolesService {
         }),
       ),
     );
+    this.permissionsReady = true;
   }
 
   async ensureTenantSystemRoles(tenantId: string) {
+    if (this.tenantSystemRolesReady.has(tenantId)) return;
+
     await this.ensurePermissions();
+
+    const existingRoles = await this.prisma.role.findMany({
+      where: {
+        tenantId,
+        name: { in: SYSTEM_ROLES.map((role) => role.name) },
+        isActive: true,
+        isSystemRole: true,
+      },
+      include: {
+        permissions: {
+          include: {
+            permission: {
+              select: { key: true },
+            },
+          },
+        },
+      },
+    });
+    const existingByName = new Map(existingRoles.map((role) => [role.name, role]));
+    const rolesAreCurrent = SYSTEM_ROLES.every((definition) => {
+      const role = existingByName.get(definition.name);
+      if (!role || role.description !== definition.description) return false;
+
+      const currentKeys = new Set(
+        role.permissions.map((item) => item.permission.key),
+      );
+      const expectedKeys = systemRolePermissionKeys(definition.name);
+      return (
+        currentKeys.size === expectedKeys.length &&
+        expectedKeys.every((key) => currentKeys.has(key))
+      );
+    });
+
+    if (rolesAreCurrent) {
+      this.tenantSystemRolesReady.add(tenantId);
+      return;
+    }
 
     for (const definition of SYSTEM_ROLES) {
       const role = await this.prisma.role.upsert({
@@ -76,6 +148,8 @@ export class RolesService {
 
       await this.syncRolePermissions(role.id, systemRolePermissionKeys(definition.name));
     }
+
+    this.tenantSystemRolesReady.add(tenantId);
   }
 
   async ensureDefaultAssignmentForUser(userId: string) {

@@ -28,7 +28,7 @@ export async function analyzeDiscoveryCall(
   const res = await api.post(`sales-accelerator/${entityType}/${entityId}/discovery-call`, {
     transcript,
   });
-  return res.data;
+  return res.data?.intelligence ?? res.data;
 }
 
 export async function coachDiscoveryCall(
@@ -39,5 +39,5 @@ export async function coachDiscoveryCall(
   const res = await api.post(`sales-accelerator/${entityType}/${entityId}/live-coach`, {
     transcript,
   });
-  return res.data;
+  return res.data?.coach ?? res.data;
 }

@@ -121,12 +121,12 @@ export default function SalesCallsPage() {
 
   return (
     <DashboardLayout>
-      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
           <h2 className="text-2xl font-bold sm:text-3xl">Sales Calls</h2>
           <p className="text-muted-foreground">Paste call notes or transcripts for live coaching and discovery capture.</p>
         </div>
-        <div className="inline-flex rounded-lg border border-white/10 bg-white/5 p-1">
+        <div className="grid w-full grid-cols-2 rounded-lg border border-white/10 bg-white/5 p-1 sm:inline-flex sm:w-auto">
           {(['deals', 'leads'] as const).map((item) => (
             <button
               key={item}
@@ -153,8 +153,8 @@ export default function SalesCallsPage() {
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,520px)_minmax(0,1fr)]">
-        <section className="glass-card rounded-lg border border-white/10 p-5 sm:p-6">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,520px)_minmax(0,1fr)] xl:gap-6">
+        <section className="glass-card min-w-0 rounded-lg border border-white/10 p-4 sm:p-6">
           <div className="mb-5 flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-indigo-500/20 bg-indigo-500/10 text-indigo-300">
               <Mic size={22} />
@@ -181,7 +181,7 @@ export default function SalesCallsPage() {
             </select>
 
             <div className="rounded-lg border border-white/10 bg-black/20 p-4">
-              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="flex items-center gap-2 font-bold text-white">
                     <FileAudio size={18} className="text-indigo-300" />
@@ -197,7 +197,7 @@ export default function SalesCallsPage() {
                   type="button"
                   onClick={transcribeAudio}
                   disabled={!audioFile || !transcriptionStatus?.configured || loading !== null}
-                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-indigo-500 px-4 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:opacity-50"
+                  className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-indigo-500 px-4 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:opacity-50 sm:w-auto"
                 >
                   {loading === 'transcribe' ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
                   Transcribe
@@ -230,7 +230,7 @@ export default function SalesCallsPage() {
               value={transcript}
               onChange={(event) => setTranscript(event.target.value)}
               placeholder="Paste discovery call transcript or notes..."
-              className="min-h-72 w-full rounded-lg border border-white/10 bg-white/5 p-4 text-sm leading-6 text-white outline-none focus:border-indigo-400"
+              className="min-h-56 w-full rounded-lg border border-white/10 bg-white/5 p-4 text-sm leading-6 text-white outline-none focus:border-indigo-400 sm:min-h-72"
             />
 
             <div className="grid gap-3 sm:grid-cols-2">
@@ -256,7 +256,7 @@ export default function SalesCallsPage() {
           </div>
         </section>
 
-        <section className="space-y-6">
+        <section className="min-w-0 space-y-5 xl:space-y-6">
           <ResultPanel
             title="Live Coach"
             empty="Run live coaching to see missed questions, next best question, and proposal pause guidance."

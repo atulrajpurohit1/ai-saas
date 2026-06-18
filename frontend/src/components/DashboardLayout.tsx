@@ -57,7 +57,7 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
   if (!user || isBlocked) return null;
 
   return (
-    <div className="min-h-screen bg-[#0f172a]">
+    <div className="min-h-dvh bg-[#0f172a]">
       <div className="lg:hidden">
         {sidebarOpen && (
           <button
@@ -67,7 +67,7 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
             onClick={() => setSidebarOpen(false)}
           />
         )}
-        <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0f172a]/95 px-4 py-3 backdrop-blur">
+        <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0f172a]/95 px-3 py-3 backdrop-blur sm:px-4">
           <div className="flex items-center justify-between gap-4">
             <button
               type="button"
@@ -87,7 +87,7 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
 
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <main className="min-w-0 px-4 py-5 sm:px-6 sm:py-7 lg:ml-64 lg:px-8 lg:py-8">
+      <main className="min-w-0 px-3 py-4 sm:px-6 sm:py-7 lg:ml-64 lg:px-8 lg:py-8">
         <div className="mx-auto w-full max-w-7xl">
           {children}
         </div>

@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { AuditService } from '../audit/audit.service';
 import { BrandingService } from '../branding/branding.service';
@@ -13,14 +18,25 @@ export class SalesDeliveryService {
     private readonly brandingService: BrandingService,
     private readonly auditService: AuditService,
   ) {
-    this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-      port: Number(process.env.SMTP_PORT) || 587,
-      auth: {
-        user: process.env.SMTP_USER || 'ethereal.user@ethereal.email',
-        pass: process.env.SMTP_PASS || 'ethereal-pass',
-      },
-    });
+    const hasSmtpConfig = Boolean(
+      process.env.SMTP_HOST &&
+        process.env.SMTP_USER &&
+        process.env.SMTP_PASS &&
+        process.env.SMTP_USER !== 'your-ethereal-user' &&
+        process.env.SMTP_PASS !== 'your-ethereal-pass',
+    );
+
+    this.transporter =
+      hasSmtpConfig
+        ? nodemailer.createTransport({
+            host: process.env.SMTP_HOST,
+            port: Number(process.env.SMTP_PORT) || 587,
+            auth: {
+              user: process.env.SMTP_USER,
+              pass: process.env.SMTP_PASS,
+            },
+          })
+        : nodemailer.createTransport({ jsonTransport: true });
   }
 
   async draftDealFollowUp(tenantId: string, dealId: string) {
@@ -74,17 +90,26 @@ export class SalesDeliveryService {
     }
 
     const branding = await this.brandingService.brandingSnapshot(tenantId);
-    const info = await this.transporter.sendMail({
-      from: `"${branding.company_name}" <${branding.support_email || 'no-reply@aisaascrm.com'}>`,
-      to: draft.to,
-      subject: draft.subject,
-      text: draft.body,
-      html: this.brandingService.emailShell(
-        branding,
-        draft.subject,
-        `<div style="white-space: pre-wrap; line-height: 1.6;">${this.escapeHtml(draft.body)}</div>`,
-      ),
-    });
+    let info: nodemailer.SentMessageInfo;
+    try {
+      info = await this.transporter.sendMail({
+        from: `"${branding.company_name}" <${branding.support_email || 'no-reply@aisaascrm.com'}>`,
+        to: draft.to,
+        subject: draft.subject,
+        text: draft.body,
+        html: this.brandingService.emailShell(
+          branding,
+          draft.subject,
+          `<div style="white-space: pre-wrap; line-height: 1.6;">${this.escapeHtml(draft.body)}</div>`,
+        ),
+      });
+    } catch (error) {
+      throw new ServiceUnavailableException(
+        `Unable to send follow-up email. Check SMTP settings. ${
+          error instanceof Error ? error.message : ''
+        }`.trim(),
+      );
+    }
 
     const activity = await this.prisma.activity.create({
       data: {

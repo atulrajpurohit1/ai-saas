@@ -52,6 +52,24 @@ svg {
   max-width: 100%;
 }
 
+pre,
+code {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.mobile-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .mobile-stack {
+    flex-direction: row;
+  }
+}
+
 .glass-card {
   background: rgba(30, 41, 59, 0.7);
   backdrop-filter: blur(12px);

@@ -233,8 +233,8 @@ export default function AiPredictionsPage() {
 
   return (
     <DashboardLayout allowedRoles={['admin']}>
-      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
           <h2 className="flex items-center gap-3 text-2xl font-bold sm:text-3xl">
             <BrainCircuit className="text-sky-300" size={29} />
             AI Predictions
@@ -245,7 +245,7 @@ export default function AiPredictionsPage() {
           type="button"
           onClick={loadDashboard}
           disabled={loading}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-sky-400 disabled:opacity-60"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-sky-400 disabled:opacity-60 sm:w-auto"
         >
           {loading ? <Loader2 className="animate-spin" size={17} /> : <RefreshCcw size={17} />}
           Refresh

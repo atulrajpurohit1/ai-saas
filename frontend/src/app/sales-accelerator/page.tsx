@@ -374,8 +374,8 @@ export default function SalesAcceleratorDashboardPage() {
 
   return (
     <DashboardLayout>
-      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
           <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-cyan-300">
             <BrainCircuit size={14} />
             Security Sales Execution

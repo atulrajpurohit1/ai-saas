@@ -89,12 +89,12 @@ export default function SalesDeliveryPage() {
 
   return (
     <DashboardLayout>
-      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
           <h2 className="text-2xl font-bold sm:text-3xl">Sales Delivery</h2>
           <p className="text-muted-foreground">Send follow-up emails and export calendar invites for active deals.</p>
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="grid w-full grid-cols-1 gap-3 sm:w-auto sm:grid-cols-2">
           <button
             type="button"
             onClick={handleCalendar}
@@ -132,8 +132,8 @@ export default function SalesDeliveryPage() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
-        <section className="glass-card rounded-lg border border-white/10 p-5 sm:p-6">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+        <section className="glass-card min-w-0 rounded-lg border border-white/10 p-4 sm:p-6">
           <div className="mb-5 flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-indigo-500/20 bg-indigo-500/10 text-indigo-300">
               <Mail size={22} />
@@ -167,9 +167,9 @@ export default function SalesDeliveryPage() {
           )}
         </section>
 
-        <section className="glass-card rounded-lg border border-white/10 p-5 sm:p-6">
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <div>
+        <section className="glass-card min-w-0 rounded-lg border border-white/10 p-4 sm:p-6">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
               <h3 className="text-lg font-bold">Follow-Up Draft</h3>
               <p className="text-sm text-muted-foreground">Generated from deal assessment, discovery, and next activity.</p>
             </div>
@@ -177,7 +177,7 @@ export default function SalesDeliveryPage() {
               type="button"
               onClick={loadDraft}
               disabled={!dealId || loading !== null}
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-white transition hover:bg-white/10 disabled:opacity-50"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-white transition hover:bg-white/10 disabled:opacity-50 sm:w-auto"
             >
               Refresh
             </button>
@@ -197,7 +197,7 @@ export default function SalesDeliveryPage() {
               </div>
               <div className="rounded-lg border border-white/10 bg-black/20 p-4">
                 <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">Body</p>
-                <pre className="whitespace-pre-wrap font-sans text-sm leading-6 text-slate-100">{draft.body}</pre>
+                <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6 text-slate-100">{draft.body}</pre>
               </div>
             </div>
           )}

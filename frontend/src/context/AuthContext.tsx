@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import axios from 'axios';
 import api from '@/lib/api';
 
 export interface User {
@@ -99,10 +100,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('user', JSON.stringify(nextUser));
         setUser(nextUser);
       } catch (e) {
-        console.error('Failed to refresh current user', e);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        if (mounted) setUser(null);
+        if (axios.isAxiosError(e) && e.response?.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          if (mounted) setUser(null);
+        } else if (axios.isAxiosError(e) && !e.response) {
+          console.warn('Backend is not reachable while refreshing current user. Keeping cached session.');
+        } else {
+          console.warn('Could not refresh current user session.');
+        }
       } finally {
         if (mounted) setLoading(false);
       }

@@ -18,12 +18,37 @@ const rbac_constants_1 = require("./rbac.constants");
 let RolesService = class RolesService {
     prisma;
     auditService;
+    permissionsReady = false;
+    tenantSystemRolesReady = new Set();
     constructor(prisma, auditService) {
         this.prisma = prisma;
         this.auditService = auditService;
     }
     async ensurePermissions() {
-        await Promise.all(rbac_constants_1.PERMISSIONS.map((permission) => this.prisma.permission.upsert({
+        if (this.permissionsReady)
+            return;
+        const existingPermissions = await this.prisma.permission.findMany({
+            where: { key: { in: rbac_constants_1.ALL_PERMISSION_KEYS } },
+            select: {
+                key: true,
+                name: true,
+                description: true,
+                module: true,
+            },
+        });
+        const existingByKey = new Map(existingPermissions.map((permission) => [permission.key, permission]));
+        const permissionsToSync = rbac_constants_1.PERMISSIONS.filter((permission) => {
+            const existing = existingByKey.get(permission.key);
+            return (!existing ||
+                existing.name !== permission.name ||
+                existing.description !== permission.description ||
+                existing.module !== permission.module);
+        });
+        if (permissionsToSync.length === 0 && existingPermissions.length === rbac_constants_1.PERMISSIONS.length) {
+            this.permissionsReady = true;
+            return;
+        }
+        await Promise.all(permissionsToSync.map((permission) => this.prisma.permission.upsert({
             where: { key: permission.key },
             update: {
                 name: permission.name,
@@ -38,9 +63,43 @@ let RolesService = class RolesService {
                 module: permission.module,
             },
         })));
+        this.permissionsReady = true;
     }
     async ensureTenantSystemRoles(tenantId) {
+        if (this.tenantSystemRolesReady.has(tenantId))
+            return;
         await this.ensurePermissions();
+        const existingRoles = await this.prisma.role.findMany({
+            where: {
+                tenantId,
+                name: { in: rbac_constants_1.SYSTEM_ROLES.map((role) => role.name) },
+                isActive: true,
+                isSystemRole: true,
+            },
+            include: {
+                permissions: {
+                    include: {
+                        permission: {
+                            select: { key: true },
+                        },
+                    },
+                },
+            },
+        });
+        const existingByName = new Map(existingRoles.map((role) => [role.name, role]));
+        const rolesAreCurrent = rbac_constants_1.SYSTEM_ROLES.every((definition) => {
+            const role = existingByName.get(definition.name);
+            if (!role || role.description !== definition.description)
+                return false;
+            const currentKeys = new Set(role.permissions.map((item) => item.permission.key));
+            const expectedKeys = (0, rbac_constants_1.systemRolePermissionKeys)(definition.name);
+            return (currentKeys.size === expectedKeys.length &&
+                expectedKeys.every((key) => currentKeys.has(key)));
+        });
+        if (rolesAreCurrent) {
+            this.tenantSystemRolesReady.add(tenantId);
+            return;
+        }
         for (const definition of rbac_constants_1.SYSTEM_ROLES) {
             const role = await this.prisma.role.upsert({
                 where: {
@@ -65,6 +124,7 @@ let RolesService = class RolesService {
             });
             await this.syncRolePermissions(role.id, (0, rbac_constants_1.systemRolePermissionKeys)(definition.name));
         }
+        this.tenantSystemRolesReady.add(tenantId);
     }
     async ensureDefaultAssignmentForUser(userId) {
         const user = await this.prisma.user.findUnique({

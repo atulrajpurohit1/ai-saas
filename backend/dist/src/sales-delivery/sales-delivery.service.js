@@ -57,14 +57,22 @@ let SalesDeliveryService = class SalesDeliveryService {
         this.prisma = prisma;
         this.brandingService = brandingService;
         this.auditService = auditService;
-        this.transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-            port: Number(process.env.SMTP_PORT) || 587,
-            auth: {
-                user: process.env.SMTP_USER || 'ethereal.user@ethereal.email',
-                pass: process.env.SMTP_PASS || 'ethereal-pass',
-            },
-        });
+        const hasSmtpConfig = Boolean(process.env.SMTP_HOST &&
+            process.env.SMTP_USER &&
+            process.env.SMTP_PASS &&
+            process.env.SMTP_USER !== 'your-ethereal-user' &&
+            process.env.SMTP_PASS !== 'your-ethereal-pass');
+        this.transporter =
+            hasSmtpConfig
+                ? nodemailer.createTransport({
+                    host: process.env.SMTP_HOST,
+                    port: Number(process.env.SMTP_PORT) || 587,
+                    auth: {
+                        user: process.env.SMTP_USER,
+                        pass: process.env.SMTP_PASS,
+                    },
+                })
+                : nodemailer.createTransport({ jsonTransport: true });
     }
     async draftDealFollowUp(tenantId, dealId) {
         const deal = await this.getDealContext(tenantId, dealId);
@@ -111,13 +119,19 @@ let SalesDeliveryService = class SalesDeliveryService {
             throw new common_1.BadRequestException('This deal lead does not have an email address');
         }
         const branding = await this.brandingService.brandingSnapshot(tenantId);
-        const info = await this.transporter.sendMail({
-            from: `"${branding.company_name}" <${branding.support_email || 'no-reply@aisaascrm.com'}>`,
-            to: draft.to,
-            subject: draft.subject,
-            text: draft.body,
-            html: this.brandingService.emailShell(branding, draft.subject, `<div style="white-space: pre-wrap; line-height: 1.6;">${this.escapeHtml(draft.body)}</div>`),
-        });
+        let info;
+        try {
+            info = await this.transporter.sendMail({
+                from: `"${branding.company_name}" <${branding.support_email || 'no-reply@aisaascrm.com'}>`,
+                to: draft.to,
+                subject: draft.subject,
+                text: draft.body,
+                html: this.brandingService.emailShell(branding, draft.subject, `<div style="white-space: pre-wrap; line-height: 1.6;">${this.escapeHtml(draft.body)}</div>`),
+            });
+        }
+        catch (error) {
+            throw new common_1.ServiceUnavailableException(`Unable to send follow-up email. Check SMTP settings. ${error instanceof Error ? error.message : ''}`.trim());
+        }
         const activity = await this.prisma.activity.create({
             data: {
                 type: 'email',

@@ -7,6 +7,8 @@ import { UpdateRoleDto } from './dto/update-role.dto';
 export declare class RolesService {
     private readonly prisma;
     private readonly auditService;
+    private permissionsReady;
+    private readonly tenantSystemRolesReady;
     constructor(prisma: PrismaService, auditService: AuditService);
     ensurePermissions(): Promise<void>;
     ensureTenantSystemRoles(tenantId: string): Promise<void>;
@@ -127,8 +129,8 @@ export declare class RolesService {
             userId: string;
             isActive: boolean;
             roleId: string;
-            assignedBy: string | null;
             assignedAt: Date;
+            assignedBy: string | null;
             revokedAt: Date | null;
         })[];
     }[]>;
@@ -154,8 +156,8 @@ export declare class RolesService {
         userId: string;
         isActive: boolean;
         roleId: string;
-        assignedBy: string | null;
         assignedAt: Date;
+        assignedBy: string | null;
         revokedAt: Date | null;
     }>;
     revokeAssignment(user: ActiveUser, assignmentId: string): Promise<{
@@ -165,8 +167,8 @@ export declare class RolesService {
         userId: string;
         isActive: boolean;
         roleId: string;
-        assignedBy: string | null;
         assignedAt: Date;
+        assignedBy: string | null;
         revokedAt: Date | null;
     }>;
     hasPermissions(user: ActiveUser | undefined, required: string[]): Promise<boolean>;
