@@ -85,6 +85,8 @@ let SsoService = class SsoService {
     }
     async createProvider(user, dto) {
         await this.validateProviderReferences(user.tenantId, dto);
+        const emailDomains = this.normalizeDomains(dto.email_domains);
+        this.assertProviderCanBeActive(dto.status || 'inactive', emailDomains);
         const provider = await this.prisma.sSOProvider.create({
             data: {
                 tenantId: user.tenantId,
@@ -95,7 +97,7 @@ let SsoService = class SsoService {
                 issuerUrl: dto.issuer_url?.trim() || null,
                 metadataUrl: dto.metadata_url?.trim() || null,
                 samlMetadata: dto.saml_metadata?.trim() || null,
-                emailDomains: this.normalizeDomains(dto.email_domains),
+                emailDomains,
                 autoProvision: dto.auto_provision ?? true,
                 defaultRoleId: dto.default_role_id || null,
                 defaultBranchId: dto.default_branch_id || null,
@@ -116,6 +118,10 @@ let SsoService = class SsoService {
     async updateProvider(user, id, dto) {
         const existing = await this.findProvider(user.tenantId, id);
         await this.validateProviderReferences(user.tenantId, dto);
+        const nextEmailDomains = dto.email_domains !== undefined
+            ? this.normalizeDomains(dto.email_domains)
+            : existing.emailDomains;
+        this.assertProviderCanBeActive(dto.status || existing.status, nextEmailDomains);
         await this.prisma.sSOProvider.update({
             where: { id: existing.id },
             data: {
@@ -126,7 +132,7 @@ let SsoService = class SsoService {
                 ...(dto.issuer_url !== undefined ? { issuerUrl: dto.issuer_url?.trim() || null } : {}),
                 ...(dto.metadata_url !== undefined ? { metadataUrl: dto.metadata_url?.trim() || null } : {}),
                 ...(dto.saml_metadata !== undefined ? { samlMetadata: dto.saml_metadata?.trim() || null } : {}),
-                ...(dto.email_domains !== undefined ? { emailDomains: this.normalizeDomains(dto.email_domains) } : {}),
+                ...(dto.email_domains !== undefined ? { emailDomains: nextEmailDomains } : {}),
                 ...(dto.auto_provision !== undefined ? { autoProvision: dto.auto_provision } : {}),
                 ...(dto.default_role_id !== undefined ? { defaultRoleId: dto.default_role_id || null } : {}),
                 ...(dto.default_branch_id !== undefined ? { defaultBranchId: dto.default_branch_id || null } : {}),
@@ -207,7 +213,7 @@ let SsoService = class SsoService {
         url.searchParams.set('response_type', 'code');
         url.searchParams.set('client_id', provider.clientId || '');
         url.searchParams.set('redirect_uri', callbackUrl);
-        url.searchParams.set('scope', 'openid email profile groups');
+        url.searchParams.set('scope', this.oidcScope());
         url.searchParams.set('state', state);
         url.searchParams.set('nonce', nonce);
         url.searchParams.set('code_challenge', codeChallenge);
@@ -272,7 +278,8 @@ let SsoService = class SsoService {
         }
     }
     async findOrProvisionUser(provider, loginEmail, claims) {
-        const email = (claims.email || claims.preferred_username || loginEmail).toLowerCase();
+        const email = this.resolveClaimEmail(claims);
+        this.assertSsoEmailAllowed(provider, loginEmail, email);
         const name = claims.name || [claims.given_name, claims.family_name].filter(Boolean).join(' ') || email;
         let user = await this.prisma.user.findUnique({ where: { email } });
         const wasCreated = !user;
@@ -452,7 +459,11 @@ let SsoService = class SsoService {
         const user = await this.prisma.user.findUnique({ where: { email } });
         const userTenantProvider = user
             ? await this.prisma.sSOProvider.findFirst({
-                where: { tenantId: user.tenantId, status: 'active' },
+                where: {
+                    tenantId: user.tenantId,
+                    status: 'active',
+                    emailDomains: { has: domain },
+                },
                 include: { roleMappings: true },
             })
             : null;
@@ -548,6 +559,11 @@ let SsoService = class SsoService {
     normalizeDomains(domains) {
         return [...new Set((domains || []).map((domain) => domain.trim().toLowerCase()).filter(Boolean))];
     }
+    assertProviderCanBeActive(status, emailDomains) {
+        if (status === 'active' && emailDomains.length === 0) {
+            throw new common_1.BadRequestException('At least one email domain is required for active SSO providers');
+        }
+    }
     extractGroups(claims) {
         const groups = claims.groups || claims.roles || claims['https://schemas.microsoft.com/ws/2008/06/identity/claims/groups'] || [];
         if (Array.isArray(groups))
@@ -555,6 +571,29 @@ let SsoService = class SsoService {
         if (typeof groups === 'string')
             return [groups];
         return [];
+    }
+    resolveClaimEmail(claims) {
+        const email = String(claims.email || claims.preferred_username || '')
+            .trim()
+            .toLowerCase();
+        if (!email || !email.includes('@')) {
+            throw new common_1.UnauthorizedException('Identity provider did not return a valid email');
+        }
+        return email;
+    }
+    assertSsoEmailAllowed(provider, requestedEmail, claimEmail) {
+        const normalizedRequestedEmail = requestedEmail.trim().toLowerCase();
+        if (claimEmail !== normalizedRequestedEmail) {
+            throw new common_1.UnauthorizedException('SSO identity did not match requested email');
+        }
+        const domain = claimEmail.split('@')[1]?.toLowerCase();
+        const allowedDomains = (provider.emailDomains || []).map((item) => String(item).toLowerCase());
+        if (!domain || !allowedDomains.includes(domain)) {
+            throw new common_1.UnauthorizedException('Email domain is not allowed for this SSO provider');
+        }
+    }
+    oidcScope() {
+        return 'openid email profile';
     }
     callbackUrl(context) {
         const publicUrl = this.configService.get('BACKEND_PUBLIC_URL') || context.origin || 'http://localhost:5000';

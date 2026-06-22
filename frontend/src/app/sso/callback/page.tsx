@@ -1,17 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
 export default function SsoCallbackPage() {
-  const router = useRouter();
   const { login } = useAuth();
   const [error, setError] = useState('');
+  const startedRef = useRef(false);
 
   useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+
     const finish = async () => {
       const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
       const accessToken = params.get('access_token');
@@ -26,13 +28,12 @@ export default function SsoCallbackPage() {
       if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
       const me = await api.get('users/me');
       login(accessToken, me.data);
-      router.replace('/');
     };
 
     finish().catch((err) => {
       setError(err?.response?.data?.message || err?.message || 'Could not finish SSO login.');
     });
-  }, [login, router]);
+  }, [login]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#05050a] px-4">

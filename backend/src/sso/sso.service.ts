@@ -61,6 +61,8 @@ export class SsoService {
 
   async createProvider(user: ActiveUser, dto: CreateSSOProviderDto) {
     await this.validateProviderReferences(user.tenantId, dto);
+    const emailDomains = this.normalizeDomains(dto.email_domains);
+    this.assertProviderCanBeActive(dto.status || 'inactive', emailDomains);
     const provider = await this.prisma.sSOProvider.create({
       data: {
         tenantId: user.tenantId,
@@ -71,7 +73,7 @@ export class SsoService {
         issuerUrl: dto.issuer_url?.trim() || null,
         metadataUrl: dto.metadata_url?.trim() || null,
         samlMetadata: dto.saml_metadata?.trim() || null,
-        emailDomains: this.normalizeDomains(dto.email_domains),
+        emailDomains,
         autoProvision: dto.auto_provision ?? true,
         defaultRoleId: dto.default_role_id || null,
         defaultBranchId: dto.default_branch_id || null,
@@ -95,6 +97,10 @@ export class SsoService {
   async updateProvider(user: ActiveUser, id: string, dto: UpdateSSOProviderDto) {
     const existing = await this.findProvider(user.tenantId, id);
     await this.validateProviderReferences(user.tenantId, dto);
+    const nextEmailDomains = dto.email_domains !== undefined
+      ? this.normalizeDomains(dto.email_domains)
+      : existing.emailDomains;
+    this.assertProviderCanBeActive(dto.status || existing.status, nextEmailDomains);
     await this.prisma.sSOProvider.update({
       where: { id: existing.id },
       data: {
@@ -105,7 +111,7 @@ export class SsoService {
         ...(dto.issuer_url !== undefined ? { issuerUrl: dto.issuer_url?.trim() || null } : {}),
         ...(dto.metadata_url !== undefined ? { metadataUrl: dto.metadata_url?.trim() || null } : {}),
         ...(dto.saml_metadata !== undefined ? { samlMetadata: dto.saml_metadata?.trim() || null } : {}),
-        ...(dto.email_domains !== undefined ? { emailDomains: this.normalizeDomains(dto.email_domains) } : {}),
+        ...(dto.email_domains !== undefined ? { emailDomains: nextEmailDomains } : {}),
         ...(dto.auto_provision !== undefined ? { autoProvision: dto.auto_provision } : {}),
         ...(dto.default_role_id !== undefined ? { defaultRoleId: dto.default_role_id || null } : {}),
         ...(dto.default_branch_id !== undefined ? { defaultBranchId: dto.default_branch_id || null } : {}),
@@ -197,7 +203,7 @@ export class SsoService {
     url.searchParams.set('response_type', 'code');
     url.searchParams.set('client_id', provider.clientId || '');
     url.searchParams.set('redirect_uri', callbackUrl);
-    url.searchParams.set('scope', 'openid email profile groups');
+    url.searchParams.set('scope', this.oidcScope());
     url.searchParams.set('state', state);
     url.searchParams.set('nonce', nonce);
     url.searchParams.set('code_challenge', codeChallenge);
@@ -284,7 +290,8 @@ export class SsoService {
   }
 
   private async findOrProvisionUser(provider: any, loginEmail: string, claims: Record<string, any>) {
-    const email = (claims.email || claims.preferred_username || loginEmail).toLowerCase();
+    const email = this.resolveClaimEmail(claims);
+    this.assertSsoEmailAllowed(provider, loginEmail, email);
     const name = claims.name || [claims.given_name, claims.family_name].filter(Boolean).join(' ') || email;
     let user = await this.prisma.user.findUnique({ where: { email } });
     const wasCreated = !user;
@@ -471,7 +478,11 @@ export class SsoService {
     const user = await this.prisma.user.findUnique({ where: { email } });
     const userTenantProvider = user
       ? await this.prisma.sSOProvider.findFirst({
-          where: { tenantId: user.tenantId, status: 'active' },
+          where: {
+            tenantId: user.tenantId,
+            status: 'active',
+            emailDomains: { has: domain },
+          },
           include: { roleMappings: true },
         })
       : null;
@@ -569,11 +580,44 @@ export class SsoService {
     return [...new Set((domains || []).map((domain) => domain.trim().toLowerCase()).filter(Boolean))];
   }
 
+  private assertProviderCanBeActive(status: string, emailDomains: string[]) {
+    if (status === 'active' && emailDomains.length === 0) {
+      throw new BadRequestException('At least one email domain is required for active SSO providers');
+    }
+  }
+
   private extractGroups(claims: Record<string, any>) {
     const groups = claims.groups || claims.roles || claims['https://schemas.microsoft.com/ws/2008/06/identity/claims/groups'] || [];
     if (Array.isArray(groups)) return groups.map(String);
     if (typeof groups === 'string') return [groups];
     return [];
+  }
+
+  private resolveClaimEmail(claims: Record<string, any>) {
+    const email = String(claims.email || claims.preferred_username || '')
+      .trim()
+      .toLowerCase();
+    if (!email || !email.includes('@')) {
+      throw new UnauthorizedException('Identity provider did not return a valid email');
+    }
+    return email;
+  }
+
+  private assertSsoEmailAllowed(provider: any, requestedEmail: string, claimEmail: string) {
+    const normalizedRequestedEmail = requestedEmail.trim().toLowerCase();
+    if (claimEmail !== normalizedRequestedEmail) {
+      throw new UnauthorizedException('SSO identity did not match requested email');
+    }
+
+    const domain = claimEmail.split('@')[1]?.toLowerCase();
+    const allowedDomains = (provider.emailDomains || []).map((item) => String(item).toLowerCase());
+    if (!domain || !allowedDomains.includes(domain)) {
+      throw new UnauthorizedException('Email domain is not allowed for this SSO provider');
+    }
+  }
+
+  private oidcScope() {
+    return 'openid email profile';
   }
 
   private callbackUrl(context: RequestContext) {

@@ -134,7 +134,11 @@ export declare class SsoService {
     private getProviderForTenant;
     private findProvider;
     private normalizeDomains;
+    private assertProviderCanBeActive;
     private extractGroups;
+    private resolveClaimEmail;
+    private assertSsoEmailAllowed;
+    private oidcScope;
     private callbackUrl;
     private serializeProvider;
 }
