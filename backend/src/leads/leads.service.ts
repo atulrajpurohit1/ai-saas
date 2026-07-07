@@ -241,4 +241,37 @@ export class LeadsService {
       throw error;
     }
   }
+
+  async findPotentialDuplicate(
+    tenantId: string,
+    companyName: string,
+    emailDomain?: string | null,
+  ) {
+    return this.prisma.lead.findFirst({
+      where: {
+        tenantId,
+        OR: [
+          { company: { equals: companyName, mode: 'insensitive' } },
+          ...(emailDomain
+            ? [
+                {
+                  email: {
+                    endsWith: `@${emailDomain}`,
+                    mode: 'insensitive' as const,
+                  },
+                },
+              ]
+            : []),
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        company: true,
+        email: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 }

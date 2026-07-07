@@ -89,6 +89,38 @@ export interface AiDiscoveryLiveCoachDraft {
   shouldPauseProposal: boolean;
 }
 
+export interface ProspectSearchFilters {
+  industry: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  employeeMin: number | null;
+  employeeMax: number | null;
+  revenueRange: string | null;
+  keywords: string[];
+}
+
+export interface ProspectCompanySummary {
+  name: string;
+  industry: string;
+  website: string;
+  city: string;
+  state: string;
+  country: string;
+  employeeCount: number;
+  revenueRange: string;
+  description: string;
+  matchScore: number;
+}
+
+export interface ProspectCompanyInsight {
+  whyMatch: string;
+  opportunity: string;
+  outreachStrategy: string;
+  securityNeeds: string;
+  nextConversation: string;
+}
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
@@ -1468,5 +1500,214 @@ Complete discovery, confirm scope, and finalize a proposal aligned to the client
         this.getUnavailableMessage('lead extraction'),
       );
     }
+  }
+
+  async generateProspectSearchFilters(
+    prompt: string,
+    promptTemplate?: string | null,
+  ): Promise<ProspectSearchFilters> {
+    const trimmedPrompt = prompt.trim();
+    const fallback = this.fallbackProspectSearchFilters(trimmedPrompt);
+
+    if (!this.isAiAvailable()) {
+      if (this.getFallbackEnabled()) return fallback;
+      throw new InternalServerErrorException(
+        this.getUnavailableMessage('prospect search filter generation'),
+      );
+    }
+
+    const renderedPrompt =
+      this.renderPrompt(promptTemplate, { prompt: trimmedPrompt }) ||
+      `
+      You are a B2B prospecting assistant for a company that sells commercial security guard services.
+      Convert the user's request into structured company search filters. Only return JSON.
+
+      USER REQUEST:
+      "${trimmedPrompt}"
+
+      Return exactly this JSON shape:
+      {
+        "industry": "string or null",
+        "city": "string or null",
+        "state": "string or null",
+        "country": "string or null",
+        "employeeMin": 0,
+        "employeeMax": 0,
+        "revenueRange": "string or null, e.g. $10M-$50M",
+        "keywords": ["keyword"]
+      }
+
+      Rules:
+      - Use null for any field that cannot be confidently determined from the request.
+      - employeeMin and employeeMax must be numbers or null, never strings.
+      - keywords should be short, relevant nouns or phrases (max 5), not full sentences.
+      - Do not invent a location, industry, or size the user did not imply.
+    `;
+
+    try {
+      const result = await this.model.generateContent(renderedPrompt);
+      const response = await result.response;
+      const rawText = response.text();
+      const parsed =
+        this.parseJsonFromText<Partial<ProspectSearchFilters>>(rawText);
+
+      return {
+        industry: this.normalizeOptionalString(
+          parsed.industry,
+          fallback.industry,
+        ),
+        city: this.normalizeOptionalString(parsed.city, fallback.city),
+        state: this.normalizeOptionalString(parsed.state, fallback.state),
+        country: this.normalizeOptionalString(parsed.country, fallback.country),
+        employeeMin: this.normalizeOptionalNumber(
+          parsed.employeeMin,
+          fallback.employeeMin,
+        ),
+        employeeMax: this.normalizeOptionalNumber(
+          parsed.employeeMax,
+          fallback.employeeMax,
+        ),
+        revenueRange: this.normalizeOptionalString(
+          parsed.revenueRange,
+          fallback.revenueRange,
+        ),
+        keywords: this.normalizeStringArray(
+          parsed.keywords,
+          fallback.keywords,
+        ).slice(0, 5),
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Prospect search filter generation failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+
+      if (this.getFallbackEnabled()) return fallback;
+
+      throw new InternalServerErrorException(
+        this.getUnavailableMessage('prospect search filter generation'),
+      );
+    }
+  }
+
+  private fallbackProspectSearchFilters(prompt: string): ProspectSearchFilters {
+    return {
+      industry: null,
+      city: null,
+      state: null,
+      country: null,
+      employeeMin: null,
+      employeeMax: null,
+      revenueRange: null,
+      keywords: this.normalizeStringArray(
+        prompt
+          .split(/\s+/)
+          .map((word) => word.replace(/[^a-zA-Z0-9-]/g, ''))
+          .filter((word) => word.length > 3),
+      ),
+    };
+  }
+
+  async generateProspectCompanyInsight(
+    company: ProspectCompanySummary,
+    searchPrompt?: string | null,
+    promptTemplate?: string | null,
+  ): Promise<ProspectCompanyInsight> {
+    const fallback = this.fallbackProspectCompanyInsight(company);
+
+    if (!this.isAiAvailable()) {
+      if (this.getFallbackEnabled()) return fallback;
+      throw new InternalServerErrorException(
+        this.getUnavailableMessage('prospect company insight generation'),
+      );
+    }
+
+    const context = `
+      Company: ${company.name}
+      Industry: ${company.industry}
+      Location: ${company.city}, ${company.state}, ${company.country}
+      Employees: ${company.employeeCount}
+      Revenue range: ${company.revenueRange}
+      Description: ${company.description}
+      Match score against the search: ${company.matchScore}%
+      ${searchPrompt ? `Original search request: "${searchPrompt}"` : ''}
+    `.trim();
+
+    const renderedPrompt =
+      this.renderPrompt(promptTemplate, { context }) ||
+      `
+      You are a B2B sales strategist for a company that sells commercial security guard services.
+      Analyze this prospective company and return JSON only.
+
+      CONTEXT:
+      ${context}
+
+      Return exactly this JSON shape:
+      {
+        "whyMatch": "one concise sentence on why this company matches the search",
+        "opportunity": "one concise sentence on the potential sales opportunity",
+        "outreachStrategy": "one concise recommended outreach strategy",
+        "securityNeeds": "one concise sentence on likely security needs",
+        "nextConversation": "one concise suggested next conversation topic or question"
+      }
+
+      Rules:
+      - Keep each field to one sentence.
+      - Base the analysis only on the context provided. Do not invent facts.
+      - Focus on security risk, staffing, and service opportunity relevant to a guard services provider.
+    `;
+
+    try {
+      const result = await this.model.generateContent(renderedPrompt);
+      const response = await result.response;
+      const rawText = response.text();
+      const parsed =
+        this.parseJsonFromText<Partial<ProspectCompanyInsight>>(rawText);
+
+      return {
+        whyMatch:
+          this.normalizeOptionalString(parsed.whyMatch) ?? fallback.whyMatch,
+        opportunity:
+          this.normalizeOptionalString(parsed.opportunity) ??
+          fallback.opportunity,
+        outreachStrategy:
+          this.normalizeOptionalString(parsed.outreachStrategy) ??
+          fallback.outreachStrategy,
+        securityNeeds:
+          this.normalizeOptionalString(parsed.securityNeeds) ??
+          fallback.securityNeeds,
+        nextConversation:
+          this.normalizeOptionalString(parsed.nextConversation) ??
+          fallback.nextConversation,
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Prospect company insight generation failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+
+      if (this.getFallbackEnabled()) return fallback;
+
+      throw new InternalServerErrorException(
+        this.getUnavailableMessage('prospect company insight generation'),
+      );
+    }
+  }
+
+  private fallbackProspectCompanyInsight(
+    company: ProspectCompanySummary,
+  ): ProspectCompanyInsight {
+    return {
+      whyMatch: `${company.name} aligns with the search based on its industry, size, and location.`,
+      opportunity: `A ${company.employeeCount}-employee ${company.industry.toLowerCase()} company in ${company.city}, ${company.state} may need scalable coverage.`,
+      outreachStrategy:
+        'Open with a risk-focused conversation about current coverage gaps before discussing pricing.',
+      securityNeeds:
+        'Likely needs guard staffing, access control, or patrol coverage typical for this industry and size.',
+      nextConversation:
+        'Ask about their current security provider and any recent incidents or coverage gaps.',
+    };
   }
 }

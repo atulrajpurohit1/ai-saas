@@ -20,6 +20,7 @@ exports.NotesModule = NotesModule = __decorate([
         imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule],
         providers: [notes_service_1.NotesService],
         controllers: [notes_controller_1.NotesController],
+        exports: [notes_service_1.NotesService],
     })
 ], NotesModule);
 //# sourceMappingURL=notes.module.js.map

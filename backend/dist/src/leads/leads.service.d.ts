@@ -87,4 +87,11 @@ export declare class LeadsService {
         company: string;
         email: string;
     }>;
+    findPotentialDuplicate(tenantId: string, companyName: string, emailDomain?: string | null): Promise<{
+        id: string;
+        name: string;
+        createdAt: Date;
+        email: string | null;
+        company: string;
+    } | null>;
 }

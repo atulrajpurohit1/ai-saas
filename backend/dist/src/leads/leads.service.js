@@ -222,6 +222,34 @@ let LeadsService = class LeadsService {
             throw error;
         }
     }
+    async findPotentialDuplicate(tenantId, companyName, emailDomain) {
+        return this.prisma.lead.findFirst({
+            where: {
+                tenantId,
+                OR: [
+                    { company: { equals: companyName, mode: 'insensitive' } },
+                    ...(emailDomain
+                        ? [
+                            {
+                                email: {
+                                    endsWith: `@${emailDomain}`,
+                                    mode: 'insensitive',
+                                },
+                            },
+                        ]
+                        : []),
+                ],
+            },
+            select: {
+                id: true,
+                name: true,
+                company: true,
+                email: true,
+                createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
 };
 exports.LeadsService = LeadsService;
 exports.LeadsService = LeadsService = __decorate([

@@ -56,6 +56,7 @@ import { SalesDeliveryModule } from './sales-delivery/sales-delivery.module';
 import { SalesImportsModule } from './sales-imports/sales-imports.module';
 import { PatrolsModule } from './patrols/patrols.module';
 import { FieldPermissionsModule } from './field-permissions/field-permissions.module';
+import { ProspectSearchModule } from './prospect-search/prospect-search.module';
 
 @Module({
   imports: [
@@ -78,6 +79,7 @@ import { FieldPermissionsModule } from './field-permissions/field-permissions.mo
     SalesAutomationModule,
     SalesDeliveryModule,
     SalesImportsModule,
+    ProspectSearchModule,
     UsersModule,
     AuthModule,
     ClientAuthModule,

@@ -74,6 +74,35 @@ export interface AiDiscoveryLiveCoachDraft {
     confidenceScore: number;
     shouldPauseProposal: boolean;
 }
+export interface ProspectSearchFilters {
+    industry: string | null;
+    city: string | null;
+    state: string | null;
+    country: string | null;
+    employeeMin: number | null;
+    employeeMax: number | null;
+    revenueRange: string | null;
+    keywords: string[];
+}
+export interface ProspectCompanySummary {
+    name: string;
+    industry: string;
+    website: string;
+    city: string;
+    state: string;
+    country: string;
+    employeeCount: number;
+    revenueRange: string;
+    description: string;
+    matchScore: number;
+}
+export interface ProspectCompanyInsight {
+    whyMatch: string;
+    opportunity: string;
+    outreachStrategy: string;
+    securityNeeds: string;
+    nextConversation: string;
+}
 export declare class AiService {
     private configService;
     private readonly logger;
@@ -128,4 +157,8 @@ export declare class AiService {
         company: string;
         email: string;
     }>;
+    generateProspectSearchFilters(prompt: string, promptTemplate?: string | null): Promise<ProspectSearchFilters>;
+    private fallbackProspectSearchFilters;
+    generateProspectCompanyInsight(company: ProspectCompanySummary, searchPrompt?: string | null, promptTemplate?: string | null): Promise<ProspectCompanyInsight>;
+    private fallbackProspectCompanyInsight;
 }

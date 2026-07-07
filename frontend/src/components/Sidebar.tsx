@@ -35,7 +35,8 @@ import {
   FileSpreadsheet,
   PhoneCall,
   Mail,
-  CreditCard
+  CreditCard,
+  Radar
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { clsx, type ClassValue } from 'clsx';
@@ -59,6 +60,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   const adminLinks = [
     { href: '/ai-copilot', label: 'AI Copilot', icon: Bot, permissions: ['ai.view'] },
+    { href: '/prospect-search', label: 'Prospect Search', icon: Radar, permissions: ['prospect_search.view'] },
     { href: '/sales-accelerator', label: 'Sales Accelerator', icon: BrainCircuit, permissions: ['ai.view', 'leads.view'] },
     { href: '/sales-calls', label: 'Sales Calls', icon: PhoneCall, permissions: ['ai.view', 'deals.view'] },
     { href: '/sales-automation', label: 'Sales Automation', icon: Bot, permissions: ['ai.view', 'deals.view'] },

@@ -478,6 +478,24 @@ exports.PERMISSIONS = [
         description: 'Upload and manage client documents.',
         module: 'documents',
     },
+    {
+        key: 'prospect_search.view',
+        name: 'View prospect search',
+        description: 'Access the AI-powered prospect search tool.',
+        module: 'prospect_search',
+    },
+    {
+        key: 'prospect_search.search',
+        name: 'Run prospect searches',
+        description: 'Execute AI-powered prospect company searches.',
+        module: 'prospect_search',
+    },
+    {
+        key: 'prospect_search.manage',
+        name: 'Manage saved prospect searches',
+        description: 'Save, rename, and delete saved prospect searches.',
+        module: 'prospect_search',
+    },
 ];
 exports.ALL_PERMISSION_KEYS = exports.PERMISSIONS.map((permission) => permission.key);
 exports.SYSTEM_ROLES = [
@@ -538,6 +556,9 @@ exports.SYSTEM_ROLES = [
             'integrations.manage',
             'crm.view',
             'crm.manage',
+            'prospect_search.view',
+            'prospect_search.search',
+            'prospect_search.manage',
             'api_keys.view',
             'api_keys.manage',
             'webhooks.view',

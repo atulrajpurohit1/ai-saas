@@ -71,6 +71,8 @@ model Tenant {
   patrolRuns            PatrolRun[]
   patrolEvents          PatrolEvent[]
   guardSyncQueues       GuardSyncQueue[]
+  prospectSearchHistory ProspectSearchHistory[]
+  savedProspectSearches SavedProspectSearch[]
 }
 
 model Branch {
@@ -1320,4 +1322,37 @@ model PatrolEvent {
   @@index([checkpointId])
   @@index([guardId])
   @@map("PatrolEvent")
+}
+
+model ProspectSearchHistory {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId      String   @map("user_id")
+  prompt      String
+  filters     Json
+  provider    String
+  resultCount Int      @map("result_count")
+  searchedAt  DateTime @default(now()) @map("searched_at")
+
+  @@index([tenantId])
+  @@index([tenantId, userId])
+  @@index([tenantId, searchedAt])
+  @@map("ProspectSearchHistory")
+}
+
+model SavedProspectSearch {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String   @map("user_id")
+  name      String
+  prompt    String
+  filters   Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([tenantId, userId])
+  @@map("SavedProspectSearch")
 }
