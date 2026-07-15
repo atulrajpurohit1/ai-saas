@@ -15,8 +15,8 @@ export declare class ProspectSearchHistoryService {
         id: string;
         tenantId: string;
         userId: string;
-        provider: string;
         prompt: string;
+        provider: string;
         filters: Prisma.JsonValue;
         resultCount: number;
         searchedAt: Date;
@@ -25,8 +25,8 @@ export declare class ProspectSearchHistoryService {
         id: string;
         tenantId: string;
         userId: string;
-        provider: string;
         prompt: string;
+        provider: string;
         filters: Prisma.JsonValue;
         resultCount: number;
         searchedAt: Date;

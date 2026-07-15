@@ -14,8 +14,6 @@ const common_1 = require("@nestjs/common");
 const crypto_1 = require("crypto");
 const client_1 = require("@prisma/client");
 const audit_service_1 = require("../audit/audit.service");
-const knowledge_base_service_1 = require("../knowledge-base/knowledge-base.service");
-const knowledge_retrieval_service_1 = require("../knowledge-base/knowledge-retrieval.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const webhooks_service_1 = require("../webhooks/webhooks.service");
 const create_incident_dto_1 = require("./dto/create-incident.dto");
@@ -23,14 +21,10 @@ const review_incident_dto_1 = require("./dto/review-incident.dto");
 let IncidentsService = class IncidentsService {
     prisma;
     auditService;
-    knowledgeBaseService;
-    knowledgeRetrievalService;
     webhooksService;
-    constructor(prisma, auditService, knowledgeBaseService, knowledgeRetrievalService, webhooksService) {
+    constructor(prisma, auditService, webhooksService) {
         this.prisma = prisma;
         this.auditService = auditService;
-        this.knowledgeBaseService = knowledgeBaseService;
-        this.knowledgeRetrievalService = knowledgeRetrievalService;
         this.webhooksService = webhooksService;
     }
     mapIncident(row) {
@@ -358,20 +352,7 @@ let IncidentsService = class IncidentsService {
             entityId: incident.id,
             details: `Admin viewed incident "${incident.title}"`,
         });
-        const mapped = this.mapIncident(incident);
-        const similarHistoricalCases = await this.knowledgeRetrievalService.retrieveRelevant({
-            tenantId: user.tenantId,
-            userId: user.sub,
-            sourceModule: 'incidents.similar_cases',
-            query: `${mapped.title} ${mapped.description} ${mapped.severity} ${mapped.site.name}`,
-            categories: ['incidents'],
-            excludeSourceId: incident.id,
-            limit: 5,
-        });
-        return {
-            ...mapped,
-            similarHistoricalCases,
-        };
+        return this.mapIncident(incident);
     }
     async reviewIncident(user, incidentId, dto) {
         const status = this.validateReviewStatus(dto.status);
@@ -414,7 +395,6 @@ let IncidentsService = class IncidentsService {
             details: `Incident "${reviewedIncident.title}" ${status}`,
         });
         if (status === 'approved') {
-            await this.knowledgeBaseService.createFromIncident(user.tenantId, user.sub, this.mapIncident(reviewedIncident));
             await this.webhooksService.triggerEvent(user.tenantId, 'incident.approved', {
                 incident: this.mapIncident(reviewedIncident),
             });
@@ -493,8 +473,6 @@ exports.IncidentsService = IncidentsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         audit_service_1.AuditService,
-        knowledge_base_service_1.KnowledgeBaseService,
-        knowledge_retrieval_service_1.KnowledgeRetrievalService,
         webhooks_service_1.WebhooksService])
 ], IncidentsService);
 //# sourceMappingURL=incidents.service.js.map

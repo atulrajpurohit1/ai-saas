@@ -2,11 +2,9 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-  Optional,
 } from '@nestjs/common';
 import { ActivitiesService } from '../activities/activities.service';
 import { AuditService } from '../audit/audit.service';
-import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ActionableRecommendation,
@@ -27,8 +25,6 @@ export class AiActionsService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly activitiesService: ActivitiesService,
-    @Optional()
-    private readonly knowledgeBaseService?: KnowledgeBaseService,
   ) {}
 
   async syncFromRecommendations(
@@ -149,8 +145,6 @@ export class AiActionsService {
       entityId: id,
       details: approved.title,
     });
-
-    await this.knowledgeBaseService?.createFromAiAction(tenantId, userId, approved);
 
     return approved;
   }

@@ -1,6 +1,5 @@
 import { AiService } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
-import { KnowledgeRetrievalService } from '../knowledge-base/knowledge-retrieval.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiConversationRecord, CopilotAnswer } from './ai-copilot.types';
 import { CopilotQueryService } from './copilot-query.service';
@@ -10,8 +9,7 @@ export declare class AiCopilotService {
     private readonly aiService;
     private readonly auditService;
     private readonly queryService;
-    private readonly knowledgeRetrievalService;
-    constructor(prisma: PrismaService, aiService: AiService, auditService: AuditService, queryService: CopilotQueryService, knowledgeRetrievalService: KnowledgeRetrievalService);
+    constructor(prisma: PrismaService, aiService: AiService, auditService: AuditService, queryService: CopilotQueryService);
     ask(input: {
         tenantId: string;
         userId: string;
@@ -21,7 +19,6 @@ export declare class AiCopilotService {
     history(tenantId: string, userId: string, limit?: number): Promise<AiConversationRecord[]>;
     getSuggestedQuestions(role?: string): string[];
     private createConversation;
-    private knowledgeCategoriesForIntent;
     private dedupeSources;
     private roundConfidence;
 }

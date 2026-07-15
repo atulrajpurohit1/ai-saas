@@ -22,7 +22,7 @@ let CrunchbaseCompanyProvider = CrunchbaseCompanyProvider_1 = class CrunchbaseCo
     hasApiKey() {
         return Boolean(this.configService.get('CRUNCHBASE_API_KEY'));
     }
-    async findAll() {
+    async search(filters) {
         this.logger.warn(`Crunchbase provider selected but not yet implemented (API key configured: ${this.hasApiKey()}).`);
         throw new common_1.ServiceUnavailableException('The Crunchbase company-data provider is not yet implemented. Set COMPANY_PROVIDER=mock to use the built-in sample dataset.');
     }

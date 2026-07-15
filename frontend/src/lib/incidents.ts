@@ -44,15 +44,6 @@ export interface Incident {
     startTime: string;
     endTime: string;
   };
-  similarHistoricalCases?: {
-    id: string;
-    title: string;
-    category: string;
-    sourceType?: string | null;
-    summary: string;
-    tags: string[];
-    relevanceScore?: number;
-  }[];
   branch?: BranchSummary | null;
 }
 

@@ -4,7 +4,6 @@ import { AiModule } from '../ai/ai.module';
 import { AuditModule } from '../audit/audit.module';
 import { AiInsightsModule } from '../ai-insights/ai-insights.module';
 import { AiMonitoringModule } from '../ai-monitoring/ai-monitoring.module';
-import { KnowledgeBaseModule } from '../knowledge-base/knowledge-base.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AiPredictionsController } from './ai-predictions.controller';
 import { PredictionEngineService } from './prediction-engine.service';
@@ -17,7 +16,6 @@ import { PredictionEngineService } from './prediction-engine.service';
     AiInsightsModule,
     AiMonitoringModule,
     AiActionsModule,
-    KnowledgeBaseModule,
   ],
   controllers: [AiPredictionsController],
   providers: [PredictionEngineService],

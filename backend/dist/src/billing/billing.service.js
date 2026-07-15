@@ -128,7 +128,6 @@ let BillingService = class BillingService {
             salesAutomation: plan !== 'free',
             publicApi: plan === 'growth' || plan === 'enterprise',
             customDomains: plan === 'growth' || plan === 'enterprise',
-            sso: plan === 'enterprise',
             prioritySupport: plan === 'enterprise',
         };
     }

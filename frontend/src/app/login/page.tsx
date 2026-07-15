@@ -5,7 +5,6 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { Lock, Mail, Building2, User, Shield, Briefcase, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { startSsoLogin } from '@/lib/sso';
 
 interface ApiError {
   response?: {
@@ -32,7 +31,6 @@ export default function LoginPage() {
   const [isRegister, setIsRegister] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [ssoLoading, setSsoLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
   const slugLabel = role === 'admin' ? 'Company Slug' : 'Company Name';
@@ -103,19 +101,6 @@ export default function LoginPage() {
       setError(errorMessage);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleSsoLogin = async () => {
-    setError('');
-    setSsoLoading(true);
-    try {
-      const result = await startSsoLogin(email);
-      window.location.href = result.redirect_url;
-    } catch (err: unknown) {
-      const errorMessage = (err as ApiError).response?.data?.message || 'SSO login failed';
-      setError(errorMessage);
-      setSsoLoading(false);
     }
   };
 
@@ -255,18 +240,6 @@ export default function LoginPage() {
               {isRegister ? 'Create Account' : 'Sign In'}
             </button>
           </form>
-
-          {!isRegister && role === 'admin' && (
-            <button
-              type="button"
-              onClick={handleSsoLogin}
-              disabled={ssoLoading || !email}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 py-4 font-bold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {ssoLoading ? <Loader2 className="animate-spin" size={18} /> : <Shield size={18} />}
-              Continue with SSO
-            </button>
-          )}
 
           <div className="mt-8 text-center">
             <button 

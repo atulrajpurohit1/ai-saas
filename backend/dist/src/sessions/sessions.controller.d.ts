@@ -13,11 +13,6 @@ export declare class SessionsController {
             email: string;
             branchId: string | null;
         };
-        provider: {
-            id: string;
-            providerType: string;
-            providerName: string;
-        } | null;
         source: string;
         status: string;
         ip_address: string | null;
@@ -40,6 +35,5 @@ export declare class SessionsController {
         userAgent: string | null;
         lastSeenAt: Date;
         expiresAt: Date;
-        providerId: string | null;
     }>;
 }

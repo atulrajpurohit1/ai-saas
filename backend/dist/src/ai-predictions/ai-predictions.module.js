@@ -13,7 +13,6 @@ const ai_module_1 = require("../ai/ai.module");
 const audit_module_1 = require("../audit/audit.module");
 const ai_insights_module_1 = require("../ai-insights/ai-insights.module");
 const ai_monitoring_module_1 = require("../ai-monitoring/ai-monitoring.module");
-const knowledge_base_module_1 = require("../knowledge-base/knowledge-base.module");
 const prisma_module_1 = require("../prisma/prisma.module");
 const ai_predictions_controller_1 = require("./ai-predictions.controller");
 const prediction_engine_service_1 = require("./prediction-engine.service");
@@ -29,7 +28,6 @@ exports.AiPredictionsModule = AiPredictionsModule = __decorate([
             ai_insights_module_1.AiInsightsModule,
             ai_monitoring_module_1.AiMonitoringModule,
             ai_actions_module_1.AiActionsModule,
-            knowledge_base_module_1.KnowledgeBaseModule,
         ],
         controllers: [ai_predictions_controller_1.AiPredictionsController],
         providers: [prediction_engine_service_1.PredictionEngineService],

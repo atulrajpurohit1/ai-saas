@@ -13,8 +13,7 @@ export declare class SessionsService {
         tenantId: string;
         userId: string;
         refreshToken: string;
-        source: 'password' | 'sso';
-        providerId?: string | null;
+        source: 'password';
         ipAddress?: string | null;
         userAgent?: string | null;
     }): Promise<{
@@ -30,7 +29,6 @@ export declare class SessionsService {
         userAgent: string | null;
         lastSeenAt: Date;
         expiresAt: Date;
-        providerId: string | null;
     }>;
     validateRefreshSession(sessionId: string, refreshToken: string): Promise<{
         id: string;
@@ -45,7 +43,6 @@ export declare class SessionsService {
         userAgent: string | null;
         lastSeenAt: Date;
         expiresAt: Date;
-        providerId: string | null;
     }>;
     rotateRefreshToken(sessionId: string, refreshToken: string): Promise<void>;
     list(user: ActiveUser): Promise<{
@@ -58,11 +55,6 @@ export declare class SessionsService {
             email: string;
             branchId: string | null;
         };
-        provider: {
-            id: string;
-            providerType: string;
-            providerName: string;
-        } | null;
         source: string;
         status: string;
         ip_address: string | null;
@@ -85,7 +77,6 @@ export declare class SessionsService {
         userAgent: string | null;
         lastSeenAt: Date;
         expiresAt: Date;
-        providerId: string | null;
     }>;
     revokeById(tenantId: string, sessionId: string, action?: string): Promise<{
         id: string;
@@ -100,7 +91,6 @@ export declare class SessionsService {
         userAgent: string | null;
         lastSeenAt: Date;
         expiresAt: Date;
-        providerId: string | null;
     }>;
     private absoluteExpiry;
     private idleTimeoutMs;

@@ -6,7 +6,6 @@ import {
 } from '../ai/ai.service';
 import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { AuditService } from '../audit/audit.service';
-import { KnowledgeRetrievalService } from '../knowledge-base/knowledge-retrieval.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   AiInsightItem,
@@ -166,8 +165,6 @@ export class RevenueInsightsService {
     private aiMonitoringService: AiMonitoringService,
     @Optional()
     private aiGovernanceService?: AiGovernanceService,
-    @Optional()
-    private knowledgeRetrievalService?: KnowledgeRetrievalService,
   ) { }
 
   async getRevenueDashboard(
@@ -1475,14 +1472,6 @@ export class RevenueInsightsService {
     try {
       const feedbackSummary =
         await this.aiMonitoringService.getFeedbackSummaryForPrompt(tenantId);
-      const organizationalMemory = await this.getRevenueMemory(
-        tenantId,
-        [
-          ...contracts.rows.slice(0, 5).map((contract) => `${contract.name} ${contract.indicators.join(' ')}`),
-          ...renewals.rows.slice(0, 5).map((renewal) => `${renewal.name} ${renewal.reason}`),
-          ...ruleRecommendations.map((recommendation) => recommendation.action),
-        ].join(' '),
-      );
       const generated =
         await this.aiService.generateRevenueFinancialRecommendations(
           JSON.stringify({
@@ -1502,7 +1491,7 @@ export class RevenueInsightsService {
               (recommendation) => recommendation.action,
             ),
             adminFeedbackHistory: feedbackSummary.summaryText,
-            organizationalMemory,
+            organizationalMemory: [],
           }),
           await this.resolvePromptTemplate(
             tenantId,
@@ -1536,14 +1525,6 @@ export class RevenueInsightsService {
     recommendations: FinancialRecommendationsResponse,
   ) {
     try {
-      const organizationalMemory = await this.getRevenueMemory(
-        context.tenantId,
-        [
-          ...clientValue.rows.slice(0, 3).map((client) => `${client.name} ${client.indicators.join(' ')}`),
-          ...contracts.rows.slice(0, 3).map((contract) => `${contract.name} ${contract.indicators.join(' ')}`),
-          ...recommendations.recommendations.slice(0, 4).map((recommendation) => recommendation.action),
-        ].join(' '),
-      );
       return await this.aiService.generateRevenueIntelligenceSummary(
         JSON.stringify({
           generatedAt: context.now.toISOString(),
@@ -1561,7 +1542,7 @@ export class RevenueInsightsService {
           recommendations: recommendations.recommendations
             .slice(0, 4)
             .map((recommendation) => recommendation.action),
-          organizationalMemory,
+          organizationalMemory: [],
         }),
         await this.resolvePromptTemplate(
           context.tenantId,
@@ -1576,23 +1557,6 @@ export class RevenueInsightsService {
       );
       return null;
     }
-  }
-
-  private async getRevenueMemory(tenantId: string, query: string) {
-    const entries = await this.knowledgeRetrievalService?.retrieveRelevant({
-      tenantId,
-      sourceModule: 'ai_insights.revenue',
-      categories: ['billing', 'contracts', 'client_management', 'operations'],
-      query,
-      limit: 6,
-    });
-
-    return entries?.map((entry) => ({
-      title: entry.title,
-      category: entry.category,
-      summary: entry.summary,
-      tags: entry.tags,
-    })) || [];
   }
 
   private fallbackRevenueSummary(

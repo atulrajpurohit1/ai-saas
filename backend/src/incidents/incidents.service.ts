@@ -8,8 +8,6 @@ import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
-import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
-import { KnowledgeRetrievalService } from '../knowledge-base/knowledge-retrieval.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { CreateIncidentDto, INCIDENT_SEVERITIES } from './dto/create-incident.dto';
@@ -68,8 +66,6 @@ export class IncidentsService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-    private knowledgeBaseService: KnowledgeBaseService,
-    private knowledgeRetrievalService: KnowledgeRetrievalService,
     private webhooksService: WebhooksService,
   ) {}
 
@@ -466,21 +462,7 @@ export class IncidentsService {
       details: `Admin viewed incident "${incident.title}"`,
     });
 
-    const mapped = this.mapIncident(incident);
-    const similarHistoricalCases = await this.knowledgeRetrievalService.retrieveRelevant({
-      tenantId: user.tenantId,
-      userId: user.sub,
-      sourceModule: 'incidents.similar_cases',
-      query: `${mapped.title} ${mapped.description} ${mapped.severity} ${mapped.site.name}`,
-      categories: ['incidents'],
-      excludeSourceId: incident.id,
-      limit: 5,
-    });
-
-    return {
-      ...mapped,
-      similarHistoricalCases,
-    };
+    return this.mapIncident(incident);
   }
 
   async reviewIncident(user: ActiveUser, incidentId: string, dto: ReviewIncidentDto) {
@@ -542,11 +524,6 @@ export class IncidentsService {
     });
 
     if (status === 'approved') {
-      await this.knowledgeBaseService.createFromIncident(
-        user.tenantId,
-        user.sub,
-        this.mapIncident(reviewedIncident),
-      );
       await this.webhooksService.triggerEvent(user.tenantId, 'incident.approved', {
         incident: this.mapIncident(reviewedIncident),
       });

@@ -2,8 +2,13 @@
 
 AI-powered company prospecting: natural-language prompt → AI-parsed filters →
 company search → ranked results → view details/AI insight → import as Lead.
-This document covers the Phase 5 production-readiness layer: the provider
-framework, configuration, caching, search history, and saved searches.
+This document covers the provider framework, configuration, caching, search
+history, and saved searches.
+
+**There is no hardcoded/sample company dataset.** Company data comes only
+from a real external provider (Apollo.io today). If that provider isn't
+configured or is unreachable, a search fails with a clear error instead of
+returning fabricated results.
 
 ## Architecture
 
@@ -39,22 +44,47 @@ abstraction every data source implements:
 
 ```ts
 interface CompanyRepository {
-  findAll(): Promise<ProspectCompany[]>;
+  search(filters: ProspectSearchFilters): Promise<ProspectCompany[]>;
 }
 ```
+
+Filters are passed in so a real provider can query its own search endpoint
+directly with them (industry, location, employee range, keywords).
 
 Implementations live in `providers/`:
 
 | Provider | File | Status |
 |---|---|---|
-| Mock | `mock-company-repository.service.ts` | **Active** - in-memory sample dataset |
-| Apollo | `providers/apollo-company.provider.ts` | Placeholder - throws `ServiceUnavailableException` when used |
-| Crunchbase | `providers/crunchbase-company.provider.ts` | Placeholder |
+| Apollo | `providers/apollo-company.provider.ts` | **Active** - real `mixed_companies/search` call. Requires `APOLLO_API_KEY`; throws a clear `503` if it's missing, invalid, rate-limited, or Apollo is unreachable. |
+| Crunchbase | `providers/crunchbase-company.provider.ts` | Placeholder - throws `ServiceUnavailableException` when used |
 | Clearbit | `providers/clearbit-company.provider.ts` | Placeholder |
 
 The active provider is chosen once, at module init, via a factory provider in
 `prospect-search.module.ts` bound to the `COMPANY_REPOSITORY` DI token. Nothing
 else in the codebase references a concrete provider class directly.
+
+### Apollo provider behavior
+
+`ApolloCompanyProvider` is the only provider with a real implementation, and
+it never fabricates or substitutes data:
+
+1. **No `APOLLO_API_KEY` configured** → throws `ServiceUnavailableException`
+   ("Prospect Search is not configured...") immediately, without making a
+   network call. The search request fails with a clear `503`.
+2. **Key configured, request succeeds** → calls Apollo's
+   `POST /v1/mixed_companies/search` with filters mapped from the AI-resolved
+   `ProspectSearchFilters`, normalizes each raw organization via
+   `normalizeApolloOrganization()` into the internal `ProspectCompany` shape,
+   and returns them. `ProspectSearchService` re-ranks/scores these as usual -
+   Apollo only supplies raw candidates, ranking stays the app's own logic.
+3. **Key configured, request fails** (invalid key / 401 / 403, quota
+   exceeded / 429, timeout, network error, or any non-2xx response) → throws
+   a `ServiceUnavailableException` with a message describing the specific
+   failure. Nothing is silently substituted - the frontend shows a real error
+   instead of fake results.
+
+Going live requires **no code changes** - only setting `APOLLO_API_KEY=<key>`
+in the backend environment and restarting the backend.
 
 ### Adding a new provider
 
@@ -77,10 +107,11 @@ of the abstraction.
 
 | Env var | Default | Notes |
 |---|---|---|
-| `COMPANY_PROVIDER` | `mock` | One of `mock`, `apollo`, `crunchbase`, `clearbit`. An unrecognized value throws at **application startup** (fail fast on typos). A recognized-but-unimplemented value (`apollo`/`crunchbase`/`clearbit`) boots fine - only an actual search request returns a clear `503` explaining the provider isn't implemented yet. |
+| `COMPANY_PROVIDER` | `apollo` | One of `apollo`, `crunchbase`, `clearbit`. An unrecognized value throws at **application startup** (fail fast on typos). `crunchbase`/`clearbit` boot fine but return a clear `503` on an actual search - not implemented yet. |
+| `APOLLO_API_KEY` | - | **Required** for Prospect Search to return any results. Get one from your Apollo.io account under Settings → Integrations → API. Without it, every search fails with a `503` explaining the key is missing - see "Apollo provider behavior" above. |
 | `PROSPECT_SEARCH_CACHE_TTL_SECONDS` | `300` | Search result cache TTL. |
 | `PROSPECT_SEARCH_RATE_LIMIT_PER_MINUTE` | `20` | Per-user limit on `/search`, `/insights`, `/import`. |
-| `APOLLO_API_KEY` / `CRUNCHBASE_API_KEY` / `CLEARBIT_API_KEY` | - | Read by the respective placeholder provider; not yet used for a real call. |
+| `CRUNCHBASE_API_KEY` / `CLEARBIT_API_KEY` | - | Read by the respective placeholder provider; not yet used for a real call. |
 
 ## Caching strategy
 

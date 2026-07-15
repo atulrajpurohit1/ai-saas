@@ -156,7 +156,7 @@ Every row below links to its full write-up in [Section 5](#5-detailed-feature-do
 | 16 | Sales Automation | ✅ Fully Implemented |
 | 17 | Sales Delivery (Email & Calendar) | ✅ Fully Implemented |
 | 18 | Sales Data Import (CSV) | ✅ Fully Implemented |
-| 19 | AI Prospect Search | 🟡 Partially Implemented (mock data source) |
+| 19 | AI Prospect Search | 🟡 Partially Implemented (mock data by default; live Apollo works if configured) |
 
 ### 4.4 AI Features
 *(full detail: [`docs/features/04-ai-features.md`](features/04-ai-features.md))*
@@ -172,7 +172,7 @@ Every row below links to its full write-up in [Section 5](#5-detailed-feature-do
 | 26 | AI Governance (Prompt Versioning & Safety) | ✅ Fully Implemented |
 | 27 | AI Monitoring & Feedback | 🟡 Partially Implemented |
 | 28 | AI Predictions | ✅ Fully Implemented (rule-based, not LLM) |
-| 29 | AI Actions (Recommendation Workflow) | 🟡 Partially Implemented (no UI) |
+| 29 | AI Actions (Recommendation Workflow) | 🟡 Partially Implemented (no API controller, no UI) |
 | 30 | Knowledge Base & Retrieval | ✅ Fully Implemented (keyword search) |
 | 31 | Call Transcription | ✅ Fully Implemented |
 | — | AI Command Center / AI Executive Center | 🔴 Not Implemented |
@@ -516,7 +516,7 @@ These are real, verified gaps — not guesses — documented here so expectation
 
 | Area | Limitation |
 |---|---|
-| **AI Prospect Search** | The company data source is a fixed, hardcoded set of 22 sample companies, not a live external data provider. Apollo/Crunchbase/Clearbit connectors exist as scaffolding only and return a clear "not implemented" error if selected. |
+| **AI Prospect Search** | Defaults to a fixed, hardcoded set of 22 sample companies (`COMPANY_PROVIDER=mock`). Apollo is a genuinely working live integration (real call to `api.apollo.io`) when `APOLLO_API_KEY` is configured, silently falling back to the mock dataset if the key is missing or the call fails. Crunchbase and Clearbit are true unimplemented stubs that always return a "not implemented" error. |
 | **SSO** | OIDC login is fully functional; SAML login can be started but has **no completion endpoint** — a user choosing SAML SSO cannot currently finish logging in. |
 | **Session tracking** | Guard Portal and Client Portal logins are not recorded in the admin-facing Session Management screen (only admin/SSO logins are). |
 | **Token refresh** | The frontend never calls the refresh-token endpoint; sessions simply expire and require re-login, even though the backend fully supports rotation. |
@@ -529,8 +529,9 @@ These are real, verified gaps — not guesses — documented here so expectation
 | **AI Predictions labeling** | This feature is entirely rule-based (deterministic formulas), not LLM-generated, despite living under an "AI" module name — it always self-reports as a fallback-status generation. |
 | **Subscription Billing** | No payment processor integration exists. Plan assignment is controlled by environment variables, not stored per-tenant in the database, and there is no self-service upgrade/downgrade flow. |
 | **Patrol "QR scanning"** | There is no actual QR code decoding, NFC, or GPS verification — checkpoint "scans" are a manual tap-to-confirm checklist action by the guard. |
+| **Patrol admin permissions** | The admin patrol endpoints (checkpoints, patrol routes, patrol runs) require `patrols.manage`/`patrols.view` permission keys that do not exist in the RBAC permission catalog (`backend/src/roles/rbac.constants.ts`) — no system or custom role can be granted them. In practice only Super Admins (who bypass permission checks entirely) can use the patrol admin screens today; Branch Admin, Scheduler, and Supervisor cannot, despite otherwise having field-operations access. |
 | **Custom Domains** | Domain *ownership* verification (DNS TXT record) is real; actual SSL certificate provisioning and traffic routing to the custom domain are not implemented. |
-| **Email Notifications** | Limited to proposal-delivery emails only (single-purpose), and defaults to a non-production test mailbox (Ethereal) unless SMTP credentials are configured. |
+| **Email Notifications** | Limited to proposal-delivery emails only (single-purpose), and defaults to a non-production test mailbox (Ethereal) unless SMTP credentials are configured. A second, independent email path exists for AI-drafted deal follow-up emails in Sales Delivery, with its own Nodemailer transporter defaulting to a local JSON mock rather than Ethereal — the two are separate code paths, not a shared notification system. |
 | **Public API rate limiting & Prospect Search cache/rate-limit** | Implemented in-memory, per server process — correct for a single-instance deployment, but would need a shared store (e.g. Redis) to behave correctly across multiple horizontally-scaled backend instances. |
 | **Guard authentication** | Guards share the same JWT signing infrastructure as admin users (differentiated only by a role claim), not a structurally separate identity system; guard email/phone lookup at login is not tenant-scoped at the database query level (though a correct password is still required). |
 | **Audit log read UI** | No filtering, search, date-range, or pagination controls — shows only the latest 100 entries. |
@@ -543,7 +544,7 @@ The following are explicitly **not implemented in any layer today** and are list
 
 - **AI Command Center** — no backend module, no frontend page, no sidebar entry.
 - **AI Executive Center** — no backend module, no frontend page, no sidebar entry.
-- **Live external company data providers for Prospect Search** (Apollo, Crunchbase, Clearbit) — interfaces and error-handling scaffolding exist; no real API integration.
+- **Live external company data providers for Prospect Search** — Crunchbase and Clearbit exist only as interfaces/error-handling scaffolding with no real API integration. (Apollo is the exception: it is a genuinely working live integration when `APOLLO_API_KEY` is configured — see Known Limitations above.)
 - **SAML SSO completion (Assertion Consumer Service)** — the login can be started but not finished.
 - **Payment processor integration for Billing** — no Stripe/payment gateway of any kind is wired in.
 - **Self-service plan upgrade/downgrade** — plan changes currently require an environment variable change and a deploy.

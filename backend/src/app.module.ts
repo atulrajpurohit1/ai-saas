@@ -34,7 +34,6 @@ import { AiInsightsModule } from './ai-insights/ai-insights.module';
 import { AiActionsModule } from './ai-actions/ai-actions.module';
 import { AiMonitoringModule } from './ai-monitoring/ai-monitoring.module';
 import { AiGovernanceModule } from './ai-governance/ai-governance.module';
-import { KnowledgeBaseModule } from './knowledge-base/knowledge-base.module';
 import { AiCopilotModule } from './ai-copilot/ai-copilot.module';
 import { AiPredictionsModule } from './ai-predictions/ai-predictions.module';
 import { BranchesModule } from './branches/branches.module';
@@ -47,7 +46,6 @@ import { CrmConnectorsModule } from './crm-connectors/crm-connectors.module';
 import { CallTranscriptionModule } from './call-transcription/call-transcription.module';
 import { ApiDocsModule } from './api-docs/api-docs.module';
 import { SessionsModule } from './sessions/sessions.module';
-import { SsoModule } from './sso/sso.module';
 import { BrandingModule } from './branding/branding.module';
 import { BillingModule } from './billing/billing.module';
 import { SalesAcceleratorModule } from './sales-accelerator/sales-accelerator.module';
@@ -72,7 +70,6 @@ import { ProspectSearchModule } from './prospect-search/prospect-search.module';
     CallTranscriptionModule,
     ApiDocsModule,
     SessionsModule,
-    SsoModule,
     BrandingModule,
     BillingModule,
     SalesAcceleratorModule,
@@ -96,7 +93,6 @@ import { ProspectSearchModule } from './prospect-search/prospect-search.module';
     AiActionsModule,
     AiGovernanceModule,
     AiMonitoringModule,
-    KnowledgeBaseModule,
     AiCopilotModule,
     AiPredictionsModule,
     TimesheetsModule,

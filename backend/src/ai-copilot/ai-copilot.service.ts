@@ -2,8 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AiService } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
-import { KnowledgeCategory } from '../knowledge-base/knowledge-base.types';
-import { KnowledgeRetrievalService } from '../knowledge-base/knowledge-retrieval.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   AiConversationRecord,
@@ -38,7 +36,6 @@ export class AiCopilotService {
     private readonly aiService: AiService,
     private readonly auditService: AuditService,
     private readonly queryService: CopilotQueryService,
-    private readonly knowledgeRetrievalService: KnowledgeRetrievalService,
   ) {}
 
   async ask(input: {
@@ -54,53 +51,22 @@ export class AiCopilotService {
       question,
     );
 
-    const knowledgeEntries =
-      await this.knowledgeRetrievalService.retrieveRelevant({
-        tenantId: input.tenantId,
-        userId: input.userId,
-        sourceModule: 'ai_copilot.chat',
-        query: structured.knowledgeQuery || question,
-        categories: this.knowledgeCategoriesForIntent(structured.intent),
-        limit: 6,
-      });
-
-    const knowledgeSources: CopilotSourceReference[] = knowledgeEntries.map(
-      (entry) => ({
-        type: 'knowledge',
-        id: entry.id,
-        title: entry.title,
-        snippet: entry.summary,
-      }),
-    );
-
     const aiAnswer = await this.aiService.generateCopilotAnswer(
       JSON.stringify({
         question,
         structuredAnswer: structured.answer,
         structuredContext: structured.context,
         sources: structured.sources,
-        organizationalMemory: knowledgeEntries.map((entry) => ({
-          title: entry.title,
-          category: entry.category,
-          summary: entry.summary,
-          tags: entry.tags,
-        })),
       }),
     );
 
-    const sources = this.dedupeSources([
-      ...structured.sources,
-      ...knowledgeSources,
-    ]);
+    const sources = this.dedupeSources(structured.sources);
     const answer = aiAnswer || structured.answer;
     const source: CopilotAnswer['source'] = aiAnswer
       ? 'ai_assisted'
       : 'rule_based';
     const confidenceScore = this.roundConfidence(
-      Math.min(
-        0.98,
-        structured.confidenceScore + (knowledgeEntries.length > 0 ? 0.03 : 0),
-      ),
+      Math.min(0.98, structured.confidenceScore),
     );
 
     const conversation = await this.createConversation({
@@ -224,27 +190,6 @@ export class AiCopilotService {
       sourcesUsed: conversation.sourcesUsed,
       createdAt: conversation.createdAt,
     } satisfies ConversationRow;
-  }
-
-  private knowledgeCategoriesForIntent(
-    intent: string,
-  ): KnowledgeCategory[] | undefined {
-    switch (intent) {
-      case 'incidents':
-      case 'sites':
-        return ['incidents', 'operations'];
-      case 'billing':
-      case 'revenue':
-      case 'clients':
-        return ['billing', 'contracts', 'client_management'];
-      case 'guards':
-      case 'staffing':
-        return ['staffing', 'scheduling', 'operations', 'incidents'];
-      case 'reports':
-        return ['operations', 'incidents', 'billing'];
-      default:
-        return undefined;
-    }
   }
 
   private dedupeSources(sources: CopilotSourceReference[]) {

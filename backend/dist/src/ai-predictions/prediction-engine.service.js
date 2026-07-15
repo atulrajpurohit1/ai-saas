@@ -8,9 +8,6 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var __param = (this && this.__param) || function (paramIndex, decorator) {
-    return function (target, key) { decorator(target, key, paramIndex); }
-};
 var PredictionEngineService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PredictionEngineService = void 0;
@@ -22,7 +19,6 @@ const ai_insights_service_1 = require("../ai-insights/ai-insights.service");
 const recommendation_service_1 = require("../ai-insights/recommendation.service");
 const revenue_insights_service_1 = require("../ai-insights/revenue-insights.service");
 const ai_monitoring_service_1 = require("../ai-monitoring/ai-monitoring.service");
-const knowledge_retrieval_service_1 = require("../knowledge-base/knowledge-retrieval.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const STAFFING_HORIZON_DAYS = 7;
@@ -42,9 +38,8 @@ let PredictionEngineService = PredictionEngineService_1 = class PredictionEngine
     aiMonitoringService;
     aiActionsService;
     aiService;
-    knowledgeRetrievalService;
     logger = new common_1.Logger(PredictionEngineService_1.name);
-    constructor(prisma, aiInsightsService, revenueInsightsService, recommendationService, auditService, aiMonitoringService, aiActionsService, aiService, knowledgeRetrievalService) {
+    constructor(prisma, aiInsightsService, revenueInsightsService, recommendationService, auditService, aiMonitoringService, aiActionsService, aiService) {
         this.prisma = prisma;
         this.aiInsightsService = aiInsightsService;
         this.revenueInsightsService = revenueInsightsService;
@@ -53,7 +48,6 @@ let PredictionEngineService = PredictionEngineService_1 = class PredictionEngine
         this.aiMonitoringService = aiMonitoringService;
         this.aiActionsService = aiActionsService;
         this.aiService = aiService;
-        this.knowledgeRetrievalService = knowledgeRetrievalService;
     }
     async getDashboard(tenantId, userId) {
         const context = await this.loadContext(tenantId, userId);
@@ -285,11 +279,6 @@ let PredictionEngineService = PredictionEngineService_1 = class PredictionEngine
                 },
             }),
         ]);
-        await this.retrievePredictionMemory(tenantId, userId, [
-            ...contextTextFromOps(opsDashboard),
-            ...incidentInsights.insights.map((insight) => insight.message),
-            ...revenueDashboard.contracts.insights.map((insight) => insight.message),
-        ].join(' '));
         return {
             tenantId,
             userId,
@@ -883,23 +872,6 @@ let PredictionEngineService = PredictionEngineService_1 = class PredictionEngine
             this.logger.warn(`Prediction actions sync skipped: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
-    async retrievePredictionMemory(tenantId, userId, query) {
-        if (!this.knowledgeRetrievalService || !query.trim())
-            return;
-        try {
-            await this.knowledgeRetrievalService.retrieveRelevant({
-                tenantId,
-                userId,
-                sourceModule: 'ai_predictions.dashboard',
-                categories: ['operations', 'staffing', 'incidents', 'billing', 'contracts', 'client_management'],
-                query,
-                limit: 6,
-            });
-        }
-        catch (error) {
-            this.logger.warn(`Prediction memory retrieval skipped: ${error instanceof Error ? error.message : String(error)}`);
-        }
-    }
     shiftConflictCount(context, shift) {
         return shift.assignments.filter((assignment) => {
             const unavailable = context.availabilities.some((availability) => availability.guardId === assignment.guardId &&
@@ -1195,7 +1167,6 @@ let PredictionEngineService = PredictionEngineService_1 = class PredictionEngine
 exports.PredictionEngineService = PredictionEngineService;
 exports.PredictionEngineService = PredictionEngineService = PredictionEngineService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __param(8, (0, common_1.Optional)()),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         ai_insights_service_1.AiInsightsService,
         revenue_insights_service_1.RevenueInsightsService,
@@ -1203,15 +1174,6 @@ exports.PredictionEngineService = PredictionEngineService = PredictionEngineServ
         audit_service_1.AuditService,
         ai_monitoring_service_1.AiMonitoringService,
         ai_actions_service_1.AiActionsService,
-        ai_service_1.AiService,
-        knowledge_retrieval_service_1.KnowledgeRetrievalService])
+        ai_service_1.AiService])
 ], PredictionEngineService);
-function contextTextFromOps(dashboard) {
-    return [
-        ...dashboard.clients.insights.map((insight) => insight.message),
-        ...dashboard.guards.insights.map((insight) => insight.message),
-        ...dashboard.sites.insights.map((insight) => insight.message),
-        ...dashboard.billing.insights.map((insight) => insight.message),
-    ];
-}
 //# sourceMappingURL=prediction-engine.service.js.map

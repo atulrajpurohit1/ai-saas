@@ -29,8 +29,8 @@ export declare class CrmConnectorsService {
         refreshToken: string | null;
         tenantId: string;
         status: string;
-        provider: string;
         lastError: string | null;
+        provider: string;
         accessToken: string;
         tokenExpiresAt: Date | null;
         scopes: string[];

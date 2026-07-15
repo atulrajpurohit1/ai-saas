@@ -87,7 +87,7 @@ export class ProspectSearchService {
     let companies: ProspectCompany[];
     const providerStartedAt = Date.now();
     try {
-      companies = await this.companyRepository.findAll();
+      companies = await this.companyRepository.search(filters);
     } catch (error) {
       this.logger.error(
         `Prospect search provider failed: tenant=${user.tenantId} provider=${

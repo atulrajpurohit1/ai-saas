@@ -11,7 +11,6 @@ import {
 import { RecommendationService } from '../ai-insights/recommendation.service';
 import { RevenueInsightsService } from '../ai-insights/revenue-insights.service';
 import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
-import { KnowledgeRetrievalService } from '../knowledge-base/knowledge-retrieval.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   BasePrediction,
@@ -151,8 +150,6 @@ export class PredictionEngineService {
     private readonly aiMonitoringService: AiMonitoringService,
     private readonly aiActionsService: AiActionsService,
     private readonly aiService: AiService,
-    @Optional()
-    private readonly knowledgeRetrievalService?: KnowledgeRetrievalService,
   ) {}
 
   async getDashboard(tenantId: string, userId: string): Promise<PredictionDashboard> {
@@ -411,12 +408,6 @@ export class PredictionEngineService {
         },
       }),
     ]);
-
-    await this.retrievePredictionMemory(tenantId, userId, [
-      ...contextTextFromOps(opsDashboard),
-      ...incidentInsights.insights.map((insight) => insight.message),
-      ...revenueDashboard.contracts.insights.map((insight) => insight.message),
-    ].join(' '));
 
     return {
       tenantId,
@@ -1155,25 +1146,6 @@ export class PredictionEngineService {
     }
   }
 
-  private async retrievePredictionMemory(tenantId: string, userId: string, query: string) {
-    if (!this.knowledgeRetrievalService || !query.trim()) return;
-
-    try {
-      await this.knowledgeRetrievalService.retrieveRelevant({
-        tenantId,
-        userId,
-        sourceModule: 'ai_predictions.dashboard',
-        categories: ['operations', 'staffing', 'incidents', 'billing', 'contracts', 'client_management'],
-        query,
-        limit: 6,
-      });
-    } catch (error) {
-      this.logger.warn(
-        `Prediction memory retrieval skipped: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  }
-
   private shiftConflictCount(context: PredictionContext, shift: UpcomingShift) {
     return shift.assignments.filter((assignment) => {
       const unavailable = context.availabilities.some(
@@ -1516,15 +1488,4 @@ export class PredictionEngineService {
   private slug(value: string) {
     return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   }
-}
-
-function contextTextFromOps(
-  dashboard: Awaited<ReturnType<AiInsightsService['getDashboard']>>,
-) {
-  return [
-    ...dashboard.clients.insights.map((insight) => insight.message),
-    ...dashboard.guards.insights.map((insight) => insight.message),
-    ...dashboard.sites.insights.map((insight) => insight.message),
-    ...dashboard.billing.insights.map((insight) => insight.message),
-  ];
 }

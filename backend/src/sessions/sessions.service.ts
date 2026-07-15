@@ -26,8 +26,7 @@ export class SessionsService {
     tenantId: string;
     userId: string;
     refreshToken: string;
-    source: 'password' | 'sso';
-    providerId?: string | null;
+    source: 'password';
     ipAddress?: string | null;
     userAgent?: string | null;
   }) {
@@ -37,7 +36,6 @@ export class SessionsService {
         id: data.id,
         tenantId: data.tenantId,
         userId: data.userId,
-        providerId: data.providerId || null,
         source: data.source,
         refreshTokenHash,
         status: 'active',
@@ -91,7 +89,6 @@ export class SessionsService {
       where: { tenantId: user.tenantId },
       include: {
         user: { select: { id: true, email: true, name: true, branchId: true } },
-        provider: { select: { id: true, providerType: true, providerName: true } },
       },
       orderBy: { lastSeenAt: 'desc' },
       take: 200,
@@ -102,7 +99,6 @@ export class SessionsService {
       tenant_id: session.tenantId,
       user_id: session.userId,
       user: session.user,
-      provider: session.provider,
       source: session.source,
       status: session.status,
       ip_address: session.ipAddress,
@@ -139,14 +135,6 @@ export class SessionsService {
   }
 
   async revokeById(tenantId: string, sessionId: string, action = 'SESSION_REVOKED') {
-    const sessionBeforeRevoke = await this.prisma.userSession.findUnique({
-      where: { id: sessionId },
-      select: { source: true },
-    });
-    const auditAction = action === 'USER_LOGOUT' && sessionBeforeRevoke?.source === 'sso'
-      ? 'SSO_LOGOUT'
-      : action;
-
     return this.prisma.userSession.update({
       where: { id: sessionId },
       data: {
@@ -158,7 +146,7 @@ export class SessionsService {
       await this.auditService.log({
         tenantId,
         userId: session.userId,
-        action: auditAction,
+        action,
         entityType: 'UserSession',
         entityId: session.id,
         details: `Session ${session.id} revoked`,

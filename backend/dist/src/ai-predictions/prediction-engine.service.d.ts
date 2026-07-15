@@ -5,7 +5,6 @@ import { AiInsightsService } from '../ai-insights/ai-insights.service';
 import { RecommendationService } from '../ai-insights/recommendation.service';
 import { RevenueInsightsService } from '../ai-insights/revenue-insights.service';
 import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
-import { KnowledgeRetrievalService } from '../knowledge-base/knowledge-retrieval.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PredictionDashboard } from './ai-predictions.types';
 export declare class PredictionEngineService {
@@ -17,9 +16,8 @@ export declare class PredictionEngineService {
     private readonly aiMonitoringService;
     private readonly aiActionsService;
     private readonly aiService;
-    private readonly knowledgeRetrievalService?;
     private readonly logger;
-    constructor(prisma: PrismaService, aiInsightsService: AiInsightsService, revenueInsightsService: RevenueInsightsService, recommendationService: RecommendationService, auditService: AuditService, aiMonitoringService: AiMonitoringService, aiActionsService: AiActionsService, aiService: AiService, knowledgeRetrievalService?: KnowledgeRetrievalService | undefined);
+    constructor(prisma: PrismaService, aiInsightsService: AiInsightsService, revenueInsightsService: RevenueInsightsService, recommendationService: RecommendationService, auditService: AuditService, aiMonitoringService: AiMonitoringService, aiActionsService: AiActionsService, aiService: AiService);
     getDashboard(tenantId: string, userId: string): Promise<PredictionDashboard>;
     private loadContext;
     private buildStaffingPredictions;
@@ -33,7 +31,6 @@ export declare class PredictionEngineService {
     private buildRecommendations;
     private toRecommendation;
     private syncActions;
-    private retrievePredictionMemory;
     private shiftConflictCount;
     private countAvailabilityConflicts;
     private coverageIssueRate;

@@ -1,6 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { ServiceUnavailableException } from '@nestjs/common';
-import { ApolloCompanyProvider } from './apollo-company.provider';
+import { ProspectSearchFilters } from '../../ai/ai.service';
 import { ClearbitCompanyProvider } from './clearbit-company.provider';
 import { CrunchbaseCompanyProvider } from './crunchbase-company.provider';
 
@@ -12,31 +12,33 @@ function buildConfigService(
   } as unknown as ConfigService;
 }
 
+const FILTERS: ProspectSearchFilters = {
+  industry: null,
+  city: null,
+  state: null,
+  country: null,
+  employeeMin: null,
+  employeeMax: null,
+  revenueRange: null,
+  keywords: [],
+};
+
 describe('Placeholder company providers', () => {
-  it('ApolloCompanyProvider throws a meaningful configuration error when used', async () => {
-    const provider = new ApolloCompanyProvider(buildConfigService());
-
-    await expect(provider.findAll()).rejects.toThrow(
-      ServiceUnavailableException,
-    );
-    await expect(provider.findAll()).rejects.toThrow(/Apollo/);
-  });
-
   it('CrunchbaseCompanyProvider throws a meaningful configuration error when used', async () => {
     const provider = new CrunchbaseCompanyProvider(buildConfigService());
 
-    await expect(provider.findAll()).rejects.toThrow(
+    await expect(provider.search(FILTERS)).rejects.toThrow(
       ServiceUnavailableException,
     );
-    await expect(provider.findAll()).rejects.toThrow(/Crunchbase/);
+    await expect(provider.search(FILTERS)).rejects.toThrow(/Crunchbase/);
   });
 
   it('ClearbitCompanyProvider throws a meaningful configuration error when used', async () => {
     const provider = new ClearbitCompanyProvider(buildConfigService());
 
-    await expect(provider.findAll()).rejects.toThrow(
+    await expect(provider.search(FILTERS)).rejects.toThrow(
       ServiceUnavailableException,
     );
-    await expect(provider.findAll()).rejects.toThrow(/Clearbit/);
+    await expect(provider.search(FILTERS)).rejects.toThrow(/Clearbit/);
   });
 });

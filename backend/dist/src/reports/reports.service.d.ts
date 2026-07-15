@@ -1,7 +1,6 @@
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { BrandingService } from '../branding/branding.service';
-import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GenerateDailyReportDto } from './dto/generate-daily-report.dto';
 type AttendanceStatus = 'not_started' | 'checked_in' | 'completed';
@@ -68,9 +67,8 @@ type DailyReportSummary = {
 export declare class ReportsService {
     private prisma;
     private auditService;
-    private knowledgeBaseService;
     private brandingService;
-    constructor(prisma: PrismaService, auditService: AuditService, knowledgeBaseService: KnowledgeBaseService, brandingService: BrandingService);
+    constructor(prisma: PrismaService, auditService: AuditService, brandingService: BrandingService);
     private parseReportDate;
     private summarizeAttendance;
     private parseStoredSummary;

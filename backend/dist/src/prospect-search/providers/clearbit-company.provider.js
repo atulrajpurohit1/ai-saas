@@ -22,7 +22,7 @@ let ClearbitCompanyProvider = ClearbitCompanyProvider_1 = class ClearbitCompanyP
     hasApiKey() {
         return Boolean(this.configService.get('CLEARBIT_API_KEY'));
     }
-    async findAll() {
+    async search(filters) {
         this.logger.warn(`Clearbit provider selected but not yet implemented (API key configured: ${this.hasApiKey()}).`);
         throw new common_1.ServiceUnavailableException('The Clearbit company-data provider is not yet implemented. Set COMPANY_PROVIDER=mock to use the built-in sample dataset.');
     }

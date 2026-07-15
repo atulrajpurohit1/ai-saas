@@ -10,7 +10,6 @@ import {
   COMPANY_REPOSITORY,
   CompanyRepository,
 } from './interfaces/prospect-search.interface';
-import { MockCompanyRepositoryService } from './mock-company-repository.service';
 import { ApolloCompanyProvider } from './providers/apollo-company.provider';
 import { ClearbitCompanyProvider } from './providers/clearbit-company.provider';
 import { CrunchbaseCompanyProvider } from './providers/crunchbase-company.provider';
@@ -41,7 +40,6 @@ import { SavedProspectSearchService } from './saved-prospect-search.service';
     ProspectSearchHistoryService,
     ProspectSearchRateLimitService,
     SavedProspectSearchService,
-    MockCompanyRepositoryService,
     ApolloCompanyProvider,
     CrunchbaseCompanyProvider,
     ClearbitCompanyProvider,
@@ -57,26 +55,22 @@ import { SavedProspectSearchService } from './saved-prospect-search.service';
       provide: COMPANY_REPOSITORY,
       useFactory: (
         providerName: CompanyProviderName,
-        mock: MockCompanyRepositoryService,
         apollo: ApolloCompanyProvider,
         crunchbase: CrunchbaseCompanyProvider,
         clearbit: ClearbitCompanyProvider,
       ): CompanyRepository => {
         switch (providerName) {
-          case 'apollo':
-            return apollo;
           case 'crunchbase':
             return crunchbase;
           case 'clearbit':
             return clearbit;
-          case 'mock':
+          case 'apollo':
           default:
-            return mock;
+            return apollo;
         }
       },
       inject: [
         COMPANY_PROVIDER_NAME,
-        MockCompanyRepositoryService,
         ApolloCompanyProvider,
         CrunchbaseCompanyProvider,
         ClearbitCompanyProvider,

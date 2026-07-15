@@ -50,7 +50,6 @@ model Tenant {
   aiGenerations         AiGeneration[]
   aiFeedback            AiFeedback[]
   promptVersions        PromptVersion[]
-  knowledgeEntries      KnowledgeEntry[]
   aiConversations       AiConversation[]
   discoverySessions     DiscoverySession[]
   salesAssessments      SalesAssessment[]
@@ -61,8 +60,6 @@ model Tenant {
   webhooks              Webhook[]
   apiRequestLogs        ApiRequestLog[]
   crmConnections        CrmConnection[]
-  ssoProviders          SSOProvider[]
-  ssoLoginStates        SSOLoginState[]
   userSessions          UserSession[]
   branding              TenantBranding?
   customDomains         CustomDomain[]
@@ -950,29 +947,6 @@ model AiFeedback {
   @@map("AiFeedback")
 }
 
-model KnowledgeEntry {
-  id              String    @id @default(uuid())
-  tenantId        String    @map("tenant_id")
-  tenant          Tenant    @relation(fields: [tenantId], references: [id])
-  title           String
-  category        String
-  sourceType      String?   @map("source_type")
-  sourceId        String?   @map("source_id")
-  summary         String
-  detailedContent String    @map("detailed_content")
-  keywords        String[]  @default([])
-  tags            String[]  @default([])
-  createdBy       String?   @map("created_by")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-  archivedAt      DateTime? @map("archived_at")
-
-  @@index([tenantId])
-  @@index([tenantId, category])
-  @@index([tenantId, sourceType, sourceId])
-  @@index([tenantId, archivedAt])
-  @@map("KnowledgeEntry")
-}
 
 model AiConversation {
   id              String   @id @default(uuid())
@@ -1090,78 +1064,12 @@ model CrmConnection {
   @@map("CrmConnection")
 }
 
-model SSOProvider {
-  id              String           @id @default(uuid())
-  tenantId        String           @map("tenant_id")
-  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  providerType    String           @map("provider_type")
-  providerName    String           @map("provider_name")
-  clientId        String?          @map("client_id")
-  clientSecret    String?          @map("client_secret")
-  issuerUrl       String?          @map("issuer_url")
-  metadataUrl     String?          @map("metadata_url")
-  samlMetadata    String?          @map("saml_metadata")
-  emailDomains    String[]         @default([]) @map("email_domains")
-  autoProvision   Boolean          @default(true) @map("auto_provision")
-  defaultRoleId   String?          @map("default_role_id")
-  defaultBranchId String?          @map("default_branch_id")
-  status          String           @default("inactive")
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
-  roleMappings    SSORoleMapping[]
-  loginStates     SSOLoginState[]
-  sessions        UserSession[]
-
-  @@index([tenantId])
-  @@index([tenantId, status])
-  @@index([tenantId, providerType])
-  @@map("SSOProvider")
-}
-
-model SSORoleMapping {
-  id            String      @id @default(uuid())
-  providerId    String      @map("provider_id")
-  provider      SSOProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  externalGroup String      @map("external_group")
-  roleId        String      @map("role_id")
-  branchId      String?     @map("branch_id")
-  createdAt     DateTime    @default(now()) @map("created_at")
-
-  @@unique([providerId, externalGroup, roleId, branchId], map: "SSORoleMapping_provider_group_role_branch_key")
-  @@index([providerId])
-  @@index([roleId])
-  @@index([branchId])
-  @@map("SSORoleMapping")
-}
-
-model SSOLoginState {
-  id           String      @id @default(uuid())
-  tenantId     String      @map("tenant_id")
-  tenant       Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  providerId   String      @map("provider_id")
-  provider     SSOProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  email        String
-  state        String      @unique
-  nonce        String
-  codeVerifier String      @map("code_verifier")
-  redirectUri  String      @map("redirect_uri")
-  expiresAt    DateTime    @map("expires_at")
-  createdAt    DateTime    @default(now()) @map("created_at")
-
-  @@index([tenantId])
-  @@index([providerId])
-  @@index([expiresAt])
-  @@map("SSOLoginState")
-}
-
 model UserSession {
   id               String       @id @default(uuid())
   tenantId         String       @map("tenant_id")
   tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userId           String       @map("user_id")
   user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  providerId       String?      @map("provider_id")
-  provider         SSOProvider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
   source           String       @default("password")
   refreshTokenHash String?      @map("refresh_token_hash")
   status           String       @default("active")
@@ -1174,7 +1082,6 @@ model UserSession {
 
   @@index([tenantId])
   @@index([userId])
-  @@index([providerId])
   @@index([tenantId, status])
   @@index([expiresAt])
   @@map("UserSession")

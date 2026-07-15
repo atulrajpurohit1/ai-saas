@@ -3,7 +3,6 @@ import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { BrandingService } from '../branding/branding.service';
 import { branchScopedWhere, branchWhere } from '../branches/branch-scope';
-import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GenerateDailyReportDto } from './dto/generate-daily-report.dto';
 
@@ -84,7 +83,6 @@ export class ReportsService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-    private knowledgeBaseService: KnowledgeBaseService,
     private brandingService: BrandingService,
   ) {}
 
@@ -618,14 +616,6 @@ export class ReportsService {
       entityType: 'DailyServiceReport',
       entityId: updated.id,
       details: `Daily report published for client "${updated.client.companyName || updated.client.name}"`,
-    });
-
-    await this.knowledgeBaseService.createFromReport(user.tenantId, user.sub, {
-      id: updated.id,
-      reportDate: updated.reportDate,
-      summary: updated.summary,
-      client: updated.client,
-      site: updated.site,
     });
 
     return this.mapReport(updated);

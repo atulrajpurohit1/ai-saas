@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { ProspectSearchFilters } from '../../ai/ai.service';
 import { CompanyRepository } from '../interfaces/prospect-search.interface';
 import { ProspectCompany } from '../types/prospect-search.types';
 export declare class ClearbitCompanyProvider implements CompanyRepository {
@@ -6,5 +7,5 @@ export declare class ClearbitCompanyProvider implements CompanyRepository {
     private readonly logger;
     constructor(configService: ConfigService);
     private hasApiKey;
-    findAll(): Promise<ProspectCompany[]>;
+    search(filters: ProspectSearchFilters): Promise<ProspectCompany[]>;
 }

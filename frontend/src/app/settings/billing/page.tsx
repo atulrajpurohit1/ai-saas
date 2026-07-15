@@ -18,7 +18,6 @@ const FEATURE_LABELS: Record<string, string> = {
   salesAutomation: 'Sales Automation',
   publicApi: 'Public API',
   customDomains: 'Custom Domains',
-  sso: 'SSO',
   prioritySupport: 'Priority Support',
 };
 

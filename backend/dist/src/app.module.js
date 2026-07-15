@@ -43,7 +43,6 @@ const ai_insights_module_1 = require("./ai-insights/ai-insights.module");
 const ai_actions_module_1 = require("./ai-actions/ai-actions.module");
 const ai_monitoring_module_1 = require("./ai-monitoring/ai-monitoring.module");
 const ai_governance_module_1 = require("./ai-governance/ai-governance.module");
-const knowledge_base_module_1 = require("./knowledge-base/knowledge-base.module");
 const ai_copilot_module_1 = require("./ai-copilot/ai-copilot.module");
 const ai_predictions_module_1 = require("./ai-predictions/ai-predictions.module");
 const branches_module_1 = require("./branches/branches.module");
@@ -56,7 +55,6 @@ const crm_connectors_module_1 = require("./crm-connectors/crm-connectors.module"
 const call_transcription_module_1 = require("./call-transcription/call-transcription.module");
 const api_docs_module_1 = require("./api-docs/api-docs.module");
 const sessions_module_1 = require("./sessions/sessions.module");
-const sso_module_1 = require("./sso/sso.module");
 const branding_module_1 = require("./branding/branding.module");
 const billing_module_1 = require("./billing/billing.module");
 const sales_accelerator_module_1 = require("./sales-accelerator/sales-accelerator.module");
@@ -84,7 +82,6 @@ exports.AppModule = AppModule = __decorate([
             call_transcription_module_1.CallTranscriptionModule,
             api_docs_module_1.ApiDocsModule,
             sessions_module_1.SessionsModule,
-            sso_module_1.SsoModule,
             branding_module_1.BrandingModule,
             billing_module_1.BillingModule,
             sales_accelerator_module_1.SalesAcceleratorModule,
@@ -108,7 +105,6 @@ exports.AppModule = AppModule = __decorate([
             ai_actions_module_1.AiActionsModule,
             ai_governance_module_1.AiGovernanceModule,
             ai_monitoring_module_1.AiMonitoringModule,
-            knowledge_base_module_1.KnowledgeBaseModule,
             ai_copilot_module_1.AiCopilotModule,
             ai_predictions_module_1.AiPredictionsModule,
             timesheets_module_1.TimesheetsModule,

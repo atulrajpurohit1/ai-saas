@@ -2,7 +2,6 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import { AiGovernanceService } from '../ai-governance/ai-governance.service';
 import { AiService } from '../ai/ai.service';
 import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
-import { KnowledgeRetrievalService } from '../knowledge-base/knowledge-retrieval.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   AiInsightItem,
@@ -97,8 +96,6 @@ export class AiInsightsService {
     private aiMonitoringService: AiMonitoringService,
     @Optional()
     private aiGovernanceService?: AiGovernanceService,
-    @Optional()
-    private knowledgeRetrievalService?: KnowledgeRetrievalService,
   ) { }
 
   async getDashboard(
@@ -1523,17 +1520,6 @@ export class AiInsightsService {
     recommendations: AiRecommendation[];
   }) {
     try {
-      const historicalKnowledge = await this.knowledgeRetrievalService?.retrieveRelevant({
-        tenantId: input.tenantId,
-        sourceModule: 'ai_insights.incident_risk',
-        categories: ['incidents', 'operations', 'staffing'],
-        query: [
-          ...input.highRiskSites.map((risk) => `${risk.name} ${risk.indicators.join(' ')}`),
-          ...input.recurringIncidentTypes.map((trend) => trend.label),
-          ...input.recommendations.map((recommendation) => recommendation.action),
-        ].join(' '),
-        limit: 8,
-      });
       const promptTemplate = await this.resolvePromptTemplate(
         input.tenantId,
         'ai_insights.incident_risk',
@@ -1549,12 +1535,7 @@ export class AiInsightsService {
           recurringIncidentTypes: input.recurringIncidentTypes.slice(0, 5),
           timePatterns: input.timePatterns.slice(0, 5),
           recommendations: input.recommendations.map((recommendation) => recommendation.action),
-          organizationalMemory: historicalKnowledge?.map((entry) => ({
-            title: entry.title,
-            summary: entry.summary,
-            sourceType: entry.sourceType,
-            tags: entry.tags,
-          })) || [],
+          organizationalMemory: [],
         }),
         promptTemplate,
       );
@@ -1833,19 +1814,6 @@ export class AiInsightsService {
     try {
       const feedbackSummary =
         await this.aiMonitoringService.getFeedbackSummaryForPrompt(tenantId);
-      const historicalKnowledge = await this.knowledgeRetrievalService?.retrieveRelevant({
-        tenantId,
-        sourceModule: 'ai_insights.dashboard',
-        categories: ['operations', 'staffing', 'incidents', 'billing', 'client_management'],
-        query: [
-          ...clients.insights.map((insight) => insight.message),
-          ...guards.insights.map((insight) => insight.message),
-          ...sites.insights.map((insight) => insight.message),
-          ...billing.insights.map((insight) => insight.message),
-          ...ruleRecommendations.map((item) => item.action),
-        ].join(' '),
-        limit: 6,
-      });
       const context = {
         clientInsights: clients.insights.map((insight) => insight.message),
         guardInsights: guards.insights.map((insight) => insight.message),
@@ -1853,12 +1821,7 @@ export class AiInsightsService {
         billingInsights: billing.insights.map((insight) => insight.message),
         currentRecommendations: ruleRecommendations.map((item) => item.action),
         adminFeedbackHistory: feedbackSummary.summaryText,
-        organizationalMemory: historicalKnowledge?.map((entry) => ({
-          title: entry.title,
-          category: entry.category,
-          summary: entry.summary,
-          tags: entry.tags,
-        })) || [],
+        organizationalMemory: [],
       };
       const generated =
         await this.aiService.generateBusinessInsightRecommendations(

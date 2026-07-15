@@ -1,5 +1,4 @@
 export const SUPPORTED_COMPANY_PROVIDERS = [
-  'mock',
   'apollo',
   'crunchbase',
   'clearbit',
@@ -12,8 +11,13 @@ export type CompanyProviderName = (typeof SUPPORTED_COMPANY_PROVIDERS)[number];
  * name resolves to a placeholder that boots fine but returns a clear
  * "not implemented yet" error the moment it's actually used - selecting a
  * known-future provider should not crash the whole application.
+ *
+ * There is no mock/sample-data provider - every supported name either calls
+ * a real external company-data API or fails loudly. Apollo is the only
+ * provider with a working implementation; it requires APOLLO_API_KEY to
+ * return results and throws a clear configuration error if it's missing.
  */
-export const ACTIVE_COMPANY_PROVIDERS: CompanyProviderName[] = ['mock'];
+export const ACTIVE_COMPANY_PROVIDERS: CompanyProviderName[] = ['apollo'];
 
 /**
  * Resolves and validates the COMPANY_PROVIDER config value. Throws for
@@ -24,7 +28,7 @@ export const ACTIVE_COMPANY_PROVIDERS: CompanyProviderName[] = ['mock'];
 export function resolveCompanyProviderName(
   rawValue: string | undefined | null,
 ): CompanyProviderName {
-  const normalized = (rawValue || 'mock').trim().toLowerCase();
+  const normalized = (rawValue || 'apollo').trim().toLowerCase();
 
   if (
     !(SUPPORTED_COMPANY_PROVIDERS as readonly string[]).includes(normalized)

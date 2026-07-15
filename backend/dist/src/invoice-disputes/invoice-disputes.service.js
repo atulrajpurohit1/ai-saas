@@ -12,18 +12,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.InvoiceDisputesService = void 0;
 const common_1 = require("@nestjs/common");
 const audit_service_1 = require("../audit/audit.service");
-const knowledge_base_service_1 = require("../knowledge-base/knowledge-base.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const ACTIVE_DISPUTE_STATUSES = ['open', 'under_review'];
 const FINAL_DISPUTE_STATUSES = ['resolved', 'rejected'];
 let InvoiceDisputesService = class InvoiceDisputesService {
     prisma;
     auditService;
-    knowledgeBaseService;
-    constructor(prisma, auditService, knowledgeBaseService) {
+    constructor(prisma, auditService) {
         this.prisma = prisma;
         this.auditService = auditService;
-        this.knowledgeBaseService = knowledgeBaseService;
     }
     disputeInclude() {
         return {
@@ -202,7 +199,6 @@ let InvoiceDisputesService = class InvoiceDisputesService {
             details: `Invoice dispute for ${updated.invoice.invoiceNumber} resolved`,
         });
         const resolved = await this.findDisputeOrThrow(tenantId, id);
-        await this.knowledgeBaseService.createFromDispute(tenantId, userId, resolved);
         return this.mapDispute(resolved);
     }
     async reject(tenantId, userId, id, dto) {
@@ -244,7 +240,6 @@ exports.InvoiceDisputesService = InvoiceDisputesService;
 exports.InvoiceDisputesService = InvoiceDisputesService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        audit_service_1.AuditService,
-        knowledge_base_service_1.KnowledgeBaseService])
+        audit_service_1.AuditService])
 ], InvoiceDisputesService);
 //# sourceMappingURL=invoice-disputes.service.js.map

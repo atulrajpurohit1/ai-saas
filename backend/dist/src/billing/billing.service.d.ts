@@ -24,7 +24,6 @@ export declare class BillingService {
             salesAutomation: boolean;
             publicApi: boolean;
             customDomains: boolean;
-            sso: boolean;
             prioritySupport: boolean;
         };
         availablePlans: {

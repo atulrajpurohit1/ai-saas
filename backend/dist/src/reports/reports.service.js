@@ -14,17 +14,14 @@ const common_1 = require("@nestjs/common");
 const audit_service_1 = require("../audit/audit.service");
 const branding_service_1 = require("../branding/branding.service");
 const branch_scope_1 = require("../branches/branch-scope");
-const knowledge_base_service_1 = require("../knowledge-base/knowledge-base.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 let ReportsService = class ReportsService {
     prisma;
     auditService;
-    knowledgeBaseService;
     brandingService;
-    constructor(prisma, auditService, knowledgeBaseService, brandingService) {
+    constructor(prisma, auditService, brandingService) {
         this.prisma = prisma;
         this.auditService = auditService;
-        this.knowledgeBaseService = knowledgeBaseService;
         this.brandingService = brandingService;
     }
     parseReportDate(value) {
@@ -476,13 +473,6 @@ let ReportsService = class ReportsService {
             entityId: updated.id,
             details: `Daily report published for client "${updated.client.companyName || updated.client.name}"`,
         });
-        await this.knowledgeBaseService.createFromReport(user.tenantId, user.sub, {
-            id: updated.id,
-            reportDate: updated.reportDate,
-            summary: updated.summary,
-            client: updated.client,
-            site: updated.site,
-        });
         return this.mapReport(updated);
     }
     async exportForAdmin(user, id) {
@@ -558,7 +548,6 @@ exports.ReportsService = ReportsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         audit_service_1.AuditService,
-        knowledge_base_service_1.KnowledgeBaseService,
         branding_service_1.BrandingService])
 ], ReportsService);
 //# sourceMappingURL=reports.service.js.map

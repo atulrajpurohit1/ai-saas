@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { getSessions, revokeSession, UserSession } from '@/lib/sso';
+import { getSessions, revokeSession, UserSession } from '@/lib/sessions';
 import { Activity, Ban, Loader2, Monitor } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -83,7 +83,7 @@ export default function SessionsSettingsPage() {
               </div>
               <div className="flex items-center gap-2 text-slate-300">
                 <Monitor size={16} className="text-indigo-300" />
-                {session.provider?.providerName || session.source}
+                {session.source}
               </div>
               <div className="text-slate-400">{format(session.last_seen_at)}</div>
               <span className={`w-fit rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-widest ${session.status === 'active' ? 'bg-emerald-400/10 text-emerald-300' : 'bg-rose-400/10 text-rose-300'}`}>

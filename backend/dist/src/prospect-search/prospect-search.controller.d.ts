@@ -23,8 +23,8 @@ export declare class ProspectSearchController {
         id: string;
         tenantId: string;
         userId: string;
-        provider: string;
         prompt: string;
+        provider: string;
         filters: import("@prisma/client/runtime/library").JsonValue;
         resultCount: number;
         searchedAt: Date;

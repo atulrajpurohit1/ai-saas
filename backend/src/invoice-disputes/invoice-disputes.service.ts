@@ -1,7 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
-import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloseInvoiceDisputeDto, RespondInvoiceDisputeDto } from './dto/respond-invoice-dispute.dto';
 
@@ -13,7 +12,6 @@ export class InvoiceDisputesService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
-    private knowledgeBaseService: KnowledgeBaseService,
   ) {}
 
   private disputeInclude() {
@@ -218,7 +216,6 @@ export class InvoiceDisputesService {
     });
 
     const resolved = await this.findDisputeOrThrow(tenantId, id);
-    await this.knowledgeBaseService.createFromDispute(tenantId, userId, resolved);
 
     return this.mapDispute(resolved);
   }

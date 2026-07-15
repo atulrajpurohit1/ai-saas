@@ -15,7 +15,6 @@ const leads_module_1 = require("../leads/leads.module");
 const notes_module_1 = require("../notes/notes.module");
 const prisma_module_1 = require("../prisma/prisma.module");
 const prospect_search_interface_1 = require("./interfaces/prospect-search.interface");
-const mock_company_repository_service_1 = require("./mock-company-repository.service");
 const apollo_company_provider_1 = require("./providers/apollo-company.provider");
 const clearbit_company_provider_1 = require("./providers/clearbit-company.provider");
 const crunchbase_company_provider_1 = require("./providers/crunchbase-company.provider");
@@ -46,7 +45,6 @@ exports.ProspectSearchModule = ProspectSearchModule = __decorate([
             prospect_search_history_service_1.ProspectSearchHistoryService,
             prospect_search_rate_limit_service_1.ProspectSearchRateLimitService,
             saved_prospect_search_service_1.SavedProspectSearchService,
-            mock_company_repository_service_1.MockCompanyRepositoryService,
             apollo_company_provider_1.ApolloCompanyProvider,
             crunchbase_company_provider_1.CrunchbaseCompanyProvider,
             clearbit_company_provider_1.ClearbitCompanyProvider,
@@ -57,22 +55,19 @@ exports.ProspectSearchModule = ProspectSearchModule = __decorate([
             },
             {
                 provide: prospect_search_interface_1.COMPANY_REPOSITORY,
-                useFactory: (providerName, mock, apollo, crunchbase, clearbit) => {
+                useFactory: (providerName, apollo, crunchbase, clearbit) => {
                     switch (providerName) {
-                        case 'apollo':
-                            return apollo;
                         case 'crunchbase':
                             return crunchbase;
                         case 'clearbit':
                             return clearbit;
-                        case 'mock':
+                        case 'apollo':
                         default:
-                            return mock;
+                            return apollo;
                     }
                 },
                 inject: [
                     prospect_search_interface_1.COMPANY_PROVIDER_NAME,
-                    mock_company_repository_service_1.MockCompanyRepositoryService,
                     apollo_company_provider_1.ApolloCompanyProvider,
                     crunchbase_company_provider_1.CrunchbaseCompanyProvider,
                     clearbit_company_provider_1.ClearbitCompanyProvider,

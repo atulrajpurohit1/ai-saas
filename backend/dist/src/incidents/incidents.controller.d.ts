@@ -99,7 +99,6 @@ export declare class IncidentsController {
         };
     }[]>;
     findOne(user: ActiveUser, id: string): Promise<{
-        similarHistoricalCases: import("../knowledge-base/knowledge-base.types").KnowledgeRetrievalResult[];
         id: string;
         tenantId: string;
         branchId: string | null;

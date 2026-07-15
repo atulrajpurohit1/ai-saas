@@ -22,12 +22,12 @@ describe('ProspectSearchService', () => {
   let cacheService: { get: jest.Mock; set: jest.Mock };
   let historyService: { record: jest.Mock };
   let companyRepository: CompanyRepository;
-  const providerName = 'mock';
+  const providerName = 'apollo';
 
   const tenantId = 'tenant-1';
   const user: ActiveUser = { sub: 'user-1', tenantId, role: 'admin' };
 
-  const mockCompanies: ProspectCompany[] = [
+  const sampleCompanies: ProspectCompany[] = [
     {
       id: 'co-1',
       name: 'Lone Star Guard Services',
@@ -93,7 +93,7 @@ describe('ProspectSearchService', () => {
       record: jest.fn().mockResolvedValue({ id: 'history-1' }),
     };
     companyRepository = {
-      findAll: jest.fn().mockResolvedValue(mockCompanies),
+      search: jest.fn().mockResolvedValue(sampleCompanies),
     };
 
     service = new ProspectSearchService(
@@ -151,7 +151,7 @@ describe('ProspectSearchService', () => {
     expect(result.results.map((company) => company.id)).not.toContain('co-2');
   });
 
-  it('returns no results when nothing in the mock dataset matches', async () => {
+  it('returns no results when nothing in the provider results matches', async () => {
     aiService.generateProspectSearchFilters.mockResolvedValue({
       industry: 'Aerospace',
       city: null,
@@ -268,7 +268,7 @@ describe('ProspectSearchService', () => {
     expect(result).toBe(cachedResult);
     expect(aiService.generateProspectSearchFilters).not.toHaveBeenCalled();
     // eslint-disable-next-line @typescript-eslint/unbound-method -- jest mock assertion on an interface-typed test double, never actually invoked unbound
-    expect(companyRepository.findAll).not.toHaveBeenCalled();
+    expect(companyRepository.search).not.toHaveBeenCalled();
     expect(historyService.record).toHaveBeenCalledWith(
       expect.objectContaining({
         tenantId,

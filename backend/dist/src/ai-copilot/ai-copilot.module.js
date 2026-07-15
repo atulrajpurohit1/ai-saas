@@ -11,7 +11,6 @@ const common_1 = require("@nestjs/common");
 const ai_module_1 = require("../ai/ai.module");
 const ai_insights_module_1 = require("../ai-insights/ai-insights.module");
 const audit_module_1 = require("../audit/audit.module");
-const knowledge_base_module_1 = require("../knowledge-base/knowledge-base.module");
 const prisma_module_1 = require("../prisma/prisma.module");
 const ai_copilot_controller_1 = require("./ai-copilot.controller");
 const ai_copilot_service_1 = require("./ai-copilot.service");
@@ -21,7 +20,7 @@ let AiCopilotModule = class AiCopilotModule {
 exports.AiCopilotModule = AiCopilotModule;
 exports.AiCopilotModule = AiCopilotModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule, ai_module_1.AiModule, ai_insights_module_1.AiInsightsModule, knowledge_base_module_1.KnowledgeBaseModule],
+        imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule, ai_module_1.AiModule, ai_insights_module_1.AiInsightsModule],
         controllers: [ai_copilot_controller_1.AiCopilotController],
         providers: [ai_copilot_service_1.AiCopilotService, copilot_query_service_1.CopilotQueryService],
     })

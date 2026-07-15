@@ -14,7 +14,6 @@ const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const ai_service_1 = require("../ai/ai.service");
 const audit_service_1 = require("../audit/audit.service");
-const knowledge_retrieval_service_1 = require("../knowledge-base/knowledge-retrieval.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const copilot_query_service_1 = require("./copilot-query.service");
 exports.COPILOT_SUGGESTED_QUESTIONS = [
@@ -29,52 +28,27 @@ let AiCopilotService = class AiCopilotService {
     aiService;
     auditService;
     queryService;
-    knowledgeRetrievalService;
-    constructor(prisma, aiService, auditService, queryService, knowledgeRetrievalService) {
+    constructor(prisma, aiService, auditService, queryService) {
         this.prisma = prisma;
         this.aiService = aiService;
         this.auditService = auditService;
         this.queryService = queryService;
-        this.knowledgeRetrievalService = knowledgeRetrievalService;
     }
     async ask(input) {
         const question = input.question.trim();
         const structured = await this.queryService.answerQuestion(input.tenantId, input.userId, question);
-        const knowledgeEntries = await this.knowledgeRetrievalService.retrieveRelevant({
-            tenantId: input.tenantId,
-            userId: input.userId,
-            sourceModule: 'ai_copilot.chat',
-            query: structured.knowledgeQuery || question,
-            categories: this.knowledgeCategoriesForIntent(structured.intent),
-            limit: 6,
-        });
-        const knowledgeSources = knowledgeEntries.map((entry) => ({
-            type: 'knowledge',
-            id: entry.id,
-            title: entry.title,
-            snippet: entry.summary,
-        }));
         const aiAnswer = await this.aiService.generateCopilotAnswer(JSON.stringify({
             question,
             structuredAnswer: structured.answer,
             structuredContext: structured.context,
             sources: structured.sources,
-            organizationalMemory: knowledgeEntries.map((entry) => ({
-                title: entry.title,
-                category: entry.category,
-                summary: entry.summary,
-                tags: entry.tags,
-            })),
         }));
-        const sources = this.dedupeSources([
-            ...structured.sources,
-            ...knowledgeSources,
-        ]);
+        const sources = this.dedupeSources(structured.sources);
         const answer = aiAnswer || structured.answer;
         const source = aiAnswer
             ? 'ai_assisted'
             : 'rule_based';
-        const confidenceScore = this.roundConfidence(Math.min(0.98, structured.confidenceScore + (knowledgeEntries.length > 0 ? 0.03 : 0)));
+        const confidenceScore = this.roundConfidence(Math.min(0.98, structured.confidenceScore));
         const conversation = await this.createConversation({
             tenantId: input.tenantId,
             userId: input.userId,
@@ -178,24 +152,6 @@ let AiCopilotService = class AiCopilotService {
             createdAt: conversation.createdAt,
         };
     }
-    knowledgeCategoriesForIntent(intent) {
-        switch (intent) {
-            case 'incidents':
-            case 'sites':
-                return ['incidents', 'operations'];
-            case 'billing':
-            case 'revenue':
-            case 'clients':
-                return ['billing', 'contracts', 'client_management'];
-            case 'guards':
-            case 'staffing':
-                return ['staffing', 'scheduling', 'operations', 'incidents'];
-            case 'reports':
-                return ['operations', 'incidents', 'billing'];
-            default:
-                return undefined;
-        }
-    }
     dedupeSources(sources) {
         const seen = new Set();
         return sources.filter((source) => {
@@ -216,7 +172,6 @@ exports.AiCopilotService = AiCopilotService = __decorate([
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         ai_service_1.AiService,
         audit_service_1.AuditService,
-        copilot_query_service_1.CopilotQueryService,
-        knowledge_retrieval_service_1.KnowledgeRetrievalService])
+        copilot_query_service_1.CopilotQueryService])
 ], AiCopilotService);
 //# sourceMappingURL=ai-copilot.service.js.map

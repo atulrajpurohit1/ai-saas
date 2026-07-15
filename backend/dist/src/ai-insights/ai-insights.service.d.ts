@@ -1,7 +1,6 @@
 import { AiGovernanceService } from '../ai-governance/ai-governance.service';
 import { AiService } from '../ai/ai.service';
 import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
-import { KnowledgeRetrievalService } from '../knowledge-base/knowledge-retrieval.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiInsightsDashboard, BillingInsightsResponse, ClientInsightsResponse, GuardInsightsResponse, IncidentInsightsResponse, SiteInsightsResponse } from './ai-insights.types';
 export declare class AiInsightsService {
@@ -9,9 +8,8 @@ export declare class AiInsightsService {
     private aiService;
     private aiMonitoringService;
     private aiGovernanceService?;
-    private knowledgeRetrievalService?;
     private readonly logger;
-    constructor(prisma: PrismaService, aiService: AiService, aiMonitoringService: AiMonitoringService, aiGovernanceService?: AiGovernanceService | undefined, knowledgeRetrievalService?: KnowledgeRetrievalService | undefined);
+    constructor(prisma: PrismaService, aiService: AiService, aiMonitoringService: AiMonitoringService, aiGovernanceService?: AiGovernanceService | undefined);
     getDashboard(tenantId: string, userId?: string): Promise<AiInsightsDashboard>;
     getClientInsights(tenantId: string): Promise<ClientInsightsResponse>;
     getGuardInsights(tenantId: string): Promise<GuardInsightsResponse>;

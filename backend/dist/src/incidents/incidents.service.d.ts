@@ -1,7 +1,5 @@
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
-import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
-import { KnowledgeRetrievalService } from '../knowledge-base/knowledge-retrieval.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
@@ -10,10 +8,8 @@ type IncidentStatus = 'submitted' | 'under_review' | 'approved' | 'rejected';
 export declare class IncidentsService {
     private prisma;
     private auditService;
-    private knowledgeBaseService;
-    private knowledgeRetrievalService;
     private webhooksService;
-    constructor(prisma: PrismaService, auditService: AuditService, knowledgeBaseService: KnowledgeBaseService, knowledgeRetrievalService: KnowledgeRetrievalService, webhooksService: WebhooksService);
+    constructor(prisma: PrismaService, auditService: AuditService, webhooksService: WebhooksService);
     private mapIncident;
     private mapClientIncident;
     private mapClientIncidentListItem;
@@ -211,7 +207,6 @@ export declare class IncidentsService {
         };
     }[]>;
     findOneForAdmin(user: ActiveUser, incidentId: string): Promise<{
-        similarHistoricalCases: import("../knowledge-base/knowledge-base.types").KnowledgeRetrievalResult[];
         id: string;
         tenantId: string;
         branchId: string | null;
