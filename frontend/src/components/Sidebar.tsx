@@ -71,6 +71,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     { href: '/leads', label: 'Leads', icon: Users, permissions: ['leads.view'] },
     { href: '/deals', label: 'Deals', icon: Briefcase, permissions: ['deals.view'] },
     { href: '/proposals', label: 'Proposals', icon: FileText, permissions: ['proposals.view'] },
+    { href: '/rfp', label: 'RFP Management', icon: FileSpreadsheet, permissions: ['rfp.view'] },
     { href: '/branches', label: 'Branches', icon: GitBranch, permissions: ['branches.view'] },
     { href: '/sites', label: 'Sites', icon: MapPin, permissions: ['sites.view'] },
     { href: '/guards', label: 'Guards', icon: ShieldCheck, permissions: ['guards.view'] },

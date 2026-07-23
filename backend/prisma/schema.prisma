@@ -17,6 +17,12 @@ enum AttendanceEventType {
   CHECK_OUT
 }
 
+enum RfpStatus {
+  DRAFT
+  GENERATED
+  FINALIZED
+}
+
 model Tenant {
   id                    String                 @id @default(uuid())
   name                  String
@@ -70,6 +76,7 @@ model Tenant {
   guardSyncQueues       GuardSyncQueue[]
   prospectSearchHistory ProspectSearchHistory[]
   savedProspectSearches SavedProspectSearch[]
+  rfps                  Rfp[]
 }
 
 model Branch {
@@ -313,6 +320,36 @@ model ProposalVersion {
   createdAt     DateTime @default(now())
 
   @@index([proposalId])
+}
+
+model Rfp {
+  id                     String    @id @default(uuid())
+  tenantId               String    @map("tenant_id")
+  tenant                 Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title                  String
+  clientName             String    @map("client_name")
+  companyName            String?   @map("company_name")
+  industry               String?
+  projectName            String?   @map("project_name")
+  dueDate                DateTime? @map("due_date")
+  startDate              DateTime? @map("start_date")
+  endDate                DateTime? @map("end_date")
+  estimatedBudget        Float?    @map("estimated_budget")
+  securityTypes          Json      @default("[]") @map("security_types")
+  numberOfLocations      Int?      @map("number_of_locations")
+  address                String?
+  operatingHours         String?   @map("operating_hours")
+  guardsRequired         Int?      @map("guards_required")
+  additionalRequirements String?   @map("additional_requirements")
+  generatedContent       String?   @map("generated_content")
+  status                 RfpStatus @default(DRAFT)
+  createdBy              String?   @map("created_by")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("Rfp")
 }
 
 model DiscoverySession {

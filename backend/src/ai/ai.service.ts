@@ -6,6 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GenerateProposalDto } from './dto/generate-proposal.dto';
+import { GenerateRfpDto } from './dto/generate-rfp.dto';
 import { Lead } from '@prisma/client';
 
 export interface AiProposalDraftResponse {
@@ -819,6 +820,58 @@ export class AiService {
     return { draft };
   }
 
+  async generateRfp(dto: GenerateRfpDto): Promise<string> {
+    const context = `
+      RFP Title: ${dto.title}
+      Client Name: ${dto.clientName}
+      Company Name: ${dto.companyName || 'Not specified'}
+      Industry: ${dto.industry || 'Not specified'}
+      Project Name: ${dto.projectName || 'Not specified'}
+      Due Date: ${dto.dueDate || 'Not specified'}
+      Contract Start Date: ${dto.startDate || 'Not specified'}
+      Contract End Date: ${dto.endDate || 'Not specified'}
+      Estimated Budget: ${dto.estimatedBudget ? `$${dto.estimatedBudget}` : 'Not specified'}
+      Required Security Services: ${dto.securityTypes?.length ? dto.securityTypes.join(', ') : 'Not specified'}
+      Number of Locations: ${dto.numberOfLocations ?? 'Not specified'}
+      Site Address: ${dto.address || 'Not specified'}
+      Operating Hours: ${dto.operatingHours || 'Not specified'}
+      Guards Required: ${dto.guardsRequired ?? 'Not specified'}
+      Additional Requirements: ${dto.additionalRequirements || 'None'}
+    `;
+
+    const prompt = `
+      You are a senior security consultant drafting a formal Request for Proposal (RFP) for contract security guard services.
+      Use only this context:
+      ${context}
+
+      Write a professional, client-ready RFP in clean Markdown with exactly these sections, in this order:
+      # ${dto.title}
+      ## Executive Summary
+      ## Company Background
+      ## Scope of Work
+      ## Security Requirements
+      ## Staffing Requirements
+      ## Site Requirements
+      ## Reporting Requirements
+      ## Insurance Requirements
+      ## Compliance
+      ## Evaluation Criteria
+      ## Proposal Submission Instructions
+
+      Requirements:
+      - Ground every section in the context provided; do not invent facts not implied by it.
+      - Reference the required security service types, guard count, site count, and operating hours where relevant.
+      - Keep pricing generic (do not invent a dollar figure beyond the stated estimated budget).
+      - Use Markdown headings (##), short paragraphs, and bullet lists (-) where appropriate.
+    `;
+
+    return this.generateText(
+      prompt,
+      'RFP generation',
+      () => this.fallbackRfp(dto),
+    );
+  }
+
   async generateForLead(
     lead: Lead & { notes?: any[]; deals?: any[] },
   ): Promise<string> {
@@ -1136,6 +1189,49 @@ Deployment focuses on ${dto.requirements}.
 Recommended staffing: ${dto.guardCount} personnel.
       `.trim(),
     };
+  }
+
+  private fallbackRfp(dto: GenerateRfpDto): string {
+    const securityTypes = dto.securityTypes?.length
+      ? dto.securityTypes.join(', ')
+      : 'to be determined based on site assessment';
+
+    return `
+# ${dto.title} (Fallback)
+
+## Executive Summary
+This Request for Proposal (RFP) is issued by ${dto.clientName}${dto.companyName ? ` (${dto.companyName})` : ''} to solicit competitive proposals for contract security guard services${dto.projectName ? ` for ${dto.projectName}` : ''}.
+
+## Company Background
+${dto.companyName || dto.clientName} is seeking a qualified security services provider to deliver reliable, professional coverage aligned with the requirements below.
+
+## Scope of Work
+The selected vendor will provide ${securityTypes} coverage across ${dto.numberOfLocations ?? 'the specified number of'} location(s)${dto.address ? ` at ${dto.address}` : ''}.
+
+## Security Requirements
+Required service types: ${securityTypes}.
+
+## Staffing Requirements
+This engagement requires approximately ${dto.guardsRequired ?? 'a number of'} guard(s), covering ${dto.operatingHours || 'the required operating hours'}.
+
+## Site Requirements
+Site count: ${dto.numberOfLocations ?? 'Not specified'}. Address: ${dto.address || 'Not specified'}.
+
+## Reporting Requirements
+The vendor must provide regular incident and activity reporting throughout the engagement.
+
+## Insurance Requirements
+The vendor must carry general liability and workers' compensation insurance meeting industry-standard minimums.
+
+## Compliance
+The vendor must comply with all applicable state licensing, background check, and training requirements for security personnel.
+
+## Evaluation Criteria
+Proposals will be evaluated on experience, staffing plan, pricing, and compliance with the requirements above.
+
+## Proposal Submission Instructions
+Proposals are due by ${dto.dueDate || 'the date specified by the issuer'}. Additional context: ${dto.additionalRequirements || 'None provided'}.
+    `.trim();
   }
 
   private fallbackLeadProposal(lead: Lead, reason?: string): string {

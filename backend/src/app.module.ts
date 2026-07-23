@@ -53,6 +53,7 @@ import { SalesAutomationModule } from './sales-automation/sales-automation.modul
 import { SalesDeliveryModule } from './sales-delivery/sales-delivery.module';
 import { SalesImportsModule } from './sales-imports/sales-imports.module';
 import { PatrolsModule } from './patrols/patrols.module';
+import { RfpModule } from './rfp/rfp.module';
 import { FieldPermissionsModule } from './field-permissions/field-permissions.module';
 import { ProspectSearchModule } from './prospect-search/prospect-search.module';
 
@@ -112,6 +113,7 @@ import { ProspectSearchModule } from './prospect-search/prospect-search.module';
     ClientsModule,
     DocumentsModule,
     PatrolsModule,
+    RfpModule,
   ],
   controllers: [AppController],
   providers: [AppService],
