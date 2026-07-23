@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
+import AssignedVendorsPanel from '@/components/AssignedVendorsPanel';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { deleteRfp, downloadRfpPdf, getRfp, Rfp } from '@/lib/rfp';
@@ -270,6 +271,10 @@ export default function RfpViewPage() {
                   </div>
                 )}
               </section>
+
+              <div className="mt-6">
+                <AssignedVendorsPanel rfpId={rfp.id} />
+              </div>
             </div>
           </div>
         </div>

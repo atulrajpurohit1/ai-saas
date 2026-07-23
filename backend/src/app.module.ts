@@ -54,6 +54,7 @@ import { SalesDeliveryModule } from './sales-delivery/sales-delivery.module';
 import { SalesImportsModule } from './sales-imports/sales-imports.module';
 import { PatrolsModule } from './patrols/patrols.module';
 import { RfpModule } from './rfp/rfp.module';
+import { VendorsModule } from './vendors/vendors.module';
 import { FieldPermissionsModule } from './field-permissions/field-permissions.module';
 import { ProspectSearchModule } from './prospect-search/prospect-search.module';
 
@@ -114,6 +115,7 @@ import { ProspectSearchModule } from './prospect-search/prospect-search.module';
     DocumentsModule,
     PatrolsModule,
     RfpModule,
+    VendorsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

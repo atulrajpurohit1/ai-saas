@@ -19,9 +19,9 @@ export declare class ActivitiesService {
         status: string;
         dealId: string | null;
         description: string | null;
+        dueDate: Date | null;
         subject: string;
         type: string;
-        dueDate: Date | null;
     }>;
     findAll(tenantId: string, dealId?: string): Promise<{
         id: string;
@@ -30,9 +30,9 @@ export declare class ActivitiesService {
         status: string;
         dealId: string | null;
         description: string | null;
+        dueDate: Date | null;
         subject: string;
         type: string;
-        dueDate: Date | null;
     }[]>;
     updateStatus(id: string, status: string, tenantId: string, userId?: string): Promise<{
         id: string;
@@ -41,8 +41,8 @@ export declare class ActivitiesService {
         status: string;
         dealId: string | null;
         description: string | null;
+        dueDate: Date | null;
         subject: string;
         type: string;
-        dueDate: Date | null;
     }>;
 }

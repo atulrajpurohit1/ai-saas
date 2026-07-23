@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
@@ -45,7 +49,11 @@ export class RfpService {
     return rfp;
   }
 
-  async create(tenantId: string, userId: string | undefined, dto: CreateRfpDto) {
+  async create(
+    tenantId: string,
+    userId: string | undefined,
+    dto: CreateRfpDto,
+  ) {
     const rfp = await this.prisma.rfp.create({
       data: {
         tenantId,
@@ -82,13 +90,26 @@ export class RfpService {
     return rfp;
   }
 
-  private async attachCreators<T extends { createdBy: string | null }>(rfps: T[]) {
+  private async attachCreators<T extends { createdBy: string | null }>(
+    rfps: T[],
+  ) {
     const creatorIds = Array.from(
-      new Set(rfps.map((rfp) => rfp.createdBy).filter((id): id is string => Boolean(id))),
+      new Set(
+        rfps
+          .map((rfp) => rfp.createdBy)
+          .filter((id): id is string => Boolean(id)),
+      ),
     );
 
     if (creatorIds.length === 0) {
-      return rfps.map((rfp) => ({ ...rfp, createdByUser: null as { id: string; name: string | null; email: string } | null }));
+      return rfps.map((rfp) => ({
+        ...rfp,
+        createdByUser: null as {
+          id: string;
+          name: string | null;
+          email: string;
+        } | null,
+      }));
     }
 
     const users = await this.prisma.user.findMany({
@@ -99,7 +120,9 @@ export class RfpService {
 
     return rfps.map((rfp) => ({
       ...rfp,
-      createdByUser: rfp.createdBy ? usersById.get(rfp.createdBy) ?? null : null,
+      createdByUser: rfp.createdBy
+        ? (usersById.get(rfp.createdBy) ?? null)
+        : null,
     }));
   }
 
@@ -118,32 +141,66 @@ export class RfpService {
     return withCreator;
   }
 
-  async update(tenantId: string, userId: string | undefined, id: string, dto: UpdateRfpDto) {
+  async update(
+    tenantId: string,
+    userId: string | undefined,
+    id: string,
+    dto: UpdateRfpDto,
+  ) {
     await this.findRfpOrThrow(tenantId, id);
 
     const updated = await this.prisma.rfp.update({
       where: { id },
       data: {
         ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
-        ...(dto.clientName !== undefined ? { clientName: dto.clientName.trim() } : {}),
-        ...(dto.companyName !== undefined ? { companyName: dto.companyName?.trim() || null } : {}),
-        ...(dto.industry !== undefined ? { industry: dto.industry?.trim() || null } : {}),
-        ...(dto.projectName !== undefined ? { projectName: dto.projectName?.trim() || null } : {}),
-        ...(dto.dueDate !== undefined ? { dueDate: this.parseOptionalDate(dto.dueDate, 'dueDate') } : {}),
-        ...(dto.startDate !== undefined ? { startDate: this.parseOptionalDate(dto.startDate, 'startDate') } : {}),
-        ...(dto.endDate !== undefined ? { endDate: this.parseOptionalDate(dto.endDate, 'endDate') } : {}),
-        ...(dto.estimatedBudget !== undefined ? { estimatedBudget: dto.estimatedBudget } : {}),
+        ...(dto.clientName !== undefined
+          ? { clientName: dto.clientName.trim() }
+          : {}),
+        ...(dto.companyName !== undefined
+          ? { companyName: dto.companyName?.trim() || null }
+          : {}),
+        ...(dto.industry !== undefined
+          ? { industry: dto.industry?.trim() || null }
+          : {}),
+        ...(dto.projectName !== undefined
+          ? { projectName: dto.projectName?.trim() || null }
+          : {}),
+        ...(dto.dueDate !== undefined
+          ? { dueDate: this.parseOptionalDate(dto.dueDate, 'dueDate') }
+          : {}),
+        ...(dto.startDate !== undefined
+          ? { startDate: this.parseOptionalDate(dto.startDate, 'startDate') }
+          : {}),
+        ...(dto.endDate !== undefined
+          ? { endDate: this.parseOptionalDate(dto.endDate, 'endDate') }
+          : {}),
+        ...(dto.estimatedBudget !== undefined
+          ? { estimatedBudget: dto.estimatedBudget }
+          : {}),
         ...(dto.securityTypes !== undefined
           ? { securityTypes: this.normalizeSecurityTypes(dto.securityTypes) }
           : {}),
-        ...(dto.numberOfLocations !== undefined ? { numberOfLocations: dto.numberOfLocations } : {}),
-        ...(dto.address !== undefined ? { address: dto.address?.trim() || null } : {}),
-        ...(dto.operatingHours !== undefined ? { operatingHours: dto.operatingHours?.trim() || null } : {}),
-        ...(dto.guardsRequired !== undefined ? { guardsRequired: dto.guardsRequired } : {}),
-        ...(dto.additionalRequirements !== undefined
-          ? { additionalRequirements: dto.additionalRequirements?.trim() || null }
+        ...(dto.numberOfLocations !== undefined
+          ? { numberOfLocations: dto.numberOfLocations }
           : {}),
-        ...(dto.generatedContent !== undefined ? { generatedContent: dto.generatedContent } : {}),
+        ...(dto.address !== undefined
+          ? { address: dto.address?.trim() || null }
+          : {}),
+        ...(dto.operatingHours !== undefined
+          ? { operatingHours: dto.operatingHours?.trim() || null }
+          : {}),
+        ...(dto.guardsRequired !== undefined
+          ? { guardsRequired: dto.guardsRequired }
+          : {}),
+        ...(dto.additionalRequirements !== undefined
+          ? {
+              additionalRequirements:
+                dto.additionalRequirements?.trim() || null,
+            }
+          : {}),
+        ...(dto.generatedContent !== undefined
+          ? { generatedContent: dto.generatedContent }
+          : {}),
         ...(dto.status !== undefined ? { status: dto.status } : {}),
       },
     });
@@ -198,7 +255,10 @@ export class RfpService {
 
   private renderContentToPdf(doc: any, html: string | null) {
     if (!html?.trim()) {
-      doc.fontSize(11).fillColor('#6b7280').text('No content has been generated for this RFP yet.');
+      doc
+        .fontSize(11)
+        .fillColor('#6b7280')
+        .text('No content has been generated for this RFP yet.');
       return;
     }
 
@@ -212,11 +272,26 @@ export class RfpService {
       const [, tag, , inner] = match;
 
       if (tag === 'h1') {
-        doc.moveDown(0.5).fontSize(18).fillColor('#111827').font('Helvetica-Bold').text(this.stripInlineTags(inner));
+        doc
+          .moveDown(0.5)
+          .fontSize(18)
+          .fillColor('#111827')
+          .font('Helvetica-Bold')
+          .text(this.stripInlineTags(inner));
       } else if (tag === 'h2') {
-        doc.moveDown(0.5).fontSize(15).fillColor('#111827').font('Helvetica-Bold').text(this.stripInlineTags(inner));
+        doc
+          .moveDown(0.5)
+          .fontSize(15)
+          .fillColor('#111827')
+          .font('Helvetica-Bold')
+          .text(this.stripInlineTags(inner));
       } else if (tag === 'h3') {
-        doc.moveDown(0.4).fontSize(13).fillColor('#111827').font('Helvetica-Bold').text(this.stripInlineTags(inner));
+        doc
+          .moveDown(0.4)
+          .fontSize(13)
+          .fillColor('#111827')
+          .font('Helvetica-Bold')
+          .text(this.stripInlineTags(inner));
       } else if (tag === 'ul' || tag === 'ol') {
         doc.moveDown(0.2);
         let itemMatch: RegExpExecArray | null;
@@ -228,26 +303,37 @@ export class RfpService {
             .fontSize(11)
             .font('Helvetica')
             .fillColor('#1f2937')
-            .text(`${prefix}  ${this.stripInlineTags(itemMatch[1])}`, { indent: 12 });
+            .text(`${prefix}  ${this.stripInlineTags(itemMatch[1])}`, {
+              indent: 12,
+            });
           index += 1;
         }
         doc.moveDown(0.2);
       } else {
         const text = this.stripInlineTags(inner);
         if (text) {
-          doc.moveDown(0.3).fontSize(11).font('Helvetica').fillColor('#1f2937').text(text, {
-            align: 'left',
-            lineGap: 3,
-          });
+          doc
+            .moveDown(0.3)
+            .fontSize(11)
+            .font('Helvetica')
+            .fillColor('#1f2937')
+            .text(text, {
+              align: 'left',
+              lineGap: 3,
+            });
         }
       }
     }
 
     if (!matchedAny) {
-      doc.fontSize(11).font('Helvetica').fillColor('#1f2937').text(this.stripInlineTags(html), {
-        align: 'left',
-        lineGap: 3,
-      });
+      doc
+        .fontSize(11)
+        .font('Helvetica')
+        .fillColor('#1f2937')
+        .text(this.stripInlineTags(html), {
+          align: 'left',
+          lineGap: 3,
+        });
     }
   }
 
@@ -280,5 +366,92 @@ export class RfpService {
 
       doc.end();
     });
+  }
+
+  async findAssignedVendors(tenantId: string, id: string) {
+    await this.findRfpOrThrow(tenantId, id);
+
+    const assignments = await this.prisma.rfpVendor.findMany({
+      where: { tenantId, rfpId: id },
+      include: { vendor: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return assignments.map((assignment) => assignment.vendor);
+  }
+
+  async assignVendors(
+    tenantId: string,
+    userId: string | undefined,
+    id: string,
+    vendorIds: string[],
+  ) {
+    await this.findRfpOrThrow(tenantId, id);
+
+    const uniqueVendorIds = Array.from(
+      new Set(vendorIds.map((vendorId) => vendorId.trim()).filter(Boolean)),
+    );
+
+    const vendors = await this.prisma.vendor.findMany({
+      where: { id: { in: uniqueVendorIds }, tenantId },
+      select: { id: true, companyName: true },
+    });
+
+    if (vendors.length !== uniqueVendorIds.length) {
+      throw new BadRequestException(
+        'One or more vendors were not found in this tenant',
+      );
+    }
+
+    await this.prisma.rfpVendor.createMany({
+      data: vendors.map((vendor) => ({
+        tenantId,
+        rfpId: id,
+        vendorId: vendor.id,
+      })),
+      skipDuplicates: true,
+    });
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'UPDATE',
+      entityType: 'Rfp',
+      entityId: id,
+      details: `Assigned vendor(s) to RFP: ${vendors.map((vendor) => vendor.companyName).join(', ')}`,
+    });
+
+    return this.findAssignedVendors(tenantId, id);
+  }
+
+  async removeVendor(
+    tenantId: string,
+    userId: string | undefined,
+    id: string,
+    vendorId: string,
+  ) {
+    await this.findRfpOrThrow(tenantId, id);
+
+    const assignment = await this.prisma.rfpVendor.findFirst({
+      where: { tenantId, rfpId: id, vendorId },
+      include: { vendor: true },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('This vendor is not assigned to this RFP');
+    }
+
+    await this.prisma.rfpVendor.delete({ where: { id: assignment.id } });
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'UPDATE',
+      entityType: 'Rfp',
+      entityId: id,
+      details: `Removed vendor from RFP: ${assignment.vendor.companyName}`,
+    });
+
+    return { success: true };
   }
 }

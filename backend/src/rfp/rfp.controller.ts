@@ -13,6 +13,7 @@ import { Response } from 'express';
 import { RfpService } from './rfp.service';
 import { CreateRfpDto } from './dto/create-rfp.dto';
 import { UpdateRfpDto } from './dto/update-rfp.dto';
+import { AssignVendorsDto } from './dto/assign-vendors.dto';
 import { GenerateRfpDto } from '../ai/dto/generate-rfp.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
@@ -71,5 +72,26 @@ export class RfpController {
     });
 
     res.end(buffer);
+  }
+
+  @Get(':id/vendors')
+  findAssignedVendors(@GetUser() user: ActiveUser, @Param('id') id: string) {
+    return this.rfpService.findAssignedVendors(user.tenantId, id);
+  }
+
+  @Post(':id/vendors')
+  @RequirePermission('rfp.update')
+  assignVendors(@GetUser() user: ActiveUser, @Param('id') id: string, @Body() dto: AssignVendorsDto) {
+    return this.rfpService.assignVendors(user.tenantId, user.sub, id, dto.vendorIds);
+  }
+
+  @Delete(':id/vendors/:vendorId')
+  @RequirePermission('rfp.update')
+  removeVendor(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Param('vendorId') vendorId: string,
+  ) {
+    return this.rfpService.removeVendor(user.tenantId, user.sub, id, vendorId);
   }
 }

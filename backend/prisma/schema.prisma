@@ -23,6 +23,11 @@ enum RfpStatus {
   FINALIZED
 }
 
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+}
+
 model Tenant {
   id                    String                 @id @default(uuid())
   name                  String
@@ -77,6 +82,8 @@ model Tenant {
   prospectSearchHistory ProspectSearchHistory[]
   savedProspectSearches SavedProspectSearch[]
   rfps                  Rfp[]
+  vendors               Vendor[]
+  rfpVendors            RfpVendor[]
 }
 
 model Branch {
@@ -346,10 +353,50 @@ model Rfp {
   createdBy              String?   @map("created_by")
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
+  vendors                RfpVendor[]
 
   @@index([tenantId])
   @@index([tenantId, status])
   @@map("Rfp")
+}
+
+model Vendor {
+  id             String       @id @default(uuid())
+  tenantId       String       @map("tenant_id")
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyName    String       @map("company_name")
+  contactPerson  String?      @map("contact_person")
+  email          String?
+  phone          String?
+  address        String?
+  services       Json         @default("[]")
+  notes          String?
+  status         VendorStatus @default(ACTIVE)
+  createdBy      String?      @map("created_by")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  rfpAssignments RfpVendor[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("Vendor")
+}
+
+model RfpVendor {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rfpId     String   @map("rfp_id")
+  rfp       Rfp      @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  vendorId  String   @map("vendor_id")
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([rfpId, vendorId], map: "RfpVendor_rfp_vendor_key")
+  @@index([tenantId])
+  @@index([rfpId])
+  @@index([vendorId])
+  @@map("RfpVendor")
 }
 
 model DiscoverySession {

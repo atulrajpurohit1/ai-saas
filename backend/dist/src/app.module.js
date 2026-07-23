@@ -62,6 +62,8 @@ const sales_automation_module_1 = require("./sales-automation/sales-automation.m
 const sales_delivery_module_1 = require("./sales-delivery/sales-delivery.module");
 const sales_imports_module_1 = require("./sales-imports/sales-imports.module");
 const patrols_module_1 = require("./patrols/patrols.module");
+const rfp_module_1 = require("./rfp/rfp.module");
+const vendors_module_1 = require("./vendors/vendors.module");
 const field_permissions_module_1 = require("./field-permissions/field-permissions.module");
 const prospect_search_module_1 = require("./prospect-search/prospect-search.module");
 let AppModule = class AppModule {
@@ -124,6 +126,8 @@ exports.AppModule = AppModule = __decorate([
             clients_module_1.ClientsModule,
             documents_module_1.DocumentsModule,
             patrols_module_1.PatrolsModule,
+            rfp_module_1.RfpModule,
+            vendors_module_1.VendorsModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

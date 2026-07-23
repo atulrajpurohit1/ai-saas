@@ -313,9 +313,9 @@ export declare class SalesAcceleratorService {
                 id: string;
                 createdAt: Date;
                 status: string;
+                dueDate: Date | null;
                 subject: string;
                 type: string;
-                dueDate: Date | null;
             }[];
             discoverySessions: {
                 id: string;
@@ -383,9 +383,9 @@ export declare class SalesAcceleratorService {
                 id: string;
                 createdAt: Date;
                 status: string;
+                dueDate: Date | null;
                 subject: string;
                 type: string;
-                dueDate: Date | null;
             }[];
             discoverySessions: {
                 id: string;
@@ -453,9 +453,9 @@ export declare class SalesAcceleratorService {
                 id: string;
                 createdAt: Date;
                 status: string;
+                dueDate: Date | null;
                 subject: string;
                 type: string;
-                dueDate: Date | null;
             }[];
             discoverySessions: {
                 id: string;
@@ -524,9 +524,9 @@ export declare class SalesAcceleratorService {
                 id: string;
                 createdAt: Date;
                 status: string;
+                dueDate: Date | null;
                 subject: string;
                 type: string;
-                dueDate: Date | null;
             }[];
             discoverySessions: {
                 id: string;
@@ -631,9 +631,9 @@ export declare class SalesAcceleratorService {
                 id: string;
                 createdAt: Date;
                 status: string;
+                dueDate: Date | null;
                 subject: string;
                 type: string;
-                dueDate: Date | null;
             }[];
             discoverySessions: {
                 id: string;
@@ -898,9 +898,9 @@ export declare class SalesAcceleratorService {
                 id: string;
                 createdAt: Date;
                 status: string;
+                dueDate: Date | null;
                 subject: string;
                 type: string;
-                dueDate: Date | null;
             }[];
             notes: {
                 id: string;
@@ -1171,9 +1171,9 @@ export declare class SalesAcceleratorService {
         status: string;
         dealId: string | null;
         description: string | null;
+        dueDate: Date | null;
         subject: string;
         type: string;
-        dueDate: Date | null;
     }>;
     createDealFollowUpSequence(tenantId: string, dealId: string, userId?: string): Promise<{
         sequence: FollowUpSequence;

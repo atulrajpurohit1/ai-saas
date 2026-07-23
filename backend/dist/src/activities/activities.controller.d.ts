@@ -10,9 +10,9 @@ export declare class ActivitiesController {
         status: string;
         dealId: string | null;
         description: string | null;
+        dueDate: Date | null;
         subject: string;
         type: string;
-        dueDate: Date | null;
     }>;
     findAll(dealId: string, user: ActiveUser): Promise<{
         id: string;
@@ -21,9 +21,9 @@ export declare class ActivitiesController {
         status: string;
         dealId: string | null;
         description: string | null;
+        dueDate: Date | null;
         subject: string;
         type: string;
-        dueDate: Date | null;
     }[]>;
     updateStatus(id: string, status: string, user: ActiveUser): Promise<{
         id: string;
@@ -32,8 +32,8 @@ export declare class ActivitiesController {
         status: string;
         dealId: string | null;
         description: string | null;
+        dueDate: Date | null;
         subject: string;
         type: string;
-        dueDate: Date | null;
     }>;
 }

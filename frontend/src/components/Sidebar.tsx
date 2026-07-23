@@ -35,7 +35,8 @@ import {
   PhoneCall,
   Mail,
   CreditCard,
-  Radar
+  Radar,
+  Building2
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { clsx, type ClassValue } from 'clsx';
@@ -72,6 +73,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     { href: '/deals', label: 'Deals', icon: Briefcase, permissions: ['deals.view'] },
     { href: '/proposals', label: 'Proposals', icon: FileText, permissions: ['proposals.view'] },
     { href: '/rfp', label: 'RFP Management', icon: FileSpreadsheet, permissions: ['rfp.view'] },
+    { href: '/vendors', label: 'Vendors', icon: Building2, permissions: ['vendors.view'] },
     { href: '/branches', label: 'Branches', icon: GitBranch, permissions: ['branches.view'] },
     { href: '/sites', label: 'Sites', icon: MapPin, permissions: ['sites.view'] },
     { href: '/guards', label: 'Guards', icon: ShieldCheck, permissions: ['guards.view'] },
