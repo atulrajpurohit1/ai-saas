@@ -19,6 +19,7 @@ let AiService = AiService_1 = class AiService {
     logger = new common_1.Logger(AiService_1.name);
     fallbackEnabled;
     modelName;
+    timeoutMs;
     genAI = null;
     model = null;
     constructor(configService) {
@@ -28,6 +29,11 @@ let AiService = AiService_1 = class AiService {
                 'gemini-2.5-flash';
         this.fallbackEnabled =
             this.configService.get('ENABLE_AI_FALLBACK') === 'true';
+        const parsedTimeout = Number(this.configService.get('GEMINI_TIMEOUT_MS'));
+        this.timeoutMs =
+            Number.isFinite(parsedTimeout) && parsedTimeout > 0
+                ? parsedTimeout
+                : 45000;
         const apiKey = this.configService.get('GEMINI_API_KEY')?.trim();
         if (!apiKey) {
             this.logger.warn('GEMINI_API_KEY is missing. Gemini requests will fail unless fallback is explicitly enabled.');
@@ -105,6 +111,20 @@ let AiService = AiService_1 = class AiService {
             .filter(Boolean)
             .slice(0, 8);
     }
+    withTimeout(promise, action) {
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+                reject(new Error(`Gemini request timed out after ${this.timeoutMs}ms during ${action}.`));
+            }, this.timeoutMs);
+            promise.then((value) => {
+                clearTimeout(timer);
+                resolve(value);
+            }, (error) => {
+                clearTimeout(timer);
+                reject(error instanceof Error ? error : new Error(String(error)));
+            });
+        });
+    }
     async generateText(prompt, action, fallbackFactory) {
         if (!this.isAiAvailable()) {
             if (this.getFallbackEnabled())
@@ -112,7 +132,7 @@ let AiService = AiService_1 = class AiService {
             throw new common_1.InternalServerErrorException(this.getUnavailableMessage(action));
         }
         try {
-            const result = await this.model.generateContent(prompt);
+            const result = await this.withTimeout(this.model.generateContent(prompt), action);
             const response = await result.response;
             const text = response.text().trim();
             if (!text) {
@@ -599,25 +619,41 @@ let AiService = AiService_1 = class AiService {
         const rawText = await this.generateText(prompt, 'proposal evaluation generation', () => JSON.stringify(fallback));
         try {
             const parsed = this.parseJsonFromText(rawText);
+            const recommendedVendor = this.normalizeOptionalString(parsed.recommendedVendor, fallback.recommendedVendor);
+            const fullReportMarkdown = typeof parsed.fullReportMarkdown === 'string' &&
+                parsed.fullReportMarkdown.trim()
+                ? parsed.fullReportMarkdown.trim()
+                : fallback.fullReportMarkdown;
             return {
                 summary: typeof parsed.summary === 'string' && parsed.summary.trim()
                     ? parsed.summary.trim()
                     : fallback.summary,
-                recommendedVendor: this.normalizeOptionalString(parsed.recommendedVendor, fallback.recommendedVendor),
+                recommendedVendor,
                 overallAnalysis: typeof parsed.overallAnalysis === 'string' &&
                     parsed.overallAnalysis.trim()
                     ? parsed.overallAnalysis.trim()
                     : fallback.overallAnalysis,
-                fullReportMarkdown: typeof parsed.fullReportMarkdown === 'string' &&
-                    parsed.fullReportMarkdown.trim()
-                    ? parsed.fullReportMarkdown.trim()
-                    : fallback.fullReportMarkdown,
+                fullReportMarkdown: this.sanitizeRecommendedVendorSection(fullReportMarkdown, recommendedVendor),
             };
         }
         catch (error) {
             this.logger.warn(`Evaluation report JSON parsing failed: ${error instanceof Error ? error.message : String(error)}`);
             return fallback;
         }
+    }
+    sanitizeRecommendedVendorSection(markdown, recommendedVendor) {
+        const sectionPattern = /(##\s*Recommended Vendor\s*\n)([\s\S]*?)(?=\n##\s|\n#\s|$)/i;
+        const match = markdown.match(sectionPattern);
+        if (!match)
+            return markdown;
+        const body = match[2].trim();
+        if (body && !/^(null|undefined|n\/a|none)\.?$/i.test(body)) {
+            return markdown;
+        }
+        const replacement = recommendedVendor
+            ? `**${recommendedVendor}** is the recommended vendor based on the evaluation above.`
+            : 'No vendor can be confidently recommended based on the information available.';
+        return markdown.replace(sectionPattern, `$1${replacement}\n`);
     }
     fallbackEvaluationReport(dto) {
         const vendorNames = dto.vendors.map((vendor) => vendor.companyName);

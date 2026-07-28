@@ -79,6 +79,10 @@ let VendorPortalService = class VendorPortalService {
             await this.cleanupUploadedFiles(files);
             throw new common_1.ConflictException('A proposal has already been submitted for this invitation.');
         }
+        if (!files.proposalFile?.[0]) {
+            await this.cleanupUploadedFiles(files);
+            throw new common_1.BadRequestException('A proposal document is required to submit.');
+        }
         const submission = await this.prisma.proposalSubmission.create({
             data: {
                 tenantId: rfpVendor.tenantId,

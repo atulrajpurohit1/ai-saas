@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
@@ -27,8 +36,15 @@ export class InvoicesController {
 
   @Get(':id/export-pdf')
   @RequirePermission('invoices.export')
-  async exportPdf(@GetUser() user: ActiveUser, @Param('id') id: string, @Res() res: Response) {
-    const { buffer, invoice } = await this.invoicesService.exportForAdmin(user, id);
+  async exportPdf(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    const { buffer, invoice } = await this.invoicesService.exportForAdmin(
+      user,
+      id,
+    );
 
     res.set({
       'Content-Type': 'application/pdf',

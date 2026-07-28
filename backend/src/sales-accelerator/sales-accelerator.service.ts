@@ -107,7 +107,14 @@ export interface ForecastHistoryPoint {
 }
 
 export interface DealForecast {
-  status: 'commit' | 'likely' | 'watch' | 'at_risk' | 'unscored' | 'closed_won' | 'closed_lost';
+  status:
+    | 'commit'
+    | 'likely'
+    | 'watch'
+    | 'at_risk'
+    | 'unscored'
+    | 'closed_won'
+    | 'closed_lost';
   label: string;
   confidence: number;
   probability: number;
@@ -178,7 +185,14 @@ export interface RateCardPricingInsight {
 }
 
 export interface ProposalEngagement {
-  status: 'not_started' | 'draft' | 'sent' | 'engaged' | 'approved' | 'rejected' | 'stale';
+  status:
+    | 'not_started'
+    | 'draft'
+    | 'sent'
+    | 'engaged'
+    | 'approved'
+    | 'rejected'
+    | 'stale';
   score: number;
   proposalCount: number;
   latestProposal: {
@@ -209,7 +223,11 @@ export interface MarketSignalProfile {
 }
 
 export interface ValueJustification {
-  status: 'proposal_ready' | 'needs_quantification' | 'weak_value_case' | 'blocked';
+  status:
+    | 'proposal_ready'
+    | 'needs_quantification'
+    | 'weak_value_case'
+    | 'blocked';
   score: number;
   estimatedMonthlyGuardHours: number | null;
   scopeComplexity: 'standard' | 'expanded' | 'complex' | 'unknown';
@@ -616,7 +634,9 @@ export class SalesAcceleratorService {
           lead: deal.lead,
           deal,
           discovery: deal.discoverySessions[0] ?? null,
-          assessment: assessment ? this.assessmentDraftFromRecord(assessment) : null,
+          assessment: assessment
+            ? this.assessmentDraftFromRecord(assessment)
+            : null,
         }),
       };
     });
@@ -636,15 +656,11 @@ export class SalesAcceleratorService {
       )
       .slice(0, 5);
     const stalledDeals = dealsWithMomentum
-      .filter((deal) =>
-        ['urgent', 'stalled'].includes(deal.momentum.status),
-      )
+      .filter((deal) => ['urgent', 'stalled'].includes(deal.momentum.status))
       .sort((a, b) => a.momentum.score - b.momentum.score)
       .slice(0, 5);
     const forecastRiskDeals = dealsWithMomentum
-      .filter((deal) =>
-        ['at_risk', 'watch'].includes(deal.forecast.status),
-      )
+      .filter((deal) => ['at_risk', 'watch'].includes(deal.forecast.status))
       .sort((a, b) => a.forecast.confidence - b.forecast.confidence)
       .slice(0, 5);
     const missingDiscoveryLeads = leads
@@ -682,9 +698,7 @@ export class SalesAcceleratorService {
         ),
       }));
     const postCloseFeedbackDeals = [...allPostCloseFeedbackDeals]
-      .sort(
-        (a, b) => a.postCloseFeedback.score - b.postCloseFeedback.score,
-      )
+      .sort((a, b) => a.postCloseFeedback.score - b.postCloseFeedback.score)
       .slice(0, 6);
     const salesCoachSummary = this.salesCoachSummary({
       leads,
@@ -733,7 +747,9 @@ export class SalesAcceleratorService {
         ).length,
         averageForecastConfidence: this.average(
           dealsWithMomentum.map((deal) =>
-            deal.forecast.status === 'unscored' ? null : deal.forecast.confidence,
+            deal.forecast.status === 'unscored'
+              ? null
+              : deal.forecast.confidence,
           ),
         ),
         leadsMissingDiscovery: leads.filter(
@@ -793,16 +809,21 @@ export class SalesAcceleratorService {
         dueLabel: `${deal.forecast.probability}% probability`,
       })),
       ...dashboard.postCloseFeedbackDeals
-        .filter((deal) => ['risk', 'oversold'].includes(deal.postCloseFeedback.status))
+        .filter((deal) =>
+          ['risk', 'oversold'].includes(deal.postCloseFeedback.status),
+        )
         .map((deal) => ({
           id: `post-close-${deal.id}`,
-          severity: deal.postCloseFeedback.status === 'oversold' ? 'critical' : 'high',
+          severity:
+            deal.postCloseFeedback.status === 'oversold' ? 'critical' : 'high',
           type: 'post_close_learning',
           title: `${deal.name} has post-close risk`,
           subject: deal.postCloseFeedback.clientName,
           href: `/deals/${deal.id}`,
           score: deal.postCloseFeedback.score,
-          reason: deal.postCloseFeedback.signals[0] || 'Operations feedback needs sales review.',
+          reason:
+            deal.postCloseFeedback.signals[0] ||
+            'Operations feedback needs sales review.',
           recommendedAction: deal.postCloseFeedback.recommendedAction,
           dueLabel: `${deal.postCloseFeedback.incidentCount} incidents, ${deal.postCloseFeedback.understaffedShiftCount} understaffed shifts`,
         })),
@@ -815,7 +836,8 @@ export class SalesAcceleratorService {
         href: `/deals/${deal.id}`,
         score: null,
         reason: 'Forecast and proposal quality are limited without discovery.',
-        recommendedAction: 'Capture discovery details and run close-readiness scoring.',
+        recommendedAction:
+          'Capture discovery details and run close-readiness scoring.',
         dueLabel: 'Discovery needed',
       })),
       ...dashboard.missingDiscoveryLeads.slice(0, 5).map((lead) => ({
@@ -832,17 +854,24 @@ export class SalesAcceleratorService {
       })),
     ];
 
-    const severityRank = { critical: 0, high: 1, medium: 2, low: 3 } as Record<string, number>;
+    const severityRank = { critical: 0, high: 1, medium: 2, low: 3 } as Record<
+      string,
+      number
+    >;
     return {
       generatedAt: dashboard.generatedAt,
       summary: {
         total: alerts.length,
-        critical: alerts.filter((alert) => alert.severity === 'critical').length,
+        critical: alerts.filter((alert) => alert.severity === 'critical')
+          .length,
         high: alerts.filter((alert) => alert.severity === 'high').length,
         overdueActivities: dashboard.metrics.overdueDealActivities,
         stalledDeals: dashboard.metrics.stalledDeals,
       },
-      alerts: alerts.sort((left, right) => severityRank[left.severity] - severityRank[right.severity]),
+      alerts: alerts.sort(
+        (left, right) =>
+          severityRank[left.severity] - severityRank[right.severity],
+      ),
     };
   }
 
@@ -871,12 +900,23 @@ export class SalesAcceleratorService {
           ? Math.round(weightedPipeline / uniqueDeals.length)
           : null,
       },
-      statusBuckets: ['commit', 'likely', 'watch', 'at_risk', 'unscored', 'closed_won', 'closed_lost'].map((status) => ({
+      statusBuckets: [
+        'commit',
+        'likely',
+        'watch',
+        'at_risk',
+        'unscored',
+        'closed_won',
+        'closed_lost',
+      ].map((status) => ({
         status,
-        count: uniqueDeals.filter((deal) => deal.forecast.status === status).length,
+        count: uniqueDeals.filter((deal) => deal.forecast.status === status)
+          .length,
       })),
       deals: uniqueDeals
-        .sort((left, right) => left.forecast.confidence - right.forecast.confidence)
+        .sort(
+          (left, right) => left.forecast.confidence - right.forecast.confidence,
+        )
         .map((deal) => ({
           id: deal.id,
           name: deal.name,
@@ -921,10 +961,12 @@ export class SalesAcceleratorService {
         },
       }),
     ]);
-    const userIds = Array.from(new Set([
-      ...assessments.map((item) => item.createdBy).filter(Boolean),
-      ...discoveries.map((item) => item.createdBy).filter(Boolean),
-    ])) as string[];
+    const userIds = Array.from(
+      new Set([
+        ...assessments.map((item) => item.createdBy).filter(Boolean),
+        ...discoveries.map((item) => item.createdBy).filter(Boolean),
+      ]),
+    ) as string[];
     const users = await this.prisma.user.findMany({
       where: { tenantId, id: { in: userIds } },
       select: { id: true, name: true, email: true },
@@ -933,12 +975,23 @@ export class SalesAcceleratorService {
     const repIds = userIds.length ? userIds : ['unassigned'];
 
     const reps = repIds.map((repId) => {
-      const repAssessments = assessments.filter((item) => (item.createdBy || 'unassigned') === repId);
-      const repDiscoveries = discoveries.filter((item) => (item.createdBy || 'unassigned') === repId);
-      const avgDiscovery = this.average(repAssessments.map((item) => item.discoveryQualityScore));
-      const avgReadiness = this.average(repAssessments.map((item) => item.closeReadinessScore));
+      const repAssessments = assessments.filter(
+        (item) => (item.createdBy || 'unassigned') === repId,
+      );
+      const repDiscoveries = discoveries.filter(
+        (item) => (item.createdBy || 'unassigned') === repId,
+      );
+      const avgDiscovery = this.average(
+        repAssessments.map((item) => item.discoveryQualityScore),
+      );
+      const avgReadiness = this.average(
+        repAssessments.map((item) => item.closeReadinessScore),
+      );
       const objectionCount =
-        repAssessments.reduce((sum, item) => sum + item.objectionRisks.length, 0) +
+        repAssessments.reduce(
+          (sum, item) => sum + item.objectionRisks.length,
+          0,
+        ) +
         repDiscoveries.reduce((sum, item) => sum + item.objections.length, 0);
       const riskCoverage = this.average(
         repDiscoveries.map((item) => (item.riskConcerns.length > 0 ? 100 : 0)),
@@ -949,10 +1002,10 @@ export class SalesAcceleratorService {
       const user = userMap.get(repId);
       const coachingScore = this.clamp(
         (avgDiscovery ?? 50) * 0.35 +
-        (avgReadiness ?? 50) * 0.35 +
-        (riskCoverage ?? 50) * 0.15 +
-        (painCoverage ?? 50) * 0.15 -
-        Math.min(15, objectionCount),
+          (avgReadiness ?? 50) * 0.35 +
+          (riskCoverage ?? 50) * 0.15 +
+          (painCoverage ?? 50) * 0.15 -
+          Math.min(15, objectionCount),
       );
 
       return {
@@ -982,9 +1035,13 @@ export class SalesAcceleratorService {
         averageLeadScore: dashboard.metrics.averageLeadScore,
         averageCloseReadiness: dashboard.metrics.averageCloseReadiness,
         trackedObjections: dashboard.metrics.trackedObjections,
-        missingDiscovery: dashboard.metrics.leadsMissingDiscovery + dashboard.metrics.dealsMissingDiscovery,
+        missingDiscovery:
+          dashboard.metrics.leadsMissingDiscovery +
+          dashboard.metrics.dealsMissingDiscovery,
       },
-      reps: reps.sort((left, right) => right.coachingScore - left.coachingScore),
+      reps: reps.sort(
+        (left, right) => right.coachingScore - left.coachingScore,
+      ),
       objectionPatterns: dashboard.objectionPatterns,
     };
   }
@@ -1026,7 +1083,8 @@ export class SalesAcceleratorService {
         ...learnings.slice(0, 3).map((learning) => ({
           type: 'post_close_learning',
           title: learning.name,
-          recommendation: learning.salesLessons[0] || learning.recommendedAction,
+          recommendation:
+            learning.salesLessons[0] || learning.recommendedAction,
           support: learning.signals[0] || learning.proposalWarning,
         })),
       ],
@@ -1276,7 +1334,9 @@ export class SalesAcceleratorService {
         entityType: 'lead',
         lead,
         discovery,
-        assessment: assessment ? this.assessmentDraftFromRecord(assessment) : null,
+        assessment: assessment
+          ? this.assessmentDraftFromRecord(assessment)
+          : null,
       }),
       { entityType: 'lead', leadId, discoverySessionId: discovery?.id ?? null },
     );
@@ -1301,7 +1361,9 @@ export class SalesAcceleratorService {
         lead: deal.lead,
         deal,
         discovery,
-        assessment: assessment ? this.assessmentDraftFromRecord(assessment) : null,
+        assessment: assessment
+          ? this.assessmentDraftFromRecord(assessment)
+          : null,
       }),
       { entityType: 'deal', dealId, discoverySessionId: discovery?.id ?? null },
     );
@@ -1326,7 +1388,9 @@ export class SalesAcceleratorService {
         entityType: 'lead',
         lead,
         discovery,
-        assessment: assessment ? this.assessmentDraftFromRecord(assessment) : null,
+        assessment: assessment
+          ? this.assessmentDraftFromRecord(assessment)
+          : null,
       }),
       dto.transcript,
       {
@@ -1357,7 +1421,9 @@ export class SalesAcceleratorService {
         lead: deal.lead,
         deal,
         discovery,
-        assessment: assessment ? this.assessmentDraftFromRecord(assessment) : null,
+        assessment: assessment
+          ? this.assessmentDraftFromRecord(assessment)
+          : null,
       }),
       dto.transcript,
       {
@@ -1387,7 +1453,9 @@ export class SalesAcceleratorService {
         entityType: 'lead',
         lead,
         discovery,
-        assessment: assessment ? this.assessmentDraftFromRecord(assessment) : null,
+        assessment: assessment
+          ? this.assessmentDraftFromRecord(assessment)
+          : null,
       }),
       dto.transcript || '',
       {
@@ -1418,7 +1486,9 @@ export class SalesAcceleratorService {
         lead: deal.lead,
         deal,
         discovery,
-        assessment: assessment ? this.assessmentDraftFromRecord(assessment) : null,
+        assessment: assessment
+          ? this.assessmentDraftFromRecord(assessment)
+          : null,
       }),
       dto.transcript || '',
       {
@@ -1562,7 +1632,9 @@ export class SalesAcceleratorService {
       createdBy: userId,
       sourceModule: 'sales_accelerator',
       promptKey: 'discovery_proposal',
-      modelUsed: fallbackUsed ? 'rule-or-fallback' : this.aiService.getModelName(),
+      modelUsed: fallbackUsed
+        ? 'rule-or-fallback'
+        : this.aiService.getModelName(),
       inputSource: {
         entityType: 'deal',
         dealId,
@@ -1639,8 +1711,12 @@ export class SalesAcceleratorService {
         dto.description?.trim() ||
         [
           assessment?.summary,
-          assessment?.riskProfile ? `Risk profile: ${assessment.riskProfile}` : null,
-          assessment?.proposalAngle ? `Proposal angle: ${assessment.proposalAngle}` : null,
+          assessment?.riskProfile
+            ? `Risk profile: ${assessment.riskProfile}`
+            : null,
+          assessment?.proposalAngle
+            ? `Proposal angle: ${assessment.proposalAngle}`
+            : null,
         ]
           .filter(Boolean)
           .join('\n'),
@@ -1810,7 +1886,9 @@ export class SalesAcceleratorService {
       createdBy: userId,
       sourceModule: 'sales_accelerator',
       promptKey: 'discovery_guide',
-      modelUsed: fallbackUsed ? 'rule-or-fallback' : this.aiService.getModelName(),
+      modelUsed: fallbackUsed
+        ? 'rule-or-fallback'
+        : this.aiService.getModelName(),
       inputSource,
       generatedOutput: guide,
       fallbackUsed,
@@ -1850,7 +1928,9 @@ export class SalesAcceleratorService {
       createdBy: userId,
       sourceModule: 'sales_accelerator',
       promptKey: 'outreach_plan',
-      modelUsed: fallbackUsed ? 'rule-or-fallback' : this.aiService.getModelName(),
+      modelUsed: fallbackUsed
+        ? 'rule-or-fallback'
+        : this.aiService.getModelName(),
       inputSource,
       generatedOutput: outreach,
       fallbackUsed,
@@ -1893,7 +1973,9 @@ export class SalesAcceleratorService {
     } catch (error) {
       fallbackUsed = true;
       errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Discovery call intelligence fell back: ${errorMessage}`);
+      this.logger.warn(
+        `Discovery call intelligence fell back: ${errorMessage}`,
+      );
       intelligence = this.ruleDiscoveryCallIntelligence(transcriptText);
     }
 
@@ -1902,7 +1984,9 @@ export class SalesAcceleratorService {
       createdBy: userId,
       sourceModule: 'sales_accelerator',
       promptKey: 'discovery_call_intelligence',
-      modelUsed: fallbackUsed ? 'rule-or-fallback' : this.aiService.getModelName(),
+      modelUsed: fallbackUsed
+        ? 'rule-or-fallback'
+        : this.aiService.getModelName(),
       inputSource: {
         ...inputSource,
         transcriptLength: transcriptText.length,
@@ -1950,7 +2034,9 @@ export class SalesAcceleratorService {
       createdBy: userId,
       sourceModule: 'sales_accelerator',
       promptKey: 'discovery_live_coach',
-      modelUsed: fallbackUsed ? 'rule-or-fallback' : this.aiService.getModelName(),
+      modelUsed: fallbackUsed
+        ? 'rule-or-fallback'
+        : this.aiService.getModelName(),
       inputSource: {
         ...inputSource,
         transcriptLength: transcriptText.length,
@@ -2000,7 +2086,9 @@ export class SalesAcceleratorService {
       createdBy: userId,
       sourceModule: 'sales_accelerator',
       promptKey: 'sales_assessment',
-      modelUsed: fallbackUsed ? 'rule-or-fallback' : this.aiService.getModelName(),
+      modelUsed: fallbackUsed
+        ? 'rule-or-fallback'
+        : this.aiService.getModelName(),
       inputSource: {
         entityType: context.entityType,
         leadId: ids.leadId,
@@ -2020,7 +2108,8 @@ export class SalesAcceleratorService {
         leadId: ids.leadId || undefined,
         dealId: ids.dealId || undefined,
         discoverySessionId: ids.discoverySessionId || undefined,
-        assessmentType: context.entityType === 'deal' ? 'deal_assessment' : 'lead_assessment',
+        assessmentType:
+          context.entityType === 'deal' ? 'deal_assessment' : 'lead_assessment',
         leadScore: draft.leadScore,
         priorityTier: draft.priorityTier,
         closeReadinessScore: draft.closeReadinessScore,
@@ -2157,11 +2246,15 @@ export class SalesAcceleratorService {
     const coachingActions: string[] = [];
     const pipelineRisks: string[] = [];
     const positiveSignals: string[] = [];
-    const totalRecords = context.leads.length + context.dealsWithMomentum.length;
+    const totalRecords =
+      context.leads.length + context.dealsWithMomentum.length;
     const missingDiscoveryCount =
-      context.missingDiscoveryLeads.length + context.missingDiscoveryDeals.length;
+      context.missingDiscoveryLeads.length +
+      context.missingDiscoveryDeals.length;
     const missingDiscoveryRate =
-      totalRecords === 0 ? 0 : Math.round((missingDiscoveryCount / totalRecords) * 100);
+      totalRecords === 0
+        ? 0
+        : Math.round((missingDiscoveryCount / totalRecords) * 100);
     const averageLeadScore = this.average(
       context.assessedLeads.map((lead) => lead.assessment?.leadScore ?? null),
     );
@@ -2200,83 +2293,127 @@ export class SalesAcceleratorService {
     if (missingDiscoveryRate >= 35) {
       score -= 18;
       focusAreas.push('Discovery coverage is the main coaching gap.');
-      coachingActions.push('Coach reps to capture risk driver, guard count, hours, buyer role, timeline, and budget before proposal.');
-      pipelineRisks.push(`${missingDiscoveryCount} records are missing discovery, which weakens scoring and proposal quality.`);
+      coachingActions.push(
+        'Coach reps to capture risk driver, guard count, hours, buyer role, timeline, and budget before proposal.',
+      );
+      pipelineRisks.push(
+        `${missingDiscoveryCount} records are missing discovery, which weakens scoring and proposal quality.`,
+      );
     } else if (missingDiscoveryCount > 0) {
       score -= 8;
-      coachingActions.push('Clear the remaining missing discovery queue before adding more proposal work.');
+      coachingActions.push(
+        'Clear the remaining missing discovery queue before adding more proposal work.',
+      );
     } else {
-      positiveSignals.push('Discovery coverage is complete across the active dashboard lists.');
+      positiveSignals.push(
+        'Discovery coverage is complete across the active dashboard lists.',
+      );
     }
 
     if ((averageDiscoveryQuality ?? 100) < 60) {
       score -= 14;
       focusAreas.push('Discovery quality needs tighter qualification.');
-      coachingActions.push('Review recent calls for missing authority, budget, risk, scope, and timing questions.');
+      coachingActions.push(
+        'Review recent calls for missing authority, budget, risk, scope, and timing questions.',
+      );
     } else if (averageDiscoveryQuality !== null) {
-      positiveSignals.push(`Average discovery quality is ${averageDiscoveryQuality}.`);
+      positiveSignals.push(
+        `Average discovery quality is ${averageDiscoveryQuality}.`,
+      );
     }
 
     if ((averageCloseReadiness ?? 100) < 55) {
       score -= 16;
       focusAreas.push('Close readiness is low.');
-      coachingActions.push('Use readiness scoring to decide which deals need more discovery before proposal follow-up.');
-      pipelineRisks.push('Low readiness may cause proposal churn or price-only comparisons.');
+      coachingActions.push(
+        'Use readiness scoring to decide which deals need more discovery before proposal follow-up.',
+      );
+      pipelineRisks.push(
+        'Low readiness may cause proposal churn or price-only comparisons.',
+      );
     } else if (averageCloseReadiness !== null) {
-      positiveSignals.push(`Average close readiness is ${averageCloseReadiness}.`);
+      positiveSignals.push(
+        `Average close readiness is ${averageCloseReadiness}.`,
+      );
     }
 
     if (stalledDeals.length > 0) {
       score -= Math.min(18, stalledDeals.length * 5);
       focusAreas.push('Deal momentum needs inspection.');
-      coachingActions.push('Run rescue sequences for stalled deals and check whether each has a dated next step.');
+      coachingActions.push(
+        'Run rescue sequences for stalled deals and check whether each has a dated next step.',
+      );
       pipelineRisks.push(`${stalledDeals.length} deals are stalled or urgent.`);
     }
     if (overdueTasks > 0) {
       score -= Math.min(14, overdueTasks * 2);
-      coachingActions.push('Clear overdue follow-up tasks before creating new sequences.');
+      coachingActions.push(
+        'Clear overdue follow-up tasks before creating new sequences.',
+      );
       pipelineRisks.push(`${overdueTasks} follow-up activities are overdue.`);
     }
 
     if (context.forecastRiskDeals.length > 0) {
       score -= Math.min(14, context.forecastRiskDeals.length * 4);
       focusAreas.push('Forecast risk needs manager review.');
-      coachingActions.push('Review at-risk forecast deals for missing decision criteria, timeline, and objections.');
-      pipelineRisks.push(`${context.forecastRiskDeals.length} deals are flagged by forecast risk.`);
+      coachingActions.push(
+        'Review at-risk forecast deals for missing decision criteria, timeline, and objections.',
+      );
+      pipelineRisks.push(
+        `${context.forecastRiskDeals.length} deals are flagged by forecast risk.`,
+      );
     }
 
     if (highLossObjections.length > 0) {
       score -= Math.min(16, highLossObjections.length * 5);
       focusAreas.push('Objection handling is affecting outcomes.');
-      coachingActions.push(`Practice responses for ${highLossObjections[0].label.toLowerCase()} objections using the objection playbook.`);
-      pipelineRisks.push(`${highLossObjections.length} objection patterns have a high loss signal.`);
+      coachingActions.push(
+        `Practice responses for ${highLossObjections[0].label.toLowerCase()} objections using the objection playbook.`,
+      );
+      pipelineRisks.push(
+        `${highLossObjections.length} objection patterns have a high loss signal.`,
+      );
     } else if (context.objectionPatterns.length > 0) {
-      positiveSignals.push('Objection patterns are being captured for coaching.');
+      positiveSignals.push(
+        'Objection patterns are being captured for coaching.',
+      );
     }
 
     if (postCloseRiskDeals.length > 0) {
       score -= Math.min(12, postCloseRiskDeals.length * 4);
       focusAreas.push('Post-close feedback should update sales promises.');
-      coachingActions.push('Review oversold/risk accounts and convert the lessons into proposal guardrails.');
-      pipelineRisks.push(`${postCloseRiskDeals.length} closed-won deals show post-close risk.`);
+      coachingActions.push(
+        'Review oversold/risk accounts and convert the lessons into proposal guardrails.',
+      );
+      pipelineRisks.push(
+        `${postCloseRiskDeals.length} closed-won deals show post-close risk.`,
+      );
     } else if (context.postCloseFeedbackDeals.length > 0) {
-      positiveSignals.push('Post-close feedback loop has usable sales learning data.');
+      positiveSignals.push(
+        'Post-close feedback loop has usable sales learning data.',
+      );
     }
 
     if ((averageLeadScore ?? 0) >= 70) {
       positiveSignals.push(`Average lead score is ${averageLeadScore}.`);
     }
     if (focusAreas.length === 0) {
-      focusAreas.push('Pipeline execution is healthy; keep reinforcing value-based discovery and timely follow-up.');
+      focusAreas.push(
+        'Pipeline execution is healthy; keep reinforcing value-based discovery and timely follow-up.',
+      );
     }
     if (coachingActions.length === 0) {
-      coachingActions.push('Use one weekly review to inspect discovery quality, value justification, and next-step hygiene.');
+      coachingActions.push(
+        'Use one weekly review to inspect discovery quality, value justification, and next-step hygiene.',
+      );
     }
     if (pipelineRisks.length === 0) {
       pipelineRisks.push('No major dashboard-level pipeline risk detected.');
     }
     if (positiveSignals.length === 0) {
-      positiveSignals.push('Sales intelligence is active; continue capturing data to strengthen coaching signals.');
+      positiveSignals.push(
+        'Sales intelligence is active; continue capturing data to strengthen coaching signals.',
+      );
     }
 
     const coachScore = this.clamp(score);
@@ -2373,13 +2510,12 @@ export class SalesAcceleratorService {
   private contextText(context: SalesEntityContext) {
     const discovery = context.discovery;
     const deal = context.deal;
-    const leadNotes = context.lead.notes?.map((note) => note.content).join(' | ') || 'None';
-    const dealNotes = deal?.notes?.map((note) => note.content).join(' | ') || 'None';
+    const leadNotes =
+      context.lead.notes?.map((note) => note.content).join(' | ') || 'None';
+    const dealNotes =
+      deal?.notes?.map((note) => note.content).join(' | ') || 'None';
     const proposals =
-      [
-        ...(context.lead.proposals || []),
-        ...(deal?.proposals || []),
-      ]
+      [...(context.lead.proposals || []), ...(deal?.proposals || [])]
         .map((proposal) => `${proposal.title} (${proposal.status})`)
         .join(' | ') || 'None';
 
@@ -2469,10 +2605,14 @@ export class SalesAcceleratorService {
       }),
     ]);
 
-    return this.buildObjectionPatterns(discoveryObjections, assessmentObjections, {
-      keys,
-      limit: 4,
-    });
+    return this.buildObjectionPatterns(
+      discoveryObjections,
+      assessmentObjections,
+      {
+        keys,
+        limit: 4,
+      },
+    );
   }
 
   private buildObjectionPatterns(
@@ -2581,7 +2721,8 @@ export class SalesAcceleratorService {
           id: source.deal.id,
           name: source.deal.name,
           stage: source.deal.stage,
-          company: source.deal.lead?.company || source.lead?.company || 'Unknown',
+          company:
+            source.deal.lead?.company || source.lead?.company || 'Unknown',
         });
       }
     };
@@ -2768,19 +2909,19 @@ export class SalesAcceleratorService {
         ],
       },
     ];
-    const definition =
-      definitions.find((item) => item.test.test(normalized)) ||
-      {
-        key: 'general_objection',
-        label: 'General Objection',
-        recommendedResponse:
-          'Clarify the concern, quantify impact, and connect the response back to property risk and buyer priorities.',
-        playbook: [
-          'Ask what would need to be true for the buyer to move forward.',
-          'Restate the concern in business terms before answering.',
-          'Agree on the next proof point or decision step.',
-        ],
-      };
+    const definition = definitions.find((item) =>
+      item.test.test(normalized),
+    ) || {
+      key: 'general_objection',
+      label: 'General Objection',
+      recommendedResponse:
+        'Clarify the concern, quantify impact, and connect the response back to property risk and buyer priorities.',
+      playbook: [
+        'Ask what would need to be true for the buyer to move forward.',
+        'Restate the concern in business terms before answering.',
+        'Agree on the next proof point or decision step.',
+      ],
+    };
 
     return {
       key: definition.key,
@@ -2882,7 +3023,8 @@ export class SalesAcceleratorService {
         trend,
         history,
         reasons: ['Deal is in a lost stage.'],
-        recommendedAction: 'Capture loss reason and feed it back into future discovery.',
+        recommendedAction:
+          'Capture loss reason and feed it back into future discovery.',
       };
     }
 
@@ -2898,7 +3040,8 @@ export class SalesAcceleratorService {
         trend,
         history,
         reasons: ['Deal is in a won stage.'],
-        recommendedAction: 'Hand off confirmed scope and risk context to operations.',
+        recommendedAction:
+          'Hand off confirmed scope and risk context to operations.',
       };
     }
 
@@ -2914,7 +3057,8 @@ export class SalesAcceleratorService {
         trend: 'unknown',
         history,
         reasons: ['No close-readiness assessment has been generated yet.'],
-        recommendedAction: 'Run Sales Accelerator scoring after discovery is captured.',
+        recommendedAction:
+          'Run Sales Accelerator scoring after discovery is captured.',
       };
     }
 
@@ -2930,11 +3074,15 @@ export class SalesAcceleratorService {
     } else if (trend === 'declining') {
       probability -= 10;
       confidence -= 6;
-      reasons.push(`Readiness declined by ${Math.abs(readinessChange ?? 0)} points.`);
+      reasons.push(
+        `Readiness declined by ${Math.abs(readinessChange ?? 0)} points.`,
+      );
     } else if (trend === 'flat') {
       reasons.push('Readiness is stable against the previous assessment.');
     } else {
-      reasons.push('Only one readiness assessment exists so trend confidence is limited.');
+      reasons.push(
+        'Only one readiness assessment exists so trend confidence is limited.',
+      );
     }
 
     if (discoveryQuality >= 75) {
@@ -2968,10 +3116,7 @@ export class SalesAcceleratorService {
 
     const forecastProbability = this.clamp(probability);
     const forecastConfidence = this.clamp(confidence);
-    const status = this.forecastStatus(
-      forecastProbability,
-      forecastConfidence,
-    );
+    const status = this.forecastStatus(forecastProbability, forecastConfidence);
 
     return {
       status,
@@ -3039,18 +3184,30 @@ export class SalesAcceleratorService {
       return 'Run close-readiness scoring after discovery is captured.';
     }
     if (trend === 'declining') {
-      return nextAction || 'Revisit discovery gaps and confirm the approval path.';
+      return (
+        nextAction || 'Revisit discovery gaps and confirm the approval path.'
+      );
     }
     if (status === 'commit') {
-      return nextAction || 'Confirm final decision date and prepare handoff details.';
+      return (
+        nextAction || 'Confirm final decision date and prepare handoff details.'
+      );
     }
     if (status === 'likely') {
-      return nextAction || 'Lock the next buyer meeting and validate remaining risks.';
+      return (
+        nextAction ||
+        'Lock the next buyer meeting and validate remaining risks.'
+      );
     }
     if (status === 'watch') {
-      return nextAction || 'Improve discovery quality before treating this as forecastable.';
+      return (
+        nextAction ||
+        'Improve discovery quality before treating this as forecastable.'
+      );
     }
-    return nextAction || 'Create a recovery action tied to buyer risk and timeline.';
+    return (
+      nextAction || 'Create a recovery action tied to buyer risk and timeline.'
+    );
   }
 
   private dealMomentum(
@@ -3064,7 +3221,8 @@ export class SalesAcceleratorService {
       (activity) => activity.status.toLowerCase() !== 'completed',
     );
     const overdueActivities = pendingActivities.filter(
-      (activity) => activity.dueDate && activity.dueDate.getTime() < now.getTime(),
+      (activity) =>
+        activity.dueDate && activity.dueDate.getTime() < now.getTime(),
     );
     const lastActivity =
       [...activities].sort(
@@ -3400,7 +3558,9 @@ export class SalesAcceleratorService {
         overdueInvoiceCount: 0,
         disputedInvoiceCount: 0,
         reportCount: 0,
-        signals: ['No post-close operations data has been captured in the last 90 days.'],
+        signals: [
+          'No post-close operations data has been captured in the last 90 days.',
+        ],
         salesLessons: [
           'Confirm that operations handoff, site setup, reporting cadence, and billing setup are captured after close.',
         ],
@@ -3411,56 +3571,72 @@ export class SalesAcceleratorService {
 
     if (operations.incidents.length >= 3) {
       score -= 14;
-      signals.push(`${operations.incidents.length} incidents logged after close.`);
+      signals.push(
+        `${operations.incidents.length} incidents logged after close.`,
+      );
       salesLessons.push(
         'Discovery should quantify incident history and define escalation expectations before proposal.',
       );
     }
     if (highSeverityIncidentCount > 0) {
       score -= Math.min(25, highSeverityIncidentCount * 10);
-      signals.push(`${highSeverityIncidentCount} high-severity incident signal${highSeverityIncidentCount === 1 ? '' : 's'}.`);
+      signals.push(
+        `${highSeverityIncidentCount} high-severity incident signal${highSeverityIncidentCount === 1 ? '' : 's'}.`,
+      );
       salesLessons.push(
         'Risk framing may have been right, but the proposal should tighten patrol, post orders, and escalation controls.',
       );
     }
     if (openShiftCount > 0) {
       score -= Math.min(20, openShiftCount * 5);
-      signals.push(`${openShiftCount} open shift${openShiftCount === 1 ? '' : 's'} remain after close.`);
+      signals.push(
+        `${openShiftCount} open shift${openShiftCount === 1 ? '' : 's'} remain after close.`,
+      );
       salesLessons.push(
         'Sales should validate staffing feasibility and launch timing before committing to coverage dates.',
       );
     }
     if (understaffedShiftCount > 0) {
       score -= Math.min(28, understaffedShiftCount * 7);
-      signals.push(`${understaffedShiftCount} shift${understaffedShiftCount === 1 ? '' : 's'} appear understaffed against required guard count.`);
+      signals.push(
+        `${understaffedShiftCount} shift${understaffedShiftCount === 1 ? '' : 's'} appear understaffed against required guard count.`,
+      );
       salesLessons.push(
         'Guard count or coverage windows may have been scoped too tightly; future discovery should separate fixed posts from patrol coverage.',
       );
     }
     if (overdueInvoiceCount > 0) {
       score -= Math.min(18, overdueInvoiceCount * 6);
-      signals.push(`${overdueInvoiceCount} overdue invoice${overdueInvoiceCount === 1 ? '' : 's'} after close.`);
+      signals.push(
+        `${overdueInvoiceCount} overdue invoice${overdueInvoiceCount === 1 ? '' : 's'} after close.`,
+      );
       salesLessons.push(
         'Proposal and handoff should make billing cadence, approval steps, and payment expectations explicit.',
       );
     }
     if (disputedInvoiceCount > 0) {
       score -= Math.min(25, disputedInvoiceCount * 10);
-      signals.push(`${disputedInvoiceCount} disputed invoice${disputedInvoiceCount === 1 ? '' : 's'} after close.`);
+      signals.push(
+        `${disputedInvoiceCount} disputed invoice${disputedInvoiceCount === 1 ? '' : 's'} after close.`,
+      );
       salesLessons.push(
         'Pricing guardrails and scope assumptions need clearer language before signature.',
       );
     }
     if (operations.shifts.length > 0 && reportCount === 0) {
       score -= 10;
-      signals.push('Shifts exist, but no daily service reports are visible in the lookback window.');
+      signals.push(
+        'Shifts exist, but no daily service reports are visible in the lookback window.',
+      );
       salesLessons.push(
         'Sales should confirm reporting expectations during discovery and include them in the proposal.',
       );
     }
 
     if (signals.length === 0) {
-      signals.push('No major post-close friction detected in the last 90 days.');
+      signals.push(
+        'No major post-close friction detected in the last 90 days.',
+      );
       salesLessons.push(
         'Use this deal as a positive pattern for similar property type, scope, and buyer expectations.',
       );
@@ -3560,8 +3736,12 @@ export class SalesAcceleratorService {
         confidenceScore: 0,
         floorGuidance:
           'Do not price yet. Discovery is missing, so scope, risk, and staffing assumptions are unprotected.',
-        scopeWarnings: ['No discovery session has been captured for this deal.'],
-        pricingRisks: ['Any price would be guesswork and likely invite margin pressure.'],
+        scopeWarnings: [
+          'No discovery session has been captured for this deal.',
+        ],
+        pricingRisks: [
+          'Any price would be guesswork and likely invite margin pressure.',
+        ],
         requiredClarifications: [
           'Confirm property type, guard count, service hours, risk drivers, decision process, and budget sensitivity.',
         ],
@@ -3575,87 +3755,143 @@ export class SalesAcceleratorService {
 
     if (!discovery.guardCount) {
       score -= 18;
-      requiredClarifications.push('Confirm required guard count or post count.');
+      requiredClarifications.push(
+        'Confirm required guard count or post count.',
+      );
       scopeWarnings.push('Guard count is missing.');
     }
     if (!discovery.serviceHours) {
       score -= 18;
-      requiredClarifications.push('Confirm coverage days, shift windows, and holiday/weekend needs.');
+      requiredClarifications.push(
+        'Confirm coverage days, shift windows, and holiday/weekend needs.',
+      );
       scopeWarnings.push('Service hours are missing.');
     }
     if (!discovery.riskConcerns.length) {
       score -= 14;
-      requiredClarifications.push('Document the incidents, exposures, or liability concerns driving the purchase.');
-      pricingRisks.push('Risk value is not quantified, so the buyer may compare only hourly rates.');
+      requiredClarifications.push(
+        'Document the incidents, exposures, or liability concerns driving the purchase.',
+      );
+      pricingRisks.push(
+        'Risk value is not quantified, so the buyer may compare only hourly rates.',
+      );
     }
     if (!discovery.painPoints.length) {
       score -= 10;
-      requiredClarifications.push('Capture what is not working with the current security approach.');
+      requiredClarifications.push(
+        'Capture what is not working with the current security approach.',
+      );
     }
     if (!discovery.decisionTimeline) {
       score -= 8;
-      requiredClarifications.push('Confirm decision deadline, desired start date, and approval sequence.');
+      requiredClarifications.push(
+        'Confirm decision deadline, desired start date, and approval sequence.',
+      );
     }
     if (!discovery.buyerRole) {
       score -= 8;
-      requiredClarifications.push('Identify who owns scope, budget approval, and contract signature.');
+      requiredClarifications.push(
+        'Identify who owns scope, budget approval, and contract signature.',
+      );
     }
     if (!discovery.currentProvider) {
       score -= 5;
-      requiredClarifications.push('Clarify whether an incumbent provider or existing contract affects pricing.');
+      requiredClarifications.push(
+        'Clarify whether an incumbent provider or existing contract affects pricing.',
+      );
     }
 
     const budgetText = discovery.budgetSensitivity?.toLowerCase() || '';
     if (/(tight|low|cheap|price|budget|sensitive|lowest)/.test(budgetText)) {
       score -= 14;
-      pricingRisks.push('Budget sensitivity is explicit. Protect scope options from becoming an hourly-rate race.');
-      recommendedTerms.push('Offer tiered scope options instead of discounting the required baseline coverage.');
+      pricingRisks.push(
+        'Budget sensitivity is explicit. Protect scope options from becoming an hourly-rate race.',
+      );
+      recommendedTerms.push(
+        'Offer tiered scope options instead of discounting the required baseline coverage.',
+      );
     }
 
     const objections = [
       ...discovery.objections,
       ...(assessment?.objectionRisks || []),
     ];
-    if (objections.some((item) => /(price|cost|budget|expensive|rate|quote)/i.test(item))) {
+    if (
+      objections.some((item) =>
+        /(price|cost|budget|expensive|rate|quote)/i.test(item),
+      )
+    ) {
       score -= 12;
-      pricingRisks.push('Price objection is already present. Anchor proposal language to risk reduction and accountability.');
+      pricingRisks.push(
+        'Price objection is already present. Anchor proposal language to risk reduction and accountability.',
+      );
     }
-    if (objections.some((item) => /(contract|legal|terms|insurance|sla|indemnity)/i.test(item))) {
+    if (
+      objections.some((item) =>
+        /(contract|legal|terms|insurance|sla|indemnity)/i.test(item),
+      )
+    ) {
       score -= 8;
-      recommendedTerms.push('Prepare insurance, licensing, service-level, and contract-review details before sending final pricing.');
+      recommendedTerms.push(
+        'Prepare insurance, licensing, service-level, and contract-review details before sending final pricing.',
+      );
     }
 
     if ((assessment?.discoveryQualityScore ?? 100) < 55) {
       score -= 10;
-      scopeWarnings.push('Discovery quality is below 55, so proposal assumptions may be weak.');
+      scopeWarnings.push(
+        'Discovery quality is below 55, so proposal assumptions may be weak.',
+      );
     }
     if ((assessment?.closeReadinessScore ?? 100) < 55) {
       score -= 8;
-      pricingRisks.push('Close readiness is low. Pricing should not be treated as the only remaining blocker.');
+      pricingRisks.push(
+        'Close readiness is low. Pricing should not be treated as the only remaining blocker.',
+      );
     }
     if (postCloseFeedback?.status === 'oversold') {
       score -= 16;
-      scopeWarnings.push('Post-close feedback indicates similar work may have been oversold.');
-      recommendedTerms.push('Add explicit assumptions, exclusions, startup dependencies, and change-order language.');
+      scopeWarnings.push(
+        'Post-close feedback indicates similar work may have been oversold.',
+      );
+      recommendedTerms.push(
+        'Add explicit assumptions, exclusions, startup dependencies, and change-order language.',
+      );
     } else if (postCloseFeedback?.status === 'risk') {
       score -= 8;
-      scopeWarnings.push('Post-close operations feedback shows risk signals that should inform scope.');
+      scopeWarnings.push(
+        'Post-close operations feedback shows risk signals that should inform scope.',
+      );
     }
 
     if (discovery.guardCount && discovery.guardCount >= 4) {
-      recommendedTerms.push('Separate base guard coverage from supervisor coverage, patrol routes, and add-on posts.');
+      recommendedTerms.push(
+        'Separate base guard coverage from supervisor coverage, patrol routes, and add-on posts.',
+      );
     }
-    if (/(24\/7|overnight|night|weekend|after hours)/i.test(discovery.serviceHours || '')) {
-      recommendedTerms.push('Call out premium coverage windows, relief coverage, and supervision expectations.');
+    if (
+      /(24\/7|overnight|night|weekend|after hours)/i.test(
+        discovery.serviceHours || '',
+      )
+    ) {
+      recommendedTerms.push(
+        'Call out premium coverage windows, relief coverage, and supervision expectations.',
+      );
     }
     if (recommendedTerms.length === 0) {
-      recommendedTerms.push('State assumptions clearly and reserve final pricing for confirmed scope and start date.');
+      recommendedTerms.push(
+        'State assumptions clearly and reserve final pricing for confirmed scope and start date.',
+      );
     }
     if (scopeWarnings.length === 0) {
-      scopeWarnings.push('No major scope gaps detected from captured discovery.');
+      scopeWarnings.push(
+        'No major scope gaps detected from captured discovery.',
+      );
     }
     if (pricingRisks.length === 0) {
-      pricingRisks.push('No major pricing risk detected, but pricing should still be tied to risk and service outcomes.');
+      pricingRisks.push(
+        'No major pricing risk detected, but pricing should still be tied to risk and service outcomes.',
+      );
     }
 
     const confidenceScore = this.clamp(score);
@@ -3667,15 +3903,16 @@ export class SalesAcceleratorService {
       floorGuidance: this.pricingFloorGuidance(status),
       scopeWarnings: Array.from(new Set(scopeWarnings)).slice(0, 6),
       pricingRisks: Array.from(new Set(pricingRisks)).slice(0, 6),
-      requiredClarifications: Array.from(new Set(requiredClarifications)).slice(0, 6),
+      requiredClarifications: Array.from(new Set(requiredClarifications)).slice(
+        0,
+        6,
+      ),
       recommendedTerms: Array.from(new Set(recommendedTerms)).slice(0, 6),
       proposalInstruction: this.pricingProposalInstruction(status),
     };
   }
 
-  private pricingGuardrailStatus(
-    score: number,
-  ): PricingGuardrails['status'] {
+  private pricingGuardrailStatus(score: number): PricingGuardrails['status'] {
     if (score < 45) return 'blocked';
     if (score < 65) return 'protect_margin';
     if (score < 82) return 'review';
@@ -3770,7 +4007,11 @@ export class SalesAcceleratorService {
     if (discovery?.riskConcerns.length) {
       score += Math.min(18, discovery.riskConcerns.length * 6);
       indicators.push('Security risk drivers are captured.');
-    } else if (/(incident|theft|liability|trespass|access|parking|risk|complaint)/i.test(text)) {
+    } else if (
+      /(incident|theft|liability|trespass|access|parking|risk|complaint)/i.test(
+        text,
+      )
+    ) {
       score += 10;
       indicators.push('Risk language appears in notes.');
     } else {
@@ -3783,10 +4024,14 @@ export class SalesAcceleratorService {
     );
     if (existingSecurityLikelihood === 'high') {
       score += 15;
-      indicators.push('Existing security usage or incumbent provider is likely.');
+      indicators.push(
+        'Existing security usage or incumbent provider is likely.',
+      );
     } else if (existingSecurityLikelihood === 'medium') {
       score += 8;
-      indicators.push('Coverage details suggest a possible active security need.');
+      indicators.push(
+        'Coverage details suggest a possible active security need.',
+      );
     } else {
       risks.push('Existing security usage is not confirmed.');
     }
@@ -3800,7 +4045,9 @@ export class SalesAcceleratorService {
       indicators.push('Active or urgent timing signal detected.');
     } else if (renewalTimingSignal === 'near_term') {
       score += 12;
-      indicators.push('Near-term renewal, contract, RFP, or start-date signal detected.');
+      indicators.push(
+        'Near-term renewal, contract, RFP, or start-date signal detected.',
+      );
     } else if (renewalTimingSignal === 'future') {
       score += 5;
       indicators.push('Future timing signal exists, but urgency is limited.');
@@ -3830,7 +4077,11 @@ export class SalesAcceleratorService {
       score += 8;
       indicators.push('Coverage hours are captured.');
     }
-    if (/(budget|price|cheap|lowest|expensive|rate)/i.test(discovery?.budgetSensitivity || text)) {
+    if (
+      /(budget|price|cheap|lowest|expensive|rate)/i.test(
+        discovery?.budgetSensitivity || text,
+      )
+    ) {
       score -= 8;
       risks.push('Price pressure is visible; value framing needs protection.');
     }
@@ -3856,12 +4107,19 @@ export class SalesAcceleratorService {
 
   private marketSegment(propertyType?: string | null, text = '') {
     const source = `${propertyType || ''} ${text}`.toLowerCase();
-    if (/(apartment|residential|hoa|condo|multifamily)/.test(source)) return 'Residential';
-    if (/(warehouse|industrial|manufacturing|logistics|distribution)/.test(source)) return 'Industrial';
+    if (/(apartment|residential|hoa|condo|multifamily)/.test(source))
+      return 'Residential';
+    if (
+      /(warehouse|industrial|manufacturing|logistics|distribution)/.test(source)
+    )
+      return 'Industrial';
     if (/(retail|mall|shopping|store|plaza)/.test(source)) return 'Retail';
-    if (/(office|commercial|corporate|business park)/.test(source)) return 'Commercial';
-    if (/(construction|jobsite|site development)/.test(source)) return 'Construction';
-    if (/(hospital|clinic|healthcare|medical)/.test(source)) return 'Healthcare';
+    if (/(office|commercial|corporate|business park)/.test(source))
+      return 'Commercial';
+    if (/(construction|jobsite|site development)/.test(source))
+      return 'Construction';
+    if (/(hospital|clinic|healthcare|medical)/.test(source))
+      return 'Healthcare';
     if (/(school|campus|university|education)/.test(source)) return 'Education';
     if (/(hotel|hospitality|event|venue)/.test(source)) return 'Hospitality';
     if (/(parking|garage|lot)/.test(source)) return 'Parking';
@@ -3873,10 +4131,18 @@ export class SalesAcceleratorService {
     text = '',
   ): MarketSignalProfile['existingSecurityLikelihood'] {
     if (discovery?.currentProvider) return 'high';
-    if (/(incumbent|current provider|security vendor|guard company|contract renewal|existing contract|already have security)/.test(text)) {
+    if (
+      /(incumbent|current provider|security vendor|guard company|contract renewal|existing contract|already have security)/.test(
+        text,
+      )
+    ) {
       return 'high';
     }
-    if (discovery?.guardCount || discovery?.serviceHours || /(guard|patrol|post order|coverage|shift)/.test(text)) {
+    if (
+      discovery?.guardCount ||
+      discovery?.serviceHours ||
+      /(guard|patrol|post order|coverage|shift)/.test(text)
+    ) {
       return 'medium';
     }
     if (text) return 'low';
@@ -3888,9 +4154,24 @@ export class SalesAcceleratorService {
     text = '',
   ): MarketSignalProfile['renewalTimingSignal'] {
     const source = `${timeline || ''} ${text}`.toLowerCase();
-    if (/(asap|urgent|immediate|this week|next week|start now|right away)/.test(source)) return 'active';
-    if (/(renewal|contract end|expires|expiration|rebid|rfp|bid|next month|30 days|60 days|quarter)/.test(source)) return 'near_term';
-    if (/(next year|later|future|six months|6 months|annual planning)/.test(source)) return 'future';
+    if (
+      /(asap|urgent|immediate|this week|next week|start now|right away)/.test(
+        source,
+      )
+    )
+      return 'active';
+    if (
+      /(renewal|contract end|expires|expiration|rebid|rfp|bid|next month|30 days|60 days|quarter)/.test(
+        source,
+      )
+    )
+      return 'near_term';
+    if (
+      /(next year|later|future|six months|6 months|annual planning)/.test(
+        source,
+      )
+    )
+      return 'future';
     return 'unknown';
   }
 
@@ -3899,10 +4180,18 @@ export class SalesAcceleratorService {
     text = '',
   ): MarketSignalProfile['decisionAuthoritySignal'] {
     const source = `${buyerRole || ''} ${text}`.toLowerCase();
-    if (/(owner|president|ceo|director|vp|procurement|board|approver|sign off|decision maker|property manager|facilities manager)/.test(source)) {
+    if (
+      /(owner|president|ceo|director|vp|procurement|board|approver|sign off|decision maker|property manager|facilities manager)/.test(
+        source,
+      )
+    ) {
       return 'identified';
     }
-    if (/(assistant|coordinator|reception|office manager|tenant|supervisor)/.test(source)) {
+    if (
+      /(assistant|coordinator|reception|office manager|tenant|supervisor)/.test(
+        source,
+      )
+    ) {
       return 'influencer';
     }
     return 'unknown';
@@ -4024,30 +4313,48 @@ export class SalesAcceleratorService {
     const risks: string[] = [];
 
     if (benchmarkSource === 'client_rate_card') {
-      assumptions.push('Client-specific active rate cards were used as the pricing benchmark.');
+      assumptions.push(
+        'Client-specific active rate cards were used as the pricing benchmark.',
+      );
     } else if (benchmarkSource === 'tenant_benchmark') {
-      assumptions.push('No client-specific active rate card was found, so tenant active rate cards were used as a benchmark.');
-      risks.push('Benchmark is not client-specific; confirm final pricing before proposal.');
+      assumptions.push(
+        'No client-specific active rate card was found, so tenant active rate cards were used as a benchmark.',
+      );
+      risks.push(
+        'Benchmark is not client-specific; confirm final pricing before proposal.',
+      );
     } else {
       risks.push('No active rate cards are available for pricing benchmark.');
     }
 
     if (estimatedMonthlyGuardHours !== null) {
-      assumptions.push(`Estimated monthly guard-hours: ${estimatedMonthlyGuardHours}.`);
+      assumptions.push(
+        `Estimated monthly guard-hours: ${estimatedMonthlyGuardHours}.`,
+      );
     } else {
-      risks.push('Guard count or service hours are missing, so monthly revenue cannot be estimated.');
+      risks.push(
+        'Guard count or service hours are missing, so monthly revenue cannot be estimated.',
+      );
     }
     if (averageHourlyRate !== null) {
-      assumptions.push(`Average hourly bill rate benchmark: $${averageHourlyRate}.`);
+      assumptions.push(
+        `Average hourly bill rate benchmark: $${averageHourlyRate}.`,
+      );
     }
     if (averageOvertimeRate !== null) {
-      assumptions.push(`Average overtime bill rate benchmark: $${averageOvertimeRate}.`);
+      assumptions.push(
+        `Average overtime bill rate benchmark: $${averageOvertimeRate}.`,
+      );
     }
     if (averageHolidayRate !== null) {
-      assumptions.push(`Average holiday bill rate benchmark: $${averageHolidayRate}.`);
+      assumptions.push(
+        `Average holiday bill rate benchmark: $${averageHolidayRate}.`,
+      );
     }
 
-    risks.push('True gross margin cannot be calculated until guard labor cost/pay-rate assumptions are captured.');
+    risks.push(
+      'True gross margin cannot be calculated until guard labor cost/pay-rate assumptions are captured.',
+    );
 
     const status: RateCardPricingInsight['status'] =
       benchmarkSource === 'none'
@@ -4126,7 +4433,9 @@ export class SalesAcceleratorService {
         totalCommentCount: 0,
         daysSinceLatestProposal: null,
         signals: ['No proposal has been created for this deal yet.'],
-        risks: ['Proposal engagement cannot be tracked until a proposal exists.'],
+        risks: [
+          'Proposal engagement cannot be tracked until a proposal exists.',
+        ],
         recommendedAction:
           'Generate a discovery-based proposal once scope, value, pricing, and approval path are ready.',
       };
@@ -4154,17 +4463,29 @@ export class SalesAcceleratorService {
 
     if (latest._count?.comments) {
       score += Math.min(20, latest._count.comments * 6);
-      signals.push(`${latest._count.comments} comments captured on the latest proposal.`);
+      signals.push(
+        `${latest._count.comments} comments captured on the latest proposal.`,
+      );
     } else {
       risks.push('No comments are captured on the latest proposal.');
     }
 
-    if (ageDays > 14 && !/approved|accepted|reject|declin|lost/.test(latestStatus)) {
+    if (
+      ageDays > 14 &&
+      !/approved|accepted|reject|declin|lost/.test(latestStatus)
+    ) {
       score -= 22;
-      risks.push('Latest proposal is older than 14 days without a final outcome.');
-    } else if (ageDays > 7 && !/approved|accepted|reject|declin|lost/.test(latestStatus)) {
+      risks.push(
+        'Latest proposal is older than 14 days without a final outcome.',
+      );
+    } else if (
+      ageDays > 7 &&
+      !/approved|accepted|reject|declin|lost/.test(latestStatus)
+    ) {
       score -= 12;
-      risks.push('Latest proposal is older than 7 days and may need follow-up.');
+      risks.push(
+        'Latest proposal is older than 7 days and may need follow-up.',
+      );
     } else {
       signals.push('Latest proposal is fresh enough for timely follow-up.');
     }
@@ -4562,8 +4883,12 @@ export class SalesAcceleratorService {
         nextStep: null,
         lastCompletedStep: null,
         daysSinceLastSequenceActivity: null,
-        signals: ['No Sales Accelerator follow-up sequence has been created yet.'],
-        risks: ['Sequence progress cannot be tracked until sequence activities exist.'],
+        signals: [
+          'No Sales Accelerator follow-up sequence has been created yet.',
+        ],
+        risks: [
+          'Sequence progress cannot be tracked until sequence activities exist.',
+        ],
         recommendedAction:
           'Create a follow-up sequence when the deal is ready for structured follow-up.',
       };
@@ -4577,11 +4902,13 @@ export class SalesAcceleratorService {
       (activity) => !/(completed|done|closed)/i.test(activity.status),
     );
     const overdueActivities = pendingActivities.filter(
-      (activity) => activity.dueDate && activity.dueDate.getTime() < now.getTime(),
+      (activity) =>
+        activity.dueDate && activity.dueDate.getTime() < now.getTime(),
     );
     const nextStep =
       pendingActivities.find(
-        (activity) => !activity.dueDate || activity.dueDate.getTime() >= now.getTime(),
+        (activity) =>
+          !activity.dueDate || activity.dueDate.getTime() >= now.getTime(),
       ) ||
       overdueActivities[0] ||
       null;
@@ -4605,10 +4932,14 @@ export class SalesAcceleratorService {
     const signals: string[] = [];
 
     if (completedActivities.length > 0) {
-      signals.push(`${completedActivities.length} sequence steps are completed.`);
+      signals.push(
+        `${completedActivities.length} sequence steps are completed.`,
+      );
     }
     if (pendingActivities.length > 0) {
-      signals.push(`${pendingActivities.length} sequence steps are still pending.`);
+      signals.push(
+        `${pendingActivities.length} sequence steps are still pending.`,
+      );
     }
     if (overdueActivities.length > 0) {
       risks.push(`${overdueActivities.length} sequence steps are overdue.`);
@@ -4621,7 +4952,9 @@ export class SalesAcceleratorService {
       daysSinceLastSequenceActivity > 10 &&
       pendingActivities.length > 0
     ) {
-      risks.push('Sequence has pending work and no new sequence activity in over 10 days.');
+      risks.push(
+        'Sequence has pending work and no new sequence activity in over 10 days.',
+      );
     }
 
     const status = this.followUpSequenceProgressStatus(
@@ -4641,8 +4974,12 @@ export class SalesAcceleratorService {
       nextStep,
       lastCompletedStep,
       daysSinceLastSequenceActivity,
-      signals: signals.length ? signals : ['Sequence activity is being tracked.'],
-      risks: risks.length ? risks : ['No major sequence execution risk detected.'],
+      signals: signals.length
+        ? signals
+        : ['Sequence activity is being tracked.'],
+      risks: risks.length
+        ? risks
+        : ['No major sequence execution risk detected.'],
       recommendedAction: this.followUpSequenceProgressAction(status, nextStep),
     };
   }
@@ -4740,7 +5077,11 @@ export class SalesAcceleratorService {
       discovery.budgetSensitivity,
       ...objections,
       discovery.notes,
-    ].some((item) => /(price|cost|cheap|lowest|budget|expensive|rate|discount)/i.test(item || ''));
+    ].some((item) =>
+      /(price|cost|cheap|lowest|budget|expensive|rate|discount)/i.test(
+        item || '',
+      ),
+    );
     const primaryRisk =
       riskConcerns[0] ||
       painPoints[0] ||
@@ -4752,34 +5093,60 @@ export class SalesAcceleratorService {
       ...painPoints.slice(0, 2).map((item) => `Operational pain: ${item}.`),
     ];
     if (discovery.currentProvider) {
-      proofPoints.push(`Incumbent/provider context: ${discovery.currentProvider}.`);
+      proofPoints.push(
+        `Incumbent/provider context: ${discovery.currentProvider}.`,
+      );
     }
-    if (context.marketSignalProfile?.segment && context.marketSignalProfile.segment !== 'Unknown') {
-      proofPoints.push(`Market segment: ${context.marketSignalProfile.segment}.`);
+    if (
+      context.marketSignalProfile?.segment &&
+      context.marketSignalProfile.segment !== 'Unknown'
+    ) {
+      proofPoints.push(
+        `Market segment: ${context.marketSignalProfile.segment}.`,
+      );
     }
     if (estimatedMonthlyGuardHours !== null) {
-      proofPoints.push(`Estimated monthly coverage load: ${estimatedMonthlyGuardHours} guard-hours.`);
+      proofPoints.push(
+        `Estimated monthly coverage load: ${estimatedMonthlyGuardHours} guard-hours.`,
+      );
     }
     if (context.postCloseFeedback?.signals.length) {
-      proofPoints.push(`Post-close learning signal: ${context.postCloseFeedback.signals[0]}`);
+      proofPoints.push(
+        `Post-close learning signal: ${context.postCloseFeedback.signals[0]}`,
+      );
     }
     if (proofPoints.length === 0) {
-      proofPoints.push('Value proof is thin because risk, pain, and scope are not captured yet.');
+      proofPoints.push(
+        'Value proof is thin because risk, pain, and scope are not captured yet.',
+      );
     }
 
     const quantifiedInputs: string[] = [];
-    if (discovery.propertyType) quantifiedInputs.push(`Property type: ${discovery.propertyType}.`);
-    if (discovery.guardCount) quantifiedInputs.push(`Guard/post count: ${discovery.guardCount}.`);
-    if (discovery.serviceHours) quantifiedInputs.push(`Coverage hours: ${discovery.serviceHours}.`);
+    if (discovery.propertyType)
+      quantifiedInputs.push(`Property type: ${discovery.propertyType}.`);
+    if (discovery.guardCount)
+      quantifiedInputs.push(`Guard/post count: ${discovery.guardCount}.`);
+    if (discovery.serviceHours)
+      quantifiedInputs.push(`Coverage hours: ${discovery.serviceHours}.`);
     if (estimatedMonthlyGuardHours !== null) {
-      quantifiedInputs.push(`Estimated monthly guard-hours: ${estimatedMonthlyGuardHours}.`);
+      quantifiedInputs.push(
+        `Estimated monthly guard-hours: ${estimatedMonthlyGuardHours}.`,
+      );
     }
-    if (discovery.decisionTimeline) quantifiedInputs.push(`Decision timing: ${discovery.decisionTimeline}.`);
-    if (discovery.currentProvider) quantifiedInputs.push(`Current provider: ${discovery.currentProvider}.`);
-    if (discovery.buyerRole) quantifiedInputs.push(`Buyer role: ${discovery.buyerRole}.`);
-    if (context.forecast) quantifiedInputs.push(`Forecast probability: ${context.forecast.probability}%.`);
+    if (discovery.decisionTimeline)
+      quantifiedInputs.push(`Decision timing: ${discovery.decisionTimeline}.`);
+    if (discovery.currentProvider)
+      quantifiedInputs.push(`Current provider: ${discovery.currentProvider}.`);
+    if (discovery.buyerRole)
+      quantifiedInputs.push(`Buyer role: ${discovery.buyerRole}.`);
+    if (context.forecast)
+      quantifiedInputs.push(
+        `Forecast probability: ${context.forecast.probability}%.`,
+      );
     if (context.pricingGuardrails) {
-      quantifiedInputs.push(`Pricing guardrail: ${context.pricingGuardrails.status.replace('_', ' ')}.`);
+      quantifiedInputs.push(
+        `Pricing guardrail: ${context.pricingGuardrails.status.replace('_', ' ')}.`,
+      );
     }
     if (quantifiedInputs.length === 0) {
       quantifiedInputs.push('No quantifiable scope inputs captured yet.');
@@ -4795,13 +5162,19 @@ export class SalesAcceleratorService {
       );
     }
     if (discovery.currentProvider) {
-      proposalBullets.push('Compare the incumbent provider against accountability, reporting, and response expectations.');
+      proposalBullets.push(
+        'Compare the incumbent provider against accountability, reporting, and response expectations.',
+      );
     }
     if (pricePressure) {
-      proposalBullets.push('Use good/better/best scope options instead of discounting required baseline coverage.');
+      proposalBullets.push(
+        'Use good/better/best scope options instead of discounting required baseline coverage.',
+      );
     }
     if (context.pricingGuardrails?.status === 'blocked') {
-      proposalBullets.push('Do not publish final pricing until missing scope assumptions are confirmed.');
+      proposalBullets.push(
+        'Do not publish final pricing until missing scope assumptions are confirmed.',
+      );
     }
 
     let score = 25;
@@ -4817,7 +5190,11 @@ export class SalesAcceleratorService {
     }
     if ((context.assessment?.closeReadinessScore ?? 0) >= 70) score += 6;
     if ((context.assessment?.discoveryQualityScore ?? 100) < 55) score -= 8;
-    if (context.forecast?.status === 'commit' || context.forecast?.status === 'likely') score += 5;
+    if (
+      context.forecast?.status === 'commit' ||
+      context.forecast?.status === 'likely'
+    )
+      score += 5;
     if (context.forecast?.status === 'at_risk') score -= 8;
     if (context.pricingGuardrails?.status === 'ready') score += 5;
     if (context.pricingGuardrails?.status === 'protect_margin') score -= 8;
@@ -4893,7 +5270,10 @@ export class SalesAcceleratorService {
     if (status === 'weak_value_case') {
       return 'Strengthen risk drivers, pain points, buyer outcomes, and success criteria before proposing.';
     }
-    return discoveryGaps[0] || 'Complete discovery before building value justification.';
+    return (
+      discoveryGaps[0] ||
+      'Complete discovery before building value justification.'
+    );
   }
 
   private valueHypothesis(
@@ -4936,12 +5316,18 @@ export class SalesAcceleratorService {
   private valueDiscoveryGaps(discovery: DiscoverySnapshot) {
     const gaps: string[] = [];
     if (!discovery.guardCount) gaps.push('Confirm guard/post count.');
-    if (!discovery.serviceHours) gaps.push('Confirm service hours and coverage windows.');
-    if (!discovery.riskConcerns.length) gaps.push('Document specific risk drivers or incidents.');
-    if (!discovery.painPoints.length) gaps.push('Capture what is not working today.');
-    if (!discovery.buyerRole) gaps.push('Identify the buyer role and approval owner.');
-    if (!discovery.decisionTimeline) gaps.push('Confirm decision timeline or desired start date.');
-    if (!discovery.budgetSensitivity) gaps.push('Clarify budget sensitivity and value expectations.');
+    if (!discovery.serviceHours)
+      gaps.push('Confirm service hours and coverage windows.');
+    if (!discovery.riskConcerns.length)
+      gaps.push('Document specific risk drivers or incidents.');
+    if (!discovery.painPoints.length)
+      gaps.push('Capture what is not working today.');
+    if (!discovery.buyerRole)
+      gaps.push('Identify the buyer role and approval owner.');
+    if (!discovery.decisionTimeline)
+      gaps.push('Confirm decision timeline or desired start date.');
+    if (!discovery.budgetSensitivity)
+      gaps.push('Clarify budget sensitivity and value expectations.');
     return gaps;
   }
 
@@ -4951,7 +5337,8 @@ export class SalesAcceleratorService {
     serviceHours?: string | null,
   ): ValueJustification['scopeComplexity'] {
     const text = serviceHours?.toLowerCase() || '';
-    if (!guardCount && estimatedMonthlyGuardHours === null && !text) return 'unknown';
+    if (!guardCount && estimatedMonthlyGuardHours === null && !text)
+      return 'unknown';
     if (
       (guardCount || 0) >= 6 ||
       (estimatedMonthlyGuardHours || 0) >= 1500 ||
@@ -4979,22 +5366,32 @@ export class SalesAcceleratorService {
     const text = serviceHours?.toLowerCase() || '';
     if (!text) return null;
 
-    if (/(24\s*\/\s*7|24x7|24-7|round.?the.?clock|around.?the.?clock)/.test(text)) {
+    if (
+      /(24\s*\/\s*7|24x7|24-7|round.?the.?clock|around.?the.?clock)/.test(text)
+    ) {
       return 168;
     }
 
-    const weekly = text.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\s*(?:\/|per)?\s*(?:week|weekly|wk)/);
+    const weekly = text.match(
+      /(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\s*(?:\/|per)?\s*(?:week|weekly|wk)/,
+    );
     if (weekly) return Number(weekly[1]);
 
-    const daily = text.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\s*(?:\/|per)?\s*(?:day|daily)/);
+    const daily = text.match(
+      /(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\s*(?:\/|per)?\s*(?:day|daily)/,
+    );
     if (daily) {
-      const days = text.match(/(\d+(?:\.\d+)?)\s*(?:days?|d)\s*(?:\/|per)?\s*(?:week|weekly|wk)?/);
+      const days = text.match(
+        /(\d+(?:\.\d+)?)\s*(?:days?|d)\s*(?:\/|per)?\s*(?:week|weekly|wk)?/,
+      );
       return Number(daily[1]) * (days ? Number(days[1]) : 7);
     }
 
     const shift = text.match(/(\d+(?:\.\d+)?)\s*(?:hour|hr)\s*shift/);
     if (shift) {
-      const days = text.match(/(\d+(?:\.\d+)?)\s*(?:days?|d)\s*(?:\/|per)?\s*(?:week|weekly|wk)?/);
+      const days = text.match(
+        /(\d+(?:\.\d+)?)\s*(?:days?|d)\s*(?:\/|per)?\s*(?:week|weekly|wk)?/,
+      );
       return Number(shift[1]) * (days ? Number(days[1]) : 5);
     }
 
@@ -5029,11 +5426,16 @@ export class SalesAcceleratorService {
     const riskSignal =
       (discovery?.painPoints?.length || 0) * 6 +
       (discovery?.riskConcerns?.length || 0) * 8;
-    const guardSignal = discovery?.guardCount ? Math.min(15, discovery.guardCount * 3) : 0;
+    const guardSignal = discovery?.guardCount
+      ? Math.min(15, discovery.guardCount * 3)
+      : 0;
     const buyerSignal = discovery?.buyerRole ? 10 : 0;
     const timelineSignal = this.timelineSignal(discovery?.decisionTimeline);
     const budgetPenalty = this.budgetPenalty(discovery?.budgetSensitivity);
-    const objectionPenalty = Math.min(15, (discovery?.objections?.length || 0) * 5);
+    const objectionPenalty = Math.min(
+      15,
+      (discovery?.objections?.length || 0) * 5,
+    );
     const baseScore =
       25 +
       discoveryQualityScore * 0.25 +
@@ -5071,10 +5473,11 @@ export class SalesAcceleratorService {
         discovery?.objections && discovery.objections.length > 0
           ? discovery.objections
           : budgetPenalty > 0
-            ? ['Budget sensitivity may create price pressure unless risk is quantified.']
+            ? [
+                'Budget sensitivity may create price pressure unless risk is quantified.',
+              ]
             : [],
-      summary:
-        `${priorityTier.toUpperCase()} priority with ${discoveryQualityScore}% discovery completeness and ${closeReadinessScore}% close readiness.`,
+      summary: `${priorityTier.toUpperCase()} priority with ${discoveryQualityScore}% discovery completeness and ${closeReadinessScore}% close readiness.`,
     };
   }
 
@@ -5138,16 +5541,30 @@ export class SalesAcceleratorService {
 
   private missingQuestions(discovery?: DiscoverySnapshot | null) {
     const questions: string[] = [];
-    if (!discovery?.propertyType) questions.push('What type of property needs coverage?');
-    if (!discovery?.buyerRole) questions.push('Who is the decision maker and what is their role?');
-    if (!discovery?.guardCount) questions.push('How many guards or posts are required?');
-    if (!discovery?.serviceHours) questions.push('Which days and hours need coverage?');
-    if (!discovery?.riskConcerns?.length) questions.push('What risks or incidents are driving the security need?');
-    if (!discovery?.decisionTimeline) questions.push('When does the client need service to start?');
-    if (!discovery?.budgetSensitivity) questions.push('How sensitive is the buyer to price versus risk reduction?');
-    if (!discovery?.currentProvider) questions.push('Are they using a current security provider?');
-    if (!discovery?.painPoints?.length) questions.push('What is not working with their current security approach?');
-    if (!discovery?.notes) questions.push('What success criteria should the proposal address?');
+    if (!discovery?.propertyType)
+      questions.push('What type of property needs coverage?');
+    if (!discovery?.buyerRole)
+      questions.push('Who is the decision maker and what is their role?');
+    if (!discovery?.guardCount)
+      questions.push('How many guards or posts are required?');
+    if (!discovery?.serviceHours)
+      questions.push('Which days and hours need coverage?');
+    if (!discovery?.riskConcerns?.length)
+      questions.push('What risks or incidents are driving the security need?');
+    if (!discovery?.decisionTimeline)
+      questions.push('When does the client need service to start?');
+    if (!discovery?.budgetSensitivity)
+      questions.push(
+        'How sensitive is the buyer to price versus risk reduction?',
+      );
+    if (!discovery?.currentProvider)
+      questions.push('Are they using a current security provider?');
+    if (!discovery?.painPoints?.length)
+      questions.push(
+        'What is not working with their current security approach?',
+      );
+    if (!discovery?.notes)
+      questions.push('What success criteria should the proposal address?');
     return questions;
   }
 
@@ -5203,49 +5620,68 @@ export class SalesAcceleratorService {
     };
   }
 
-  private ruleDiscoveryLiveCoach(transcript: string): AiDiscoveryLiveCoachDraft {
-    const hasRisk = /(incident|risk|liability|theft|trespass|complaint|access|parking|after hours|break-in|vandal)/i.test(
-      transcript,
-    );
-    const hasScope = /(guard|coverage|hours|shift|post|patrol|24\/7|overnight|weekend)/i.test(
-      transcript,
-    );
-    const hasAuthority = /(owner|board|manager|director|committee|procurement|approval|approver|decision|sign off)/i.test(
-      transcript,
-    );
-    const hasTimeline = /(asap|urgent|start|timeline|deadline|next week|next month|quarter|renewal|contract end)/i.test(
-      transcript,
-    );
-    const hasBudget = /(budget|price|cost|rate|expensive|quote|bid|pricing)/i.test(
-      transcript,
-    );
+  private ruleDiscoveryLiveCoach(
+    transcript: string,
+  ): AiDiscoveryLiveCoachDraft {
+    const hasRisk =
+      /(incident|risk|liability|theft|trespass|complaint|access|parking|after hours|break-in|vandal)/i.test(
+        transcript,
+      );
+    const hasScope =
+      /(guard|coverage|hours|shift|post|patrol|24\/7|overnight|weekend)/i.test(
+        transcript,
+      );
+    const hasAuthority =
+      /(owner|board|manager|director|committee|procurement|approval|approver|decision|sign off)/i.test(
+        transcript,
+      );
+    const hasTimeline =
+      /(asap|urgent|start|timeline|deadline|next week|next month|quarter|renewal|contract end)/i.test(
+        transcript,
+      );
+    const hasBudget =
+      /(budget|price|cost|rate|expensive|quote|bid|pricing)/i.test(transcript);
     const missedQuestions: string[] = [];
     const qualificationGaps: string[] = [];
 
     if (!hasRisk) {
-      missedQuestions.push('What incidents, complaints, or risks triggered this security review?');
+      missedQuestions.push(
+        'What incidents, complaints, or risks triggered this security review?',
+      );
       qualificationGaps.push('Risk driver is not confirmed.');
     }
     if (!hasScope) {
-      missedQuestions.push('Which posts, patrol areas, shifts, and service hours need coverage?');
+      missedQuestions.push(
+        'Which posts, patrol areas, shifts, and service hours need coverage?',
+      );
       qualificationGaps.push('Coverage scope is not confirmed.');
     }
     if (!hasAuthority) {
-      missedQuestions.push('Who approves the final scope, budget, and contract?');
+      missedQuestions.push(
+        'Who approves the final scope, budget, and contract?',
+      );
       qualificationGaps.push('Decision authority is not mapped.');
     }
     if (!hasTimeline) {
-      missedQuestions.push('When does coverage need to start, and what deadline is driving that timing?');
+      missedQuestions.push(
+        'When does coverage need to start, and what deadline is driving that timing?',
+      );
       qualificationGaps.push('Decision timeline is not confirmed.');
     }
     if (!hasBudget) {
-      missedQuestions.push('How are you weighing budget against risk reduction and accountability?');
+      missedQuestions.push(
+        'How are you weighing budget against risk reduction and accountability?',
+      );
       qualificationGaps.push('Budget sensitivity is not understood.');
     }
 
-    const captured = [hasRisk, hasScope, hasAuthority, hasTimeline, hasBudget].filter(
-      Boolean,
-    ).length;
+    const captured = [
+      hasRisk,
+      hasScope,
+      hasAuthority,
+      hasTimeline,
+      hasBudget,
+    ].filter(Boolean).length;
     const completenessScore = Math.max(15, captured * 20);
 
     return {
@@ -5256,7 +5692,9 @@ export class SalesAcceleratorService {
       missedQuestions:
         missedQuestions.length > 0
           ? missedQuestions
-          : ['Confirm success criteria and internal handoff needs before ending the call.'],
+          : [
+              'Confirm success criteria and internal handoff needs before ending the call.',
+            ],
       livePrompts: [
         'Anchor the conversation on risk before discussing guard hours.',
         'Map each requested post or patrol to a specific exposure.',
@@ -5282,7 +5720,8 @@ export class SalesAcceleratorService {
         completenessScore >= 80
           ? 'Discovery is strong enough to move toward a scoped proposal after confirming success criteria.'
           : 'Keep discovery open. The proposal is not protected until risk, scope, authority, and timing are clear.',
-      confidenceScore: transcript.length > 500 ? 65 : transcript.length > 120 ? 50 : 35,
+      confidenceScore:
+        transcript.length > 500 ? 65 : transcript.length > 120 ? 50 : 35,
       shouldPauseProposal: completenessScore < 80,
     };
   }
@@ -5366,14 +5805,18 @@ export class SalesAcceleratorService {
       decisionMakers,
       recommendedNextAction:
         'Confirm missing scope details, decision authority, and timeline before drafting the proposal.',
-      confidenceScore: transcript.length > 700 ? 55 : transcript.length > 250 ? 45 : 35,
+      confidenceScore:
+        transcript.length > 700 ? 55 : transcript.length > 250 ? 45 : 35,
     };
   }
 
   private ruleProposal(
     company: string,
     discovery: DiscoverySnapshot,
-    assessment: { proposalAngle: string | null; riskProfile: string | null } | null,
+    assessment: {
+      proposalAngle: string | null;
+      riskProfile: string | null;
+    } | null,
   ) {
     return `
 # Security Services Proposal - ${company}

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateVendorDto } from './dto/create-vendor.dto';
@@ -144,6 +148,17 @@ export class VendorsService {
 
   async remove(tenantId: string, userId: string | undefined, id: string) {
     const existing = await this.findVendorOrThrow(tenantId, id);
+
+    const awardedRfp = await this.prisma.rfp.findFirst({
+      where: { tenantId, awardedVendorId: id },
+      select: { id: true, title: true },
+    });
+
+    if (awardedRfp) {
+      throw new BadRequestException(
+        `This vendor cannot be deleted because it has been awarded the contract for RFP "${awardedRfp.title}".`,
+      );
+    }
 
     await this.prisma.vendor.delete({ where: { id } });
 

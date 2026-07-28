@@ -385,7 +385,9 @@ export class AiActionsService {
     }
   }
 
-  private executionDescription(action: NonNullable<RecommendationActionRecord>) {
+  private executionDescription(
+    action: NonNullable<RecommendationActionRecord>,
+  ) {
     return [
       action.description,
       '',

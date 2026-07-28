@@ -1,6 +1,18 @@
-import { IsIn, IsISO8601, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsIn,
+  IsISO8601,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
-export const INCIDENT_SEVERITIES = ['low', 'medium', 'high', 'critical'] as const;
+export const INCIDENT_SEVERITIES = [
+  'low',
+  'medium',
+  'high',
+  'critical',
+] as const;
 export type IncidentSeverity = (typeof INCIDENT_SEVERITIES)[number];
 
 export class CreateIncidentDto {

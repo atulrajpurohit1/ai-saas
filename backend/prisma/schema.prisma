@@ -363,6 +363,7 @@ model Rfp {
   generatedContent       String?             @map("generated_content")
   status                 RfpStatus           @default(DRAFT)
   awardedVendorId        String?             @map("awarded_vendor_id")
+  awardedVendor          Vendor?             @relation("AwardedVendor", fields: [awardedVendorId], references: [id], onDelete: SetNull)
   awardDate              DateTime?           @map("award_date")
   awardNotes             String?             @map("award_notes")
   rejectedVendorIds      Json                @default("[]") @map("rejected_vendor_ids")
@@ -375,6 +376,7 @@ model Rfp {
 
   @@index([tenantId])
   @@index([tenantId, status])
+  @@index([awardedVendorId])
   @@map("Rfp")
 }
 
@@ -395,6 +397,7 @@ model Vendor {
   updatedAt          DateTime            @updatedAt @map("updated_at")
   rfpAssignments     RfpVendor[]
   performanceReviews VendorPerformance[]
+  awardedRfps        Rfp[]               @relation("AwardedVendor")
 
   @@index([tenantId])
   @@index([tenantId, status])

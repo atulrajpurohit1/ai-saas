@@ -7,9 +7,7 @@ export function buildOpenApiDocument() {
       description:
         'V6 Phase 3 public API, webhook, and integration endpoints. Public API requests use tenant-scoped API keys sent as X-API-Key.',
     },
-    servers: [
-      { url: '/api', description: 'Current backend API prefix' },
-    ],
+    servers: [{ url: '/api', description: 'Current backend API prefix' }],
     components: {
       securitySchemes: {
         ApiKeyAuth: {
@@ -63,13 +61,23 @@ export function buildOpenApiDocument() {
         },
         IncidentCreate: {
           type: 'object',
-          required: ['shift_id', 'guard_id', 'title', 'description', 'severity', 'occurred_at'],
+          required: [
+            'shift_id',
+            'guard_id',
+            'title',
+            'description',
+            'severity',
+            'occurred_at',
+          ],
           properties: {
             shift_id: { type: 'string' },
             guard_id: { type: 'string' },
             title: { type: 'string', example: 'Unauthorized access attempt' },
             description: { type: 'string' },
-            severity: { type: 'string', enum: ['low', 'medium', 'high', 'critical'] },
+            severity: {
+              type: 'string',
+              enum: ['low', 'medium', 'high', 'critical'],
+            },
             occurred_at: { type: 'string', format: 'date-time' },
             attachment_url: { type: 'string' },
             notes: { type: 'string' },
@@ -98,7 +106,14 @@ export function buildOpenApiDocument() {
       '/public/shifts/{id}/assign': {
         post: {
           ...publicOperation('shifts.write', 'Assign guard to shift'),
-          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+            },
+          ],
           requestBody: jsonBody({
             type: 'object',
             required: ['guard_id'],
@@ -108,7 +123,11 @@ export function buildOpenApiDocument() {
       },
       '/public/incidents': {
         get: publicOperation('incidents.read', 'List incidents'),
-        post: publicOperation('incidents.write', 'Create incident', 'IncidentCreate'),
+        post: publicOperation(
+          'incidents.write',
+          'Create incident',
+          'IncidentCreate',
+        ),
       },
       '/public/invoices': {
         get: publicOperation('invoices.read', 'List invoices'),
@@ -136,7 +155,11 @@ export function buildOpenApiDocument() {
   };
 }
 
-function publicOperation(permission: string, summary: string, schemaName?: string) {
+function publicOperation(
+  permission: string,
+  summary: string,
+  schemaName?: string,
+) {
   return {
     summary,
     description: `Requires public API permission: ${permission}`,
@@ -160,7 +183,10 @@ function publicOperation(permission: string, summary: string, schemaName?: strin
       '200': { description: 'Successful response' },
       '201': { description: 'Created' },
       '401': { description: 'Missing or invalid API key' },
-      '403': { description: 'API key lacks required permission, is revoked, or expired' },
+      '403': {
+        description:
+          'API key lacks required permission, is revoked, or expired',
+      },
       '429': { description: 'API key rate limit exceeded' },
     },
   };

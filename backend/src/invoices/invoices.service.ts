@@ -42,7 +42,11 @@ export class InvoicesService {
       const [year, month, day] = trimmed.split('-').map(Number);
       date = new Date(Date.UTC(year, month - 1, day));
 
-      if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+      if (
+        date.getUTCFullYear() !== year ||
+        date.getUTCMonth() !== month - 1 ||
+        date.getUTCDate() !== day
+      ) {
         throw new BadRequestException(`${fieldName} must be a valid date`);
       }
     } else {
@@ -51,18 +55,32 @@ export class InvoicesService {
         throw new BadRequestException(`${fieldName} must be a valid date`);
       }
 
-      date = new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()));
+      date = new Date(
+        Date.UTC(
+          parsed.getUTCFullYear(),
+          parsed.getUTCMonth(),
+          parsed.getUTCDate(),
+        ),
+      );
     }
 
     return date;
   }
 
   private parseBillingRange(dto: GenerateInvoiceDto) {
-    const billingStartDate = this.parseBillingDate(dto.billing_start_date, 'billing_start_date');
-    const billingEndDate = this.parseBillingDate(dto.billing_end_date, 'billing_end_date');
+    const billingStartDate = this.parseBillingDate(
+      dto.billing_start_date,
+      'billing_start_date',
+    );
+    const billingEndDate = this.parseBillingDate(
+      dto.billing_end_date,
+      'billing_end_date',
+    );
 
     if (billingEndDate < billingStartDate) {
-      throw new BadRequestException('billing_end_date must be on or after billing_start_date');
+      throw new BadRequestException(
+        'billing_end_date must be on or after billing_start_date',
+      );
     }
 
     const endExclusive = new Date(billingEndDate);
@@ -345,7 +363,11 @@ export class InvoicesService {
     return invoice;
   }
 
-  private async findClientInvoiceOrThrow(tenantId: string, clientId: string, id: string) {
+  private async findClientInvoiceOrThrow(
+    tenantId: string,
+    clientId: string,
+    id: string,
+  ) {
     const invoice = await this.prisma.invoice.findFirst({
       where: {
         id,
@@ -363,7 +385,11 @@ export class InvoicesService {
     return invoice;
   }
 
-  private async findClientOwnedInvoiceOrThrow(tenantId: string, clientId: string, id: string) {
+  private async findClientOwnedInvoiceOrThrow(
+    tenantId: string,
+    clientId: string,
+    id: string,
+  ) {
     const invoice = await this.prisma.invoice.findFirst({
       where: {
         id,
@@ -380,7 +406,11 @@ export class InvoicesService {
     return invoice;
   }
 
-  private async resolveBillableClientAndSite(user: ActiveUser, clientIdInput: string, siteIdInput?: string) {
+  private async resolveBillableClientAndSite(
+    user: ActiveUser,
+    clientIdInput: string,
+    siteIdInput?: string,
+  ) {
     const clientId = clientIdInput?.trim();
     const siteId = siteIdInput?.trim();
 
@@ -404,7 +434,12 @@ export class InvoicesService {
 
     if (siteId) {
       const site = await this.prisma.site.findFirst({
-        where: { id: siteId, tenantId: user.tenantId, clientId, ...branchWhere(user) },
+        where: {
+          id: siteId,
+          tenantId: user.tenantId,
+          clientId,
+          ...branchWhere(user),
+        },
         select: {
           id: true,
           name: true,
@@ -415,11 +450,19 @@ export class InvoicesService {
       });
 
       if (!site) {
-        throw new BadRequestException('Site must belong to this client and tenant');
+        throw new BadRequestException(
+          'Site must belong to this client and tenant',
+        );
       }
 
-      if (client.branchId && site.branchId && client.branchId !== site.branchId) {
-        throw new BadRequestException('Client and site must belong to the same branch');
+      if (
+        client.branchId &&
+        site.branchId &&
+        client.branchId !== site.branchId
+      ) {
+        throw new BadRequestException(
+          'Client and site must belong to the same branch',
+        );
       }
 
       return { client, site };
@@ -438,11 +481,15 @@ export class InvoicesService {
     });
 
     if (clientSites.length === 0) {
-      throw new BadRequestException('Client must have a linked site before generating an invoice');
+      throw new BadRequestException(
+        'Client must have a linked site before generating an invoice',
+      );
     }
 
     if (clientSites.length > 1) {
-      throw new BadRequestException('site_id is required when the client has multiple linked sites');
+      throw new BadRequestException(
+        'site_id is required when the client has multiple linked sites',
+      );
     }
 
     return { client, site: clientSites[0] };
@@ -484,7 +531,9 @@ export class InvoicesService {
       orderBy: [{ checkInTime: 'asc' }, { createdAt: 'asc' }],
     });
 
-    const billableTimesheets = timesheets.filter((timesheet) => this.roundHours(timesheet.totalHours) > 0);
+    const billableTimesheets = timesheets.filter(
+      (timesheet) => this.roundHours(timesheet.totalHours) > 0,
+    );
 
     if (timesheets.length > 0 && billableTimesheets.length === 0) {
       throw new BadRequestException(
@@ -507,11 +556,17 @@ export class InvoicesService {
     });
 
     if (items.length === 0) {
-      throw new BadRequestException('No approved timesheets found for this billing period');
+      throw new BadRequestException(
+        'No approved timesheets found for this billing period',
+      );
     }
 
-    const totalHours = this.roundHours(items.reduce((sum, item) => sum + item.workedHours, 0));
-    const subtotal = this.roundCurrency(items.reduce((sum, item) => sum + item.amount, 0));
+    const totalHours = this.roundHours(
+      items.reduce((sum, item) => sum + item.workedHours, 0),
+    );
+    const subtotal = this.roundCurrency(
+      items.reduce((sum, item) => sum + item.amount, 0),
+    );
     const tax = this.roundCurrency(subtotal * TAX_RATE);
     const totalAmount = this.roundCurrency(subtotal + tax);
 
@@ -530,7 +585,10 @@ export class InvoicesService {
       clientId: input.clientId,
       status: 'active',
       effectiveFrom: { lte: input.billingEndDate },
-      OR: [{ effectiveTo: null }, { effectiveTo: { gte: input.billingStartDate } }],
+      OR: [
+        { effectiveTo: null },
+        { effectiveTo: { gte: input.billingStartDate } },
+      ],
     };
 
     const siteRateCard = await this.prisma.rateCard.findFirst({
@@ -569,7 +627,11 @@ export class InvoicesService {
     dto: GenerateInvoiceDto;
   }) {
     const manualRate = Number(input.dto.hourly_rate);
-    if (input.dto.allow_manual_rate && Number.isFinite(manualRate) && manualRate > 0) {
+    if (
+      input.dto.allow_manual_rate &&
+      Number.isFinite(manualRate) &&
+      manualRate > 0
+    ) {
       return {
         hourlyRate: this.roundCurrency(manualRate),
         rateCardId: null,
@@ -593,12 +655,20 @@ export class InvoicesService {
   }
 
   private isUniqueConflict(error: unknown) {
-    return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    );
   }
 
   async generateInvoice(user: ActiveUser, dto: GenerateInvoiceDto) {
-    const { billingStartDate, billingEndDate, endExclusive } = this.parseBillingRange(dto);
-    const { client, site } = await this.resolveBillableClientAndSite(user, dto.client_id, dto.site_id);
+    const { billingStartDate, billingEndDate, endExclusive } =
+      this.parseBillingRange(dto);
+    const { client, site } = await this.resolveBillableClientAndSite(
+      user,
+      dto.client_id,
+      dto.site_id,
+    );
 
     const existingInvoice = await this.prisma.invoice.findFirst({
       where: {
@@ -612,7 +682,9 @@ export class InvoicesService {
     });
 
     if (existingInvoice) {
-      throw new ConflictException(`Invoice ${existingInvoice.invoiceNumber} already exists for this client, site, and billing period`);
+      throw new ConflictException(
+        `Invoice ${existingInvoice.invoiceNumber} already exists for this client, site, and billing period`,
+      );
     }
 
     const rate = await this.resolveInvoiceRate({
@@ -652,7 +724,10 @@ export class InvoicesService {
             },
           });
 
-          const datePart = todayStart.toISOString().slice(0, 10).replace(/-/g, '');
+          const datePart = todayStart
+            .toISOString()
+            .slice(0, 10)
+            .replace(/-/g, '');
           const invoiceNumber = `INV-${datePart}-${String(sequence + 1).padStart(4, '0')}`;
 
           return tx.invoice.create({
@@ -692,9 +767,13 @@ export class InvoicesService {
       });
 
       const mappedInvoice = this.mapInvoice(invoice);
-      await this.webhooksService.triggerEvent(user.tenantId, 'invoice.generated', {
-        invoice: mappedInvoice,
-      });
+      await this.webhooksService.triggerEvent(
+        user.tenantId,
+        'invoice.generated',
+        {
+          invoice: mappedInvoice,
+        },
+      );
 
       return this.fieldPermissionsService.filterFieldsByPermission(
         user,
@@ -703,7 +782,9 @@ export class InvoicesService {
       );
     } catch (error) {
       if (this.isUniqueConflict(error)) {
-        throw new ConflictException('An invoice already exists for this billing period or invoice number');
+        throw new ConflictException(
+          'An invoice already exists for this billing period or invoice number',
+        );
       }
 
       throw error;
@@ -733,7 +814,9 @@ export class InvoicesService {
     }
 
     if (!['draft', 'resolved'].includes(existing.status)) {
-      throw new BadRequestException('Only draft or resolved invoices can be issued');
+      throw new BadRequestException(
+        'Only draft or resolved invoices can be issued',
+      );
     }
 
     const invoice = await this.prisma.invoice.update({
@@ -765,7 +848,9 @@ export class InvoicesService {
     }
 
     if (!PAYABLE_STATUSES.includes(existing.status)) {
-      throw new BadRequestException('Only issued or resolved invoices can be marked paid');
+      throw new BadRequestException(
+        'Only issued or resolved invoices can be marked paid',
+      );
     }
 
     const invoice = await this.prisma.invoice.update({
@@ -824,24 +909,36 @@ export class InvoicesService {
     return this.filterInvoiceForAdmin(user, invoice);
   }
 
-  async acceptInvoice(tenantId: string, clientId: string, userId: string, id: string) {
+  async acceptInvoice(
+    tenantId: string,
+    clientId: string,
+    userId: string,
+    id: string,
+  ) {
     if (!clientId) {
       throw new ForbiddenException('Client access required');
     }
 
-    const existing = await this.findClientOwnedInvoiceOrThrow(tenantId, clientId, id);
+    const existing = await this.findClientOwnedInvoiceOrThrow(
+      tenantId,
+      clientId,
+      id,
+    );
 
     if (!['issued', 'resolved'].includes(existing.status)) {
-      throw new BadRequestException('Only issued or resolved invoices can be accepted');
+      throw new BadRequestException(
+        'Only issued or resolved invoices can be accepted',
+      );
     }
 
-    const invoice = existing.status === 'resolved'
-      ? await this.prisma.invoice.update({
-          where: { id },
-          data: { status: 'issued' },
-          include: this.invoiceInclude(),
-        })
-      : existing;
+    const invoice =
+      existing.status === 'resolved'
+        ? await this.prisma.invoice.update({
+            where: { id },
+            data: { status: 'issued' },
+            include: this.invoiceInclude(),
+          })
+        : existing;
 
     await this.auditService.log({
       tenantId,
@@ -870,10 +967,16 @@ export class InvoicesService {
     const description = dto.description?.trim();
 
     if (!reason || !description) {
-      throw new BadRequestException('Dispute reason and description are required');
+      throw new BadRequestException(
+        'Dispute reason and description are required',
+      );
     }
 
-    const existing = await this.findClientOwnedInvoiceOrThrow(tenantId, clientId, id);
+    const existing = await this.findClientOwnedInvoiceOrThrow(
+      tenantId,
+      clientId,
+      id,
+    );
 
     if (existing.status !== 'issued') {
       throw new BadRequestException('Only issued invoices can be disputed');
@@ -951,7 +1054,11 @@ export class InvoicesService {
     return this.mapClientInvoice(invoice);
   }
 
-  async getDisputeForClient(tenantId: string, clientId: string, invoiceId: string) {
+  async getDisputeForClient(
+    tenantId: string,
+    clientId: string,
+    invoiceId: string,
+  ) {
     if (!clientId) {
       throw new ForbiddenException('Client access required');
     }
@@ -987,7 +1094,9 @@ export class InvoicesService {
     const PDFDocument = require('pdfkit');
     const doc = new PDFDocument({ margin: 50, size: 'LETTER' });
     const chunks: Buffer[] = [];
-    const branding = await this.brandingService.brandingSnapshot(invoice.tenantId);
+    const branding = await this.brandingService.brandingSnapshot(
+      invoice.tenantId,
+    );
 
     return new Promise((resolve, reject) => {
       doc.on('data', (chunk) => chunks.push(chunk));
@@ -996,17 +1105,25 @@ export class InvoicesService {
 
       this.brandingService.addPdfHeader(doc, 'Invoice', branding);
       doc.moveDown(0.3);
-      doc.fontSize(12).fillColor(branding.secondary_color).text(invoice.invoiceNumber, { align: 'right' });
+      doc
+        .fontSize(12)
+        .fillColor(branding.secondary_color)
+        .text(invoice.invoiceNumber, { align: 'right' });
       doc.moveDown();
 
       doc.fontSize(11).fillColor('#374151');
       doc.text(`Status: ${invoice.status}`);
-      doc.text(`Billing period: ${this.formatDate(invoice.billingStartDate)} to ${this.formatDate(invoice.billingEndDate)}`);
+      doc.text(
+        `Billing period: ${this.formatDate(invoice.billingStartDate)} to ${this.formatDate(invoice.billingEndDate)}`,
+      );
       doc.text(`Issued: ${this.formatDate(invoice.issuedAt)}`);
       doc.text(`Rate source: ${invoice.rateSource || 'manual'}`);
       doc.moveDown();
 
-      doc.fontSize(12).fillColor('#111827').text(`Client: ${invoice.client.companyName || invoice.client.name}`);
+      doc
+        .fontSize(12)
+        .fillColor('#111827')
+        .text(`Client: ${invoice.client.companyName || invoice.client.name}`);
       doc.fontSize(11).fillColor('#374151');
       doc.text(`Email: ${invoice.client.email}`);
       if (invoice.client.phone) {
@@ -1020,12 +1137,18 @@ export class InvoicesService {
         doc.fontSize(11).fillColor('#6b7280').text('No billable work items.');
       } else {
         invoice.items.forEach((item, index) => {
-          doc.fontSize(11).fillColor('#111827').text(
-            `${index + 1}. ${item.guard.name} - ${this.formatDateTime(item.shift.startTime)} to ${this.formatDateTime(item.shift.endTime)}`,
-          );
-          doc.fontSize(10).fillColor('#374151').text(
-            `Shift ${item.shift.id} | ${item.workedHours}h x ${this.formatCurrency(item.hourlyRate)} = ${this.formatCurrency(item.amount)}`,
-          );
+          doc
+            .fontSize(11)
+            .fillColor('#111827')
+            .text(
+              `${index + 1}. ${item.guard.name} - ${this.formatDateTime(item.shift.startTime)} to ${this.formatDateTime(item.shift.endTime)}`,
+            );
+          doc
+            .fontSize(10)
+            .fillColor('#374151')
+            .text(
+              `Shift ${item.shift.id} | ${item.workedHours}h x ${this.formatCurrency(item.hourlyRate)} = ${this.formatCurrency(item.amount)}`,
+            );
           doc.moveDown(0.35);
         });
       }
@@ -1035,12 +1158,17 @@ export class InvoicesService {
       doc.text(`Total hours: ${invoice.totalHours}`);
       doc.text(`Hourly rate: ${this.formatCurrency(invoice.hourlyRate)}`);
       if (invoice.rateCard) {
-        doc.text(`Rate card: ${invoice.rateCard.roleName || invoice.rateCard.id}`);
+        doc.text(
+          `Rate card: ${invoice.rateCard.roleName || invoice.rateCard.id}`,
+        );
       }
       doc.text(`Subtotal: ${this.formatCurrency(invoice.subtotal)}`);
       doc.text(`Tax: ${this.formatCurrency(invoice.tax)}`);
       doc.moveDown(0.2);
-      doc.fontSize(14).fillColor('#111827').text(`Total amount: ${this.formatCurrency(invoice.totalAmount)}`);
+      doc
+        .fontSize(14)
+        .fillColor('#111827')
+        .text(`Total amount: ${this.formatCurrency(invoice.totalAmount)}`);
 
       doc.end();
     });
@@ -1062,7 +1190,12 @@ export class InvoicesService {
     return { buffer, invoice: this.mapInvoice(invoice) };
   }
 
-  async downloadForClient(tenantId: string, clientId: string, userId: string, id: string) {
+  async downloadForClient(
+    tenantId: string,
+    clientId: string,
+    userId: string,
+    id: string,
+  ) {
     if (!clientId) {
       throw new ForbiddenException('Client access required');
     }

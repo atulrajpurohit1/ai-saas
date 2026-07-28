@@ -1,5 +1,13 @@
 import { Type } from 'class-transformer';
-import { IsBoolean, IsISO8601, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsISO8601,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class GenerateInvoiceDto {
   @IsString()

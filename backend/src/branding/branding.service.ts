@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { promises as dns } from 'dns';
 import { AuditService } from '../audit/audit.service';
@@ -75,16 +79,36 @@ export class BrandingService {
     const branding = await this.prisma.tenantBranding.upsert({
       where: { tenantId: user.tenantId },
       update: {
-        ...(dto.company_name !== undefined ? { companyName: this.nullable(dto.company_name) } : {}),
-        ...(dto.logo_url !== undefined ? { logoUrl: this.nullable(dto.logo_url) } : {}),
-        ...(dto.favicon_url !== undefined ? { faviconUrl: this.nullable(dto.favicon_url) } : {}),
-        ...(dto.primary_color !== undefined ? { primaryColor: dto.primary_color } : {}),
-        ...(dto.secondary_color !== undefined ? { secondaryColor: dto.secondary_color } : {}),
-        ...(dto.accent_color !== undefined ? { accentColor: dto.accent_color } : {}),
-        ...(dto.login_background !== undefined ? { loginBackground: this.nullable(dto.login_background) } : {}),
-        ...(dto.welcome_message !== undefined ? { welcomeMessage: this.nullable(dto.welcome_message) } : {}),
-        ...(dto.support_email !== undefined ? { supportEmail: this.nullable(dto.support_email) } : {}),
-        ...(dto.support_phone !== undefined ? { supportPhone: this.nullable(dto.support_phone) } : {}),
+        ...(dto.company_name !== undefined
+          ? { companyName: this.nullable(dto.company_name) }
+          : {}),
+        ...(dto.logo_url !== undefined
+          ? { logoUrl: this.nullable(dto.logo_url) }
+          : {}),
+        ...(dto.favicon_url !== undefined
+          ? { faviconUrl: this.nullable(dto.favicon_url) }
+          : {}),
+        ...(dto.primary_color !== undefined
+          ? { primaryColor: dto.primary_color }
+          : {}),
+        ...(dto.secondary_color !== undefined
+          ? { secondaryColor: dto.secondary_color }
+          : {}),
+        ...(dto.accent_color !== undefined
+          ? { accentColor: dto.accent_color }
+          : {}),
+        ...(dto.login_background !== undefined
+          ? { loginBackground: this.nullable(dto.login_background) }
+          : {}),
+        ...(dto.welcome_message !== undefined
+          ? { welcomeMessage: this.nullable(dto.welcome_message) }
+          : {}),
+        ...(dto.support_email !== undefined
+          ? { supportEmail: this.nullable(dto.support_email) }
+          : {}),
+        ...(dto.support_phone !== undefined
+          ? { supportPhone: this.nullable(dto.support_phone) }
+          : {}),
       },
       create: {
         tenantId: user.tenantId,
@@ -168,7 +192,10 @@ export class BrandingService {
     });
     if (!domain) throw new NotFoundException('Domain not found');
 
-    const verified = await this.hasVerificationTxtRecord(domain.domain, domain.verificationToken);
+    const verified = await this.hasVerificationTxtRecord(
+      domain.domain,
+      domain.verificationToken,
+    );
     if (!verified) {
       return {
         ...this.serializeDomain(domain),
@@ -208,16 +235,33 @@ export class BrandingService {
     const startY = doc.y;
 
     this.tryAddPdfLogo(doc, branding.logo_url, 50, startY, 72, 36);
-    doc.rect(50, startY + 45, 512, 3).fillColor(accent).fill();
-    doc.fillColor(primary).fontSize(22).text(title, 132, startY, { align: 'right', width: 430 });
-    doc.fillColor(secondary).fontSize(11).text(branding.company_name, 132, startY + 27, { align: 'right', width: 430 });
+    doc
+      .rect(50, startY + 45, 512, 3)
+      .fillColor(accent)
+      .fill();
+    doc
+      .fillColor(primary)
+      .fontSize(22)
+      .text(title, 132, startY, { align: 'right', width: 430 });
+    doc
+      .fillColor(secondary)
+      .fontSize(11)
+      .text(branding.company_name, 132, startY + 27, {
+        align: 'right',
+        width: 430,
+      });
     if (branding.support_email || branding.support_phone) {
-      doc.fillColor(secondary).fontSize(9).text(
-        [branding.support_email, branding.support_phone].filter(Boolean).join(' | '),
-        132,
-        startY + 42,
-        { align: 'right', width: 430 },
-      );
+      doc
+        .fillColor(secondary)
+        .fontSize(9)
+        .text(
+          [branding.support_email, branding.support_phone]
+            .filter(Boolean)
+            .join(' | '),
+          132,
+          startY + 42,
+          { align: 'right', width: 430 },
+        );
     }
     doc.y = startY + 68;
   }
@@ -255,7 +299,10 @@ export class BrandingService {
     }
   }
 
-  private serializeBranding(tenant: { name: string; branding?: any | null }): BrandingSnapshot {
+  private serializeBranding(tenant: {
+    name: string;
+    branding?: any | null;
+  }): BrandingSnapshot {
     const branding = tenant.branding;
     return {
       company_name: branding?.companyName || tenant.name,
@@ -315,9 +362,19 @@ export class BrandingService {
     return trimmed || null;
   }
 
-  private tryAddPdfLogo(doc: any, logoUrl: string | null, x: number, y: number, width: number, height: number) {
+  private tryAddPdfLogo(
+    doc: any,
+    logoUrl: string | null,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ) {
     if (!logoUrl?.startsWith('data:image/')) {
-      doc.fontSize(15).fillColor('#111827').text('LOGO', x, y + 10, { width });
+      doc
+        .fontSize(15)
+        .fillColor('#111827')
+        .text('LOGO', x, y + 10, { width });
       return;
     }
 
@@ -326,7 +383,10 @@ export class BrandingService {
       if (!base64) throw new Error('Missing logo data');
       doc.image(Buffer.from(base64, 'base64'), x, y, { fit: [width, height] });
     } catch {
-      doc.fontSize(15).fillColor('#111827').text('LOGO', x, y + 10, { width });
+      doc
+        .fontSize(15)
+        .fillColor('#111827')
+        .text('LOGO', x, y + 10, { width });
     }
   }
 

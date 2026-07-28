@@ -1,4 +1,11 @@
-import { IsEmail, IsHexColor, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import {
+  IsEmail,
+  IsHexColor,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+} from 'class-validator';
 
 export class UpdateBrandingDto {
   @IsOptional()

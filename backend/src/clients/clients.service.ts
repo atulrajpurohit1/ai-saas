@@ -1,8 +1,16 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
-import { branchScopedWhere, branchWhere, resolveWriteBranchId } from '../branches/branch-scope';
+import {
+  branchScopedWhere,
+  branchWhere,
+  resolveWriteBranchId,
+} from '../branches/branch-scope';
 import { FieldPermissionsService } from '../field-permissions/field-permissions.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
@@ -66,7 +74,9 @@ export class ClientsService {
       details: `Client "${client.name}" created`,
     });
 
-    await this.webhooksService.triggerEvent(user.tenantId, 'client.created', { client });
+    await this.webhooksService.triggerEvent(user.tenantId, 'client.created', {
+      client,
+    });
 
     return this.fieldPermissionsService.filterFieldsByPermission(
       user,
@@ -157,7 +167,12 @@ export class ClientsService {
       throw new NotFoundException('Client not found');
     }
 
-    await this.fieldPermissionsService.assertCanEditFields(user, 'client', dto, id);
+    await this.fieldPermissionsService.assertCanEditFields(
+      user,
+      'client',
+      dto,
+      id,
+    );
 
     const branchId =
       dto.branch_id === undefined
@@ -168,7 +183,9 @@ export class ClientsService {
       where: { id },
       data: {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
-        ...(dto.companyName !== undefined ? { companyName: dto.companyName } : {}),
+        ...(dto.companyName !== undefined
+          ? { companyName: dto.companyName }
+          : {}),
         ...(dto.email !== undefined ? { email: dto.email } : {}),
         ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
         ...(branchId !== undefined ? { branchId } : {}),
@@ -208,7 +225,9 @@ export class ClientsService {
     }
 
     if (client.users.length > 0) {
-      throw new ConflictException('Client portal user already exists for this client');
+      throw new ConflictException(
+        'Client portal user already exists for this client',
+      );
     }
 
     const temporaryPassword = randomBytes(12).toString('base64url');

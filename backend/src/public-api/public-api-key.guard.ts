@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ApiKeysService } from '../api-keys/api-keys.service';
 import { PUBLIC_API_PERMISSION_KEY } from './public-api.decorator';
@@ -15,7 +20,9 @@ export class PublicApiKeyGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<PublicApiRequest>();
-    const apiKey = await this.apiKeysService.authenticate(this.extractApiKey(request));
+    const apiKey = await this.apiKeysService.authenticate(
+      this.extractApiKey(request),
+    );
     request.publicApiKey = apiKey;
     const requiredPermission = this.reflector.getAllAndOverride<string>(
       PUBLIC_API_PERMISSION_KEY,
@@ -52,7 +59,9 @@ export class PublicApiKeyGuard implements CanActivate {
     }
 
     const authorization = request.headers.authorization;
-    const value = Array.isArray(authorization) ? authorization[0] : authorization;
+    const value = Array.isArray(authorization)
+      ? authorization[0]
+      : authorization;
     if (value?.toLowerCase().startsWith('bearer ')) {
       return value.slice(7);
     }
@@ -60,7 +69,10 @@ export class PublicApiKeyGuard implements CanActivate {
     return undefined;
   }
 
-  private async logDeniedRequest(request: PublicApiRequest, statusCode: number) {
+  private async logDeniedRequest(
+    request: PublicApiRequest,
+    statusCode: number,
+  ) {
     if (!request.publicApiKey) return;
 
     await this.apiKeysService.logRequest({
@@ -74,10 +86,12 @@ export class PublicApiKeyGuard implements CanActivate {
   }
 
   private getIpAddress(request: PublicApiRequest) {
-    return this.getHeader(request, 'x-forwarded-for')?.split(',')[0]?.trim()
-      || request.ip
-      || request.socket?.remoteAddress
-      || null;
+    return (
+      this.getHeader(request, 'x-forwarded-for')?.split(',')[0]?.trim() ||
+      request.ip ||
+      request.socket?.remoteAddress ||
+      null
+    );
   }
 
   private getHeader(request: PublicApiRequest, key: string) {

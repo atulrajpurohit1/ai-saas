@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
@@ -74,7 +79,11 @@ export class PatrolsService {
     });
   }
 
-  async updateCheckpoint(user: ActiveUser, id: string, dto: UpdateCheckpointDto) {
+  async updateCheckpoint(
+    user: ActiveUser,
+    id: string,
+    dto: UpdateCheckpointDto,
+  ) {
     const checkpoint = await this.prisma.checkpoint.findFirst({
       where: { id, tenantId: user.tenantId, site: { ...branchWhere(user) } },
     });
@@ -86,9 +95,15 @@ export class PatrolsService {
       where: { id },
       data: {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
-        ...(dto.description !== undefined ? { description: dto.description } : {}),
-        ...(dto.location_note !== undefined ? { locationNote: dto.location_note } : {}),
-        ...(dto.qr_code_value !== undefined ? { qrCodeValue: dto.qr_code_value } : {}),
+        ...(dto.description !== undefined
+          ? { description: dto.description }
+          : {}),
+        ...(dto.location_note !== undefined
+          ? { locationNote: dto.location_note }
+          : {}),
+        ...(dto.qr_code_value !== undefined
+          ? { qrCodeValue: dto.qr_code_value }
+          : {}),
         ...(dto.status !== undefined ? { status: dto.status } : {}),
       },
       include: {
@@ -180,7 +195,11 @@ export class PatrolsService {
     return route;
   }
 
-  async updatePatrolRoute(user: ActiveUser, id: string, dto: UpdatePatrolRouteDto) {
+  async updatePatrolRoute(
+    user: ActiveUser,
+    id: string,
+    dto: UpdatePatrolRouteDto,
+  ) {
     const route = await this.prisma.patrolRoute.findFirst({
       where: { id, tenantId: user.tenantId, site: { ...branchWhere(user) } },
     });
@@ -192,7 +211,9 @@ export class PatrolsService {
       where: { id },
       data: {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
-        ...(dto.description !== undefined ? { description: dto.description } : {}),
+        ...(dto.description !== undefined
+          ? { description: dto.description }
+          : {}),
         ...(dto.status !== undefined ? { status: dto.status } : {}),
       },
       include: {
@@ -212,15 +233,23 @@ export class PatrolsService {
     return updated;
   }
 
-  async attachCheckpoints(user: ActiveUser, routeId: string, dto: AttachCheckpointsDto) {
+  async attachCheckpoints(
+    user: ActiveUser,
+    routeId: string,
+    dto: AttachCheckpointsDto,
+  ) {
     const route = await this.prisma.patrolRoute.findFirst({
-      where: { id: routeId, tenantId: user.tenantId, site: { ...branchWhere(user) } },
+      where: {
+        id: routeId,
+        tenantId: user.tenantId,
+        site: { ...branchWhere(user) },
+      },
     });
     if (!route) {
       throw new NotFoundException('Patrol route not found');
     }
 
-    const checkpointIds = dto.checkpoints.map(cp => cp.checkpoint_id);
+    const checkpointIds = dto.checkpoints.map((cp) => cp.checkpoint_id);
     const validCheckpoints = await this.prisma.checkpoint.findMany({
       where: {
         id: { in: checkpointIds },
@@ -230,7 +259,9 @@ export class PatrolsService {
     });
 
     if (validCheckpoints.length !== checkpointIds.length) {
-      throw new BadRequestException('Some checkpoints do not exist or do not belong to this site');
+      throw new BadRequestException(
+        'Some checkpoints do not exist or do not belong to this site',
+      );
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -240,7 +271,7 @@ export class PatrolsService {
 
       if (dto.checkpoints.length > 0) {
         await tx.patrolRouteCheckpoint.createMany({
-          data: dto.checkpoints.map(cp => ({
+          data: dto.checkpoints.map((cp) => ({
             patrolRouteId: routeId,
             checkpointId: cp.checkpoint_id,
             sequenceOrder: cp.sequence_order,
@@ -337,7 +368,11 @@ export class PatrolsService {
   // GUARD PORTAL SERVICE METHODS
   // ==========================================
 
-  async getShiftPatrolRoutes(tenantId: string, guardId: string, shiftId: string) {
+  async getShiftPatrolRoutes(
+    tenantId: string,
+    guardId: string,
+    shiftId: string,
+  ) {
     const assignment = await this.prisma.assignment.findFirst({
       where: {
         shiftId,
@@ -367,7 +402,12 @@ export class PatrolsService {
     });
   }
 
-  async startPatrolRun(tenantId: string, guardId: string, shiftId: string, dto: StartPatrolRunDto) {
+  async startPatrolRun(
+    tenantId: string,
+    guardId: string,
+    shiftId: string,
+    dto: StartPatrolRunDto,
+  ) {
     const assignment = await this.prisma.assignment.findFirst({
       where: {
         shiftId,
@@ -391,7 +431,9 @@ export class PatrolsService {
       },
     });
     if (!route) {
-      throw new NotFoundException('Patrol route not found or not active for this site');
+      throw new NotFoundException(
+        'Patrol route not found or not active for this site',
+      );
     }
 
     return this.prisma.patrolRun.create({
@@ -416,7 +458,13 @@ export class PatrolsService {
     });
   }
 
-  async scanCheckpoint(tenantId: string, guardId: string, runId: string, checkpointId: string, dto?: ScanCheckpointDto) {
+  async scanCheckpoint(
+    tenantId: string,
+    guardId: string,
+    runId: string,
+    checkpointId: string,
+    dto?: ScanCheckpointDto,
+  ) {
     const run = await this.prisma.patrolRun.findFirst({
       where: {
         id: runId,
@@ -440,7 +488,9 @@ export class PatrolsService {
       (cp) => cp.checkpointId === checkpointId,
     );
     if (!checkpointOnRoute) {
-      throw new BadRequestException('Checkpoint does not belong to this patrol route');
+      throw new BadRequestException(
+        'Checkpoint does not belong to this patrol route',
+      );
     }
 
     const existingEvent = await this.prisma.patrolEvent.findFirst({

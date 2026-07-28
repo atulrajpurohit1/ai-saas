@@ -1,9 +1,6 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { AiGovernanceService } from '../ai-governance/ai-governance.service';
-import {
-  AiRevenueRecommendationDraft,
-  AiService,
-} from '../ai/ai.service';
+import { AiRevenueRecommendationDraft, AiService } from '../ai/ai.service';
 import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -165,7 +162,7 @@ export class RevenueInsightsService {
     private aiMonitoringService: AiMonitoringService,
     @Optional()
     private aiGovernanceService?: AiGovernanceService,
-  ) { }
+  ) {}
 
   async getRevenueDashboard(
     tenantId: string,
@@ -202,10 +199,34 @@ export class RevenueInsightsService {
         : 'rule_based';
 
     await Promise.all([
-      this.logAudit(tenantId, userId, 'AI_REVENUE_DASHBOARD_VIEWED', 'AiRevenueInsights', 'Revenue dashboard viewed'),
-      this.logAudit(tenantId, userId, 'AI_REVENUE_FORECAST_GENERATED', 'AiRevenueForecast', `Next month forecast ${this.formatCurrency(base.forecast.nextMonthRevenue)}`),
-      this.logAudit(tenantId, userId, 'AI_CONTRACT_ANALYSIS_EXECUTED', 'AiContractIntelligence', `${base.contracts.rows.length} contracts analyzed`),
-      this.logAudit(tenantId, userId, 'AI_FINANCIAL_RECOMMENDATION_GENERATED', 'AiFinancialRecommendation', `${recommendations.recommendations.length} recommendations generated`),
+      this.logAudit(
+        tenantId,
+        userId,
+        'AI_REVENUE_DASHBOARD_VIEWED',
+        'AiRevenueInsights',
+        'Revenue dashboard viewed',
+      ),
+      this.logAudit(
+        tenantId,
+        userId,
+        'AI_REVENUE_FORECAST_GENERATED',
+        'AiRevenueForecast',
+        `Next month forecast ${this.formatCurrency(base.forecast.nextMonthRevenue)}`,
+      ),
+      this.logAudit(
+        tenantId,
+        userId,
+        'AI_CONTRACT_ANALYSIS_EXECUTED',
+        'AiContractIntelligence',
+        `${base.contracts.rows.length} contracts analyzed`,
+      ),
+      this.logAudit(
+        tenantId,
+        userId,
+        'AI_FINANCIAL_RECOMMENDATION_GENERATED',
+        'AiFinancialRecommendation',
+        `${recommendations.recommendations.length} recommendations generated`,
+      ),
     ]);
 
     const dashboard: RevenueInsightsDashboard = {
@@ -311,13 +332,23 @@ export class RevenueInsightsService {
     return recommendations;
   }
 
-  private async buildBaseSections(tenantId: string): Promise<BaseRevenueSections> {
+  private async buildBaseSections(
+    tenantId: string,
+  ): Promise<BaseRevenueSections> {
     const context = await this.loadContext(tenantId);
     const aggregates = this.buildClientAggregates(context);
     const forecast = this.buildForecast(context);
     const contracts = this.buildContractIntelligence(context, aggregates);
-    const clientValue = this.buildClientValueAnalysis(context, aggregates, contracts.rows);
-    const renewals = this.buildRenewalOpportunities(context, contracts.rows, clientValue.rows);
+    const clientValue = this.buildClientValueAnalysis(
+      context,
+      aggregates,
+      contracts.rows,
+    );
+    const renewals = this.buildRenewalOpportunities(
+      context,
+      contracts.rows,
+      clientValue.rows,
+    );
 
     return {
       context,
@@ -450,7 +481,10 @@ export class RevenueInsightsService {
 
   private buildClientAggregates(context: RevenueAnalysisContext) {
     const currentPeriodStart = this.addDays(context.now, -CURRENT_PERIOD_DAYS);
-    const previousPeriodStart = this.addDays(context.now, -PREVIOUS_PERIOD_DAYS);
+    const previousPeriodStart = this.addDays(
+      context.now,
+      -PREVIOUS_PERIOD_DAYS,
+    );
     const aggregates = new Map<string, ClientAggregate>();
 
     context.clients.forEach((client) => {
@@ -488,7 +522,10 @@ export class RevenueInsightsService {
       aggregate.totalRevenue = this.roundCurrency(
         aggregate.totalRevenue + invoice.totalAmount,
       );
-      aggregate.lastInvoiceAt = this.maxDate(aggregate.lastInvoiceAt, invoiceDate);
+      aggregate.lastInvoiceAt = this.maxDate(
+        aggregate.lastInvoiceAt,
+        invoiceDate,
+      );
       aggregate.firstActivityAt = this.minDate(
         aggregate.firstActivityAt,
         invoice.billingStartDate || invoiceDate,
@@ -514,7 +551,9 @@ export class RevenueInsightsService {
         );
 
         if (invoice.paidAt) {
-          aggregate.paymentDays.push(this.daysBetween(invoiceDate, invoice.paidAt));
+          aggregate.paymentDays.push(
+            this.daysBetween(invoiceDate, invoice.paidAt),
+          );
         }
       }
 
@@ -529,7 +568,9 @@ export class RevenueInsightsService {
       const aggregate = this.getOrCreateAggregateForClient(
         aggregates,
         rateCard.clientId,
-        rateCard.client ? this.clientDisplayName(rateCard.client) : 'Unknown client',
+        rateCard.client
+          ? this.clientDisplayName(rateCard.client)
+          : 'Unknown client',
         rateCard.createdAt,
       );
       const active = this.isActiveRateCard(rateCard, context.now);
@@ -577,16 +618,23 @@ export class RevenueInsightsService {
     return aggregates;
   }
 
-  private buildForecast(context: RevenueAnalysisContext): RevenueForecastResponse {
+  private buildForecast(
+    context: RevenueAnalysisContext,
+  ): RevenueForecastResponse {
     const now = context.now;
     const generatedAt = now.toISOString();
     const currentMonthStart = this.startOfMonth(now);
-    const historyStart = this.addMonths(currentMonthStart, -(HISTORY_MONTHS - 1));
+    const historyStart = this.addMonths(
+      currentMonthStart,
+      -(HISTORY_MONTHS - 1),
+    );
     const actualMonths = Array.from({ length: HISTORY_MONTHS }, (_, index) => {
       const monthStart = this.addMonths(historyStart, index);
       return this.emptyForecastMonth(monthStart, 'actual');
     });
-    const actualMonthsByKey = new Map(actualMonths.map((month) => [month.month, month]));
+    const actualMonthsByKey = new Map(
+      actualMonths.map((month) => [month.month, month]),
+    );
 
     context.invoices.forEach((invoice) => {
       const invoiceDate = this.invoiceDate(invoice);
@@ -624,17 +672,21 @@ export class RevenueInsightsService {
     const recentValues = recentMonths.map((month) => month.actualRevenue);
     const baseline =
       recentValues.length > 0
-        ? recentValues.reduce((sum, value) => sum + value, 0) / recentValues.length
+        ? recentValues.reduce((sum, value) => sum + value, 0) /
+          recentValues.length
         : 0;
     const growthRate = this.calculateAverageGrowthRate(baselineMonths);
-    const forecastMonths = Array.from({ length: FORECAST_MONTHS }, (_, index) => {
-      const monthStart = this.addMonths(currentMonthStart, index + 1);
-      const forecastMonth = this.emptyForecastMonth(monthStart, 'forecast');
-      forecastMonth.forecastRevenue = this.roundCurrency(
-        Math.max(0, baseline * (1 + growthRate) ** (index + 1)),
-      );
-      return forecastMonth;
-    });
+    const forecastMonths = Array.from(
+      { length: FORECAST_MONTHS },
+      (_, index) => {
+        const monthStart = this.addMonths(currentMonthStart, index + 1);
+        const forecastMonth = this.emptyForecastMonth(monthStart, 'forecast');
+        forecastMonth.forecastRevenue = this.roundCurrency(
+          Math.max(0, baseline * (1 + growthRate) ** (index + 1)),
+        );
+        return forecastMonth;
+      },
+    );
     const nextMonthRevenue = forecastMonths[0]?.forecastRevenue || 0;
     const quarterlyForecast = this.roundCurrency(
       forecastMonths
@@ -648,7 +700,10 @@ export class RevenueInsightsService {
       OUTSTANDING_STATUSES.includes(invoice.status),
     );
     const outstandingAmount = this.roundCurrency(
-      outstandingInvoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0),
+      outstandingInvoices.reduce(
+        (sum, invoice) => sum + invoice.totalAmount,
+        0,
+      ),
     );
     const expectedCollections = this.roundCurrency(
       outstandingInvoices.reduce(
@@ -669,7 +724,8 @@ export class RevenueInsightsService {
         })
         .reduce(
           (sum, invoice) =>
-            sum + invoice.totalAmount * this.collectionProbability(invoice, now),
+            sum +
+            invoice.totalAmount * this.collectionProbability(invoice, now),
           0,
         ),
     );
@@ -682,7 +738,8 @@ export class RevenueInsightsService {
     );
     const monthlyGrowthRate = this.roundPercent(growthRate * 100);
     const overdue30Count = outstandingInvoices.filter(
-      (invoice) => this.daysSince(this.invoiceDueOrIssueDate(invoice), now) > 30,
+      (invoice) =>
+        this.daysSince(this.invoiceDueOrIssueDate(invoice), now) > 30,
     ).length;
     const insights: AiInsightItem[] = [
       {
@@ -704,8 +761,9 @@ export class RevenueInsightsService {
               ? 'warning'
               : 'info',
         title: 'Monthly growth trend',
-        message: `Revenue is expected to ${monthlyGrowthRate >= 0 ? 'grow' : 'decline'
-          } ${Math.abs(monthlyGrowthRate)}% compared to the recent monthly baseline.`,
+        message: `Revenue is expected to ${
+          monthlyGrowthRate >= 0 ? 'grow' : 'decline'
+        } ${Math.abs(monthlyGrowthRate)}% compared to the recent monthly baseline.`,
         metricLabel: 'Growth',
         metricValue: `${monthlyGrowthRate}%`,
       },
@@ -729,17 +787,38 @@ export class RevenueInsightsService {
         category: 'revenue',
         severity: 'info',
         title: 'Forecast needs invoice history',
-        message: 'Generate and issue invoices to unlock stronger revenue forecasting.',
+        message:
+          'Generate and issue invoices to unlock stronger revenue forecasting.',
       });
     }
 
     return {
       generatedAt,
       summary: [
-        this.metric('Next month', this.formatCurrency(nextMonthRevenue), 'AI revenue forecast', nextMonthRevenue > 0 ? 'positive' : 'info'),
-        this.metric('Quarter forecast', this.formatCurrency(quarterlyForecast), 'Next 3 months', quarterlyForecast > 0 ? 'positive' : 'info'),
-        this.metric('Annual forecast', this.formatCurrency(annualForecast), 'Next 12 months', annualForecast > 0 ? 'positive' : 'info'),
-        this.metric('Expected collections', this.formatCurrency(expectedCollections), `${this.formatCurrency(expectedCollectionsNext30Days)} next 30 days`, expectedCollections > 0 ? 'warning' : 'info'),
+        this.metric(
+          'Next month',
+          this.formatCurrency(nextMonthRevenue),
+          'AI revenue forecast',
+          nextMonthRevenue > 0 ? 'positive' : 'info',
+        ),
+        this.metric(
+          'Quarter forecast',
+          this.formatCurrency(quarterlyForecast),
+          'Next 3 months',
+          quarterlyForecast > 0 ? 'positive' : 'info',
+        ),
+        this.metric(
+          'Annual forecast',
+          this.formatCurrency(annualForecast),
+          'Next 12 months',
+          annualForecast > 0 ? 'positive' : 'info',
+        ),
+        this.metric(
+          'Expected collections',
+          this.formatCurrency(expectedCollections),
+          `${this.formatCurrency(expectedCollectionsNext30Days)} next 30 days`,
+          expectedCollections > 0 ? 'warning' : 'info',
+        ),
       ],
       insights,
       months: [...actualMonths, ...forecastMonths],
@@ -767,8 +846,10 @@ export class RevenueInsightsService {
         const activeContract =
           aggregate.activeRateCardCount > 0 ||
           aggregate.siteCount > 0 ||
-          this.daysSince(aggregate.lastInvoiceAt || aggregate.createdAt, context.now) <=
-          INACTIVE_CLIENT_DAYS;
+          this.daysSince(
+            aggregate.lastInvoiceAt || aggregate.createdAt,
+            context.now,
+          ) <= INACTIVE_CLIENT_DAYS;
         const daysUntilRenewal = aggregate.renewalDate
           ? this.daysBetween(context.now, aggregate.renewalDate)
           : null;
@@ -794,7 +875,7 @@ export class RevenueInsightsService {
         if (
           aggregate.lastInvoiceAt &&
           this.daysSince(aggregate.lastInvoiceAt, context.now) >
-          INACTIVE_CLIENT_DAYS
+            INACTIVE_CLIENT_DAYS
         ) {
           score -= 10;
         }
@@ -818,8 +899,9 @@ export class RevenueInsightsService {
           activeContract,
           contractStartDate: aggregate.firstActivityAt?.toISOString() || null,
           contractEndDate:
-            (aggregate.renewalDate || aggregate.contractEndDate)?.toISOString() ||
-            null,
+            (
+              aggregate.renewalDate || aggregate.contractEndDate
+            )?.toISOString() || null,
           daysUntilRenewal,
           invoiceCount: aggregate.invoiceCount,
           totalRevenue,
@@ -851,12 +933,14 @@ export class RevenueInsightsService {
     const averageHealth =
       rows.length > 0
         ? this.roundNumber(
-          rows.reduce((sum, row) => sum + row.healthScore, 0) / rows.length,
-          1,
-        )
+            rows.reduce((sum, row) => sum + row.healthScore, 0) / rows.length,
+            1,
+          )
         : 0;
     const insights: AiInsightItem[] = [];
-    const strongest = [...rows].sort((a, b) => b.healthScore - a.healthScore)[0];
+    const strongest = [...rows].sort(
+      (a, b) => b.healthScore - a.healthScore,
+    )[0];
     const riskiest = rows.find((row) => row.healthStatus === 'High Risk');
     const renewal = rows.find(
       (row) =>
@@ -882,7 +966,10 @@ export class RevenueInsightsService {
       insights.push({
         id: 'contract-renewal-window',
         category: 'renewals',
-        severity: renewal.daysUntilRenewal !== null && renewal.daysUntilRenewal <= 30 ? 'warning' : 'info',
+        severity:
+          renewal.daysUntilRenewal !== null && renewal.daysUntilRenewal <= 30
+            ? 'warning'
+            : 'info',
         title: 'Renewal approaching',
         message: `${renewal.name} contract approaching renewal in ${renewal.daysUntilRenewal} days.`,
         subject: renewal.name,
@@ -910,17 +997,38 @@ export class RevenueInsightsService {
         category: 'contracts',
         severity: 'info',
         title: 'Contract intelligence needs history',
-        message: 'Add rate cards, invoices, and incident history to calculate contract health.',
+        message:
+          'Add rate cards, invoices, and incident history to calculate contract health.',
       });
     }
 
     return {
       generatedAt: context.now.toISOString(),
       summary: [
-        this.metric('Active contracts', activeContracts, `${rows.length} clients analyzed`, activeContracts > 0 ? 'positive' : 'info'),
-        this.metric('Average health', `${averageHealth}/100`, 'Contract health score', averageHealth >= 70 ? 'positive' : 'warning'),
-        this.metric('Renewals due', renewalsDue, `Next ${RENEWAL_WINDOW_DAYS} days`, renewalsDue > 0 ? 'warning' : 'positive'),
-        this.metric('High risk', highRiskContracts, 'Needs review', highRiskContracts > 0 ? 'critical' : 'positive'),
+        this.metric(
+          'Active contracts',
+          activeContracts,
+          `${rows.length} clients analyzed`,
+          activeContracts > 0 ? 'positive' : 'info',
+        ),
+        this.metric(
+          'Average health',
+          `${averageHealth}/100`,
+          'Contract health score',
+          averageHealth >= 70 ? 'positive' : 'warning',
+        ),
+        this.metric(
+          'Renewals due',
+          renewalsDue,
+          `Next ${RENEWAL_WINDOW_DAYS} days`,
+          renewalsDue > 0 ? 'warning' : 'positive',
+        ),
+        this.metric(
+          'High risk',
+          highRiskContracts,
+          'Needs review',
+          highRiskContracts > 0 ? 'critical' : 'positive',
+        ),
       ],
       insights,
       rows,
@@ -939,7 +1047,9 @@ export class RevenueInsightsService {
       ),
     );
     const topRevenue = Math.max(
-      ...Array.from(aggregates.values()).map((aggregate) => aggregate.totalRevenue),
+      ...Array.from(aggregates.values()).map(
+        (aggregate) => aggregate.totalRevenue,
+      ),
       0,
     );
     const healthByClient = new Map(
@@ -953,12 +1063,16 @@ export class RevenueInsightsService {
             ? this.roundPercent((aggregate.totalRevenue / totalRevenue) * 100)
             : 0;
         const paidReliability =
-          aggregate.totalRevenue > 0 ? aggregate.paidAmount / aggregate.totalRevenue : 0;
+          aggregate.totalRevenue > 0
+            ? aggregate.paidAmount / aggregate.totalRevenue
+            : 0;
         const revenueComponent =
           topRevenue > 0 ? (aggregate.totalRevenue / topRevenue) * 45 : 0;
         const paymentComponent = Math.min(20, paidReliability * 20);
         const growthComponent =
-          growthRate > 0 ? Math.min(20, growthRate / 3) : Math.max(-10, growthRate / 4);
+          growthRate > 0
+            ? Math.min(20, growthRate / 3)
+            : Math.max(-10, growthRate / 4);
         const activityComponent = Math.min(
           15,
           aggregate.siteCount * 4 + aggregate.activeRateCardCount * 5,
@@ -969,23 +1083,26 @@ export class RevenueInsightsService {
         );
         const clientValueScore = this.roundRiskScore(
           revenueComponent +
-          paymentComponent +
-          growthComponent +
-          activityComponent -
-          penalty,
+            paymentComponent +
+            growthComponent +
+            activityComponent -
+            penalty,
         );
         const health = healthByClient.get(aggregate.clientId);
         const retentionScore = this.roundRiskScore(
           (health?.healthScore ?? 50) -
-          Math.min(15, aggregate.activeDisputeCount * 5) -
-          (aggregate.outstandingAmount > 0 ? 5 : 0),
+            Math.min(15, aggregate.activeDisputeCount * 5) -
+            (aggregate.outstandingAmount > 0 ? 5 : 0),
         );
         const growthPotentialScore = this.roundRiskScore(
           50 +
-          Math.max(-25, Math.min(30, growthRate)) +
-          Math.min(15, aggregate.siteCount * 3) -
-          Math.min(20, aggregate.disputeCount * 4 + aggregate.incidentCount * 2) +
-          (revenueShare < 15 && aggregate.totalRevenue > 0 ? 10 : 0),
+            Math.max(-25, Math.min(30, growthRate)) +
+            Math.min(15, aggregate.siteCount * 3) -
+            Math.min(
+              20,
+              aggregate.disputeCount * 4 + aggregate.incidentCount * 2,
+            ) +
+            (revenueShare < 15 && aggregate.totalRevenue > 0 ? 10 : 0),
         );
         const indicators = this.clientValueIndicators(
           aggregate,
@@ -1087,17 +1204,40 @@ export class RevenueInsightsService {
         category: 'clients',
         severity: 'info',
         title: 'Client value needs billing data',
-        message: 'Issue invoices and track payments to calculate client value scores.',
+        message:
+          'Issue invoices and track payments to calculate client value scores.',
       });
     }
 
     return {
       generatedAt: context.now.toISOString(),
       summary: [
-        this.metric('Top revenue share', topClient ? `${topClient.revenueShare}%` : '0%', topClient?.name || 'No revenue yet', topClient ? 'positive' : 'info'),
-        this.metric('Fastest growth', fastestGrowing ? `${fastestGrowing.growthRate}%` : '0%', fastestGrowing?.name || 'No growth trend', fastestGrowing ? 'positive' : 'info'),
-        this.metric('Avg value score', rows.length ? `${this.roundNumber(rows.reduce((sum, row) => sum + row.clientValueScore, 0) / rows.length, 1)}/100` : '0/100', 'All clients', rows.length ? 'info' : 'warning'),
-        this.metric('Dispute clients', rows.filter((row) => row.disputeCount > 0).length, 'With invoice disputes', rows.some((row) => row.disputeCount > 0) ? 'warning' : 'positive'),
+        this.metric(
+          'Top revenue share',
+          topClient ? `${topClient.revenueShare}%` : '0%',
+          topClient?.name || 'No revenue yet',
+          topClient ? 'positive' : 'info',
+        ),
+        this.metric(
+          'Fastest growth',
+          fastestGrowing ? `${fastestGrowing.growthRate}%` : '0%',
+          fastestGrowing?.name || 'No growth trend',
+          fastestGrowing ? 'positive' : 'info',
+        ),
+        this.metric(
+          'Avg value score',
+          rows.length
+            ? `${this.roundNumber(rows.reduce((sum, row) => sum + row.clientValueScore, 0) / rows.length, 1)}/100`
+            : '0/100',
+          'All clients',
+          rows.length ? 'info' : 'warning',
+        ),
+        this.metric(
+          'Dispute clients',
+          rows.filter((row) => row.disputeCount > 0).length,
+          'With invoice disputes',
+          rows.some((row) => row.disputeCount > 0) ? 'warning' : 'positive',
+        ),
       ],
       insights,
       rows,
@@ -1147,7 +1287,7 @@ export class RevenueInsightsService {
       if (
         contract.lastInvoiceAt &&
         this.daysSince(new Date(contract.lastInvoiceAt), context.now) >
-        INACTIVE_CLIENT_DAYS
+          INACTIVE_CLIENT_DAYS
       ) {
         rows.push({
           id: `inactive-${contract.clientId}`,
@@ -1163,11 +1303,7 @@ export class RevenueInsightsService {
         });
       }
 
-      if (
-        value &&
-        value.previousPeriodRevenue > 0 &&
-        value.growthRate <= -20
-      ) {
+      if (value && value.previousPeriodRevenue > 0 && value.growthRate <= -20) {
         rows.push({
           id: `declining-${contract.clientId}`,
           clientId: contract.clientId,
@@ -1209,43 +1345,69 @@ export class RevenueInsightsService {
         (a.daysUntilRenewal ?? 9999) - (b.daysUntilRenewal ?? 9999) ||
         b.estimatedRevenueAtRisk - a.estimatedRevenueAtRisk,
     );
-    const dueSoon = sortedRows.filter((row) => row.type === 'renewal_due').length;
-    const inactive = sortedRows.filter((row) => row.type === 'inactive_client').length;
-    const declining = sortedRows.filter((row) => row.type === 'declining_revenue').length;
+    const dueSoon = sortedRows.filter(
+      (row) => row.type === 'renewal_due',
+    ).length;
+    const inactive = sortedRows.filter(
+      (row) => row.type === 'inactive_client',
+    ).length;
+    const declining = sortedRows.filter(
+      (row) => row.type === 'declining_revenue',
+    ).length;
     const revenueAtRisk = this.roundCurrency(
       sortedRows.reduce((sum, row) => sum + row.estimatedRevenueAtRisk, 0),
     );
     const first = sortedRows[0];
     const insights: AiInsightItem[] = first
       ? [
-        {
-          id: 'renewal-top-opportunity',
-          category: 'renewals',
-          severity: first.priority === 'high' ? 'warning' : 'info',
-          title: 'Top renewal opportunity',
-          message: first.recommendation,
-          subject: first.name,
-          metricLabel: 'Revenue at risk',
-          metricValue: this.formatCurrency(first.estimatedRevenueAtRisk),
-        },
-      ]
+          {
+            id: 'renewal-top-opportunity',
+            category: 'renewals',
+            severity: first.priority === 'high' ? 'warning' : 'info',
+            title: 'Top renewal opportunity',
+            message: first.recommendation,
+            subject: first.name,
+            metricLabel: 'Revenue at risk',
+            metricValue: this.formatCurrency(first.estimatedRevenueAtRisk),
+          },
+        ]
       : [
-        {
-          id: 'renewal-empty',
-          category: 'renewals',
-          severity: 'positive',
-          title: 'No urgent renewal risk',
-          message: `No contracts are currently flagged inside the ${RENEWAL_WINDOW_DAYS}-day renewal window.`,
-        },
-      ];
+          {
+            id: 'renewal-empty',
+            category: 'renewals',
+            severity: 'positive',
+            title: 'No urgent renewal risk',
+            message: `No contracts are currently flagged inside the ${RENEWAL_WINDOW_DAYS}-day renewal window.`,
+          },
+        ];
 
     return {
       generatedAt: context.now.toISOString(),
       summary: [
-        this.metric('Renewals due', dueSoon, `Next ${RENEWAL_WINDOW_DAYS} days`, dueSoon > 0 ? 'warning' : 'positive'),
-        this.metric('Inactive clients', inactive, `No invoices in ${INACTIVE_CLIENT_DAYS}+ days`, inactive > 0 ? 'warning' : 'positive'),
-        this.metric('Declining revenue', declining, 'Period-over-period decline', declining > 0 ? 'warning' : 'positive'),
-        this.metric('Revenue at risk', this.formatCurrency(revenueAtRisk), 'Opportunity pipeline', revenueAtRisk > 0 ? 'warning' : 'positive'),
+        this.metric(
+          'Renewals due',
+          dueSoon,
+          `Next ${RENEWAL_WINDOW_DAYS} days`,
+          dueSoon > 0 ? 'warning' : 'positive',
+        ),
+        this.metric(
+          'Inactive clients',
+          inactive,
+          `No invoices in ${INACTIVE_CLIENT_DAYS}+ days`,
+          inactive > 0 ? 'warning' : 'positive',
+        ),
+        this.metric(
+          'Declining revenue',
+          declining,
+          'Period-over-period decline',
+          declining > 0 ? 'warning' : 'positive',
+        ),
+        this.metric(
+          'Revenue at risk',
+          this.formatCurrency(revenueAtRisk),
+          'Opportunity pipeline',
+          revenueAtRisk > 0 ? 'warning' : 'positive',
+        ),
       ],
       insights,
       rows: sortedRows,
@@ -1274,10 +1436,11 @@ export class RevenueInsightsService {
       renewals,
       ruleRecommendations,
     );
-    const recommendations = await this.aiMonitoringService.applyFeedbackToRecommendations(
-      context.tenantId,
-      [...aiRecommendations, ...ruleRecommendations].slice(0, 10),
-    );
+    const recommendations =
+      await this.aiMonitoringService.applyFeedbackToRecommendations(
+        context.tenantId,
+        [...aiRecommendations, ...ruleRecommendations].slice(0, 10),
+      );
     const highPriority = recommendations.filter(
       (recommendation) => recommendation.priority === 'high',
     ).length;
@@ -1286,10 +1449,30 @@ export class RevenueInsightsService {
       generatedAt: context.now.toISOString(),
       source: aiRecommendations.length > 0 ? 'ai_assisted' : 'rule_based',
       summary: [
-        this.metric('Recommendations', recommendations.length, 'Ready for review', recommendations.length > 0 ? 'info' : 'positive'),
-        this.metric('High priority', highPriority, 'Needs action first', highPriority > 0 ? 'critical' : 'positive'),
-        this.metric('AI generated', aiRecommendations.length, 'Finance intelligence', aiRecommendations.length > 0 ? 'positive' : 'info'),
-        this.metric('Rule fallback', ruleRecommendations.length, 'Deterministic analytics', 'info'),
+        this.metric(
+          'Recommendations',
+          recommendations.length,
+          'Ready for review',
+          recommendations.length > 0 ? 'info' : 'positive',
+        ),
+        this.metric(
+          'High priority',
+          highPriority,
+          'Needs action first',
+          highPriority > 0 ? 'critical' : 'positive',
+        ),
+        this.metric(
+          'AI generated',
+          aiRecommendations.length,
+          'Finance intelligence',
+          aiRecommendations.length > 0 ? 'positive' : 'info',
+        ),
+        this.metric(
+          'Rule fallback',
+          ruleRecommendations.length,
+          'Deterministic analytics',
+          'info',
+        ),
       ],
       recommendations,
       aiRecommendations,
@@ -1331,7 +1514,10 @@ export class RevenueInsightsService {
         title: 'Follow up overdue invoices',
         action: `Follow up on ${overdueInvoices.length} invoices unpaid for more than 30 days.`,
         reason: `${this.formatCurrency(
-          overdueInvoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0),
+          overdueInvoices.reduce(
+            (sum, invoice) => sum + invoice.totalAmount,
+            0,
+          ),
         )} is overdue and affecting expected collections.`,
         source: 'rule',
         actionType: 'create_invoice_followup',
@@ -1451,7 +1637,8 @@ export class RevenueInsightsService {
         priority: 'low',
         title: 'Maintain finance review cadence',
         action: 'Review revenue, renewals, and collections every week.',
-        reason: 'No high-priority revenue or contract risk was detected in the available data.',
+        reason:
+          'No high-priority revenue or contract risk was detected in the available data.',
         source: 'rule',
         actionType: 'create_follow_up_task',
         targetModule: 'revenue',
@@ -1509,7 +1696,8 @@ export class RevenueInsightsService {
       );
     } catch (error) {
       this.logger.warn(
-        `Revenue AI recommendations skipped: ${error instanceof Error ? error.message : String(error)
+        `Revenue AI recommendations skipped: ${
+          error instanceof Error ? error.message : String(error)
         }`,
       );
       return [];
@@ -1552,7 +1740,8 @@ export class RevenueInsightsService {
       );
     } catch (error) {
       this.logger.warn(
-        `Revenue AI summary skipped: ${error instanceof Error ? error.message : String(error)
+        `Revenue AI summary skipped: ${
+          error instanceof Error ? error.message : String(error)
         }`,
       );
       return null;
@@ -1566,7 +1755,9 @@ export class RevenueInsightsService {
     renewals: RenewalOpportunitiesResponse,
     recommendations: FinancialRecommendationsResponse,
   ) {
-    const topClient = clientValue.rows.find((client) => client.totalRevenue > 0);
+    const topClient = clientValue.rows.find(
+      (client) => client.totalRevenue > 0,
+    );
     const contractRisk = contracts.rows.find(
       (contract) => contract.healthStatus === 'High Risk',
     );
@@ -1613,13 +1804,15 @@ export class RevenueInsightsService {
     promptKey: string,
   ) {
     return (
-      await this.aiGovernanceService?.resolvePromptVersion({
-        tenantId,
-        moduleName,
-        promptKey,
-        fallbackVersion: DEFAULT_PROMPT_VERSION,
-      })
-    )?.promptText ?? null;
+      (
+        await this.aiGovernanceService?.resolvePromptVersion({
+          tenantId,
+          moduleName,
+          promptKey,
+          fallbackVersion: DEFAULT_PROMPT_VERSION,
+        })
+      )?.promptText ?? null
+    );
   }
 
   private getOrCreateAggregate(
@@ -1629,7 +1822,9 @@ export class RevenueInsightsService {
     return this.getOrCreateAggregateForClient(
       aggregates,
       invoice.clientId,
-      invoice.client ? this.clientDisplayName(invoice.client) : 'Unknown client',
+      invoice.client
+        ? this.clientDisplayName(invoice.client)
+        : 'Unknown client',
       invoice.createdAt,
     );
   }
@@ -1679,12 +1874,16 @@ export class RevenueInsightsService {
       const previous = samples[index - 1].actualRevenue;
       const current = samples[index].actualRevenue;
       if (previous > 0) {
-        growthRates.push(this.clamp((current - previous) / previous, -0.5, 0.5));
+        growthRates.push(
+          this.clamp((current - previous) / previous, -0.5, 0.5),
+        );
       }
     }
 
     if (growthRates.length === 0) return 0;
-    return growthRates.reduce((sum, value) => sum + value, 0) / growthRates.length;
+    return (
+      growthRates.reduce((sum, value) => sum + value, 0) / growthRates.length
+    );
   }
 
   private forecastConfidence(
@@ -1726,20 +1925,28 @@ export class RevenueInsightsService {
   ) {
     const indicators: string[] = [];
 
-    indicators.push(activeContract ? 'Active contract activity' : 'No active contract activity');
+    indicators.push(
+      activeContract
+        ? 'Active contract activity'
+        : 'No active contract activity',
+    );
     indicators.push(`${healthStatus} health`);
 
     if (daysUntilRenewal !== null) {
       indicators.push(`Renewal in ${daysUntilRenewal} days`);
     }
     if (aggregate.outstandingAmount > 0) {
-      indicators.push(`${this.formatCurrency(aggregate.outstandingAmount)} outstanding`);
+      indicators.push(
+        `${this.formatCurrency(aggregate.outstandingAmount)} outstanding`,
+      );
     }
     if (averagePaymentDays !== null) {
       indicators.push(`${averagePaymentDays} avg days to pay`);
     }
     if (aggregate.incidentCount > 0) {
-      indicators.push(`${aggregate.incidentCount} incidents in ${INCIDENT_LOOKBACK_DAYS} days`);
+      indicators.push(
+        `${aggregate.incidentCount} incidents in ${INCIDENT_LOOKBACK_DAYS} days`,
+      );
     }
     if (aggregate.disputeCount > 0) {
       indicators.push(`${aggregate.disputeCount} invoice disputes`);
@@ -1772,14 +1979,19 @@ export class RevenueInsightsService {
       indicators.push(`${aggregate.incidentCount} incidents`);
     }
     if (aggregate.outstandingAmount > 0) {
-      indicators.push(`${this.formatCurrency(aggregate.outstandingAmount)} outstanding`);
+      indicators.push(
+        `${this.formatCurrency(aggregate.outstandingAmount)} outstanding`,
+      );
     }
 
     return indicators;
   }
 
   private topRevenueSite(context: RevenueAnalysisContext) {
-    const sites = new Map<string, { id: string; name: string; revenue: number }>();
+    const sites = new Map<
+      string,
+      { id: string; name: string; revenue: number }
+    >();
 
     context.invoices.forEach((invoice) => {
       if (!invoice.site) return;
@@ -1822,7 +2034,7 @@ export class RevenueInsightsService {
     return this.roundPercent(
       ((aggregate.currentPeriodRevenue - aggregate.previousPeriodRevenue) /
         aggregate.previousPeriodRevenue) *
-      100,
+        100,
     );
   }
 
@@ -1850,10 +2062,7 @@ export class RevenueInsightsService {
     );
   }
 
-  private invoiceDate(invoice: {
-    issuedAt: Date | null;
-    createdAt: Date;
-  }) {
+  private invoiceDate(invoice: { issuedAt: Date | null; createdAt: Date }) {
     return invoice.issuedAt ?? invoice.createdAt;
   }
 
@@ -1870,7 +2079,9 @@ export class RevenueInsightsService {
   }
 
   private addMonths(date: Date, months: number) {
-    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
+    return new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1),
+    );
   }
 
   private addDays(date: Date, days: number) {
@@ -1884,7 +2095,10 @@ export class RevenueInsightsService {
   }
 
   private daysBetween(start: Date, end: Date) {
-    return Math.max(0, Math.ceil((end.getTime() - start.getTime()) / MS_PER_DAY));
+    return Math.max(
+      0,
+      Math.ceil((end.getTime() - start.getTime()) / MS_PER_DAY),
+    );
   }
 
   private daysSince(date: Date, now: Date) {
@@ -1983,7 +2197,8 @@ export class RevenueInsightsService {
       });
     } catch (error) {
       this.logger.warn(
-        `Revenue audit log skipped: ${error instanceof Error ? error.message : String(error)
+        `Revenue audit log skipped: ${
+          error instanceof Error ? error.message : String(error)
         }`,
       );
     }

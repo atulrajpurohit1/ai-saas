@@ -96,7 +96,9 @@ export class ApiKeysService {
   async update(user: ActiveUser, id: string, dto: UpdateApiKeyDto) {
     const existing = await this.findTenantKey(user.tenantId, id);
     const permissions =
-      dto.permissions === undefined ? undefined : this.validatePermissions(dto.permissions);
+      dto.permissions === undefined
+        ? undefined
+        : this.validatePermissions(dto.permissions);
     const name = dto.name?.trim();
 
     if (dto.name !== undefined && !name) {
@@ -109,7 +111,9 @@ export class ApiKeysService {
         ...(name !== undefined ? { name } : {}),
         ...(permissions !== undefined ? { permissions } : {}),
         ...(dto.status !== undefined ? { status: dto.status } : {}),
-        ...(dto.expires_at !== undefined ? { expiresAt: new Date(dto.expires_at) } : {}),
+        ...(dto.expires_at !== undefined
+          ? { expiresAt: new Date(dto.expires_at) }
+          : {}),
         ...(dto.rate_limit_per_minute !== undefined
           ? { rateLimitPerMinute: dto.rate_limit_per_minute }
           : {}),
@@ -119,7 +123,8 @@ export class ApiKeysService {
     await this.auditService.log({
       tenantId: user.tenantId,
       userId: user.sub,
-      action: updated.status === 'revoked' ? 'API_KEY_REVOKED' : 'API_KEY_UPDATED',
+      action:
+        updated.status === 'revoked' ? 'API_KEY_REVOKED' : 'API_KEY_UPDATED',
       entityType: 'ApiKey',
       entityId: updated.id,
       details: `API key "${updated.name}" updated`,
@@ -243,12 +248,18 @@ export class ApiKeysService {
   }
 
   private validatePermissions(input: string[] = []) {
-    const permissions = [...new Set(input.map((item) => item.trim()).filter(Boolean))];
+    const permissions = [
+      ...new Set(input.map((item) => item.trim()).filter(Boolean)),
+    ];
     const allowed = new Set(PUBLIC_API_PERMISSION_KEYS);
-    const unknown = permissions.filter((permission) => !allowed.has(permission));
+    const unknown = permissions.filter(
+      (permission) => !allowed.has(permission),
+    );
 
     if (unknown.length > 0) {
-      throw new BadRequestException(`Unknown public API permissions: ${unknown.join(', ')}`);
+      throw new BadRequestException(
+        `Unknown public API permissions: ${unknown.join(', ')}`,
+      );
     }
 
     return permissions.sort();

@@ -1,11 +1,20 @@
-import { Injectable, NotFoundException, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateShiftDto } from './dto/create-shift.dto';
 import { AuditService } from '../audit/audit.service';
 import { RecommendationService } from '../ai-insights/recommendation.service';
 import { GuardRecommendation } from '../ai-insights/ai-insights.types';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
-import { branchScopedWhere, branchWhere, resolveWriteBranchId } from '../branches/branch-scope';
+import {
+  branchScopedWhere,
+  branchWhere,
+  resolveWriteBranchId,
+} from '../branches/branch-scope';
 import { WebhooksService } from '../webhooks/webhooks.service';
 
 type AttendanceStatus = 'not_started' | 'checked_in' | 'completed';
@@ -33,7 +42,11 @@ export class ShiftsService {
     const checkOut = events.find((event) => event.type === 'CHECK_OUT');
 
     return {
-      attendanceStatus: checkOut ? 'completed' : checkIn ? 'checked_in' : 'not_started',
+      attendanceStatus: checkOut
+        ? 'completed'
+        : checkIn
+          ? 'checked_in'
+          : 'not_started',
       checkInTime: checkIn?.timestamp ?? null,
       checkOutTime: checkOut?.timestamp ?? null,
     };
@@ -67,9 +80,9 @@ export class ShiftsService {
       },
       include: {
         site: {
-          select: { name: true }
-        }
-      }
+          select: { name: true },
+        },
+      },
     });
 
     // 3. Log audit event
@@ -82,7 +95,9 @@ export class ShiftsService {
       details: `Shift created for site "${site.name}" (${dto.requiredGuards} guards)`,
     });
 
-    await this.webhooksService.triggerEvent(user.tenantId, 'shift.created', { shift });
+    await this.webhooksService.triggerEvent(user.tenantId, 'shift.created', {
+      shift,
+    });
 
     return shift;
   }
@@ -183,7 +198,9 @@ export class ShiftsService {
 
     if (!guard) throw new NotFoundException('Guard not found');
     if (shift.branchId && guard.branchId && shift.branchId !== guard.branchId) {
-      throw new ForbiddenException('Guard and shift must belong to the same branch');
+      throw new ForbiddenException(
+        'Guard and shift must belong to the same branch',
+      );
     }
 
     // 3. Check guard availability
@@ -216,8 +233,9 @@ export class ShiftsService {
         false,
       );
       selectedRecommendation =
-        recommendations.find((recommendation) => recommendation.guard_id === guardId) ??
-        null;
+        recommendations.find(
+          (recommendation) => recommendation.guard_id === guardId,
+        ) ?? null;
     } catch (error) {
       console.warn(
         'Failed to evaluate guard recommendation during assignment:',
@@ -271,7 +289,9 @@ export class ShiftsService {
     }
 
     // 6. Basic Notification
-    console.log(`[NOTIFICATION] Guard "${guard.name}" assigned to Shift #${shiftId}`);
+    console.log(
+      `[NOTIFICATION] Guard "${guard.name}" assigned to Shift #${shiftId}`,
+    );
 
     return result;
   }

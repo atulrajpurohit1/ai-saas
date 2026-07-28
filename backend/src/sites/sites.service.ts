@@ -1,8 +1,16 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
-import { branchScopedWhere, branchWhere, resolveWriteBranchId } from '../branches/branch-scope';
+import {
+  branchScopedWhere,
+  branchWhere,
+  resolveWriteBranchId,
+} from '../branches/branch-scope';
 import { CreateSiteDto } from './dto/create-site.dto';
 import { UpdateSiteDto } from './dto/update-site.dto';
 
@@ -13,14 +21,22 @@ export class SitesService {
     private auditService: AuditService,
   ) {}
 
-  private async resolveClientId(user: ActiveUser, branchId: string | null, clientId?: string | null) {
+  private async resolveClientId(
+    user: ActiveUser,
+    branchId: string | null,
+    clientId?: string | null,
+  ) {
     const normalizedClientId = clientId?.trim() || null;
     if (!normalizedClientId) {
       return null;
     }
 
     const client = await this.prisma.client.findFirst({
-      where: { id: normalizedClientId, tenantId: user.tenantId, ...branchWhere(user) },
+      where: {
+        id: normalizedClientId,
+        tenantId: user.tenantId,
+        ...branchWhere(user),
+      },
       select: { id: true, branchId: true },
     });
 
@@ -29,7 +45,9 @@ export class SitesService {
     }
 
     if (branchId && client.branchId && client.branchId !== branchId) {
-      throw new BadRequestException('Client must belong to the selected branch');
+      throw new BadRequestException(
+        'Client must belong to the selected branch',
+      );
     }
 
     return client.id;
@@ -109,7 +127,9 @@ export class SitesService {
       data: {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
         ...(dto.address !== undefined ? { address: dto.address } : {}),
-        ...(dto.instructions !== undefined ? { instructions: dto.instructions } : {}),
+        ...(dto.instructions !== undefined
+          ? { instructions: dto.instructions }
+          : {}),
         ...(clientId !== undefined ? { clientId } : {}),
         ...(branchId !== undefined ? { branchId } : {}),
       },

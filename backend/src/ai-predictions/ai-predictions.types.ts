@@ -1,4 +1,7 @@
-import { AiInsightMetric, AiRecommendation } from '../ai-insights/ai-insights.types';
+import {
+  AiInsightMetric,
+  AiRecommendation,
+} from '../ai-insights/ai-insights.types';
 
 export type PredictionRiskLevel = 'low' | 'medium' | 'high';
 

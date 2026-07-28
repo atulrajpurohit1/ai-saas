@@ -18,14 +18,19 @@ describe('AiActionsService', () => {
     actions = [];
     prisma = {
       recommendationAction: {
-        findFirst: jest.fn(async ({ where }: any) =>
-          actions.find((action) =>
-            Object.entries(where).every(([key, value]) => action[key] === value),
-          ) ?? null,
+        findFirst: jest.fn(
+          async ({ where }: any) =>
+            actions.find((action) =>
+              Object.entries(where).every(
+                ([key, value]) => action[key] === value,
+              ),
+            ) ?? null,
         ),
         findMany: jest.fn(async ({ where }: any) =>
           actions.filter((action) =>
-            Object.entries(where).every(([key, value]) => action[key] === value),
+            Object.entries(where).every(
+              ([key, value]) => action[key] === value,
+            ),
           ),
         ),
         create: jest.fn(async ({ data }: any) => {

@@ -30,7 +30,10 @@ describe('TimesheetsService', () => {
       },
     };
     auditService = { log: jest.fn().mockResolvedValue(undefined) };
-    service = new TimesheetsService(prisma as unknown as PrismaService, auditService as unknown as AuditService);
+    service = new TimesheetsService(
+      prisma as unknown as PrismaService,
+      auditService as unknown as AuditService,
+    );
   });
 
   const adminUser: ActiveUser = {
@@ -64,9 +67,9 @@ describe('TimesheetsService', () => {
         phone: null,
       },
       shift: {
-          id: 'shift-1',
-          branchId: 'branch-1',
-          startTime: new Date('2026-05-25T19:24:00.000Z'),
+        id: 'shift-1',
+        branchId: 'branch-1',
+        startTime: new Date('2026-05-25T19:24:00.000Z'),
         endTime: new Date('2026-05-26T03:24:00.000Z'),
         status: 'completed',
       },
@@ -83,12 +86,12 @@ describe('TimesheetsService', () => {
       },
     });
 
-    await expect(
-      service.approve(adminUser, 'timesheet-1'),
-    ).rejects.toThrow(BadRequestException);
-    await expect(
-      service.approve(adminUser, 'timesheet-1'),
-    ).rejects.toThrow('Timesheet must have billable hours before approval. Correct the hours first.');
+    await expect(service.approve(adminUser, 'timesheet-1')).rejects.toThrow(
+      BadRequestException,
+    );
+    await expect(service.approve(adminUser, 'timesheet-1')).rejects.toThrow(
+      'Timesheet must have billable hours before approval. Correct the hours first.',
+    );
     expect(prisma.timesheet.update).not.toHaveBeenCalled();
     expect(auditService.log).not.toHaveBeenCalled();
   });
@@ -140,13 +143,18 @@ describe('TimesheetsService', () => {
         status: 'completed',
       },
       site: { id: 'site-1', name: 'Site One', address: '100 Main St' },
-      client: { id: 'client-1', name: 'Client One', companyName: null, email: 'client@example.com' },
+      client: {
+        id: 'client-1',
+        name: 'Client One',
+        companyName: null,
+        email: 'client@example.com',
+      },
     });
     prisma.invoiceItem.count.mockResolvedValue(1);
 
-    await expect(
-      service.approve(adminUser, 'timesheet-1'),
-    ).rejects.toThrow('Timesheet has already been used for an invoice');
+    await expect(service.approve(adminUser, 'timesheet-1')).rejects.toThrow(
+      'Timesheet has already been used for an invoice',
+    );
     expect(prisma.timesheet.update).not.toHaveBeenCalled();
   });
 });

@@ -1,8 +1,17 @@
-import { BadRequestException, Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
-import { branchScopedWhere, branchWhere, resolveWriteBranchId } from '../branches/branch-scope';
+import {
+  branchScopedWhere,
+  branchWhere,
+  resolveWriteBranchId,
+} from '../branches/branch-scope';
 import { FieldPermissionsService } from '../field-permissions/field-permissions.service';
 import { CreateGuardDto } from './dto/create-guard.dto';
 import { UpdateGuardDto } from './dto/update-guard.dto';
@@ -26,7 +35,9 @@ export class GuardsService {
     return { phone, email };
   }
 
-  private withoutPasswordHash<T extends { passwordHash?: string | null }>(guard: T) {
+  private withoutPasswordHash<T extends { passwordHash?: string | null }>(
+    guard: T,
+  ) {
     const { passwordHash, ...safeGuard } = guard;
     return safeGuard;
   }
@@ -70,7 +81,9 @@ export class GuardsService {
       throw new BadRequestException('Guard phone or email is required');
     }
 
-    const passwordHash = dto.password ? await bcrypt.hash(dto.password, 10) : undefined;
+    const passwordHash = dto.password
+      ? await bcrypt.hash(dto.password, 10)
+      : undefined;
 
     const guard = await this.prisma.guard.create({
       data: {
@@ -94,7 +107,9 @@ export class GuardsService {
     });
 
     const safeGuard = this.withoutPasswordHash(guard);
-    await this.webhooksService.triggerEvent(user.tenantId, 'guard.created', { guard: safeGuard });
+    await this.webhooksService.triggerEvent(user.tenantId, 'guard.created', {
+      guard: safeGuard,
+    });
 
     return this.fieldPermissionsService.filterFieldsByPermission(
       user,
@@ -160,7 +175,12 @@ export class GuardsService {
       throw new NotFoundException('Guard not found');
     }
 
-    await this.fieldPermissionsService.assertCanEditFields(user, 'guard', dto, id);
+    await this.fieldPermissionsService.assertCanEditFields(
+      user,
+      'guard',
+      dto,
+      id,
+    );
 
     const { phone, email } = this.normalizeContact(dto);
     const branchId =
@@ -171,7 +191,9 @@ export class GuardsService {
       ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
       ...(dto.phone !== undefined ? { phone } : {}),
       ...(dto.email !== undefined ? { email } : {}),
-      ...(dto.password ? { passwordHash: await bcrypt.hash(dto.password, 10) } : {}),
+      ...(dto.password
+        ? { passwordHash: await bcrypt.hash(dto.password, 10) }
+        : {}),
       ...(branchId !== undefined ? { branchId } : {}),
       ...this.sensitiveGuardData(dto),
     };
@@ -222,7 +244,11 @@ export class GuardsService {
     return availability;
   }
 
-  async updateAvailability(user: ActiveUser, id: string, dto: UpdateAvailabilityDto) {
+  async updateAvailability(
+    user: ActiveUser,
+    id: string,
+    dto: UpdateAvailabilityDto,
+  ) {
     const guard = await this.prisma.guard.findFirst({
       where: { id, tenantId: user.tenantId, ...branchWhere(user) },
     });

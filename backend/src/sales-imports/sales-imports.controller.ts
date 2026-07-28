@@ -39,6 +39,11 @@ export class SalesImportsController {
   ) {
     if (!file) throw new BadRequestException('No CSV file uploaded');
     const user = req.user as unknown as ActiveUser;
-    return this.salesImportsService.commit(file.buffer, body, user.tenantId, user.sub);
+    return this.salesImportsService.commit(
+      file.buffer,
+      body,
+      user.tenantId,
+      user.sub,
+    );
   }
 }

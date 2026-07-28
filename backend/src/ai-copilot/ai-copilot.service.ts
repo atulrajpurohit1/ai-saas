@@ -116,22 +116,19 @@ export class AiCopilotService {
     userId: string,
     limit = 25,
   ): Promise<AiConversationRecord[]> {
-    const rows = await this.prisma.$queryRaw<ConversationRow[]>(Prisma.sql`
-      SELECT
-        "id",
-        "tenant_id" AS "tenantId",
-        "user_id" AS "userId",
-        "question",
-        "answer",
-        "confidence_score" AS "confidenceScore",
-        "sources_used" AS "sourcesUsed",
-        "created_at" AS "createdAt"
-      FROM "AiConversation"
-      WHERE "tenant_id" = ${tenantId}
-        AND ("user_id" = ${userId} OR "user_id" IS NULL)
-      ORDER BY "created_at" DESC
-      LIMIT ${Math.max(1, Math.min(limit, 100))}
-    `);
+    const rows = await this.prisma.aiConversation.findMany({
+      where: {
+        tenantId,
+        OR: [
+          { userId },
+          { userId: null },
+        ],
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: Math.max(1, Math.min(limit, 100)),
+    });
 
     return rows.map((row) => ({
       id: row.id,

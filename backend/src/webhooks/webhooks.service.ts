@@ -74,7 +74,9 @@ export class WebhooksService {
       where: { id: existing.id },
       data: {
         ...(dto.event_type !== undefined ? { eventType: dto.event_type } : {}),
-        ...(dto.endpoint_url !== undefined ? { endpointUrl: dto.endpoint_url.trim() } : {}),
+        ...(dto.endpoint_url !== undefined
+          ? { endpointUrl: dto.endpoint_url.trim() }
+          : {}),
         ...(dto.status !== undefined ? { status: dto.status } : {}),
       },
     });
@@ -82,7 +84,8 @@ export class WebhooksService {
     await this.auditService.log({
       tenantId: user.tenantId,
       userId: user.sub,
-      action: updated.status === 'revoked' ? 'WEBHOOK_REVOKED' : 'WEBHOOK_UPDATED',
+      action:
+        updated.status === 'revoked' ? 'WEBHOOK_REVOKED' : 'WEBHOOK_UPDATED',
       entityType: 'Webhook',
       entityId: updated.id,
       details: `Webhook ${updated.id} updated`,
@@ -211,11 +214,17 @@ export class WebhooksService {
 
     return {
       retried: deliveries.length,
-      deliveries: deliveries.map((delivery) => this.serializeDelivery(delivery)),
+      deliveries: deliveries.map((delivery) =>
+        this.serializeDelivery(delivery),
+      ),
     };
   }
 
-  async triggerEvent(tenantId: string, eventType: string, data: Record<string, unknown>) {
+  async triggerEvent(
+    tenantId: string,
+    eventType: string,
+    data: Record<string, unknown>,
+  ) {
     if (!SUPPORTED_WEBHOOK_EVENTS.includes(eventType as any)) {
       throw new BadRequestException(`Unsupported webhook event: ${eventType}`);
     }
@@ -264,7 +273,12 @@ export class WebhooksService {
       .digest('hex');
   }
 
-  validateSignature(secret: string, timestamp: string, body: string, signature: string) {
+  validateSignature(
+    secret: string,
+    timestamp: string,
+    body: string,
+    signature: string,
+  ) {
     const normalized = signature.startsWith('sha256=')
       ? signature.slice('sha256='.length)
       : signature;
@@ -277,7 +291,10 @@ export class WebhooksService {
     );
   }
 
-  private async createAndDeliver(webhook: any, payload: Record<string, unknown>) {
+  private async createAndDeliver(
+    webhook: any,
+    payload: Record<string, unknown>,
+  ) {
     const jsonPayload = this.toJsonValue(payload);
     const delivery = await this.prisma.webhookDelivery.create({
       data: {
@@ -404,19 +421,25 @@ export class WebhooksService {
   }
 
   private serializeWebhook(webhook: any) {
-    const latestDelivery = Array.isArray(webhook.deliveries) ? webhook.deliveries[0] : null;
+    const latestDelivery = Array.isArray(webhook.deliveries)
+      ? webhook.deliveries[0]
+      : null;
 
     return {
       id: webhook.id,
       tenant_id: webhook.tenantId,
       event_type: webhook.eventType,
       endpoint_url: webhook.endpointUrl,
-      secret_prefix: webhook.secretKey ? `${webhook.secretKey.slice(0, 12)}...` : null,
+      secret_prefix: webhook.secretKey
+        ? `${webhook.secretKey.slice(0, 12)}...`
+        : null,
       status: webhook.status,
       created_at: webhook.createdAt,
       updated_at: webhook.updatedAt,
       delivery_count: webhook._count?.deliveries || 0,
-      latest_delivery: latestDelivery ? this.serializeDelivery(latestDelivery) : null,
+      latest_delivery: latestDelivery
+        ? this.serializeDelivery(latestDelivery)
+        : null,
     };
   }
 

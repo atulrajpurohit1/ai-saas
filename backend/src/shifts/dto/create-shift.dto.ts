@@ -1,4 +1,11 @@
-import { IsNotEmpty, IsString, IsDateString, IsInt, Min, IsOptional } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsDateString,
+  IsInt,
+  Min,
+  IsOptional,
+} from 'class-validator';
 
 export class CreateShiftDto {
   @IsString()

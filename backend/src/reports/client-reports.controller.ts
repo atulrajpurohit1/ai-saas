@@ -1,4 +1,11 @@
-import { Controller, ForbiddenException, Get, Param, Res, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -32,9 +39,18 @@ export class ClientReportsController {
   }
 
   @Get(':id/download')
-  async download(@GetUser() user: ActiveUser, @Param('id') id: string, @Res() res: Response) {
+  async download(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
     const { tenantId, clientId, userId } = this.getClientContext(user);
-    const { buffer } = await this.reportsService.downloadForClient(tenantId, clientId, userId, id);
+    const { buffer } = await this.reportsService.downloadForClient(
+      tenantId,
+      clientId,
+      userId,
+      id,
+    );
 
     res.set({
       'Content-Type': 'application/pdf',

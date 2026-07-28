@@ -27,7 +27,11 @@ export class ProposalsController {
   @RequirePermission('proposals.create')
   create(@Req() req: Request, @Body() createProposalDto: CreateProposalDto) {
     const user = req.user as unknown as ActiveUser;
-    return this.proposalsService.create(user.tenantId, createProposalDto, user.sub);
+    return this.proposalsService.create(
+      user.tenantId,
+      createProposalDto,
+      user.sub,
+    );
   }
 
   @Get()
@@ -40,12 +44,17 @@ export class ProposalsController {
   @Post('generate')
   @RequirePermission('proposals.create')
   generateProposal(
-    @Req() req: Request, 
+    @Req() req: Request,
     @Body('leadId') leadId: string,
-    @Body('clientId') clientId?: string
+    @Body('clientId') clientId?: string,
   ) {
     const user = req.user as unknown as ActiveUser;
-    return this.proposalsService.generateForLead(user.tenantId, leadId, user.sub, clientId);
+    return this.proposalsService.generateForLead(
+      user.tenantId,
+      leadId,
+      user.sub,
+      clientId,
+    );
   }
 
   @Post('generate-bulk')
@@ -70,21 +79,34 @@ export class ProposalsController {
     @Body() updateProposalDto: UpdateProposalDto,
   ) {
     const user = req.user as unknown as ActiveUser;
-    return this.proposalsService.update(user.tenantId, id, updateProposalDto, user.sub);
+    return this.proposalsService.update(
+      user.tenantId,
+      id,
+      updateProposalDto,
+      user.sub,
+    );
   }
 
   @Get(':id/export')
   @RequirePermission('proposals.view')
-  async export(@Req() req: Request, @Param('id') id: string, @Res() res: Response) {
+  async export(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
     const user = req.user as unknown as ActiveUser;
-    const buffer = await this.proposalsService.export(user.tenantId, id, user.sub);
-    
+    const buffer = await this.proposalsService.export(
+      user.tenantId,
+      id,
+      user.sub,
+    );
+
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename=proposal-${id}.pdf`,
       'Content-Length': buffer.length,
     });
-    
+
     res.end(buffer);
   }
 
@@ -98,28 +120,45 @@ export class ProposalsController {
   @Post(':id/comments')
   @RequirePermission('proposals.update')
   async addComment(
-    @Req() req: Request, 
+    @Req() req: Request,
     @Param('id') id: string,
-    @Body('content') content: string
+    @Body('content') content: string,
   ) {
     const user = req.user as unknown as ActiveUser;
-    return this.proposalsService.addComment(user.tenantId, id, user.sub, content);
+    return this.proposalsService.addComment(
+      user.tenantId,
+      id,
+      user.sub,
+      content,
+    );
   }
 
   @Post(':id/share')
   @RequirePermission('proposals.update')
   async share(
-    @Req() req: Request, 
+    @Req() req: Request,
     @Param('id') id: string,
-    @Body('clientId') clientId: string
+    @Body('clientId') clientId: string,
   ) {
     const user = req.user as unknown as ActiveUser;
     const existing = await this.proposalsService.findOne(user.tenantId, id);
-    const updateData = existing.status === 'draft' ? { clientId, status: 'sent' } : { clientId };
-    const updated = await this.proposalsService.update(user.tenantId, id, updateData, user.sub);
-    
-    await this.proposalsService.logAction(user.tenantId, user.sub, id, 'DOCUMENT_SHARED', `Proposal shared with client`);
-    
+    const updateData =
+      existing.status === 'draft' ? { clientId, status: 'sent' } : { clientId };
+    const updated = await this.proposalsService.update(
+      user.tenantId,
+      id,
+      updateData,
+      user.sub,
+    );
+
+    await this.proposalsService.logAction(
+      user.tenantId,
+      user.sub,
+      id,
+      'DOCUMENT_SHARED',
+      `Proposal shared with client`,
+    );
+
     return updated;
   }
 }

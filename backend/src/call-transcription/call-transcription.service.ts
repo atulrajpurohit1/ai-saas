@@ -31,19 +31,27 @@ export class CallTranscriptionService {
   async transcribe(file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No audio file uploaded');
     if (!this.apiKey()) {
-      throw new BadRequestException('OPENAI_API_KEY is not configured for audio transcription');
+      throw new BadRequestException(
+        'OPENAI_API_KEY is not configured for audio transcription',
+      );
     }
     if (!this.isSupported(file)) {
       throw new BadRequestException('Unsupported audio file type');
     }
     if (file.size > this.maxFileBytes()) {
-      throw new BadRequestException(`Audio file must be ${this.maxFileMb()}MB or smaller`);
+      throw new BadRequestException(
+        `Audio file must be ${this.maxFileMb()}MB or smaller`,
+      );
     }
 
     const startedAt = Date.now();
-    const upload = await toFile(file.buffer, file.originalname || 'sales-call.webm', {
-      type: file.mimetype || 'audio/webm',
-    });
+    const upload = await toFile(
+      file.buffer,
+      file.originalname || 'sales-call.webm',
+      {
+        type: file.mimetype || 'audio/webm',
+      },
+    );
 
     const result = await this.openai().audio.transcriptions.create({
       file: upload,
@@ -70,7 +78,9 @@ export class CallTranscriptionService {
 
   private isSupported(file: Express.Multer.File) {
     if (SUPPORTED_AUDIO_TYPES.has(file.mimetype)) return true;
-    return /\.(mp3|mp4|mpeg|mpga|m4a|wav|webm|ogg|oga|flac)$/i.test(file.originalname || '');
+    return /\.(mp3|mp4|mpeg|mpga|m4a|wav|webm|ogg|oga|flac)$/i.test(
+      file.originalname || '',
+    );
   }
 
   private apiKey() {
@@ -78,7 +88,9 @@ export class CallTranscriptionService {
   }
 
   private model() {
-    return process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() || 'gpt-4o-mini-transcribe';
+    return (
+      process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() || 'gpt-4o-mini-transcribe'
+    );
   }
 
   private maxFileMb() {

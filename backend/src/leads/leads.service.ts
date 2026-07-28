@@ -17,7 +17,11 @@ export class LeadsService {
     private auditService: AuditService,
   ) {}
 
-  async create(createLeadDto: CreateLeadDto, tenantId: string, userId?: string) {
+  async create(
+    createLeadDto: CreateLeadDto,
+    tenantId: string,
+    userId?: string,
+  ) {
     const lead = await this.prisma.lead.create({
       data: {
         ...createLeadDto,
@@ -88,7 +92,12 @@ export class LeadsService {
     return lead;
   }
 
-  async update(id: string, updateLeadDto: UpdateLeadDto, tenantId: string, userId?: string) {
+  async update(
+    id: string,
+    updateLeadDto: UpdateLeadDto,
+    tenantId: string,
+    userId?: string,
+  ) {
     await this.findOne(id, tenantId);
 
     const lead = await this.prisma.lead.update({
@@ -107,7 +116,12 @@ export class LeadsService {
     return lead;
   }
 
-  async updateStatus(id: string, updateLeadStatusDto: UpdateLeadStatusDto, tenantId: string, userId?: string) {
+  async updateStatus(
+    id: string,
+    updateLeadStatusDto: UpdateLeadStatusDto,
+    tenantId: string,
+    userId?: string,
+  ) {
     await this.findOne(id, tenantId);
 
     const lead = await this.prisma.lead.update({
@@ -145,7 +159,10 @@ export class LeadsService {
     return { success: true };
   }
 
-  async importLeads(buffer: Buffer, tenantId: string): Promise<{ count: number }> {
+  async importLeads(
+    buffer: Buffer,
+    tenantId: string,
+  ): Promise<{ count: number }> {
     const results: any[] = [];
     const stream = Readable.from(buffer);
 
@@ -227,12 +244,12 @@ export class LeadsService {
       const pdfParse = require('pdf-parse');
       // Disable rendering to avoid DOMMatrix/Canvas crashes
       const options = {
-        pagerender: () => '' 
+        pagerender: () => '',
       };
-      
+
       const data = await pdfParse(buffer, options);
       console.log('PDF: Text extracted successfully');
-      
+
       const leadInfo = await this.aiService.extractLeadFromText(data.text);
       console.log('PDF: AI extraction result:', leadInfo);
       return leadInfo;

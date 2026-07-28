@@ -1,7 +1,11 @@
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
-export const VENDOR_UPLOAD_DIR = join(process.cwd(), 'uploads', 'vendor-submissions');
+export const VENDOR_UPLOAD_DIR = join(
+  process.cwd(),
+  'uploads',
+  'vendor-submissions',
+);
 
 export function ensureVendorUploadDir(): string {
   if (!existsSync(VENDOR_UPLOAD_DIR)) {

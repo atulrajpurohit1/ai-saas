@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, UseGuards, ForbiddenException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  UseGuards,
+  ForbiddenException,
+} from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -55,7 +63,10 @@ export class GuardPortalController {
   }
 
   @Post('sync')
-  syncOfflineActions(@GetUser() user: ActiveUser, @Body() dto: SyncOfflineActionsDto) {
+  syncOfflineActions(
+    @GetUser() user: ActiveUser,
+    @Body() dto: SyncOfflineActionsDto,
+  ) {
     const { tenantId, guardId } = this.getGuardContext(user);
     return this.guardPortalService.processSyncQueue(tenantId, guardId, dto);
   }

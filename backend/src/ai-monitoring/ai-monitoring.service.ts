@@ -104,7 +104,8 @@ export class AiMonitoringService {
       data: {
         tenantId,
         aiGenerationId,
-        recommendationId: dto.recommendationId ?? action?.recommendationId ?? null,
+        recommendationId:
+          dto.recommendationId ?? action?.recommendationId ?? null,
         actionId: action?.id ?? null,
         rating: dto.rating,
         feedbackText: dto.feedbackText?.trim() || null,
@@ -147,49 +148,44 @@ export class AiMonitoringService {
   }
 
   async getMonitoring(tenantId: string): Promise<AiMonitoringMetrics> {
-    const [
-      generations,
-      actions,
-      feedback,
-      averageFeedback,
-      recentFeedback,
-    ] = await Promise.all([
-      this.prisma.aiGeneration.findMany({
-        where: { tenantId },
-        select: {
-          status: true,
-          fallbackUsed: true,
-          sourceModule: true,
-        },
-      }),
-      this.prisma.recommendationAction.findMany({
-        where: { tenantId },
-        select: { status: true },
-      }),
-      this.prisma.aiFeedback.findMany({
-        where: { tenantId },
-        select: {
-          isUseful: true,
-          isAccurate: true,
-        },
-      }),
-      this.prisma.aiFeedback.aggregate({
-        where: { tenantId },
-        _avg: { rating: true },
-      }),
-      this.prisma.aiFeedback.findMany({
-        where: { tenantId },
-        include: {
-          aiGeneration: {
-            select: {
-              sourceModule: true,
+    const [generations, actions, feedback, averageFeedback, recentFeedback] =
+      await Promise.all([
+        this.prisma.aiGeneration.findMany({
+          where: { tenantId },
+          select: {
+            status: true,
+            fallbackUsed: true,
+            sourceModule: true,
+          },
+        }),
+        this.prisma.recommendationAction.findMany({
+          where: { tenantId },
+          select: { status: true },
+        }),
+        this.prisma.aiFeedback.findMany({
+          where: { tenantId },
+          select: {
+            isUseful: true,
+            isAccurate: true,
+          },
+        }),
+        this.prisma.aiFeedback.aggregate({
+          where: { tenantId },
+          _avg: { rating: true },
+        }),
+        this.prisma.aiFeedback.findMany({
+          where: { tenantId },
+          include: {
+            aiGeneration: {
+              select: {
+                sourceModule: true,
+              },
             },
           },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-      }),
-    ]);
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        }),
+      ]);
 
     const totalAiGenerations = generations.length;
     const totalFeedback = feedback.length;
@@ -489,16 +485,14 @@ export class AiMonitoringService {
     >();
 
     generations.forEach((generation) => {
-      const row =
-        bySource.get(generation.sourceModule) ||
-        {
-          sourceModule: generation.sourceModule,
-          total: 0,
-          success: 0,
-          failed: 0,
-          fallback: 0,
-          fallbackUsed: 0,
-        };
+      const row = bySource.get(generation.sourceModule) || {
+        sourceModule: generation.sourceModule,
+        total: 0,
+        success: 0,
+        failed: 0,
+        fallback: 0,
+        fallbackUsed: 0,
+      };
 
       row.total += 1;
       if (generation.status === 'success') row.success += 1;

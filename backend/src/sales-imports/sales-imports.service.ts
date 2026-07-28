@@ -29,21 +29,94 @@ type ImportMapping = Partial<Record<ImportField, string>>;
 type CsvRow = Record<string, string | undefined>;
 
 const FIELD_ALIASES: Record<ImportField, string[]> = {
-  name: ['name', 'contact name', 'full name', 'primary contact', 'contact', 'lead name'],
-  company: ['company', 'company name', 'account', 'account name', 'business', 'organization', 'property'],
+  name: [
+    'name',
+    'contact name',
+    'full name',
+    'primary contact',
+    'contact',
+    'lead name',
+  ],
+  company: [
+    'company',
+    'company name',
+    'account',
+    'account name',
+    'business',
+    'organization',
+    'property',
+  ],
   email: ['email', 'email address', 'contact email', 'lead email'],
   status: ['status', 'lead status', 'crm status'],
-  dealName: ['deal name', 'opportunity', 'opportunity name', 'project', 'pipeline deal'],
+  dealName: [
+    'deal name',
+    'opportunity',
+    'opportunity name',
+    'project',
+    'pipeline deal',
+  ],
   stage: ['stage', 'deal stage', 'pipeline stage', 'opportunity stage'],
-  propertyType: ['property type', 'site type', 'segment', 'industry', 'vertical'],
-  buyerRole: ['buyer role', 'role', 'title', 'decision maker role', 'contact title'],
-  currentProvider: ['current provider', 'incumbent', 'existing provider', 'security provider'],
-  guardCount: ['guard count', 'guards', 'number of guards', 'posts', 'post count'],
-  serviceHours: ['service hours', 'coverage hours', 'shift hours', 'coverage', 'schedule'],
-  painPoints: ['pain points', 'pain', 'problems', 'current issues', 'challenges'],
-  riskConcerns: ['risk concerns', 'risks', 'security risks', 'incidents', 'risk drivers'],
-  decisionTimeline: ['decision timeline', 'timeline', 'start date', 'decision date', 'urgency'],
-  budgetSensitivity: ['budget sensitivity', 'budget', 'price sensitivity', 'pricing concern'],
+  propertyType: [
+    'property type',
+    'site type',
+    'segment',
+    'industry',
+    'vertical',
+  ],
+  buyerRole: [
+    'buyer role',
+    'role',
+    'title',
+    'decision maker role',
+    'contact title',
+  ],
+  currentProvider: [
+    'current provider',
+    'incumbent',
+    'existing provider',
+    'security provider',
+  ],
+  guardCount: [
+    'guard count',
+    'guards',
+    'number of guards',
+    'posts',
+    'post count',
+  ],
+  serviceHours: [
+    'service hours',
+    'coverage hours',
+    'shift hours',
+    'coverage',
+    'schedule',
+  ],
+  painPoints: [
+    'pain points',
+    'pain',
+    'problems',
+    'current issues',
+    'challenges',
+  ],
+  riskConcerns: [
+    'risk concerns',
+    'risks',
+    'security risks',
+    'incidents',
+    'risk drivers',
+  ],
+  decisionTimeline: [
+    'decision timeline',
+    'timeline',
+    'start date',
+    'decision date',
+    'urgency',
+  ],
+  budgetSensitivity: [
+    'budget sensitivity',
+    'budget',
+    'price sensitivity',
+    'pricing concern',
+  ],
   objections: ['objections', 'concerns', 'sales objections', 'buyer concerns'],
   notes: ['notes', 'comments', 'description', 'summary', 'call notes'],
 };
@@ -111,14 +184,28 @@ export class SalesImportsService {
         let dealId: string | undefined;
 
         if (target === 'deals') {
-          const dealSync = await this.syncDeal(row, mapping, tenantId, leadSync.lead.id);
+          const dealSync = await this.syncDeal(
+            row,
+            mapping,
+            tenantId,
+            leadSync.lead.id,
+          );
           dealId = dealSync.deal.id;
           summary.dealsCreated += dealSync.created ? 1 : 0;
           summary.dealsUpdated += dealSync.updated ? 1 : 0;
           summary.dealsMatched += !dealSync.created ? 1 : 0;
         }
 
-        if (await this.createDiscoverySession(row, mapping, tenantId, leadSync.lead.id, dealId, userId)) {
+        if (
+          await this.createDiscoverySession(
+            row,
+            mapping,
+            tenantId,
+            leadSync.lead.id,
+            dealId,
+            userId,
+          )
+        ) {
           summary.discoverySessionsCreated += 1;
         }
 
@@ -126,7 +213,8 @@ export class SalesImportsService {
       } catch (error) {
         summary.errors.push({
           row: index + 2,
-          message: error instanceof Error ? error.message : 'Unable to import row',
+          message:
+            error instanceof Error ? error.message : 'Unable to import row',
         });
       }
     }
@@ -142,7 +230,11 @@ export class SalesImportsService {
     return summary;
   }
 
-  private async syncLead(row: CsvRow, mapping: ImportMapping, tenantId: string) {
+  private async syncLead(
+    row: CsvRow,
+    mapping: ImportMapping,
+    tenantId: string,
+  ) {
     const name = this.text(row, mapping.name);
     const company = this.text(row, mapping.company);
     const email = this.text(row, mapping.email);
@@ -251,7 +343,9 @@ export class SalesImportsService {
     };
 
     const hasDiscoveryData = Object.values(discovery).some((value) =>
-      Array.isArray(value) ? value.length > 0 : value !== null && value !== undefined,
+      Array.isArray(value)
+        ? value.length > 0
+        : value !== null && value !== undefined,
     );
 
     if (!hasDiscoveryData) return false;
@@ -274,27 +368,31 @@ export class SalesImportsService {
     let headers: string[] = [];
     let totalRows = 0;
 
-    return new Promise<{ headers: string[]; rows: CsvRow[]; totalRows: number }>(
-      (resolve, reject) => {
-        Readable.from(buffer)
-          .pipe(csv())
-          .on('headers', (csvHeaders: string[]) => {
-            headers = csvHeaders.map((header) => header.trim()).filter(Boolean);
-          })
-          .on('data', (row: CsvRow) => {
-            totalRows += 1;
-            if (rows.length < maxRows) rows.push(row);
-          })
-          .on('end', () => {
-            if (headers.length === 0) {
-              reject(new BadRequestException('CSV file must include a header row'));
-              return;
-            }
-            resolve({ headers, rows, totalRows });
-          })
-          .on('error', (error) => reject(error));
-      },
-    );
+    return new Promise<{
+      headers: string[];
+      rows: CsvRow[];
+      totalRows: number;
+    }>((resolve, reject) => {
+      Readable.from(buffer)
+        .pipe(csv())
+        .on('headers', (csvHeaders: string[]) => {
+          headers = csvHeaders.map((header) => header.trim()).filter(Boolean);
+        })
+        .on('data', (row: CsvRow) => {
+          totalRows += 1;
+          if (rows.length < maxRows) rows.push(row);
+        })
+        .on('end', () => {
+          if (headers.length === 0) {
+            reject(
+              new BadRequestException('CSV file must include a header row'),
+            );
+            return;
+          }
+          resolve({ headers, rows, totalRows });
+        })
+        .on('error', (error) => reject(error));
+    });
   }
 
   private detectMapping(headers: string[]): ImportMapping {
@@ -331,10 +429,16 @@ export class SalesImportsService {
   }
 
   private validateMapping(target: ImportTarget, mapping: ImportMapping) {
-    if (!mapping.name) throw new BadRequestException('Map the contact name column before import');
-    if (!mapping.company) throw new BadRequestException('Map the company column before import');
+    if (!mapping.name)
+      throw new BadRequestException(
+        'Map the contact name column before import',
+      );
+    if (!mapping.company)
+      throw new BadRequestException('Map the company column before import');
     if (target === 'deals' && !mapping.dealName) {
-      throw new BadRequestException('Map the deal name column before importing deals');
+      throw new BadRequestException(
+        'Map the deal name column before importing deals',
+      );
     }
   }
 
@@ -346,7 +450,10 @@ export class SalesImportsService {
   private normalizeStage(value?: string | null) {
     const normalized = (value || '').trim().toLowerCase();
     if (['contacted', 'qualified'].includes(normalized)) return 'Contacted';
-    if (['proposal', 'proposal sent', 'quoted', 'quote sent'].includes(normalized)) return 'Proposal';
+    if (
+      ['proposal', 'proposal sent', 'quoted', 'quote sent'].includes(normalized)
+    )
+      return 'Proposal';
     if (['won', 'closed won', 'closed'].includes(normalized)) return 'Won';
     if (['lost', 'closed lost'].includes(normalized)) return 'Lost';
     return normalized ? value!.trim() : 'New';

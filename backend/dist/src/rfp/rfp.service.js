@@ -391,7 +391,10 @@ let RfpService = class RfpService {
         return this.findAssignedVendors(tenantId, id);
     }
     async removeVendor(tenantId, userId, id, vendorId) {
-        await this.findRfpOrThrow(tenantId, id);
+        const rfp = await this.findRfpOrThrow(tenantId, id);
+        if (rfp.awardedVendorId === vendorId) {
+            throw new common_1.BadRequestException('The awarded vendor cannot be removed from this RFP.');
+        }
         const assignment = await this.prisma.rfpVendor.findFirst({
             where: { tenantId, rfpId: id, vendorId },
             include: { vendor: true },
@@ -631,8 +634,8 @@ let RfpService = class RfpService {
         if (!rfpVendor.submission) {
             throw new common_1.BadRequestException('This vendor has not submitted a proposal and cannot be awarded the contract.');
         }
-        const updated = await this.prisma.rfp.update({
-            where: { id },
+        const awardResult = await this.prisma.rfp.updateMany({
+            where: { id, tenantId, awardedVendorId: null },
             data: {
                 awardedVendorId: vendorId,
                 awardDate: new Date(),
@@ -640,6 +643,10 @@ let RfpService = class RfpService {
                 status: 'AWARDED',
             },
         });
+        if (awardResult.count === 0) {
+            throw new common_1.BadRequestException('This RFP has already been awarded.');
+        }
+        const updated = await this.findRfpOrThrow(tenantId, id);
         if (rfpVendor.vendor.email) {
             try {
                 await this.emailService.sendContractAwardEmail(tenantId, {
@@ -770,7 +777,9 @@ let RfpService = class RfpService {
                 ...(dto.responseTime !== undefined
                     ? { responseTime: dto.responseTime }
                     : {}),
-                ...(dto.notes !== undefined ? { notes: dto.notes?.trim() || null } : {}),
+                ...(dto.notes !== undefined
+                    ? { notes: dto.notes?.trim() || null }
+                    : {}),
             },
         });
         await this.auditService.log({

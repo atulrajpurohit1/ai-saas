@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { PrismaService } from '../prisma/prisma.service';
@@ -17,7 +22,10 @@ export class BranchesService {
 
     const name = dto.name?.trim();
     const location = dto.location?.trim();
-    const managerId = await this.resolveManagerId(user.tenantId, dto.manager_id);
+    const managerId = await this.resolveManagerId(
+      user.tenantId,
+      dto.manager_id,
+    );
 
     if (!name || !location) {
       throw new BadRequestException('Branch name and location are required');
@@ -116,7 +124,9 @@ export class BranchesService {
       where: { id },
       data: {
         ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
-        ...(dto.location !== undefined ? { location: dto.location.trim() } : {}),
+        ...(dto.location !== undefined
+          ? { location: dto.location.trim() }
+          : {}),
         ...(dto.status !== undefined ? { status: dto.status } : {}),
         ...(managerId !== undefined ? { managerId } : {}),
       },
@@ -172,7 +182,9 @@ export class BranchesService {
     });
 
     if (!manager) {
-      throw new BadRequestException('Branch manager must belong to this tenant');
+      throw new BadRequestException(
+        'Branch manager must belong to this tenant',
+      );
     }
 
     return manager.id;

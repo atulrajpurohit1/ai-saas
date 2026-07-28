@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
@@ -6,7 +11,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CorrectTimesheetDto } from './dto/correct-timesheet.dto';
 import { RejectTimesheetDto } from './dto/reject-timesheet.dto';
 
-const TIMESHEET_STATUSES = ['pending', 'approved', 'rejected', 'corrected'] as const;
+const TIMESHEET_STATUSES = [
+  'pending',
+  'approved',
+  'rejected',
+  'corrected',
+] as const;
 export type TimesheetStatus = (typeof TIMESHEET_STATUSES)[number];
 
 @Injectable()
@@ -108,7 +118,10 @@ export class TimesheetsService {
     };
   }
 
-  private timesheetBranchWhere(user: ActiveUser, requestedBranchId?: string | null): Prisma.TimesheetWhereInput {
+  private timesheetBranchWhere(
+    user: ActiveUser,
+    requestedBranchId?: string | null,
+  ): Prisma.TimesheetWhereInput {
     const branchId = requestedBranchId?.trim() || null;
 
     if (user.isSuperAdmin) {
@@ -149,7 +162,9 @@ export class TimesheetsService {
     });
 
     if (invoiceItemCount > 0) {
-      throw new BadRequestException('Timesheet has already been used for an invoice');
+      throw new BadRequestException(
+        'Timesheet has already been used for an invoice',
+      );
     }
   }
 
@@ -166,7 +181,11 @@ export class TimesheetsService {
     return parsed;
   }
 
-  async findAllForAdmin(user: ActiveUser, status?: string, requestedBranchId?: string | null) {
+  async findAllForAdmin(
+    user: ActiveUser,
+    status?: string,
+    requestedBranchId?: string | null,
+  ) {
     if (status && !this.isValidStatus(status)) {
       throw new BadRequestException('Invalid timesheet status');
     }
@@ -192,7 +211,11 @@ export class TimesheetsService {
   async approve(user: ActiveUser, timesheetId: string) {
     const existing = await this.findTimesheetOrThrow(user, timesheetId);
 
-    if (user.role === 'guard' || user.guardId === existing.guardId || user.sub === existing.guardId) {
+    if (
+      user.role === 'guard' ||
+      user.guardId === existing.guardId ||
+      user.sub === existing.guardId
+    ) {
       throw new ForbiddenException('Guard cannot approve own timesheet');
     }
 
@@ -203,11 +226,15 @@ export class TimesheetsService {
     await this.assertNotInvoiced(existing.id);
 
     if (existing.totalHours <= 0) {
-      throw new BadRequestException('Timesheet must have billable hours before approval. Correct the hours first.');
+      throw new BadRequestException(
+        'Timesheet must have billable hours before approval. Correct the hours first.',
+      );
     }
 
     if (!['pending', 'corrected'].includes(existing.status)) {
-      throw new BadRequestException('Only pending or corrected timesheets can be approved');
+      throw new BadRequestException(
+        'Only pending or corrected timesheets can be approved',
+      );
     }
 
     const timesheet = await this.prisma.timesheet.update({
@@ -243,7 +270,9 @@ export class TimesheetsService {
     await this.assertNotInvoiced(existing.id);
 
     if (!['pending', 'corrected'].includes(existing.status)) {
-      throw new BadRequestException('Only pending or corrected timesheets can be rejected');
+      throw new BadRequestException(
+        'Only pending or corrected timesheets can be rejected',
+      );
     }
 
     const timesheet = await this.prisma.timesheet.update({
@@ -277,11 +306,17 @@ export class TimesheetsService {
     const existing = await this.findTimesheetOrThrow(user, id);
     await this.assertNotInvoiced(existing.id);
 
-    const checkInTime = this.parseOptionalDate(dto.check_in_time, 'check_in_time') ?? existing.checkInTime;
-    const checkOutTime = this.parseOptionalDate(dto.check_out_time, 'check_out_time') ?? existing.checkOutTime;
+    const checkInTime =
+      this.parseOptionalDate(dto.check_in_time, 'check_in_time') ??
+      existing.checkInTime;
+    const checkOutTime =
+      this.parseOptionalDate(dto.check_out_time, 'check_out_time') ??
+      existing.checkOutTime;
 
     if (checkOutTime < checkInTime) {
-      throw new BadRequestException('check_out_time must be on or after check_in_time');
+      throw new BadRequestException(
+        'check_out_time must be on or after check_in_time',
+      );
     }
 
     const previous = {

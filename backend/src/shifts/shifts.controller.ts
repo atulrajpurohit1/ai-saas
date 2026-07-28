@@ -17,10 +17,7 @@ export class ShiftsController {
 
   @Post()
   @RequirePermission('shifts.create')
-  create(
-    @GetUser() user: ActiveUser,
-    @Body() createShiftDto: CreateShiftDto,
-  ) {
+  create(@GetUser() user: ActiveUser, @Body() createShiftDto: CreateShiftDto) {
     return this.shiftsService.create(user, createShiftDto);
   }
 

@@ -135,6 +135,7 @@ export class AiService {
   private readonly logger = new Logger(AiService.name);
   private readonly fallbackEnabled: boolean;
   private readonly modelName: string;
+  private readonly timeoutMs: number;
   private genAI: GoogleGenerativeAI | null = null;
   private model: any = null;
 
@@ -144,6 +145,14 @@ export class AiService {
       'gemini-2.5-flash';
     this.fallbackEnabled =
       this.configService.get<string>('ENABLE_AI_FALLBACK') === 'true';
+
+    const parsedTimeout = Number(
+      this.configService.get<string>('GEMINI_TIMEOUT_MS'),
+    );
+    this.timeoutMs =
+      Number.isFinite(parsedTimeout) && parsedTimeout > 0
+        ? parsedTimeout
+        : 45000;
 
     const apiKey = this.configService.get<string>('GEMINI_API_KEY')?.trim();
     if (!apiKey) {
@@ -248,6 +257,30 @@ export class AiService {
       .slice(0, 8);
   }
 
+  /** Bounds how long we wait on a Gemini call so a slow/hung provider can never hang the caller's request indefinitely. */
+  private withTimeout(promise: Promise<any>, action: string): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(
+          new Error(
+            `Gemini request timed out after ${this.timeoutMs}ms during ${action}.`,
+          ),
+        );
+      }, this.timeoutMs);
+
+      promise.then(
+        (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        (error: unknown) => {
+          clearTimeout(timer);
+          reject(error instanceof Error ? error : new Error(String(error)));
+        },
+      );
+    });
+  }
+
   private async generateText(
     prompt: string,
     action: string,
@@ -261,7 +294,10 @@ export class AiService {
     }
 
     try {
-      const result = await this.model.generateContent(prompt);
+      const result = await this.withTimeout(
+        this.model.generateContent(prompt),
+        action,
+      );
       const response = await result.response;
       const text = response.text().trim();
 
@@ -978,25 +1014,31 @@ export class AiService {
       const parsed =
         this.parseJsonFromText<Partial<AiEvaluationReportDraft>>(rawText);
 
+      const recommendedVendor = this.normalizeOptionalString(
+        parsed.recommendedVendor,
+        fallback.recommendedVendor,
+      );
+      const fullReportMarkdown =
+        typeof parsed.fullReportMarkdown === 'string' &&
+        parsed.fullReportMarkdown.trim()
+          ? parsed.fullReportMarkdown.trim()
+          : fallback.fullReportMarkdown;
+
       return {
         summary:
           typeof parsed.summary === 'string' && parsed.summary.trim()
             ? parsed.summary.trim()
             : fallback.summary,
-        recommendedVendor: this.normalizeOptionalString(
-          parsed.recommendedVendor,
-          fallback.recommendedVendor,
-        ),
+        recommendedVendor,
         overallAnalysis:
           typeof parsed.overallAnalysis === 'string' &&
           parsed.overallAnalysis.trim()
             ? parsed.overallAnalysis.trim()
             : fallback.overallAnalysis,
-        fullReportMarkdown:
-          typeof parsed.fullReportMarkdown === 'string' &&
-          parsed.fullReportMarkdown.trim()
-            ? parsed.fullReportMarkdown.trim()
-            : fallback.fullReportMarkdown,
+        fullReportMarkdown: this.sanitizeRecommendedVendorSection(
+          fullReportMarkdown,
+          recommendedVendor,
+        ),
       };
     } catch (error) {
       this.logger.warn(
@@ -1006,6 +1048,33 @@ export class AiService {
       );
       return fallback;
     }
+  }
+
+  /**
+   * Defensive safety net: LLMs occasionally emit the literal token "null"/"undefined" as prose when a
+   * field is genuinely absent, even when explicitly instructed not to. Since a client renders this
+   * markdown verbatim, replace a bare null/empty "Recommended Vendor" section body with a deterministic
+   * sentence rather than relying solely on prompt compliance.
+   */
+  private sanitizeRecommendedVendorSection(
+    markdown: string,
+    recommendedVendor: string | null,
+  ): string {
+    const sectionPattern =
+      /(##\s*Recommended Vendor\s*\n)([\s\S]*?)(?=\n##\s|\n#\s|$)/i;
+    const match = markdown.match(sectionPattern);
+    if (!match) return markdown;
+
+    const body = match[2].trim();
+    if (body && !/^(null|undefined|n\/a|none)\.?$/i.test(body)) {
+      return markdown;
+    }
+
+    const replacement = recommendedVendor
+      ? `**${recommendedVendor}** is the recommended vendor based on the evaluation above.`
+      : 'No vendor can be confidently recommended based on the information available.';
+
+    return markdown.replace(sectionPattern, `$1${replacement}\n`);
   }
 
   private fallbackEvaluationReport(

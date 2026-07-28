@@ -1,8 +1,20 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { ClientsService } from './clients.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
-import { RequireAnyPermission, RequirePermission } from '../auth/decorators/permissions.decorator';
+import {
+  RequireAnyPermission,
+  RequirePermission,
+} from '../auth/decorators/permissions.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CreateClientDto } from './dto/create-client.dto';
@@ -15,10 +27,7 @@ export class ClientsController {
 
   @Post()
   @RequirePermission('clients.manage')
-  create(
-    @GetUser() user: ActiveUser,
-    @Body() dto: CreateClientDto,
-  ) {
+  create(@GetUser() user: ActiveUser, @Body() dto: CreateClientDto) {
     return this.clientsService.create(user, dto);
   }
 
@@ -30,10 +39,7 @@ export class ClientsController {
 
   @Get(':id')
   @RequirePermission('clients.view')
-  findOne(
-    @GetUser() user: ActiveUser,
-    @Param('id') id: string,
-  ) {
+  findOne(@GetUser() user: ActiveUser, @Param('id') id: string) {
     return this.clientsService.findOne(user, id);
   }
 

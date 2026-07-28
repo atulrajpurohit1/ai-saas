@@ -1,5 +1,15 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { createCipheriv, createDecipheriv, createHmac, createHash, randomBytes } from 'crypto';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHmac,
+  createHash,
+  randomBytes,
+} from 'crypto';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { PrismaService } from '../prisma/prisma.service';
@@ -63,14 +73,20 @@ export class CrmConnectorsService {
     };
   }
 
-  async handleHubSpotCallback(code: string | undefined, state: string | undefined) {
+  async handleHubSpotCallback(
+    code: string | undefined,
+    state: string | undefined,
+  ) {
     this.assertHubSpotConfigured();
-    if (!code) throw new BadRequestException('Missing HubSpot authorization code');
+    if (!code)
+      throw new BadRequestException('Missing HubSpot authorization code');
     const parsedState = this.verifyState(state);
 
     const token = await this.exchangeCode(code);
     const accessToken = this.encrypt(token.access_token);
-    const refreshToken = token.refresh_token ? this.encrypt(token.refresh_token) : null;
+    const refreshToken = token.refresh_token
+      ? this.encrypt(token.refresh_token)
+      : null;
     const expiresAt = token.expires_in
       ? new Date(Date.now() + Number(token.expires_in) * 1000)
       : null;
@@ -156,7 +172,10 @@ export class CrmConnectorsService {
     const token = await this.validAccessToken(connection);
     const url = new URL(HUBSPOT_CONTACTS_URL);
     url.searchParams.set('limit', '100');
-    url.searchParams.set('properties', 'firstname,lastname,email,company,hs_lead_status');
+    url.searchParams.set(
+      'properties',
+      'firstname,lastname,email,company,hs_lead_status',
+    );
 
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
@@ -164,12 +183,18 @@ export class CrmConnectorsService {
 
     if (!response.ok) {
       const message = await response.text();
-      await this.recordSyncError(connection.id, message || `HubSpot import failed: ${response.status}`);
+      await this.recordSyncError(
+        connection.id,
+        message || `HubSpot import failed: ${response.status}`,
+      );
       throw new BadRequestException('HubSpot contact import failed');
     }
 
-    const payload = await response.json() as {
-      results?: Array<{ id: string; properties?: Record<string, string | null> }>;
+    const payload = (await response.json()) as {
+      results?: Array<{
+        id: string;
+        properties?: Record<string, string | null>;
+      }>;
     };
     const contacts = payload.results || [];
     let created = 0;
@@ -181,9 +206,13 @@ export class CrmConnectorsService {
       const email = this.clean(properties.email);
       const firstName = this.clean(properties.firstname);
       const lastName = this.clean(properties.lastname);
-      const name = [firstName, lastName].filter(Boolean).join(' ') || email || 'HubSpot Contact';
+      const name =
+        [firstName, lastName].filter(Boolean).join(' ') ||
+        email ||
+        'HubSpot Contact';
       const company = this.clean(properties.company) || 'HubSpot Contact';
-      const status = this.clean(properties.hs_lead_status)?.toLowerCase() || 'new';
+      const status =
+        this.clean(properties.hs_lead_status)?.toLowerCase() || 'new';
 
       if (!email && !name) {
         skipped += 1;
@@ -250,7 +279,11 @@ export class CrmConnectorsService {
       },
     });
 
-    if (!connection || connection.status !== 'connected' || !connection.accessToken) {
+    if (
+      !connection ||
+      connection.status !== 'connected' ||
+      !connection.accessToken
+    ) {
       throw new BadRequestException('HubSpot is not connected');
     }
 
@@ -263,7 +296,9 @@ export class CrmConnectorsService {
       connection.tokenExpiresAt.getTime() < Date.now() + 2 * 60 * 1000 &&
       connection.refreshToken
     ) {
-      const refreshed = await this.refreshToken(this.decrypt(connection.refreshToken));
+      const refreshed = await this.refreshToken(
+        this.decrypt(connection.refreshToken),
+      );
       await this.prisma.crmConnection.update({
         where: { id: connection.id },
         data: {
@@ -300,7 +335,7 @@ export class CrmConnectorsService {
       throw new BadRequestException('HubSpot token exchange failed');
     }
 
-    return response.json() as Promise<any>;
+    return response.json();
   }
 
   private async refreshToken(refreshToken: string) {
@@ -319,7 +354,7 @@ export class CrmConnectorsService {
       throw new BadRequestException('HubSpot token refresh failed');
     }
 
-    return response.json() as Promise<any>;
+    return response.json();
   }
 
   private async recordSyncError(connectionId: string, message: string) {
@@ -343,12 +378,18 @@ export class CrmConnectorsService {
   }
 
   private isHubSpotConfigured() {
-    return Boolean(this.hubSpotClientId() && this.hubSpotClientSecret() && this.hubSpotRedirectUri());
+    return Boolean(
+      this.hubSpotClientId() &&
+      this.hubSpotClientSecret() &&
+      this.hubSpotRedirectUri(),
+    );
   }
 
   private assertHubSpotConfigured() {
     if (!this.isHubSpotConfigured()) {
-      throw new BadRequestException('HubSpot OAuth environment variables are not configured');
+      throw new BadRequestException(
+        'HubSpot OAuth environment variables are not configured',
+      );
     }
   }
 
@@ -365,23 +406,32 @@ export class CrmConnectorsService {
   }
 
   private frontendUrl() {
-    return (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '');
+    return (process.env.FRONTEND_URL || 'http://localhost:3000').replace(
+      /\/+$/,
+      '',
+    );
   }
 
   private signState(payload: Record<string, unknown>) {
     const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
-    const sig = createHmac('sha256', this.secret()).update(body).digest('base64url');
+    const sig = createHmac('sha256', this.secret())
+      .update(body)
+      .digest('base64url');
     return `${body}.${sig}`;
   }
 
   private verifyState(state?: string) {
     if (!state) throw new BadRequestException('Missing OAuth state');
     const [body, sig] = state.split('.');
-    const expected = createHmac('sha256', this.secret()).update(body).digest('base64url');
+    const expected = createHmac('sha256', this.secret())
+      .update(body)
+      .digest('base64url');
     if (!body || !sig || sig !== expected) {
       throw new BadRequestException('Invalid OAuth state');
     }
-    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as {
+    const payload = JSON.parse(
+      Buffer.from(body, 'base64url').toString('utf8'),
+    ) as {
       tenantId: string;
       userId: string;
       createdAt: number;
@@ -395,7 +445,10 @@ export class CrmConnectorsService {
   private encrypt(value: string) {
     const iv = randomBytes(12);
     const cipher = createCipheriv('aes-256-gcm', this.encryptionKey(), iv);
-    const encrypted = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+    const encrypted = Buffer.concat([
+      cipher.update(value, 'utf8'),
+      cipher.final(),
+    ]);
     const tag = cipher.getAuthTag();
     return `${iv.toString('base64url')}.${tag.toString('base64url')}.${encrypted.toString('base64url')}`;
   }
@@ -419,7 +472,11 @@ export class CrmConnectorsService {
   }
 
   private secret() {
-    return process.env.CRM_TOKEN_SECRET || process.env.JWT_ACCESS_SECRET || 'local-crm-token-secret';
+    return (
+      process.env.CRM_TOKEN_SECRET ||
+      process.env.JWT_ACCESS_SECRET ||
+      'local-crm-token-secret'
+    );
   }
 
   private scopeList(scope?: string) {
@@ -432,7 +489,9 @@ export class CrmConnectorsService {
   }
 
   hubSpotResultUrl(success: boolean) {
-    const params = new URLSearchParams({ crm: success ? 'hubspot_connected' : 'hubspot_failed' });
+    const params = new URLSearchParams({
+      crm: success ? 'hubspot_connected' : 'hubspot_failed',
+    });
     return `${this.frontendUrl()}/integrations?${params.toString()}`;
   }
 }

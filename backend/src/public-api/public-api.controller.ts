@@ -23,7 +23,10 @@ export class PublicApiController {
 
   @Get('clients')
   @RequirePublicApiPermission('clients.read')
-  listClients(@Req() request: PublicApiRequest, @Query() query: Record<string, string | undefined>) {
+  listClients(
+    @Req() request: PublicApiRequest,
+    @Query() query: Record<string, string | undefined>,
+  ) {
     return this.publicApiService.listClients(request.publicApiKey!, query);
   }
 
@@ -35,7 +38,10 @@ export class PublicApiController {
 
   @Get('sites')
   @RequirePublicApiPermission('sites.read')
-  listSites(@Req() request: PublicApiRequest, @Query() query: Record<string, string | undefined>) {
+  listSites(
+    @Req() request: PublicApiRequest,
+    @Query() query: Record<string, string | undefined>,
+  ) {
     return this.publicApiService.listSites(request.publicApiKey!, query);
   }
 
@@ -47,7 +53,10 @@ export class PublicApiController {
 
   @Get('guards')
   @RequirePublicApiPermission('guards.read')
-  listGuards(@Req() request: PublicApiRequest, @Query() query: Record<string, string | undefined>) {
+  listGuards(
+    @Req() request: PublicApiRequest,
+    @Query() query: Record<string, string | undefined>,
+  ) {
     return this.publicApiService.listGuards(request.publicApiKey!, query);
   }
 
@@ -59,7 +68,10 @@ export class PublicApiController {
 
   @Get('shifts')
   @RequirePublicApiPermission('shifts.read')
-  listShifts(@Req() request: PublicApiRequest, @Query() query: Record<string, string | undefined>) {
+  listShifts(
+    @Req() request: PublicApiRequest,
+    @Query() query: Record<string, string | undefined>,
+  ) {
     return this.publicApiService.listShifts(request.publicApiKey!, query);
   }
 
@@ -81,7 +93,10 @@ export class PublicApiController {
 
   @Get('incidents')
   @RequirePublicApiPermission('incidents.read')
-  listIncidents(@Req() request: PublicApiRequest, @Query() query: Record<string, string | undefined>) {
+  listIncidents(
+    @Req() request: PublicApiRequest,
+    @Query() query: Record<string, string | undefined>,
+  ) {
     return this.publicApiService.listIncidents(request.publicApiKey!, query);
   }
 
@@ -93,13 +108,19 @@ export class PublicApiController {
 
   @Get('invoices')
   @RequirePublicApiPermission('invoices.read')
-  listInvoices(@Req() request: PublicApiRequest, @Query() query: Record<string, string | undefined>) {
+  listInvoices(
+    @Req() request: PublicApiRequest,
+    @Query() query: Record<string, string | undefined>,
+  ) {
     return this.publicApiService.listInvoices(request.publicApiKey!, query);
   }
 
   @Get('reports')
   @RequirePublicApiPermission('reports.read')
-  listReports(@Req() request: PublicApiRequest, @Query() query: Record<string, string | undefined>) {
+  listReports(
+    @Req() request: PublicApiRequest,
+    @Query() query: Record<string, string | undefined>,
+  ) {
     return this.publicApiService.listReports(request.publicApiKey!, query);
   }
 }

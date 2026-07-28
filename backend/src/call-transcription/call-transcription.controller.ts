@@ -16,7 +16,9 @@ import { CallTranscriptionService } from './call-transcription.service';
 @UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('call-transcription')
 export class CallTranscriptionController {
-  constructor(private readonly callTranscriptionService: CallTranscriptionService) {}
+  constructor(
+    private readonly callTranscriptionService: CallTranscriptionService,
+  ) {}
 
   @Get('status')
   @RequireAnyPermission('ai.view', 'leads.view', 'deals.view')

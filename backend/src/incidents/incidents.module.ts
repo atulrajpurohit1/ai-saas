@@ -8,7 +8,11 @@ import { IncidentsService } from './incidents.service';
 
 @Module({
   imports: [PrismaModule, AuditModule],
-  controllers: [IncidentsController, GuardIncidentsController, ClientIncidentsController],
+  controllers: [
+    IncidentsController,
+    GuardIncidentsController,
+    ClientIncidentsController,
+  ],
   providers: [IncidentsService],
   exports: [IncidentsService],
 })

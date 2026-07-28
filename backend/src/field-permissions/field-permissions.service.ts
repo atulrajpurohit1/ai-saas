@@ -140,7 +140,9 @@ export class FieldPermissionsService {
       await this.auditService.log({
         tenantId: user.tenantId,
         userId: user.sub,
-        action: existing ? 'FIELD_PERMISSION_UPDATED' : 'FIELD_PERMISSION_CREATED',
+        action: existing
+          ? 'FIELD_PERMISSION_UPDATED'
+          : 'FIELD_PERMISSION_CREATED',
         entityType: 'FieldPermission',
         entityId: saved.id,
         details: `${role.name}: ${item.entity}.${item.field} view=${item.canView} edit=${item.canEdit}`,
@@ -170,7 +172,9 @@ export class FieldPermissionsService {
     );
     const removedFields = new Set<string>();
     const filtered = Array.isArray(data)
-      ? data.map((item) => this.stripDeniedFields(item, deniedDefinitions, removedFields))
+      ? data.map((item) =>
+          this.stripDeniedFields(item, deniedDefinitions, removedFields),
+        )
       : this.stripDeniedFields(data, deniedDefinitions, removedFields);
 
     if (removedFields.size > 0) {
@@ -216,7 +220,9 @@ export class FieldPermissionsService {
 
   private parseEntity(entity: string): FieldPermissionEntity {
     if (!isFieldPermissionEntity(entity)) {
-      throw new BadRequestException(`Unknown field permission entity: ${entity}`);
+      throw new BadRequestException(
+        `Unknown field permission entity: ${entity}`,
+      );
     }
 
     return entity;
@@ -281,8 +287,7 @@ export class FieldPermissionsService {
     return definitions.map((definition) => {
       const matching = rows.filter((row) => row.field === definition.field);
       const canView = !matching.some((row) => row.canView === false);
-      const canEdit =
-        canView && !matching.some((row) => row.canEdit === false);
+      const canEdit = canView && !matching.some((row) => row.canEdit === false);
 
       return {
         ...definition,

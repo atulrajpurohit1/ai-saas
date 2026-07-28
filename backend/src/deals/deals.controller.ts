@@ -59,7 +59,12 @@ export class DealsController {
     @Req() req: Request,
   ) {
     const user = req.user as unknown as ActiveUser;
-    return this.dealsService.updateStage(id, updateDealStageDto, user.tenantId, user.sub);
+    return this.dealsService.updateStage(
+      id,
+      updateDealStageDto,
+      user.tenantId,
+      user.sub,
+    );
   }
 
   @Delete(':id')

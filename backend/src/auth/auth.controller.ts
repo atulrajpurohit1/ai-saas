@@ -31,8 +31,6 @@ export class AuthController {
     return this.authService.login(dto, this.requestContext(req));
   }
 
-
-
   @UseGuards(JwtAuthGuard)
   @Post('logout')
   @HttpCode(HttpStatus.OK)
@@ -56,7 +54,10 @@ export class AuthController {
 
   private requestContext(req: Request) {
     return {
-      ipAddress: (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() || req.ip,
+      ipAddress:
+        (req.headers['x-forwarded-for'] as string | undefined)
+          ?.split(',')[0]
+          ?.trim() || req.ip,
       userAgent: req.headers['user-agent'] || null,
     };
   }

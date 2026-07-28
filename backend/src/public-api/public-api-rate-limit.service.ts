@@ -26,7 +26,10 @@ export class PublicApiRateLimitService {
 
     existing.count += 1;
     if (existing.count > limit) {
-      throw new HttpException('API key rate limit exceeded', HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        'API key rate limit exceeded',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
   }
 

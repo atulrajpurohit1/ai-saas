@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -19,7 +27,10 @@ export class IncidentsController {
   }
 
   @Get('review-queue')
-  findReviewQueue(@GetUser() user: ActiveUser, @Query('branch_id') branchId?: string) {
+  findReviewQueue(
+    @GetUser() user: ActiveUser,
+    @Query('branch_id') branchId?: string,
+  ) {
     return this.incidentsService.findReviewQueueForAdmin(user, branchId);
   }
 

@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { BrandingService } from '../branding/branding.service';
@@ -111,7 +116,13 @@ export class ReportsService {
         throw new BadRequestException('report_date must be a valid date');
       }
 
-      reportDate = new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()));
+      reportDate = new Date(
+        Date.UTC(
+          parsed.getUTCFullYear(),
+          parsed.getUTCMonth(),
+          parsed.getUTCDate(),
+        ),
+      );
     }
 
     const nextDate = new Date(reportDate);
@@ -125,11 +136,22 @@ export class ReportsService {
     const checkOut = events.find((event) => event.type === 'CHECK_OUT');
     const totalWorkedHours =
       checkIn && checkOut
-        ? Math.max(0, Math.round(((checkOut.timestamp.getTime() - checkIn.timestamp.getTime()) / 3_600_000) * 10) / 10)
+        ? Math.max(
+            0,
+            Math.round(
+              ((checkOut.timestamp.getTime() - checkIn.timestamp.getTime()) /
+                3_600_000) *
+                10,
+            ) / 10,
+          )
         : 0;
 
     return {
-      attendanceStatus: checkOut ? 'completed' : checkIn ? 'checked_in' : 'not_started',
+      attendanceStatus: checkOut
+        ? 'completed'
+        : checkIn
+          ? 'checked_in'
+          : 'not_started',
       checkInTime: checkIn?.timestamp.toISOString() ?? null,
       checkOutTime: checkOut?.timestamp.toISOString() ?? null,
       totalWorkedHours,
@@ -141,7 +163,9 @@ export class ReportsService {
     };
   }
 
-  private parseStoredSummary(summary: string): DailyReportSummary | { raw: string } {
+  private parseStoredSummary(
+    summary: string,
+  ): DailyReportSummary | { raw: string } {
     try {
       const parsed = JSON.parse(summary);
       if (parsed && typeof parsed === 'object') {
@@ -225,7 +249,11 @@ export class ReportsService {
     return report;
   }
 
-  private async findClientReportOrThrow(tenantId: string, clientId: string, id: string) {
+  private async findClientReportOrThrow(
+    tenantId: string,
+    clientId: string,
+    id: string,
+  ) {
     const report = await this.prisma.dailyServiceReport.findFirst({
       where: {
         id,
@@ -263,7 +291,8 @@ export class ReportsService {
     const shiftSummaries: ShiftReportSummary[] = input.shifts.map((shift) => {
       const assignedGuards = shift.assignments.map((assignment) => {
         const guardEvents = shift.attendanceEvents.filter(
-          (event: AttendanceEventSummary) => event.guardId === assignment.guardId,
+          (event: AttendanceEventSummary) =>
+            event.guardId === assignment.guardId,
         );
         const attendance = this.summarizeAttendance(guardEvents);
 
@@ -307,10 +336,20 @@ export class ReportsService {
       totals: {
         shifts: shiftSummaries.length,
         assignedGuards: allGuards.length,
-        completedAttendances: allGuards.filter((guard) => guard.attendanceStatus === 'completed').length,
-        checkedInAttendances: allGuards.filter((guard) => guard.attendanceStatus === 'checked_in').length,
-        missedAttendances: allGuards.filter((guard) => guard.attendanceStatus === 'not_started').length,
-        totalWorkedHours: Math.round(allGuards.reduce((sum, guard) => sum + guard.totalWorkedHours, 0) * 10) / 10,
+        completedAttendances: allGuards.filter(
+          (guard) => guard.attendanceStatus === 'completed',
+        ).length,
+        checkedInAttendances: allGuards.filter(
+          (guard) => guard.attendanceStatus === 'checked_in',
+        ).length,
+        missedAttendances: allGuards.filter(
+          (guard) => guard.attendanceStatus === 'not_started',
+        ).length,
+        totalWorkedHours:
+          Math.round(
+            allGuards.reduce((sum, guard) => sum + guard.totalWorkedHours, 0) *
+              10,
+          ) / 10,
         approvedIncidents: input.incidents.length,
       },
       shifts: shiftSummaries,
@@ -361,7 +400,9 @@ export class ReportsService {
     const doc = new PDFDocument({ margin: 50, size: 'LETTER' });
     const chunks: Buffer[] = [];
     const summary = this.parseStoredSummary(report.summary);
-    const branding = await this.brandingService.brandingSnapshot(report.tenantId);
+    const branding = await this.brandingService.brandingSnapshot(
+      report.tenantId,
+    );
 
     return new Promise((resolve, reject) => {
       doc.on('data', (chunk) => chunks.push(chunk));
@@ -370,12 +411,18 @@ export class ReportsService {
 
       this.brandingService.addPdfHeader(doc, 'Daily Service Report', branding);
       doc.moveDown(0.3);
-      doc.fontSize(11).fillColor(branding.secondary_color).text(`Report date: ${this.formatDate(report.reportDate)}`, {
-        align: 'right',
-      });
+      doc
+        .fontSize(11)
+        .fillColor(branding.secondary_color)
+        .text(`Report date: ${this.formatDate(report.reportDate)}`, {
+          align: 'right',
+        });
       doc.moveDown();
 
-      doc.fontSize(12).fillColor('#111827').text(`Client: ${report.client.companyName || report.client.name}`);
+      doc
+        .fontSize(12)
+        .fillColor('#111827')
+        .text(`Client: ${report.client.companyName || report.client.name}`);
       doc.text(`Site: ${report.site.name}`);
       doc.text(`Address: ${report.site.address}`);
       doc.text(`Status: ${report.status}`);
@@ -394,27 +441,40 @@ export class ReportsService {
       doc.fontSize(11).fillColor('#374151');
       doc.text(`Shifts: ${summary.totals.shifts}`);
       doc.text(`Assigned guards: ${summary.totals.assignedGuards}`);
-      doc.text(`Completed attendance records: ${summary.totals.completedAttendances}`);
-      doc.text(`Missed attendance records: ${summary.totals.missedAttendances}`);
+      doc.text(
+        `Completed attendance records: ${summary.totals.completedAttendances}`,
+      );
+      doc.text(
+        `Missed attendance records: ${summary.totals.missedAttendances}`,
+      );
       doc.text(`Total worked hours: ${summary.totals.totalWorkedHours}`);
       doc.text(`Approved incidents: ${summary.totals.approvedIncidents}`);
 
       this.addPdfSectionTitle(doc, 'Shifts And Attendance');
       if (summary.shifts.length === 0) {
-        doc.fontSize(11).fillColor('#6b7280').text('No shifts were scheduled for this date.');
+        doc
+          .fontSize(11)
+          .fillColor('#6b7280')
+          .text('No shifts were scheduled for this date.');
       } else {
         summary.shifts.forEach((shift, index) => {
-          doc.fontSize(12).fillColor('#111827').text(
-            `${index + 1}. ${this.formatDate(shift.startTime)} to ${this.formatDate(shift.endTime)} (${shift.status})`,
-          );
+          doc
+            .fontSize(12)
+            .fillColor('#111827')
+            .text(
+              `${index + 1}. ${this.formatDate(shift.startTime)} to ${this.formatDate(shift.endTime)} (${shift.status})`,
+            );
 
           if (shift.assignedGuards.length === 0) {
             doc.fontSize(10).fillColor('#6b7280').text('No assigned guards.');
           } else {
             shift.assignedGuards.forEach((guard) => {
-              doc.fontSize(10).fillColor('#374151').text(
-                `- ${guard.name}: ${guard.attendanceStatus}, in ${this.formatDate(guard.checkInTime)}, out ${this.formatDate(guard.checkOutTime)}, ${guard.totalWorkedHours}h`,
-              );
+              doc
+                .fontSize(10)
+                .fillColor('#374151')
+                .text(
+                  `- ${guard.name}: ${guard.attendanceStatus}, in ${this.formatDate(guard.checkInTime)}, out ${this.formatDate(guard.checkOutTime)}, ${guard.totalWorkedHours}h`,
+                );
             });
           }
           doc.moveDown(0.4);
@@ -423,15 +483,33 @@ export class ReportsService {
 
       this.addPdfSectionTitle(doc, 'Approved Incidents');
       if (summary.incidents.length === 0) {
-        doc.fontSize(11).fillColor('#6b7280').text('No approved incidents for this date.');
+        doc
+          .fontSize(11)
+          .fillColor('#6b7280')
+          .text('No approved incidents for this date.');
       } else {
         summary.incidents.forEach((incident, index) => {
-          doc.fontSize(12).fillColor('#111827').text(`${index + 1}. ${incident.title} (${incident.severity})`);
-          doc.fontSize(10).fillColor('#374151').text(`Occurred: ${this.formatDate(incident.occurredAt)}`);
-          doc.fontSize(10).fillColor('#374151').text(`Guard: ${incident.guard.name}`);
-          doc.fontSize(10).fillColor('#374151').text(incident.description, { lineGap: 3 });
+          doc
+            .fontSize(12)
+            .fillColor('#111827')
+            .text(`${index + 1}. ${incident.title} (${incident.severity})`);
+          doc
+            .fontSize(10)
+            .fillColor('#374151')
+            .text(`Occurred: ${this.formatDate(incident.occurredAt)}`);
+          doc
+            .fontSize(10)
+            .fillColor('#374151')
+            .text(`Guard: ${incident.guard.name}`);
+          doc
+            .fontSize(10)
+            .fillColor('#374151')
+            .text(incident.description, { lineGap: 3 });
           if (incident.attachmentUrl) {
-            doc.fontSize(10).fillColor('#2563eb').text(`Attachment: ${incident.attachmentUrl}`);
+            doc
+              .fontSize(10)
+              .fillColor('#2563eb')
+              .text(`Attachment: ${incident.attachmentUrl}`);
           }
           doc.moveDown(0.5);
         });
@@ -467,7 +545,9 @@ export class ReportsService {
     }
 
     if (!site.clientId || !site.client) {
-      throw new BadRequestException('Site must be linked to a client before generating a report');
+      throw new BadRequestException(
+        'Site must be linked to a client before generating a report',
+      );
     }
 
     const shifts = await this.prisma.shift.findMany({
@@ -664,7 +744,12 @@ export class ReportsService {
     return reports.map((report) => this.mapReport(report));
   }
 
-  async findOneForClient(tenantId: string, clientId: string, userId: string, id: string) {
+  async findOneForClient(
+    tenantId: string,
+    clientId: string,
+    userId: string,
+    id: string,
+  ) {
     if (!clientId) {
       throw new ForbiddenException('Client access required');
     }
@@ -683,7 +768,12 @@ export class ReportsService {
     return this.mapReport(report);
   }
 
-  async downloadForClient(tenantId: string, clientId: string, userId: string, id: string) {
+  async downloadForClient(
+    tenantId: string,
+    clientId: string,
+    userId: string,
+    id: string,
+  ) {
     if (!clientId) {
       throw new ForbiddenException('Client access required');
     }

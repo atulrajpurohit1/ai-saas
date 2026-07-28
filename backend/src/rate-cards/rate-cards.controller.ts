@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -32,7 +42,11 @@ export class RateCardsController {
 
   @Put(':id')
   @RequirePermission('rate_cards.manage')
-  update(@GetUser() user: ActiveUser, @Param('id') id: string, @Body() dto: UpdateRateCardDto) {
+  update(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateRateCardDto,
+  ) {
     return this.rateCardsService.update(user.tenantId, user.sub, id, dto);
   }
 

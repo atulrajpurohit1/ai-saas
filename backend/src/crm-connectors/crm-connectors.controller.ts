@@ -1,5 +1,15 @@
-import { Controller, Get, Post, Query, Redirect, UseGuards } from '@nestjs/common';
-import { RequireAnyPermission, RequirePermission } from '../auth/decorators/permissions.decorator';
+import {
+  Controller,
+  Get,
+  Post,
+  Query,
+  Redirect,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  RequireAnyPermission,
+  RequirePermission,
+} from '../auth/decorators/permissions.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
@@ -26,7 +36,10 @@ export class CrmConnectorsController {
 
   @Get('hubspot/callback')
   @Redirect()
-  async hubSpotCallback(@Query('code') code?: string, @Query('state') state?: string) {
+  async hubSpotCallback(
+    @Query('code') code?: string,
+    @Query('state') state?: string,
+  ) {
     try {
       await this.crmConnectorsService.handleHubSpotCallback(code, state);
       return { url: this.crmConnectorsService.hubSpotResultUrl(true) };

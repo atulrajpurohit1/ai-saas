@@ -56,7 +56,10 @@ export class LeadsController {
   @Post('upload-pdf')
   @RequirePermission('leads.import')
   @UseInterceptors(FileInterceptor('file'))
-  async uploadPdf(@UploadedFile() file: Express.Multer.File, @Req() req: Request) {
+  async uploadPdf(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: Request,
+  ) {
     if (!file) throw new BadRequestException('No file uploaded');
     const user = req.user as unknown as ActiveUser;
     return this.leadsService.processPdfLead(file.buffer, user.tenantId);
@@ -110,7 +113,12 @@ export class LeadsController {
     @Req() req: Request,
   ) {
     const user = req.user as unknown as ActiveUser;
-    return this.leadsService.updateStatus(id, updateLeadStatusDto, user.tenantId, user.sub);
+    return this.leadsService.updateStatus(
+      id,
+      updateLeadStatusDto,
+      user.tenantId,
+      user.sub,
+    );
   }
 
   @Delete(':id')

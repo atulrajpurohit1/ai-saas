@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
@@ -62,11 +66,18 @@ export class SessionsService {
     }
 
     if (session.lastSeenAt.getTime() + this.idleTimeoutMs() <= Date.now()) {
-      await this.revokeById(session.tenantId, session.id, 'SESSION_IDLE_TIMEOUT');
+      await this.revokeById(
+        session.tenantId,
+        session.id,
+        'SESSION_IDLE_TIMEOUT',
+      );
       throw new ForbiddenException('Session idle timeout');
     }
 
-    const matches = await bcrypt.compare(refreshToken, session.refreshTokenHash);
+    const matches = await bcrypt.compare(
+      refreshToken,
+      session.refreshTokenHash,
+    );
     if (!matches) {
       throw new ForbiddenException('Access Denied');
     }
@@ -120,7 +131,11 @@ export class SessionsService {
       throw new NotFoundException('Session not found');
     }
 
-    const revoked = await this.revokeById(user.tenantId, session.id, 'SESSION_FORCED_LOGOUT');
+    const revoked = await this.revokeById(
+      user.tenantId,
+      session.id,
+      'SESSION_FORCED_LOGOUT',
+    );
 
     await this.auditService.log({
       tenantId: user.tenantId,
@@ -134,34 +149,46 @@ export class SessionsService {
     return revoked;
   }
 
-  async revokeById(tenantId: string, sessionId: string, action = 'SESSION_REVOKED') {
-    return this.prisma.userSession.update({
-      where: { id: sessionId },
-      data: {
-        status: 'revoked',
-        refreshTokenHash: null,
-        revokedAt: new Date(),
-      },
-    }).then(async (session) => {
-      await this.auditService.log({
-        tenantId,
-        userId: session.userId,
-        action,
-        entityType: 'UserSession',
-        entityId: session.id,
-        details: `Session ${session.id} revoked`,
+  async revokeById(
+    tenantId: string,
+    sessionId: string,
+    action = 'SESSION_REVOKED',
+  ) {
+    return this.prisma.userSession
+      .update({
+        where: { id: sessionId },
+        data: {
+          status: 'revoked',
+          refreshTokenHash: null,
+          revokedAt: new Date(),
+        },
+      })
+      .then(async (session) => {
+        await this.auditService.log({
+          tenantId,
+          userId: session.userId,
+          action,
+          entityType: 'UserSession',
+          entityId: session.id,
+          details: `Session ${session.id} revoked`,
+        });
+        return session;
       });
-      return session;
-    });
   }
 
   private absoluteExpiry() {
-    const days = Number(this.configService.get<string>('SESSION_ABSOLUTE_DAYS') || DEFAULT_SESSION_DAYS);
+    const days = Number(
+      this.configService.get<string>('SESSION_ABSOLUTE_DAYS') ||
+        DEFAULT_SESSION_DAYS,
+    );
     return new Date(Date.now() + Math.max(1, days) * 24 * 60 * 60 * 1000);
   }
 
   private idleTimeoutMs() {
-    const minutes = Number(this.configService.get<string>('SESSION_IDLE_TIMEOUT_MINUTES') || DEFAULT_IDLE_TIMEOUT_MINUTES);
+    const minutes = Number(
+      this.configService.get<string>('SESSION_IDLE_TIMEOUT_MINUTES') ||
+        DEFAULT_IDLE_TIMEOUT_MINUTES,
+    );
     return Math.max(5, minutes) * 60 * 1000;
   }
 }

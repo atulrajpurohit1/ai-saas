@@ -19,10 +19,7 @@ export class AiPromptsController {
   }
 
   @Post()
-  create(
-    @GetUser() user: ActiveUser,
-    @Body() dto: CreatePromptVersionDto,
-  ) {
+  create(@GetUser() user: ActiveUser, @Body() dto: CreatePromptVersionDto) {
     return this.aiGovernanceService.createPromptVersion(
       user.tenantId,
       user.sub,

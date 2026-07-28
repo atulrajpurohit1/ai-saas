@@ -1,8 +1,20 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { PatrolsService } from './patrols.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
-import { RequirePermission, RequireAnyPermission } from '../auth/decorators/permissions.decorator';
+import {
+  RequirePermission,
+  RequireAnyPermission,
+} from '../auth/decorators/permissions.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CreateCheckpointDto } from './dto/create-checkpoint.dto';
@@ -64,10 +76,7 @@ export class PatrolsController {
 
   @Get('patrol-routes/:id')
   @RequireAnyPermission('patrols.view', 'patrols.manage')
-  findPatrolRoute(
-    @GetUser() user: ActiveUser,
-    @Param('id') id: string,
-  ) {
+  findPatrolRoute(@GetUser() user: ActiveUser, @Param('id') id: string) {
     return this.patrolsService.findPatrolRoute(user, id);
   }
 
@@ -99,10 +108,7 @@ export class PatrolsController {
 
   @Get('patrol-runs/:id')
   @RequireAnyPermission('patrols.view', 'patrols.manage')
-  findPatrolRun(
-    @GetUser() user: ActiveUser,
-    @Param('id') id: string,
-  ) {
+  findPatrolRun(@GetUser() user: ActiveUser, @Param('id') id: string) {
     return this.patrolsService.findPatrolRun(user, id);
   }
 }

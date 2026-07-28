@@ -19,7 +19,14 @@ export type CopilotSourceReference = {
 
 export type CopilotActionLink = {
   label: string;
-  type: 'site' | 'invoice' | 'incident' | 'client' | 'guard' | 'report' | 'dashboard';
+  type:
+    | 'site'
+    | 'invoice'
+    | 'incident'
+    | 'client'
+    | 'guard'
+    | 'report'
+    | 'dashboard';
   url: string;
 };
 

@@ -1,4 +1,10 @@
-import { Controller, ForbiddenException, Get, Param, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -27,12 +33,21 @@ export class ClientIncidentsController {
   @Get()
   findAll(@GetUser() user: ActiveUser) {
     const { tenantId, clientId, userId } = this.getClientContext(user);
-    return this.incidentsService.findApprovedForClient(tenantId, clientId, userId);
+    return this.incidentsService.findApprovedForClient(
+      tenantId,
+      clientId,
+      userId,
+    );
   }
 
   @Get(':id')
   findOne(@GetUser() user: ActiveUser, @Param('id') id: string) {
     const { tenantId, clientId, userId } = this.getClientContext(user);
-    return this.incidentsService.findApprovedDetailForClient(tenantId, clientId, userId, id);
+    return this.incidentsService.findApprovedDetailForClient(
+      tenantId,
+      clientId,
+      userId,
+      id,
+    );
   }
 }

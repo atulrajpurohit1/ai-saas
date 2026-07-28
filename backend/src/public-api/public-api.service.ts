@@ -19,7 +19,10 @@ export class PublicApiService {
     private readonly webhooksService: WebhooksService,
   ) {}
 
-  async listClients(apiKey: ApiKeyContext, query: Record<string, string | undefined>) {
+  async listClients(
+    apiKey: ApiKeyContext,
+    query: Record<string, string | undefined>,
+  ) {
     return this.prisma.client.findMany({
       where: { tenantId: apiKey.tenantId },
       select: {
@@ -53,12 +56,23 @@ export class PublicApiService {
       },
     });
 
-    await this.auditEntity(apiKey, 'CLIENT_CREATED', 'Client', client.id, `Client "${client.name}" created through public API`);
-    await this.webhooksService.triggerEvent(apiKey.tenantId, 'client.created', { client });
+    await this.auditEntity(
+      apiKey,
+      'CLIENT_CREATED',
+      'Client',
+      client.id,
+      `Client "${client.name}" created through public API`,
+    );
+    await this.webhooksService.triggerEvent(apiKey.tenantId, 'client.created', {
+      client,
+    });
     return client;
   }
 
-  async listSites(apiKey: ApiKeyContext, query: Record<string, string | undefined>) {
+  async listSites(
+    apiKey: ApiKeyContext,
+    query: Record<string, string | undefined>,
+  ) {
     return this.prisma.site.findMany({
       where: { tenantId: apiKey.tenantId },
       select: {
@@ -104,11 +118,20 @@ export class PublicApiService {
       },
     });
 
-    await this.auditEntity(apiKey, 'SITE_CREATED', 'Site', site.id, `Site "${site.name}" created through public API`);
+    await this.auditEntity(
+      apiKey,
+      'SITE_CREATED',
+      'Site',
+      site.id,
+      `Site "${site.name}" created through public API`,
+    );
     return site;
   }
 
-  async listGuards(apiKey: ApiKeyContext, query: Record<string, string | undefined>) {
+  async listGuards(
+    apiKey: ApiKeyContext,
+    query: Record<string, string | undefined>,
+  ) {
     return this.prisma.guard.findMany({
       where: { tenantId: apiKey.tenantId },
       select: {
@@ -151,19 +174,34 @@ export class PublicApiService {
       },
     });
 
-    await this.auditEntity(apiKey, 'GUARD_CREATED', 'Guard', guard.id, `Guard "${guard.name}" created through public API`);
-    await this.webhooksService.triggerEvent(apiKey.tenantId, 'guard.created', { guard });
+    await this.auditEntity(
+      apiKey,
+      'GUARD_CREATED',
+      'Guard',
+      guard.id,
+      `Guard "${guard.name}" created through public API`,
+    );
+    await this.webhooksService.triggerEvent(apiKey.tenantId, 'guard.created', {
+      guard,
+    });
     return guard;
   }
 
-  async listShifts(apiKey: ApiKeyContext, query: Record<string, string | undefined>) {
+  async listShifts(
+    apiKey: ApiKeyContext,
+    query: Record<string, string | undefined>,
+  ) {
     return this.prisma.shift.findMany({
       where: { tenantId: apiKey.tenantId },
       include: {
-        site: { select: { id: true, name: true, address: true, clientId: true } },
+        site: {
+          select: { id: true, name: true, address: true, clientId: true },
+        },
         assignments: {
           include: {
-            guard: { select: { id: true, name: true, email: true, phone: true } },
+            guard: {
+              select: { id: true, name: true, email: true, phone: true },
+            },
           },
         },
       },
@@ -179,12 +217,22 @@ export class PublicApiService {
       select: { id: true, name: true, branchId: true },
     });
     if (!site) throw new NotFoundException('Site not found');
-    const requiredGuards = Number(body.required_guards ?? body.requiredGuards ?? 1);
+    const requiredGuards = Number(
+      body.required_guards ?? body.requiredGuards ?? 1,
+    );
     if (!Number.isInteger(requiredGuards) || requiredGuards < 1) {
-      throw new BadRequestException('required_guards must be a positive integer');
+      throw new BadRequestException(
+        'required_guards must be a positive integer',
+      );
     }
-    const startTime = this.requiredDate(body.start_time ?? body.startTime, 'start_time');
-    const endTime = this.requiredDate(body.end_time ?? body.endTime, 'end_time');
+    const startTime = this.requiredDate(
+      body.start_time ?? body.startTime,
+      'start_time',
+    );
+    const endTime = this.requiredDate(
+      body.end_time ?? body.endTime,
+      'end_time',
+    );
     if (endTime <= startTime) {
       throw new BadRequestException('end_time must be after start_time');
     }
@@ -204,13 +252,24 @@ export class PublicApiService {
       },
     });
 
-    await this.auditEntity(apiKey, 'SHIFT_CREATED', 'Shift', shift.id, `Shift created through public API for site "${site.name}"`);
-    await this.webhooksService.triggerEvent(apiKey.tenantId, 'shift.created', { shift });
+    await this.auditEntity(
+      apiKey,
+      'SHIFT_CREATED',
+      'Shift',
+      shift.id,
+      `Shift created through public API for site "${site.name}"`,
+    );
+    await this.webhooksService.triggerEvent(apiKey.tenantId, 'shift.created', {
+      shift,
+    });
     return shift;
   }
 
   async assignShift(apiKey: ApiKeyContext, shiftId: string, body: any) {
-    const guardId = this.requiredString(body.guard_id ?? body.guardId, 'guard_id');
+    const guardId = this.requiredString(
+      body.guard_id ?? body.guardId,
+      'guard_id',
+    );
     const shift = await this.prisma.shift.findFirst({
       where: { id: shiftId, tenantId: apiKey.tenantId },
       include: { assignments: true },
@@ -226,7 +285,9 @@ export class PublicApiService {
     });
     if (!guard) throw new NotFoundException('Guard not found');
     if (shift.branchId && guard.branchId && shift.branchId !== guard.branchId) {
-      throw new ForbiddenException('Guard and shift must belong to the same branch');
+      throw new ForbiddenException(
+        'Guard and shift must belong to the same branch',
+      );
     }
 
     const assignment = await this.prisma.$transaction(async (tx) => {
@@ -240,7 +301,13 @@ export class PublicApiService {
       return created;
     });
 
-    await this.auditEntity(apiKey, 'GUARD_ASSIGNED', 'Shift', shift.id, `Guard "${guard.name}" assigned through public API`);
+    await this.auditEntity(
+      apiKey,
+      'GUARD_ASSIGNED',
+      'Shift',
+      shift.id,
+      `Guard "${guard.name}" assigned through public API`,
+    );
     await this.webhooksService.triggerEvent(apiKey.tenantId, 'shift.assigned', {
       shift_id: shift.id,
       guard_id: guard.id,
@@ -249,13 +316,18 @@ export class PublicApiService {
     return assignment;
   }
 
-  async listIncidents(apiKey: ApiKeyContext, query: Record<string, string | undefined>) {
+  async listIncidents(
+    apiKey: ApiKeyContext,
+    query: Record<string, string | undefined>,
+  ) {
     return this.prisma.incident.findMany({
       where: { tenantId: apiKey.tenantId },
       include: {
         site: { select: { id: true, name: true, address: true } },
         guard: { select: { id: true, name: true, email: true, phone: true } },
-        shift: { select: { id: true, startTime: true, endTime: true, status: true } },
+        shift: {
+          select: { id: true, startTime: true, endTime: true, status: true },
+        },
       },
       orderBy: { occurredAt: 'desc' },
       take: this.limit(query.limit),
@@ -263,11 +335,19 @@ export class PublicApiService {
   }
 
   async createIncident(apiKey: ApiKeyContext, body: any) {
-    const shiftId = this.requiredString(body.shift_id ?? body.shiftId, 'shift_id');
-    const guardId = this.requiredString(body.guard_id ?? body.guardId, 'guard_id');
+    const shiftId = this.requiredString(
+      body.shift_id ?? body.shiftId,
+      'shift_id',
+    );
+    const guardId = this.requiredString(
+      body.guard_id ?? body.guardId,
+      'guard_id',
+    );
     const severity = this.requiredString(body.severity, 'severity');
     if (!INCIDENT_SEVERITIES.includes(severity)) {
-      throw new BadRequestException('Severity must be low, medium, high, or critical');
+      throw new BadRequestException(
+        'Severity must be low, medium, high, or critical',
+      );
     }
 
     const shift = await this.prisma.shift.findFirst({
@@ -293,22 +373,42 @@ export class PublicApiService {
         description: this.requiredString(body.description, 'description'),
         severity,
         status: 'submitted',
-        occurredAt: this.requiredDate(body.occurred_at ?? body.occurredAt, 'occurred_at'),
-        attachmentUrl: this.optionalString(body.attachment_url ?? body.attachmentUrl),
+        occurredAt: this.requiredDate(
+          body.occurred_at ?? body.occurredAt,
+          'occurred_at',
+        ),
+        attachmentUrl: this.optionalString(
+          body.attachment_url ?? body.attachmentUrl,
+        ),
         notes: this.optionalString(body.notes),
       },
     });
 
-    await this.auditEntity(apiKey, 'INCIDENT_CREATED', 'Incident', incident.id, `Incident "${incident.title}" submitted through public API`);
-    await this.webhooksService.triggerEvent(apiKey.tenantId, 'incident.created', { incident });
+    await this.auditEntity(
+      apiKey,
+      'INCIDENT_CREATED',
+      'Incident',
+      incident.id,
+      `Incident "${incident.title}" submitted through public API`,
+    );
+    await this.webhooksService.triggerEvent(
+      apiKey.tenantId,
+      'incident.created',
+      { incident },
+    );
     return incident;
   }
 
-  async listInvoices(apiKey: ApiKeyContext, query: Record<string, string | undefined>) {
+  async listInvoices(
+    apiKey: ApiKeyContext,
+    query: Record<string, string | undefined>,
+  ) {
     return this.prisma.invoice.findMany({
       where: { tenantId: apiKey.tenantId },
       include: {
-        client: { select: { id: true, name: true, companyName: true, email: true } },
+        client: {
+          select: { id: true, name: true, companyName: true, email: true },
+        },
         site: { select: { id: true, name: true, address: true } },
         items: true,
       },
@@ -317,11 +417,16 @@ export class PublicApiService {
     });
   }
 
-  async listReports(apiKey: ApiKeyContext, query: Record<string, string | undefined>) {
+  async listReports(
+    apiKey: ApiKeyContext,
+    query: Record<string, string | undefined>,
+  ) {
     return this.prisma.dailyServiceReport.findMany({
       where: { tenantId: apiKey.tenantId },
       include: {
-        client: { select: { id: true, name: true, companyName: true, email: true } },
+        client: {
+          select: { id: true, name: true, companyName: true, email: true },
+        },
         site: { select: { id: true, name: true, address: true } },
       },
       orderBy: [{ reportDate: 'desc' }, { createdAt: 'desc' }],
@@ -337,7 +442,8 @@ export class PublicApiService {
       where: { id: normalized, tenantId },
       select: { id: true },
     });
-    if (!branch) throw new BadRequestException('branch_id must belong to this tenant');
+    if (!branch)
+      throw new BadRequestException('branch_id must belong to this tenant');
     return branch.id;
   }
 

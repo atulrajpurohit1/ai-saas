@@ -6,7 +6,10 @@ export type BranchAccessScope = {
   requestedBranchId?: string | null;
 };
 
-export function branchWhere(user: ActiveUser, requestedBranchId?: string | null) {
+export function branchWhere(
+  user: ActiveUser,
+  requestedBranchId?: string | null,
+) {
   if (user.isSuperAdmin) {
     return requestedBranchId ? { branchId: requestedBranchId } : {};
   }
@@ -24,7 +27,10 @@ export function branchWhere(user: ActiveUser, requestedBranchId?: string | null)
   };
 }
 
-export function resolveWriteBranchId(user: ActiveUser, requestedBranchId?: string | null) {
+export function resolveWriteBranchId(
+  user: ActiveUser,
+  requestedBranchId?: string | null,
+) {
   if (user.isSuperAdmin) {
     return requestedBranchId?.trim() || null;
   }
@@ -40,7 +46,10 @@ export function resolveWriteBranchId(user: ActiveUser, requestedBranchId?: strin
   return user.branchId;
 }
 
-export function branchScopedWhere(user: ActiveUser, requestedBranchId?: string | null) {
+export function branchScopedWhere(
+  user: ActiveUser,
+  requestedBranchId?: string | null,
+) {
   return {
     tenantId: user.tenantId,
     ...branchWhere(user, requestedBranchId),

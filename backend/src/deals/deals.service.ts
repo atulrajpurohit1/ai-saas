@@ -15,7 +15,11 @@ export class DealsService {
     private auditService: AuditService,
   ) {}
 
-  async create(createDealDto: CreateDealDto, tenantId: string, userId?: string) {
+  async create(
+    createDealDto: CreateDealDto,
+    tenantId: string,
+    userId?: string,
+  ) {
     const lead = await this.prisma.lead.findFirst({
       where: { id: createDealDto.leadId, tenantId },
     });
@@ -113,7 +117,12 @@ export class DealsService {
     return deal;
   }
 
-  async updateStage(id: string, updateDealStageDto: UpdateDealStageDto, tenantId: string, userId?: string) {
+  async updateStage(
+    id: string,
+    updateDealStageDto: UpdateDealStageDto,
+    tenantId: string,
+    userId?: string,
+  ) {
     await this.findOne(id, tenantId);
 
     const deal = await this.prisma.deal.update({

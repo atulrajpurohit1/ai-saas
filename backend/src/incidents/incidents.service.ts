@@ -10,8 +10,15 @@ import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
-import { CreateIncidentDto, INCIDENT_SEVERITIES } from './dto/create-incident.dto';
-import { IncidentReviewStatus, INCIDENT_REVIEW_STATUSES, ReviewIncidentDto } from './dto/review-incident.dto';
+import {
+  CreateIncidentDto,
+  INCIDENT_SEVERITIES,
+} from './dto/create-incident.dto';
+import {
+  IncidentReviewStatus,
+  INCIDENT_REVIEW_STATUSES,
+  ReviewIncidentDto,
+} from './dto/review-incident.dto';
 
 type IncidentStatus = 'submitted' | 'under_review' | 'approved' | 'rejected';
 
@@ -207,11 +214,15 @@ export class IncidentsService {
     const notes = dto.notes?.trim() || null;
 
     if (!title || !description || !severity || !dto.occurred_at) {
-      throw new BadRequestException('Title, description, severity, and occurred_at are required');
+      throw new BadRequestException(
+        'Title, description, severity, and occurred_at are required',
+      );
     }
 
     if (!INCIDENT_SEVERITIES.includes(severity)) {
-      throw new BadRequestException('Severity must be low, medium, high, or critical');
+      throw new BadRequestException(
+        'Severity must be low, medium, high, or critical',
+      );
     }
 
     if (Number.isNaN(occurredAt.getTime())) {
@@ -230,7 +241,9 @@ export class IncidentsService {
 
   private validateReviewStatus(status: string): IncidentReviewStatus {
     if (!INCIDENT_REVIEW_STATUSES.includes(status as IncidentReviewStatus)) {
-      throw new BadRequestException('Review status must be approved or rejected');
+      throw new BadRequestException(
+        'Review status must be approved or rejected',
+      );
     }
 
     return status as IncidentReviewStatus;
@@ -318,7 +331,9 @@ export class IncidentsService {
       shift.attendanceEvents.some((event) => event.type === 'CHECK_IN');
 
     if (!hasCheckedIn) {
-      throw new BadRequestException('Guard must check in before reporting an incident');
+      throw new BadRequestException(
+        'Guard must check in before reporting an incident',
+      );
     }
 
     const incidentId = randomUUID();
@@ -398,14 +413,18 @@ export class IncidentsService {
     });
 
     const mappedIncident = this.mapIncident(incident);
-    await this.webhooksService.triggerEvent(tenantId, 'incident.created', { incident: mappedIncident });
+    await this.webhooksService.triggerEvent(tenantId, 'incident.created', {
+      incident: mappedIncident,
+    });
 
     return mappedIncident;
   }
 
   async findForGuard(tenantId: string, guardId: string) {
     const rows = await this.prisma.$queryRaw<IncidentRow[]>(
-      this.incidentSelectSql(Prisma.sql`WHERE i."tenant_id" = ${tenantId} AND i."guard_id" = ${guardId}`),
+      this.incidentSelectSql(
+        Prisma.sql`WHERE i."tenant_id" = ${tenantId} AND i."guard_id" = ${guardId}`,
+      ),
     );
 
     return rows.map((row) => this.mapIncident(row));
@@ -421,7 +440,10 @@ export class IncidentsService {
     return rows.map((row) => this.mapIncident(row));
   }
 
-  async findReviewQueueForAdmin(user: ActiveUser, requestedBranchId?: string | null) {
+  async findReviewQueueForAdmin(
+    user: ActiveUser,
+    requestedBranchId?: string | null,
+  ) {
     const rows = await this.prisma.$queryRaw<IncidentRow[]>(
       this.incidentSelectSql(
         Prisma.sql`WHERE i."tenant_id" = ${user.tenantId} ${this.adminBranchSql(user, requestedBranchId)} AND i."status" IN ('submitted', 'under_review')`,
@@ -443,7 +465,11 @@ export class IncidentsService {
       throw new NotFoundException('Incident not found');
     }
 
-    const movedToReview = await this.moveSubmittedIncidentToReview(user.tenantId, user.sub, incident);
+    const movedToReview = await this.moveSubmittedIncidentToReview(
+      user.tenantId,
+      user.sub,
+      incident,
+    );
     if (movedToReview) {
       const updatedRows = await this.prisma.$queryRaw<IncidentRow[]>(
         this.incidentSelectSql(
@@ -465,7 +491,11 @@ export class IncidentsService {
     return this.mapIncident(incident);
   }
 
-  async reviewIncident(user: ActiveUser, incidentId: string, dto: ReviewIncidentDto) {
+  async reviewIncident(
+    user: ActiveUser,
+    incidentId: string,
+    dto: ReviewIncidentDto,
+  ) {
     const status = this.validateReviewStatus(dto.status);
     const reviewNote = dto.review_note?.trim() || null;
 
@@ -485,7 +515,9 @@ export class IncidentsService {
     }
 
     if (incident.status !== 'submitted' && incident.status !== 'under_review') {
-      throw new BadRequestException('Incident cannot be reviewed from its current status');
+      throw new BadRequestException(
+        'Incident cannot be reviewed from its current status',
+      );
     }
 
     await this.moveSubmittedIncidentToReview(user.tenantId, user.sub, incident);
@@ -524,15 +556,23 @@ export class IncidentsService {
     });
 
     if (status === 'approved') {
-      await this.webhooksService.triggerEvent(user.tenantId, 'incident.approved', {
-        incident: this.mapIncident(reviewedIncident),
-      });
+      await this.webhooksService.triggerEvent(
+        user.tenantId,
+        'incident.approved',
+        {
+          incident: this.mapIncident(reviewedIncident),
+        },
+      );
     }
 
     return this.mapIncident(reviewedIncident);
   }
 
-  async findApprovedForClient(tenantId: string, clientId: string, userId: string) {
+  async findApprovedForClient(
+    tenantId: string,
+    clientId: string,
+    userId: string,
+  ) {
     const rows = await this.prisma.$queryRaw<ClientIncidentRow[]>(Prisma.sql`
       SELECT
         i."id",

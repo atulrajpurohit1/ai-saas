@@ -54,7 +54,10 @@ export class RolesService {
       );
     });
 
-    if (permissionsToSync.length === 0 && existingPermissions.length === PERMISSIONS.length) {
+    if (
+      permissionsToSync.length === 0 &&
+      existingPermissions.length === PERMISSIONS.length
+    ) {
       this.permissionsReady = true;
       return;
     }
@@ -103,7 +106,9 @@ export class RolesService {
         },
       },
     });
-    const existingByName = new Map(existingRoles.map((role) => [role.name, role]));
+    const existingByName = new Map(
+      existingRoles.map((role) => [role.name, role]),
+    );
     const rolesAreCurrent = SYSTEM_ROLES.every((definition) => {
       const role = existingByName.get(definition.name);
       if (!role || role.description !== definition.description) return false;
@@ -146,7 +151,10 @@ export class RolesService {
         },
       });
 
-      await this.syncRolePermissions(role.id, systemRolePermissionKeys(definition.name));
+      await this.syncRolePermissions(
+        role.id,
+        systemRolePermissionKeys(definition.name),
+      );
     }
 
     this.tenantSystemRolesReady.add(tenantId);
@@ -318,7 +326,9 @@ export class RolesService {
     const name = dto.name?.trim();
     if (!name) throw new BadRequestException('Role name is required');
 
-    const permissionKeys = await this.validatePermissionKeys(dto.permission_keys);
+    const permissionKeys = await this.validatePermissionKeys(
+      dto.permission_keys,
+    );
     await this.assertCanUsePermissions(user, permissionKeys);
 
     const role = await this.prisma.$transaction(async (tx) => {
@@ -424,7 +434,10 @@ export class RolesService {
     await this.auditService.log({
       tenantId: user.tenantId,
       userId: user.sub,
-      action: permissionKeys === undefined ? 'ROLE_UPDATED' : 'ROLE_PERMISSION_CHANGED',
+      action:
+        permissionKeys === undefined
+          ? 'ROLE_UPDATED'
+          : 'ROLE_PERMISSION_CHANGED',
       entityType: 'Role',
       entityId: role.id,
       details: `Role "${role.name}" updated`,
@@ -521,14 +534,18 @@ export class RolesService {
     if (!role) throw new NotFoundException('Role not found');
 
     if (role.name === 'Client' || role.name === 'Guard') {
-      throw new ForbiddenException('Client and guard portal roles cannot be assigned to admin users');
+      throw new ForbiddenException(
+        'Client and guard portal roles cannot be assigned to admin users',
+      );
     }
 
     if (role.name === 'Super Admin' && !user.isSuperAdmin) {
       throw new ForbiddenException('Only super admins can assign Super Admin');
     }
 
-    const rolePermissionKeys = role.permissions.map((item) => item.permission.key);
+    const rolePermissionKeys = role.permissions.map(
+      (item) => item.permission.key,
+    );
     await this.assertCanUsePermissions(user, rolePermissionKeys);
 
     const branchId = await this.resolveAssignableBranchId(user, dto.branch_id);
@@ -603,7 +620,9 @@ export class RolesService {
     if (!assignment) throw new NotFoundException('Role assignment not found');
 
     if (!user.isSuperAdmin && assignment.branchId !== user.branchId) {
-      throw new ForbiddenException('You cannot revoke assignments outside your branch');
+      throw new ForbiddenException(
+        'You cannot revoke assignments outside your branch',
+      );
     }
 
     const updated = await this.prisma.userRoleAssignment.update({
@@ -691,17 +710,24 @@ export class RolesService {
     });
     if (!dbUser) return [];
     if (dbUser.isSuperAdmin) return ALL_PERMISSION_KEYS;
-    return systemRolePermissionKeys(dbUser.role === UserRole.FINANCE ? 'Finance' : 'Branch Admin');
+    return systemRolePermissionKeys(
+      dbUser.role === UserRole.FINANCE ? 'Finance' : 'Branch Admin',
+    );
   }
 
   private async assertHasPermissions(user: ActiveUser, permissions: string[]) {
     const allowed = await this.hasPermissions(user, permissions);
     if (!allowed) {
-      throw new ForbiddenException('You do not have permission to perform this action');
+      throw new ForbiddenException(
+        'You do not have permission to perform this action',
+      );
     }
   }
 
-  private async assertCanUsePermissions(user: ActiveUser, requestedKeys: string[]) {
+  private async assertCanUsePermissions(
+    user: ActiveUser,
+    requestedKeys: string[],
+  ) {
     if (user.isSuperAdmin) return;
 
     const actorPermissions = new Set(await this.getUserPermissionKeys(user));
@@ -714,12 +740,18 @@ export class RolesService {
   }
 
   private async validatePermissionKeys(permissionKeys: string[]) {
-    const keys = [...new Set((permissionKeys || []).map((key) => key.trim()).filter(Boolean))];
+    const keys = [
+      ...new Set(
+        (permissionKeys || []).map((key) => key.trim()).filter(Boolean),
+      ),
+    ];
     const allowed = new Set(ALL_PERMISSION_KEYS);
     const unknown = keys.filter((key) => !allowed.has(key));
 
     if (unknown.length > 0) {
-      throw new BadRequestException(`Unknown permissions: ${unknown.join(', ')}`);
+      throw new BadRequestException(
+        `Unknown permissions: ${unknown.join(', ')}`,
+      );
     }
 
     return keys;
@@ -735,7 +767,9 @@ export class RolesService {
     await this.prisma.rolePermission.deleteMany({
       where: {
         roleId,
-        permissionId: { notIn: permissionIds.length > 0 ? permissionIds : ['__none__'] },
+        permissionId: {
+          notIn: permissionIds.length > 0 ? permissionIds : ['__none__'],
+        },
       },
     });
 
@@ -747,13 +781,18 @@ export class RolesService {
     });
   }
 
-  private async resolveAssignableBranchId(user: ActiveUser, requestedBranchId?: string | null) {
+  private async resolveAssignableBranchId(
+    user: ActiveUser,
+    requestedBranchId?: string | null,
+  ) {
     const normalized = requestedBranchId?.trim() || null;
 
     if (!user.isSuperAdmin) {
       if (!user.branchId) return null;
       if (normalized && normalized !== user.branchId) {
-        throw new ForbiddenException('You cannot assign roles outside your branch');
+        throw new ForbiddenException(
+          'You cannot assign roles outside your branch',
+        );
       }
       return user.branchId;
     }
@@ -764,7 +803,8 @@ export class RolesService {
       where: { id: normalized, tenantId: user.tenantId },
       select: { id: true },
     });
-    if (!branch) throw new BadRequestException('Branch must belong to this tenant');
+    if (!branch)
+      throw new BadRequestException('Branch must belong to this tenant');
 
     return branch.id;
   }
@@ -811,17 +851,26 @@ export class RolesService {
     };
   }
 
-  private selectPrimaryRoleName(roleNames: string[], legacyRole: UserRole, isSuperAdmin: boolean) {
+  private selectPrimaryRoleName(
+    roleNames: string[],
+    legacyRole: UserRole,
+    isSuperAdmin: boolean,
+  ) {
     if (isSuperAdmin) return 'Super Admin';
     if (roleNames.length === 0) {
       return legacyRole === UserRole.FINANCE ? 'Finance' : 'Branch Admin';
     }
 
     const priority = ['Finance', 'Scheduler', 'Supervisor', 'Branch Admin'];
-    return priority.find((roleName) => roleNames.includes(roleName)) || roleNames[0];
+    return (
+      priority.find((roleName) => roleNames.includes(roleName)) || roleNames[0]
+    );
   }
 
   private slug(value: string) {
-    return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
   }
 }

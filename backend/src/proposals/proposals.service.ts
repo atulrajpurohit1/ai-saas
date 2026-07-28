@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProposalDto } from './dto/create-proposal.dto';
 import { UpdateProposalDto } from './dto/update-proposal.dto';
@@ -41,7 +45,10 @@ export class ProposalsService {
     }
   }
 
-  private async ensureClientBelongsToTenant(tenantId: string, clientId?: string) {
+  private async ensureClientBelongsToTenant(
+    tenantId: string,
+    clientId?: string,
+  ) {
     if (clientId === undefined || clientId === null) return;
 
     if (!clientId.trim()) {
@@ -58,13 +65,17 @@ export class ProposalsService {
     }
   }
 
-  private async buildPdfBuffer(
-    proposal: { tenantId: string; title: string; content: string },
-  ): Promise<Buffer> {
+  private async buildPdfBuffer(proposal: {
+    tenantId: string;
+    title: string;
+    content: string;
+  }): Promise<Buffer> {
     const PDFDocument = require('pdfkit');
     const doc = new PDFDocument({ margin: 50 });
     const chunks: Buffer[] = [];
-    const branding = await this.brandingService.brandingSnapshot(proposal.tenantId);
+    const branding = await this.brandingService.brandingSnapshot(
+      proposal.tenantId,
+    );
 
     return new Promise((resolve, reject) => {
       doc.on('data', (chunk) => chunks.push(chunk));
@@ -73,9 +84,12 @@ export class ProposalsService {
 
       this.brandingService.addPdfHeader(doc, proposal.title, branding);
       doc.moveDown();
-      doc.fontSize(12).fillColor(branding.secondary_color).text(`Generated on: ${new Date().toLocaleDateString()}`, {
-        align: 'right',
-      });
+      doc
+        .fontSize(12)
+        .fillColor(branding.secondary_color)
+        .text(`Generated on: ${new Date().toLocaleDateString()}`, {
+          align: 'right',
+        });
       doc.moveDown();
       doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
       doc.moveDown();
@@ -89,10 +103,17 @@ export class ProposalsService {
     });
   }
 
-  async create(tenantId: string, createProposalDto: CreateProposalDto, userId?: string) {
+  async create(
+    tenantId: string,
+    createProposalDto: CreateProposalDto,
+    userId?: string,
+  ) {
     await this.ensureLeadBelongsToTenant(tenantId, createProposalDto.leadId);
     await this.ensureDealBelongsToTenant(tenantId, createProposalDto.dealId);
-    await this.ensureClientBelongsToTenant(tenantId, createProposalDto.clientId);
+    await this.ensureClientBelongsToTenant(
+      tenantId,
+      createProposalDto.clientId,
+    );
 
     const proposal = await this.prisma.proposal.create({
       data: {
@@ -126,11 +147,11 @@ export class ProposalsService {
     return this.prisma.proposal.findMany({
       where: { tenantId },
       orderBy: { createdAt: 'desc' },
-      include: { 
+      include: {
         lead: true,
         deal: true,
         client: true,
-        _count: { select: { versions: true } }
+        _count: { select: { versions: true } },
       },
     });
   }
@@ -165,7 +186,10 @@ export class ProposalsService {
   ) {
     await this.ensureLeadBelongsToTenant(tenantId, updateProposalDto.leadId);
     await this.ensureDealBelongsToTenant(tenantId, updateProposalDto.dealId);
-    await this.ensureClientBelongsToTenant(tenantId, updateProposalDto.clientId);
+    await this.ensureClientBelongsToTenant(
+      tenantId,
+      updateProposalDto.clientId,
+    );
 
     const existing = await this.findOne(tenantId, id);
 
@@ -175,7 +199,10 @@ export class ProposalsService {
     });
 
     // Handle versioning if content changed
-    if (updateProposalDto.content && updateProposalDto.content !== existing.content) {
+    if (
+      updateProposalDto.content &&
+      updateProposalDto.content !== existing.content
+    ) {
       const nextVersion = existing.versions.length + 1;
       await this.prisma.proposalVersion.create({
         data: {
@@ -222,15 +249,25 @@ export class ProposalsService {
     return proposal;
   }
 
-  async export(tenantId: string, id: string, userId?: string, clientId?: string): Promise<Buffer> {
+  async export(
+    tenantId: string,
+    id: string,
+    userId?: string,
+    clientId?: string,
+  ): Promise<Buffer> {
     const proposal = await this.findOne(tenantId, id, clientId);
     return this.buildPdfBuffer(proposal);
   }
 
-  async generateForLead(tenantId: string, leadId: string, userId?: string, clientId?: string) {
+  async generateForLead(
+    tenantId: string,
+    leadId: string,
+    userId?: string,
+    clientId?: string,
+  ) {
     const lead = await this.prisma.lead.findFirst({
       where: { id: leadId, tenantId },
-      include: { notes: true, deals: true }
+      include: { notes: true, deals: true },
     });
 
     if (!lead) {
@@ -241,20 +278,24 @@ export class ProposalsService {
 
     const content = await this.aiService.generateForLead(lead);
 
-    return this.create(tenantId, {
-      title: `Security Services Proposal - ${lead.company}`,
-      content,
-      status: 'draft',
-      leadId,
-      clientId,
-    }, userId);
+    return this.create(
+      tenantId,
+      {
+        title: `Security Services Proposal - ${lead.company}`,
+        content,
+        status: 'draft',
+        leadId,
+        clientId,
+      },
+      userId,
+    );
   }
 
   async generateBulkProposals(tenantId: string, userId?: string) {
     const leads = await this.prisma.lead.findMany({
-      where: { 
+      where: {
         tenantId,
-        proposals: { none: {} }
+        proposals: { none: {} },
       },
     });
 
@@ -280,7 +321,12 @@ export class ProposalsService {
     });
   }
 
-  async addComment(tenantId: string, id: string, userId: string, content: string) {
+  async addComment(
+    tenantId: string,
+    id: string,
+    userId: string,
+    content: string,
+  ) {
     const trimmedContent = content?.trim();
 
     if (!trimmedContent) {
@@ -310,7 +356,13 @@ export class ProposalsService {
     return comment;
   }
 
-  async logAction(tenantId: string, userId: string, entityId: string, action: string, details?: string) {
+  async logAction(
+    tenantId: string,
+    userId: string,
+    entityId: string,
+    action: string,
+    details?: string,
+  ) {
     await this.auditService.log({
       tenantId,
       userId,

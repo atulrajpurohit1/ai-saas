@@ -1,8 +1,15 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { CloseInvoiceDisputeDto, RespondInvoiceDisputeDto } from './dto/respond-invoice-dispute.dto';
+import {
+  CloseInvoiceDisputeDto,
+  RespondInvoiceDisputeDto,
+} from './dto/respond-invoice-dispute.dto';
 
 const ACTIVE_DISPUTE_STATUSES = ['open', 'under_review'];
 const FINAL_DISPUTE_STATUSES = ['resolved', 'rejected'];
@@ -109,7 +116,11 @@ export class InvoiceDisputesService {
     return dto?.admin_response?.trim() || undefined;
   }
 
-  private async moveToUnderReview(tenantId: string, userId: string, dispute: any) {
+  private async moveToUnderReview(
+    tenantId: string,
+    userId: string,
+    dispute: any,
+  ) {
     if (dispute.status !== 'open') {
       return dispute;
     }
@@ -147,7 +158,12 @@ export class InvoiceDisputesService {
     return this.mapDispute(reviewed);
   }
 
-  async respond(tenantId: string, userId: string, id: string, dto: RespondInvoiceDisputeDto) {
+  async respond(
+    tenantId: string,
+    userId: string,
+    id: string,
+    dto: RespondInvoiceDisputeDto,
+  ) {
     const response = this.getResponse(dto);
 
     if (!response) {
@@ -178,7 +194,12 @@ export class InvoiceDisputesService {
     return this.mapDispute(updated);
   }
 
-  async resolve(tenantId: string, userId: string, id: string, dto?: CloseInvoiceDisputeDto) {
+  async resolve(
+    tenantId: string,
+    userId: string,
+    id: string,
+    dto?: CloseInvoiceDisputeDto,
+  ) {
     const response = this.getResponse(dto);
     const dispute = await this.findDisputeOrThrow(tenantId, id);
     this.assertActive(dispute.status);
@@ -220,7 +241,12 @@ export class InvoiceDisputesService {
     return this.mapDispute(resolved);
   }
 
-  async reject(tenantId: string, userId: string, id: string, dto?: CloseInvoiceDisputeDto) {
+  async reject(
+    tenantId: string,
+    userId: string,
+    id: string,
+    dto?: CloseInvoiceDisputeDto,
+  ) {
     const response = this.getResponse(dto);
     const dispute = await this.findDisputeOrThrow(tenantId, id);
     this.assertActive(dispute.status);

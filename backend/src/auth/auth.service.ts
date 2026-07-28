@@ -29,7 +29,10 @@ export class AuthService {
     return role.toLowerCase() === 'finance' ? 'finance' : 'admin';
   }
 
-  async register(dto: RegisterDto, context?: { ipAddress?: string | null; userAgent?: string | null }) {
+  async register(
+    dto: RegisterDto,
+    context?: { ipAddress?: string | null; userAgent?: string | null },
+  ) {
     const hashedPassword = await bcrypt.hash(dto.password, 10);
     const email = dto.email.trim().toLowerCase();
     const name = dto.name.trim();
@@ -59,7 +62,9 @@ export class AuthService {
 
       await this.rolesService.ensureTenantSystemRoles(result.tenant.id);
       await this.rolesService.ensureDefaultAssignmentForUser(result.user.id);
-      const profile = await this.rolesService.getUserAccessProfile(result.user.id);
+      const profile = await this.rolesService.getUserAccessProfile(
+        result.user.id,
+      );
 
       const sessionId = this.sessionsService.generateSessionId();
       const tokens = await this.getTokens(
@@ -104,7 +109,10 @@ export class AuthService {
     }
   }
 
-  async login(dto: LoginDto, context?: { ipAddress?: string | null; userAgent?: string | null }) {
+  async login(
+    dto: LoginDto,
+    context?: { ipAddress?: string | null; userAgent?: string | null },
+  ) {
     const email = dto.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -130,7 +138,11 @@ export class AuthService {
       sessionId,
     );
 
-    await this.updateRefreshTokenHash(user.id, tokens.refresh_token, profile.role);
+    await this.updateRefreshTokenHash(
+      user.id,
+      tokens.refresh_token,
+      profile.role,
+    );
     await this.sessionsService.createSession({
       id: sessionId,
       tenantId: user.tenantId,
@@ -142,8 +154,6 @@ export class AuthService {
     });
     return tokens;
   }
-
-
 
   async logout(userId: string, tenantId?: string, sessionId?: string) {
     if (tenantId && sessionId) {
@@ -158,7 +168,12 @@ export class AuthService {
     return true;
   }
 
-  async refreshTokens(userId: string, rt: string, role: string, sessionId?: string) {
+  async refreshTokens(
+    userId: string,
+    rt: string,
+    role: string,
+    sessionId?: string,
+  ) {
     if (sessionId) {
       await this.sessionsService.validateRefreshSession(sessionId, rt);
     }
@@ -197,7 +212,10 @@ export class AuthService {
       profile.role,
     );
     if (sessionId) {
-      await this.sessionsService.rotateRefreshToken(sessionId, tokens.refresh_token);
+      await this.sessionsService.rotateRefreshToken(
+        sessionId,
+        tokens.refresh_token,
+      );
     }
     return tokens;
   }
@@ -226,14 +244,30 @@ export class AuthService {
 
     const [at, rt] = await Promise.all([
       this.jwtService.signAsync(
-        { sub: userId, email, tenantId, role, branchId, isSuperAdmin, sessionId },
+        {
+          sub: userId,
+          email,
+          tenantId,
+          role,
+          branchId,
+          isSuperAdmin,
+          sessionId,
+        },
         {
           secret: atSecret,
           expiresIn: atExpires as unknown as number,
         },
       ),
       this.jwtService.signAsync(
-        { sub: userId, email, tenantId, role, branchId, isSuperAdmin, sessionId },
+        {
+          sub: userId,
+          email,
+          tenantId,
+          role,
+          branchId,
+          isSuperAdmin,
+          sessionId,
+        },
         {
           secret: rtSecret,
           expiresIn: rtExpires as unknown as number,

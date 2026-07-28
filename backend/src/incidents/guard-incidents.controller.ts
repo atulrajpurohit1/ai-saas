@@ -1,4 +1,12 @@
-import { Body, Controller, ForbiddenException, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -31,7 +39,12 @@ export class GuardIncidentsController {
     @Body() dto: CreateIncidentDto,
   ) {
     const { tenantId, guardId } = this.getGuardContext(user);
-    return this.incidentsService.createForGuard(tenantId, guardId, shiftId, dto);
+    return this.incidentsService.createForGuard(
+      tenantId,
+      guardId,
+      shiftId,
+      dto,
+    );
   }
 
   @Get('incidents')

@@ -1,6 +1,18 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
-import { RequireAnyPermission, RequirePermission } from '../auth/decorators/permissions.decorator';
+import {
+  RequireAnyPermission,
+  RequirePermission,
+} from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
@@ -55,7 +67,10 @@ export class WebhooksController {
 
   @Get('deliveries')
   @RequirePermission('webhooks.view')
-  listDeliveries(@GetUser() user: ActiveUser, @Query('webhook_id') webhookId?: string) {
+  listDeliveries(
+    @GetUser() user: ActiveUser,
+    @Query('webhook_id') webhookId?: string,
+  ) {
     return this.webhooksService.listDeliveries(user, webhookId);
   }
 

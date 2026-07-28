@@ -49,7 +49,8 @@ export class ClientAuthService {
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
     const passwordMatches = await bcrypt.compare(dto.password, user.password);
-    if (!passwordMatches) throw new UnauthorizedException('Invalid credentials');
+    if (!passwordMatches)
+      throw new UnauthorizedException('Invalid credentials');
 
     const tokens = await this.getTokens(
       user.id,
@@ -109,7 +110,10 @@ export class ClientAuthService {
       await this.updateRefreshTokenHash(result.user.id, tokens.refresh_token);
       return tokens;
     } catch (error: unknown) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
         throw this.uniqueConflict(error);
       }
 
@@ -126,7 +130,9 @@ export class ClientAuthService {
   }
 
   async refreshTokens(userId: string, rt: string) {
-    const user = await this.prisma.clientUser.findUnique({ where: { id: userId } });
+    const user = await this.prisma.clientUser.findUnique({
+      where: { id: userId },
+    });
 
     if (!user || !user.refreshToken)
       throw new ForbiddenException('Access Denied');
@@ -186,7 +192,9 @@ export class ClientAuthService {
       .replace(/^-+|-+$/g, '');
 
     if (!slug) {
-      throw new BadRequestException('Company name must include letters or numbers.');
+      throw new BadRequestException(
+        'Company name must include letters or numbers.',
+      );
     }
 
     return slug;
@@ -288,6 +296,8 @@ export class ClientAuthService {
       );
     }
 
-    return new ConflictException('A client account with these details already exists.');
+    return new ConflictException(
+      'A client account with these details already exists.',
+    );
   }
 }

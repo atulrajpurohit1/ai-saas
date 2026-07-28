@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -31,7 +36,11 @@ export class GuardPortalService {
     const checkOut = events.find((event) => event.type === 'CHECK_OUT');
 
     return {
-      attendanceStatus: checkOut ? 'completed' : checkIn ? 'checked_in' : 'not_started',
+      attendanceStatus: checkOut
+        ? 'completed'
+        : checkIn
+          ? 'checked_in'
+          : 'not_started',
       checkInTime: checkIn?.timestamp ?? null,
       checkOutTime: checkOut?.timestamp ?? null,
     };
@@ -47,7 +56,10 @@ export class GuardPortalService {
     await this.auditService.log({
       tenantId: data.tenantId,
       userId: data.guardId,
-      action: data.action === 'CHECK_IN' ? 'GUARD_CHECK_IN_INVALID' : 'GUARD_CHECK_OUT_INVALID',
+      action:
+        data.action === 'CHECK_IN'
+          ? 'GUARD_CHECK_IN_INVALID'
+          : 'GUARD_CHECK_OUT_INVALID',
       entityType: 'Shift',
       entityId: data.shiftId,
       details: data.reason,
@@ -55,7 +67,10 @@ export class GuardPortalService {
   }
 
   private isDuplicateAttendanceEvent(error: unknown) {
-    return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    );
   }
 
   private roundHours(value: number) {
@@ -154,9 +169,14 @@ export class GuardPortalService {
     });
 
     return assignments
-      .sort((left, right) => left.shift.startTime.getTime() - right.shift.startTime.getTime())
+      .sort(
+        (left, right) =>
+          left.shift.startTime.getTime() - right.shift.startTime.getTime(),
+      )
       .map((assignment) => {
-        const attendance = this.summarizeAttendance(assignment.shift.attendanceEvents);
+        const attendance = this.summarizeAttendance(
+          assignment.shift.attendanceEvents,
+        );
 
         return {
           id: assignment.shift.id,
@@ -175,7 +195,11 @@ export class GuardPortalService {
   }
 
   async getShiftDetail(tenantId: string, guardId: string, shiftId: string) {
-    const { shift, assignment } = await this.getAssignedShiftContext(tenantId, guardId, shiftId);
+    const { shift, assignment } = await this.getAssignedShiftContext(
+      tenantId,
+      guardId,
+      shiftId,
+    );
     const attendance = this.summarizeAttendance(shift.attendanceEvents);
 
     await this.auditService.log({
@@ -213,7 +237,12 @@ export class GuardPortalService {
   }
 
   async checkIn(tenantId: string, guardId: string, shiftId: string) {
-    const { shift, assignment } = await this.getAssignedShiftContext(tenantId, guardId, shiftId, 'CHECK_IN');
+    const { shift, assignment } = await this.getAssignedShiftContext(
+      tenantId,
+      guardId,
+      shiftId,
+      'CHECK_IN',
+    );
     const attendance = this.summarizeAttendance(shift.attendanceEvents);
 
     if (attendance.checkInTime) {
@@ -224,7 +253,9 @@ export class GuardPortalService {
         action: 'CHECK_IN',
         reason: 'Guard has already checked in for this shift',
       });
-      throw new BadRequestException('Guard has already checked in for this shift');
+      throw new BadRequestException(
+        'Guard has already checked in for this shift',
+      );
     }
 
     if (attendance.checkOutTime) {
@@ -235,7 +266,9 @@ export class GuardPortalService {
         action: 'CHECK_IN',
         reason: 'Guard has already checked out for this shift',
       });
-      throw new BadRequestException('Guard has already checked out for this shift');
+      throw new BadRequestException(
+        'Guard has already checked out for this shift',
+      );
     }
 
     try {
@@ -283,7 +316,9 @@ export class GuardPortalService {
           action: 'CHECK_IN',
           reason: 'Guard has already checked in for this shift',
         });
-        throw new BadRequestException('Guard has already checked in for this shift');
+        throw new BadRequestException(
+          'Guard has already checked in for this shift',
+        );
       }
 
       throw error;
@@ -291,7 +326,12 @@ export class GuardPortalService {
   }
 
   async checkOut(tenantId: string, guardId: string, shiftId: string) {
-    const { shift, assignment } = await this.getAssignedShiftContext(tenantId, guardId, shiftId, 'CHECK_OUT');
+    const { shift, assignment } = await this.getAssignedShiftContext(
+      tenantId,
+      guardId,
+      shiftId,
+      'CHECK_OUT',
+    );
     const attendance = this.summarizeAttendance(shift.attendanceEvents);
 
     if (attendance.checkOutTime) {
@@ -302,7 +342,9 @@ export class GuardPortalService {
         action: 'CHECK_OUT',
         reason: 'Guard has already checked out for this shift',
       });
-      throw new BadRequestException('Guard has already checked out for this shift');
+      throw new BadRequestException(
+        'Guard has already checked out for this shift',
+      );
     }
 
     if (!attendance.checkInTime) {
@@ -336,7 +378,11 @@ export class GuardPortalService {
         });
 
         const totalHours = this.roundHours(
-          Math.max(0, (attendanceEvent.timestamp.getTime() - checkInTime.getTime()) / 3_600_000),
+          Math.max(
+            0,
+            (attendanceEvent.timestamp.getTime() - checkInTime.getTime()) /
+              3_600_000,
+          ),
         );
 
         const timesheet = await tx.timesheet.upsert({
@@ -402,7 +448,9 @@ export class GuardPortalService {
           action: 'CHECK_OUT',
           reason: 'Guard has already checked out for this shift',
         });
-        throw new BadRequestException('Guard has already checked out for this shift');
+        throw new BadRequestException(
+          'Guard has already checked out for this shift',
+        );
       }
 
       throw error;
@@ -417,12 +465,19 @@ export class GuardPortalService {
     });
   }
 
-  async processSyncQueue(tenantId: string, guardId: string, dto: SyncOfflineActionsDto) {
-    const results: Awaited<ReturnType<typeof this.prisma.guardSyncQueue.create>>[] = [];
-    
+  async processSyncQueue(
+    tenantId: string,
+    guardId: string,
+    dto: SyncOfflineActionsDto,
+  ) {
+    const results: Awaited<
+      ReturnType<typeof this.prisma.guardSyncQueue.create>
+    >[] = [];
+
     // Sort actions by original createdAt
     const sortedActions = [...dto.actions].sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
     );
 
     for (const action of sortedActions) {
@@ -454,7 +509,9 @@ export class GuardPortalService {
           try {
             await this.checkIn(tenantId, guardId, action.payload.shiftId);
           } catch (error) {
-            if (error.message === 'Guard has already checked in for this shift') {
+            if (
+              error.message === 'Guard has already checked in for this shift'
+            ) {
               // Ignore already checked in
             } else {
               throw error;
@@ -464,7 +521,9 @@ export class GuardPortalService {
           try {
             await this.checkOut(tenantId, guardId, action.payload.shiftId);
           } catch (error) {
-            if (error.message === 'Guard has already checked out for this shift') {
+            if (
+              error.message === 'Guard has already checked out for this shift'
+            ) {
               // Ignore already checked out
             } else {
               throw error;
@@ -501,12 +560,15 @@ export class GuardPortalService {
           data: { status: 'synced', syncedAt: new Date() },
         });
         results.push(synced);
-
       } catch (error) {
         // Mark as failed
         const failed = await this.prisma.guardSyncQueue.update({
           where: { id: action.id },
-          data: { status: 'failed', errorMessage: error instanceof Error ? error.message : 'Unknown error' },
+          data: {
+            status: 'failed',
+            errorMessage:
+              error instanceof Error ? error.message : 'Unknown error',
+          },
         });
         results.push(failed);
       }

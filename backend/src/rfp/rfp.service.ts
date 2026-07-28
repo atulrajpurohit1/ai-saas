@@ -471,7 +471,13 @@ export class RfpService {
     id: string,
     vendorId: string,
   ) {
-    await this.findRfpOrThrow(tenantId, id);
+    const rfp = await this.findRfpOrThrow(tenantId, id);
+
+    if (rfp.awardedVendorId === vendorId) {
+      throw new BadRequestException(
+        'The awarded vendor cannot be removed from this RFP.',
+      );
+    }
 
     const assignment = await this.prisma.rfpVendor.findFirst({
       where: { tenantId, rfpId: id, vendorId },
@@ -806,8 +812,11 @@ export class RfpService {
       );
     }
 
-    const updated = await this.prisma.rfp.update({
-      where: { id },
+    // Atomic conditional update: only succeeds if the RFP is still un-awarded at the moment of writing,
+    // closing the check-then-act race window between the read above and this write (two concurrent
+    // award requests can no longer both succeed).
+    const awardResult = await this.prisma.rfp.updateMany({
+      where: { id, tenantId, awardedVendorId: null },
       data: {
         awardedVendorId: vendorId,
         awardDate: new Date(),
@@ -815,6 +824,12 @@ export class RfpService {
         status: 'AWARDED',
       },
     });
+
+    if (awardResult.count === 0) {
+      throw new BadRequestException('This RFP has already been awarded.');
+    }
+
+    const updated = await this.findRfpOrThrow(tenantId, id);
 
     if (rfpVendor.vendor.email) {
       try {

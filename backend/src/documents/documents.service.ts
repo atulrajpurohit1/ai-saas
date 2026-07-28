@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
@@ -17,7 +21,9 @@ export class DocumentsService {
     const clientId = data.clientId?.trim();
 
     if (!name || !url || !clientId) {
-      throw new BadRequestException('Document name, URL, and client are required');
+      throw new BadRequestException(
+        'Document name, URL, and client are required',
+      );
     }
 
     const client = await this.prisma.client.findFirst({
@@ -53,7 +59,7 @@ export class DocumentsService {
 
   async findAll(tenantId: string, clientId?: string) {
     return this.prisma.sharedDocument.findMany({
-      where: { 
+      where: {
         tenantId,
         ...(clientId ? { clientId } : {}),
       },
@@ -72,7 +78,7 @@ export class DocumentsService {
 
   async remove(tenantId: string, id: string, userId: string) {
     await this.findOne(tenantId, id);
-    
+
     const deleted = await this.prisma.sharedDocument.delete({
       where: { id },
     });

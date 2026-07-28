@@ -1,4 +1,13 @@
-import { Body, Controller, ForbiddenException, Get, Param, Post, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Post,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -33,9 +42,18 @@ export class ClientInvoicesController {
   }
 
   @Get(':id/download')
-  async download(@GetUser() user: ActiveUser, @Param('id') id: string, @Res() res: Response) {
+  async download(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
     const { tenantId, clientId, userId } = this.getClientContext(user);
-    const { buffer, invoice } = await this.invoicesService.downloadForClient(tenantId, clientId, userId, id);
+    const { buffer, invoice } = await this.invoicesService.downloadForClient(
+      tenantId,
+      clientId,
+      userId,
+      id,
+    );
 
     res.set({
       'Content-Type': 'application/pdf',
@@ -59,9 +77,19 @@ export class ClientInvoicesController {
   }
 
   @Post(':id/dispute')
-  dispute(@GetUser() user: ActiveUser, @Param('id') id: string, @Body() dto: DisputeInvoiceDto) {
+  dispute(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Body() dto: DisputeInvoiceDto,
+  ) {
     const { tenantId, clientId, userId } = this.getClientContext(user);
-    return this.invoicesService.disputeInvoice(tenantId, clientId, userId, id, dto);
+    return this.invoicesService.disputeInvoice(
+      tenantId,
+      clientId,
+      userId,
+      id,
+      dto,
+    );
   }
 
   @Get(':id/dispute')

@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -92,7 +97,10 @@ export class SalesAutomationService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async runForTenant(tenantId: string, userId?: string): Promise<AutomationRunSummary> {
+  async runForTenant(
+    tenantId: string,
+    userId?: string,
+  ): Promise<AutomationRunSummary> {
     const summary = this.emptySummary(tenantId);
     const now = new Date();
 
@@ -159,7 +167,10 @@ export class SalesAutomationService implements OnModuleInit, OnModuleDestroy {
       } catch (error) {
         summary.errors.push({
           dealId: deal.id,
-          message: error instanceof Error ? error.message : 'Unable to automate follow-up',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Unable to automate follow-up',
         });
       }
     }
@@ -170,7 +181,9 @@ export class SalesAutomationService implements OnModuleInit, OnModuleDestroy {
   }
 
   private followUpDecision(deal: any, now: Date): FollowUpDecision {
-    const pendingActivities = deal.activities.filter((activity: any) => activity.status !== 'completed');
+    const pendingActivities = deal.activities.filter(
+      (activity: any) => activity.status !== 'completed',
+    );
     const hasOpenAutomationTask = pendingActivities.some((activity: any) =>
       String(activity.description || '').includes(AUTOMATION_MARKER),
     );
@@ -189,19 +202,32 @@ export class SalesAutomationService implements OnModuleInit, OnModuleDestroy {
 
     const lastActivity = deal.activities[0] || null;
     const daysSinceActivity = lastActivity
-      ? Math.floor((now.getTime() - lastActivity.createdAt.getTime()) / (1000 * 60 * 60 * 24))
+      ? Math.floor(
+          (now.getTime() - lastActivity.createdAt.getTime()) /
+            (1000 * 60 * 60 * 24),
+        )
       : null;
     const assessment = deal.salesAssessments[0] || null;
     const discovery = deal.discoverySessions[0] || null;
     const reasons: string[] = [];
 
-    if (daysSinceActivity === null) reasons.push('No activity has been logged for this deal.');
-    else if (daysSinceActivity >= 7) reasons.push(`No activity has been logged for ${daysSinceActivity} days.`);
+    if (daysSinceActivity === null)
+      reasons.push('No activity has been logged for this deal.');
+    else if (daysSinceActivity >= 7)
+      reasons.push(
+        `No activity has been logged for ${daysSinceActivity} days.`,
+      );
 
     if (!discovery) reasons.push('Discovery is missing.');
-    if ((assessment?.closeReadinessScore ?? 100) < 55) reasons.push('Close readiness is below target.');
-    if ((assessment?.discoveryQualityScore ?? 100) < 60) reasons.push('Discovery quality is below target.');
-    if ((assessment?.objectionRisks?.length || discovery?.objections?.length || 0) > 0) {
+    if ((assessment?.closeReadinessScore ?? 100) < 55)
+      reasons.push('Close readiness is below target.');
+    if ((assessment?.discoveryQualityScore ?? 100) < 60)
+      reasons.push('Discovery quality is below target.');
+    if (
+      (assessment?.objectionRisks?.length ||
+        discovery?.objections?.length ||
+        0) > 0
+    ) {
       reasons.push('Buyer objections need follow-up.');
     }
 

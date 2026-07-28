@@ -10,7 +10,8 @@ export enum LeadStatus {
 
 export class UpdateLeadStatusDto {
   @IsEnum(LeadStatus, {
-    message: 'Status must be one of: new, contacted, proposal_sent, responded, closed',
+    message:
+      'Status must be one of: new, contacted, proposal_sent, responded, closed',
   })
   status: LeadStatus;
 }

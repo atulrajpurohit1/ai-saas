@@ -31,7 +31,9 @@ export class PermissionGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<Record<string, unknown>>();
+    const request = context
+      .switchToHttp()
+      .getRequest<Record<string, unknown>>();
     const user = request.user as ActiveUser | undefined;
 
     const hasRequired = await this.rolesService.hasPermissions(

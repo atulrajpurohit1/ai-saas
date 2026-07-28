@@ -70,7 +70,9 @@ describe('ShiftsService smart guard recommendations', () => {
       $transaction: jest.fn(),
     };
     auditService = { log: jest.fn().mockResolvedValue(undefined) };
-    aiService = { explainGuardRecommendation: jest.fn().mockResolvedValue(null) };
+    aiService = {
+      explainGuardRecommendation: jest.fn().mockResolvedValue(null),
+    };
     webhooksService = { triggerEvent: jest.fn().mockResolvedValue(undefined) };
     recommendationService = new RecommendationService(
       prisma as unknown as PrismaService,
@@ -90,13 +92,35 @@ describe('ShiftsService smart guard recommendations', () => {
       guard('guard-smith', 'Smith'),
     ]);
     prisma.shift.findMany.mockResolvedValue([
-      pastShift('past-site-1', siteId, 'guard-ramesh', '2026-06-02T08:00:00.000Z', '2026-06-02T08:00:00.000Z'),
-      pastShift('past-site-2', siteId, 'guard-ramesh', '2026-06-04T08:00:00.000Z', '2026-06-04T08:01:00.000Z'),
-      pastShift('past-other-1', 'site-2', 'guard-smith', '2026-06-03T08:00:00.000Z', '2026-06-03T08:20:00.000Z'),
-      pastShift('past-other-2', 'site-2', 'guard-smith', '2026-06-05T08:00:00.000Z', null, [
-        { guardId: 'guard-smith' },
-        { guardId: 'other-guard' },
-      ]),
+      pastShift(
+        'past-site-1',
+        siteId,
+        'guard-ramesh',
+        '2026-06-02T08:00:00.000Z',
+        '2026-06-02T08:00:00.000Z',
+      ),
+      pastShift(
+        'past-site-2',
+        siteId,
+        'guard-ramesh',
+        '2026-06-04T08:00:00.000Z',
+        '2026-06-04T08:01:00.000Z',
+      ),
+      pastShift(
+        'past-other-1',
+        'site-2',
+        'guard-smith',
+        '2026-06-03T08:00:00.000Z',
+        '2026-06-03T08:20:00.000Z',
+      ),
+      pastShift(
+        'past-other-2',
+        'site-2',
+        'guard-smith',
+        '2026-06-05T08:00:00.000Z',
+        null,
+        [{ guardId: 'guard-smith' }, { guardId: 'other-guard' }],
+      ),
       upcomingShift('upcoming-1', 'guard-smith', '2026-06-21T08:00:00.000Z'),
       upcomingShift('upcoming-2', 'guard-smith', '2026-06-22T08:00:00.000Z'),
       upcomingShift('upcoming-3', 'guard-smith', '2026-06-23T08:00:00.000Z'),
@@ -170,7 +194,13 @@ describe('ShiftsService smart guard recommendations', () => {
     prisma.availability.findUnique.mockResolvedValue(null);
     prisma.guard.findMany.mockResolvedValue([guard('guard-ramesh', 'Ramesh')]);
     prisma.shift.findMany.mockResolvedValue([
-      pastShift('past-site-1', siteId, 'guard-ramesh', '2026-06-02T08:00:00.000Z', '2026-06-02T08:00:00.000Z'),
+      pastShift(
+        'past-site-1',
+        siteId,
+        'guard-ramesh',
+        '2026-06-02T08:00:00.000Z',
+        '2026-06-02T08:00:00.000Z',
+      ),
     ]);
 
     const tx = {
@@ -183,10 +213,14 @@ describe('ShiftsService smart guard recommendations', () => {
         }),
       },
       shift: {
-        update: jest.fn().mockResolvedValue({ id: shiftId, status: 'assigned' }),
+        update: jest
+          .fn()
+          .mockResolvedValue({ id: shiftId, status: 'assigned' }),
       },
     };
-    prisma.$transaction.mockImplementation(async (callback: (tx: typeof tx) => Promise<unknown>) => callback(tx));
+    prisma.$transaction.mockImplementation(
+      async (callback: (tx: typeof tx) => Promise<unknown>) => callback(tx),
+    );
 
     await service.assign(activeUser, shiftId, 'guard-ramesh');
 

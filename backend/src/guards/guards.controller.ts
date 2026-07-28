@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { GuardsService } from './guards.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
@@ -18,10 +27,7 @@ export class GuardsController {
 
   @Post()
   @RequirePermission('guards.manage')
-  create(
-    @GetUser() user: ActiveUser,
-    @Body() createGuardDto: CreateGuardDto,
-  ) {
+  create(@GetUser() user: ActiveUser, @Body() createGuardDto: CreateGuardDto) {
     return this.guardsService.create(user, createGuardDto);
   }
 
@@ -46,10 +52,7 @@ export class GuardsController {
   }
 
   @Get(':id/availability')
-  getAvailability(
-    @GetUser() user: ActiveUser,
-    @Param('id') id: string,
-  ) {
+  getAvailability(@GetUser() user: ActiveUser, @Param('id') id: string) {
     return this.guardsService.getAvailability(user, id);
   }
 

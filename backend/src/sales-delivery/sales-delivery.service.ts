@@ -20,23 +20,22 @@ export class SalesDeliveryService {
   ) {
     const hasSmtpConfig = Boolean(
       process.env.SMTP_HOST &&
-        process.env.SMTP_USER &&
-        process.env.SMTP_PASS &&
-        process.env.SMTP_USER !== 'your-ethereal-user' &&
-        process.env.SMTP_PASS !== 'your-ethereal-pass',
+      process.env.SMTP_USER &&
+      process.env.SMTP_PASS &&
+      process.env.SMTP_USER !== 'your-ethereal-user' &&
+      process.env.SMTP_PASS !== 'your-ethereal-pass',
     );
 
-    this.transporter =
-      hasSmtpConfig
-        ? nodemailer.createTransport({
-            host: process.env.SMTP_HOST,
-            port: Number(process.env.SMTP_PORT) || 587,
-            auth: {
-              user: process.env.SMTP_USER,
-              pass: process.env.SMTP_PASS,
-            },
-          })
-        : nodemailer.createTransport({ jsonTransport: true });
+    this.transporter = hasSmtpConfig
+      ? nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: Number(process.env.SMTP_PORT) || 587,
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+          },
+        })
+      : nodemailer.createTransport({ jsonTransport: true });
   }
 
   async draftDealFollowUp(tenantId: string, dealId: string) {
@@ -86,7 +85,9 @@ export class SalesDeliveryService {
     const draft = await this.draftDealFollowUp(tenantId, dealId);
 
     if (!draft.to) {
-      throw new BadRequestException('This deal lead does not have an email address');
+      throw new BadRequestException(
+        'This deal lead does not have an email address',
+      );
     }
 
     const branding = await this.brandingService.brandingSnapshot(tenantId);
@@ -194,7 +195,11 @@ export class SalesDeliveryService {
     return deal;
   }
 
-  private nextActivity(activities: Array<{ status: string; dueDate: Date | null } & Record<string, any>>) {
+  private nextActivity(
+    activities: Array<
+      { status: string; dueDate: Date | null } & Record<string, any>
+    >,
+  ) {
     const now = new Date();
     return (
       activities.find(
@@ -214,7 +219,10 @@ export class SalesDeliveryService {
   }
 
   private icsDate(date: Date) {
-    return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+    return date
+      .toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/\.\d{3}Z$/, 'Z');
   }
 
   private icsText(value: string) {
@@ -226,7 +234,12 @@ export class SalesDeliveryService {
   }
 
   private slug(value: string) {
-    return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'sales';
+    return (
+      value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'sales'
+    );
   }
 
   private escapeHtml(value: string) {

@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
 import { BrandingService } from '../branding/branding.service';
 import { FieldPermissionsService } from '../field-permissions/field-permissions.service';
@@ -20,7 +25,11 @@ describe('InvoicesService', () => {
   };
   let auditService: { log: jest.Mock };
   let webhooksService: { triggerEvent: jest.Mock };
-  let brandingService: { brandingSnapshot: jest.Mock; emailShell: jest.Mock; addPdfHeader: jest.Mock };
+  let brandingService: {
+    brandingSnapshot: jest.Mock;
+    emailShell: jest.Mock;
+    addPdfHeader: jest.Mock;
+  };
   let fieldPermissionsService: { filterFieldsByPermission: jest.Mock };
 
   const tenantId = 'tenant-1';
@@ -244,7 +253,9 @@ describe('InvoicesService', () => {
         create: jest.fn().mockResolvedValue(invoice),
       },
     };
-    prisma.$transaction.mockImplementation(async (callback: (tx: typeof tx) => Promise<unknown>) => callback(tx));
+    prisma.$transaction.mockImplementation(
+      async (callback: (tx: typeof tx) => Promise<unknown>) => callback(tx),
+    );
     return tx;
   }
 
@@ -272,7 +283,9 @@ describe('InvoicesService', () => {
     expect(invoice.invoiceNumber).toBe(baseInvoice.invoiceNumber);
     expect(invoice.items).toHaveLength(2);
     expect(tx.invoice.create).toHaveBeenCalled();
-    expect(auditService.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'INVOICE_GENERATED' }));
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'INVOICE_GENERATED' }),
+    );
   });
 
   it('explains when approved timesheets exist but have zero billable hours', async () => {
@@ -306,7 +319,9 @@ describe('InvoicesService', () => {
     prisma.rateCard.findFirst.mockResolvedValue(rateCard);
     prisma.timesheet.findMany.mockResolvedValue([]);
 
-    await expect(service.generateInvoice(activeUser, dto)).rejects.toThrow(BadRequestException);
+    await expect(service.generateInvoice(activeUser, dto)).rejects.toThrow(
+      BadRequestException,
+    );
     await expect(service.generateInvoice(activeUser, dto)).rejects.toThrow(
       'No approved timesheets found for this billing period',
     );
@@ -316,7 +331,9 @@ describe('InvoicesService', () => {
     mockBillableClientAndSite();
     prisma.rateCard.findFirst.mockResolvedValue(null);
 
-    await expect(service.generateInvoice(activeUser, dto)).rejects.toThrow(BadRequestException);
+    await expect(service.generateInvoice(activeUser, dto)).rejects.toThrow(
+      BadRequestException,
+    );
     expect(prisma.timesheet.findMany).not.toHaveBeenCalled();
   });
 
@@ -327,7 +344,9 @@ describe('InvoicesService', () => {
         billing_start_date: '2026-05-15',
         billing_end_date: '2026-05-01',
       }),
-    ).rejects.toThrow('billing_end_date must be on or after billing_start_date');
+    ).rejects.toThrow(
+      'billing_end_date must be on or after billing_start_date',
+    );
 
     expect(prisma.client.findFirst).not.toHaveBeenCalled();
   });
@@ -402,25 +421,36 @@ describe('InvoicesService', () => {
   it('rejects duplicate invoices for the same client, site, and billing period', async () => {
     prisma.client.findFirst.mockResolvedValue(client);
     prisma.site.findFirst.mockResolvedValue(site);
-    prisma.invoice.findFirst.mockResolvedValue({ id: 'existing-invoice', invoiceNumber: 'INV-EXISTING' });
+    prisma.invoice.findFirst.mockResolvedValue({
+      id: 'existing-invoice',
+      invoiceNumber: 'INV-EXISTING',
+    });
 
-    await expect(service.generateInvoice(activeUser, dto)).rejects.toThrow(ConflictException);
+    await expect(service.generateInvoice(activeUser, dto)).rejects.toThrow(
+      ConflictException,
+    );
     expect(prisma.rateCard.findFirst).not.toHaveBeenCalled();
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('requires client context for client invoice access', async () => {
-    await expect(service.findAllForClient(tenantId, '')).rejects.toThrow(ForbiddenException);
-    await expect(service.findOneForClient(tenantId, '', 'invoice-1')).rejects.toThrow(ForbiddenException);
-    await expect(service.downloadForClient(tenantId, '', 'client-user-1', 'invoice-1')).rejects.toThrow(
+    await expect(service.findAllForClient(tenantId, '')).rejects.toThrow(
       ForbiddenException,
     );
+    await expect(
+      service.findOneForClient(tenantId, '', 'invoice-1'),
+    ).rejects.toThrow(ForbiddenException);
+    await expect(
+      service.downloadForClient(tenantId, '', 'client-user-1', 'invoice-1'),
+    ).rejects.toThrow(ForbiddenException);
   });
 
   it('restricts client invoice details to the owning client and visible statuses', async () => {
     prisma.invoice.findFirst.mockResolvedValue(null);
 
-    await expect(service.findOneForClient(tenantId, 'other-client', 'invoice-1')).rejects.toThrow(NotFoundException);
+    await expect(
+      service.findOneForClient(tenantId, 'other-client', 'invoice-1'),
+    ).rejects.toThrow(NotFoundException);
 
     expect(prisma.invoice.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -441,12 +471,17 @@ describe('InvoicesService', () => {
       issuedAt: new Date('2026-05-16T00:00:00.000Z'),
     });
 
-    const { buffer, invoice } = await service.exportForAdmin(activeUser, 'invoice-1');
+    const { buffer, invoice } = await service.exportForAdmin(
+      activeUser,
+      'invoice-1',
+    );
 
     expect(Buffer.isBuffer(buffer)).toBe(true);
     expect(buffer.length).toBeGreaterThan(0);
     expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
     expect(invoice.invoiceNumber).toBe(baseInvoice.invoiceNumber);
-    expect(auditService.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'INVOICE_DOWNLOADED' }));
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'INVOICE_DOWNLOADED' }),
+    );
   });
 });

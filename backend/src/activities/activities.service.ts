@@ -51,7 +51,12 @@ export class ActivitiesService {
     });
   }
 
-  async updateStatus(id: string, status: string, tenantId: string, userId?: string) {
+  async updateStatus(
+    id: string,
+    status: string,
+    tenantId: string,
+    userId?: string,
+  ) {
     const activity = await this.prisma.activity.findFirst({
       where: { id, tenantId },
     });

@@ -14,14 +14,24 @@ export class SalesDeliveryController {
 
   @Get('deals/:dealId/follow-up-draft')
   @RequireAnyPermission('ai.view', 'deals.view')
-  draftDealFollowUp(@Param('dealId') dealId: string, @GetUser() user: ActiveUser) {
+  draftDealFollowUp(
+    @Param('dealId') dealId: string,
+    @GetUser() user: ActiveUser,
+  ) {
     return this.salesDeliveryService.draftDealFollowUp(user.tenantId, dealId);
   }
 
   @Post('deals/:dealId/send-follow-up')
   @RequireAnyPermission('activities.manage', 'deals.update', 'proposals.update')
-  sendDealFollowUp(@Param('dealId') dealId: string, @GetUser() user: ActiveUser) {
-    return this.salesDeliveryService.sendDealFollowUp(user.tenantId, dealId, user.sub);
+  sendDealFollowUp(
+    @Param('dealId') dealId: string,
+    @GetUser() user: ActiveUser,
+  ) {
+    return this.salesDeliveryService.sendDealFollowUp(
+      user.tenantId,
+      dealId,
+      user.sub,
+    );
   }
 
   @Get('deals/:dealId/calendar.ics')
@@ -31,9 +41,15 @@ export class SalesDeliveryController {
     @GetUser() user: ActiveUser,
     @Res() res: Response,
   ) {
-    const calendar = await this.salesDeliveryService.calendarForDeal(user.tenantId, dealId);
+    const calendar = await this.salesDeliveryService.calendarForDeal(
+      user.tenantId,
+      dealId,
+    );
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${calendar.filename}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${calendar.filename}"`,
+    );
     res.status(200).send(calendar.content);
   }
 }

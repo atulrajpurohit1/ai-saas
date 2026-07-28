@@ -46,10 +46,12 @@ export class PublicApiLoggingInterceptor implements NestInterceptor {
   }
 
   private getIpAddress(request: PublicApiRequest) {
-    return this.getHeader(request, 'x-forwarded-for')?.split(',')[0]?.trim()
-      || request.ip
-      || request.socket?.remoteAddress
-      || null;
+    return (
+      this.getHeader(request, 'x-forwarded-for')?.split(',')[0]?.trim() ||
+      request.ip ||
+      request.socket?.remoteAddress ||
+      null
+    );
   }
 
   private getHeader(request: PublicApiRequest, key: string) {

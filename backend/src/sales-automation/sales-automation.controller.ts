@@ -9,7 +9,9 @@ import { SalesAutomationService } from './sales-automation.service';
 @UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('sales-automation')
 export class SalesAutomationController {
-  constructor(private readonly salesAutomationService: SalesAutomationService) {}
+  constructor(
+    private readonly salesAutomationService: SalesAutomationService,
+  ) {}
 
   @Get('status')
   @RequireAnyPermission('ai.view', 'deals.view', 'activities.view')

@@ -48,7 +48,9 @@ describe('AiInsightsService', () => {
       getModelName: jest.fn().mockReturnValue('test-model'),
     };
     aiMonitoringService = {
-      applyFeedbackToRecommendations: jest.fn(async (_tenantId, recommendations) => recommendations),
+      applyFeedbackToRecommendations: jest.fn(
+        async (_tenantId, recommendations) => recommendations,
+      ),
       attachGenerationId: jest.fn((recommendations) => recommendations),
       getFeedbackSummaryForPrompt: jest.fn().mockResolvedValue({
         averageRating: null,
@@ -180,9 +182,8 @@ describe('AiInsightsService', () => {
   });
 
   it('falls back to rule-based dashboard recommendations when AI is unavailable', async () => {
-    jest
-      .spyOn(service, 'getClientInsights')
-      .mockResolvedValue(section<ClientInsightsResponse['rows'][number]>([
+    jest.spyOn(service, 'getClientInsights').mockResolvedValue(
+      section<ClientInsightsResponse['rows'][number]>([
         {
           clientId: 'client-1',
           name: 'Client B',
@@ -193,10 +194,10 @@ describe('AiInsightsService', () => {
           contractActivity: 1,
           siteCount: 1,
         },
-      ]));
-    jest
-      .spyOn(service, 'getGuardInsights')
-      .mockResolvedValue(section<GuardInsightsResponse['rows'][number]>([
+      ]),
+    );
+    jest.spyOn(service, 'getGuardInsights').mockResolvedValue(
+      section<GuardInsightsResponse['rows'][number]>([
         {
           guardId: 'guard-1',
           name: 'Guard Smith',
@@ -207,10 +208,10 @@ describe('AiInsightsService', () => {
           missedShifts: 3,
           incidentCount: 0,
         },
-      ]));
-    jest
-      .spyOn(service, 'getSiteInsights')
-      .mockResolvedValue(section<SiteInsightsResponse['rows'][number]>([
+      ]),
+    );
+    jest.spyOn(service, 'getSiteInsights').mockResolvedValue(
+      section<SiteInsightsResponse['rows'][number]>([
         {
           siteId: 'site-1',
           name: 'Site A',
@@ -222,10 +223,10 @@ describe('AiInsightsService', () => {
           shortageSlots: 2,
           attendanceRate: 50,
         },
-      ]));
-    jest
-      .spyOn(service, 'getBillingInsights')
-      .mockResolvedValue(section<BillingInsightsResponse['rows'][number]>([
+      ]),
+    );
+    jest.spyOn(service, 'getBillingInsights').mockResolvedValue(
+      section<BillingInsightsResponse['rows'][number]>([
         {
           clientId: 'client-1',
           name: 'Client B',
@@ -235,7 +236,8 @@ describe('AiInsightsService', () => {
           disputedAmount: 0,
           invoiceCount: 1,
         },
-      ]));
+      ]),
+    );
 
     const result = await service.getDashboard(tenantId);
 

@@ -1,4 +1,15 @@
-import { BadRequestException, Controller, Get, Post, Param, Body, UseGuards, ForbiddenException, NotFoundException, Response } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  UseGuards,
+  ForbiddenException,
+  NotFoundException,
+  Response,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
@@ -27,9 +38,9 @@ export class ClientPortalController {
     this.checkClient(user);
 
     return this.prisma.proposal.findMany({
-      where: { 
+      where: {
         clientId: user.clientId,
-        tenantId: user.tenantId 
+        tenantId: user.tenantId,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -40,10 +51,10 @@ export class ClientPortalController {
     this.checkClient(user);
 
     const proposal = await this.prisma.proposal.findFirst({
-      where: { 
-        id, 
+      where: {
+        id,
         clientId: user.clientId,
-        tenantId: user.tenantId 
+        tenantId: user.tenantId,
       },
       include: {
         versions: { orderBy: { versionNumber: 'desc' }, take: 1 },
@@ -134,9 +145,9 @@ export class ClientPortalController {
 
   @Post('proposals/:id/comments')
   async addComment(
-    @GetUser() user: ActiveUser, 
+    @GetUser() user: ActiveUser,
     @Param('id') id: string,
-    @Body('content') content: string
+    @Body('content') content: string,
   ) {
     this.checkClient(user);
     await this.getProposal(user, id); // Auth check
@@ -185,7 +196,15 @@ export class ClientPortalController {
       {
         entityId: id,
         entityType: { in: ['Proposal', 'PROPOSAL'] },
-        action: { in: ['CREATE', 'PROPOSAL_APPROVED', 'PROPOSAL_REJECTED', 'COMMENT_ADDED', 'DOCUMENT_SHARED'] },
+        action: {
+          in: [
+            'CREATE',
+            'PROPOSAL_APPROVED',
+            'PROPOSAL_REJECTED',
+            'COMMENT_ADDED',
+            'DOCUMENT_SHARED',
+          ],
+        },
       },
       ...(documentIds.length > 0
         ? [
@@ -199,7 +218,7 @@ export class ClientPortalController {
     ];
 
     return this.prisma.auditLog.findMany({
-      where: { 
+      where: {
         tenantId: user.tenantId,
         OR: timelineFilters,
       },
@@ -212,9 +231,9 @@ export class ClientPortalController {
     this.checkClient(user);
 
     return this.prisma.sharedDocument.findMany({
-      where: { 
+      where: {
         clientId: user.clientId,
-        tenantId: user.tenantId 
+        tenantId: user.tenantId,
       },
       orderBy: { createdAt: 'desc' },
     });

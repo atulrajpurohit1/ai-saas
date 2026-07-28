@@ -24,10 +24,7 @@ export class GuardAuthService {
 
     const candidates = await this.prisma.guard.findMany({
       where: {
-        OR: [
-          { email: identifier.toLowerCase() },
-          { phone: identifier },
-        ],
+        OR: [{ email: identifier.toLowerCase() }, { phone: identifier }],
       },
       include: { tenant: true },
     });
@@ -35,7 +32,10 @@ export class GuardAuthService {
     for (const guard of candidates) {
       if (!guard.passwordHash) continue;
 
-      const passwordMatches = await bcrypt.compare(dto.password, guard.passwordHash);
+      const passwordMatches = await bcrypt.compare(
+        dto.password,
+        guard.passwordHash,
+      );
       if (!passwordMatches) continue;
 
       const accessToken = await this.jwtService.signAsync(
@@ -51,7 +51,9 @@ export class GuardAuthService {
         },
         {
           secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
-          expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') as unknown as number,
+          expiresIn: this.configService.get<string>(
+            'JWT_ACCESS_EXPIRES_IN',
+          ) as unknown as number,
         },
       );
 

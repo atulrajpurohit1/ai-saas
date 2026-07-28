@@ -11,7 +11,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AiCopilotService = exports.COPILOT_SUGGESTED_QUESTIONS = void 0;
 const common_1 = require("@nestjs/common");
-const client_1 = require("@prisma/client");
 const ai_service_1 = require("../ai/ai.service");
 const audit_service_1 = require("../audit/audit.service");
 const prisma_service_1 = require("../prisma/prisma.service");
@@ -89,22 +88,19 @@ let AiCopilotService = class AiCopilotService {
         };
     }
     async history(tenantId, userId, limit = 25) {
-        const rows = await this.prisma.$queryRaw(client_1.Prisma.sql `
-      SELECT
-        "id",
-        "tenant_id" AS "tenantId",
-        "user_id" AS "userId",
-        "question",
-        "answer",
-        "confidence_score" AS "confidenceScore",
-        "sources_used" AS "sourcesUsed",
-        "created_at" AS "createdAt"
-      FROM "AiConversation"
-      WHERE "tenant_id" = ${tenantId}
-        AND ("user_id" = ${userId} OR "user_id" IS NULL)
-      ORDER BY "created_at" DESC
-      LIMIT ${Math.max(1, Math.min(limit, 100))}
-    `);
+        const rows = await this.prisma.aiConversation.findMany({
+            where: {
+                tenantId,
+                OR: [
+                    { userId },
+                    { userId: null },
+                ],
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+            take: Math.max(1, Math.min(limit, 100)),
+        });
         return rows.map((row) => ({
             id: row.id,
             tenantId: row.tenantId,

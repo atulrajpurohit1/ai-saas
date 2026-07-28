@@ -116,6 +116,7 @@ export declare class AiService {
     private readonly logger;
     private readonly fallbackEnabled;
     private readonly modelName;
+    private readonly timeoutMs;
     private genAI;
     private model;
     constructor(configService: ConfigService);
@@ -129,6 +130,7 @@ export declare class AiService {
     private normalizeOptionalString;
     private normalizeOptionalNumber;
     private normalizeStringArray;
+    private withTimeout;
     private generateText;
     generateSalesAssessment(context: string): Promise<AiSalesAssessmentDraft>;
     generateDiscoveryGuide(context: string): Promise<AiDiscoveryGuideDraft>;
@@ -139,6 +141,7 @@ export declare class AiService {
     generateProposalDraft(dto: GenerateProposalDto): Promise<AiProposalDraftResponse>;
     generateRfp(dto: GenerateRfpDto): Promise<string>;
     generateEvaluationReport(dto: GenerateEvaluationDto): Promise<AiEvaluationReportDraft>;
+    private sanitizeRecommendedVendorSection;
     private fallbackEvaluationReport;
     generateForLead(lead: Lead & {
         notes?: any[];

@@ -9,7 +9,10 @@ import { Response } from 'express';
 
 @Catch(Prisma.PrismaClientInitializationError)
 export class PrismaExceptionFilter implements ExceptionFilter {
-  catch(exception: Prisma.PrismaClientInitializationError, host: ArgumentsHost) {
+  catch(
+    exception: Prisma.PrismaClientInitializationError,
+    host: ArgumentsHost,
+  ) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 

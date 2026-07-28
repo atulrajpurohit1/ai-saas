@@ -38,7 +38,9 @@ describe('RevenueInsightsService', () => {
       incident: { findMany: jest.fn().mockResolvedValue([]) },
     };
     aiService = {
-      generateRevenueFinancialRecommendations: jest.fn().mockResolvedValue(null),
+      generateRevenueFinancialRecommendations: jest
+        .fn()
+        .mockResolvedValue(null),
       generateRevenueIntelligenceSummary: jest.fn().mockResolvedValue(null),
       getModelName: jest.fn().mockReturnValue('test-model'),
     };
@@ -46,7 +48,9 @@ describe('RevenueInsightsService', () => {
       log: jest.fn().mockResolvedValue({ id: 'audit-1' }),
     };
     aiMonitoringService = {
-      applyFeedbackToRecommendations: jest.fn(async (_tenantId, recommendations) => recommendations),
+      applyFeedbackToRecommendations: jest.fn(
+        async (_tenantId, recommendations) => recommendations,
+      ),
       attachGenerationId: jest.fn((recommendations) => recommendations),
       getFeedbackSummaryForPrompt: jest.fn().mockResolvedValue({
         averageRating: null,

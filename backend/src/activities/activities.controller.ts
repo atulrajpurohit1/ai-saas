@@ -43,6 +43,11 @@ export class ActivitiesController {
     @Body('status') status: string,
     @GetUser() user: ActiveUser,
   ) {
-    return this.activitiesService.updateStatus(id, status, user.tenantId, user.sub);
+    return this.activitiesService.updateStatus(
+      id,
+      status,
+      user.tenantId,
+      user.sub,
+    );
   }
 }

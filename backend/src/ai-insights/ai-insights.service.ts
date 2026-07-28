@@ -96,7 +96,7 @@ export class AiInsightsService {
     private aiMonitoringService: AiMonitoringService,
     @Optional()
     private aiGovernanceService?: AiGovernanceService,
-  ) { }
+  ) {}
 
   async getDashboard(
     tenantId: string,
@@ -123,10 +123,11 @@ export class AiInsightsService {
       billing,
       ruleRecommendations,
     );
-    const recommendations = await this.aiMonitoringService.applyFeedbackToRecommendations(tenantId, [
-      ...aiRecommendations,
-      ...ruleRecommendations,
-    ].slice(0, 10));
+    const recommendations =
+      await this.aiMonitoringService.applyFeedbackToRecommendations(
+        tenantId,
+        [...aiRecommendations, ...ruleRecommendations].slice(0, 10),
+      );
 
     const dashboard: AiInsightsDashboard = {
       generatedAt: new Date().toISOString(),
@@ -228,8 +229,7 @@ export class AiInsightsService {
         revenueByClient.set(
           invoice.clientId,
           this.roundCurrency(
-            (revenueByClient.get(invoice.clientId) || 0) +
-            invoice.totalAmount,
+            (revenueByClient.get(invoice.clientId) || 0) + invoice.totalAmount,
           ),
         );
       });
@@ -242,14 +242,19 @@ export class AiInsightsService {
     });
 
     const totalRevenue = this.roundCurrency(
-      Array.from(revenueByClient.values()).reduce((sum, value) => sum + value, 0),
+      Array.from(revenueByClient.values()).reduce(
+        (sum, value) => sum + value,
+        0,
+      ),
     );
 
     const rows = clients
       .map<ClientInsightRow>((client) => {
         const revenue = revenueByClient.get(client.id) || 0;
         const contractActivity =
-          client._count.proposals + client._count.deals + client._count.rateCards;
+          client._count.proposals +
+          client._count.deals +
+          client._count.rateCards;
 
         return {
           clientId: client.id,
@@ -260,7 +265,9 @@ export class AiInsightsService {
             contractActivity > 0,
           revenue,
           revenueShare:
-            totalRevenue > 0 ? this.roundPercent((revenue / totalRevenue) * 100) : 0,
+            totalRevenue > 0
+              ? this.roundPercent((revenue / totalRevenue) * 100)
+              : 0,
           incidentCount: incidentByClient.get(client.id) || 0,
           contractActivity,
           siteCount: client._count.sites,
@@ -337,15 +344,30 @@ export class AiInsightsService {
     return {
       generatedAt: now.toISOString(),
       summary: [
-        this.metric('Active clients', activeClientCount, `${clients.length} total`, 'info'),
+        this.metric(
+          'Active clients',
+          activeClientCount,
+          `${clients.length} total`,
+          'info',
+        ),
         this.metric(
           'Monthly revenue',
           this.formatCurrency(totalRevenue),
           this.monthLabel(now),
           totalRevenue > 0 ? 'positive' : 'info',
         ),
-        this.metric('Client incidents', totalIncidents, 'Current month', totalIncidents > 0 ? 'warning' : 'positive'),
-        this.metric('Contract activity', activeContracts, 'Deals, proposals, rate cards', activeContracts > 0 ? 'positive' : 'info'),
+        this.metric(
+          'Client incidents',
+          totalIncidents,
+          'Current month',
+          totalIncidents > 0 ? 'warning' : 'positive',
+        ),
+        this.metric(
+          'Contract activity',
+          activeContracts,
+          'Deals, proposals, rate cards',
+          activeContracts > 0 ? 'positive' : 'info',
+        ),
       ],
       insights,
       rows,
@@ -463,8 +485,8 @@ export class AiInsightsService {
           attendanceRate:
             pastScheduled > 0
               ? this.roundPercent(
-                ((pastScheduled - guard.missedShifts) / pastScheduled) * 100,
-              )
+                  ((pastScheduled - guard.missedShifts) / pastScheduled) * 100,
+                )
               : null,
         };
       })
@@ -480,13 +502,21 @@ export class AiInsightsService {
       (sum, value) => sum + value,
       0,
     );
-    const totalMissed = rows.reduce((sum, guard) => sum + guard.missedShifts, 0);
+    const totalMissed = rows.reduce(
+      (sum, guard) => sum + guard.missedShifts,
+      0,
+    );
     const attendanceRate =
       totalPastScheduled > 0
-        ? this.roundPercent(((totalPastScheduled - totalMissed) / totalPastScheduled) * 100)
+        ? this.roundPercent(
+            ((totalPastScheduled - totalMissed) / totalPastScheduled) * 100,
+          )
         : null;
     const totalLate = rows.reduce((sum, guard) => sum + guard.lateCheckIns, 0);
-    const totalIncidents = rows.reduce((sum, guard) => sum + guard.incidentCount, 0);
+    const totalIncidents = rows.reduce(
+      (sum, guard) => sum + guard.incidentCount,
+      0,
+    );
     const perfectAttendanceGuard = rows.find(
       (guard) =>
         guard.attendanceRate === 100 &&
@@ -537,7 +567,9 @@ export class AiInsightsService {
     }
 
     if (insights.length === 0) {
-      insights.push(this.emptyInsight('guards', 'Guard insights need attendance data'));
+      insights.push(
+        this.emptyInsight('guards', 'Guard insights need attendance data'),
+      );
     }
 
     return {
@@ -547,11 +579,28 @@ export class AiInsightsService {
           'Attendance rate',
           attendanceRate === null ? 'N/A' : `${attendanceRate}%`,
           'Assigned past shifts',
-          attendanceRate !== null && attendanceRate >= 95 ? 'positive' : 'warning',
+          attendanceRate !== null && attendanceRate >= 95
+            ? 'positive'
+            : 'warning',
         ),
-        this.metric('Late check-ins', totalLate, 'Current month', totalLate > 0 ? 'warning' : 'positive'),
-        this.metric('Missed shifts', totalMissed, 'Current month', totalMissed > 0 ? 'critical' : 'positive'),
-        this.metric('Incident involvement', totalIncidents, 'Current month', totalIncidents > 0 ? 'info' : 'positive'),
+        this.metric(
+          'Late check-ins',
+          totalLate,
+          'Current month',
+          totalLate > 0 ? 'warning' : 'positive',
+        ),
+        this.metric(
+          'Missed shifts',
+          totalMissed,
+          'Current month',
+          totalMissed > 0 ? 'critical' : 'positive',
+        ),
+        this.metric(
+          'Incident involvement',
+          totalIncidents,
+          'Current month',
+          totalIncidents > 0 ? 'info' : 'positive',
+        ),
       ],
       insights,
       rows,
@@ -615,7 +664,10 @@ export class AiInsightsService {
       }),
     ]);
 
-    const rowsBySite = new Map<string, SiteInsightRow & { assignedPast: number; attendedPast: number }>();
+    const rowsBySite = new Map<
+      string,
+      SiteInsightRow & { assignedPast: number; attendedPast: number }
+    >();
     sites.forEach((site) => {
       rowsBySite.set(site.id, {
         siteId: site.id,
@@ -674,7 +726,9 @@ export class AiInsightsService {
           ...row,
           incidentRate:
             row.scheduledShifts > 0
-              ? this.roundPercent((row.incidentCount / row.scheduledShifts) * 100)
+              ? this.roundPercent(
+                  (row.incidentCount / row.scheduledShifts) * 100,
+                )
               : 0,
           attendanceRate:
             assignedPast > 0
@@ -689,7 +743,10 @@ export class AiInsightsService {
           a.name.localeCompare(b.name),
       );
 
-    const totalIncidents = rows.reduce((sum, site) => sum + site.incidentCount, 0);
+    const totalIncidents = rows.reduce(
+      (sum, site) => sum + site.incidentCount,
+      0,
+    );
     const totalCoverageIssues = rows.reduce(
       (sum, site) => sum + site.coverageIssues,
       0,
@@ -746,16 +803,33 @@ export class AiInsightsService {
     }
 
     if (insights.length === 0) {
-      insights.push(this.emptyInsight('sites', 'Site insights need shift data'));
+      insights.push(
+        this.emptyInsight('sites', 'Site insights need shift data'),
+      );
     }
 
     return {
       generatedAt: now.toISOString(),
       summary: [
         this.metric('Active sites', sites.length, 'Tenant sites', 'info'),
-        this.metric('Site incidents', totalIncidents, 'Current month', totalIncidents > 0 ? 'warning' : 'positive'),
-        this.metric('Coverage issues', totalCoverageIssues, `${totalShortageSlots} open guard slots`, totalCoverageIssues > 0 ? 'warning' : 'positive'),
-        this.metric('Scheduled shifts', shifts.length, 'Current month', shifts.length > 0 ? 'info' : 'warning'),
+        this.metric(
+          'Site incidents',
+          totalIncidents,
+          'Current month',
+          totalIncidents > 0 ? 'warning' : 'positive',
+        ),
+        this.metric(
+          'Coverage issues',
+          totalCoverageIssues,
+          `${totalShortageSlots} open guard slots`,
+          totalCoverageIssues > 0 ? 'warning' : 'positive',
+        ),
+        this.metric(
+          'Scheduled shifts',
+          shifts.length,
+          'Current month',
+          shifts.length > 0 ? 'info' : 'warning',
+        ),
       ],
       insights,
       rows,
@@ -799,7 +873,9 @@ export class AiInsightsService {
       if (!rowsByClient.has(invoice.clientId)) {
         rowsByClient.set(invoice.clientId, {
           clientId: invoice.clientId,
-          name: invoice.client ? this.clientDisplayName(invoice.client) : 'Unknown client',
+          name: invoice.client
+            ? this.clientDisplayName(invoice.client)
+            : 'Unknown client',
           revenue: 0,
           paidAmount: 0,
           outstandingAmount: 0,
@@ -818,7 +894,9 @@ export class AiInsightsService {
       }
 
       if (invoice.status === 'paid') {
-        row.paidAmount = this.roundCurrency(row.paidAmount + invoice.totalAmount);
+        row.paidAmount = this.roundCurrency(
+          row.paidAmount + invoice.totalAmount,
+        );
       }
 
       if (OUTSTANDING_STATUSES.includes(invoice.status)) {
@@ -854,14 +932,17 @@ export class AiInsightsService {
       (invoice) => invoice.status === 'paid' && invoice.paidAt,
     );
     const invoicesOlderThan30 = lifecycleInvoices.filter(
-      (invoice) => this.daysSince(this.invoiceDueOrIssueDate(invoice), now) > 30,
+      (invoice) =>
+        this.daysSince(this.invoiceDueOrIssueDate(invoice), now) > 30,
     );
     const unpaidOlderThan30 = invoicesOlderThan30.filter(
       (invoice) => invoice.status !== 'paid',
     );
     const unpaidAfter30Rate =
       invoicesOlderThan30.length > 0
-        ? this.roundPercent((unpaidOlderThan30.length / invoicesOlderThan30.length) * 100)
+        ? this.roundPercent(
+            (unpaidOlderThan30.length / invoicesOlderThan30.length) * 100,
+          )
         : 0;
     const paidDurations = paidInvoices.map((invoice) =>
       this.daysBetween(this.invoiceDate(invoice), invoice.paidAt || now),
@@ -869,13 +950,16 @@ export class AiInsightsService {
     const averagePaymentDays =
       paidDurations.length > 0
         ? this.roundNumber(
-          paidDurations.reduce((sum, value) => sum + value, 0) /
-          paidDurations.length,
-          1,
-        )
+            paidDurations.reduce((sum, value) => sum + value, 0) /
+              paidDurations.length,
+            1,
+          )
         : null;
     const outstandingAmount = this.roundCurrency(
-      outstandingInvoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0),
+      outstandingInvoices.reduce(
+        (sum, invoice) => sum + invoice.totalAmount,
+        0,
+      ),
     );
     const disputedAmount = this.roundCurrency(
       disputedInvoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0),
@@ -883,7 +967,9 @@ export class AiInsightsService {
     const paidAmount = this.roundCurrency(
       paidInvoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0),
     );
-    const topOutstandingClient = rows.find((client) => client.outstandingAmount > 0);
+    const topOutstandingClient = rows.find(
+      (client) => client.outstandingAmount > 0,
+    );
 
     const insights: AiInsightItem[] = [];
 
@@ -908,7 +994,9 @@ export class AiInsightsService {
         message: `${topOutstandingClient.name} has the highest outstanding balance.`,
         subject: topOutstandingClient.name,
         metricLabel: 'Outstanding',
-        metricValue: this.formatCurrency(topOutstandingClient.outstandingAmount),
+        metricValue: this.formatCurrency(
+          topOutstandingClient.outstandingAmount,
+        ),
       });
     }
 
@@ -937,16 +1025,38 @@ export class AiInsightsService {
     }
 
     if (insights.length === 0) {
-      insights.push(this.emptyInsight('billing', 'Billing insights need invoice data'));
+      insights.push(
+        this.emptyInsight('billing', 'Billing insights need invoice data'),
+      );
     }
 
     return {
       generatedAt: now.toISOString(),
       summary: [
-        this.metric('Outstanding', this.formatCurrency(outstandingAmount), `${outstandingInvoices.length} invoices`, outstandingAmount > 0 ? 'warning' : 'positive'),
-        this.metric('Disputed', this.formatCurrency(disputedAmount), `${disputedInvoices.length} invoices`, disputedAmount > 0 ? 'warning' : 'positive'),
-        this.metric('Paid', this.formatCurrency(paidAmount), `${paidInvoices.length} invoices`, paidAmount > 0 ? 'positive' : 'info'),
-        this.metric('Unpaid after 30 days', `${unpaidAfter30Rate}%`, `${unpaidOlderThan30.length} invoices`, unpaidAfter30Rate > 0 ? 'warning' : 'positive'),
+        this.metric(
+          'Outstanding',
+          this.formatCurrency(outstandingAmount),
+          `${outstandingInvoices.length} invoices`,
+          outstandingAmount > 0 ? 'warning' : 'positive',
+        ),
+        this.metric(
+          'Disputed',
+          this.formatCurrency(disputedAmount),
+          `${disputedInvoices.length} invoices`,
+          disputedAmount > 0 ? 'warning' : 'positive',
+        ),
+        this.metric(
+          'Paid',
+          this.formatCurrency(paidAmount),
+          `${paidInvoices.length} invoices`,
+          paidAmount > 0 ? 'positive' : 'info',
+        ),
+        this.metric(
+          'Unpaid after 30 days',
+          `${unpaidAfter30Rate}%`,
+          `${unpaidOlderThan30.length} invoices`,
+          unpaidAfter30Rate > 0 ? 'warning' : 'positive',
+        ),
       ],
       insights,
       rows,
@@ -959,11 +1069,13 @@ export class AiInsightsService {
   ): Promise<IncidentInsightsResponse> {
     const now = new Date();
     const analysisStart = new Date(now);
-    analysisStart.setUTCDate(analysisStart.getUTCDate() - INCIDENT_ANALYSIS_DAYS);
+    analysisStart.setUTCDate(
+      analysisStart.getUTCDate() - INCIDENT_ANALYSIS_DAYS,
+    );
     const recentStart = new Date(now);
     recentStart.setUTCDate(recentStart.getUTCDate() - RECENT_INCIDENT_DAYS);
 
-    const incidents = await this.prisma.incident.findMany({
+    const incidents = (await this.prisma.incident.findMany({
       where: {
         tenantId,
         occurredAt: { gte: analysisStart },
@@ -1004,7 +1116,7 @@ export class AiInsightsService {
         },
       },
       orderBy: [{ occurredAt: 'desc' }, { createdAt: 'desc' }],
-    }) as IncidentAnalysisRow[];
+    })) as IncidentAnalysisRow[];
 
     const severityBreakdown = this.buildSeverityBreakdown(incidents);
     const typeCounts = new Map<string, IncidentTrendAccumulator>();
@@ -1016,17 +1128,30 @@ export class AiInsightsService {
 
     incidents.forEach((incident) => {
       const score = this.incidentSeverityScore(incident.severity);
-      const incidentType = this.incidentType(incident.title, incident.description);
+      const incidentType = this.incidentType(
+        incident.title,
+        incident.description,
+      );
 
       this.incrementTrend(typeCounts, incidentType, score);
-      this.incrementTrend(dayCounts, this.incidentDayLabel(incident.occurredAt), score);
-      this.incrementTrend(timeCounts, this.incidentTimeBucket(incident.occurredAt), score);
+      this.incrementTrend(
+        dayCounts,
+        this.incidentDayLabel(incident.occurredAt),
+        score,
+      );
+      this.incrementTrend(
+        timeCounts,
+        this.incidentTimeBucket(incident.occurredAt),
+        score,
+      );
 
       this.addIncidentRisk(siteRisks, {
         entityId: incident.site.id,
         entityType: 'site',
         name: incident.site.name,
-        relatedName: incident.site.client ? this.clientDisplayName(incident.site.client) : null,
+        relatedName: incident.site.client
+          ? this.clientDisplayName(incident.site.client)
+          : null,
         incident,
         incidentType,
         recentStart,
@@ -1073,13 +1198,17 @@ export class AiInsightsService {
         .slice(0, 3),
     ].slice(0, 6);
 
-    const recommendations = await this.aiMonitoringService.applyFeedbackToRecommendations(tenantId, this.buildIncidentRecommendations({
-      highRiskSites,
-      clientRisks: clientRiskRows,
-      guardRisks: guardRiskRows,
-      recurringIncidentTypes,
-      timePatterns,
-    }));
+    const recommendations =
+      await this.aiMonitoringService.applyFeedbackToRecommendations(
+        tenantId,
+        this.buildIncidentRecommendations({
+          highRiskSites,
+          clientRisks: clientRiskRows,
+          guardRisks: guardRiskRows,
+          recurringIncidentTypes,
+          timePatterns,
+        }),
+      );
     const aiSummary = await this.buildIncidentAiSummary({
       tenantId,
       severityBreakdown,
@@ -1104,18 +1233,52 @@ export class AiInsightsService {
       recurringIncidentTypes,
       timePatterns,
     });
-    const criticalCount = incidents.filter((incident) => this.normalizeSeverity(incident.severity) === 'critical').length;
-    const highCount = incidents.filter((incident) => this.normalizeSeverity(incident.severity) === 'high').length;
-    const recentCount = incidents.filter((incident) => incident.occurredAt >= recentStart).length;
+    const criticalCount = incidents.filter(
+      (incident) => this.normalizeSeverity(incident.severity) === 'critical',
+    ).length;
+    const highCount = incidents.filter(
+      (incident) => this.normalizeSeverity(incident.severity) === 'high',
+    ).length;
+    const recentCount = incidents.filter(
+      (incident) => incident.occurredAt >= recentStart,
+    ).length;
 
     const response: IncidentInsightsResponse = {
       generatedAt: now.toISOString(),
       source: aiSummary ? 'ai_assisted' : 'rule_based',
       summary: [
-        this.metric('Incidents analyzed', incidents.length, `Last ${INCIDENT_ANALYSIS_DAYS} days`, incidents.length > 0 ? 'info' : 'positive'),
-        this.metric('Critical/high', criticalCount + highCount, `${criticalCount} critical, ${highCount} high`, criticalCount > 0 ? 'critical' : highCount > 0 ? 'warning' : 'positive'),
-        this.metric('Recent incidents', recentCount, `Last ${RECENT_INCIDENT_DAYS} days`, recentCount >= 2 ? 'warning' : 'info'),
-        this.metric('High-risk sites', highRiskSites.filter((site) => ['critical', 'high'].includes(site.riskLevel)).length, 'Risk score 50+', highRiskSites.some((site) => site.riskLevel === 'critical') ? 'critical' : 'warning'),
+        this.metric(
+          'Incidents analyzed',
+          incidents.length,
+          `Last ${INCIDENT_ANALYSIS_DAYS} days`,
+          incidents.length > 0 ? 'info' : 'positive',
+        ),
+        this.metric(
+          'Critical/high',
+          criticalCount + highCount,
+          `${criticalCount} critical, ${highCount} high`,
+          criticalCount > 0
+            ? 'critical'
+            : highCount > 0
+              ? 'warning'
+              : 'positive',
+        ),
+        this.metric(
+          'Recent incidents',
+          recentCount,
+          `Last ${RECENT_INCIDENT_DAYS} days`,
+          recentCount >= 2 ? 'warning' : 'info',
+        ),
+        this.metric(
+          'High-risk sites',
+          highRiskSites.filter((site) =>
+            ['critical', 'high'].includes(site.riskLevel),
+          ).length,
+          'Risk score 50+',
+          highRiskSites.some((site) => site.riskLevel === 'critical')
+            ? 'critical'
+            : 'warning',
+        ),
       ],
       aiSummary: aiSummary || fallbackSummary,
       insights,
@@ -1150,7 +1313,9 @@ export class AiInsightsService {
     };
   }
 
-  private buildSeverityBreakdown(incidents: IncidentAnalysisRow[]): IncidentSeverityBreakdown[] {
+  private buildSeverityBreakdown(
+    incidents: IncidentAnalysisRow[],
+  ): IncidentSeverityBreakdown[] {
     const total = incidents.length;
     const counts = new Map<string, number>();
 
@@ -1205,46 +1370,69 @@ export class AiInsightsService {
     risk.incidentCount += 1;
     risk.criticalCount += severity === 'critical' ? 1 : 0;
     risk.highCount += severity === 'high' ? 1 : 0;
-    risk.recent7DayCount += input.incident.occurredAt >= input.recentStart ? 1 : 0;
-    risk.typeCounts.set(input.incidentType, (risk.typeCounts.get(input.incidentType) || 0) + 1);
+    risk.recent7DayCount +=
+      input.incident.occurredAt >= input.recentStart ? 1 : 0;
+    risk.typeCounts.set(
+      input.incidentType,
+      (risk.typeCounts.get(input.incidentType) || 0) + 1,
+    );
 
-    if (!risk.lastIncidentAt || input.incident.occurredAt > risk.lastIncidentAt) {
+    if (
+      !risk.lastIncidentAt ||
+      input.incident.occurredAt > risk.lastIncidentAt
+    ) {
       risk.lastIncidentAt = input.incident.occurredAt;
     }
   }
 
-  private buildIncidentRiskRows(risks: Map<string, IncidentRiskAccumulator>): IncidentRiskRow[] {
+  private buildIncidentRiskRows(
+    risks: Map<string, IncidentRiskAccumulator>,
+  ): IncidentRiskRow[] {
     return Array.from(risks.values())
       .map((risk) => {
-        const repeatedTypes = Array.from(risk.typeCounts.entries()).filter(([, count]) => count > 1);
+        const repeatedTypes = Array.from(risk.typeCounts.entries()).filter(
+          ([, count]) => count > 1,
+        );
         let score = risk.score;
         const indicators: string[] = [];
 
         if (risk.criticalCount > 0) {
-          indicators.push(`${risk.criticalCount} critical incident${risk.criticalCount === 1 ? '' : 's'}`);
+          indicators.push(
+            `${risk.criticalCount} critical incident${risk.criticalCount === 1 ? '' : 's'}`,
+          );
         }
 
         if (risk.highCount > 0) {
-          indicators.push(`${risk.highCount} high severity incident${risk.highCount === 1 ? '' : 's'}`);
+          indicators.push(
+            `${risk.highCount} high severity incident${risk.highCount === 1 ? '' : 's'}`,
+          );
         }
 
         if (repeatedTypes.length > 0) {
           score += risk.entityType === 'site' ? 15 : 10;
-          indicators.push(`Repeated ${repeatedTypes[0][0].toLowerCase()} incidents`);
+          indicators.push(
+            `Repeated ${repeatedTypes[0][0].toLowerCase()} incidents`,
+          );
         }
 
         if (risk.recent7DayCount >= 2) {
           score += 20;
-          indicators.push(`${risk.recent7DayCount} incidents in the last ${RECENT_INCIDENT_DAYS} days`);
+          indicators.push(
+            `${risk.recent7DayCount} incidents in the last ${RECENT_INCIDENT_DAYS} days`,
+          );
         }
 
         if (risk.incidentCount >= 5) {
           score += 10;
-          indicators.push(`${risk.incidentCount} incidents in the analysis window`);
+          indicators.push(
+            `${risk.incidentCount} incidents in the analysis window`,
+          );
         }
 
         if (indicators.length === 0 && risk.incidentCount > 0) {
-          indicators.push(`${risk.incidentCount} incident${risk.incidentCount === 1 ? '' : 's'} logged`);
+          indicators.push(
+            `${risk.incidentCount} incident${risk.incidentCount === 1 ? '' : 's'} logged`,
+          );
         }
 
         const riskScore = this.roundRiskScore(score);
@@ -1265,7 +1453,12 @@ export class AiInsightsService {
           indicators,
         };
       })
-      .sort((left, right) => right.riskScore - left.riskScore || right.incidentCount - left.incidentCount || left.name.localeCompare(right.name));
+      .sort(
+        (left, right) =>
+          right.riskScore - left.riskScore ||
+          right.incidentCount - left.incidentCount ||
+          left.name.localeCompare(right.name),
+      );
   }
 
   private incrementTrend(
@@ -1294,7 +1487,12 @@ export class AiInsightsService {
         riskScore: this.roundRiskScore(trend.riskScore),
         detail: `${detailPrefix} seen ${trend.count} time${trend.count === 1 ? '' : 's'}.`,
       }))
-      .sort((left, right) => right.count - left.count || right.riskScore - left.riskScore || left.label.localeCompare(right.label));
+      .sort(
+        (left, right) =>
+          right.count - left.count ||
+          right.riskScore - left.riskScore ||
+          left.label.localeCompare(right.label),
+      );
   }
 
   private buildIncidentInsights(input: {
@@ -1383,9 +1581,10 @@ export class AiInsightsService {
         category: 'incidents',
         severity: 'positive',
         title: 'No incident risk detected',
-        message: input.totalIncidents === 0
-          ? 'No incidents were found in the analysis window.'
-          : 'No recurring high-risk incident patterns were detected.',
+        message:
+          input.totalIncidents === 0
+            ? 'No incidents were found in the analysis window.'
+            : 'No recurring high-risk incident patterns were detected.',
       });
     }
 
@@ -1401,10 +1600,14 @@ export class AiInsightsService {
   }): AiRecommendation[] {
     const recommendations: AiRecommendation[] = [];
     const topSite = input.highRiskSites.find((site) => site.riskScore >= 25);
-    const topClient = input.clientRisks.find((client) => client.riskScore >= 40);
+    const topClient = input.clientRisks.find(
+      (client) => client.riskScore >= 40,
+    );
     const topGuard = input.guardRisks.find((guard) => guard.riskScore >= 40);
     const repeatedType = input.recurringIncidentTypes[0];
-    const nightPattern = input.timePatterns.find((pattern) => pattern.label === 'Night');
+    const nightPattern = input.timePatterns.find(
+      (pattern) => pattern.label === 'Night',
+    );
 
     if (topSite) {
       recommendations.push({
@@ -1426,7 +1629,9 @@ export class AiInsightsService {
         priority: 'medium',
         title: 'Review post orders',
         action: `Review post orders for ${topSite.name}.`,
-        reason: topSite.indicators[0] || 'The site has recurring incident risk indicators.',
+        reason:
+          topSite.indicators[0] ||
+          'The site has recurring incident risk indicators.',
         source: 'rule',
         actionType: 'create_follow_up_task',
         targetModule: 'site',
@@ -1499,7 +1704,8 @@ export class AiInsightsService {
         priority: 'low',
         title: 'Maintain incident review cadence',
         action: 'Keep reviewing incident trends weekly.',
-        reason: 'No elevated incident risk pattern was detected in the current analysis window.',
+        reason:
+          'No elevated incident risk pattern was detected in the current analysis window.',
         source: 'rule',
         actionType: 'create_follow_up_task',
         targetModule: 'incident',
@@ -1534,14 +1740,17 @@ export class AiInsightsService {
           guardRisks: input.guardRisks.slice(0, 3),
           recurringIncidentTypes: input.recurringIncidentTypes.slice(0, 5),
           timePatterns: input.timePatterns.slice(0, 5),
-          recommendations: input.recommendations.map((recommendation) => recommendation.action),
+          recommendations: input.recommendations.map(
+            (recommendation) => recommendation.action,
+          ),
           organizationalMemory: [],
         }),
         promptTemplate,
       );
     } catch (error) {
       this.logger.warn(
-        `Incident AI summary skipped: ${error instanceof Error ? error.message : String(error)
+        `Incident AI summary skipped: ${
+          error instanceof Error ? error.message : String(error)
         }`,
       );
       return null;
@@ -1564,23 +1773,36 @@ export class AiInsightsService {
 
     return [
       `${input.totalIncidents} incidents were analyzed over the last ${INCIDENT_ANALYSIS_DAYS} days.`,
-      topSite ? `${topSite.name} is the highest-risk site with a score of ${topSite.riskScore}.` : null,
+      topSite
+        ? `${topSite.name} is the highest-risk site with a score of ${topSite.riskScore}.`
+        : null,
       topType ? `${topType.label} is the most repeated incident type.` : null,
-      topPattern ? `${topPattern.label} shows the strongest time pattern.` : null,
-    ].filter(Boolean).join(' ');
+      topPattern
+        ? `${topPattern.label} shows the strongest time pattern.`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(' ');
   }
 
   private incidentType(title: string, description: string) {
     const text = `${title || ''} ${description || ''}`.toLowerCase();
 
-    if (/(theft|steal|stolen|burglary|robbery|shoplift)/.test(text)) return 'Theft';
-    if (/(assault|fight|violence|attack|threat|weapon)/.test(text)) return 'Violence or threat';
+    if (/(theft|steal|stolen|burglary|robbery|shoplift)/.test(text))
+      return 'Theft';
+    if (/(assault|fight|violence|attack|threat|weapon)/.test(text))
+      return 'Violence or threat';
     if (/(fire|smoke|burn|alarm)/.test(text)) return 'Fire or alarm';
-    if (/(medical|injury|injured|fall|ambulance|health)/.test(text)) return 'Medical or injury';
-    if (/(unauthorized|access|trespass|intruder|gate|entry)/.test(text)) return 'Access control';
-    if (/(parking|vehicle|car|traffic|accident)/.test(text)) return 'Vehicle or parking';
-    if (/(equipment|camera|cctv|radio|device|system)/.test(text)) return 'Equipment issue';
-    if (/(shortage|uncovered|coverage|absent|no guard|staff)/.test(text)) return 'Coverage issue';
+    if (/(medical|injury|injured|fall|ambulance|health)/.test(text))
+      return 'Medical or injury';
+    if (/(unauthorized|access|trespass|intruder|gate|entry)/.test(text))
+      return 'Access control';
+    if (/(parking|vehicle|car|traffic|accident)/.test(text))
+      return 'Vehicle or parking';
+    if (/(equipment|camera|cctv|radio|device|system)/.test(text))
+      return 'Equipment issue';
+    if (/(shortage|uncovered|coverage|absent|no guard|staff)/.test(text))
+      return 'Coverage issue';
 
     const normalized = `${title || description || 'General incident'}`
       .trim()
@@ -1625,7 +1847,9 @@ export class AiInsightsService {
     return 'low';
   }
 
-  private riskLevelToSeverity(riskLevel: IncidentRiskRow['riskLevel']): AiInsightItem['severity'] {
+  private riskLevelToSeverity(
+    riskLevel: IncidentRiskRow['riskLevel'],
+  ): AiInsightItem['severity'] {
     if (riskLevel === 'critical') return 'critical';
     if (riskLevel === 'high') return 'warning';
     if (riskLevel === 'medium') return 'info';
@@ -1667,7 +1891,9 @@ export class AiInsightsService {
           'Coverage issues',
           this.metricValue(sites, 'Coverage issues'),
           'Open guard slots',
-          this.metricValue(sites, 'Coverage issues') === 0 ? 'positive' : 'warning',
+          this.metricValue(sites, 'Coverage issues') === 0
+            ? 'positive'
+            : 'warning',
         ),
         this.metric(
           'Recommendations',
@@ -1676,7 +1902,10 @@ export class AiInsightsService {
           recommendations.length > 0 ? 'info' : 'positive',
         ),
       ],
-      insights: (priorityInsights.length > 0 ? priorityInsights : insights).slice(0, 6),
+      insights: (priorityInsights.length > 0
+        ? priorityInsights
+        : insights
+      ).slice(0, 6),
     };
   }
 
@@ -1687,14 +1916,22 @@ export class AiInsightsService {
     billing: BillingInsightsResponse,
   ): AiRecommendation[] {
     const recommendations: AiRecommendation[] = [];
-    const highestIncidentSite = sites.rows.find((site) => site.incidentCount > 0);
+    const highestIncidentSite = sites.rows.find(
+      (site) => site.incidentCount > 0,
+    );
     const shortageSite = sites.rows.find((site) => site.coverageIssues >= 2);
-    const missedShiftGuard = guards.rows.find((guard) => guard.missedShifts > 0);
-    const highIncidentClient = clients.rows.find((client) => client.incidentCount >= 2);
+    const missedShiftGuard = guards.rows.find(
+      (guard) => guard.missedShifts > 0,
+    );
+    const highIncidentClient = clients.rows.find(
+      (client) => client.incidentCount >= 2,
+    );
     const topOutstandingClient = billing.rows.find(
       (client) => client.outstandingAmount > 0,
     );
-    const disputedClient = billing.rows.find((client) => client.disputedAmount > 0);
+    const disputedClient = billing.rows.find(
+      (client) => client.disputedAmount > 0,
+    );
 
     if (highestIncidentSite) {
       recommendations.push({
@@ -1760,7 +1997,8 @@ export class AiInsightsService {
       recommendations.push({
         id: 'rule-billing-follow-up',
         category: 'billing',
-        priority: topOutstandingClient.outstandingAmount >= 5000 ? 'high' : 'medium',
+        priority:
+          topOutstandingClient.outstandingAmount >= 5000 ? 'high' : 'medium',
         title: 'Follow up unpaid invoices',
         action: `Follow up with ${topOutstandingClient.name} on unpaid invoices.`,
         reason: `${topOutstandingClient.name} has ${this.formatCurrency(topOutstandingClient.outstandingAmount)} outstanding.`,
@@ -1792,7 +2030,8 @@ export class AiInsightsService {
         category: 'operations',
         priority: 'low',
         title: 'Maintain operating cadence',
-        action: 'Keep monitoring attendance, incidents, and invoice aging weekly.',
+        action:
+          'Keep monitoring attendance, incidents, and invoice aging weekly.',
         reason: 'No high-risk patterns were detected in the available data.',
         source: 'rule',
         actionType: 'create_follow_up_task',
@@ -1850,7 +2089,8 @@ export class AiInsightsService {
       }));
     } catch (error) {
       this.logger.warn(
-        `AI recommendation generation skipped: ${error instanceof Error ? error.message : String(error)
+        `AI recommendation generation skipped: ${
+          error instanceof Error ? error.message : String(error)
         }`,
       );
       return [];
@@ -1866,7 +2106,8 @@ export class AiInsightsService {
       category,
       severity: 'info',
       title,
-      message: 'Generate shifts, attendance records, incidents, invoices, or contracts to unlock richer insights.',
+      message:
+        'Generate shifts, attendance records, incidents, invoices, or contracts to unlock richer insights.',
     };
   }
 
@@ -1876,13 +2117,15 @@ export class AiInsightsService {
     promptKey: string,
   ) {
     return (
-      await this.aiGovernanceService?.resolvePromptVersion({
-        tenantId,
-        moduleName,
-        promptKey,
-        fallbackVersion: DEFAULT_PROMPT_VERSION,
-      })
-    )?.promptText ?? null;
+      (
+        await this.aiGovernanceService?.resolvePromptVersion({
+          tenantId,
+          moduleName,
+          promptKey,
+          fallbackVersion: DEFAULT_PROMPT_VERSION,
+        })
+      )?.promptText ?? null
+    );
   }
 
   private metric(
@@ -1919,7 +2162,10 @@ export class AiInsightsService {
 
   private isCurrentPeriod(value: Date, now: Date) {
     const monthStart = this.startOfMonth(now);
-    return value.getTime() >= monthStart.getTime() && value.getTime() <= now.getTime();
+    return (
+      value.getTime() >= monthStart.getTime() &&
+      value.getTime() <= now.getTime()
+    );
   }
 
   private invoiceDate(invoice: { issuedAt: Date | null; createdAt: Date }) {
@@ -1954,7 +2200,10 @@ export class AiInsightsService {
   }
 
   private daysBetween(start: Date, end: Date) {
-    return Math.max(0, Math.ceil((end.getTime() - start.getTime()) / MS_PER_DAY));
+    return Math.max(
+      0,
+      Math.ceil((end.getTime() - start.getTime()) / MS_PER_DAY),
+    );
   }
 
   private daysSince(date: Date, now: Date) {

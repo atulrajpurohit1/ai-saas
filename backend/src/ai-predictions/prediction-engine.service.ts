@@ -132,9 +132,15 @@ type PredictionContext = {
   invoices: InvoiceRecord[];
   rateCards: RateCardRecord[];
   opsDashboard: Awaited<ReturnType<AiInsightsService['getDashboard']>>;
-  incidentInsights: Awaited<ReturnType<AiInsightsService['getIncidentInsights']>>;
-  revenueDashboard: Awaited<ReturnType<RevenueInsightsService['getRevenueDashboard']>>;
-  schedulingOverview: Awaited<ReturnType<RecommendationService['getSchedulingOverview']>>;
+  incidentInsights: Awaited<
+    ReturnType<AiInsightsService['getIncidentInsights']>
+  >;
+  revenueDashboard: Awaited<
+    ReturnType<RevenueInsightsService['getRevenueDashboard']>
+  >;
+  schedulingOverview: Awaited<
+    ReturnType<RecommendationService['getSchedulingOverview']>
+  >;
 };
 
 @Injectable()
@@ -152,7 +158,10 @@ export class PredictionEngineService {
     private readonly aiService: AiService,
   ) {}
 
-  async getDashboard(tenantId: string, userId: string): Promise<PredictionDashboard> {
+  async getDashboard(
+    tenantId: string,
+    userId: string,
+  ): Promise<PredictionDashboard> {
     const context = await this.loadContext(tenantId, userId);
 
     const [staffing, incidents, churn, payments, renewals] = [
@@ -174,7 +183,13 @@ export class PredictionEngineService {
     const dashboard: PredictionDashboard = {
       generatedAt: context.now.toISOString(),
       source: 'rule_based',
-      summary: this.buildDashboardSummary(staffing, incidents, churn, payments, renewals),
+      summary: this.buildDashboardSummary(
+        staffing,
+        incidents,
+        churn,
+        payments,
+        renewals,
+      ),
       staffing,
       incidents,
       churn,
@@ -240,12 +255,18 @@ export class PredictionEngineService {
     };
   }
 
-  private async loadContext(tenantId: string, userId: string): Promise<PredictionContext> {
+  private async loadContext(
+    tenantId: string,
+    userId: string,
+  ): Promise<PredictionContext> {
     const now = new Date();
     const horizonEnd = this.addDays(now, STAFFING_HORIZON_DAYS);
     const staffingHistoryStart = this.addDays(now, -STAFFING_HISTORY_DAYS);
     const currentIncidentStart = this.addDays(now, -INCIDENT_WINDOW_DAYS);
-    const previousIncidentStart = this.addDays(now, -(INCIDENT_WINDOW_DAYS * 2));
+    const previousIncidentStart = this.addDays(
+      now,
+      -(INCIDENT_WINDOW_DAYS * 2),
+    );
 
     const [
       opsDashboard,
@@ -430,32 +451,70 @@ export class PredictionEngineService {
     };
   }
 
-  private buildStaffingPredictions(context: PredictionContext): PredictionSection<StaffingPrediction> {
-    const siteNames = new Map(context.upcomingShifts.map((shift) => [shift.siteId, shift.site.name]));
+  private buildStaffingPredictions(
+    context: PredictionContext,
+  ): PredictionSection<StaffingPrediction> {
+    const siteNames = new Map(
+      context.upcomingShifts.map((shift) => [shift.siteId, shift.site.name]),
+    );
     context.historicalShifts.forEach((shift) => {
-      if (!siteNames.has(shift.siteId)) siteNames.set(shift.siteId, 'Known site');
+      if (!siteNames.has(shift.siteId))
+        siteNames.set(shift.siteId, 'Known site');
     });
 
     const predictions = Array.from(siteNames.entries())
-      .map(([siteId, siteName]) => this.buildSiteStaffingPrediction(context, siteId, siteName))
-      .filter((prediction): prediction is StaffingPrediction => Boolean(prediction))
+      .map(([siteId, siteName]) =>
+        this.buildSiteStaffingPrediction(context, siteId, siteName),
+      )
+      .filter((prediction): prediction is StaffingPrediction =>
+        Boolean(prediction),
+      )
       .sort((left, right) => right.riskScore - left.riskScore)
       .slice(0, 8);
 
     const weekendNight = this.buildWeekendNightStaffingPrediction(context);
     const allPredictions = [weekendNight, ...predictions]
-      .filter((prediction): prediction is StaffingPrediction => Boolean(prediction))
+      .filter((prediction): prediction is StaffingPrediction =>
+        Boolean(prediction),
+      )
       .sort((left, right) => right.riskScore - left.riskScore);
 
     return {
       generatedAt: context.now.toISOString(),
       summary: [
-        this.metric('Upcoming shifts', context.upcomingShifts.length, `Next ${STAFFING_HORIZON_DAYS} days`, 'info'),
-        this.metric('Coverage gaps', context.schedulingOverview.coverageGaps, `${context.schedulingOverview.shortageSlots} open guard slots`, context.schedulingOverview.coverageGaps > 0 ? 'warning' : 'positive'),
-        this.metric('Availability conflicts', this.countAvailabilityConflicts(context), 'Assigned unavailable guards', this.countAvailabilityConflicts(context) > 0 ? 'critical' : 'positive'),
-        this.metric('High staffing risks', allPredictions.filter((item) => item.riskLevel === 'high').length, 'Predicted shortages', allPredictions.some((item) => item.riskLevel === 'high') ? 'critical' : 'positive'),
+        this.metric(
+          'Upcoming shifts',
+          context.upcomingShifts.length,
+          `Next ${STAFFING_HORIZON_DAYS} days`,
+          'info',
+        ),
+        this.metric(
+          'Coverage gaps',
+          context.schedulingOverview.coverageGaps,
+          `${context.schedulingOverview.shortageSlots} open guard slots`,
+          context.schedulingOverview.coverageGaps > 0 ? 'warning' : 'positive',
+        ),
+        this.metric(
+          'Availability conflicts',
+          this.countAvailabilityConflicts(context),
+          'Assigned unavailable guards',
+          this.countAvailabilityConflicts(context) > 0
+            ? 'critical'
+            : 'positive',
+        ),
+        this.metric(
+          'High staffing risks',
+          allPredictions.filter((item) => item.riskLevel === 'high').length,
+          'Predicted shortages',
+          allPredictions.some((item) => item.riskLevel === 'high')
+            ? 'critical'
+            : 'positive',
+        ),
       ],
-      predictions: allPredictions.length > 0 ? allPredictions : [this.emptyStaffingPrediction(context)],
+      predictions:
+        allPredictions.length > 0
+          ? allPredictions
+          : [this.emptyStaffingPrediction(context)],
     };
   }
 
@@ -464,10 +523,15 @@ export class PredictionEngineService {
     siteId: string,
     siteName: string,
   ): StaffingPrediction | null {
-    const upcoming = context.upcomingShifts.filter((shift) => shift.siteId === siteId);
-    const historical = context.historicalShifts.filter((shift) => shift.siteId === siteId);
+    const upcoming = context.upcomingShifts.filter(
+      (shift) => shift.siteId === siteId,
+    );
+    const historical = context.historicalShifts.filter(
+      (shift) => shift.siteId === siteId,
+    );
     const shortageSlots = upcoming.reduce(
-      (sum, shift) => sum + Math.max(0, shift.requiredGuards - shift.assignments.length),
+      (sum, shift) =>
+        sum + Math.max(0, shift.requiredGuards - shift.assignments.length),
       0,
     );
     const affectedShifts = upcoming.filter(
@@ -480,20 +544,28 @@ export class PredictionEngineService {
     const historicalCoverageIssues = historical.filter(
       (shift) => shift.assignments.length < shift.requiredGuards,
     ).length;
-    const assignedPast = historical.reduce((sum, shift) => sum + shift.assignments.length, 0);
+    const assignedPast = historical.reduce(
+      (sum, shift) => sum + shift.assignments.length,
+      0,
+    );
     const attendedPast = historical.reduce(
       (sum, shift) =>
         sum +
         shift.assignments.filter((assignment) =>
           shift.attendanceEvents.some(
-            (event) => event.guardId === assignment.guardId && event.type === 'CHECK_IN',
+            (event) =>
+              event.guardId === assignment.guardId && event.type === 'CHECK_IN',
           ),
         ).length,
       0,
     );
-    const missedRate = assignedPast > 0 ? (assignedPast - attendedPast) / assignedPast : 0;
-    const coverageRate = historical.length > 0 ? historicalCoverageIssues / historical.length : 0;
-    const weekendNightUpcoming = upcoming.filter((shift) => this.isWeekendNight(shift.startTime)).length;
+    const missedRate =
+      assignedPast > 0 ? (assignedPast - attendedPast) / assignedPast : 0;
+    const coverageRate =
+      historical.length > 0 ? historicalCoverageIssues / historical.length : 0;
+    const weekendNightUpcoming = upcoming.filter((shift) =>
+      this.isWeekendNight(shift.startTime),
+    ).length;
     const score = this.roundRiskScore(
       shortageSlots * 24 +
         conflictCount * 18 +
@@ -526,20 +598,38 @@ export class PredictionEngineService {
       confidenceScore,
       explanation: `${confidenceScore}% confidence due to ${this.joinReasons([
         shortageSlots > 0 ? `${shortageSlots} open guard slots` : null,
-        conflictCount > 0 ? `${conflictCount} guard availability conflicts` : null,
-        historicalCoverageIssues > 0 ? `${historicalCoverageIssues} historical coverage gaps` : null,
-        missedRate > 0 ? `${this.roundPercent(missedRate * 100)}% missed attendance pattern` : null,
+        conflictCount > 0
+          ? `${conflictCount} guard availability conflicts`
+          : null,
+        historicalCoverageIssues > 0
+          ? `${historicalCoverageIssues} historical coverage gaps`
+          : null,
+        missedRate > 0
+          ? `${this.roundPercent(missedRate * 100)}% missed attendance pattern`
+          : null,
       ])}.`,
       supportingData: [
-        this.support('Upcoming shifts', upcoming.length, `Next ${STAFFING_HORIZON_DAYS} days`),
+        this.support(
+          'Upcoming shifts',
+          upcoming.length,
+          `Next ${STAFFING_HORIZON_DAYS} days`,
+        ),
         this.support('Shortage slots', shortageSlots),
         this.support('Affected shifts', affectedShifts),
         this.support('Availability conflicts', conflictCount),
-        this.support('Historical coverage gaps', historicalCoverageIssues, `Last ${STAFFING_HISTORY_DAYS} days`),
+        this.support(
+          'Historical coverage gaps',
+          historicalCoverageIssues,
+          `Last ${STAFFING_HISTORY_DAYS} days`,
+        ),
       ],
       recommendations: [
-        shortageSlots > 0 ? `Assign ${shortageSlots} additional guard slot${shortageSlots === 1 ? '' : 's'} for ${siteName}.` : `Pre-confirm backup guards for ${siteName}.`,
-        conflictCount > 0 ? 'Resolve guard availability conflicts before publishing final roster.' : 'Keep daily shift coverage review active.',
+        shortageSlots > 0
+          ? `Assign ${shortageSlots} additional guard slot${shortageSlots === 1 ? '' : 's'} for ${siteName}.`
+          : `Pre-confirm backup guards for ${siteName}.`,
+        conflictCount > 0
+          ? 'Resolve guard availability conflicts before publishing final roster.'
+          : 'Keep daily shift coverage review active.',
       ],
       timeframe: `Next ${STAFFING_HORIZON_DAYS} days`,
       shortageSlots,
@@ -548,7 +638,9 @@ export class PredictionEngineService {
     };
   }
 
-  private buildWeekendNightStaffingPrediction(context: PredictionContext): StaffingPrediction | null {
+  private buildWeekendNightStaffingPrediction(
+    context: PredictionContext,
+  ): StaffingPrediction | null {
     const weekendNightHistory = context.historicalShifts.filter((shift) =>
       this.isWeekendNight(shift.startTime),
     );
@@ -562,15 +654,22 @@ export class PredictionEngineService {
     );
     const riskIncrease =
       otherIssueRate > 0
-        ? this.roundPercent(((weekendIssueRate - otherIssueRate) / otherIssueRate) * 100)
+        ? this.roundPercent(
+            ((weekendIssueRate - otherIssueRate) / otherIssueRate) * 100,
+          )
         : weekendIssueRate > 0
           ? 100
           : 0;
     const shortageSlots = upcomingWeekendNight.reduce(
-      (sum, shift) => sum + Math.max(0, shift.requiredGuards - shift.assignments.length),
+      (sum, shift) =>
+        sum + Math.max(0, shift.requiredGuards - shift.assignments.length),
       0,
     );
-    const score = this.roundRiskScore(weekendIssueRate * 70 + shortageSlots * 12 + Math.max(0, riskIncrease) * 0.2);
+    const score = this.roundRiskScore(
+      weekendIssueRate * 70 +
+        shortageSlots * 12 +
+        Math.max(0, riskIncrease) * 0.2,
+    );
 
     if (score < 30 || upcomingWeekendNight.length === 0) return null;
 
@@ -584,18 +683,28 @@ export class PredictionEngineService {
       riskLevel: this.riskLevel(score),
       riskScore: score,
       probability: score,
-      confidenceScore: this.confidenceScore(weekendNightHistory.length + otherHistory.length, [
-        weekendNightHistory.length,
-        upcomingWeekendNight.length,
-      ]),
-      explanation: `${this.confidenceScore(weekendNightHistory.length + otherHistory.length, [
-        weekendNightHistory.length,
-        upcomingWeekendNight.length,
-      ])}% confidence due to repeated weekend night staffing pressure in historical shifts.`,
+      confidenceScore: this.confidenceScore(
+        weekendNightHistory.length + otherHistory.length,
+        [weekendNightHistory.length, upcomingWeekendNight.length],
+      ),
+      explanation: `${this.confidenceScore(
+        weekendNightHistory.length + otherHistory.length,
+        [weekendNightHistory.length, upcomingWeekendNight.length],
+      )}% confidence due to repeated weekend night staffing pressure in historical shifts.`,
       supportingData: [
-        this.support('Weekend night shifts', upcomingWeekendNight.length, `Next ${STAFFING_HORIZON_DAYS} days`),
-        this.support('Weekend gap rate', `${this.roundPercent(weekendIssueRate * 100)}%`),
-        this.support('Other shift gap rate', `${this.roundPercent(otherIssueRate * 100)}%`),
+        this.support(
+          'Weekend night shifts',
+          upcomingWeekendNight.length,
+          `Next ${STAFFING_HORIZON_DAYS} days`,
+        ),
+        this.support(
+          'Weekend gap rate',
+          `${this.roundPercent(weekendIssueRate * 100)}%`,
+        ),
+        this.support(
+          'Other shift gap rate',
+          `${this.roundPercent(otherIssueRate * 100)}%`,
+        ),
         this.support('Open weekend slots', shortageSlots),
       ],
       recommendations: [
@@ -612,7 +721,9 @@ export class PredictionEngineService {
     };
   }
 
-  private buildIncidentPredictions(context: PredictionContext): PredictionSection<IncidentPrediction> {
+  private buildIncidentPredictions(
+    context: PredictionContext,
+  ): PredictionSection<IncidentPrediction> {
     const currentIncidents = context.incidents.filter(
       (incident) => incident.occurredAt >= context.currentIncidentStart,
     );
@@ -621,28 +732,44 @@ export class PredictionEngineService {
         incident.occurredAt >= context.previousIncidentStart &&
         incident.occurredAt < context.currentIncidentStart,
     );
-    const previousBySite = this.countBy(previousIncidents, (incident) => incident.siteId);
-    const currentBySite = this.countBy(currentIncidents, (incident) => incident.siteId);
+    const previousBySite = this.countBy(
+      previousIncidents,
+      (incident) => incident.siteId,
+    );
+    const currentBySite = this.countBy(
+      currentIncidents,
+      (incident) => incident.siteId,
+    );
 
     const predictions = context.incidentInsights.highRiskSites
       .map((risk) => {
         const currentCount = currentBySite.get(risk.entityId) || 0;
         const previousCount = previousBySite.get(risk.entityId) || 0;
-        const siteIncidents = context.incidents.filter((incident) => incident.siteId === risk.entityId);
+        const siteIncidents = context.incidents.filter(
+          (incident) => incident.siteId === risk.entityId,
+        );
         const highSeverityCount = siteIncidents.filter((incident) =>
           HIGH_INCIDENT_SEVERITIES.includes(incident.severity.toLowerCase()),
         ).length;
         const highSeverityRate =
-          siteIncidents.length > 0 ? highSeverityCount / siteIncidents.length : 0;
+          siteIncidents.length > 0
+            ? highSeverityCount / siteIncidents.length
+            : 0;
         const trendLift =
           previousCount > 0
             ? (currentCount - previousCount) / previousCount
             : currentCount > 0
               ? 0.5
               : 0;
-        const score = this.roundRiskScore(risk.riskScore * 0.65 + Math.max(0, trendLift) * 20 + highSeverityRate * 25);
+        const score = this.roundRiskScore(
+          risk.riskScore * 0.65 +
+            Math.max(0, trendLift) * 20 +
+            highSeverityRate * 25,
+        );
         const escalationProbability = this.roundRiskScore(
-          highSeverityRate * 70 + risk.recent7DayCount * 10 + Math.max(0, trendLift) * 20,
+          highSeverityRate * 70 +
+            risk.recent7DayCount * 10 +
+            Math.max(0, trendLift) * 20,
         );
 
         return {
@@ -669,8 +796,12 @@ export class PredictionEngineService {
             highSeverityCount,
           ])}% confidence due to ${this.joinReasons([
             `${siteIncidents.length} incidents in the analysis window`,
-            risk.repeatedIncidentTypes > 0 ? 'recurring incident categories' : null,
-            highSeverityCount > 0 ? `${highSeverityCount} high-severity incidents` : null,
+            risk.repeatedIncidentTypes > 0
+              ? 'recurring incident categories'
+              : null,
+            highSeverityCount > 0
+              ? `${highSeverityCount} high-severity incidents`
+              : null,
           ])}.`,
           supportingData: [
             this.support('Current 30 days', currentCount),
@@ -684,7 +815,12 @@ export class PredictionEngineService {
             'Review incident post orders and recurring location controls.',
           ],
           timeframe: 'Next 7 days',
-          expectedTrend: trendLift > 0.1 ? 'increasing' : trendLift < -0.1 ? 'decreasing' : 'stable',
+          expectedTrend:
+            trendLift > 0.1
+              ? 'increasing'
+              : trendLift < -0.1
+                ? 'decreasing'
+                : 'stable',
           escalationProbability,
         } satisfies IncidentPrediction;
       })
@@ -694,22 +830,55 @@ export class PredictionEngineService {
 
     const typeTrend = this.buildIncidentTypeTrendPrediction(context);
     const allPredictions = [typeTrend, ...predictions]
-      .filter((prediction): prediction is IncidentPrediction => Boolean(prediction))
+      .filter((prediction): prediction is IncidentPrediction =>
+        Boolean(prediction),
+      )
       .sort((left, right) => right.riskScore - left.riskScore);
 
     return {
       generatedAt: context.now.toISOString(),
       summary: [
-        this.metric('Incidents analyzed', context.incidents.length, `Last ${INCIDENT_WINDOW_DAYS * 2} days`, context.incidents.length > 0 ? 'info' : 'positive'),
-        this.metric('Current incidents', currentIncidents.length, 'Last 30 days', currentIncidents.length > previousIncidents.length ? 'warning' : 'positive'),
-        this.metric('High-risk sites', predictions.filter((item) => item.riskLevel === 'high').length, 'Predicted site risk', predictions.some((item) => item.riskLevel === 'high') ? 'critical' : 'positive'),
-        this.metric('Escalation risk', `${Math.max(0, ...predictions.map((item) => item.escalationProbability))}%`, 'Highest predicted escalation', predictions.some((item) => item.escalationProbability >= 70) ? 'critical' : 'info'),
+        this.metric(
+          'Incidents analyzed',
+          context.incidents.length,
+          `Last ${INCIDENT_WINDOW_DAYS * 2} days`,
+          context.incidents.length > 0 ? 'info' : 'positive',
+        ),
+        this.metric(
+          'Current incidents',
+          currentIncidents.length,
+          'Last 30 days',
+          currentIncidents.length > previousIncidents.length
+            ? 'warning'
+            : 'positive',
+        ),
+        this.metric(
+          'High-risk sites',
+          predictions.filter((item) => item.riskLevel === 'high').length,
+          'Predicted site risk',
+          predictions.some((item) => item.riskLevel === 'high')
+            ? 'critical'
+            : 'positive',
+        ),
+        this.metric(
+          'Escalation risk',
+          `${Math.max(0, ...predictions.map((item) => item.escalationProbability))}%`,
+          'Highest predicted escalation',
+          predictions.some((item) => item.escalationProbability >= 70)
+            ? 'critical'
+            : 'info',
+        ),
       ],
-      predictions: allPredictions.length > 0 ? allPredictions : [this.emptyIncidentPrediction(context)],
+      predictions:
+        allPredictions.length > 0
+          ? allPredictions
+          : [this.emptyIncidentPrediction(context)],
     };
   }
 
-  private buildIncidentTypeTrendPrediction(context: PredictionContext): IncidentPrediction | null {
+  private buildIncidentTypeTrendPrediction(
+    context: PredictionContext,
+  ): IncidentPrediction | null {
     const currentIncidents = context.incidents.filter(
       (incident) => incident.occurredAt >= context.currentIncidentStart,
     );
@@ -728,15 +897,24 @@ export class PredictionEngineService {
       .map(([type, current]) => {
         const previous = previousByType.get(type) || 0;
         const increase =
-          previous > 0 ? ((current - previous) / previous) * 100 : current > 1 ? 100 : 0;
+          previous > 0
+            ? ((current - previous) / previous) * 100
+            : current > 1
+              ? 100
+              : 0;
         return { type, current, previous, increase };
       })
       .filter((item) => item.current > 0 && item.increase > 0)
-      .sort((left, right) => right.increase - left.increase || right.current - left.current)[0];
+      .sort(
+        (left, right) =>
+          right.increase - left.increase || right.current - left.current,
+      )[0];
 
     if (!trend) return null;
 
-    const score = this.roundRiskScore(35 + trend.current * 8 + Math.min(35, trend.increase * 0.35));
+    const score = this.roundRiskScore(
+      35 + trend.current * 8 + Math.min(35, trend.increase * 0.35),
+    );
 
     return {
       id: `incident-type-${this.slug(trend.type)}`,
@@ -772,14 +950,23 @@ export class PredictionEngineService {
     };
   }
 
-  private buildChurnPredictions(context: PredictionContext): PredictionSection<ChurnPrediction> {
+  private buildChurnPredictions(
+    context: PredictionContext,
+  ): PredictionSection<ChurnPrediction> {
     const valueByClient = new Map(
-      context.revenueDashboard.clientValue.rows.map((row) => [row.clientId, row]),
+      context.revenueDashboard.clientValue.rows.map((row) => [
+        row.clientId,
+        row,
+      ]),
     );
     const predictions = context.revenueDashboard.contracts.rows
       .map((contract) => {
         const value = valueByClient.get(contract.clientId);
-        const inactivePenalty = contract.lastInvoiceAt && this.daysSince(new Date(contract.lastInvoiceAt), context.now) > 90 ? 12 : 0;
+        const inactivePenalty =
+          contract.lastInvoiceAt &&
+          this.daysSince(new Date(contract.lastInvoiceAt), context.now) > 90
+            ? 12
+            : 0;
         const revenueDecline = value ? Math.max(0, -value.growthRate) : 0;
         const score = this.roundRiskScore(
           (100 - contract.healthScore) * 0.4 +
@@ -804,24 +991,43 @@ export class PredictionEngineService {
           riskLevel: this.riskLevel(score),
           riskScore: score,
           probability: score,
-          confidenceScore: this.confidenceScore(contract.invoiceCount + contract.incidentCount + contract.disputeCount, [
-            contract.invoiceCount,
-            contract.incidentCount,
-            contract.disputeCount,
-          ]),
-          explanation: `${this.confidenceScore(contract.invoiceCount + contract.incidentCount + contract.disputeCount, [
-            contract.invoiceCount,
-            contract.incidentCount,
-            contract.disputeCount,
-          ])}% confidence due to contract health, disputes, incident history, and billing behavior.`,
+          confidenceScore: this.confidenceScore(
+            contract.invoiceCount +
+              contract.incidentCount +
+              contract.disputeCount,
+            [
+              contract.invoiceCount,
+              contract.incidentCount,
+              contract.disputeCount,
+            ],
+          ),
+          explanation: `${this.confidenceScore(
+            contract.invoiceCount +
+              contract.incidentCount +
+              contract.disputeCount,
+            [
+              contract.invoiceCount,
+              contract.incidentCount,
+              contract.disputeCount,
+            ],
+          )}% confidence due to contract health, disputes, incident history, and billing behavior.`,
           supportingData: [
             this.support('Churn score', this.riskLabel(score)),
             this.support('Contract health', `${contract.healthScore}/100`),
-            this.support('Retention score', value ? `${value.retentionScore}/100` : 'N/A'),
-            this.support('Revenue growth', value ? `${value.growthRate}%` : 'N/A'),
+            this.support(
+              'Retention score',
+              value ? `${value.retentionScore}/100` : 'N/A',
+            ),
+            this.support(
+              'Revenue growth',
+              value ? `${value.growthRate}%` : 'N/A',
+            ),
             this.support('Disputes', contract.disputeCount),
             this.support('Incidents', contract.incidentCount),
-            this.support('Outstanding', this.formatCurrency(contract.outstandingAmount)),
+            this.support(
+              'Outstanding',
+              this.formatCurrency(contract.outstandingAmount),
+            ),
           ],
           recommendations: [
             `Contact ${contract.name} to review service satisfaction and upcoming needs.`,
@@ -838,37 +1044,100 @@ export class PredictionEngineService {
     return {
       generatedAt: context.now.toISOString(),
       summary: [
-        this.metric('Clients analyzed', context.revenueDashboard.contracts.rows.length, 'Contract and billing history', 'info'),
-        this.metric('High churn risk', predictions.filter((item) => item.riskLevel === 'high').length, 'Client churn score High', predictions.some((item) => item.riskLevel === 'high') ? 'critical' : 'positive'),
-        this.metric('Medium churn risk', predictions.filter((item) => item.riskLevel === 'medium').length, 'Client churn score Medium', predictions.some((item) => item.riskLevel === 'medium') ? 'warning' : 'positive'),
-        this.metric('At-risk revenue', this.formatCurrency(this.revenueAtRisk(predictions, context.revenueDashboard.contracts.rows)), 'Estimated from total revenue', predictions.length > 0 ? 'warning' : 'positive'),
+        this.metric(
+          'Clients analyzed',
+          context.revenueDashboard.contracts.rows.length,
+          'Contract and billing history',
+          'info',
+        ),
+        this.metric(
+          'High churn risk',
+          predictions.filter((item) => item.riskLevel === 'high').length,
+          'Client churn score High',
+          predictions.some((item) => item.riskLevel === 'high')
+            ? 'critical'
+            : 'positive',
+        ),
+        this.metric(
+          'Medium churn risk',
+          predictions.filter((item) => item.riskLevel === 'medium').length,
+          'Client churn score Medium',
+          predictions.some((item) => item.riskLevel === 'medium')
+            ? 'warning'
+            : 'positive',
+        ),
+        this.metric(
+          'At-risk revenue',
+          this.formatCurrency(
+            this.revenueAtRisk(
+              predictions,
+              context.revenueDashboard.contracts.rows,
+            ),
+          ),
+          'Estimated from total revenue',
+          predictions.length > 0 ? 'warning' : 'positive',
+        ),
       ],
-      predictions: predictions.length > 0 ? predictions : [this.emptyChurnPrediction(context)],
+      predictions:
+        predictions.length > 0
+          ? predictions
+          : [this.emptyChurnPrediction(context)],
     };
   }
 
-  private buildPaymentRiskPredictions(context: PredictionContext): PredictionSection<PaymentRiskPrediction> {
-    const invoicesByClient = this.groupBy(context.invoices, (invoice) => invoice.clientId);
+  private buildPaymentRiskPredictions(
+    context: PredictionContext,
+  ): PredictionSection<PaymentRiskPrediction> {
+    const invoicesByClient = this.groupBy(
+      context.invoices,
+      (invoice) => invoice.clientId,
+    );
     const predictions = Array.from(invoicesByClient.entries())
       .map(([clientId, invoices]) => {
         const client = invoices[0]?.client;
-        const outstanding = invoices.filter((invoice) => OUTSTANDING_STATUSES.includes(invoice.status));
-        const paid = invoices.filter((invoice) => invoice.status === 'paid' && invoice.paidAt);
-        const overdue = outstanding.filter((invoice) => this.daysPastDue(invoice, context.now) > 0);
+        const outstanding = invoices.filter((invoice) =>
+          OUTSTANDING_STATUSES.includes(invoice.status),
+        );
+        const paid = invoices.filter(
+          (invoice) => invoice.status === 'paid' && invoice.paidAt,
+        );
+        const overdue = outstanding.filter(
+          (invoice) => this.daysPastDue(invoice, context.now) > 0,
+        );
         const activeDisputes = invoices.reduce(
           (sum, invoice) =>
-            sum + invoice.disputes.filter((dispute) => ACTIVE_DISPUTE_STATUSES.includes(dispute.status)).length,
+            sum +
+            invoice.disputes.filter((dispute) =>
+              ACTIVE_DISPUTE_STATUSES.includes(dispute.status),
+            ).length,
           0,
         );
         const latePaid = paid.filter(
-          (invoice) => invoice.dueDate && invoice.paidAt && invoice.paidAt > invoice.dueDate,
+          (invoice) =>
+            invoice.dueDate &&
+            invoice.paidAt &&
+            invoice.paidAt > invoice.dueDate,
         );
-        const totalBilled = invoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0);
-        const outstandingAmount = outstanding.reduce((sum, invoice) => sum + invoice.totalAmount, 0);
-        const overdueRate = outstanding.length > 0 ? overdue.length / outstanding.length : 0;
-        const latePaidRate = paid.length > 0 ? latePaid.length / paid.length : 0;
-        const outstandingRatio = totalBilled > 0 ? outstandingAmount / totalBilled : 0;
-        const maxDaysPastDue = Math.max(0, ...outstanding.map((invoice) => this.daysPastDue(invoice, context.now)));
+        const totalBilled = invoices.reduce(
+          (sum, invoice) => sum + invoice.totalAmount,
+          0,
+        );
+        const outstandingAmount = outstanding.reduce(
+          (sum, invoice) => sum + invoice.totalAmount,
+          0,
+        );
+        const overdueRate =
+          outstanding.length > 0 ? overdue.length / outstanding.length : 0;
+        const latePaidRate =
+          paid.length > 0 ? latePaid.length / paid.length : 0;
+        const outstandingRatio =
+          totalBilled > 0 ? outstandingAmount / totalBilled : 0;
+        const maxDaysPastDue = Math.max(
+          0,
+          ...outstanding.map((invoice) =>
+            this.daysPastDue(invoice, context.now),
+          ),
+        );
         const probability = this.roundRiskScore(
           12 +
             overdueRate * 35 +
@@ -902,13 +1171,18 @@ export class PredictionEngineService {
             this.support('Payment risk score', this.riskLabel(probability)),
             this.support('Outstanding', this.formatCurrency(outstandingAmount)),
             this.support('Overdue invoices', overdue.length),
-            this.support('Late paid history', `${this.roundPercent(latePaidRate * 100)}%`),
+            this.support(
+              'Late paid history',
+              `${this.roundPercent(latePaidRate * 100)}%`,
+            ),
             this.support('Active disputes', activeDisputes),
             this.support('Max days past due', maxDaysPastDue),
           ],
           recommendations: [
             `Initiate invoice follow-up with ${this.clientDisplayName(client)}.`,
-            activeDisputes > 0 ? 'Resolve active invoice disputes before the next billing cycle.' : 'Confirm payment timeline before due date.',
+            activeDisputes > 0
+              ? 'Resolve active invoice disputes before the next billing cycle.'
+              : 'Confirm payment timeline before due date.',
           ],
           timeframe: 'Next invoice cycle',
           paymentRiskScore: this.riskLevel(probability),
@@ -921,23 +1195,62 @@ export class PredictionEngineService {
     return {
       generatedAt: context.now.toISOString(),
       summary: [
-        this.metric('Clients analyzed', invoicesByClient.size, 'Invoice payment history', 'info'),
-        this.metric('High payment risk', predictions.filter((item) => item.riskLevel === 'high').length, 'Predicted delayed payment', predictions.some((item) => item.riskLevel === 'high') ? 'critical' : 'positive'),
-        this.metric('Outstanding balance', this.formatCurrency(context.revenueDashboard.forecast.outstandingAmount), 'Forecasting service output', context.revenueDashboard.forecast.outstandingAmount > 0 ? 'warning' : 'positive'),
-        this.metric('Expected collections', this.formatCurrency(context.revenueDashboard.forecast.expectedCollections), 'Probability-weighted', 'info'),
+        this.metric(
+          'Clients analyzed',
+          invoicesByClient.size,
+          'Invoice payment history',
+          'info',
+        ),
+        this.metric(
+          'High payment risk',
+          predictions.filter((item) => item.riskLevel === 'high').length,
+          'Predicted delayed payment',
+          predictions.some((item) => item.riskLevel === 'high')
+            ? 'critical'
+            : 'positive',
+        ),
+        this.metric(
+          'Outstanding balance',
+          this.formatCurrency(
+            context.revenueDashboard.forecast.outstandingAmount,
+          ),
+          'Forecasting service output',
+          context.revenueDashboard.forecast.outstandingAmount > 0
+            ? 'warning'
+            : 'positive',
+        ),
+        this.metric(
+          'Expected collections',
+          this.formatCurrency(
+            context.revenueDashboard.forecast.expectedCollections,
+          ),
+          'Probability-weighted',
+          'info',
+        ),
       ],
-      predictions: predictions.length > 0 ? predictions : [this.emptyPaymentPrediction(context)],
+      predictions:
+        predictions.length > 0
+          ? predictions
+          : [this.emptyPaymentPrediction(context)],
     };
   }
 
-  private buildRenewalRiskPredictions(context: PredictionContext): PredictionSection<RenewalRiskPrediction> {
+  private buildRenewalRiskPredictions(
+    context: PredictionContext,
+  ): PredictionSection<RenewalRiskPrediction> {
     const valueByClient = new Map(
-      context.revenueDashboard.clientValue.rows.map((row) => [row.clientId, row]),
+      context.revenueDashboard.clientValue.rows.map((row) => [
+        row.clientId,
+        row,
+      ]),
     );
     const renewalByClient = new Map(
       context.revenueDashboard.renewals.rows.map((row) => [row.clientId, row]),
     );
-    const rateCardsByClient = this.groupBy(context.rateCards, (rateCard) => rateCard.clientId);
+    const rateCardsByClient = this.groupBy(
+      context.rateCards,
+      (rateCard) => rateCard.clientId,
+    );
 
     const predictions = context.revenueDashboard.contracts.rows
       .map((contract) => {
@@ -945,12 +1258,16 @@ export class PredictionEngineService {
         const renewal = renewalByClient.get(contract.clientId);
         const rateCards = rateCardsByClient.get(contract.clientId) || [];
         const nearestRenewalDate = this.nearestFutureDate(
-          rateCards.map((rateCard) => rateCard.effectiveTo).filter((date): date is Date => Boolean(date)),
+          rateCards
+            .map((rateCard) => rateCard.effectiveTo)
+            .filter((date): date is Date => Boolean(date)),
           context.now,
         );
         const daysUntilRenewal =
           contract.daysUntilRenewal ??
-          (nearestRenewalDate ? this.daysBetween(context.now, nearestRenewalDate) : null);
+          (nearestRenewalDate
+            ? this.daysBetween(context.now, nearestRenewalDate)
+            : null);
         const urgency =
           daysUntilRenewal === null
             ? 0
@@ -968,7 +1285,10 @@ export class PredictionEngineService {
             (contract.outstandingAmount > 0 ? 8 : 0) +
             Math.min(12, decline * 0.3),
         );
-        const contractHealthTrend = this.contractHealthTrend(contract, value?.growthRate ?? 0);
+        const contractHealthTrend = this.contractHealthTrend(
+          contract,
+          value?.growthRate ?? 0,
+        );
 
         return {
           id: `renewal-client-${contract.clientId}`,
@@ -983,29 +1303,41 @@ export class PredictionEngineService {
           riskLevel: this.riskLevel(nonRenewalProbability),
           riskScore: nonRenewalProbability,
           probability: nonRenewalProbability,
-          confidenceScore: this.confidenceScore(contract.invoiceCount + rateCards.length, [
-            contract.invoiceCount,
-            rateCards.length,
-            contract.disputeCount,
-          ]),
-          explanation: `${this.confidenceScore(contract.invoiceCount + rateCards.length, [
-            contract.invoiceCount,
-            rateCards.length,
-            contract.disputeCount,
-          ])}% confidence due to contract health, renewal timing, disputes, incidents, and billing trend.`,
+          confidenceScore: this.confidenceScore(
+            contract.invoiceCount + rateCards.length,
+            [contract.invoiceCount, rateCards.length, contract.disputeCount],
+          ),
+          explanation: `${this.confidenceScore(
+            contract.invoiceCount + rateCards.length,
+            [contract.invoiceCount, rateCards.length, contract.disputeCount],
+          )}% confidence due to contract health, renewal timing, disputes, incidents, and billing trend.`,
           supportingData: [
-            this.support('Non-renewal probability', `${nonRenewalProbability}%`),
-            this.support('Renewal likelihood', `${100 - nonRenewalProbability}%`),
+            this.support(
+              'Non-renewal probability',
+              `${nonRenewalProbability}%`,
+            ),
+            this.support(
+              'Renewal likelihood',
+              `${100 - nonRenewalProbability}%`,
+            ),
             this.support('Health trend', contractHealthTrend),
             this.support('Days until renewal', daysUntilRenewal ?? 'N/A'),
             this.support('Contract health', `${contract.healthScore}/100`),
-            this.support('Renewal signal', renewal?.reason || 'No explicit renewal opportunity'),
+            this.support(
+              'Renewal signal',
+              renewal?.reason || 'No explicit renewal opportunity',
+            ),
           ],
           recommendations: [
             `Begin contract renewal process for ${contract.name}.`,
-            nonRenewalProbability >= 70 ? 'Schedule executive outreach and review service quality blockers.' : 'Prepare renewal talking points and updated pricing context.',
+            nonRenewalProbability >= 70
+              ? 'Schedule executive outreach and review service quality blockers.'
+              : 'Prepare renewal talking points and updated pricing context.',
           ],
-          timeframe: daysUntilRenewal !== null ? `${daysUntilRenewal} days` : `Next ${CONTRACT_RENEWAL_WINDOW_DAYS} days`,
+          timeframe:
+            daysUntilRenewal !== null
+              ? `${daysUntilRenewal} days`
+              : `Next ${CONTRACT_RENEWAL_WINDOW_DAYS} days`,
           nonRenewalProbability,
           renewalLikelihood: 100 - nonRenewalProbability,
           contractHealthTrend,
@@ -1014,7 +1346,9 @@ export class PredictionEngineService {
       .filter(
         (prediction) =>
           prediction.riskScore >= 25 ||
-          (prediction.supportingData.find((item) => item.label === 'Days until renewal')?.value ?? 9999) !== 'N/A',
+          (prediction.supportingData.find(
+            (item) => item.label === 'Days until renewal',
+          )?.value ?? 9999) !== 'N/A',
       )
       .sort((left, right) => right.riskScore - left.riskScore)
       .slice(0, 8);
@@ -1022,12 +1356,44 @@ export class PredictionEngineService {
     return {
       generatedAt: context.now.toISOString(),
       summary: [
-        this.metric('Contracts analyzed', context.revenueDashboard.contracts.rows.length, 'Revenue forecasting service', 'info'),
-        this.metric('Renewals due', context.revenueDashboard.renewals.rows.filter((row) => row.type === 'renewal_due').length, `Next ${CONTRACT_RENEWAL_WINDOW_DAYS} days`, context.revenueDashboard.renewals.rows.length > 0 ? 'warning' : 'positive'),
-        this.metric('High renewal risk', predictions.filter((item) => item.riskLevel === 'high').length, 'Non-renewal probability High', predictions.some((item) => item.riskLevel === 'high') ? 'critical' : 'positive'),
-        this.metric('Declining trend', predictions.filter((item) => item.contractHealthTrend === 'declining').length, 'Contract health trend', predictions.some((item) => item.contractHealthTrend === 'declining') ? 'warning' : 'positive'),
+        this.metric(
+          'Contracts analyzed',
+          context.revenueDashboard.contracts.rows.length,
+          'Revenue forecasting service',
+          'info',
+        ),
+        this.metric(
+          'Renewals due',
+          context.revenueDashboard.renewals.rows.filter(
+            (row) => row.type === 'renewal_due',
+          ).length,
+          `Next ${CONTRACT_RENEWAL_WINDOW_DAYS} days`,
+          context.revenueDashboard.renewals.rows.length > 0
+            ? 'warning'
+            : 'positive',
+        ),
+        this.metric(
+          'High renewal risk',
+          predictions.filter((item) => item.riskLevel === 'high').length,
+          'Non-renewal probability High',
+          predictions.some((item) => item.riskLevel === 'high')
+            ? 'critical'
+            : 'positive',
+        ),
+        this.metric(
+          'Declining trend',
+          predictions.filter((item) => item.contractHealthTrend === 'declining')
+            .length,
+          'Contract health trend',
+          predictions.some((item) => item.contractHealthTrend === 'declining')
+            ? 'warning'
+            : 'positive',
+        ),
       ],
-      predictions: predictions.length > 0 ? predictions : [this.emptyRenewalPrediction(context)],
+      predictions:
+        predictions.length > 0
+          ? predictions
+          : [this.emptyRenewalPrediction(context)],
     };
   }
 
@@ -1046,61 +1412,74 @@ export class PredictionEngineService {
     const renewal = this.firstActionable(input.renewals);
 
     if (staffing) {
-      recommendations.push(this.toRecommendation(staffing, {
-        id: 'prediction-staffing-action',
-        category: 'operations',
-        title: 'Assign additional guard coverage',
-        action: staffing.recommendations[0],
-        actionType: 'suggest_guard_reassignment',
-        targetModule: staffing.entityType === 'site' ? 'site' : 'operations',
-      }));
+      recommendations.push(
+        this.toRecommendation(staffing, {
+          id: 'prediction-staffing-action',
+          category: 'operations',
+          title: 'Assign additional guard coverage',
+          action: staffing.recommendations[0],
+          actionType: 'suggest_guard_reassignment',
+          targetModule: staffing.entityType === 'site' ? 'site' : 'operations',
+        }),
+      );
     }
 
     if (incident) {
-      recommendations.push(this.toRecommendation(incident, {
-        id: 'prediction-incident-action',
-        category: 'incidents',
-        title: 'Reduce predicted incident risk',
-        action: incident.recommendations[0],
-        actionType: 'flag_site_risk',
-        targetModule: incident.entityType === 'site' ? 'site' : 'incident',
-      }));
+      recommendations.push(
+        this.toRecommendation(incident, {
+          id: 'prediction-incident-action',
+          category: 'incidents',
+          title: 'Reduce predicted incident risk',
+          action: incident.recommendations[0],
+          actionType: 'flag_site_risk',
+          targetModule: incident.entityType === 'site' ? 'site' : 'incident',
+        }),
+      );
     }
 
     if (churn) {
-      recommendations.push(this.toRecommendation(churn, {
-        id: 'prediction-churn-action',
-        category: 'clients',
-        title: 'Contact at-risk client',
-        action: churn.recommendations[0],
-        actionType: 'flag_client_risk',
-        targetModule: 'client',
-      }));
+      recommendations.push(
+        this.toRecommendation(churn, {
+          id: 'prediction-churn-action',
+          category: 'clients',
+          title: 'Contact at-risk client',
+          action: churn.recommendations[0],
+          actionType: 'flag_client_risk',
+          targetModule: 'client',
+        }),
+      );
     }
 
     if (payment) {
-      recommendations.push(this.toRecommendation(payment, {
-        id: 'prediction-payment-action',
-        category: 'billing',
-        title: 'Initiate invoice follow-up',
-        action: payment.recommendations[0],
-        actionType: 'create_invoice_followup',
-        targetModule: 'client',
-      }));
+      recommendations.push(
+        this.toRecommendation(payment, {
+          id: 'prediction-payment-action',
+          category: 'billing',
+          title: 'Initiate invoice follow-up',
+          action: payment.recommendations[0],
+          actionType: 'create_invoice_followup',
+          targetModule: 'client',
+        }),
+      );
     }
 
     if (renewal) {
-      recommendations.push(this.toRecommendation(renewal, {
-        id: 'prediction-renewal-action',
-        category: 'renewals',
-        title: 'Begin contract renewal process',
-        action: renewal.recommendations[0],
-        actionType: 'create_follow_up_task',
-        targetModule: 'client',
-      }));
+      recommendations.push(
+        this.toRecommendation(renewal, {
+          id: 'prediction-renewal-action',
+          category: 'renewals',
+          title: 'Begin contract renewal process',
+          action: renewal.recommendations[0],
+          actionType: 'create_follow_up_task',
+          targetModule: 'client',
+        }),
+      );
     }
 
-    return recommendations.sort((left, right) => this.priorityRank(right.priority) - this.priorityRank(left.priority));
+    return recommendations.sort(
+      (left, right) =>
+        this.priorityRank(right.priority) - this.priorityRank(left.priority),
+    );
   }
 
   private toRecommendation(
@@ -1117,7 +1496,12 @@ export class PredictionEngineService {
     return {
       id: input.id,
       category: input.category,
-      priority: prediction.riskLevel === 'high' ? 'high' : prediction.riskLevel === 'medium' ? 'medium' : 'low',
+      priority:
+        prediction.riskLevel === 'high'
+          ? 'high'
+          : prediction.riskLevel === 'medium'
+            ? 'medium'
+            : 'low',
       title: input.title,
       action: input.action,
       reason: prediction.explanation,
@@ -1134,11 +1518,19 @@ export class PredictionEngineService {
     };
   }
 
-  private async syncActions(tenantId: string, userId: string, recommendations: AiRecommendation[]) {
+  private async syncActions(
+    tenantId: string,
+    userId: string,
+    recommendations: AiRecommendation[],
+  ) {
     if (recommendations.length === 0) return;
 
     try {
-      await this.aiActionsService.syncFromRecommendations(tenantId, recommendations, userId);
+      await this.aiActionsService.syncFromRecommendations(
+        tenantId,
+        recommendations,
+        userId,
+      );
     } catch (error) {
       this.logger.warn(
         `Prediction actions sync skipped: ${error instanceof Error ? error.message : String(error)}`,
@@ -1161,8 +1553,15 @@ export class PredictionEngineService {
       const overlaps = context.upcomingShifts.some(
         (other) =>
           other.id !== shift.id &&
-          other.assignments.some((otherAssignment) => otherAssignment.guardId === assignment.guardId) &&
-          this.datesOverlap(other.startTime, other.endTime, shift.startTime, shift.endTime),
+          other.assignments.some(
+            (otherAssignment) => otherAssignment.guardId === assignment.guardId,
+          ) &&
+          this.datesOverlap(
+            other.startTime,
+            other.endTime,
+            shift.startTime,
+            shift.endTime,
+          ),
       );
 
       return unavailable || overlaps;
@@ -1178,7 +1577,10 @@ export class PredictionEngineService {
 
   private coverageIssueRate(shifts: HistoricalShift[]) {
     if (shifts.length === 0) return 0;
-    return shifts.filter((shift) => shift.assignments.length < shift.requiredGuards).length / shifts.length;
+    return (
+      shifts.filter((shift) => shift.assignments.length < shift.requiredGuards)
+        .length / shifts.length
+    );
   }
 
   private firstActionable<T extends BasePrediction>(predictions: T[]) {
@@ -1200,18 +1602,44 @@ export class PredictionEngineService {
       ...renewals.predictions,
     ];
     const actionable = all.filter((prediction) => prediction.riskScore >= 25);
-    const high = actionable.filter((prediction) => prediction.riskLevel === 'high').length;
-    const top = actionable.sort((left, right) => right.riskScore - left.riskScore)[0];
+    const high = actionable.filter(
+      (prediction) => prediction.riskLevel === 'high',
+    ).length;
+    const top = actionable.sort(
+      (left, right) => right.riskScore - left.riskScore,
+    )[0];
 
     return [
-      this.metric('Predictions', actionable.length, 'Actionable signals', actionable.length > 0 ? 'info' : 'positive'),
-      this.metric('High risk', high, 'Needs attention', high > 0 ? 'critical' : 'positive'),
-      this.metric('Top probability', top ? `${top.probability}%` : '0%', top?.title || 'No elevated risk', top && top.probability >= 70 ? 'critical' : 'info'),
-      this.metric('Avg confidence', `${this.average(actionable.map((item) => item.confidenceScore))}%`, 'Across actionable predictions', actionable.length > 0 ? 'info' : 'positive'),
+      this.metric(
+        'Predictions',
+        actionable.length,
+        'Actionable signals',
+        actionable.length > 0 ? 'info' : 'positive',
+      ),
+      this.metric(
+        'High risk',
+        high,
+        'Needs attention',
+        high > 0 ? 'critical' : 'positive',
+      ),
+      this.metric(
+        'Top probability',
+        top ? `${top.probability}%` : '0%',
+        top?.title || 'No elevated risk',
+        top && top.probability >= 70 ? 'critical' : 'info',
+      ),
+      this.metric(
+        'Avg confidence',
+        `${this.average(actionable.map((item) => item.confidenceScore))}%`,
+        'Across actionable predictions',
+        actionable.length > 0 ? 'info' : 'positive',
+      ),
     ];
   }
 
-  private emptyStaffingPrediction(context: PredictionContext): StaffingPrediction {
+  private emptyStaffingPrediction(
+    context: PredictionContext,
+  ): StaffingPrediction {
     return {
       id: 'staffing-empty',
       category: 'staffing',
@@ -1222,8 +1650,12 @@ export class PredictionEngineService {
       riskLevel: 'low',
       riskScore: 10,
       probability: 10,
-      confidenceScore: this.confidenceScore(context.historicalShifts.length + context.upcomingShifts.length, [context.upcomingShifts.length]),
-      explanation: 'Confidence is based on upcoming shift coverage and recent attendance history.',
+      confidenceScore: this.confidenceScore(
+        context.historicalShifts.length + context.upcomingShifts.length,
+        [context.upcomingShifts.length],
+      ),
+      explanation:
+        'Confidence is based on upcoming shift coverage and recent attendance history.',
       supportingData: [
         this.support('Upcoming shifts', context.upcomingShifts.length),
         this.support('Open slots', context.schedulingOverview.shortageSlots),
@@ -1236,20 +1668,28 @@ export class PredictionEngineService {
     };
   }
 
-  private emptyIncidentPrediction(context: PredictionContext): IncidentPrediction {
+  private emptyIncidentPrediction(
+    context: PredictionContext,
+  ): IncidentPrediction {
     return {
       id: 'incident-empty',
       category: 'incidents',
       entityType: 'pattern',
       entityId: null,
       title: 'No elevated incident risk predicted',
-      summary: 'No elevated incident risk is predicted from current incident trends.',
+      summary:
+        'No elevated incident risk is predicted from current incident trends.',
       riskLevel: 'low',
       riskScore: 10,
       probability: 10,
-      confidenceScore: this.confidenceScore(context.incidents.length, [context.incidents.length]),
-      explanation: 'Confidence is based on recent and previous incident windows.',
-      supportingData: [this.support('Incidents analyzed', context.incidents.length)],
+      confidenceScore: this.confidenceScore(context.incidents.length, [
+        context.incidents.length,
+      ]),
+      explanation:
+        'Confidence is based on recent and previous incident windows.',
+      supportingData: [
+        this.support('Incidents analyzed', context.incidents.length),
+      ],
       recommendations: ['Maintain incident review cadence.'],
       timeframe: 'Next 7 days',
       expectedTrend: 'stable',
@@ -1268,16 +1708,27 @@ export class PredictionEngineService {
       riskLevel: 'low',
       riskScore: 10,
       probability: 10,
-      confidenceScore: this.confidenceScore(context.revenueDashboard.contracts.rows.length, [context.revenueDashboard.contracts.rows.length]),
-      explanation: 'Confidence is based on available contract, incident, dispute, and payment history.',
-      supportingData: [this.support('Clients analyzed', context.revenueDashboard.contracts.rows.length)],
+      confidenceScore: this.confidenceScore(
+        context.revenueDashboard.contracts.rows.length,
+        [context.revenueDashboard.contracts.rows.length],
+      ),
+      explanation:
+        'Confidence is based on available contract, incident, dispute, and payment history.',
+      supportingData: [
+        this.support(
+          'Clients analyzed',
+          context.revenueDashboard.contracts.rows.length,
+        ),
+      ],
       recommendations: ['Continue regular client health reviews.'],
       timeframe: 'Next 30 days',
       churnScore: 'low',
     };
   }
 
-  private emptyPaymentPrediction(context: PredictionContext): PaymentRiskPrediction {
+  private emptyPaymentPrediction(
+    context: PredictionContext,
+  ): PaymentRiskPrediction {
     return {
       id: 'payment-empty',
       category: 'payment',
@@ -1288,16 +1739,22 @@ export class PredictionEngineService {
       riskLevel: 'low',
       riskScore: 10,
       probability: 10,
-      confidenceScore: this.confidenceScore(context.invoices.length, [context.invoices.length]),
+      confidenceScore: this.confidenceScore(context.invoices.length, [
+        context.invoices.length,
+      ]),
       explanation: 'Confidence is based on invoice aging and payment history.',
-      supportingData: [this.support('Invoices analyzed', context.invoices.length)],
+      supportingData: [
+        this.support('Invoices analyzed', context.invoices.length),
+      ],
       recommendations: ['Continue normal invoice follow-up cadence.'],
       timeframe: 'Next invoice cycle',
       paymentRiskScore: 'low',
     };
   }
 
-  private emptyRenewalPrediction(context: PredictionContext): RenewalRiskPrediction {
+  private emptyRenewalPrediction(
+    context: PredictionContext,
+  ): RenewalRiskPrediction {
     return {
       id: 'renewal-empty',
       category: 'renewal',
@@ -1308,9 +1765,14 @@ export class PredictionEngineService {
       riskLevel: 'low',
       riskScore: 10,
       probability: 10,
-      confidenceScore: this.confidenceScore(context.rateCards.length, [context.rateCards.length]),
-      explanation: 'Confidence is based on contract dates, contract health, and billing history.',
-      supportingData: [this.support('Contract records', context.rateCards.length)],
+      confidenceScore: this.confidenceScore(context.rateCards.length, [
+        context.rateCards.length,
+      ]),
+      explanation:
+        'Confidence is based on contract dates, contract health, and billing history.',
+      supportingData: [
+        this.support('Contract records', context.rateCards.length),
+      ],
       recommendations: ['Continue regular renewal review.'],
       timeframe: `Next ${CONTRACT_RENEWAL_WINDOW_DAYS} days`,
       nonRenewalProbability: 10,
@@ -1319,19 +1781,34 @@ export class PredictionEngineService {
     };
   }
 
-  private revenueAtRisk(predictions: ChurnPrediction[], contracts: ContractHealthRow[]) {
-    const contractByClient = new Map(contracts.map((contract) => [contract.clientId, contract]));
+  private revenueAtRisk(
+    predictions: ChurnPrediction[],
+    contracts: ContractHealthRow[],
+  ) {
+    const contractByClient = new Map(
+      contracts.map((contract) => [contract.clientId, contract]),
+    );
     return this.roundCurrency(
       predictions.reduce((sum, prediction) => {
         if (!prediction.entityId) return sum;
         const contract = contractByClient.get(prediction.entityId);
-        return sum + (contract ? contract.totalRevenue * (prediction.probability / 100) : 0);
+        return (
+          sum +
+          (contract
+            ? contract.totalRevenue * (prediction.probability / 100)
+            : 0)
+        );
       }, 0),
     );
   }
 
   private contractHealthTrend(contract: ContractHealthRow, growthRate: number) {
-    if (contract.healthScore < 55 || growthRate < -10 || contract.disputeCount >= 2) return 'declining';
+    if (
+      contract.healthScore < 55 ||
+      growthRate < -10 ||
+      contract.disputeCount >= 2
+    )
+      return 'declining';
     if (contract.healthScore >= 80 && growthRate >= 5) return 'improving';
     return 'stable';
   }
@@ -1339,14 +1816,21 @@ export class PredictionEngineService {
   private incidentType(title: string, description: string) {
     const text = `${title || ''} ${description || ''}`.toLowerCase();
 
-    if (/(theft|steal|stolen|burglary|robbery|shoplift)/.test(text)) return 'Theft';
-    if (/(assault|fight|violence|attack|threat|weapon)/.test(text)) return 'Violence or threat';
+    if (/(theft|steal|stolen|burglary|robbery|shoplift)/.test(text))
+      return 'Theft';
+    if (/(assault|fight|violence|attack|threat|weapon)/.test(text))
+      return 'Violence or threat';
     if (/(fire|smoke|burn|alarm)/.test(text)) return 'Fire or alarm';
-    if (/(medical|injury|injured|fall|ambulance|health)/.test(text)) return 'Medical or injury';
-    if (/(unauthorized|access|trespass|intruder|gate|entry)/.test(text)) return 'Unauthorized access';
-    if (/(parking|vehicle|car|traffic|accident)/.test(text)) return 'Vehicle or parking';
-    if (/(equipment|camera|cctv|radio|device|system)/.test(text)) return 'Equipment issue';
-    if (/(shortage|uncovered|coverage|absent|no guard|staff)/.test(text)) return 'Coverage issue';
+    if (/(medical|injury|injured|fall|ambulance|health)/.test(text))
+      return 'Medical or injury';
+    if (/(unauthorized|access|trespass|intruder|gate|entry)/.test(text))
+      return 'Unauthorized access';
+    if (/(parking|vehicle|car|traffic|accident)/.test(text))
+      return 'Vehicle or parking';
+    if (/(equipment|camera|cctv|radio|device|system)/.test(text))
+      return 'Equipment issue';
+    if (/(shortage|uncovered|coverage|absent|no guard|staff)/.test(text))
+      return 'Coverage issue';
 
     return 'General incident';
   }
@@ -1356,7 +1840,12 @@ export class PredictionEngineService {
     return invoice.dueDate < now ? this.daysBetween(invoice.dueDate, now) : 0;
   }
 
-  private datesOverlap(firstStart: Date, firstEnd: Date, secondStart: Date, secondEnd: Date) {
+  private datesOverlap(
+    firstStart: Date,
+    firstEnd: Date,
+    secondStart: Date,
+    secondEnd: Date,
+  ) {
     return firstStart < secondEnd && firstEnd > secondStart;
   }
 
@@ -1383,12 +1872,18 @@ export class PredictionEngineService {
       return Boolean(value);
     }).length;
 
-    return this.roundRiskScore(42 + Math.min(35, sampleSize * 2.5) + signalStrength * 6);
+    return this.roundRiskScore(
+      42 + Math.min(35, sampleSize * 2.5) + signalStrength * 6,
+    );
   }
 
   private joinReasons(reasons: Array<string | null>) {
-    const filtered = reasons.filter((reason): reason is string => Boolean(reason));
-    return filtered.length > 0 ? filtered.join(', ') : 'the available operating history';
+    const filtered = reasons.filter((reason): reason is string =>
+      Boolean(reason),
+    );
+    return filtered.length > 0
+      ? filtered.join(', ')
+      : 'the available operating history';
   }
 
   private addDays(date: Date, days: number) {
@@ -1398,7 +1893,10 @@ export class PredictionEngineService {
   }
 
   private daysBetween(start: Date, end: Date) {
-    return Math.max(0, Math.ceil((end.getTime() - start.getTime()) / MS_PER_DAY));
+    return Math.max(
+      0,
+      Math.ceil((end.getTime() - start.getTime()) / MS_PER_DAY),
+    );
   }
 
   private daysSince(date: Date, now: Date) {
@@ -1406,7 +1904,11 @@ export class PredictionEngineService {
   }
 
   private nearestFutureDate(dates: Date[], now: Date) {
-    return dates.filter((date) => date >= now).sort((left, right) => left.getTime() - right.getTime())[0] ?? null;
+    return (
+      dates
+        .filter((date) => date >= now)
+        .sort((left, right) => left.getTime() - right.getTime())[0] ?? null
+    );
   }
 
   private groupBy<T>(items: T[], keyFn: (item: T) => string) {
@@ -1427,7 +1929,9 @@ export class PredictionEngineService {
     return counts;
   }
 
-  private clientDisplayName(client?: { name: string; companyName?: string | null } | null) {
+  private clientDisplayName(
+    client?: { name: string; companyName?: string | null } | null,
+  ) {
     return client?.companyName || client?.name || 'Unknown client';
   }
 
@@ -1440,7 +1944,11 @@ export class PredictionEngineService {
     return { label, value, detail, tone };
   }
 
-  private support(label: string, value: string | number, detail?: string): PredictionSupportingData {
+  private support(
+    label: string,
+    value: string | number,
+    detail?: string,
+  ): PredictionSupportingData {
     return { label, value, detail };
   }
 
@@ -1462,7 +1970,9 @@ export class PredictionEngineService {
 
   private average(values: number[]) {
     if (values.length === 0) return 0;
-    return this.roundPercent(values.reduce((sum, value) => sum + value, 0) / values.length);
+    return this.roundPercent(
+      values.reduce((sum, value) => sum + value, 0) / values.length,
+    );
   }
 
   private roundRiskScore(score: number) {
@@ -1486,6 +1996,9 @@ export class PredictionEngineService {
   }
 
   private slug(value: string) {
-    return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
   }
 }

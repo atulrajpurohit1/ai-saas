@@ -10,7 +10,9 @@ import { PredictionEngineService } from './prediction-engine.service';
 @UseGuards(JwtAuthGuard, PermissionGuard)
 @RequirePermission('ai.manage')
 export class AiPredictionsController {
-  constructor(private readonly predictionEngineService: PredictionEngineService) {}
+  constructor(
+    private readonly predictionEngineService: PredictionEngineService,
+  ) {}
 
   @Get()
   dashboard(@GetUser() user: ActiveUser) {

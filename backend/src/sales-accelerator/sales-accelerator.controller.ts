@@ -59,13 +59,19 @@ export class SalesAcceleratorController {
 
   @Get('leads/:leadId')
   @RequireAnyPermission('ai.view', 'leads.view')
-  getLeadWorkspace(@Param('leadId') leadId: string, @GetUser() user: ActiveUser) {
+  getLeadWorkspace(
+    @Param('leadId') leadId: string,
+    @GetUser() user: ActiveUser,
+  ) {
     return this.salesAcceleratorService.getLeadWorkspace(user.tenantId, leadId);
   }
 
   @Get('deals/:dealId')
   @RequireAnyPermission('ai.view', 'deals.view')
-  getDealWorkspace(@Param('dealId') dealId: string, @GetUser() user: ActiveUser) {
+  getDealWorkspace(
+    @Param('dealId') dealId: string,
+    @GetUser() user: ActiveUser,
+  ) {
     return this.salesAcceleratorService.getDealWorkspace(user.tenantId, dealId);
   }
 

@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Param, UseGuards, ForbiddenException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  UseGuards,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PatrolsService } from './patrols.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -52,14 +60,17 @@ export class GuardPatrolsController {
     @Body() dto: ScanCheckpointDto,
   ) {
     const { tenantId, guardId } = this.getGuardContext(user);
-    return this.patrolsService.scanCheckpoint(tenantId, guardId, runId, checkpointId, dto);
+    return this.patrolsService.scanCheckpoint(
+      tenantId,
+      guardId,
+      runId,
+      checkpointId,
+      dto,
+    );
   }
 
   @Post('patrol-runs/:id/complete')
-  completePatrolRun(
-    @GetUser() user: ActiveUser,
-    @Param('id') runId: string,
-  ) {
+  completePatrolRun(@GetUser() user: ActiveUser, @Param('id') runId: string) {
     const { tenantId, guardId } = this.getGuardContext(user);
     return this.patrolsService.completePatrolRun(tenantId, guardId, runId);
   }

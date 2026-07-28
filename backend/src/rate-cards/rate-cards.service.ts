@@ -1,8 +1,15 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateRateCardDto, RATE_CARD_STATUSES } from './dto/create-rate-card.dto';
+import {
+  CreateRateCardDto,
+  RATE_CARD_STATUSES,
+} from './dto/create-rate-card.dto';
 import { UpdateRateCardDto } from './dto/update-rate-card.dto';
 
 @Injectable()
@@ -122,7 +129,11 @@ export class RateCardsService {
     return client;
   }
 
-  private async resolveSite(tenantId: string, clientId: string, siteIdInput?: string | null) {
+  private async resolveSite(
+    tenantId: string,
+    clientId: string,
+    siteIdInput?: string | null,
+  ) {
     const siteId = siteIdInput?.trim() || null;
     if (!siteId) {
       return null;
@@ -134,15 +145,22 @@ export class RateCardsService {
     });
 
     if (!site) {
-      throw new BadRequestException('Site must belong to this client and tenant');
+      throw new BadRequestException(
+        'Site must belong to this client and tenant',
+      );
     }
 
     return site;
   }
 
-  private validateEffectiveRange(effectiveFrom: Date, effectiveTo: Date | null) {
+  private validateEffectiveRange(
+    effectiveFrom: Date,
+    effectiveTo: Date | null,
+  ) {
     if (effectiveTo && effectiveTo < effectiveFrom) {
-      throw new BadRequestException('effective_to must be on or after effective_from');
+      throw new BadRequestException(
+        'effective_to must be on or after effective_from',
+      );
     }
   }
 
@@ -163,7 +181,10 @@ export class RateCardsService {
     const client = await this.resolveClient(tenantId, dto.client_id);
     const site = await this.resolveSite(tenantId, client.id, dto.site_id);
     const effectiveFrom = this.parseDate(dto.effective_from, 'effective_from');
-    const effectiveTo = this.parseOptionalDate(dto.effective_to, 'effective_to');
+    const effectiveTo = this.parseOptionalDate(
+      dto.effective_to,
+      'effective_to',
+    );
     this.validateEffectiveRange(effectiveFrom, effectiveTo);
 
     const hourlyRate = Number(dto.hourly_rate);
@@ -210,7 +231,11 @@ export class RateCardsService {
         ...(status ? { status } : {}),
       },
       include: this.rateCardInclude(),
-      orderBy: [{ status: 'asc' }, { effectiveFrom: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [
+        { status: 'asc' },
+        { effectiveFrom: 'desc' },
+        { createdAt: 'desc' },
+      ],
     });
 
     return rateCards.map((rateCard) => this.mapRateCard(rateCard));
@@ -221,9 +246,17 @@ export class RateCardsService {
     return this.mapRateCard(rateCard);
   }
 
-  async update(tenantId: string, userId: string, id: string, dto: UpdateRateCardDto) {
+  async update(
+    tenantId: string,
+    userId: string,
+    id: string,
+    dto: UpdateRateCardDto,
+  ) {
     const existing = await this.findRateCardOrThrow(tenantId, id);
-    const client = dto.client_id === undefined ? null : await this.resolveClient(tenantId, dto.client_id);
+    const client =
+      dto.client_id === undefined
+        ? null
+        : await this.resolveClient(tenantId, dto.client_id);
     const clientId = client?.id ?? existing.clientId;
     const site =
       dto.site_id === undefined
@@ -245,12 +278,21 @@ export class RateCardsService {
       data: {
         ...(dto.client_id !== undefined ? { clientId } : {}),
         ...(dto.site_id !== undefined ? { siteId: site?.id ?? null } : {}),
-        ...(dto.role_name !== undefined ? { roleName: dto.role_name?.trim() || null } : {}),
-        ...(dto.hourly_rate !== undefined
-          ? { hourlyRate: this.parseOptionalRate(dto.hourly_rate) ?? existing.hourlyRate }
+        ...(dto.role_name !== undefined
+          ? { roleName: dto.role_name?.trim() || null }
           : {}),
-        ...(dto.overtime_rate !== undefined ? { overtimeRate: this.parseOptionalRate(dto.overtime_rate) } : {}),
-        ...(dto.holiday_rate !== undefined ? { holidayRate: this.parseOptionalRate(dto.holiday_rate) } : {}),
+        ...(dto.hourly_rate !== undefined
+          ? {
+              hourlyRate:
+                this.parseOptionalRate(dto.hourly_rate) ?? existing.hourlyRate,
+            }
+          : {}),
+        ...(dto.overtime_rate !== undefined
+          ? { overtimeRate: this.parseOptionalRate(dto.overtime_rate) }
+          : {}),
+        ...(dto.holiday_rate !== undefined
+          ? { holidayRate: this.parseOptionalRate(dto.holiday_rate) }
+          : {}),
         ...(dto.effective_from !== undefined ? { effectiveFrom } : {}),
         ...(dto.effective_to !== undefined ? { effectiveTo } : {}),
         ...(dto.status !== undefined ? { status: dto.status } : {}),

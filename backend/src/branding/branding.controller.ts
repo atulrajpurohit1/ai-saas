@@ -1,6 +1,18 @@
-import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
-import { RequireAnyPermission, RequirePermission } from '../auth/decorators/permissions.decorator';
+import {
+  RequireAnyPermission,
+  RequirePermission,
+} from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';

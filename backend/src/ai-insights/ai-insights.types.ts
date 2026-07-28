@@ -68,24 +68,24 @@ export interface AiRecommendation {
   confidence?: AiRecommendationConfidence;
   aiGenerationId?: string;
   actionType?:
-  | 'create_follow_up_task'
-  | 'notify_admin'
-  | 'flag_client_risk'
-  | 'flag_site_risk'
-  | 'suggest_guard_reassignment'
-  | 'create_invoice_followup';
+    | 'create_follow_up_task'
+    | 'notify_admin'
+    | 'flag_client_risk'
+    | 'flag_site_risk'
+    | 'suggest_guard_reassignment'
+    | 'create_invoice_followup';
   targetModule?:
-  | 'ai_insights'
-  | 'client'
-  | 'site'
-  | 'guard'
-  | 'shift'
-  | 'invoice'
-  | 'command_center'
-  | 'operations'
-  | 'billing'
-  | 'revenue'
-  | 'incident';
+    | 'ai_insights'
+    | 'client'
+    | 'site'
+    | 'guard'
+    | 'shift'
+    | 'invoice'
+    | 'command_center'
+    | 'operations'
+    | 'billing'
+    | 'revenue'
+    | 'incident';
   targetEntityId?: string | null;
 }
 
@@ -294,8 +294,7 @@ export interface RenewalOpportunityRow {
   reason: string;
 }
 
-export type ContractIntelligenceResponse =
-  AiInsightsSection<ContractHealthRow>;
+export type ContractIntelligenceResponse = AiInsightsSection<ContractHealthRow>;
 
 export type ClientValueAnalysisResponse = AiInsightsSection<ClientValueRow>;
 

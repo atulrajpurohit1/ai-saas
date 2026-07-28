@@ -131,6 +131,13 @@ let VendorsService = class VendorsService {
     }
     async remove(tenantId, userId, id) {
         const existing = await this.findVendorOrThrow(tenantId, id);
+        const awardedRfp = await this.prisma.rfp.findFirst({
+            where: { tenantId, awardedVendorId: id },
+            select: { id: true, title: true },
+        });
+        if (awardedRfp) {
+            throw new common_1.BadRequestException(`This vendor cannot be deleted because it has been awarded the contract for RFP "${awardedRfp.title}".`);
+        }
         await this.prisma.vendor.delete({ where: { id } });
         await this.auditService.log({
             tenantId,

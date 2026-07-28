@@ -78,5 +78,7 @@ export function isFieldPermissionEntity(
 }
 
 export function isSensitiveField(entity: FieldPermissionEntity, field: string) {
-  return getSensitiveFields(entity).some((definition) => definition.field === field);
+  return getSensitiveFields(entity).some(
+    (definition) => definition.field === field,
+  );
 }

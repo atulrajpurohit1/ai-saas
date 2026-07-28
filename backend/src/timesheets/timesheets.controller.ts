@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -36,13 +45,21 @@ export class TimesheetsController {
 
   @Post(':id/reject')
   @RequirePermission('timesheets.approve')
-  reject(@GetUser() user: ActiveUser, @Param('id') id: string, @Body() dto: RejectTimesheetDto) {
+  reject(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Body() dto: RejectTimesheetDto,
+  ) {
     return this.timesheetsService.reject(user, id, dto);
   }
 
   @Put(':id/correct')
   @RequirePermission('timesheets.correct')
-  correct(@GetUser() user: ActiveUser, @Param('id') id: string, @Body() dto: CorrectTimesheetDto) {
+  correct(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Body() dto: CorrectTimesheetDto,
+  ) {
     return this.timesheetsService.correct(user, id, dto);
   }
 }

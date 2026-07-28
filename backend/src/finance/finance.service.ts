@@ -10,8 +10,20 @@ export interface FinanceInvoiceFilters {
   status?: string | string[];
 }
 
-const INVOICE_STATUSES = ['draft', 'issued', 'disputed', 'resolved', 'paid', 'cancelled'] as const;
-const DISPUTE_STATUSES = ['open', 'under_review', 'resolved', 'rejected'] as const;
+const INVOICE_STATUSES = [
+  'draft',
+  'issued',
+  'disputed',
+  'resolved',
+  'paid',
+  'cancelled',
+] as const;
+const DISPUTE_STATUSES = [
+  'open',
+  'under_review',
+  'resolved',
+  'rejected',
+] as const;
 const ISSUED_LIFECYCLE_STATUSES = ['issued', 'disputed', 'resolved', 'paid'];
 const OUTSTANDING_STATUSES = ['issued', 'resolved'];
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -32,7 +44,10 @@ export class FinanceService {
     return trimmed && trimmed !== 'all' ? trimmed : undefined;
   }
 
-  private parseDateBoundary(value: string | string[] | undefined, fieldName: string) {
+  private parseDateBoundary(
+    value: string | string[] | undefined,
+    fieldName: string,
+  ) {
     const trimmed = this.getFilterValue(value)?.trim();
     if (!trimmed) {
       return undefined;
@@ -42,7 +57,11 @@ export class FinanceService {
       const [year, month, day] = trimmed.split('-').map(Number);
       const date = new Date(Date.UTC(year, month - 1, day));
 
-      if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+      if (
+        date.getUTCFullYear() !== year ||
+        date.getUTCMonth() !== month - 1 ||
+        date.getUTCDate() !== day
+      ) {
         throw new BadRequestException(`${fieldName} must be a valid date`);
       }
 
@@ -58,19 +77,28 @@ export class FinanceService {
   }
 
   private assertInvoiceStatus(status?: string) {
-    if (status && !INVOICE_STATUSES.includes(status as (typeof INVOICE_STATUSES)[number])) {
+    if (
+      status &&
+      !INVOICE_STATUSES.includes(status as (typeof INVOICE_STATUSES)[number])
+    ) {
       throw new BadRequestException('Invalid invoice status');
     }
   }
 
   private assertDisputeStatus(status?: string) {
-    if (status && !DISPUTE_STATUSES.includes(status as (typeof DISPUTE_STATUSES)[number])) {
+    if (
+      status &&
+      !DISPUTE_STATUSES.includes(status as (typeof DISPUTE_STATUSES)[number])
+    ) {
       throw new BadRequestException('Invalid dispute status');
     }
   }
 
   private getDateRange(filters: FinanceInvoiceFilters) {
-    let startBoundary = this.parseDateBoundary(filters.start_date, 'start_date');
+    let startBoundary = this.parseDateBoundary(
+      filters.start_date,
+      'start_date',
+    );
     let endBoundary = this.parseDateBoundary(filters.end_date, 'end_date');
 
     if (startBoundary && endBoundary && endBoundary.date < startBoundary.date) {
@@ -133,7 +161,10 @@ export class FinanceService {
     return where;
   }
 
-  private buildDisputeWhere(tenantId: string, filters: FinanceInvoiceFilters): Prisma.InvoiceDisputeWhereInput {
+  private buildDisputeWhere(
+    tenantId: string,
+    filters: FinanceInvoiceFilters,
+  ): Prisma.InvoiceDisputeWhereInput {
     const clientId = this.normalizeOptionalFilter(filters.client_id);
     const status = this.normalizeOptionalFilter(filters.status);
     this.assertDisputeStatus(status);
@@ -210,7 +241,9 @@ export class FinanceService {
     } satisfies Prisma.InvoiceDisputeInclude;
   }
 
-  private clientName(client: { name: string; companyName: string | null } | null | undefined) {
+  private clientName(
+    client: { name: string; companyName: string | null } | null | undefined,
+  ) {
     return client?.companyName || client?.name || '';
   }
 
@@ -230,7 +263,10 @@ export class FinanceService {
     return new Date(value).toISOString();
   }
 
-  private formatBillingPeriod(invoice: { billingStartDate: Date; billingEndDate: Date }) {
+  private formatBillingPeriod(invoice: {
+    billingStartDate: Date;
+    billingEndDate: Date;
+  }) {
     return `${this.formatDateOnly(invoice.billingStartDate)} to ${this.formatDateOnly(invoice.billingEndDate)}`;
   }
 
@@ -239,7 +275,9 @@ export class FinanceService {
   }
 
   private sumInvoices(invoices: Array<{ totalAmount: number }>) {
-    return this.roundCurrency(invoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0));
+    return this.roundCurrency(
+      invoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0),
+    );
   }
 
   private csvEscape(value: string | number | null | undefined) {
@@ -251,14 +289,21 @@ export class FinanceService {
     return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   }
 
-  private buildCsv(headers: string[], rows: Array<Array<string | number | null | undefined>>) {
+  private buildCsv(
+    headers: string[],
+    rows: Array<Array<string | number | null | undefined>>,
+  ) {
     return [
       headers.map((header) => this.csvEscape(header)).join(','),
       ...rows.map((row) => row.map((value) => this.csvEscape(value)).join(',')),
     ].join('\r\n');
   }
 
-  private async logReportViewed(tenantId: string, userId: string, reportName: string) {
+  private async logReportViewed(
+    tenantId: string,
+    userId: string,
+    reportName: string,
+  ) {
     await this.auditService.log({
       tenantId,
       userId,
@@ -268,7 +313,11 @@ export class FinanceService {
     });
   }
 
-  async getDashboard(tenantId: string, userId: string, filters: FinanceInvoiceFilters) {
+  async getDashboard(
+    tenantId: string,
+    userId: string,
+    filters: FinanceInvoiceFilters,
+  ) {
     const invoices = await this.prisma.invoice.findMany({
       where: this.buildInvoiceWhere(tenantId, filters),
       select: {
@@ -278,33 +327,54 @@ export class FinanceService {
       },
     });
 
-    const invoiceCountByStatus = INVOICE_STATUSES.reduce<Record<string, number>>((counts, status) => {
+    const invoiceCountByStatus = INVOICE_STATUSES.reduce<
+      Record<string, number>
+    >((counts, status) => {
       counts[status] = 0;
       return counts;
     }, {});
 
     invoices.forEach((invoice) => {
-      invoiceCountByStatus[invoice.status] = (invoiceCountByStatus[invoice.status] || 0) + 1;
+      invoiceCountByStatus[invoice.status] =
+        (invoiceCountByStatus[invoice.status] || 0) + 1;
     });
 
     await this.logReportViewed(tenantId, userId, 'Finance dashboard');
 
     return {
       totalIssuedAmount: this.sumInvoices(
-        invoices.filter((invoice) => ISSUED_LIFECYCLE_STATUSES.includes(invoice.status)),
+        invoices.filter((invoice) =>
+          ISSUED_LIFECYCLE_STATUSES.includes(invoice.status),
+        ),
       ),
-      totalPaidAmount: this.sumInvoices(invoices.filter((invoice) => invoice.status === 'paid')),
-      outstandingAmount: this.sumInvoices(invoices.filter((invoice) => OUTSTANDING_STATUSES.includes(invoice.status))),
-      disputedAmount: this.sumInvoices(invoices.filter((invoice) => invoice.status === 'disputed')),
+      totalPaidAmount: this.sumInvoices(
+        invoices.filter((invoice) => invoice.status === 'paid'),
+      ),
+      outstandingAmount: this.sumInvoices(
+        invoices.filter((invoice) =>
+          OUTSTANDING_STATUSES.includes(invoice.status),
+        ),
+      ),
+      disputedAmount: this.sumInvoices(
+        invoices.filter((invoice) => invoice.status === 'disputed'),
+      ),
       invoiceCountByStatus,
     };
   }
 
-  async exportInvoicesCsv(tenantId: string, userId: string, filters: FinanceInvoiceFilters) {
+  async exportInvoicesCsv(
+    tenantId: string,
+    userId: string,
+    filters: FinanceInvoiceFilters,
+  ) {
     const invoices = await this.prisma.invoice.findMany({
       where: this.buildInvoiceWhere(tenantId, filters),
       include: this.invoiceReportInclude(),
-      orderBy: [{ issuedAt: 'desc' }, { createdAt: 'desc' }, { invoiceNumber: 'desc' }],
+      orderBy: [
+        { issuedAt: 'desc' },
+        { createdAt: 'desc' },
+        { invoiceNumber: 'desc' },
+      ],
     });
 
     const csv = this.buildCsv(
@@ -350,13 +420,25 @@ export class FinanceService {
     };
   }
 
-  async getPaymentReport(tenantId: string, userId: string, filters: FinanceInvoiceFilters) {
-    const where = this.buildInvoiceWhere(tenantId, { ...filters, status: 'paid' }, 'paidAt');
+  async getPaymentReport(
+    tenantId: string,
+    userId: string,
+    filters: FinanceInvoiceFilters,
+  ) {
+    const where = this.buildInvoiceWhere(
+      tenantId,
+      { ...filters, status: 'paid' },
+      'paidAt',
+    );
 
     const invoices = await this.prisma.invoice.findMany({
       where,
       include: this.invoiceReportInclude(),
-      orderBy: [{ paidAt: 'desc' }, { issuedAt: 'desc' }, { invoiceNumber: 'desc' }],
+      orderBy: [
+        { paidAt: 'desc' },
+        { issuedAt: 'desc' },
+        { invoiceNumber: 'desc' },
+      ],
     });
 
     await this.logReportViewed(tenantId, userId, 'Payment report');
@@ -385,14 +467,22 @@ export class FinanceService {
     }));
   }
 
-  async getOutstandingReport(tenantId: string, userId: string, filters: FinanceInvoiceFilters) {
+  async getOutstandingReport(
+    tenantId: string,
+    userId: string,
+    filters: FinanceInvoiceFilters,
+  ) {
     const where = this.buildInvoiceWhere(tenantId, filters);
     where.status = { in: OUTSTANDING_STATUSES };
 
     const invoices = await this.prisma.invoice.findMany({
       where,
       include: this.invoiceReportInclude(),
-      orderBy: [{ dueDate: 'asc' }, { issuedAt: 'desc' }, { invoiceNumber: 'desc' }],
+      orderBy: [
+        { dueDate: 'asc' },
+        { issuedAt: 'desc' },
+        { invoiceNumber: 'desc' },
+      ],
     });
     const now = new Date();
 
@@ -400,7 +490,10 @@ export class FinanceService {
 
     return invoices.map((invoice) => {
       const isOverdue = Boolean(invoice.dueDate && invoice.dueDate < now);
-      const daysOverdue = isOverdue && invoice.dueDate ? Math.ceil((now.getTime() - invoice.dueDate.getTime()) / MS_PER_DAY) : 0;
+      const daysOverdue =
+        isOverdue && invoice.dueDate
+          ? Math.ceil((now.getTime() - invoice.dueDate.getTime()) / MS_PER_DAY)
+          : 0;
 
       return {
         invoiceId: invoice.id,
@@ -429,7 +522,11 @@ export class FinanceService {
     });
   }
 
-  async getDisputeReport(tenantId: string, userId: string, filters: FinanceInvoiceFilters) {
+  async getDisputeReport(
+    tenantId: string,
+    userId: string,
+    filters: FinanceInvoiceFilters,
+  ) {
     const disputes = await this.prisma.invoiceDispute.findMany({
       where: this.buildDisputeWhere(tenantId, filters),
       include: this.disputeReportInclude(),

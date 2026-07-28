@@ -10,7 +10,11 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.setGlobalPrefix('api');
 
-  const configuredOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || '')
+  const configuredOrigins = (
+    process.env.CORS_ORIGINS ||
+    process.env.FRONTEND_URL ||
+    ''
+  )
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);

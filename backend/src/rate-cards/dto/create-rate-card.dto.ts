@@ -1,5 +1,14 @@
 import { Type } from 'class-transformer';
-import { IsISO8601, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import {
+  IsISO8601,
+  IsIn,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export const RATE_CARD_STATUSES = ['active', 'inactive'] as const;
 export type RateCardStatus = (typeof RATE_CARD_STATUSES)[number];

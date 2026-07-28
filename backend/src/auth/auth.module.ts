@@ -11,7 +11,14 @@ import { RolesModule } from '../roles/roles.module';
 import { SessionsModule } from '../sessions/sessions.module';
 
 @Module({
-  imports: [UsersModule, PrismaModule, ConfigModule, JwtModule.register({}), RolesModule, SessionsModule],
+  imports: [
+    UsersModule,
+    PrismaModule,
+    ConfigModule,
+    JwtModule.register({}),
+    RolesModule,
+    SessionsModule,
+  ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, JwtRefreshStrategy],
   exports: [AuthService],

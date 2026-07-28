@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Put, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -10,7 +18,9 @@ import { FieldPermissionsService } from './field-permissions.service';
 @Controller('field-permissions')
 @UseGuards(JwtAuthGuard, PermissionGuard)
 export class FieldPermissionsController {
-  constructor(private readonly fieldPermissionsService: FieldPermissionsService) {}
+  constructor(
+    private readonly fieldPermissionsService: FieldPermissionsService,
+  ) {}
 
   @Get('fields')
   @RequirePermission('roles.view')
@@ -39,6 +49,10 @@ export class FieldPermissionsController {
     @Param('roleId') roleId: string,
     @Body() dto: UpdateFieldPermissionsDto,
   ) {
-    return this.fieldPermissionsService.updateRolePermissions(user, roleId, dto);
+    return this.fieldPermissionsService.updateRolePermissions(
+      user,
+      roleId,
+      dto,
+    );
   }
 }

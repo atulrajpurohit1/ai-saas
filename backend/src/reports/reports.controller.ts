@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
@@ -16,7 +25,10 @@ export class ReportsController {
 
   @Post('generate-daily')
   @RequirePermission('reports.create')
-  generateDailyReport(@GetUser() user: ActiveUser, @Body() dto: GenerateDailyReportDto) {
+  generateDailyReport(
+    @GetUser() user: ActiveUser,
+    @Body() dto: GenerateDailyReportDto,
+  ) {
     return this.reportsService.generateDailyReport(user, dto);
   }
 
@@ -27,7 +39,11 @@ export class ReportsController {
 
   @Get(':id/export-pdf')
   @RequirePermission('reports.export')
-  async exportPdf(@GetUser() user: ActiveUser, @Param('id') id: string, @Res() res: Response) {
+  async exportPdf(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
     const { buffer } = await this.reportsService.exportForAdmin(user, id);
 
     res.set({

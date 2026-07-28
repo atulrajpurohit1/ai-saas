@@ -160,10 +160,14 @@ export class RecommendationService {
 
         if (attendanceRate === null) {
           score += 5;
-          reasons.push('Limited attendance history; no negative pattern found (+5).');
+          reasons.push(
+            'Limited attendance history; no negative pattern found (+5).',
+          );
         } else if (attendanceRate >= 95) {
           score += 20;
-          reasons.push(`Strong attendance history at ${attendanceRate}% (+20).`);
+          reasons.push(
+            `Strong attendance history at ${attendanceRate}% (+20).`,
+          );
         } else if (attendanceRate >= 85) {
           score += 10;
           reasons.push(`Solid attendance history at ${attendanceRate}% (+10).`);
@@ -172,27 +176,36 @@ export class RecommendationService {
           warnings.push(`Attendance history is ${attendanceRate}%.`);
         }
 
-        const lateCheckIns = pastAssignedShifts.reduce((count, relatedShift) => {
-          const checkIn = relatedShift.attendanceEvents.find(
-            (event) => event.guardId === guard.id && event.type === 'CHECK_IN',
-          );
-          return checkIn && this.isLateCheckIn(checkIn.timestamp, relatedShift.startTime)
-            ? count + 1
-            : count;
-        }, 0);
+        const lateCheckIns = pastAssignedShifts.reduce(
+          (count, relatedShift) => {
+            const checkIn = relatedShift.attendanceEvents.find(
+              (event) =>
+                event.guardId === guard.id && event.type === 'CHECK_IN',
+            );
+            return checkIn &&
+              this.isLateCheckIn(checkIn.timestamp, relatedShift.startTime)
+              ? count + 1
+              : count;
+          },
+          0,
+        );
 
         if (lateCheckIns === 0) {
           reasons.push('No late check-ins in recent history.');
         } else {
           const latePenalty = Math.min(15, lateCheckIns * 5);
           score -= latePenalty;
-          warnings.push(`${lateCheckIns} late check-ins in recent history (-${latePenalty}).`);
+          warnings.push(
+            `${lateCheckIns} late check-ins in recent history (-${latePenalty}).`,
+          );
         }
 
         if (missedShifts > 0) {
           const missedPenalty = Math.min(24, missedShifts * 8);
           score -= missedPenalty;
-          warnings.push(`${missedShifts} missed shifts in recent history (-${missedPenalty}).`);
+          warnings.push(
+            `${missedShifts} missed shifts in recent history (-${missedPenalty}).`,
+          );
         }
 
         const incidentCount = pastAssignedShifts.reduce(
@@ -213,7 +226,9 @@ export class RecommendationService {
         } else {
           const incidentPenalty = Math.min(15, incidentCount * 5);
           score -= incidentPenalty;
-          warnings.push(`${incidentCount} recent incident involvements (-${incidentPenalty}).`);
+          warnings.push(
+            `${incidentCount} recent incident involvements (-${incidentPenalty}).`,
+          );
         }
 
         const overlappingAssignments = assignedShifts.filter(
@@ -242,12 +257,18 @@ export class RecommendationService {
 
         if (upcomingWorkload >= HIGH_WORKLOAD_THRESHOLD) {
           score -= 20;
-          warnings.push(`${upcomingWorkload} upcoming shifts in the next ${WORKLOAD_DAYS} days (-20).`);
+          warnings.push(
+            `${upcomingWorkload} upcoming shifts in the next ${WORKLOAD_DAYS} days (-20).`,
+          );
         } else if (upcomingWorkload >= MEDIUM_WORKLOAD_THRESHOLD) {
           score -= 10;
-          warnings.push(`${upcomingWorkload} upcoming shifts in the next ${WORKLOAD_DAYS} days (-10).`);
+          warnings.push(
+            `${upcomingWorkload} upcoming shifts in the next ${WORKLOAD_DAYS} days (-10).`,
+          );
         } else {
-          reasons.push(`Current workload is ${upcomingWorkload} upcoming shifts.`);
+          reasons.push(
+            `Current workload is ${upcomingWorkload} upcoming shifts.`,
+          );
         }
 
         const recommendation: Omit<GuardRecommendation, 'explanation'> = {
@@ -269,7 +290,9 @@ export class RecommendationService {
         return recommendation;
       })
       .filter(
-        (recommendation): recommendation is Omit<GuardRecommendation, 'explanation'> =>
+        (
+          recommendation,
+        ): recommendation is Omit<GuardRecommendation, 'explanation'> =>
           Boolean(recommendation),
       )
       .sort(
@@ -292,7 +315,7 @@ export class RecommendationService {
                 guardName: recommendation.guard_name,
                 reasons: recommendation.reasons,
                 warnings: recommendation.warnings,
-          }),
+              }),
       })),
     );
 
@@ -355,7 +378,10 @@ export class RecommendationService {
     const gaps = upcomingShifts
       .map<SchedulingCoverageGap | null>((shift) => {
         const assignedGuards = shift.assignments.length;
-        const shortageSlots = Math.max(0, shift.requiredGuards - assignedGuards);
+        const shortageSlots = Math.max(
+          0,
+          shift.requiredGuards - assignedGuards,
+        );
 
         if (shortageSlots === 0) return null;
 
@@ -373,18 +399,11 @@ export class RecommendationService {
       })
       .filter((gap): gap is SchedulingCoverageGap => Boolean(gap));
 
-    const shortageSlots = gaps.reduce(
-      (sum, gap) => sum + gap.shortageSlots,
-      0,
-    );
+    const shortageSlots = gaps.reduce((sum, gap) => sum + gap.shortageSlots, 0);
 
     const recommendations = await this.applyFeedback(
       tenantId,
-      this.buildSchedulingOverviewRecommendations(
-        now,
-        gaps,
-        shortageSlots,
-      ),
+      this.buildSchedulingOverviewRecommendations(now, gaps, shortageSlots),
     );
 
     const overview: SchedulingOverview = {
@@ -444,7 +463,8 @@ export class RecommendationService {
     const largestGap = [...gaps].sort(
       (left, right) =>
         right.shortageSlots - left.shortageSlots ||
-        new Date(left.startTime).getTime() - new Date(right.startTime).getTime(),
+        new Date(left.startTime).getTime() -
+          new Date(right.startTime).getTime(),
     )[0];
 
     if (urgentGap) {
@@ -454,7 +474,8 @@ export class RecommendationService {
         priority: 'high',
         title: 'Close urgent coverage gap',
         action: `Assign ${urgentGap.shortageSlots} guard${urgentGap.shortageSlots === 1 ? '' : 's'} for ${urgentGap.siteName}.`,
-        reason: 'A shift inside the next 24 hours is still below required guard coverage.',
+        reason:
+          'A shift inside the next 24 hours is still below required guard coverage.',
         source: 'rule',
         actionType: 'suggest_guard_reassignment',
         targetModule: 'shift',
@@ -518,9 +539,11 @@ export class RecommendationService {
   }
 
   private isUnavailableForShift(
-    availability:
-      | { status: string; startDate?: Date | null; endDate?: Date | null }
-      | null,
+    availability: {
+      status: string;
+      startDate?: Date | null;
+      endDate?: Date | null;
+    } | null,
     shift: { startTime: Date; endTime: Date },
   ) {
     if (!availability || availability.status !== 'unavailable') {
@@ -564,7 +587,9 @@ export class RecommendationService {
     warnings: string[];
   }) {
     const reasonText = input.reasons
-      .map((reason) => reason.replace(/\s*\([+-]\d+\)\.?$/g, '').replace(/\.$/, ''))
+      .map((reason) =>
+        reason.replace(/\s*\([+-]\d+\)\.?$/g, '').replace(/\.$/, ''),
+      )
       .slice(0, 3)
       .join(', ');
     const warningText = input.warnings.length
@@ -613,12 +638,14 @@ export class RecommendationService {
     promptKey: string,
   ) {
     return (
-      await this.aiGovernanceService?.resolvePromptVersion({
-        tenantId,
-        moduleName,
-        promptKey,
-        fallbackVersion: DEFAULT_PROMPT_VERSION,
-      })
-    )?.promptText ?? null;
+      (
+        await this.aiGovernanceService?.resolvePromptVersion({
+          tenantId,
+          moduleName,
+          promptKey,
+          fallbackVersion: DEFAULT_PROMPT_VERSION,
+        })
+      )?.promptText ?? null
+    );
   }
 }

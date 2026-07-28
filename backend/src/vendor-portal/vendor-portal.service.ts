@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   GoneException,
   Injectable,
@@ -99,6 +100,13 @@ export class VendorPortalService {
       await this.cleanupUploadedFiles(files);
       throw new ConflictException(
         'A proposal has already been submitted for this invitation.',
+      );
+    }
+
+    if (!files.proposalFile?.[0]) {
+      await this.cleanupUploadedFiles(files);
+      throw new BadRequestException(
+        'A proposal document is required to submit.',
       );
     }
 
