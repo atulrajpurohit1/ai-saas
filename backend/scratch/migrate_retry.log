@@ -1,0 +1,15 @@
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+Datasource "db": PostgreSQL database "neondb", schema "public" at "ep-rough-block-aqgt5kdv.c-8.us-east-1.aws.neon.tech"
+
+36 migrations found in prisma/migrations
+
+Applying migration `20260724085806_add_vendor_invitation_module`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20260724085806_add_vendor_invitation_module/
+    └─ migration.sql
+      
+All migrations have been successfully applied.

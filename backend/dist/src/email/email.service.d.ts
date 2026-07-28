@@ -10,6 +10,34 @@ export declare class EmailService {
         previewUrl: string | false;
         status: string;
     }>;
+    sendVendorInvitationEmail(tenantId: string, params: {
+        vendorEmail: string;
+        vendorCompanyName: string;
+        rfpTitle: string;
+        dueDate: Date | null;
+        invitationUrl: string;
+    }): Promise<{
+        messageId: any;
+        previewUrl: string | false;
+    }>;
+    sendContractAwardEmail(tenantId: string, params: {
+        vendorEmail: string;
+        vendorCompanyName: string;
+        rfpTitle: string;
+        awardNotes?: string | null;
+    }): Promise<{
+        messageId: any;
+        previewUrl: string | false;
+    }>;
+    sendVendorRejectionEmail(tenantId: string, params: {
+        vendorEmail: string;
+        vendorCompanyName: string;
+        rfpTitle: string;
+        reason?: string | null;
+    }): Promise<{
+        messageId: any;
+        previewUrl: string | false;
+    }>;
     sendBulkProposalEmails(tenantId: string): Promise<{
         sentCount: number;
         totalLeads: number;

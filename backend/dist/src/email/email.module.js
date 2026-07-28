@@ -18,7 +18,8 @@ exports.EmailModule = EmailModule = __decorate([
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule],
         providers: [email_service_1.EmailService],
-        controllers: [email_controller_1.EmailController]
+        controllers: [email_controller_1.EmailController],
+        exports: [email_service_1.EmailService],
     })
 ], EmailModule);
 //# sourceMappingURL=email.module.js.map

@@ -5,6 +5,10 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import AssignedVendorsPanel from '@/components/AssignedVendorsPanel';
+import VendorSubmissionsPanel from '@/components/VendorSubmissionsPanel';
+import AiEvaluationPanel from '@/components/AiEvaluationPanel';
+import ContractAwardPanel from '@/components/ContractAwardPanel';
+import VendorPerformancePanel from '@/components/VendorPerformancePanel';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { deleteRfp, downloadRfpPdf, getRfp, Rfp } from '@/lib/rfp';
@@ -26,6 +30,8 @@ const statusClass: Record<Rfp['status'], string> = {
   DRAFT: 'border-yellow-500/20 bg-yellow-500/10 text-yellow-400',
   GENERATED: 'border-indigo-500/20 bg-indigo-500/10 text-indigo-300',
   FINALIZED: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
+  EVALUATED: 'border-purple-500/20 bg-purple-500/10 text-purple-300',
+  AWARDED: 'border-amber-500/20 bg-amber-500/10 text-amber-300',
 };
 
 function formatDate(value: string | null) {
@@ -54,21 +60,23 @@ export default function RfpViewPage() {
   const [downloading, setDownloading] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
+  const fetchRfp = async () => {
     if (!rfpId) return;
-    const fetchRfp = async () => {
-      setLoading(true);
-      try {
-        const data = await getRfp(rfpId);
-        setRfp(data);
-        setError('');
-      } catch (err) {
-        setError(getApiErrorMessage(err, 'Could not load this RFP.'));
-      } finally {
-        setLoading(false);
-      }
-    };
+    setLoading(true);
+    try {
+      const data = await getRfp(rfpId);
+      setRfp(data);
+      setError('');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not load this RFP.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchRfp();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rfpId]);
 
   const handleDownload = async () => {
@@ -274,6 +282,22 @@ export default function RfpViewPage() {
 
               <div className="mt-6">
                 <AssignedVendorsPanel rfpId={rfp.id} />
+              </div>
+
+              <div className="mt-6">
+                <VendorSubmissionsPanel rfpId={rfp.id} />
+              </div>
+
+              <div className="mt-6">
+                <AiEvaluationPanel rfpId={rfp.id} initialEvaluation={rfp.evaluation} />
+              </div>
+
+              <div className="mt-6">
+                <ContractAwardPanel rfpId={rfp.id} rfp={rfp} onChanged={fetchRfp} />
+              </div>
+
+              <div className="mt-6">
+                <VendorPerformancePanel rfpId={rfp.id} rfp={rfp} />
               </div>
             </div>
           </div>

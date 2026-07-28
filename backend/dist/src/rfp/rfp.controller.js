@@ -18,6 +18,11 @@ const rfp_service_1 = require("./rfp.service");
 const create_rfp_dto_1 = require("./dto/create-rfp.dto");
 const update_rfp_dto_1 = require("./dto/update-rfp.dto");
 const assign_vendors_dto_1 = require("./dto/assign-vendors.dto");
+const invite_vendors_dto_1 = require("./dto/invite-vendors.dto");
+const award_contract_dto_1 = require("./dto/award-contract.dto");
+const reject_vendor_dto_1 = require("./dto/reject-vendor.dto");
+const create_performance_review_dto_1 = require("./dto/create-performance-review.dto");
+const update_performance_review_dto_1 = require("./dto/update-performance-review.dto");
 const generate_rfp_dto_1 = require("../ai/dto/generate-rfp.dto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const permission_guard_1 = require("../auth/guards/permission.guard");
@@ -63,6 +68,38 @@ let RfpController = class RfpController {
     }
     removeVendor(user, id, vendorId) {
         return this.rfpService.removeVendor(user.tenantId, user.sub, id, vendorId);
+    }
+    inviteVendors(user, id, dto) {
+        return this.rfpService.inviteVendors(user.tenantId, user.sub, id, dto.vendorIds);
+    }
+    findSubmissions(user, id) {
+        return this.rfpService.findSubmissions(user.tenantId, id);
+    }
+    async downloadSubmissionFile(user, id, vendorId, field, res) {
+        const { stream, filename } = await this.rfpService.downloadSubmissionFile(user.tenantId, id, vendorId, field);
+        res.set({
+            'Content-Type': 'application/octet-stream',
+            'Content-Disposition': `attachment; filename="${filename}"`,
+        });
+        stream.pipe(res);
+    }
+    generateEvaluation(user, id) {
+        return this.rfpService.generateEvaluation(user.tenantId, user.sub, id);
+    }
+    awardContract(user, id, dto) {
+        return this.rfpService.awardContract(user.tenantId, user.sub, id, dto.vendorId, dto.awardNotes);
+    }
+    rejectVendor(user, id, dto) {
+        return this.rfpService.rejectVendor(user.tenantId, user.sub, id, dto.vendorId, dto.reason);
+    }
+    findPerformanceReviews(user, id) {
+        return this.rfpService.findPerformanceReviews(user.tenantId, id);
+    }
+    createPerformanceReview(user, id, dto) {
+        return this.rfpService.createPerformanceReview(user.tenantId, user.sub, id, dto);
+    }
+    updatePerformanceReview(user, id, dto) {
+        return this.rfpService.updatePerformanceReview(user.tenantId, user.sub, id, dto);
     }
 };
 exports.RfpController = RfpController;
@@ -154,6 +191,92 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, String]),
     __metadata("design:returntype", void 0)
 ], RfpController.prototype, "removeVendor", null);
+__decorate([
+    (0, common_1.Post)(':id/invite'),
+    (0, permissions_decorator_1.RequirePermission)('rfp.update'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, invite_vendors_dto_1.InviteVendorsDto]),
+    __metadata("design:returntype", void 0)
+], RfpController.prototype, "inviteVendors", null);
+__decorate([
+    (0, common_1.Get)(':id/submissions'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], RfpController.prototype, "findSubmissions", null);
+__decorate([
+    (0, common_1.Get)(':id/submissions/:vendorId/download/:field'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Param)('vendorId')),
+    __param(3, (0, common_1.Param)('field')),
+    __param(4, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String, String, Object]),
+    __metadata("design:returntype", Promise)
+], RfpController.prototype, "downloadSubmissionFile", null);
+__decorate([
+    (0, common_1.Post)(':id/evaluate'),
+    (0, permissions_decorator_1.RequirePermission)('rfp.evaluate'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], RfpController.prototype, "generateEvaluation", null);
+__decorate([
+    (0, common_1.Post)(':id/award'),
+    (0, permissions_decorator_1.RequirePermission)('rfp.award'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, award_contract_dto_1.AwardContractDto]),
+    __metadata("design:returntype", void 0)
+], RfpController.prototype, "awardContract", null);
+__decorate([
+    (0, common_1.Post)(':id/reject'),
+    (0, permissions_decorator_1.RequirePermission)('rfp.award'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, reject_vendor_dto_1.RejectVendorDto]),
+    __metadata("design:returntype", void 0)
+], RfpController.prototype, "rejectVendor", null);
+__decorate([
+    (0, common_1.Get)(':id/performance'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], RfpController.prototype, "findPerformanceReviews", null);
+__decorate([
+    (0, common_1.Post)(':id/performance'),
+    (0, permissions_decorator_1.RequirePermission)('vendor.performance'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, create_performance_review_dto_1.CreatePerformanceReviewDto]),
+    __metadata("design:returntype", void 0)
+], RfpController.prototype, "createPerformanceReview", null);
+__decorate([
+    (0, common_1.Patch)('performance/:id'),
+    (0, permissions_decorator_1.RequirePermission)('vendor.performance'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, update_performance_review_dto_1.UpdatePerformanceReviewDto]),
+    __metadata("design:returntype", void 0)
+], RfpController.prototype, "updatePerformanceReview", null);
 exports.RfpController = RfpController = __decorate([
     (0, common_1.Controller)('rfp'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),

@@ -21,6 +21,8 @@ enum RfpStatus {
   DRAFT
   GENERATED
   FINALIZED
+  EVALUATED
+  AWARDED
 }
 
 enum VendorStatus {
@@ -28,12 +30,19 @@ enum VendorStatus {
   INACTIVE
 }
 
+enum InvitationStatus {
+  PENDING
+  INVITED
+  VIEWED
+  SUBMITTED
+}
+
 model Tenant {
-  id                    String                 @id @default(uuid())
+  id                    String                  @id @default(uuid())
   name                  String
-  slug                  String                 @unique
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
+  slug                  String                  @unique
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
   branches              Branch[]
   deals                 Deal[]
   leads                 Lead[]
@@ -84,6 +93,9 @@ model Tenant {
   rfps                  Rfp[]
   vendors               Vendor[]
   rfpVendors            RfpVendor[]
+  proposalSubmissions   ProposalSubmission[]
+  evaluationReports     EvaluationReport[]
+  vendorPerformances    VendorPerformance[]
 }
 
 model Branch {
@@ -330,30 +342,36 @@ model ProposalVersion {
 }
 
 model Rfp {
-  id                     String    @id @default(uuid())
-  tenantId               String    @map("tenant_id")
-  tenant                 Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                     String              @id @default(uuid())
+  tenantId               String              @map("tenant_id")
+  tenant                 Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   title                  String
-  clientName             String    @map("client_name")
-  companyName            String?   @map("company_name")
+  clientName             String              @map("client_name")
+  companyName            String?             @map("company_name")
   industry               String?
-  projectName            String?   @map("project_name")
-  dueDate                DateTime? @map("due_date")
-  startDate              DateTime? @map("start_date")
-  endDate                DateTime? @map("end_date")
-  estimatedBudget        Float?    @map("estimated_budget")
-  securityTypes          Json      @default("[]") @map("security_types")
-  numberOfLocations      Int?      @map("number_of_locations")
+  projectName            String?             @map("project_name")
+  dueDate                DateTime?           @map("due_date")
+  startDate              DateTime?           @map("start_date")
+  endDate                DateTime?           @map("end_date")
+  estimatedBudget        Float?              @map("estimated_budget")
+  securityTypes          Json                @default("[]") @map("security_types")
+  numberOfLocations      Int?                @map("number_of_locations")
   address                String?
-  operatingHours         String?   @map("operating_hours")
-  guardsRequired         Int?      @map("guards_required")
-  additionalRequirements String?   @map("additional_requirements")
-  generatedContent       String?   @map("generated_content")
-  status                 RfpStatus @default(DRAFT)
-  createdBy              String?   @map("created_by")
-  createdAt              DateTime  @default(now()) @map("created_at")
-  updatedAt              DateTime  @updatedAt @map("updated_at")
+  operatingHours         String?             @map("operating_hours")
+  guardsRequired         Int?                @map("guards_required")
+  additionalRequirements String?             @map("additional_requirements")
+  generatedContent       String?             @map("generated_content")
+  status                 RfpStatus           @default(DRAFT)
+  awardedVendorId        String?             @map("awarded_vendor_id")
+  awardDate              DateTime?           @map("award_date")
+  awardNotes             String?             @map("award_notes")
+  rejectedVendorIds      Json                @default("[]") @map("rejected_vendor_ids")
+  createdBy              String?             @map("created_by")
+  createdAt              DateTime            @default(now()) @map("created_at")
+  updatedAt              DateTime            @updatedAt @map("updated_at")
   vendors                RfpVendor[]
+  evaluationReports      EvaluationReport[]
+  performanceReviews     VendorPerformance[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -361,21 +379,22 @@ model Rfp {
 }
 
 model Vendor {
-  id             String       @id @default(uuid())
-  tenantId       String       @map("tenant_id")
-  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  companyName    String       @map("company_name")
-  contactPerson  String?      @map("contact_person")
-  email          String?
-  phone          String?
-  address        String?
-  services       Json         @default("[]")
-  notes          String?
-  status         VendorStatus @default(ACTIVE)
-  createdBy      String?      @map("created_by")
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
-  rfpAssignments RfpVendor[]
+  id                 String              @id @default(uuid())
+  tenantId           String              @map("tenant_id")
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyName        String              @map("company_name")
+  contactPerson      String?             @map("contact_person")
+  email              String?
+  phone              String?
+  address            String?
+  services           Json                @default("[]")
+  notes              String?
+  status             VendorStatus        @default(ACTIVE)
+  createdBy          String?             @map("created_by")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  rfpAssignments     RfpVendor[]
+  performanceReviews VendorPerformance[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -383,20 +402,83 @@ model Vendor {
 }
 
 model RfpVendor {
-  id        String   @id @default(uuid())
-  tenantId  String   @map("tenant_id")
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  rfpId     String   @map("rfp_id")
-  rfp       Rfp      @relation(fields: [rfpId], references: [id], onDelete: Cascade)
-  vendorId  String   @map("vendor_id")
-  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now()) @map("created_at")
+  id               String              @id @default(uuid())
+  tenantId         String              @map("tenant_id")
+  tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rfpId            String              @map("rfp_id")
+  rfp              Rfp                 @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  vendorId         String              @map("vendor_id")
+  vendor           Vendor              @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  invitationToken  String?             @unique @map("invitation_token")
+  invitationStatus InvitationStatus    @default(PENDING) @map("invitation_status")
+  invitedAt        DateTime?           @map("invited_at")
+  viewedAt         DateTime?           @map("viewed_at")
+  submittedAt      DateTime?           @map("submitted_at")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  submission       ProposalSubmission?
 
   @@unique([rfpId, vendorId], map: "RfpVendor_rfp_vendor_key")
   @@index([tenantId])
   @@index([rfpId])
   @@index([vendorId])
+  @@index([invitationToken])
   @@map("RfpVendor")
+}
+
+model ProposalSubmission {
+  id            String    @id @default(uuid())
+  tenantId      String    @map("tenant_id")
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rfpVendorId   String    @unique @map("rfp_vendor_id")
+  rfpVendor     RfpVendor @relation(fields: [rfpVendorId], references: [id], onDelete: Cascade)
+  proposalFile  String?   @map("proposal_file")
+  pricingFile   String?   @map("pricing_file")
+  insuranceFile String?   @map("insurance_file")
+  licenseFile   String?   @map("license_file")
+  notes         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@map("ProposalSubmission")
+}
+
+model EvaluationReport {
+  id                String   @id @default(uuid())
+  tenantId          String   @map("tenant_id")
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rfpId             String   @map("rfp_id")
+  rfp               Rfp      @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  summary           String
+  recommendedVendor String?  @map("recommended_vendor")
+  overallAnalysis   String   @map("overall_analysis")
+  generatedReport   String   @map("generated_report")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([rfpId])
+  @@map("EvaluationReport")
+}
+
+model VendorPerformance {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rfpId         String   @map("rfp_id")
+  rfp           Rfp      @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  vendorId      String   @map("vendor_id")
+  vendor        Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  reviewDate    DateTime @map("review_date")
+  overallRating Int      @map("overall_rating")
+  slaCompliance Float    @map("sla_compliance")
+  incidentCount Int      @map("incident_count")
+  responseTime  String   @map("response_time")
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([rfpId])
+  @@index([vendorId])
+  @@map("VendorPerformance")
 }
 
 model DiscoverySession {
@@ -889,17 +971,17 @@ model ProposalComment {
 }
 
 model GuardSyncQueue {
-  id            String   @id @default(uuid())
-  tenantId      String   @map("tenant_id")
-  tenant        Tenant   @relation(fields: [tenantId], references: [id])
-  guardId       String   @map("guard_id")
-  guard         Guard    @relation(fields: [guardId], references: [id])
-  actionType    String   @map("action_type") // check_in, check_out, incident_create, patrol_checkpoint_scan, patrol_run_complete
-  payload       Json
-  status        String   @default("pending") // pending, synced, failed
-  errorMessage  String?  @map("error_message")
-  createdAt     DateTime @default(now()) @map("created_at")
-  syncedAt      DateTime? @map("synced_at")
+  id           String    @id @default(uuid())
+  tenantId     String    @map("tenant_id")
+  tenant       Tenant    @relation(fields: [tenantId], references: [id])
+  guardId      String    @map("guard_id")
+  guard        Guard     @relation(fields: [guardId], references: [id])
+  actionType   String    @map("action_type") // check_in, check_out, incident_create, patrol_checkpoint_scan, patrol_run_complete
+  payload      Json
+  status       String    @default("pending") // pending, synced, failed
+  errorMessage String?   @map("error_message")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  syncedAt     DateTime? @map("synced_at")
 
   @@index([tenantId])
   @@index([guardId])
@@ -1031,7 +1113,6 @@ model AiFeedback {
   @@map("AiFeedback")
 }
 
-
 model AiConversation {
   id              String   @id @default(uuid())
   tenantId        String   @map("tenant_id")
@@ -1149,20 +1230,20 @@ model CrmConnection {
 }
 
 model UserSession {
-  id               String       @id @default(uuid())
-  tenantId         String       @map("tenant_id")
-  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userId           String       @map("user_id")
-  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  source           String       @default("password")
-  refreshTokenHash String?      @map("refresh_token_hash")
-  status           String       @default("active")
-  ipAddress        String?      @map("ip_address")
-  userAgent        String?      @map("user_agent")
-  lastSeenAt       DateTime     @default(now()) @map("last_seen_at")
-  expiresAt        DateTime     @map("expires_at")
-  createdAt        DateTime     @default(now()) @map("created_at")
-  revokedAt        DateTime?    @map("revoked_at")
+  id               String    @id @default(uuid())
+  tenantId         String    @map("tenant_id")
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId           String    @map("user_id")
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source           String    @default("password")
+  refreshTokenHash String?   @map("refresh_token_hash")
+  status           String    @default("active")
+  ipAddress        String?   @map("ip_address")
+  userAgent        String?   @map("user_agent")
+  lastSeenAt       DateTime  @default(now()) @map("last_seen_at")
+  expiresAt        DateTime  @map("expires_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  revokedAt        DateTime? @map("revoked_at")
 
   @@index([tenantId])
   @@index([userId])

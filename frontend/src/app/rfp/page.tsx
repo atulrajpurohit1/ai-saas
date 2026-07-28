@@ -23,6 +23,8 @@ const statusClass: Record<Rfp['status'], string> = {
   DRAFT: 'border-yellow-500/20 bg-yellow-500/10 text-yellow-400',
   GENERATED: 'border-indigo-500/20 bg-indigo-500/10 text-indigo-300',
   FINALIZED: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
+  EVALUATED: 'border-purple-500/20 bg-purple-500/10 text-purple-300',
+  AWARDED: 'border-amber-500/20 bg-amber-500/10 text-amber-300',
 };
 
 function formatDate(value: string | null) {

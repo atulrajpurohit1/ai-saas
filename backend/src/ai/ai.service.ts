@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GenerateProposalDto } from './dto/generate-proposal.dto';
 import { GenerateRfpDto } from './dto/generate-rfp.dto';
+import { GenerateEvaluationDto } from './dto/generate-evaluation.dto';
 import { Lead } from '@prisma/client';
 
 export interface AiProposalDraftResponse {
@@ -88,6 +89,13 @@ export interface AiDiscoveryLiveCoachDraft {
   coachingNote: string;
   confidenceScore: number;
   shouldPauseProposal: boolean;
+}
+
+export interface AiEvaluationReportDraft {
+  summary: string;
+  recommendedVendor: string | null;
+  overallAnalysis: string;
+  fullReportMarkdown: string;
 }
 
 export interface ProspectSearchFilters {
@@ -247,7 +255,9 @@ export class AiService {
   ): Promise<string> {
     if (!this.isAiAvailable()) {
       if (this.getFallbackEnabled()) return fallbackFactory();
-      throw new InternalServerErrorException(this.getUnavailableMessage(action));
+      throw new InternalServerErrorException(
+        this.getUnavailableMessage(action),
+      );
     }
 
     try {
@@ -267,7 +277,9 @@ export class AiService {
       );
 
       if (this.getFallbackEnabled()) return fallbackFactory();
-      throw new InternalServerErrorException(this.getUnavailableMessage(action));
+      throw new InternalServerErrorException(
+        this.getUnavailableMessage(action),
+      );
     }
   }
 
@@ -310,7 +322,8 @@ export class AiService {
     );
 
     try {
-      const parsed = this.parseJsonFromText<Partial<AiSalesAssessmentDraft>>(rawText);
+      const parsed =
+        this.parseJsonFromText<Partial<AiSalesAssessmentDraft>>(rawText);
       const priorityTier =
         parsed.priorityTier === 'high' ||
         parsed.priorityTier === 'medium' ||
@@ -334,7 +347,8 @@ export class AiService {
             ? parsed.riskProfile.trim()
             : fallback.riskProfile,
         proposalAngle:
-          typeof parsed.proposalAngle === 'string' && parsed.proposalAngle.trim()
+          typeof parsed.proposalAngle === 'string' &&
+          parsed.proposalAngle.trim()
             ? parsed.proposalAngle.trim()
             : fallback.proposalAngle,
         recommendedNextAction:
@@ -365,7 +379,9 @@ export class AiService {
     }
   }
 
-  async generateDiscoveryGuide(context: string): Promise<AiDiscoveryGuideDraft> {
+  async generateDiscoveryGuide(
+    context: string,
+  ): Promise<AiDiscoveryGuideDraft> {
     const fallback = this.fallbackDiscoveryGuide();
     const prompt = `
       You are coaching a security guard sales rep before a discovery call.
@@ -391,10 +407,14 @@ export class AiService {
     );
 
     try {
-      const parsed = this.parseJsonFromText<Partial<AiDiscoveryGuideDraft>>(rawText);
+      const parsed =
+        this.parseJsonFromText<Partial<AiDiscoveryGuideDraft>>(rawText);
 
       return {
-        questions: this.normalizeStringArray(parsed.questions, fallback.questions),
+        questions: this.normalizeStringArray(
+          parsed.questions,
+          fallback.questions,
+        ),
         talkingPoints: this.normalizeStringArray(
           parsed.talkingPoints,
           fallback.talkingPoints,
@@ -555,7 +575,9 @@ export class AiService {
 
     try {
       const parsed =
-        this.parseJsonFromText<Partial<AiDiscoveryCallIntelligenceDraft>>(rawText);
+        this.parseJsonFromText<Partial<AiDiscoveryCallIntelligenceDraft>>(
+          rawText,
+        );
       const parsedDiscovery =
         parsed.discovery && typeof parsed.discovery === 'object'
           ? (parsed.discovery as Partial<AiCallDiscoveryDraft>)
@@ -624,7 +646,10 @@ export class AiService {
           parsed.unansweredQuestions,
           fallback.unansweredQuestions,
         ),
-        objections: this.normalizeStringArray(parsed.objections, fallback.objections),
+        objections: this.normalizeStringArray(
+          parsed.objections,
+          fallback.objections,
+        ),
         decisionMakers: this.normalizeStringArray(
           parsed.decisionMakers,
           fallback.decisionMakers,
@@ -865,11 +890,174 @@ export class AiService {
       - Use Markdown headings (##), short paragraphs, and bullet lists (-) where appropriate.
     `;
 
-    return this.generateText(
-      prompt,
-      'RFP generation',
-      () => this.fallbackRfp(dto),
+    return this.generateText(prompt, 'RFP generation', () =>
+      this.fallbackRfp(dto),
     );
+  }
+
+  async generateEvaluationReport(
+    dto: GenerateEvaluationDto,
+  ): Promise<AiEvaluationReportDraft> {
+    const fallback = this.fallbackEvaluationReport(dto);
+
+    const vendorBlocks = dto.vendors
+      .map((vendor, index) => {
+        return `
+        Vendor ${index + 1}: ${vendor.companyName}
+        Contact: ${vendor.contactPerson || 'Not specified'}
+        Services Offered: ${vendor.servicesOffered.join(', ') || 'Not specified'}
+        Documents Submitted: ${vendor.submittedDocuments.join(', ') || 'None'}
+        Documents Missing: ${vendor.missingDocuments.join(', ') || 'None'}
+        Submitted At: ${vendor.submittedAt || 'Not specified'}
+        Vendor Notes: ${vendor.notes || 'None provided'}
+        Proposal Excerpt: ${vendor.proposalExcerpt || 'Not available (no extractable text)'}
+        Pricing Excerpt: ${vendor.pricingExcerpt || 'Not available (no extractable text)'}
+      `;
+      })
+      .join('\n---\n');
+
+    const context = `
+      RFP Title: ${dto.rfpTitle}
+      Client: ${dto.clientName}
+      Industry: ${dto.industry || 'Not specified'}
+      Required Security Services: ${dto.securityTypes.join(', ') || 'Not specified'}
+      Number of Locations: ${dto.numberOfLocations ?? 'Not specified'}
+      Guards Required: ${dto.guardsRequired ?? 'Not specified'}
+      Estimated Budget: ${dto.estimatedBudget ? `$${dto.estimatedBudget}` : 'Not specified'}
+      Additional Requirements: ${dto.additionalRequirements || 'None'}
+
+      SUBMITTED VENDOR PROPOSALS:
+      ${vendorBlocks}
+    `;
+
+    const prompt = `
+      You are a senior procurement consultant evaluating competing security-services vendor proposals submitted for one RFP.
+      Compare the vendors below strictly using only the information provided. Do not invent facts, pricing figures, or
+      certifications that are not stated.
+
+      ${context}
+
+      Compare the vendors across: Pricing, Experience, Staffing, Licenses, Insurance, Compliance, Technology,
+      Response Quality, Risk, and Missing Information.
+
+      Return JSON only, in exactly this shape:
+      {
+        "summary": "one short executive-summary paragraph",
+        "recommendedVendor": "exact company name of the strongest vendor, or null if no vendor can be confidently recommended",
+        "overallAnalysis": "one concise concluding paragraph justifying the recommendation",
+        "fullReportMarkdown": "a complete Markdown document"
+      }
+
+      The "fullReportMarkdown" value must be a single Markdown document containing exactly these headings, in this order:
+      # AI Proposal Evaluation
+      ## Executive Summary
+      ## Vendor Comparison
+      ## Strengths
+      ## Weaknesses
+      ## Risk Analysis
+      ## Recommended Vendor
+      ## Overall Conclusion
+
+      Requirements for fullReportMarkdown:
+      - Under "Vendor Comparison", use a Markdown table comparing every vendor across the criteria listed above.
+      - Under "Strengths" and "Weaknesses", use one bullet list per vendor.
+      - Explicitly call out any vendor with missing required documents (insurance, license) as a risk factor.
+      - If only one vendor submitted, still produce every section, comparing that vendor against the RFP's stated requirements.
+      - Under "Recommended Vendor", always write plain-English prose (e.g. name the vendor and justify it, or explain
+        why no vendor can be confidently recommended yet). Never write the literal word "null" or leave this section empty.
+      - Escape any double quotes inside the JSON string values so the JSON stays valid.
+    `;
+
+    const rawText = await this.generateText(
+      prompt,
+      'proposal evaluation generation',
+      () => JSON.stringify(fallback),
+    );
+
+    try {
+      const parsed =
+        this.parseJsonFromText<Partial<AiEvaluationReportDraft>>(rawText);
+
+      return {
+        summary:
+          typeof parsed.summary === 'string' && parsed.summary.trim()
+            ? parsed.summary.trim()
+            : fallback.summary,
+        recommendedVendor: this.normalizeOptionalString(
+          parsed.recommendedVendor,
+          fallback.recommendedVendor,
+        ),
+        overallAnalysis:
+          typeof parsed.overallAnalysis === 'string' &&
+          parsed.overallAnalysis.trim()
+            ? parsed.overallAnalysis.trim()
+            : fallback.overallAnalysis,
+        fullReportMarkdown:
+          typeof parsed.fullReportMarkdown === 'string' &&
+          parsed.fullReportMarkdown.trim()
+            ? parsed.fullReportMarkdown.trim()
+            : fallback.fullReportMarkdown,
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Evaluation report JSON parsing failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return fallback;
+    }
+  }
+
+  private fallbackEvaluationReport(
+    dto: GenerateEvaluationDto,
+  ): AiEvaluationReportDraft {
+    const vendorNames = dto.vendors.map((vendor) => vendor.companyName);
+    const recommended =
+      [...dto.vendors].sort(
+        (a, b) => b.submittedDocuments.length - a.submittedDocuments.length,
+      )[0]?.companyName || null;
+
+    const comparisonRows = dto.vendors
+      .map(
+        (vendor) =>
+          `| ${vendor.companyName} | ${vendor.servicesOffered.join(', ') || 'Not specified'} | ${vendor.submittedDocuments.join(', ') || 'None'} | ${vendor.missingDocuments.join(', ') || 'None'} |`,
+      )
+      .join('\n');
+
+    const markdown = `
+# AI Proposal Evaluation (Fallback)
+
+## Executive Summary
+This is a deterministic fallback evaluation comparing ${vendorNames.length} submitted proposal(s) for "${dto.rfpTitle}" based only on the structured data captured at submission time.
+
+## Vendor Comparison
+| Vendor | Services | Documents Submitted | Documents Missing |
+|---|---|---|---|
+${comparisonRows}
+
+## Strengths
+${dto.vendors.map((vendor) => `- **${vendor.companyName}**: submitted ${vendor.submittedDocuments.length} of the requested documents.`).join('\n')}
+
+## Weaknesses
+${dto.vendors.map((vendor) => `- **${vendor.companyName}**: missing ${vendor.missingDocuments.join(', ') || 'no documents'}.`).join('\n')}
+
+## Risk Analysis
+Vendors missing an insurance certificate or security license should be treated as higher risk until those documents are provided.
+
+## Recommended Vendor
+${recommended ? `**${recommended}** currently has the most complete submission.` : 'No vendor can be confidently recommended from the available data.'}
+
+## Overall Conclusion
+This fallback summary is based solely on document completeness, not proposal content, pricing, or experience. Re-run the evaluation once Gemini is available for a substantive comparison.
+    `.trim();
+
+    return {
+      summary: `Fallback comparison of ${vendorNames.length} vendor(s) for "${dto.rfpTitle}" based on document completeness only.`,
+      recommendedVendor: recommended,
+      overallAnalysis:
+        'This is a deterministic fallback assessment; re-run the evaluation once Gemini is available for a substantive, content-based comparison.',
+      fullReportMarkdown: markdown,
+    };
   }
 
   async generateForLead(
@@ -915,10 +1103,8 @@ export class AiService {
       The email should be concise, professional, and encourage the client to secure their assets.
     `;
 
-    return this.generateText(
-      prompt,
-      'email draft generation',
-      () => this.fallbackEmailDraft(subject, context),
+    return this.generateText(prompt, 'email draft generation', () =>
+      this.fallbackEmailDraft(subject, context),
     );
   }
 
@@ -927,10 +1113,8 @@ export class AiService {
       '\n',
     )}`;
 
-    return this.generateText(
-      prompt,
-      'notes summarization',
-      () => this.fallbackSummarizeNotes(notes),
+    return this.generateText(prompt, 'notes summarization', () =>
+      this.fallbackSummarizeNotes(notes),
     );
   }
 
@@ -942,7 +1126,9 @@ export class AiService {
       return null;
     }
 
-    const prompt = this.renderPrompt(promptTemplate, { context }) || `
+    const prompt =
+      this.renderPrompt(promptTemplate, { context }) ||
+      `
       You are analyzing tenant-scoped security operations data for an admin dashboard.
       Use only this aggregated context:
       ${context}
@@ -956,7 +1142,10 @@ export class AiService {
     try {
       const result = await this.model.generateContent(prompt);
       const response = await result.response;
-      const rawText = response.text().replace(/```json|```/g, '').trim();
+      const rawText = response
+        .text()
+        .replace(/```json|```/g, '')
+        .trim();
       const parsed = JSON.parse(rawText) as { recommendations?: unknown };
 
       if (!Array.isArray(parsed.recommendations)) {
@@ -970,7 +1159,8 @@ export class AiService {
         .slice(0, 5);
     } catch (error) {
       this.logger.warn(
-        `Business insight recommendation generation failed: ${error instanceof Error ? error.message : String(error)
+        `Business insight recommendation generation failed: ${
+          error instanceof Error ? error.message : String(error)
         }`,
       );
       return null;
@@ -985,7 +1175,9 @@ export class AiService {
       return null;
     }
 
-    const prompt = this.renderPrompt(promptTemplate, { context }) || `
+    const prompt =
+      this.renderPrompt(promptTemplate, { context }) ||
+      `
       You are analyzing tenant-scoped security incident risk for an operations admin.
       Use only this aggregated incident context:
       ${context}
@@ -1001,7 +1193,8 @@ export class AiService {
       return text || null;
     } catch (error) {
       this.logger.warn(
-        `Incident risk summary generation failed: ${error instanceof Error ? error.message : String(error)
+        `Incident risk summary generation failed: ${
+          error instanceof Error ? error.message : String(error)
         }`,
       );
       return null;
@@ -1016,7 +1209,9 @@ export class AiService {
       return null;
     }
 
-    const prompt = this.renderPrompt(promptTemplate, { context }) || `
+    const prompt =
+      this.renderPrompt(promptTemplate, { context }) ||
+      `
       You are analyzing tenant-scoped security services revenue, contracts, renewals, invoice collections, and client value.
       Use only this aggregated financial context:
       ${context}
@@ -1037,7 +1232,8 @@ export class AiService {
       return text || null;
     } catch (error) {
       this.logger.warn(
-        `Revenue intelligence summary generation failed: ${error instanceof Error ? error.message : String(error)
+        `Revenue intelligence summary generation failed: ${
+          error instanceof Error ? error.message : String(error)
         }`,
       );
       return null;
@@ -1052,7 +1248,9 @@ export class AiService {
       return null;
     }
 
-    const prompt = this.renderPrompt(promptTemplate, { context }) || `
+    const prompt =
+      this.renderPrompt(promptTemplate, { context }) ||
+      `
       You are a senior finance and operations advisor for a security services SaaS platform.
       Use only this aggregated tenant-scoped financial context:
       ${context}
@@ -1076,7 +1274,10 @@ export class AiService {
     try {
       const result = await this.model.generateContent(prompt);
       const response = await result.response;
-      const rawText = response.text().replace(/```json|```/g, '').trim();
+      const rawText = response
+        .text()
+        .replace(/```json|```/g, '')
+        .trim();
       const parsed = JSON.parse(rawText) as {
         recommendations?: Array<Partial<AiRevenueRecommendationDraft>>;
       };
@@ -1092,8 +1293,8 @@ export class AiService {
           reason: typeof item.reason === 'string' ? item.reason.trim() : '',
           priority:
             item.priority === 'high' ||
-              item.priority === 'medium' ||
-              item.priority === 'low'
+            item.priority === 'medium' ||
+            item.priority === 'low'
               ? item.priority
               : 'medium',
         }))
@@ -1101,7 +1302,8 @@ export class AiService {
         .slice(0, 5);
     } catch (error) {
       this.logger.warn(
-        `Revenue recommendation generation failed: ${error instanceof Error ? error.message : String(error)
+        `Revenue recommendation generation failed: ${
+          error instanceof Error ? error.message : String(error)
         }`,
       );
       return null;
@@ -1116,7 +1318,9 @@ export class AiService {
       return null;
     }
 
-    const prompt = this.renderPrompt(promptTemplate, { context }) || `
+    const prompt =
+      this.renderPrompt(promptTemplate, { context }) ||
+      `
       Explain this guard recommendation to a security operations admin.
       Use only this aggregated scheduling context:
       ${context}
@@ -1131,7 +1335,8 @@ export class AiService {
       return text || null;
     } catch (error) {
       this.logger.warn(
-        `Guard recommendation explanation failed: ${error instanceof Error ? error.message : String(error)
+        `Guard recommendation explanation failed: ${
+          error instanceof Error ? error.message : String(error)
         }`,
       );
       return null;
@@ -1276,7 +1481,9 @@ Custom deployment tailored for ${lead.company}.
         'Who approves the final service scope and budget?',
         'What coverage hours and guard count are required?',
       ],
-      objectionRisks: ['Price pressure may appear if risk and scope are not clearly established.'],
+      objectionRisks: [
+        'Price pressure may appear if risk and scope are not clearly established.',
+      ],
       summary:
         'The opportunity has usable early signals, but needs stronger discovery before a confident proposal.',
     };
@@ -1347,7 +1554,9 @@ Custom deployment tailored for ${lead.company}.
     const buyingSignals = this.transcriptSnippets(
       transcript,
       /(interested|need|start|walkthrough|proposal|quote|approve|timeline|soon|urgent)/i,
-      ['Buyer interest exists, but the rep should confirm urgency and next step.'],
+      [
+        'Buyer interest exists, but the rep should confirm urgency and next step.',
+      ],
     );
     const riskSignals = this.transcriptSnippets(
       transcript,
@@ -1422,48 +1631,65 @@ Custom deployment tailored for ${lead.company}.
   private fallbackDiscoveryLiveCoach(
     transcript: string,
   ): AiDiscoveryLiveCoachDraft {
-    const hasRisk = /(incident|risk|liability|theft|trespass|complaint|access|parking|after hours|break-in|vandal)/i.test(
-      transcript,
-    );
-    const hasScope = /(guard|coverage|hours|shift|post|patrol|24\/7|overnight|weekend)/i.test(
-      transcript,
-    );
-    const hasAuthority = /(owner|board|manager|director|committee|procurement|approval|approver|decision|sign off)/i.test(
-      transcript,
-    );
-    const hasTimeline = /(asap|urgent|start|timeline|deadline|next week|next month|quarter|renewal|contract end)/i.test(
-      transcript,
-    );
-    const hasBudget = /(budget|price|cost|rate|expensive|quote|bid|pricing)/i.test(
-      transcript,
-    );
+    const hasRisk =
+      /(incident|risk|liability|theft|trespass|complaint|access|parking|after hours|break-in|vandal)/i.test(
+        transcript,
+      );
+    const hasScope =
+      /(guard|coverage|hours|shift|post|patrol|24\/7|overnight|weekend)/i.test(
+        transcript,
+      );
+    const hasAuthority =
+      /(owner|board|manager|director|committee|procurement|approval|approver|decision|sign off)/i.test(
+        transcript,
+      );
+    const hasTimeline =
+      /(asap|urgent|start|timeline|deadline|next week|next month|quarter|renewal|contract end)/i.test(
+        transcript,
+      );
+    const hasBudget =
+      /(budget|price|cost|rate|expensive|quote|bid|pricing)/i.test(transcript);
     const missedQuestions: string[] = [];
     const qualificationGaps: string[] = [];
 
     if (!hasRisk) {
-      missedQuestions.push('What incidents, complaints, or risks triggered this security review?');
+      missedQuestions.push(
+        'What incidents, complaints, or risks triggered this security review?',
+      );
       qualificationGaps.push('Risk driver is not confirmed.');
     }
     if (!hasScope) {
-      missedQuestions.push('Which posts, patrol areas, shifts, and service hours need coverage?');
+      missedQuestions.push(
+        'Which posts, patrol areas, shifts, and service hours need coverage?',
+      );
       qualificationGaps.push('Coverage scope is not confirmed.');
     }
     if (!hasAuthority) {
-      missedQuestions.push('Who approves the final scope, budget, and contract?');
+      missedQuestions.push(
+        'Who approves the final scope, budget, and contract?',
+      );
       qualificationGaps.push('Decision authority is not mapped.');
     }
     if (!hasTimeline) {
-      missedQuestions.push('When does coverage need to start, and what deadline is driving that timing?');
+      missedQuestions.push(
+        'When does coverage need to start, and what deadline is driving that timing?',
+      );
       qualificationGaps.push('Decision timeline is not confirmed.');
     }
     if (!hasBudget) {
-      missedQuestions.push('How are you weighing budget against risk reduction and accountability?');
+      missedQuestions.push(
+        'How are you weighing budget against risk reduction and accountability?',
+      );
       qualificationGaps.push('Budget sensitivity is not understood.');
     }
 
-    const captured = [hasRisk, hasScope, hasAuthority, hasTimeline, hasBudget].filter(
-      Boolean,
-    ).length;
+    const captured = [
+      hasRisk,
+      hasScope,
+      hasAuthority,
+      hasTimeline,
+      hasBudget,
+    ].filter(Boolean).length;
     const completenessScore = Math.max(15, captured * 20);
     const nextBestQuestion =
       missedQuestions[0] ||
@@ -1475,7 +1701,9 @@ Custom deployment tailored for ${lead.company}.
       missedQuestions:
         missedQuestions.length > 0
           ? missedQuestions
-          : ['Confirm success criteria and internal handoff needs before ending the call.'],
+          : [
+              'Confirm success criteria and internal handoff needs before ending the call.',
+            ],
       livePrompts: [
         'Anchor the conversation on risk before discussing guard hours.',
         'Map each requested post or patrol to a specific exposure.',
@@ -1501,7 +1729,8 @@ Custom deployment tailored for ${lead.company}.
         completenessScore >= 80
           ? 'Discovery is strong enough to move toward a scoped proposal after confirming success criteria.'
           : 'Keep discovery open. The proposal is not protected until risk, scope, authority, and timing are clear.',
-      confidenceScore: transcript.length > 500 ? 65 : transcript.length > 120 ? 50 : 35,
+      confidenceScore:
+        transcript.length > 500 ? 65 : transcript.length > 120 ? 50 : 35,
       shouldPauseProposal: completenessScore < 80,
     };
   }
@@ -1570,7 +1799,10 @@ Complete discovery, confirm scope, and finalize a proposal aligned to the client
     try {
       const result = await this.model.generateContent(prompt);
       const response = await result.response;
-      const rawText = response.text().replace(/```json|```/g, '').trim();
+      const rawText = response
+        .text()
+        .replace(/```json|```/g, '')
+        .trim();
       const parsed = JSON.parse(rawText) as {
         name?: string;
         company?: string;

@@ -121,6 +121,25 @@ export const PERMISSIONS: PermissionDefinition[] = [
     module: 'rfp',
   },
   {
+    key: 'rfp.evaluate',
+    name: 'Generate AI RFP evaluations',
+    description: 'Generate AI-assisted proposal evaluation reports for an RFP.',
+    module: 'rfp',
+  },
+  {
+    key: 'rfp.award',
+    name: 'Award RFP contracts',
+    description:
+      'Award the contract to a winning vendor and reject remaining vendors.',
+    module: 'rfp',
+  },
+  {
+    key: 'vendor.performance',
+    name: 'Manage vendor performance reviews',
+    description: 'Add and update performance reviews for an awarded vendor.',
+    module: 'rfp',
+  },
+  {
     key: 'vendors.view',
     name: 'View vendors',
     description: 'Read vendors.',
@@ -563,6 +582,9 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       'rfp.create',
       'rfp.update',
       'rfp.delete',
+      'rfp.evaluate',
+      'rfp.award',
+      'vendor.performance',
       'vendors.view',
       'vendors.create',
       'vendors.update',

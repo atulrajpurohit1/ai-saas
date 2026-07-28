@@ -12,12 +12,13 @@ const rfp_service_1 = require("./rfp.service");
 const rfp_controller_1 = require("./rfp.controller");
 const prisma_module_1 = require("../prisma/prisma.module");
 const ai_module_1 = require("../ai/ai.module");
+const email_module_1 = require("../email/email.module");
 let RfpModule = class RfpModule {
 };
 exports.RfpModule = RfpModule;
 exports.RfpModule = RfpModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, ai_module_1.AiModule],
+        imports: [prisma_module_1.PrismaModule, ai_module_1.AiModule, email_module_1.EmailModule],
         controllers: [rfp_controller_1.RfpController],
         providers: [rfp_service_1.RfpService],
         exports: [rfp_service_1.RfpService],

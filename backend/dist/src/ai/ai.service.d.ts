@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { GenerateProposalDto } from './dto/generate-proposal.dto';
 import { GenerateRfpDto } from './dto/generate-rfp.dto';
+import { GenerateEvaluationDto } from './dto/generate-evaluation.dto';
 import { Lead } from '@prisma/client';
 export interface AiProposalDraftResponse {
     draft: string | null;
@@ -75,6 +76,12 @@ export interface AiDiscoveryLiveCoachDraft {
     confidenceScore: number;
     shouldPauseProposal: boolean;
 }
+export interface AiEvaluationReportDraft {
+    summary: string;
+    recommendedVendor: string | null;
+    overallAnalysis: string;
+    fullReportMarkdown: string;
+}
 export interface ProspectSearchFilters {
     industry: string | null;
     city: string | null;
@@ -131,6 +138,8 @@ export declare class AiService {
     generateDiscoveryProposal(context: string): Promise<string>;
     generateProposalDraft(dto: GenerateProposalDto): Promise<AiProposalDraftResponse>;
     generateRfp(dto: GenerateRfpDto): Promise<string>;
+    generateEvaluationReport(dto: GenerateEvaluationDto): Promise<AiEvaluationReportDraft>;
+    private fallbackEvaluationReport;
     generateForLead(lead: Lead & {
         notes?: any[];
         deals?: any[];

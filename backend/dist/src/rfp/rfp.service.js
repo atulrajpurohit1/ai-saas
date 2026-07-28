@@ -11,20 +11,41 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RfpService = void 0;
 const common_1 = require("@nestjs/common");
+const fs_1 = require("fs");
+const promises_1 = require("fs/promises");
+const path_1 = require("path");
+const crypto_1 = require("crypto");
 const prisma_service_1 = require("../prisma/prisma.service");
 const ai_service_1 = require("../ai/ai.service");
 const audit_service_1 = require("../audit/audit.service");
 const branding_service_1 = require("../branding/branding.service");
+const email_service_1 = require("../email/email.service");
+const file_storage_util_1 = require("../common/file-storage.util");
+const SUBMISSION_DOCUMENT_LABELS = {
+    proposalFile: 'Proposal PDF',
+    pricingFile: 'Pricing Sheet',
+    insuranceFile: 'Insurance Certificate',
+    licenseFile: 'Security License',
+};
+const EVALUATION_EXCERPT_MAX_CHARS = 3000;
+const SUBMISSION_FILE_FIELDS = [
+    'proposalFile',
+    'pricingFile',
+    'insuranceFile',
+    'licenseFile',
+];
 let RfpService = class RfpService {
     prisma;
     aiService;
     auditService;
     brandingService;
-    constructor(prisma, aiService, auditService, brandingService) {
+    emailService;
+    constructor(prisma, aiService, auditService, brandingService, emailService) {
         this.prisma = prisma;
         this.aiService = aiService;
         this.auditService = auditService;
         this.brandingService = brandingService;
+        this.emailService = emailService;
     }
     parseOptionalDate(value, fieldName) {
         if (!value)
@@ -116,7 +137,19 @@ let RfpService = class RfpService {
     async findOne(tenantId, id) {
         const rfp = await this.findRfpOrThrow(tenantId, id);
         const [withCreator] = await this.attachCreators([rfp]);
-        return withCreator;
+        const evaluation = await this.findLatestEvaluation(tenantId, id);
+        const awardedVendor = rfp.awardedVendorId
+            ? await this.prisma.vendor.findFirst({
+                where: { id: rfp.awardedVendorId, tenantId },
+                select: {
+                    id: true,
+                    companyName: true,
+                    contactPerson: true,
+                    email: true,
+                },
+            })
+            : null;
+        return { ...withCreator, evaluation, awardedVendor };
     }
     async update(tenantId, userId, id, dto) {
         await this.findRfpOrThrow(tenantId, id);
@@ -377,6 +410,379 @@ let RfpService = class RfpService {
         });
         return { success: true };
     }
+    async inviteVendors(tenantId, userId, id, vendorIds) {
+        const rfp = await this.findRfpOrThrow(tenantId, id);
+        const uniqueVendorIds = Array.from(new Set(vendorIds.map((vendorId) => vendorId.trim()).filter(Boolean)));
+        const vendors = await this.prisma.vendor.findMany({
+            where: { id: { in: uniqueVendorIds }, tenantId },
+        });
+        if (vendors.length !== uniqueVendorIds.length) {
+            throw new common_1.BadRequestException('One or more vendors were not found in this tenant');
+        }
+        const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '');
+        const invited = [];
+        const skippedNoEmail = [];
+        const emailFailed = [];
+        for (const vendor of vendors) {
+            if (!vendor.email) {
+                skippedNoEmail.push(vendor.companyName);
+                continue;
+            }
+            const invitationToken = (0, crypto_1.randomBytes)(32).toString('base64url');
+            const rfpVendor = await this.prisma.rfpVendor.upsert({
+                where: { rfpId_vendorId: { rfpId: id, vendorId: vendor.id } },
+                update: {
+                    invitationToken,
+                    invitationStatus: 'INVITED',
+                    invitedAt: new Date(),
+                },
+                create: {
+                    tenantId,
+                    rfpId: id,
+                    vendorId: vendor.id,
+                    invitationToken,
+                    invitationStatus: 'INVITED',
+                    invitedAt: new Date(),
+                },
+            });
+            invited.push(vendor.companyName);
+            try {
+                await this.emailService.sendVendorInvitationEmail(tenantId, {
+                    vendorEmail: vendor.email,
+                    vendorCompanyName: vendor.companyName,
+                    rfpTitle: rfp.title,
+                    dueDate: rfp.dueDate,
+                    invitationUrl: `${frontendUrl}/vendor/invitation/${rfpVendor.invitationToken}`,
+                });
+            }
+            catch (error) {
+                emailFailed.push(vendor.companyName);
+                console.error(`Failed to send vendor invitation email to ${vendor.email}`, error);
+            }
+        }
+        await this.auditService.log({
+            tenantId,
+            userId,
+            action: 'UPDATE',
+            entityType: 'Rfp',
+            entityId: id,
+            details: `Invited vendor(s) to RFP: ${invited.join(', ') || 'none'}`,
+        });
+        return { invited, skippedNoEmail, emailFailed };
+    }
+    async findSubmissions(tenantId, id) {
+        await this.findRfpOrThrow(tenantId, id);
+        return this.prisma.rfpVendor.findMany({
+            where: { tenantId, rfpId: id },
+            include: { vendor: true, submission: true },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+    async downloadSubmissionFile(tenantId, id, vendorId, field) {
+        if (!SUBMISSION_FILE_FIELDS.includes(field)) {
+            throw new common_1.BadRequestException('Invalid document field');
+        }
+        await this.findRfpOrThrow(tenantId, id);
+        const rfpVendor = await this.prisma.rfpVendor.findFirst({
+            where: { tenantId, rfpId: id, vendorId },
+            include: { submission: true },
+        });
+        if (!rfpVendor?.submission) {
+            throw new common_1.NotFoundException('No submission found for this vendor');
+        }
+        const storedFilename = rfpVendor.submission[field];
+        if (!storedFilename) {
+            throw new common_1.NotFoundException('This document was not submitted');
+        }
+        const filePath = (0, path_1.join)(file_storage_util_1.VENDOR_UPLOAD_DIR, storedFilename);
+        if (!(0, fs_1.existsSync)(filePath)) {
+            throw new common_1.NotFoundException('File not found on server');
+        }
+        return { stream: (0, fs_1.createReadStream)(filePath), filename: storedFilename };
+    }
+    async extractPdfExcerpt(storedFilename) {
+        if (!storedFilename || !/\.pdf$/i.test(storedFilename))
+            return null;
+        try {
+            const filePath = (0, path_1.join)(file_storage_util_1.VENDOR_UPLOAD_DIR, storedFilename);
+            if (!(0, fs_1.existsSync)(filePath))
+                return null;
+            const buffer = await (0, promises_1.readFile)(filePath);
+            const pdfParse = require('pdf-parse');
+            const data = await pdfParse(buffer, { pagerender: () => '' });
+            const text = String(data.text || '').trim();
+            return text ? text.slice(0, EVALUATION_EXCERPT_MAX_CHARS) : null;
+        }
+        catch {
+            return null;
+        }
+    }
+    async generateEvaluation(tenantId, userId, id) {
+        const rfp = await this.findRfpOrThrow(tenantId, id);
+        const rfpVendors = await this.prisma.rfpVendor.findMany({
+            where: { tenantId, rfpId: id },
+            include: { vendor: true, submission: true },
+        });
+        const submitted = rfpVendors.filter((item) => item.submission);
+        if (submitted.length === 0) {
+            throw new common_1.BadRequestException('At least one vendor must have a submitted proposal before an evaluation can be generated.');
+        }
+        const vendorSummaries = await Promise.all(submitted.map(async (item) => {
+            const submission = item.submission;
+            const submittedDocuments = [];
+            const missingDocuments = [];
+            for (const field of SUBMISSION_FILE_FIELDS) {
+                const label = SUBMISSION_DOCUMENT_LABELS[field];
+                if (submission[field]) {
+                    submittedDocuments.push(label);
+                }
+                else {
+                    missingDocuments.push(label);
+                }
+            }
+            const [proposalExcerpt, pricingExcerpt] = await Promise.all([
+                this.extractPdfExcerpt(submission.proposalFile),
+                this.extractPdfExcerpt(submission.pricingFile),
+            ]);
+            return {
+                companyName: item.vendor.companyName,
+                contactPerson: item.vendor.contactPerson,
+                servicesOffered: Array.isArray(item.vendor.services)
+                    ? item.vendor.services
+                    : [],
+                submittedDocuments,
+                missingDocuments,
+                notes: submission.notes,
+                proposalExcerpt,
+                pricingExcerpt,
+                submittedAt: item.submittedAt ? item.submittedAt.toISOString() : null,
+            };
+        }));
+        const evaluationDto = {
+            rfpTitle: rfp.title,
+            clientName: rfp.clientName,
+            industry: rfp.industry,
+            securityTypes: Array.isArray(rfp.securityTypes)
+                ? rfp.securityTypes
+                : [],
+            numberOfLocations: rfp.numberOfLocations,
+            guardsRequired: rfp.guardsRequired,
+            estimatedBudget: rfp.estimatedBudget,
+            additionalRequirements: rfp.additionalRequirements,
+            vendors: vendorSummaries,
+        };
+        const result = await this.aiService.generateEvaluationReport(evaluationDto);
+        const evaluation = await this.prisma.evaluationReport.create({
+            data: {
+                tenantId,
+                rfpId: id,
+                summary: result.summary,
+                recommendedVendor: result.recommendedVendor,
+                overallAnalysis: result.overallAnalysis,
+                generatedReport: result.fullReportMarkdown,
+            },
+        });
+        if (rfp.status !== 'AWARDED') {
+            await this.prisma.rfp.update({
+                where: { id },
+                data: { status: 'EVALUATED' },
+            });
+        }
+        await this.auditService.log({
+            tenantId,
+            userId,
+            action: 'GENERATE',
+            entityType: 'EvaluationReport',
+            entityId: evaluation.id,
+            details: `Generated AI Evaluation for RFP: ${rfp.title}`,
+        });
+        return evaluation;
+    }
+    async findLatestEvaluation(tenantId, id) {
+        return this.prisma.evaluationReport.findFirst({
+            where: { tenantId, rfpId: id },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+    getRejectedVendorIds(rfp) {
+        return Array.isArray(rfp.rejectedVendorIds)
+            ? rfp.rejectedVendorIds
+            : [];
+    }
+    async awardContract(tenantId, userId, id, vendorId, awardNotes) {
+        const rfp = await this.findRfpOrThrow(tenantId, id);
+        if (rfp.awardedVendorId) {
+            throw new common_1.BadRequestException('This RFP has already been awarded.');
+        }
+        const evaluation = await this.findLatestEvaluation(tenantId, id);
+        if (!evaluation) {
+            throw new common_1.BadRequestException('An AI evaluation must be generated before a contract can be awarded.');
+        }
+        if (this.getRejectedVendorIds(rfp).includes(vendorId)) {
+            throw new common_1.BadRequestException('This vendor has already been rejected and cannot be awarded the contract.');
+        }
+        const rfpVendor = await this.prisma.rfpVendor.findFirst({
+            where: { tenantId, rfpId: id, vendorId },
+            include: { vendor: true, submission: true },
+        });
+        if (!rfpVendor) {
+            throw new common_1.NotFoundException('This vendor is not assigned to this RFP.');
+        }
+        if (!rfpVendor.submission) {
+            throw new common_1.BadRequestException('This vendor has not submitted a proposal and cannot be awarded the contract.');
+        }
+        const updated = await this.prisma.rfp.update({
+            where: { id },
+            data: {
+                awardedVendorId: vendorId,
+                awardDate: new Date(),
+                awardNotes: awardNotes?.trim() || null,
+                status: 'AWARDED',
+            },
+        });
+        if (rfpVendor.vendor.email) {
+            try {
+                await this.emailService.sendContractAwardEmail(tenantId, {
+                    vendorEmail: rfpVendor.vendor.email,
+                    vendorCompanyName: rfpVendor.vendor.companyName,
+                    rfpTitle: rfp.title,
+                    awardNotes: updated.awardNotes,
+                });
+            }
+            catch (error) {
+                console.error(`Failed to send contract award email to ${rfpVendor.vendor.email}`, error);
+            }
+        }
+        await this.auditService.log({
+            tenantId,
+            userId,
+            action: 'CONTRACT_AWARDED',
+            entityType: 'Rfp',
+            entityId: id,
+            details: `Contract Awarded to vendor: ${rfpVendor.vendor.companyName}`,
+        });
+        return updated;
+    }
+    async rejectVendor(tenantId, userId, id, vendorId, reason) {
+        const rfp = await this.findRfpOrThrow(tenantId, id);
+        if (rfp.awardedVendorId === vendorId) {
+            throw new common_1.BadRequestException('This vendor has already been awarded the contract and cannot be rejected.');
+        }
+        const rfpVendor = await this.prisma.rfpVendor.findFirst({
+            where: { tenantId, rfpId: id, vendorId },
+            include: { vendor: true },
+        });
+        if (!rfpVendor) {
+            throw new common_1.NotFoundException('This vendor is not assigned to this RFP.');
+        }
+        const rejectedVendorIds = this.getRejectedVendorIds(rfp);
+        if (!rejectedVendorIds.includes(vendorId)) {
+            rejectedVendorIds.push(vendorId);
+            await this.prisma.rfp.update({
+                where: { id },
+                data: { rejectedVendorIds },
+            });
+        }
+        if (rfpVendor.vendor.email) {
+            try {
+                await this.emailService.sendVendorRejectionEmail(tenantId, {
+                    vendorEmail: rfpVendor.vendor.email,
+                    vendorCompanyName: rfpVendor.vendor.companyName,
+                    rfpTitle: rfp.title,
+                    reason,
+                });
+            }
+            catch (error) {
+                console.error(`Failed to send vendor rejection email to ${rfpVendor.vendor.email}`, error);
+            }
+        }
+        await this.auditService.log({
+            tenantId,
+            userId,
+            action: 'VENDOR_REJECTED',
+            entityType: 'Rfp',
+            entityId: id,
+            details: `Vendor Rejected: ${rfpVendor.vendor.companyName}${reason ? ` (${reason})` : ''}`,
+        });
+        return { success: true, rejectedVendorIds };
+    }
+    async findPerformanceReviews(tenantId, id) {
+        await this.findRfpOrThrow(tenantId, id);
+        return this.prisma.vendorPerformance.findMany({
+            where: { tenantId, rfpId: id },
+            orderBy: { reviewDate: 'desc' },
+        });
+    }
+    async createPerformanceReview(tenantId, userId, id, dto) {
+        const rfp = await this.findRfpOrThrow(tenantId, id);
+        if (rfp.status !== 'AWARDED' || !rfp.awardedVendorId) {
+            throw new common_1.BadRequestException('A performance review can only be added once this RFP has an awarded vendor.');
+        }
+        const review = await this.prisma.vendorPerformance.create({
+            data: {
+                tenantId,
+                rfpId: id,
+                vendorId: rfp.awardedVendorId,
+                reviewDate: this.parseOptionalDate(dto.reviewDate, 'reviewDate') ?? new Date(),
+                overallRating: dto.overallRating,
+                slaCompliance: dto.slaCompliance,
+                incidentCount: dto.incidentCount,
+                responseTime: dto.responseTime,
+                notes: dto.notes?.trim() || null,
+            },
+        });
+        await this.auditService.log({
+            tenantId,
+            userId,
+            action: 'PERFORMANCE_REVIEW_ADDED',
+            entityType: 'VendorPerformance',
+            entityId: review.id,
+            details: `Performance Review Added for RFP: ${rfp.title}`,
+        });
+        return review;
+    }
+    async updatePerformanceReview(tenantId, userId, reviewId, dto) {
+        const existing = await this.prisma.vendorPerformance.findFirst({
+            where: { id: reviewId, tenantId },
+            include: { rfp: { select: { title: true } } },
+        });
+        if (!existing) {
+            throw new common_1.NotFoundException('Performance review not found');
+        }
+        const updated = await this.prisma.vendorPerformance.update({
+            where: { id: reviewId },
+            data: {
+                ...(dto.reviewDate !== undefined
+                    ? {
+                        reviewDate: this.parseOptionalDate(dto.reviewDate, 'reviewDate') ??
+                            existing.reviewDate,
+                    }
+                    : {}),
+                ...(dto.overallRating !== undefined
+                    ? { overallRating: dto.overallRating }
+                    : {}),
+                ...(dto.slaCompliance !== undefined
+                    ? { slaCompliance: dto.slaCompliance }
+                    : {}),
+                ...(dto.incidentCount !== undefined
+                    ? { incidentCount: dto.incidentCount }
+                    : {}),
+                ...(dto.responseTime !== undefined
+                    ? { responseTime: dto.responseTime }
+                    : {}),
+                ...(dto.notes !== undefined ? { notes: dto.notes?.trim() || null } : {}),
+            },
+        });
+        await this.auditService.log({
+            tenantId,
+            userId,
+            action: 'PERFORMANCE_REVIEW_UPDATED',
+            entityType: 'VendorPerformance',
+            entityId: reviewId,
+            details: `Performance Review Updated for RFP: ${existing.rfp.title}`,
+        });
+        return updated;
+    }
 };
 exports.RfpService = RfpService;
 exports.RfpService = RfpService = __decorate([
@@ -384,6 +790,7 @@ exports.RfpService = RfpService = __decorate([
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         ai_service_1.AiService,
         audit_service_1.AuditService,
-        branding_service_1.BrandingService])
+        branding_service_1.BrandingService,
+        email_service_1.EmailService])
 ], RfpService);
 //# sourceMappingURL=rfp.service.js.map

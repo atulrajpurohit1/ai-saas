@@ -1,6 +1,8 @@
 import api from './api';
+import { downloadBlobFile } from './csv';
 
 export type VendorStatus = 'ACTIVE' | 'INACTIVE';
+export type InvitationStatus = 'PENDING' | 'INVITED' | 'VIEWED' | 'SUBMITTED';
 
 export interface Vendor {
   id: string;
@@ -69,4 +71,54 @@ export async function assignVendorsToRfp(rfpId: string, vendorIds: string[]) {
 export async function removeVendorFromRfp(rfpId: string, vendorId: string) {
   const response = await api.delete<{ success: boolean }>(`rfp/${rfpId}/vendors/${vendorId}`);
   return response.data;
+}
+
+export interface ProposalSubmission {
+  id: string;
+  proposalFile: string | null;
+  pricingFile: string | null;
+  insuranceFile: string | null;
+  licenseFile: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface RfpVendorSubmission {
+  id: string;
+  rfpId: string;
+  vendorId: string;
+  invitationStatus: InvitationStatus;
+  invitedAt: string | null;
+  viewedAt: string | null;
+  submittedAt: string | null;
+  createdAt: string;
+  vendor: Vendor;
+  submission: ProposalSubmission | null;
+}
+
+export async function inviteVendorsToRfp(rfpId: string, vendorIds: string[]) {
+  const response = await api.post<{ invited: string[]; skippedNoEmail: string[]; emailFailed: string[] }>(
+    `rfp/${rfpId}/invite`,
+    { vendorIds },
+  );
+  return response.data;
+}
+
+export async function getRfpSubmissions(rfpId: string) {
+  const response = await api.get<RfpVendorSubmission[]>(`rfp/${rfpId}/submissions`);
+  return response.data;
+}
+
+export const SUBMISSION_DOCUMENT_FIELDS = [
+  { field: 'proposalFile', label: 'Proposal PDF' },
+  { field: 'pricingFile', label: 'Pricing Sheet' },
+  { field: 'insuranceFile', label: 'Insurance Certificate' },
+  { field: 'licenseFile', label: 'Security License' },
+] as const;
+
+export async function downloadSubmissionFile(rfpId: string, vendorId: string, field: string, filename: string) {
+  const response = await api.get(`rfp/${rfpId}/submissions/${vendorId}/download/${field}`, {
+    responseType: 'blob',
+  });
+  downloadBlobFile(filename, response.data as Blob);
 }

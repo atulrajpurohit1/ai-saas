@@ -6,6 +6,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 @Module({
   imports: [PrismaModule],
   providers: [EmailService],
-  controllers: [EmailController]
+  controllers: [EmailController],
+  exports: [EmailService],
 })
 export class EmailModule {}

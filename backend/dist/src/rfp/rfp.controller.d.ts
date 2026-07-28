@@ -3,6 +3,11 @@ import { RfpService } from './rfp.service';
 import { CreateRfpDto } from './dto/create-rfp.dto';
 import { UpdateRfpDto } from './dto/update-rfp.dto';
 import { AssignVendorsDto } from './dto/assign-vendors.dto';
+import { InviteVendorsDto } from './dto/invite-vendors.dto';
+import { AwardContractDto } from './dto/award-contract.dto';
+import { RejectVendorDto } from './dto/reject-vendor.dto';
+import { CreatePerformanceReviewDto } from './dto/create-performance-review.dto';
+import { UpdatePerformanceReviewDto } from './dto/update-performance-review.dto';
 import { GenerateRfpDto } from '../ai/dto/generate-rfp.dto';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 export declare class RfpController {
@@ -13,10 +18,14 @@ export declare class RfpController {
     }>;
     create(user: ActiveUser, dto: CreateRfpDto): Promise<{
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         tenantId: string;
-        title: string;
-        clientName: string;
         companyName: string | null;
+        title: string;
+        status: import(".prisma/client").$Enums.RfpStatus;
+        address: string | null;
+        clientName: string;
         industry: string | null;
         projectName: string | null;
         dueDate: Date | null;
@@ -25,22 +34,26 @@ export declare class RfpController {
         estimatedBudget: number | null;
         securityTypes: import("@prisma/client/runtime/library").JsonValue;
         numberOfLocations: number | null;
-        address: string | null;
         operatingHours: string | null;
         guardsRequired: number | null;
         additionalRequirements: string | null;
-        generatedContent: string | null;
-        status: import(".prisma/client").$Enums.RfpStatus;
         createdBy: string | null;
-        createdAt: Date;
-        updatedAt: Date;
+        generatedContent: string | null;
+        awardedVendorId: string | null;
+        awardDate: Date | null;
+        awardNotes: string | null;
+        rejectedVendorIds: import("@prisma/client/runtime/library").JsonValue;
     }>;
     findAll(user: ActiveUser): Promise<({
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         tenantId: string;
-        title: string;
-        clientName: string;
         companyName: string | null;
+        title: string;
+        status: import(".prisma/client").$Enums.RfpStatus;
+        address: string | null;
+        clientName: string;
         industry: string | null;
         projectName: string | null;
         dueDate: Date | null;
@@ -49,15 +62,15 @@ export declare class RfpController {
         estimatedBudget: number | null;
         securityTypes: import("@prisma/client/runtime/library").JsonValue;
         numberOfLocations: number | null;
-        address: string | null;
         operatingHours: string | null;
         guardsRequired: number | null;
         additionalRequirements: string | null;
-        generatedContent: string | null;
-        status: import(".prisma/client").$Enums.RfpStatus;
         createdBy: string | null;
-        createdAt: Date;
-        updatedAt: Date;
+        generatedContent: string | null;
+        awardedVendorId: string | null;
+        awardDate: Date | null;
+        awardNotes: string | null;
+        rejectedVendorIds: import("@prisma/client/runtime/library").JsonValue;
     } & {
         createdByUser: {
             id: string;
@@ -66,11 +79,31 @@ export declare class RfpController {
         } | null;
     })[]>;
     findOne(user: ActiveUser, id: string): Promise<{
+        evaluation: {
+            id: string;
+            createdAt: Date;
+            tenantId: string;
+            summary: string;
+            recommendedVendor: string | null;
+            overallAnalysis: string;
+            rfpId: string;
+            generatedReport: string;
+        } | null;
+        awardedVendor: {
+            id: string;
+            email: string | null;
+            companyName: string;
+            contactPerson: string | null;
+        } | null;
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         tenantId: string;
-        title: string;
-        clientName: string;
         companyName: string | null;
+        title: string;
+        status: import(".prisma/client").$Enums.RfpStatus;
+        address: string | null;
+        clientName: string;
         industry: string | null;
         projectName: string | null;
         dueDate: Date | null;
@@ -79,16 +112,15 @@ export declare class RfpController {
         estimatedBudget: number | null;
         securityTypes: import("@prisma/client/runtime/library").JsonValue;
         numberOfLocations: number | null;
-        address: string | null;
         operatingHours: string | null;
         guardsRequired: number | null;
         additionalRequirements: string | null;
-        generatedContent: string | null;
-        status: import(".prisma/client").$Enums.RfpStatus;
         createdBy: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-    } & {
+        generatedContent: string | null;
+        awardedVendorId: string | null;
+        awardDate: Date | null;
+        awardNotes: string | null;
+        rejectedVendorIds: import("@prisma/client/runtime/library").JsonValue;
         createdByUser: {
             id: string;
             name: string | null;
@@ -97,10 +129,14 @@ export declare class RfpController {
     }>;
     update(user: ActiveUser, id: string, dto: UpdateRfpDto): Promise<{
         id: string;
+        createdAt: Date;
+        updatedAt: Date;
         tenantId: string;
-        title: string;
-        clientName: string;
         companyName: string | null;
+        title: string;
+        status: import(".prisma/client").$Enums.RfpStatus;
+        address: string | null;
+        clientName: string;
         industry: string | null;
         projectName: string | null;
         dueDate: Date | null;
@@ -109,15 +145,15 @@ export declare class RfpController {
         estimatedBudget: number | null;
         securityTypes: import("@prisma/client/runtime/library").JsonValue;
         numberOfLocations: number | null;
-        address: string | null;
         operatingHours: string | null;
         guardsRequired: number | null;
         additionalRequirements: string | null;
-        generatedContent: string | null;
-        status: import(".prisma/client").$Enums.RfpStatus;
         createdBy: string | null;
-        createdAt: Date;
-        updatedAt: Date;
+        generatedContent: string | null;
+        awardedVendorId: string | null;
+        awardDate: Date | null;
+        awardNotes: string | null;
+        rejectedVendorIds: import("@prisma/client/runtime/library").JsonValue;
     }>;
     remove(user: ActiveUser, id: string): Promise<{
         success: boolean;
@@ -125,35 +161,161 @@ export declare class RfpController {
     exportPdf(user: ActiveUser, id: string, res: Response): Promise<void>;
     findAssignedVendors(user: ActiveUser, id: string): Promise<{
         id: string;
-        tenantId: string;
-        companyName: string;
-        address: string | null;
-        status: import(".prisma/client").$Enums.VendorStatus;
-        createdBy: string | null;
         createdAt: Date;
         updatedAt: Date;
-        email: string | null;
-        contactPerson: string | null;
-        phone: string | null;
-        services: import("@prisma/client/runtime/library").JsonValue;
         notes: string | null;
+        email: string | null;
+        tenantId: string;
+        companyName: string;
+        phone: string | null;
+        status: import(".prisma/client").$Enums.VendorStatus;
+        address: string | null;
+        createdBy: string | null;
+        contactPerson: string | null;
+        services: import("@prisma/client/runtime/library").JsonValue;
     }[]>;
     assignVendors(user: ActiveUser, id: string, dto: AssignVendorsDto): Promise<{
         id: string;
-        tenantId: string;
-        companyName: string;
-        address: string | null;
-        status: import(".prisma/client").$Enums.VendorStatus;
-        createdBy: string | null;
         createdAt: Date;
         updatedAt: Date;
-        email: string | null;
-        contactPerson: string | null;
-        phone: string | null;
-        services: import("@prisma/client/runtime/library").JsonValue;
         notes: string | null;
+        email: string | null;
+        tenantId: string;
+        companyName: string;
+        phone: string | null;
+        status: import(".prisma/client").$Enums.VendorStatus;
+        address: string | null;
+        createdBy: string | null;
+        contactPerson: string | null;
+        services: import("@prisma/client/runtime/library").JsonValue;
     }[]>;
     removeVendor(user: ActiveUser, id: string, vendorId: string): Promise<{
         success: boolean;
+    }>;
+    inviteVendors(user: ActiveUser, id: string, dto: InviteVendorsDto): Promise<{
+        invited: string[];
+        skippedNoEmail: string[];
+        emailFailed: string[];
+    }>;
+    findSubmissions(user: ActiveUser, id: string): Promise<({
+        vendor: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            notes: string | null;
+            email: string | null;
+            tenantId: string;
+            companyName: string;
+            phone: string | null;
+            status: import(".prisma/client").$Enums.VendorStatus;
+            address: string | null;
+            createdBy: string | null;
+            contactPerson: string | null;
+            services: import("@prisma/client/runtime/library").JsonValue;
+        };
+        submission: {
+            id: string;
+            createdAt: Date;
+            notes: string | null;
+            tenantId: string;
+            rfpVendorId: string;
+            proposalFile: string | null;
+            pricingFile: string | null;
+            insuranceFile: string | null;
+            licenseFile: string | null;
+        } | null;
+    } & {
+        id: string;
+        createdAt: Date;
+        tenantId: string;
+        rfpId: string;
+        vendorId: string;
+        invitationToken: string | null;
+        invitationStatus: import(".prisma/client").$Enums.InvitationStatus;
+        invitedAt: Date | null;
+        viewedAt: Date | null;
+        submittedAt: Date | null;
+    })[]>;
+    downloadSubmissionFile(user: ActiveUser, id: string, vendorId: string, field: string, res: Response): Promise<void>;
+    generateEvaluation(user: ActiveUser, id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        tenantId: string;
+        summary: string;
+        recommendedVendor: string | null;
+        overallAnalysis: string;
+        rfpId: string;
+        generatedReport: string;
+    }>;
+    awardContract(user: ActiveUser, id: string, dto: AwardContractDto): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        companyName: string | null;
+        title: string;
+        status: import(".prisma/client").$Enums.RfpStatus;
+        address: string | null;
+        clientName: string;
+        industry: string | null;
+        projectName: string | null;
+        dueDate: Date | null;
+        startDate: Date | null;
+        endDate: Date | null;
+        estimatedBudget: number | null;
+        securityTypes: import("@prisma/client/runtime/library").JsonValue;
+        numberOfLocations: number | null;
+        operatingHours: string | null;
+        guardsRequired: number | null;
+        additionalRequirements: string | null;
+        createdBy: string | null;
+        generatedContent: string | null;
+        awardedVendorId: string | null;
+        awardDate: Date | null;
+        awardNotes: string | null;
+        rejectedVendorIds: import("@prisma/client/runtime/library").JsonValue;
+    }>;
+    rejectVendor(user: ActiveUser, id: string, dto: RejectVendorDto): Promise<{
+        success: boolean;
+        rejectedVendorIds: string[];
+    }>;
+    findPerformanceReviews(user: ActiveUser, id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        notes: string | null;
+        tenantId: string;
+        incidentCount: number;
+        rfpId: string;
+        vendorId: string;
+        reviewDate: Date;
+        overallRating: number;
+        slaCompliance: number;
+        responseTime: string;
+    }[]>;
+    createPerformanceReview(user: ActiveUser, id: string, dto: CreatePerformanceReviewDto): Promise<{
+        id: string;
+        createdAt: Date;
+        notes: string | null;
+        tenantId: string;
+        incidentCount: number;
+        rfpId: string;
+        vendorId: string;
+        reviewDate: Date;
+        overallRating: number;
+        slaCompliance: number;
+        responseTime: string;
+    }>;
+    updatePerformanceReview(user: ActiveUser, id: string, dto: UpdatePerformanceReviewDto): Promise<{
+        id: string;
+        createdAt: Date;
+        notes: string | null;
+        tenantId: string;
+        incidentCount: number;
+        rfpId: string;
+        vendorId: string;
+        reviewDate: Date;
+        overallRating: number;
+        slaCompliance: number;
+        responseTime: string;
     }>;
 }

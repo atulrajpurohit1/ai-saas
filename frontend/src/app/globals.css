@@ -240,3 +240,29 @@ code {
   color: #f8fafc;
   font-weight: 700;
 }
+
+.rfp-editor-content table,
+.rfp-document table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  overflow-x: auto;
+  display: block;
+}
+
+.rfp-editor-content th,
+.rfp-document th,
+.rfp-editor-content td,
+.rfp-document td {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.rfp-editor-content th,
+.rfp-document th {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f8fafc;
+  font-weight: 700;
+}

@@ -14,6 +14,11 @@ import { RfpService } from './rfp.service';
 import { CreateRfpDto } from './dto/create-rfp.dto';
 import { UpdateRfpDto } from './dto/update-rfp.dto';
 import { AssignVendorsDto } from './dto/assign-vendors.dto';
+import { InviteVendorsDto } from './dto/invite-vendors.dto';
+import { AwardContractDto } from './dto/award-contract.dto';
+import { RejectVendorDto } from './dto/reject-vendor.dto';
+import { CreatePerformanceReviewDto } from './dto/create-performance-review.dto';
+import { UpdatePerformanceReviewDto } from './dto/update-performance-review.dto';
 import { GenerateRfpDto } from '../ai/dto/generate-rfp.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
@@ -51,7 +56,11 @@ export class RfpController {
 
   @Patch(':id')
   @RequirePermission('rfp.update')
-  update(@GetUser() user: ActiveUser, @Param('id') id: string, @Body() dto: UpdateRfpDto) {
+  update(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateRfpDto,
+  ) {
     return this.rfpService.update(user.tenantId, user.sub, id, dto);
   }
 
@@ -62,7 +71,11 @@ export class RfpController {
   }
 
   @Get(':id/pdf')
-  async exportPdf(@GetUser() user: ActiveUser, @Param('id') id: string, @Res() res: Response) {
+  async exportPdf(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
     const buffer = await this.rfpService.exportPdf(user.tenantId, id);
 
     res.set({
@@ -81,8 +94,17 @@ export class RfpController {
 
   @Post(':id/vendors')
   @RequirePermission('rfp.update')
-  assignVendors(@GetUser() user: ActiveUser, @Param('id') id: string, @Body() dto: AssignVendorsDto) {
-    return this.rfpService.assignVendors(user.tenantId, user.sub, id, dto.vendorIds);
+  assignVendors(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Body() dto: AssignVendorsDto,
+  ) {
+    return this.rfpService.assignVendors(
+      user.tenantId,
+      user.sub,
+      id,
+      dto.vendorIds,
+    );
   }
 
   @Delete(':id/vendors/:vendorId')
@@ -93,5 +115,121 @@ export class RfpController {
     @Param('vendorId') vendorId: string,
   ) {
     return this.rfpService.removeVendor(user.tenantId, user.sub, id, vendorId);
+  }
+
+  @Post(':id/invite')
+  @RequirePermission('rfp.update')
+  inviteVendors(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Body() dto: InviteVendorsDto,
+  ) {
+    return this.rfpService.inviteVendors(
+      user.tenantId,
+      user.sub,
+      id,
+      dto.vendorIds,
+    );
+  }
+
+  @Get(':id/submissions')
+  findSubmissions(@GetUser() user: ActiveUser, @Param('id') id: string) {
+    return this.rfpService.findSubmissions(user.tenantId, id);
+  }
+
+  @Get(':id/submissions/:vendorId/download/:field')
+  async downloadSubmissionFile(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Param('vendorId') vendorId: string,
+    @Param('field') field: string,
+    @Res() res: Response,
+  ) {
+    const { stream, filename } = await this.rfpService.downloadSubmissionFile(
+      user.tenantId,
+      id,
+      vendorId,
+      field,
+    );
+
+    res.set({
+      'Content-Type': 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+
+    stream.pipe(res);
+  }
+
+  @Post(':id/evaluate')
+  @RequirePermission('rfp.evaluate')
+  generateEvaluation(@GetUser() user: ActiveUser, @Param('id') id: string) {
+    return this.rfpService.generateEvaluation(user.tenantId, user.sub, id);
+  }
+
+  @Post(':id/award')
+  @RequirePermission('rfp.award')
+  awardContract(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Body() dto: AwardContractDto,
+  ) {
+    return this.rfpService.awardContract(
+      user.tenantId,
+      user.sub,
+      id,
+      dto.vendorId,
+      dto.awardNotes,
+    );
+  }
+
+  @Post(':id/reject')
+  @RequirePermission('rfp.award')
+  rejectVendor(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Body() dto: RejectVendorDto,
+  ) {
+    return this.rfpService.rejectVendor(
+      user.tenantId,
+      user.sub,
+      id,
+      dto.vendorId,
+      dto.reason,
+    );
+  }
+
+  @Get(':id/performance')
+  findPerformanceReviews(@GetUser() user: ActiveUser, @Param('id') id: string) {
+    return this.rfpService.findPerformanceReviews(user.tenantId, id);
+  }
+
+  @Post(':id/performance')
+  @RequirePermission('vendor.performance')
+  createPerformanceReview(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Body() dto: CreatePerformanceReviewDto,
+  ) {
+    return this.rfpService.createPerformanceReview(
+      user.tenantId,
+      user.sub,
+      id,
+      dto,
+    );
+  }
+
+  @Patch('performance/:id')
+  @RequirePermission('vendor.performance')
+  updatePerformanceReview(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Body() dto: UpdatePerformanceReviewDto,
+  ) {
+    return this.rfpService.updatePerformanceReview(
+      user.tenantId,
+      user.sub,
+      id,
+      dto,
+    );
   }
 }
