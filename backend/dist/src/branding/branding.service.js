@@ -65,16 +65,36 @@ let BrandingService = class BrandingService {
         const branding = await this.prisma.tenantBranding.upsert({
             where: { tenantId: user.tenantId },
             update: {
-                ...(dto.company_name !== undefined ? { companyName: this.nullable(dto.company_name) } : {}),
-                ...(dto.logo_url !== undefined ? { logoUrl: this.nullable(dto.logo_url) } : {}),
-                ...(dto.favicon_url !== undefined ? { faviconUrl: this.nullable(dto.favicon_url) } : {}),
-                ...(dto.primary_color !== undefined ? { primaryColor: dto.primary_color } : {}),
-                ...(dto.secondary_color !== undefined ? { secondaryColor: dto.secondary_color } : {}),
-                ...(dto.accent_color !== undefined ? { accentColor: dto.accent_color } : {}),
-                ...(dto.login_background !== undefined ? { loginBackground: this.nullable(dto.login_background) } : {}),
-                ...(dto.welcome_message !== undefined ? { welcomeMessage: this.nullable(dto.welcome_message) } : {}),
-                ...(dto.support_email !== undefined ? { supportEmail: this.nullable(dto.support_email) } : {}),
-                ...(dto.support_phone !== undefined ? { supportPhone: this.nullable(dto.support_phone) } : {}),
+                ...(dto.company_name !== undefined
+                    ? { companyName: this.nullable(dto.company_name) }
+                    : {}),
+                ...(dto.logo_url !== undefined
+                    ? { logoUrl: this.nullable(dto.logo_url) }
+                    : {}),
+                ...(dto.favicon_url !== undefined
+                    ? { faviconUrl: this.nullable(dto.favicon_url) }
+                    : {}),
+                ...(dto.primary_color !== undefined
+                    ? { primaryColor: dto.primary_color }
+                    : {}),
+                ...(dto.secondary_color !== undefined
+                    ? { secondaryColor: dto.secondary_color }
+                    : {}),
+                ...(dto.accent_color !== undefined
+                    ? { accentColor: dto.accent_color }
+                    : {}),
+                ...(dto.login_background !== undefined
+                    ? { loginBackground: this.nullable(dto.login_background) }
+                    : {}),
+                ...(dto.welcome_message !== undefined
+                    ? { welcomeMessage: this.nullable(dto.welcome_message) }
+                    : {}),
+                ...(dto.support_email !== undefined
+                    ? { supportEmail: this.nullable(dto.support_email) }
+                    : {}),
+                ...(dto.support_phone !== undefined
+                    ? { supportPhone: this.nullable(dto.support_phone) }
+                    : {}),
             },
             create: {
                 tenantId: user.tenantId,
@@ -182,11 +202,28 @@ let BrandingService = class BrandingService {
         const accent = this.safeHex(branding.accent_color, primary);
         const startY = doc.y;
         this.tryAddPdfLogo(doc, branding.logo_url, 50, startY, 72, 36);
-        doc.rect(50, startY + 45, 512, 3).fillColor(accent).fill();
-        doc.fillColor(primary).fontSize(22).text(title, 132, startY, { align: 'right', width: 430 });
-        doc.fillColor(secondary).fontSize(11).text(branding.company_name, 132, startY + 27, { align: 'right', width: 430 });
+        doc
+            .rect(50, startY + 45, 512, 3)
+            .fillColor(accent)
+            .fill();
+        doc
+            .fillColor(primary)
+            .fontSize(22)
+            .text(title, 132, startY, { align: 'right', width: 430 });
+        doc
+            .fillColor(secondary)
+            .fontSize(11)
+            .text(branding.company_name, 132, startY + 27, {
+            align: 'right',
+            width: 430,
+        });
         if (branding.support_email || branding.support_phone) {
-            doc.fillColor(secondary).fontSize(9).text([branding.support_email, branding.support_phone].filter(Boolean).join(' | '), 132, startY + 42, { align: 'right', width: 430 });
+            doc
+                .fillColor(secondary)
+                .fontSize(9)
+                .text([branding.support_email, branding.support_phone]
+                .filter(Boolean)
+                .join(' | '), 132, startY + 42, { align: 'right', width: 430 });
         }
         doc.y = startY + 68;
     }
@@ -278,7 +315,10 @@ let BrandingService = class BrandingService {
     }
     tryAddPdfLogo(doc, logoUrl, x, y, width, height) {
         if (!logoUrl?.startsWith('data:image/')) {
-            doc.fontSize(15).fillColor('#111827').text('LOGO', x, y + 10, { width });
+            doc
+                .fontSize(15)
+                .fillColor('#111827')
+                .text('LOGO', x, y + 10, { width });
             return;
         }
         try {
@@ -288,7 +328,10 @@ let BrandingService = class BrandingService {
             doc.image(Buffer.from(base64, 'base64'), x, y, { fit: [width, height] });
         }
         catch {
-            doc.fontSize(15).fillColor('#111827').text('LOGO', x, y + 10, { width });
+            doc
+                .fontSize(15)
+                .fillColor('#111827')
+                .text('LOGO', x, y + 10, { width });
         }
     }
     safeHex(value, fallback) {

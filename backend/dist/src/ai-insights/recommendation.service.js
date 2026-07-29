@@ -150,7 +150,8 @@ let RecommendationService = class RecommendationService {
             }
             const lateCheckIns = pastAssignedShifts.reduce((count, relatedShift) => {
                 const checkIn = relatedShift.attendanceEvents.find((event) => event.guardId === guard.id && event.type === 'CHECK_IN');
-                return checkIn && this.isLateCheckIn(checkIn.timestamp, relatedShift.startTime)
+                return checkIn &&
+                    this.isLateCheckIn(checkIn.timestamp, relatedShift.startTime)
                     ? count + 1
                     : count;
             }, 0);
@@ -345,7 +346,8 @@ let RecommendationService = class RecommendationService {
         oneDayFromNow.setUTCDate(oneDayFromNow.getUTCDate() + 1);
         const urgentGap = gaps.find((gap) => new Date(gap.startTime) <= oneDayFromNow);
         const largestGap = [...gaps].sort((left, right) => right.shortageSlots - left.shortageSlots ||
-            new Date(left.startTime).getTime() - new Date(right.startTime).getTime())[0];
+            new Date(left.startTime).getTime() -
+                new Date(right.startTime).getTime())[0];
         if (urgentGap) {
             recommendations.push({
                 id: 'scheduling-urgent-coverage',
@@ -454,12 +456,12 @@ let RecommendationService = class RecommendationService {
         return aiExplanation || fallback;
     }
     async resolvePromptTemplate(tenantId, moduleName, promptKey) {
-        return (await this.aiGovernanceService?.resolvePromptVersion({
+        return ((await this.aiGovernanceService?.resolvePromptVersion({
             tenantId,
             moduleName,
             promptKey,
             fallbackVersion: DEFAULT_PROMPT_VERSION,
-        }))?.promptText ?? null;
+        }))?.promptText ?? null);
     }
 };
 exports.RecommendationService = RecommendationService;

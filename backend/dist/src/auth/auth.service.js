@@ -188,11 +188,27 @@ let AuthService = class AuthService {
         const rtSecret = this.configService.get('JWT_REFRESH_SECRET');
         const rtExpires = this.configService.get('JWT_REFRESH_EXPIRES_IN');
         const [at, rt] = await Promise.all([
-            this.jwtService.signAsync({ sub: userId, email, tenantId, role, branchId, isSuperAdmin, sessionId }, {
+            this.jwtService.signAsync({
+                sub: userId,
+                email,
+                tenantId,
+                role,
+                branchId,
+                isSuperAdmin,
+                sessionId,
+            }, {
                 secret: atSecret,
                 expiresIn: atExpires,
             }),
-            this.jwtService.signAsync({ sub: userId, email, tenantId, role, branchId, isSuperAdmin, sessionId }, {
+            this.jwtService.signAsync({
+                sub: userId,
+                email,
+                tenantId,
+                role,
+                branchId,
+                isSuperAdmin,
+                sessionId,
+            }, {
                 secret: rtSecret,
                 expiresIn: rtExpires,
             }),

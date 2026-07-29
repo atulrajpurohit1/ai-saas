@@ -137,7 +137,9 @@ let SalesAutomationService = SalesAutomationService_1 = class SalesAutomationSer
             catch (error) {
                 summary.errors.push({
                     dealId: deal.id,
-                    message: error instanceof Error ? error.message : 'Unable to automate follow-up',
+                    message: error instanceof Error
+                        ? error.message
+                        : 'Unable to automate follow-up',
                 });
             }
         }
@@ -159,7 +161,8 @@ let SalesAutomationService = SalesAutomationService_1 = class SalesAutomationSer
         }
         const lastActivity = deal.activities[0] || null;
         const daysSinceActivity = lastActivity
-            ? Math.floor((now.getTime() - lastActivity.createdAt.getTime()) / (1000 * 60 * 60 * 24))
+            ? Math.floor((now.getTime() - lastActivity.createdAt.getTime()) /
+                (1000 * 60 * 60 * 24))
             : null;
         const assessment = deal.salesAssessments[0] || null;
         const discovery = deal.discoverySessions[0] || null;
@@ -174,7 +177,9 @@ let SalesAutomationService = SalesAutomationService_1 = class SalesAutomationSer
             reasons.push('Close readiness is below target.');
         if ((assessment?.discoveryQualityScore ?? 100) < 60)
             reasons.push('Discovery quality is below target.');
-        if ((assessment?.objectionRisks?.length || discovery?.objections?.length || 0) > 0) {
+        if ((assessment?.objectionRisks?.length ||
+            discovery?.objections?.length ||
+            0) > 0) {
             reasons.push('Buyer objections need follow-up.');
         }
         if (reasons.length === 0) {

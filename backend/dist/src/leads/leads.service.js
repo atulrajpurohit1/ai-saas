@@ -209,7 +209,7 @@ let LeadsService = class LeadsService {
         try {
             const pdfParse = require('pdf-parse');
             const options = {
-                pagerender: () => ''
+                pagerender: () => '',
             };
             const data = await pdfParse(buffer, options);
             console.log('PDF: Text extracted successfully');

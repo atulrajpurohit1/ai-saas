@@ -23,7 +23,14 @@ let AuthModule = class AuthModule {
 exports.AuthModule = AuthModule;
 exports.AuthModule = AuthModule = __decorate([
     (0, common_1.Module)({
-        imports: [users_module_1.UsersModule, prisma_module_1.PrismaModule, config_1.ConfigModule, jwt_1.JwtModule.register({}), roles_module_1.RolesModule, sessions_module_1.SessionsModule],
+        imports: [
+            users_module_1.UsersModule,
+            prisma_module_1.PrismaModule,
+            config_1.ConfigModule,
+            jwt_1.JwtModule.register({}),
+            roles_module_1.RolesModule,
+            sessions_module_1.SessionsModule,
+        ],
         controllers: [auth_controller_1.AuthController],
         providers: [auth_service_1.AuthService, jwt_strategy_1.JwtStrategy, jwt_refresh_strategy_1.JwtRefreshStrategy],
         exports: [auth_service_1.AuthService],

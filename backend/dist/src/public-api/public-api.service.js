@@ -56,7 +56,9 @@ let PublicApiService = class PublicApiService {
             },
         });
         await this.auditEntity(apiKey, 'CLIENT_CREATED', 'Client', client.id, `Client "${client.name}" created through public API`);
-        await this.webhooksService.triggerEvent(apiKey.tenantId, 'client.created', { client });
+        await this.webhooksService.triggerEvent(apiKey.tenantId, 'client.created', {
+            client,
+        });
         return client;
     }
     async listSites(apiKey, query) {
@@ -146,17 +148,23 @@ let PublicApiService = class PublicApiService {
             },
         });
         await this.auditEntity(apiKey, 'GUARD_CREATED', 'Guard', guard.id, `Guard "${guard.name}" created through public API`);
-        await this.webhooksService.triggerEvent(apiKey.tenantId, 'guard.created', { guard });
+        await this.webhooksService.triggerEvent(apiKey.tenantId, 'guard.created', {
+            guard,
+        });
         return guard;
     }
     async listShifts(apiKey, query) {
         return this.prisma.shift.findMany({
             where: { tenantId: apiKey.tenantId },
             include: {
-                site: { select: { id: true, name: true, address: true, clientId: true } },
+                site: {
+                    select: { id: true, name: true, address: true, clientId: true },
+                },
                 assignments: {
                     include: {
-                        guard: { select: { id: true, name: true, email: true, phone: true } },
+                        guard: {
+                            select: { id: true, name: true, email: true, phone: true },
+                        },
                     },
                 },
             },
@@ -196,7 +204,9 @@ let PublicApiService = class PublicApiService {
             },
         });
         await this.auditEntity(apiKey, 'SHIFT_CREATED', 'Shift', shift.id, `Shift created through public API for site "${site.name}"`);
-        await this.webhooksService.triggerEvent(apiKey.tenantId, 'shift.created', { shift });
+        await this.webhooksService.triggerEvent(apiKey.tenantId, 'shift.created', {
+            shift,
+        });
         return shift;
     }
     async assignShift(apiKey, shiftId, body) {
@@ -243,7 +253,9 @@ let PublicApiService = class PublicApiService {
             include: {
                 site: { select: { id: true, name: true, address: true } },
                 guard: { select: { id: true, name: true, email: true, phone: true } },
-                shift: { select: { id: true, startTime: true, endTime: true, status: true } },
+                shift: {
+                    select: { id: true, startTime: true, endTime: true, status: true },
+                },
             },
             orderBy: { occurredAt: 'desc' },
             take: this.limit(query.limit),
@@ -292,7 +304,9 @@ let PublicApiService = class PublicApiService {
         return this.prisma.invoice.findMany({
             where: { tenantId: apiKey.tenantId },
             include: {
-                client: { select: { id: true, name: true, companyName: true, email: true } },
+                client: {
+                    select: { id: true, name: true, companyName: true, email: true },
+                },
                 site: { select: { id: true, name: true, address: true } },
                 items: true,
             },
@@ -304,7 +318,9 @@ let PublicApiService = class PublicApiService {
         return this.prisma.dailyServiceReport.findMany({
             where: { tenantId: apiKey.tenantId },
             include: {
-                client: { select: { id: true, name: true, companyName: true, email: true } },
+                client: {
+                    select: { id: true, name: true, companyName: true, email: true },
+                },
                 site: { select: { id: true, name: true, address: true } },
             },
             orderBy: [{ reportDate: 'desc' }, { createdAt: 'desc' }],

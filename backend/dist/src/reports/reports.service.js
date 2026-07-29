@@ -54,10 +54,16 @@ let ReportsService = class ReportsService {
         const checkIn = events.find((event) => event.type === 'CHECK_IN');
         const checkOut = events.find((event) => event.type === 'CHECK_OUT');
         const totalWorkedHours = checkIn && checkOut
-            ? Math.max(0, Math.round(((checkOut.timestamp.getTime() - checkIn.timestamp.getTime()) / 3_600_000) * 10) / 10)
+            ? Math.max(0, Math.round(((checkOut.timestamp.getTime() - checkIn.timestamp.getTime()) /
+                3_600_000) *
+                10) / 10)
             : 0;
         return {
-            attendanceStatus: checkOut ? 'completed' : checkIn ? 'checked_in' : 'not_started',
+            attendanceStatus: checkOut
+                ? 'completed'
+                : checkIn
+                    ? 'checked_in'
+                    : 'not_started',
             checkInTime: checkIn?.timestamp.toISOString() ?? null,
             checkOutTime: checkOut?.timestamp.toISOString() ?? null,
             totalWorkedHours,
@@ -201,7 +207,8 @@ let ReportsService = class ReportsService {
                 completedAttendances: allGuards.filter((guard) => guard.attendanceStatus === 'completed').length,
                 checkedInAttendances: allGuards.filter((guard) => guard.attendanceStatus === 'checked_in').length,
                 missedAttendances: allGuards.filter((guard) => guard.attendanceStatus === 'not_started').length,
-                totalWorkedHours: Math.round(allGuards.reduce((sum, guard) => sum + guard.totalWorkedHours, 0) * 10) / 10,
+                totalWorkedHours: Math.round(allGuards.reduce((sum, guard) => sum + guard.totalWorkedHours, 0) *
+                    10) / 10,
                 approvedIncidents: input.incidents.length,
             },
             shifts: shiftSummaries,
@@ -255,11 +262,17 @@ let ReportsService = class ReportsService {
             doc.on('error', reject);
             this.brandingService.addPdfHeader(doc, 'Daily Service Report', branding);
             doc.moveDown(0.3);
-            doc.fontSize(11).fillColor(branding.secondary_color).text(`Report date: ${this.formatDate(report.reportDate)}`, {
+            doc
+                .fontSize(11)
+                .fillColor(branding.secondary_color)
+                .text(`Report date: ${this.formatDate(report.reportDate)}`, {
                 align: 'right',
             });
             doc.moveDown();
-            doc.fontSize(12).fillColor('#111827').text(`Client: ${report.client.companyName || report.client.name}`);
+            doc
+                .fontSize(12)
+                .fillColor('#111827')
+                .text(`Client: ${report.client.companyName || report.client.name}`);
             doc.text(`Site: ${report.site.name}`);
             doc.text(`Address: ${report.site.address}`);
             doc.text(`Status: ${report.status}`);
@@ -282,17 +295,26 @@ let ReportsService = class ReportsService {
             doc.text(`Approved incidents: ${summary.totals.approvedIncidents}`);
             this.addPdfSectionTitle(doc, 'Shifts And Attendance');
             if (summary.shifts.length === 0) {
-                doc.fontSize(11).fillColor('#6b7280').text('No shifts were scheduled for this date.');
+                doc
+                    .fontSize(11)
+                    .fillColor('#6b7280')
+                    .text('No shifts were scheduled for this date.');
             }
             else {
                 summary.shifts.forEach((shift, index) => {
-                    doc.fontSize(12).fillColor('#111827').text(`${index + 1}. ${this.formatDate(shift.startTime)} to ${this.formatDate(shift.endTime)} (${shift.status})`);
+                    doc
+                        .fontSize(12)
+                        .fillColor('#111827')
+                        .text(`${index + 1}. ${this.formatDate(shift.startTime)} to ${this.formatDate(shift.endTime)} (${shift.status})`);
                     if (shift.assignedGuards.length === 0) {
                         doc.fontSize(10).fillColor('#6b7280').text('No assigned guards.');
                     }
                     else {
                         shift.assignedGuards.forEach((guard) => {
-                            doc.fontSize(10).fillColor('#374151').text(`- ${guard.name}: ${guard.attendanceStatus}, in ${this.formatDate(guard.checkInTime)}, out ${this.formatDate(guard.checkOutTime)}, ${guard.totalWorkedHours}h`);
+                            doc
+                                .fontSize(10)
+                                .fillColor('#374151')
+                                .text(`- ${guard.name}: ${guard.attendanceStatus}, in ${this.formatDate(guard.checkInTime)}, out ${this.formatDate(guard.checkOutTime)}, ${guard.totalWorkedHours}h`);
                         });
                     }
                     doc.moveDown(0.4);
@@ -300,16 +322,34 @@ let ReportsService = class ReportsService {
             }
             this.addPdfSectionTitle(doc, 'Approved Incidents');
             if (summary.incidents.length === 0) {
-                doc.fontSize(11).fillColor('#6b7280').text('No approved incidents for this date.');
+                doc
+                    .fontSize(11)
+                    .fillColor('#6b7280')
+                    .text('No approved incidents for this date.');
             }
             else {
                 summary.incidents.forEach((incident, index) => {
-                    doc.fontSize(12).fillColor('#111827').text(`${index + 1}. ${incident.title} (${incident.severity})`);
-                    doc.fontSize(10).fillColor('#374151').text(`Occurred: ${this.formatDate(incident.occurredAt)}`);
-                    doc.fontSize(10).fillColor('#374151').text(`Guard: ${incident.guard.name}`);
-                    doc.fontSize(10).fillColor('#374151').text(incident.description, { lineGap: 3 });
+                    doc
+                        .fontSize(12)
+                        .fillColor('#111827')
+                        .text(`${index + 1}. ${incident.title} (${incident.severity})`);
+                    doc
+                        .fontSize(10)
+                        .fillColor('#374151')
+                        .text(`Occurred: ${this.formatDate(incident.occurredAt)}`);
+                    doc
+                        .fontSize(10)
+                        .fillColor('#374151')
+                        .text(`Guard: ${incident.guard.name}`);
+                    doc
+                        .fontSize(10)
+                        .fillColor('#374151')
+                        .text(incident.description, { lineGap: 3 });
                     if (incident.attachmentUrl) {
-                        doc.fontSize(10).fillColor('#2563eb').text(`Attachment: ${incident.attachmentUrl}`);
+                        doc
+                            .fontSize(10)
+                            .fillColor('#2563eb')
+                            .text(`Attachment: ${incident.attachmentUrl}`);
                     }
                     doc.moveDown(0.5);
                 });

@@ -110,7 +110,7 @@ let CallTranscriptionService = class CallTranscriptionService {
         return process.env.OPENAI_API_KEY?.trim() || '';
     }
     model() {
-        return process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() || 'gpt-4o-mini-transcribe';
+        return (process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() || 'gpt-4o-mini-transcribe');
     }
     maxFileMb() {
         const parsed = Number(process.env.TRANSCRIPTION_MAX_FILE_MB || 25);

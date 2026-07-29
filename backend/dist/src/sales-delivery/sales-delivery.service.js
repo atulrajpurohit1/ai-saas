@@ -62,17 +62,16 @@ let SalesDeliveryService = class SalesDeliveryService {
             process.env.SMTP_PASS &&
             process.env.SMTP_USER !== 'your-ethereal-user' &&
             process.env.SMTP_PASS !== 'your-ethereal-pass');
-        this.transporter =
-            hasSmtpConfig
-                ? nodemailer.createTransport({
-                    host: process.env.SMTP_HOST,
-                    port: Number(process.env.SMTP_PORT) || 587,
-                    auth: {
-                        user: process.env.SMTP_USER,
-                        pass: process.env.SMTP_PASS,
-                    },
-                })
-                : nodemailer.createTransport({ jsonTransport: true });
+        this.transporter = hasSmtpConfig
+            ? nodemailer.createTransport({
+                host: process.env.SMTP_HOST,
+                port: Number(process.env.SMTP_PORT) || 587,
+                auth: {
+                    user: process.env.SMTP_USER,
+                    pass: process.env.SMTP_PASS,
+                },
+            })
+            : nodemailer.createTransport({ jsonTransport: true });
     }
     async draftDealFollowUp(tenantId, dealId) {
         const deal = await this.getDealContext(tenantId, dealId);
@@ -221,7 +220,10 @@ let SalesDeliveryService = class SalesDeliveryService {
         return date;
     }
     icsDate(date) {
-        return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+        return date
+            .toISOString()
+            .replace(/[-:]/g, '')
+            .replace(/\.\d{3}Z$/, 'Z');
     }
     icsText(value) {
         return value
@@ -231,7 +233,10 @@ let SalesDeliveryService = class SalesDeliveryService {
             .replace(/;/g, '\\;');
     }
     slug(value) {
-        return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'sales';
+        return (value
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'sales');
     }
     escapeHtml(value) {
         return value

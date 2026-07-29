@@ -13,7 +13,12 @@ exports.TimesheetsService = void 0;
 const common_1 = require("@nestjs/common");
 const audit_service_1 = require("../audit/audit.service");
 const prisma_service_1 = require("../prisma/prisma.service");
-const TIMESHEET_STATUSES = ['pending', 'approved', 'rejected', 'corrected'];
+const TIMESHEET_STATUSES = [
+    'pending',
+    'approved',
+    'rejected',
+    'corrected',
+];
 let TimesheetsService = class TimesheetsService {
     prisma;
     auditService;
@@ -176,7 +181,9 @@ let TimesheetsService = class TimesheetsService {
     }
     async approve(user, timesheetId) {
         const existing = await this.findTimesheetOrThrow(user, timesheetId);
-        if (user.role === 'guard' || user.guardId === existing.guardId || user.sub === existing.guardId) {
+        if (user.role === 'guard' ||
+            user.guardId === existing.guardId ||
+            user.sub === existing.guardId) {
             throw new common_1.ForbiddenException('Guard cannot approve own timesheet');
         }
         if (existing.status === 'approved') {
@@ -245,8 +252,10 @@ let TimesheetsService = class TimesheetsService {
         }
         const existing = await this.findTimesheetOrThrow(user, id);
         await this.assertNotInvoiced(existing.id);
-        const checkInTime = this.parseOptionalDate(dto.check_in_time, 'check_in_time') ?? existing.checkInTime;
-        const checkOutTime = this.parseOptionalDate(dto.check_out_time, 'check_out_time') ?? existing.checkOutTime;
+        const checkInTime = this.parseOptionalDate(dto.check_in_time, 'check_in_time') ??
+            existing.checkInTime;
+        const checkOutTime = this.parseOptionalDate(dto.check_out_time, 'check_out_time') ??
+            existing.checkOutTime;
         if (checkOutTime < checkInTime) {
             throw new common_1.BadRequestException('check_out_time must be on or after check_in_time');
         }

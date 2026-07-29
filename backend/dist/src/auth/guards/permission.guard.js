@@ -28,7 +28,9 @@ let PermissionGuard = class PermissionGuard {
             (!anyPermissions || anyPermissions.length === 0)) {
             return true;
         }
-        const request = context.switchToHttp().getRequest();
+        const request = context
+            .switchToHttp()
+            .getRequest();
         const user = request.user;
         const hasRequired = await this.rolesService.hasPermissions(user, requiredPermissions || []);
         if (!hasRequired)

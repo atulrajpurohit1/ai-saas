@@ -67,10 +67,7 @@ let GuardAuthService = class GuardAuthService {
         }
         const candidates = await this.prisma.guard.findMany({
             where: {
-                OR: [
-                    { email: identifier.toLowerCase() },
-                    { phone: identifier },
-                ],
+                OR: [{ email: identifier.toLowerCase() }, { phone: identifier }],
             },
             include: { tenant: true },
         });

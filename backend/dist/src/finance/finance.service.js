@@ -13,8 +13,20 @@ exports.FinanceService = void 0;
 const common_1 = require("@nestjs/common");
 const audit_service_1 = require("../audit/audit.service");
 const prisma_service_1 = require("../prisma/prisma.service");
-const INVOICE_STATUSES = ['draft', 'issued', 'disputed', 'resolved', 'paid', 'cancelled'];
-const DISPUTE_STATUSES = ['open', 'under_review', 'resolved', 'rejected'];
+const INVOICE_STATUSES = [
+    'draft',
+    'issued',
+    'disputed',
+    'resolved',
+    'paid',
+    'cancelled',
+];
+const DISPUTE_STATUSES = [
+    'open',
+    'under_review',
+    'resolved',
+    'rejected',
+];
 const ISSUED_LIFECYCLE_STATUSES = ['issued', 'disputed', 'resolved', 'paid'];
 const OUTSTANDING_STATUSES = ['issued', 'resolved'];
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -40,7 +52,9 @@ let FinanceService = class FinanceService {
         if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
             const [year, month, day] = trimmed.split('-').map(Number);
             const date = new Date(Date.UTC(year, month - 1, day));
-            if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+            if (date.getUTCFullYear() !== year ||
+                date.getUTCMonth() !== month - 1 ||
+                date.getUTCDate() !== day) {
                 throw new common_1.BadRequestException(`${fieldName} must be a valid date`);
             }
             return { date, dateOnly: true };
@@ -52,12 +66,14 @@ let FinanceService = class FinanceService {
         return { date: parsed, dateOnly: false };
     }
     assertInvoiceStatus(status) {
-        if (status && !INVOICE_STATUSES.includes(status)) {
+        if (status &&
+            !INVOICE_STATUSES.includes(status)) {
             throw new common_1.BadRequestException('Invalid invoice status');
         }
     }
     assertDisputeStatus(status) {
-        if (status && !DISPUTE_STATUSES.includes(status)) {
+        if (status &&
+            !DISPUTE_STATUSES.includes(status)) {
             throw new common_1.BadRequestException('Invalid dispute status');
         }
     }
@@ -239,7 +255,8 @@ let FinanceService = class FinanceService {
             return counts;
         }, {});
         invoices.forEach((invoice) => {
-            invoiceCountByStatus[invoice.status] = (invoiceCountByStatus[invoice.status] || 0) + 1;
+            invoiceCountByStatus[invoice.status] =
+                (invoiceCountByStatus[invoice.status] || 0) + 1;
         });
         await this.logReportViewed(tenantId, userId, 'Finance dashboard');
         return {
@@ -254,7 +271,11 @@ let FinanceService = class FinanceService {
         const invoices = await this.prisma.invoice.findMany({
             where: this.buildInvoiceWhere(tenantId, filters),
             include: this.invoiceReportInclude(),
-            orderBy: [{ issuedAt: 'desc' }, { createdAt: 'desc' }, { invoiceNumber: 'desc' }],
+            orderBy: [
+                { issuedAt: 'desc' },
+                { createdAt: 'desc' },
+                { invoiceNumber: 'desc' },
+            ],
         });
         const csv = this.buildCsv([
             'invoice_number',
@@ -298,7 +319,11 @@ let FinanceService = class FinanceService {
         const invoices = await this.prisma.invoice.findMany({
             where,
             include: this.invoiceReportInclude(),
-            orderBy: [{ paidAt: 'desc' }, { issuedAt: 'desc' }, { invoiceNumber: 'desc' }],
+            orderBy: [
+                { paidAt: 'desc' },
+                { issuedAt: 'desc' },
+                { invoiceNumber: 'desc' },
+            ],
         });
         await this.logReportViewed(tenantId, userId, 'Payment report');
         return invoices.map((invoice) => ({
@@ -330,13 +355,19 @@ let FinanceService = class FinanceService {
         const invoices = await this.prisma.invoice.findMany({
             where,
             include: this.invoiceReportInclude(),
-            orderBy: [{ dueDate: 'asc' }, { issuedAt: 'desc' }, { invoiceNumber: 'desc' }],
+            orderBy: [
+                { dueDate: 'asc' },
+                { issuedAt: 'desc' },
+                { invoiceNumber: 'desc' },
+            ],
         });
         const now = new Date();
         await this.logReportViewed(tenantId, userId, 'Outstanding invoice report');
         return invoices.map((invoice) => {
             const isOverdue = Boolean(invoice.dueDate && invoice.dueDate < now);
-            const daysOverdue = isOverdue && invoice.dueDate ? Math.ceil((now.getTime() - invoice.dueDate.getTime()) / MS_PER_DAY) : 0;
+            const daysOverdue = isOverdue && invoice.dueDate
+                ? Math.ceil((now.getTime() - invoice.dueDate.getTime()) / MS_PER_DAY)
+                : 0;
             return {
                 invoiceId: invoice.id,
                 invoiceNumber: invoice.invoiceNumber,

@@ -45,10 +45,10 @@ let PublicApiLoggingInterceptor = class PublicApiLoggingInterceptor {
         });
     }
     getIpAddress(request) {
-        return this.getHeader(request, 'x-forwarded-for')?.split(',')[0]?.trim()
-            || request.ip
-            || request.socket?.remoteAddress
-            || null;
+        return (this.getHeader(request, 'x-forwarded-for')?.split(',')[0]?.trim() ||
+            request.ip ||
+            request.socket?.remoteAddress ||
+            null);
     }
     getHeader(request, key) {
         const value = request.headers[key];

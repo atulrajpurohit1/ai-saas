@@ -38,7 +38,7 @@ let ClientPortalController = class ClientPortalController {
         return this.prisma.proposal.findMany({
             where: {
                 clientId: user.clientId,
-                tenantId: user.tenantId
+                tenantId: user.tenantId,
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -49,7 +49,7 @@ let ClientPortalController = class ClientPortalController {
             where: {
                 id,
                 clientId: user.clientId,
-                tenantId: user.tenantId
+                tenantId: user.tenantId,
             },
             include: {
                 versions: { orderBy: { versionNumber: 'desc' }, take: 1 },
@@ -149,7 +149,15 @@ let ClientPortalController = class ClientPortalController {
             {
                 entityId: id,
                 entityType: { in: ['Proposal', 'PROPOSAL'] },
-                action: { in: ['CREATE', 'PROPOSAL_APPROVED', 'PROPOSAL_REJECTED', 'COMMENT_ADDED', 'DOCUMENT_SHARED'] },
+                action: {
+                    in: [
+                        'CREATE',
+                        'PROPOSAL_APPROVED',
+                        'PROPOSAL_REJECTED',
+                        'COMMENT_ADDED',
+                        'DOCUMENT_SHARED',
+                    ],
+                },
             },
             ...(documentIds.length > 0
                 ? [
@@ -174,7 +182,7 @@ let ClientPortalController = class ClientPortalController {
         return this.prisma.sharedDocument.findMany({
             where: {
                 clientId: user.clientId,
-                tenantId: user.tenantId
+                tenantId: user.tenantId,
             },
             orderBy: { createdAt: 'desc' },
         });

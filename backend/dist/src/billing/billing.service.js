@@ -16,22 +16,46 @@ const PLANS = {
     free: {
         name: 'Free',
         monthlyPrice: 0,
-        limits: { adminUsers: 2, clientUsers: 3, branches: 1, leads: 25, deals: 10 },
+        limits: {
+            adminUsers: 2,
+            clientUsers: 3,
+            branches: 1,
+            leads: 25,
+            deals: 10,
+        },
     },
     starter: {
         name: 'Starter',
         monthlyPrice: 99,
-        limits: { adminUsers: 5, clientUsers: 25, branches: 3, leads: 500, deals: 150 },
+        limits: {
+            adminUsers: 5,
+            clientUsers: 25,
+            branches: 3,
+            leads: 500,
+            deals: 150,
+        },
     },
     growth: {
         name: 'Growth',
         monthlyPrice: 299,
-        limits: { adminUsers: 20, clientUsers: 100, branches: 20, leads: 5000, deals: 1500 },
+        limits: {
+            adminUsers: 20,
+            clientUsers: 100,
+            branches: 20,
+            leads: 5000,
+            deals: 1500,
+        },
     },
     enterprise: {
         name: 'Enterprise',
         monthlyPrice: null,
-        limits: { adminUsers: null, clientUsers: null, branches: null, leads: null, deals: null },
+        limits: {
+            adminUsers: null,
+            clientUsers: null,
+            branches: null,
+            leads: null,
+            deals: null,
+        },
     },
 };
 let BillingService = class BillingService {
@@ -53,7 +77,9 @@ let BillingService = class BillingService {
                 used,
                 limit,
                 remaining: limit === null ? null : Math.max(0, limit - used),
-                percent: limit === null ? null : Math.min(100, Math.round((used / Math.max(limit, 1)) * 100)),
+                percent: limit === null
+                    ? null
+                    : Math.min(100, Math.round((used / Math.max(limit, 1)) * 100)),
                 exceeded: limit !== null && used > limit,
             };
             return acc;
@@ -110,7 +136,9 @@ let BillingService = class BillingService {
         const tenantOverride = slug
             ? process.env[`BILLING_PLAN_${slug.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`]
             : undefined;
-        const candidate = (tenantOverride || process.env.BILLING_DEFAULT_PLAN || 'starter').toLowerCase();
+        const candidate = (tenantOverride ||
+            process.env.BILLING_DEFAULT_PLAN ||
+            'starter').toLowerCase();
         return this.isPlanKey(candidate) ? candidate : 'starter';
     }
     planSource(slug) {
@@ -120,7 +148,10 @@ let BillingService = class BillingService {
         return process.env[key] ? key : 'BILLING_DEFAULT_PLAN';
     }
     isPlanKey(value) {
-        return value === 'free' || value === 'starter' || value === 'growth' || value === 'enterprise';
+        return (value === 'free' ||
+            value === 'starter' ||
+            value === 'growth' ||
+            value === 'enterprise');
     }
     featuresForPlan(plan) {
         return {

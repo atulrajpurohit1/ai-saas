@@ -73,7 +73,9 @@ let ApiKeysService = class ApiKeysService {
     }
     async update(user, id, dto) {
         const existing = await this.findTenantKey(user.tenantId, id);
-        const permissions = dto.permissions === undefined ? undefined : this.validatePermissions(dto.permissions);
+        const permissions = dto.permissions === undefined
+            ? undefined
+            : this.validatePermissions(dto.permissions);
         const name = dto.name?.trim();
         if (dto.name !== undefined && !name) {
             throw new common_1.BadRequestException('API key name is required');
@@ -84,7 +86,9 @@ let ApiKeysService = class ApiKeysService {
                 ...(name !== undefined ? { name } : {}),
                 ...(permissions !== undefined ? { permissions } : {}),
                 ...(dto.status !== undefined ? { status: dto.status } : {}),
-                ...(dto.expires_at !== undefined ? { expiresAt: new Date(dto.expires_at) } : {}),
+                ...(dto.expires_at !== undefined
+                    ? { expiresAt: new Date(dto.expires_at) }
+                    : {}),
                 ...(dto.rate_limit_per_minute !== undefined
                     ? { rateLimitPerMinute: dto.rate_limit_per_minute }
                     : {}),
@@ -193,7 +197,9 @@ let ApiKeysService = class ApiKeysService {
         });
     }
     validatePermissions(input = []) {
-        const permissions = [...new Set(input.map((item) => item.trim()).filter(Boolean))];
+        const permissions = [
+            ...new Set(input.map((item) => item.trim()).filter(Boolean)),
+        ];
         const allowed = new Set(public_api_permissions_1.PUBLIC_API_PERMISSION_KEYS);
         const unknown = permissions.filter((permission) => !allowed.has(permission));
         if (unknown.length > 0) {

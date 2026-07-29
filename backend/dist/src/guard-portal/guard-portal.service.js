@@ -31,7 +31,11 @@ let GuardPortalService = class GuardPortalService {
         const checkIn = events.find((event) => event.type === 'CHECK_IN');
         const checkOut = events.find((event) => event.type === 'CHECK_OUT');
         return {
-            attendanceStatus: checkOut ? 'completed' : checkIn ? 'checked_in' : 'not_started',
+            attendanceStatus: checkOut
+                ? 'completed'
+                : checkIn
+                    ? 'checked_in'
+                    : 'not_started',
             checkInTime: checkIn?.timestamp ?? null,
             checkOutTime: checkOut?.timestamp ?? null,
         };
@@ -40,14 +44,17 @@ let GuardPortalService = class GuardPortalService {
         await this.auditService.log({
             tenantId: data.tenantId,
             userId: data.guardId,
-            action: data.action === 'CHECK_IN' ? 'GUARD_CHECK_IN_INVALID' : 'GUARD_CHECK_OUT_INVALID',
+            action: data.action === 'CHECK_IN'
+                ? 'GUARD_CHECK_IN_INVALID'
+                : 'GUARD_CHECK_OUT_INVALID',
             entityType: 'Shift',
             entityId: data.shiftId,
             details: data.reason,
         });
     }
     isDuplicateAttendanceEvent(error) {
-        return error instanceof client_1.Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+        return (error instanceof client_1.Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2002');
     }
     roundHours(value) {
         return Math.round(value * 10) / 10;
@@ -292,7 +299,8 @@ let GuardPortalService = class GuardPortalService {
                     where: { id: shiftId },
                     data: { status: 'completed' },
                 });
-                const totalHours = this.roundHours(Math.max(0, (attendanceEvent.timestamp.getTime() - checkInTime.getTime()) / 3_600_000));
+                const totalHours = this.roundHours(Math.max(0, (attendanceEvent.timestamp.getTime() - checkInTime.getTime()) /
+                    3_600_000));
                 const timesheet = await tx.timesheet.upsert({
                     where: {
                         tenantId_shiftId_guardId: {
@@ -434,7 +442,10 @@ let GuardPortalService = class GuardPortalService {
             catch (error) {
                 const failed = await this.prisma.guardSyncQueue.update({
                     where: { id: action.id },
-                    data: { status: 'failed', errorMessage: error instanceof Error ? error.message : 'Unknown error' },
+                    data: {
+                        status: 'failed',
+                        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+                    },
                 });
                 results.push(failed);
             }

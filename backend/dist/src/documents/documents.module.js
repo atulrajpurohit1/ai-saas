@@ -16,7 +16,7 @@ exports.DocumentsModule = DocumentsModule;
 exports.DocumentsModule = DocumentsModule = __decorate([
     (0, common_1.Module)({
         providers: [documents_service_1.DocumentsService],
-        controllers: [documents_controller_1.DocumentsController]
+        controllers: [documents_controller_1.DocumentsController],
     })
 ], DocumentsModule);
 //# sourceMappingURL=documents.module.js.map

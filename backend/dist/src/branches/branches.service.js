@@ -107,7 +107,9 @@ let BranchesService = class BranchesService {
             where: { id },
             data: {
                 ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
-                ...(dto.location !== undefined ? { location: dto.location.trim() } : {}),
+                ...(dto.location !== undefined
+                    ? { location: dto.location.trim() }
+                    : {}),
                 ...(dto.status !== undefined ? { status: dto.status } : {}),
                 ...(managerId !== undefined ? { managerId } : {}),
             },

@@ -78,9 +78,15 @@ let PatrolsService = class PatrolsService {
             where: { id },
             data: {
                 ...(dto.name !== undefined ? { name: dto.name } : {}),
-                ...(dto.description !== undefined ? { description: dto.description } : {}),
-                ...(dto.location_note !== undefined ? { locationNote: dto.location_note } : {}),
-                ...(dto.qr_code_value !== undefined ? { qrCodeValue: dto.qr_code_value } : {}),
+                ...(dto.description !== undefined
+                    ? { description: dto.description }
+                    : {}),
+                ...(dto.location_note !== undefined
+                    ? { locationNote: dto.location_note }
+                    : {}),
+                ...(dto.qr_code_value !== undefined
+                    ? { qrCodeValue: dto.qr_code_value }
+                    : {}),
                 ...(dto.status !== undefined ? { status: dto.status } : {}),
             },
             include: {
@@ -173,7 +179,9 @@ let PatrolsService = class PatrolsService {
             where: { id },
             data: {
                 ...(dto.name !== undefined ? { name: dto.name } : {}),
-                ...(dto.description !== undefined ? { description: dto.description } : {}),
+                ...(dto.description !== undefined
+                    ? { description: dto.description }
+                    : {}),
                 ...(dto.status !== undefined ? { status: dto.status } : {}),
             },
             include: {
@@ -192,12 +200,16 @@ let PatrolsService = class PatrolsService {
     }
     async attachCheckpoints(user, routeId, dto) {
         const route = await this.prisma.patrolRoute.findFirst({
-            where: { id: routeId, tenantId: user.tenantId, site: { ...(0, branch_scope_1.branchWhere)(user) } },
+            where: {
+                id: routeId,
+                tenantId: user.tenantId,
+                site: { ...(0, branch_scope_1.branchWhere)(user) },
+            },
         });
         if (!route) {
             throw new common_1.NotFoundException('Patrol route not found');
         }
-        const checkpointIds = dto.checkpoints.map(cp => cp.checkpoint_id);
+        const checkpointIds = dto.checkpoints.map((cp) => cp.checkpoint_id);
         const validCheckpoints = await this.prisma.checkpoint.findMany({
             where: {
                 id: { in: checkpointIds },
@@ -214,7 +226,7 @@ let PatrolsService = class PatrolsService {
             });
             if (dto.checkpoints.length > 0) {
                 await tx.patrolRouteCheckpoint.createMany({
-                    data: dto.checkpoints.map(cp => ({
+                    data: dto.checkpoints.map((cp) => ({
                         patrolRouteId: routeId,
                         checkpointId: cp.checkpoint_id,
                         sequenceOrder: cp.sequence_order,

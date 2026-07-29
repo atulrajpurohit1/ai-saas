@@ -190,7 +190,11 @@ let RateCardsService = class RateCardsService {
                 ...(status ? { status } : {}),
             },
             include: this.rateCardInclude(),
-            orderBy: [{ status: 'asc' }, { effectiveFrom: 'desc' }, { createdAt: 'desc' }],
+            orderBy: [
+                { status: 'asc' },
+                { effectiveFrom: 'desc' },
+                { createdAt: 'desc' },
+            ],
         });
         return rateCards.map((rateCard) => this.mapRateCard(rateCard));
     }
@@ -200,7 +204,9 @@ let RateCardsService = class RateCardsService {
     }
     async update(tenantId, userId, id, dto) {
         const existing = await this.findRateCardOrThrow(tenantId, id);
-        const client = dto.client_id === undefined ? null : await this.resolveClient(tenantId, dto.client_id);
+        const client = dto.client_id === undefined
+            ? null
+            : await this.resolveClient(tenantId, dto.client_id);
         const clientId = client?.id ?? existing.clientId;
         const site = dto.site_id === undefined
             ? undefined
@@ -217,12 +223,20 @@ let RateCardsService = class RateCardsService {
             data: {
                 ...(dto.client_id !== undefined ? { clientId } : {}),
                 ...(dto.site_id !== undefined ? { siteId: site?.id ?? null } : {}),
-                ...(dto.role_name !== undefined ? { roleName: dto.role_name?.trim() || null } : {}),
-                ...(dto.hourly_rate !== undefined
-                    ? { hourlyRate: this.parseOptionalRate(dto.hourly_rate) ?? existing.hourlyRate }
+                ...(dto.role_name !== undefined
+                    ? { roleName: dto.role_name?.trim() || null }
                     : {}),
-                ...(dto.overtime_rate !== undefined ? { overtimeRate: this.parseOptionalRate(dto.overtime_rate) } : {}),
-                ...(dto.holiday_rate !== undefined ? { holidayRate: this.parseOptionalRate(dto.holiday_rate) } : {}),
+                ...(dto.hourly_rate !== undefined
+                    ? {
+                        hourlyRate: this.parseOptionalRate(dto.hourly_rate) ?? existing.hourlyRate,
+                    }
+                    : {}),
+                ...(dto.overtime_rate !== undefined
+                    ? { overtimeRate: this.parseOptionalRate(dto.overtime_rate) }
+                    : {}),
+                ...(dto.holiday_rate !== undefined
+                    ? { holidayRate: this.parseOptionalRate(dto.holiday_rate) }
+                    : {}),
                 ...(dto.effective_from !== undefined ? { effectiveFrom } : {}),
                 ...(dto.effective_to !== undefined ? { effectiveTo } : {}),
                 ...(dto.status !== undefined ? { status: dto.status } : {}),

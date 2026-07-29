@@ -74,7 +74,9 @@ let CrmConnectorsService = class CrmConnectorsService {
         const parsedState = this.verifyState(state);
         const token = await this.exchangeCode(code);
         const accessToken = this.encrypt(token.access_token);
-        const refreshToken = token.refresh_token ? this.encrypt(token.refresh_token) : null;
+        const refreshToken = token.refresh_token
+            ? this.encrypt(token.refresh_token)
+            : null;
         const expiresAt = token.expires_in
             ? new Date(Date.now() + Number(token.expires_in) * 1000)
             : null;
@@ -161,7 +163,7 @@ let CrmConnectorsService = class CrmConnectorsService {
             await this.recordSyncError(connection.id, message || `HubSpot import failed: ${response.status}`);
             throw new common_1.BadRequestException('HubSpot contact import failed');
         }
-        const payload = await response.json();
+        const payload = (await response.json());
         const contacts = payload.results || [];
         let created = 0;
         let updated = 0;
@@ -171,7 +173,9 @@ let CrmConnectorsService = class CrmConnectorsService {
             const email = this.clean(properties.email);
             const firstName = this.clean(properties.firstname);
             const lastName = this.clean(properties.lastname);
-            const name = [firstName, lastName].filter(Boolean).join(' ') || email || 'HubSpot Contact';
+            const name = [firstName, lastName].filter(Boolean).join(' ') ||
+                email ||
+                'HubSpot Contact';
             const company = this.clean(properties.company) || 'HubSpot Contact';
             const status = this.clean(properties.hs_lead_status)?.toLowerCase() || 'new';
             if (!email && !name) {
@@ -233,7 +237,9 @@ let CrmConnectorsService = class CrmConnectorsService {
                 },
             },
         });
-        if (!connection || connection.status !== 'connected' || !connection.accessToken) {
+        if (!connection ||
+            connection.status !== 'connected' ||
+            !connection.accessToken) {
             throw new common_1.BadRequestException('HubSpot is not connected');
         }
         return connection;
@@ -312,7 +318,9 @@ let CrmConnectorsService = class CrmConnectorsService {
         };
     }
     isHubSpotConfigured() {
-        return Boolean(this.hubSpotClientId() && this.hubSpotClientSecret() && this.hubSpotRedirectUri());
+        return Boolean(this.hubSpotClientId() &&
+            this.hubSpotClientSecret() &&
+            this.hubSpotRedirectUri());
     }
     assertHubSpotConfigured() {
         if (!this.isHubSpotConfigured()) {
@@ -333,14 +341,18 @@ let CrmConnectorsService = class CrmConnectorsService {
     }
     signState(payload) {
         const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
-        const sig = (0, crypto_1.createHmac)('sha256', this.secret()).update(body).digest('base64url');
+        const sig = (0, crypto_1.createHmac)('sha256', this.secret())
+            .update(body)
+            .digest('base64url');
         return `${body}.${sig}`;
     }
     verifyState(state) {
         if (!state)
             throw new common_1.BadRequestException('Missing OAuth state');
         const [body, sig] = state.split('.');
-        const expected = (0, crypto_1.createHmac)('sha256', this.secret()).update(body).digest('base64url');
+        const expected = (0, crypto_1.createHmac)('sha256', this.secret())
+            .update(body)
+            .digest('base64url');
         if (!body || !sig || sig !== expected) {
             throw new common_1.BadRequestException('Invalid OAuth state');
         }
@@ -353,7 +365,10 @@ let CrmConnectorsService = class CrmConnectorsService {
     encrypt(value) {
         const iv = (0, crypto_1.randomBytes)(12);
         const cipher = (0, crypto_1.createCipheriv)('aes-256-gcm', this.encryptionKey(), iv);
-        const encrypted = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+        const encrypted = Buffer.concat([
+            cipher.update(value, 'utf8'),
+            cipher.final(),
+        ]);
         const tag = cipher.getAuthTag();
         return `${iv.toString('base64url')}.${tag.toString('base64url')}.${encrypted.toString('base64url')}`;
     }
@@ -370,7 +385,9 @@ let CrmConnectorsService = class CrmConnectorsService {
         return (0, crypto_1.createHash)('sha256').update(this.secret()).digest();
     }
     secret() {
-        return process.env.CRM_TOKEN_SECRET || process.env.JWT_ACCESS_SECRET || 'local-crm-token-secret';
+        return (process.env.CRM_TOKEN_SECRET ||
+            process.env.JWT_ACCESS_SECRET ||
+            'local-crm-token-secret');
     }
     scopeList(scope) {
         return scope ? scope.split(/\s+/).filter(Boolean) : HUBSPOT_SCOPES;
@@ -380,7 +397,9 @@ let CrmConnectorsService = class CrmConnectorsService {
         return trimmed || null;
     }
     hubSpotResultUrl(success) {
-        const params = new URLSearchParams({ crm: success ? 'hubspot_connected' : 'hubspot_failed' });
+        const params = new URLSearchParams({
+            crm: success ? 'hubspot_connected' : 'hubspot_failed',
+        });
         return `${this.frontendUrl()}/integrations?${params.toString()}`;
     }
 };

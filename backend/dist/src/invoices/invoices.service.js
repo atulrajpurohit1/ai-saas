@@ -43,7 +43,9 @@ let InvoicesService = class InvoicesService {
         if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
             const [year, month, day] = trimmed.split('-').map(Number);
             date = new Date(Date.UTC(year, month - 1, day));
-            if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+            if (date.getUTCFullYear() !== year ||
+                date.getUTCMonth() !== month - 1 ||
+                date.getUTCDate() !== day) {
                 throw new common_1.BadRequestException(`${fieldName} must be a valid date`);
             }
         }
@@ -365,7 +367,12 @@ let InvoicesService = class InvoicesService {
         }
         if (siteId) {
             const site = await this.prisma.site.findFirst({
-                where: { id: siteId, tenantId: user.tenantId, clientId, ...(0, branch_scope_1.branchWhere)(user) },
+                where: {
+                    id: siteId,
+                    tenantId: user.tenantId,
+                    clientId,
+                    ...(0, branch_scope_1.branchWhere)(user),
+                },
                 select: {
                     id: true,
                     name: true,
@@ -377,7 +384,9 @@ let InvoicesService = class InvoicesService {
             if (!site) {
                 throw new common_1.BadRequestException('Site must belong to this client and tenant');
             }
-            if (client.branchId && site.branchId && client.branchId !== site.branchId) {
+            if (client.branchId &&
+                site.branchId &&
+                client.branchId !== site.branchId) {
                 throw new common_1.BadRequestException('Client and site must belong to the same branch');
             }
             return { client, site };
@@ -459,7 +468,10 @@ let InvoicesService = class InvoicesService {
             clientId: input.clientId,
             status: 'active',
             effectiveFrom: { lte: input.billingEndDate },
-            OR: [{ effectiveTo: null }, { effectiveTo: { gte: input.billingStartDate } }],
+            OR: [
+                { effectiveTo: null },
+                { effectiveTo: { gte: input.billingStartDate } },
+            ],
         };
         const siteRateCard = await this.prisma.rateCard.findFirst({
             where: {
@@ -485,7 +497,9 @@ let InvoicesService = class InvoicesService {
     }
     async resolveInvoiceRate(input) {
         const manualRate = Number(input.dto.hourly_rate);
-        if (input.dto.allow_manual_rate && Number.isFinite(manualRate) && manualRate > 0) {
+        if (input.dto.allow_manual_rate &&
+            Number.isFinite(manualRate) &&
+            manualRate > 0) {
             return {
                 hourlyRate: this.roundCurrency(manualRate),
                 rateCardId: null,
@@ -503,7 +517,8 @@ let InvoicesService = class InvoicesService {
         throw new common_1.BadRequestException('No active rate card found for this client/site and billing period. Create a client or site rate card, or enable manual rate fallback.');
     }
     isUniqueConflict(error) {
-        return error instanceof client_1.Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+        return (error instanceof client_1.Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2002');
     }
     async generateInvoice(user, dto) {
         const { billingStartDate, billingEndDate, endExclusive } = this.parseBillingRange(dto);
@@ -553,7 +568,10 @@ let InvoicesService = class InvoicesService {
                         },
                     },
                 });
-                const datePart = todayStart.toISOString().slice(0, 10).replace(/-/g, '');
+                const datePart = todayStart
+                    .toISOString()
+                    .slice(0, 10)
+                    .replace(/-/g, '');
                 const invoiceNumber = `INV-${datePart}-${String(sequence + 1).padStart(4, '0')}`;
                 return tx.invoice.create({
                     data: {
@@ -823,7 +841,10 @@ let InvoicesService = class InvoicesService {
             doc.on('error', reject);
             this.brandingService.addPdfHeader(doc, 'Invoice', branding);
             doc.moveDown(0.3);
-            doc.fontSize(12).fillColor(branding.secondary_color).text(invoice.invoiceNumber, { align: 'right' });
+            doc
+                .fontSize(12)
+                .fillColor(branding.secondary_color)
+                .text(invoice.invoiceNumber, { align: 'right' });
             doc.moveDown();
             doc.fontSize(11).fillColor('#374151');
             doc.text(`Status: ${invoice.status}`);
@@ -831,7 +852,10 @@ let InvoicesService = class InvoicesService {
             doc.text(`Issued: ${this.formatDate(invoice.issuedAt)}`);
             doc.text(`Rate source: ${invoice.rateSource || 'manual'}`);
             doc.moveDown();
-            doc.fontSize(12).fillColor('#111827').text(`Client: ${invoice.client.companyName || invoice.client.name}`);
+            doc
+                .fontSize(12)
+                .fillColor('#111827')
+                .text(`Client: ${invoice.client.companyName || invoice.client.name}`);
             doc.fontSize(11).fillColor('#374151');
             doc.text(`Email: ${invoice.client.email}`);
             if (invoice.client.phone) {
@@ -845,8 +869,14 @@ let InvoicesService = class InvoicesService {
             }
             else {
                 invoice.items.forEach((item, index) => {
-                    doc.fontSize(11).fillColor('#111827').text(`${index + 1}. ${item.guard.name} - ${this.formatDateTime(item.shift.startTime)} to ${this.formatDateTime(item.shift.endTime)}`);
-                    doc.fontSize(10).fillColor('#374151').text(`Shift ${item.shift.id} | ${item.workedHours}h x ${this.formatCurrency(item.hourlyRate)} = ${this.formatCurrency(item.amount)}`);
+                    doc
+                        .fontSize(11)
+                        .fillColor('#111827')
+                        .text(`${index + 1}. ${item.guard.name} - ${this.formatDateTime(item.shift.startTime)} to ${this.formatDateTime(item.shift.endTime)}`);
+                    doc
+                        .fontSize(10)
+                        .fillColor('#374151')
+                        .text(`Shift ${item.shift.id} | ${item.workedHours}h x ${this.formatCurrency(item.hourlyRate)} = ${this.formatCurrency(item.amount)}`);
                     doc.moveDown(0.35);
                 });
             }
@@ -860,7 +890,10 @@ let InvoicesService = class InvoicesService {
             doc.text(`Subtotal: ${this.formatCurrency(invoice.subtotal)}`);
             doc.text(`Tax: ${this.formatCurrency(invoice.tax)}`);
             doc.moveDown(0.2);
-            doc.fontSize(14).fillColor('#111827').text(`Total amount: ${this.formatCurrency(invoice.totalAmount)}`);
+            doc
+                .fontSize(14)
+                .fillColor('#111827')
+                .text(`Total amount: ${this.formatCurrency(invoice.totalAmount)}`);
             doc.end();
         });
     }

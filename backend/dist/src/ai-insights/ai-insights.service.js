@@ -55,10 +55,7 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
         ]);
         const ruleRecommendations = this.buildRuleRecommendations(clients, guards, sites, billing);
         const aiRecommendations = await this.buildAiRecommendations(tenantId, clients, guards, sites, billing, ruleRecommendations);
-        const recommendations = await this.aiMonitoringService.applyFeedbackToRecommendations(tenantId, [
-            ...aiRecommendations,
-            ...ruleRecommendations,
-        ].slice(0, 10));
+        const recommendations = await this.aiMonitoringService.applyFeedbackToRecommendations(tenantId, [...aiRecommendations, ...ruleRecommendations].slice(0, 10));
         const dashboard = {
             generatedAt: new Date().toISOString(),
             source: aiRecommendations.length > 0 ? 'ai_assisted' : 'rule_based',
@@ -142,8 +139,7 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
         invoices
             .filter((invoice) => this.isCurrentPeriod(this.invoiceDate(invoice), now))
             .forEach((invoice) => {
-            revenueByClient.set(invoice.clientId, this.roundCurrency((revenueByClient.get(invoice.clientId) || 0) +
-                invoice.totalAmount));
+            revenueByClient.set(invoice.clientId, this.roundCurrency((revenueByClient.get(invoice.clientId) || 0) + invoice.totalAmount));
         });
         const incidentByClient = new Map();
         incidents.forEach((incident) => {
@@ -156,7 +152,9 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
         const rows = clients
             .map((client) => {
             const revenue = revenueByClient.get(client.id) || 0;
-            const contractActivity = client._count.proposals + client._count.deals + client._count.rateCards;
+            const contractActivity = client._count.proposals +
+                client._count.deals +
+                client._count.rateCards;
             return {
                 clientId: client.id,
                 name: this.clientDisplayName(client),
@@ -164,7 +162,9 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
                     client._count.invoices > 0 ||
                     contractActivity > 0,
                 revenue,
-                revenueShare: totalRevenue > 0 ? this.roundPercent((revenue / totalRevenue) * 100) : 0,
+                revenueShare: totalRevenue > 0
+                    ? this.roundPercent((revenue / totalRevenue) * 100)
+                    : 0,
                 incidentCount: incidentByClient.get(client.id) || 0,
                 contractActivity,
                 siteCount: client._count.sites,
@@ -388,7 +388,9 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
         return {
             generatedAt: now.toISOString(),
             summary: [
-                this.metric('Attendance rate', attendanceRate === null ? 'N/A' : `${attendanceRate}%`, 'Assigned past shifts', attendanceRate !== null && attendanceRate >= 95 ? 'positive' : 'warning'),
+                this.metric('Attendance rate', attendanceRate === null ? 'N/A' : `${attendanceRate}%`, 'Assigned past shifts', attendanceRate !== null && attendanceRate >= 95
+                    ? 'positive'
+                    : 'warning'),
                 this.metric('Late check-ins', totalLate, 'Current month', totalLate > 0 ? 'warning' : 'positive'),
                 this.metric('Missed shifts', totalMissed, 'Current month', totalMissed > 0 ? 'critical' : 'positive'),
                 this.metric('Incident involvement', totalIncidents, 'Current month', totalIncidents > 0 ? 'info' : 'positive'),
@@ -604,7 +606,9 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
             if (!rowsByClient.has(invoice.clientId)) {
                 rowsByClient.set(invoice.clientId, {
                     clientId: invoice.clientId,
-                    name: invoice.client ? this.clientDisplayName(invoice.client) : 'Unknown client',
+                    name: invoice.client
+                        ? this.clientDisplayName(invoice.client)
+                        : 'Unknown client',
                     revenue: 0,
                     paidAmount: 0,
                     outstandingAmount: 0,
@@ -717,7 +721,7 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
         analysisStart.setUTCDate(analysisStart.getUTCDate() - INCIDENT_ANALYSIS_DAYS);
         const recentStart = new Date(now);
         recentStart.setUTCDate(recentStart.getUTCDate() - RECENT_INCIDENT_DAYS);
-        const incidents = await this.prisma.incident.findMany({
+        const incidents = (await this.prisma.incident.findMany({
             where: {
                 tenantId,
                 occurredAt: { gte: analysisStart },
@@ -758,7 +762,7 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
                 },
             },
             orderBy: [{ occurredAt: 'desc' }, { createdAt: 'desc' }],
-        });
+        }));
         const severityBreakdown = this.buildSeverityBreakdown(incidents);
         const typeCounts = new Map();
         const dayCounts = new Map();
@@ -776,7 +780,9 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
                 entityId: incident.site.id,
                 entityType: 'site',
                 name: incident.site.name,
-                relatedName: incident.site.client ? this.clientDisplayName(incident.site.client) : null,
+                relatedName: incident.site.client
+                    ? this.clientDisplayName(incident.site.client)
+                    : null,
                 incident,
                 incidentType,
                 recentStart,
@@ -854,9 +860,15 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
             source: aiSummary ? 'ai_assisted' : 'rule_based',
             summary: [
                 this.metric('Incidents analyzed', incidents.length, `Last ${INCIDENT_ANALYSIS_DAYS} days`, incidents.length > 0 ? 'info' : 'positive'),
-                this.metric('Critical/high', criticalCount + highCount, `${criticalCount} critical, ${highCount} high`, criticalCount > 0 ? 'critical' : highCount > 0 ? 'warning' : 'positive'),
+                this.metric('Critical/high', criticalCount + highCount, `${criticalCount} critical, ${highCount} high`, criticalCount > 0
+                    ? 'critical'
+                    : highCount > 0
+                        ? 'warning'
+                        : 'positive'),
                 this.metric('Recent incidents', recentCount, `Last ${RECENT_INCIDENT_DAYS} days`, recentCount >= 2 ? 'warning' : 'info'),
-                this.metric('High-risk sites', highRiskSites.filter((site) => ['critical', 'high'].includes(site.riskLevel)).length, 'Risk score 50+', highRiskSites.some((site) => site.riskLevel === 'critical') ? 'critical' : 'warning'),
+                this.metric('High-risk sites', highRiskSites.filter((site) => ['critical', 'high'].includes(site.riskLevel)).length, 'Risk score 50+', highRiskSites.some((site) => site.riskLevel === 'critical')
+                    ? 'critical'
+                    : 'warning'),
             ],
             aiSummary: aiSummary || fallbackSummary,
             insights,
@@ -925,9 +937,11 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
         risk.incidentCount += 1;
         risk.criticalCount += severity === 'critical' ? 1 : 0;
         risk.highCount += severity === 'high' ? 1 : 0;
-        risk.recent7DayCount += input.incident.occurredAt >= input.recentStart ? 1 : 0;
+        risk.recent7DayCount +=
+            input.incident.occurredAt >= input.recentStart ? 1 : 0;
         risk.typeCounts.set(input.incidentType, (risk.typeCounts.get(input.incidentType) || 0) + 1);
-        if (!risk.lastIncidentAt || input.incident.occurredAt > risk.lastIncidentAt) {
+        if (!risk.lastIncidentAt ||
+            input.incident.occurredAt > risk.lastIncidentAt) {
             risk.lastIncidentAt = input.incident.occurredAt;
         }
     }
@@ -975,7 +989,9 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
                 indicators,
             };
         })
-            .sort((left, right) => right.riskScore - left.riskScore || right.incidentCount - left.incidentCount || left.name.localeCompare(right.name));
+            .sort((left, right) => right.riskScore - left.riskScore ||
+            right.incidentCount - left.incidentCount ||
+            left.name.localeCompare(right.name));
     }
     incrementTrend(trends, label, score) {
         const current = trends.get(label) || { count: 0, riskScore: 0 };
@@ -994,7 +1010,9 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
             riskScore: this.roundRiskScore(trend.riskScore),
             detail: `${detailPrefix} seen ${trend.count} time${trend.count === 1 ? '' : 's'}.`,
         }))
-            .sort((left, right) => right.count - left.count || right.riskScore - left.riskScore || left.label.localeCompare(right.label));
+            .sort((left, right) => right.count - left.count ||
+            right.riskScore - left.riskScore ||
+            left.label.localeCompare(right.label));
     }
     buildIncidentInsights(input) {
         const insights = [];
@@ -1102,7 +1120,8 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
                 priority: 'medium',
                 title: 'Review post orders',
                 action: `Review post orders for ${topSite.name}.`,
-                reason: topSite.indicators[0] || 'The site has recurring incident risk indicators.',
+                reason: topSite.indicators[0] ||
+                    'The site has recurring incident risk indicators.',
                 source: 'rule',
                 actionType: 'create_follow_up_task',
                 targetModule: 'site',
@@ -1206,10 +1225,16 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
         const topPattern = input.timePatterns[0];
         return [
             `${input.totalIncidents} incidents were analyzed over the last ${INCIDENT_ANALYSIS_DAYS} days.`,
-            topSite ? `${topSite.name} is the highest-risk site with a score of ${topSite.riskScore}.` : null,
+            topSite
+                ? `${topSite.name} is the highest-risk site with a score of ${topSite.riskScore}.`
+                : null,
             topType ? `${topType.label} is the most repeated incident type.` : null,
-            topPattern ? `${topPattern.label} shows the strongest time pattern.` : null,
-        ].filter(Boolean).join(' ');
+            topPattern
+                ? `${topPattern.label} shows the strongest time pattern.`
+                : null,
+        ]
+            .filter(Boolean)
+            .join(' ');
     }
     incidentType(title, description) {
         const text = `${title || ''} ${description || ''}`.toLowerCase();
@@ -1291,10 +1316,14 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
             summary: [
                 this.metric('Active clients', this.metricValue(clients, 'Active clients'), 'Current tenant', 'info'),
                 this.metric('Guard attendance', this.metricValue(guards, 'Attendance rate'), 'This month', 'info'),
-                this.metric('Coverage issues', this.metricValue(sites, 'Coverage issues'), 'Open guard slots', this.metricValue(sites, 'Coverage issues') === 0 ? 'positive' : 'warning'),
+                this.metric('Coverage issues', this.metricValue(sites, 'Coverage issues'), 'Open guard slots', this.metricValue(sites, 'Coverage issues') === 0
+                    ? 'positive'
+                    : 'warning'),
                 this.metric('Recommendations', recommendations.length, 'Ready for admin review', recommendations.length > 0 ? 'info' : 'positive'),
             ],
-            insights: (priorityInsights.length > 0 ? priorityInsights : insights).slice(0, 6),
+            insights: (priorityInsights.length > 0
+                ? priorityInsights
+                : insights).slice(0, 6),
         };
     }
     buildRuleRecommendations(clients, guards, sites, billing) {
@@ -1447,12 +1476,12 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
         };
     }
     async resolvePromptTemplate(tenantId, moduleName, promptKey) {
-        return (await this.aiGovernanceService?.resolvePromptVersion({
+        return ((await this.aiGovernanceService?.resolvePromptVersion({
             tenantId,
             moduleName,
             promptKey,
             fallbackVersion: DEFAULT_PROMPT_VERSION,
-        }))?.promptText ?? null;
+        }))?.promptText ?? null);
     }
     metric(label, value, detail, tone) {
         return { label, value, detail, tone };
@@ -1475,7 +1504,8 @@ let AiInsightsService = AiInsightsService_1 = class AiInsightsService {
     }
     isCurrentPeriod(value, now) {
         const monthStart = this.startOfMonth(now);
-        return value.getTime() >= monthStart.getTime() && value.getTime() <= now.getTime();
+        return (value.getTime() >= monthStart.getTime() &&
+            value.getTime() <= now.getTime());
     }
     invoiceDate(invoice) {
         return invoice.issuedAt ?? invoice.createdAt;

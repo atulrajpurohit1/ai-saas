@@ -123,7 +123,7 @@ let AiMonitoringService = AiMonitoringService_1 = class AiMonitoringService {
         });
     }
     async getMonitoring(tenantId) {
-        const [generations, actions, feedback, averageFeedback, recentFeedback,] = await Promise.all([
+        const [generations, actions, feedback, averageFeedback, recentFeedback] = await Promise.all([
             this.prisma.aiGeneration.findMany({
                 where: { tenantId },
                 select: {
@@ -368,15 +368,14 @@ let AiMonitoringService = AiMonitoringService_1 = class AiMonitoringService {
     buildSourceModuleBreakdown(generations) {
         const bySource = new Map();
         generations.forEach((generation) => {
-            const row = bySource.get(generation.sourceModule) ||
-                {
-                    sourceModule: generation.sourceModule,
-                    total: 0,
-                    success: 0,
-                    failed: 0,
-                    fallback: 0,
-                    fallbackUsed: 0,
-                };
+            const row = bySource.get(generation.sourceModule) || {
+                sourceModule: generation.sourceModule,
+                total: 0,
+                success: 0,
+                failed: 0,
+                fallback: 0,
+                fallbackUsed: 0,
+            };
             row.total += 1;
             if (generation.status === 'success')
                 row.success += 1;

@@ -11,7 +11,12 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateIncidentDto = exports.INCIDENT_SEVERITIES = void 0;
 const class_validator_1 = require("class-validator");
-exports.INCIDENT_SEVERITIES = ['low', 'medium', 'high', 'critical'];
+exports.INCIDENT_SEVERITIES = [
+    'low',
+    'medium',
+    'high',
+    'critical',
+];
 class CreateIncidentDto {
     title;
     description;

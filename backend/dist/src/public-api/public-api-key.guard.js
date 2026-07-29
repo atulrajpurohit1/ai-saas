@@ -53,7 +53,9 @@ let PublicApiKeyGuard = class PublicApiKeyGuard {
             return directHeader;
         }
         const authorization = request.headers.authorization;
-        const value = Array.isArray(authorization) ? authorization[0] : authorization;
+        const value = Array.isArray(authorization)
+            ? authorization[0]
+            : authorization;
         if (value?.toLowerCase().startsWith('bearer ')) {
             return value.slice(7);
         }
@@ -72,10 +74,10 @@ let PublicApiKeyGuard = class PublicApiKeyGuard {
         });
     }
     getIpAddress(request) {
-        return this.getHeader(request, 'x-forwarded-for')?.split(',')[0]?.trim()
-            || request.ip
-            || request.socket?.remoteAddress
-            || null;
+        return (this.getHeader(request, 'x-forwarded-for')?.split(',')[0]?.trim() ||
+            request.ip ||
+            request.socket?.remoteAddress ||
+            null);
     }
     getHeader(request, key) {
         const value = request.headers[key];

@@ -301,7 +301,9 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
             }
         });
         context.rateCards.forEach((rateCard) => {
-            const aggregate = this.getOrCreateAggregateForClient(aggregates, rateCard.clientId, rateCard.client ? this.clientDisplayName(rateCard.client) : 'Unknown client', rateCard.createdAt);
+            const aggregate = this.getOrCreateAggregateForClient(aggregates, rateCard.clientId, rateCard.client
+                ? this.clientDisplayName(rateCard.client)
+                : 'Unknown client', rateCard.createdAt);
             const active = this.isActiveRateCard(rateCard, context.now);
             aggregate.rateCardCount = Math.max(aggregate.rateCardCount, 1);
             aggregate.contractActivity += 1;
@@ -362,7 +364,8 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
         const recentMonths = baselineMonths.slice(-3);
         const recentValues = recentMonths.map((month) => month.actualRevenue);
         const baseline = recentValues.length > 0
-            ? recentValues.reduce((sum, value) => sum + value, 0) / recentValues.length
+            ? recentValues.reduce((sum, value) => sum + value, 0) /
+                recentValues.length
             : 0;
         const growthRate = this.calculateAverageGrowthRate(baselineMonths);
         const forecastMonths = Array.from({ length: FORECAST_MONTHS }, (_, index) => {
@@ -386,7 +389,8 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
             return (dueOrIssueDate <= next30Date ||
                 (invoice.dueDate !== null && invoice.dueDate <= next30Date));
         })
-            .reduce((sum, invoice) => sum + invoice.totalAmount * this.collectionProbability(invoice, now), 0));
+            .reduce((sum, invoice) => sum +
+            invoice.totalAmount * this.collectionProbability(invoice, now), 0));
         const monthsWithRevenue = actualMonths.filter((month) => month.actualRevenue > 0).length;
         const confidence = this.forecastConfidence(context.invoices.length, monthsWithRevenue);
         const monthlyGrowthRate = this.roundPercent(growthRate * 100);
@@ -463,8 +467,7 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
             const growthRate = this.clientGrowthRate(aggregate);
             const activeContract = aggregate.activeRateCardCount > 0 ||
                 aggregate.siteCount > 0 ||
-                this.daysSince(aggregate.lastInvoiceAt || aggregate.createdAt, context.now) <=
-                    INACTIVE_CLIENT_DAYS;
+                this.daysSince(aggregate.lastInvoiceAt || aggregate.createdAt, context.now) <= INACTIVE_CLIENT_DAYS;
             const daysUntilRenewal = aggregate.renewalDate
                 ? this.daysBetween(context.now, aggregate.renewalDate)
                 : null;
@@ -502,8 +505,7 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
                 healthStatus,
                 activeContract,
                 contractStartDate: aggregate.firstActivityAt?.toISOString() || null,
-                contractEndDate: (aggregate.renewalDate || aggregate.contractEndDate)?.toISOString() ||
-                    null,
+                contractEndDate: (aggregate.renewalDate || aggregate.contractEndDate)?.toISOString() || null,
                 daysUntilRenewal,
                 invoiceCount: aggregate.invoiceCount,
                 totalRevenue,
@@ -548,7 +550,9 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
             insights.push({
                 id: 'contract-renewal-window',
                 category: 'renewals',
-                severity: renewal.daysUntilRenewal !== null && renewal.daysUntilRenewal <= 30 ? 'warning' : 'info',
+                severity: renewal.daysUntilRenewal !== null && renewal.daysUntilRenewal <= 30
+                    ? 'warning'
+                    : 'info',
                 title: 'Renewal approaching',
                 message: `${renewal.name} contract approaching renewal in ${renewal.daysUntilRenewal} days.`,
                 subject: renewal.name,
@@ -599,10 +603,14 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
             const revenueShare = totalRevenue > 0
                 ? this.roundPercent((aggregate.totalRevenue / totalRevenue) * 100)
                 : 0;
-            const paidReliability = aggregate.totalRevenue > 0 ? aggregate.paidAmount / aggregate.totalRevenue : 0;
+            const paidReliability = aggregate.totalRevenue > 0
+                ? aggregate.paidAmount / aggregate.totalRevenue
+                : 0;
             const revenueComponent = topRevenue > 0 ? (aggregate.totalRevenue / topRevenue) * 45 : 0;
             const paymentComponent = Math.min(20, paidReliability * 20);
-            const growthComponent = growthRate > 0 ? Math.min(20, growthRate / 3) : Math.max(-10, growthRate / 4);
+            const growthComponent = growthRate > 0
+                ? Math.min(20, growthRate / 3)
+                : Math.max(-10, growthRate / 4);
             const activityComponent = Math.min(15, aggregate.siteCount * 4 + aggregate.activeRateCardCount * 5);
             const penalty = Math.min(20, aggregate.disputeCount * 4 + aggregate.incidentCount * 2);
             const clientValueScore = this.roundRiskScore(revenueComponent +
@@ -711,7 +719,9 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
             summary: [
                 this.metric('Top revenue share', topClient ? `${topClient.revenueShare}%` : '0%', topClient?.name || 'No revenue yet', topClient ? 'positive' : 'info'),
                 this.metric('Fastest growth', fastestGrowing ? `${fastestGrowing.growthRate}%` : '0%', fastestGrowing?.name || 'No growth trend', fastestGrowing ? 'positive' : 'info'),
-                this.metric('Avg value score', rows.length ? `${this.roundNumber(rows.reduce((sum, row) => sum + row.clientValueScore, 0) / rows.length, 1)}/100` : '0/100', 'All clients', rows.length ? 'info' : 'warning'),
+                this.metric('Avg value score', rows.length
+                    ? `${this.roundNumber(rows.reduce((sum, row) => sum + row.clientValueScore, 0) / rows.length, 1)}/100`
+                    : '0/100', 'All clients', rows.length ? 'info' : 'warning'),
                 this.metric('Dispute clients', rows.filter((row) => row.disputeCount > 0).length, 'With invoice disputes', rows.some((row) => row.disputeCount > 0) ? 'warning' : 'positive'),
             ],
             insights,
@@ -761,9 +771,7 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
                     reason: `No invoice activity in more than ${INACTIVE_CLIENT_DAYS} days.`,
                 });
             }
-            if (value &&
-                value.previousPeriodRevenue > 0 &&
-                value.growthRate <= -20) {
+            if (value && value.previousPeriodRevenue > 0 && value.growthRate <= -20) {
                 rows.push({
                     id: `declining-${contract.clientId}`,
                     clientId: contract.clientId,
@@ -1087,15 +1095,17 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
         };
     }
     async resolvePromptTemplate(tenantId, moduleName, promptKey) {
-        return (await this.aiGovernanceService?.resolvePromptVersion({
+        return ((await this.aiGovernanceService?.resolvePromptVersion({
             tenantId,
             moduleName,
             promptKey,
             fallbackVersion: DEFAULT_PROMPT_VERSION,
-        }))?.promptText ?? null;
+        }))?.promptText ?? null);
     }
     getOrCreateAggregate(aggregates, invoice) {
-        return this.getOrCreateAggregateForClient(aggregates, invoice.clientId, invoice.client ? this.clientDisplayName(invoice.client) : 'Unknown client', invoice.createdAt);
+        return this.getOrCreateAggregateForClient(aggregates, invoice.clientId, invoice.client
+            ? this.clientDisplayName(invoice.client)
+            : 'Unknown client', invoice.createdAt);
     }
     getOrCreateAggregateForClient(aggregates, clientId, name, createdAt) {
         const existing = aggregates.get(clientId);
@@ -1140,7 +1150,7 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
         }
         if (growthRates.length === 0)
             return 0;
-        return growthRates.reduce((sum, value) => sum + value, 0) / growthRates.length;
+        return (growthRates.reduce((sum, value) => sum + value, 0) / growthRates.length);
     }
     forecastConfidence(invoiceCount, monthsWithRevenue) {
         if (invoiceCount >= 20 && monthsWithRevenue >= 6)
@@ -1171,7 +1181,9 @@ let RevenueInsightsService = RevenueInsightsService_1 = class RevenueInsightsSer
     }
     contractIndicators(aggregate, activeContract, healthStatus, averagePaymentDays, daysUntilRenewal, growthRate) {
         const indicators = [];
-        indicators.push(activeContract ? 'Active contract activity' : 'No active contract activity');
+        indicators.push(activeContract
+            ? 'Active contract activity'
+            : 'No active contract activity');
         indicators.push(`${healthStatus} health`);
         if (daysUntilRenewal !== null) {
             indicators.push(`Renewal in ${daysUntilRenewal} days`);

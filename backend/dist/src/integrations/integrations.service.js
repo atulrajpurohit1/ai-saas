@@ -51,7 +51,12 @@ let IntegrationsService = class IntegrationsService {
                 where: { webhook: { tenantId: user.tenantId } },
                 include: {
                     webhook: {
-                        select: { id: true, eventType: true, endpointUrl: true, status: true },
+                        select: {
+                            id: true,
+                            eventType: true,
+                            endpointUrl: true,
+                            status: true,
+                        },
                     },
                 },
                 orderBy: { createdAt: 'desc' },
@@ -82,7 +87,8 @@ let IntegrationsService = class IntegrationsService {
                 event_type: webhook.eventType,
                 endpoint_url: webhook.endpointUrl,
                 status: webhook.status,
-                success_count: webhook.deliveries.filter((delivery) => delivery.success).length,
+                success_count: webhook.deliveries.filter((delivery) => delivery.success)
+                    .length,
                 failure_count: webhook.deliveries.filter((delivery) => !delivery.success).length,
                 latest_delivery_at: webhook.deliveries[0]?.createdAt || null,
             })),

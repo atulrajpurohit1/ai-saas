@@ -105,7 +105,9 @@ let ClientsService = class ClientsService {
             entityId: client.id,
             details: `Client "${client.name}" created`,
         });
-        await this.webhooksService.triggerEvent(user.tenantId, 'client.created', { client });
+        await this.webhooksService.triggerEvent(user.tenantId, 'client.created', {
+            client,
+        });
         return this.fieldPermissionsService.filterFieldsByPermission(user, 'client', client);
     }
     async findAll(user, requestedBranchId) {
@@ -183,7 +185,9 @@ let ClientsService = class ClientsService {
             where: { id },
             data: {
                 ...(dto.name !== undefined ? { name: dto.name } : {}),
-                ...(dto.companyName !== undefined ? { companyName: dto.companyName } : {}),
+                ...(dto.companyName !== undefined
+                    ? { companyName: dto.companyName }
+                    : {}),
                 ...(dto.email !== undefined ? { email: dto.email } : {}),
                 ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
                 ...(branchId !== undefined ? { branchId } : {}),

@@ -19,21 +19,94 @@ const stream_1 = require("stream");
 const audit_service_1 = require("../audit/audit.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const FIELD_ALIASES = {
-    name: ['name', 'contact name', 'full name', 'primary contact', 'contact', 'lead name'],
-    company: ['company', 'company name', 'account', 'account name', 'business', 'organization', 'property'],
+    name: [
+        'name',
+        'contact name',
+        'full name',
+        'primary contact',
+        'contact',
+        'lead name',
+    ],
+    company: [
+        'company',
+        'company name',
+        'account',
+        'account name',
+        'business',
+        'organization',
+        'property',
+    ],
     email: ['email', 'email address', 'contact email', 'lead email'],
     status: ['status', 'lead status', 'crm status'],
-    dealName: ['deal name', 'opportunity', 'opportunity name', 'project', 'pipeline deal'],
+    dealName: [
+        'deal name',
+        'opportunity',
+        'opportunity name',
+        'project',
+        'pipeline deal',
+    ],
     stage: ['stage', 'deal stage', 'pipeline stage', 'opportunity stage'],
-    propertyType: ['property type', 'site type', 'segment', 'industry', 'vertical'],
-    buyerRole: ['buyer role', 'role', 'title', 'decision maker role', 'contact title'],
-    currentProvider: ['current provider', 'incumbent', 'existing provider', 'security provider'],
-    guardCount: ['guard count', 'guards', 'number of guards', 'posts', 'post count'],
-    serviceHours: ['service hours', 'coverage hours', 'shift hours', 'coverage', 'schedule'],
-    painPoints: ['pain points', 'pain', 'problems', 'current issues', 'challenges'],
-    riskConcerns: ['risk concerns', 'risks', 'security risks', 'incidents', 'risk drivers'],
-    decisionTimeline: ['decision timeline', 'timeline', 'start date', 'decision date', 'urgency'],
-    budgetSensitivity: ['budget sensitivity', 'budget', 'price sensitivity', 'pricing concern'],
+    propertyType: [
+        'property type',
+        'site type',
+        'segment',
+        'industry',
+        'vertical',
+    ],
+    buyerRole: [
+        'buyer role',
+        'role',
+        'title',
+        'decision maker role',
+        'contact title',
+    ],
+    currentProvider: [
+        'current provider',
+        'incumbent',
+        'existing provider',
+        'security provider',
+    ],
+    guardCount: [
+        'guard count',
+        'guards',
+        'number of guards',
+        'posts',
+        'post count',
+    ],
+    serviceHours: [
+        'service hours',
+        'coverage hours',
+        'shift hours',
+        'coverage',
+        'schedule',
+    ],
+    painPoints: [
+        'pain points',
+        'pain',
+        'problems',
+        'current issues',
+        'challenges',
+    ],
+    riskConcerns: [
+        'risk concerns',
+        'risks',
+        'security risks',
+        'incidents',
+        'risk drivers',
+    ],
+    decisionTimeline: [
+        'decision timeline',
+        'timeline',
+        'start date',
+        'decision date',
+        'urgency',
+    ],
+    budgetSensitivity: [
+        'budget sensitivity',
+        'budget',
+        'price sensitivity',
+        'pricing concern',
+    ],
     objections: ['objections', 'concerns', 'sales objections', 'buyer concerns'],
     notes: ['notes', 'comments', 'description', 'summary', 'call notes'],
 };
@@ -196,7 +269,9 @@ let SalesImportsService = class SalesImportsService {
             objections: this.list(row, mapping.objections),
             notes: this.text(row, mapping.notes),
         };
-        const hasDiscoveryData = Object.values(discovery).some((value) => Array.isArray(value) ? value.length > 0 : value !== null && value !== undefined);
+        const hasDiscoveryData = Object.values(discovery).some((value) => Array.isArray(value)
+            ? value.length > 0
+            : value !== null && value !== undefined);
         if (!hasDiscoveryData)
             return false;
         await this.prisma.discoverySession.create({

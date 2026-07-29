@@ -283,7 +283,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
                     lead: deal.lead,
                     deal,
                     discovery: deal.discoverySessions[0] ?? null,
-                    assessment: assessment ? this.assessmentDraftFromRecord(assessment) : null,
+                    assessment: assessment
+                        ? this.assessmentDraftFromRecord(assessment)
+                        : null,
                 }),
             };
         });
@@ -354,7 +356,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
                 postCloseReviewedDeals: allPostCloseFeedbackDeals.length,
                 postCloseRiskDeals: allPostCloseFeedbackDeals.filter((deal) => ['risk', 'oversold'].includes(deal.postCloseFeedback.status)).length,
                 postCloseLearningDeals: allPostCloseFeedbackDeals.filter((deal) => deal.postCloseFeedback.status === 'learning').length,
-                averageForecastConfidence: this.average(dealsWithMomentum.map((deal) => deal.forecast.status === 'unscored' ? null : deal.forecast.confidence)),
+                averageForecastConfidence: this.average(dealsWithMomentum.map((deal) => deal.forecast.status === 'unscored'
+                    ? null
+                    : deal.forecast.confidence)),
                 leadsMissingDiscovery: leads.filter((lead) => lead.discoverySessions.length === 0).length,
                 dealsMissingDiscovery: deals.filter((deal) => deal.discoverySessions.length === 0).length,
                 averageLeadScore: this.average(assessedLeads.map((lead) => lead.assessment?.leadScore ?? null)),
@@ -410,7 +414,8 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
                 subject: deal.postCloseFeedback.clientName,
                 href: `/deals/${deal.id}`,
                 score: deal.postCloseFeedback.score,
-                reason: deal.postCloseFeedback.signals[0] || 'Operations feedback needs sales review.',
+                reason: deal.postCloseFeedback.signals[0] ||
+                    'Operations feedback needs sales review.',
                 recommendedAction: deal.postCloseFeedback.recommendedAction,
                 dueLabel: `${deal.postCloseFeedback.incidentCount} incidents, ${deal.postCloseFeedback.understaffedShiftCount} understaffed shifts`,
             })),
@@ -444,7 +449,8 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
             generatedAt: dashboard.generatedAt,
             summary: {
                 total: alerts.length,
-                critical: alerts.filter((alert) => alert.severity === 'critical').length,
+                critical: alerts.filter((alert) => alert.severity === 'critical')
+                    .length,
                 high: alerts.filter((alert) => alert.severity === 'high').length,
                 overdueActivities: dashboard.metrics.overdueDealActivities,
                 stalledDeals: dashboard.metrics.stalledDeals,
@@ -471,9 +477,18 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
                     ? Math.round(weightedPipeline / uniqueDeals.length)
                     : null,
             },
-            statusBuckets: ['commit', 'likely', 'watch', 'at_risk', 'unscored', 'closed_won', 'closed_lost'].map((status) => ({
+            statusBuckets: [
+                'commit',
+                'likely',
+                'watch',
+                'at_risk',
+                'unscored',
+                'closed_won',
+                'closed_lost',
+            ].map((status) => ({
                 status,
-                count: uniqueDeals.filter((deal) => deal.forecast.status === status).length,
+                count: uniqueDeals.filter((deal) => deal.forecast.status === status)
+                    .length,
             })),
             deals: uniqueDeals
                 .sort((left, right) => left.forecast.confidence - right.forecast.confidence)
@@ -570,7 +585,8 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
                 averageLeadScore: dashboard.metrics.averageLeadScore,
                 averageCloseReadiness: dashboard.metrics.averageCloseReadiness,
                 trackedObjections: dashboard.metrics.trackedObjections,
-                missingDiscovery: dashboard.metrics.leadsMissingDiscovery + dashboard.metrics.dealsMissingDiscovery,
+                missingDiscovery: dashboard.metrics.leadsMissingDiscovery +
+                    dashboard.metrics.dealsMissingDiscovery,
             },
             reps: reps.sort((left, right) => right.coachingScore - left.coachingScore),
             objectionPatterns: dashboard.objectionPatterns,
@@ -783,7 +799,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
             entityType: 'lead',
             lead,
             discovery,
-            assessment: assessment ? this.assessmentDraftFromRecord(assessment) : null,
+            assessment: assessment
+                ? this.assessmentDraftFromRecord(assessment)
+                : null,
         }), { entityType: 'lead', leadId, discoverySessionId: discovery?.id ?? null });
     }
     async generateDealOutreach(tenantId, dealId, userId) {
@@ -797,7 +815,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
             lead: deal.lead,
             deal,
             discovery,
-            assessment: assessment ? this.assessmentDraftFromRecord(assessment) : null,
+            assessment: assessment
+                ? this.assessmentDraftFromRecord(assessment)
+                : null,
         }), { entityType: 'deal', dealId, discoverySessionId: discovery?.id ?? null });
     }
     async analyzeLeadDiscoveryCall(tenantId, leadId, dto, userId) {
@@ -810,7 +830,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
             entityType: 'lead',
             lead,
             discovery,
-            assessment: assessment ? this.assessmentDraftFromRecord(assessment) : null,
+            assessment: assessment
+                ? this.assessmentDraftFromRecord(assessment)
+                : null,
         }), dto.transcript, {
             entityType: 'lead',
             leadId,
@@ -828,7 +850,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
             lead: deal.lead,
             deal,
             discovery,
-            assessment: assessment ? this.assessmentDraftFromRecord(assessment) : null,
+            assessment: assessment
+                ? this.assessmentDraftFromRecord(assessment)
+                : null,
         }), dto.transcript, {
             entityType: 'deal',
             dealId,
@@ -845,7 +869,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
             entityType: 'lead',
             lead,
             discovery,
-            assessment: assessment ? this.assessmentDraftFromRecord(assessment) : null,
+            assessment: assessment
+                ? this.assessmentDraftFromRecord(assessment)
+                : null,
         }), dto.transcript || '', {
             entityType: 'lead',
             leadId,
@@ -863,7 +889,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
             lead: deal.lead,
             deal,
             discovery,
-            assessment: assessment ? this.assessmentDraftFromRecord(assessment) : null,
+            assessment: assessment
+                ? this.assessmentDraftFromRecord(assessment)
+                : null,
         }), dto.transcript || '', {
             entityType: 'deal',
             dealId,
@@ -963,7 +991,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
             createdBy: userId,
             sourceModule: 'sales_accelerator',
             promptKey: 'discovery_proposal',
-            modelUsed: fallbackUsed ? 'rule-or-fallback' : this.aiService.getModelName(),
+            modelUsed: fallbackUsed
+                ? 'rule-or-fallback'
+                : this.aiService.getModelName(),
             inputSource: {
                 entityType: 'deal',
                 dealId,
@@ -1024,8 +1054,12 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
             description: dto.description?.trim() ||
                 [
                     assessment?.summary,
-                    assessment?.riskProfile ? `Risk profile: ${assessment.riskProfile}` : null,
-                    assessment?.proposalAngle ? `Proposal angle: ${assessment.proposalAngle}` : null,
+                    assessment?.riskProfile
+                        ? `Risk profile: ${assessment.riskProfile}`
+                        : null,
+                    assessment?.proposalAngle
+                        ? `Proposal angle: ${assessment.proposalAngle}`
+                        : null,
                 ]
                     .filter(Boolean)
                     .join('\n'),
@@ -1161,7 +1195,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
             createdBy: userId,
             sourceModule: 'sales_accelerator',
             promptKey: 'discovery_guide',
-            modelUsed: fallbackUsed ? 'rule-or-fallback' : this.aiService.getModelName(),
+            modelUsed: fallbackUsed
+                ? 'rule-or-fallback'
+                : this.aiService.getModelName(),
             inputSource,
             generatedOutput: guide,
             fallbackUsed,
@@ -1193,7 +1229,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
             createdBy: userId,
             sourceModule: 'sales_accelerator',
             promptKey: 'outreach_plan',
-            modelUsed: fallbackUsed ? 'rule-or-fallback' : this.aiService.getModelName(),
+            modelUsed: fallbackUsed
+                ? 'rule-or-fallback'
+                : this.aiService.getModelName(),
             inputSource,
             generatedOutput: outreach,
             fallbackUsed,
@@ -1229,7 +1267,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
             createdBy: userId,
             sourceModule: 'sales_accelerator',
             promptKey: 'discovery_call_intelligence',
-            modelUsed: fallbackUsed ? 'rule-or-fallback' : this.aiService.getModelName(),
+            modelUsed: fallbackUsed
+                ? 'rule-or-fallback'
+                : this.aiService.getModelName(),
             inputSource: {
                 ...inputSource,
                 transcriptLength: transcriptText.length,
@@ -1265,7 +1305,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
             createdBy: userId,
             sourceModule: 'sales_accelerator',
             promptKey: 'discovery_live_coach',
-            modelUsed: fallbackUsed ? 'rule-or-fallback' : this.aiService.getModelName(),
+            modelUsed: fallbackUsed
+                ? 'rule-or-fallback'
+                : this.aiService.getModelName(),
             inputSource: {
                 ...inputSource,
                 transcriptLength: transcriptText.length,
@@ -1302,7 +1344,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
             createdBy: userId,
             sourceModule: 'sales_accelerator',
             promptKey: 'sales_assessment',
-            modelUsed: fallbackUsed ? 'rule-or-fallback' : this.aiService.getModelName(),
+            modelUsed: fallbackUsed
+                ? 'rule-or-fallback'
+                : this.aiService.getModelName(),
             inputSource: {
                 entityType: context.entityType,
                 leadId: ids.leadId,
@@ -1427,8 +1471,11 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
         const pipelineRisks = [];
         const positiveSignals = [];
         const totalRecords = context.leads.length + context.dealsWithMomentum.length;
-        const missingDiscoveryCount = context.missingDiscoveryLeads.length + context.missingDiscoveryDeals.length;
-        const missingDiscoveryRate = totalRecords === 0 ? 0 : Math.round((missingDiscoveryCount / totalRecords) * 100);
+        const missingDiscoveryCount = context.missingDiscoveryLeads.length +
+            context.missingDiscoveryDeals.length;
+        const missingDiscoveryRate = totalRecords === 0
+            ? 0
+            : Math.round((missingDiscoveryCount / totalRecords) * 100);
         const averageLeadScore = this.average(context.assessedLeads.map((lead) => lead.assessment?.leadScore ?? null));
         const averageCloseReadiness = this.average(context.assessedDeals.map((deal) => deal.assessment?.closeReadinessScore ?? null));
         const averageDiscoveryQuality = this.average([
@@ -1601,10 +1648,7 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
         const deal = context.deal;
         const leadNotes = context.lead.notes?.map((note) => note.content).join(' | ') || 'None';
         const dealNotes = deal?.notes?.map((note) => note.content).join(' | ') || 'None';
-        const proposals = [
-            ...(context.lead.proposals || []),
-            ...(deal?.proposals || []),
-        ]
+        const proposals = [...(context.lead.proposals || []), ...(deal?.proposals || [])]
             .map((proposal) => `${proposal.title} (${proposal.status})`)
             .join(' | ') || 'None';
         return [
@@ -1877,17 +1921,16 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
                 ],
             },
         ];
-        const definition = definitions.find((item) => item.test.test(normalized)) ||
-            {
-                key: 'general_objection',
-                label: 'General Objection',
-                recommendedResponse: 'Clarify the concern, quantify impact, and connect the response back to property risk and buyer priorities.',
-                playbook: [
-                    'Ask what would need to be true for the buyer to move forward.',
-                    'Restate the concern in business terms before answering.',
-                    'Agree on the next proof point or decision step.',
-                ],
-            };
+        const definition = definitions.find((item) => item.test.test(normalized)) || {
+            key: 'general_objection',
+            label: 'General Objection',
+            recommendedResponse: 'Clarify the concern, quantify impact, and connect the response back to property risk and buyer priorities.',
+            playbook: [
+                'Ask what would need to be true for the buyer to move forward.',
+                'Restate the concern in business terms before answering.',
+                'Agree on the next proof point or decision step.',
+            ],
+        };
         return {
             key: definition.key,
             label: definition.label,
@@ -2108,18 +2151,20 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
             return 'Run close-readiness scoring after discovery is captured.';
         }
         if (trend === 'declining') {
-            return nextAction || 'Revisit discovery gaps and confirm the approval path.';
+            return (nextAction || 'Revisit discovery gaps and confirm the approval path.');
         }
         if (status === 'commit') {
-            return nextAction || 'Confirm final decision date and prepare handoff details.';
+            return (nextAction || 'Confirm final decision date and prepare handoff details.');
         }
         if (status === 'likely') {
-            return nextAction || 'Lock the next buyer meeting and validate remaining risks.';
+            return (nextAction ||
+                'Lock the next buyer meeting and validate remaining risks.');
         }
         if (status === 'watch') {
-            return nextAction || 'Improve discovery quality before treating this as forecastable.';
+            return (nextAction ||
+                'Improve discovery quality before treating this as forecastable.');
         }
-        return nextAction || 'Create a recovery action tied to buyer risk and timeline.';
+        return (nextAction || 'Create a recovery action tied to buyer risk and timeline.');
     }
     dealMomentum(deal, assessment) {
         const now = new Date();
@@ -2382,7 +2427,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
                 overdueInvoiceCount: 0,
                 disputedInvoiceCount: 0,
                 reportCount: 0,
-                signals: ['No post-close operations data has been captured in the last 90 days.'],
+                signals: [
+                    'No post-close operations data has been captured in the last 90 days.',
+                ],
                 salesLessons: [
                     'Confirm that operations handoff, site setup, reporting cadence, and billing setup are captured after close.',
                 ],
@@ -2493,8 +2540,12 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
                 status: 'blocked',
                 confidenceScore: 0,
                 floorGuidance: 'Do not price yet. Discovery is missing, so scope, risk, and staffing assumptions are unprotected.',
-                scopeWarnings: ['No discovery session has been captured for this deal.'],
-                pricingRisks: ['Any price would be guesswork and likely invite margin pressure.'],
+                scopeWarnings: [
+                    'No discovery session has been captured for this deal.',
+                ],
+                pricingRisks: [
+                    'Any price would be guesswork and likely invite margin pressure.',
+                ],
                 requiredClarifications: [
                     'Confirm property type, guard count, service hours, risk drivers, decision process, and budget sensitivity.',
                 ],
@@ -2776,7 +2827,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
         if (/(incumbent|current provider|security vendor|guard company|contract renewal|existing contract|already have security)/.test(text)) {
             return 'high';
         }
-        if (discovery?.guardCount || discovery?.serviceHours || /(guard|patrol|post order|coverage|shift)/.test(text)) {
+        if (discovery?.guardCount ||
+            discovery?.serviceHours ||
+            /(guard|patrol|post order|coverage|shift)/.test(text)) {
             return 'medium';
         }
         if (text)
@@ -2985,7 +3038,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
                 totalCommentCount: 0,
                 daysSinceLatestProposal: null,
                 signals: ['No proposal has been created for this deal yet.'],
-                risks: ['Proposal engagement cannot be tracked until a proposal exists.'],
+                risks: [
+                    'Proposal engagement cannot be tracked until a proposal exists.',
+                ],
                 recommendedAction: 'Generate a discovery-based proposal once scope, value, pricing, and approval path are ready.',
             };
         }
@@ -3017,11 +3072,13 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
         else {
             risks.push('No comments are captured on the latest proposal.');
         }
-        if (ageDays > 14 && !/approved|accepted|reject|declin|lost/.test(latestStatus)) {
+        if (ageDays > 14 &&
+            !/approved|accepted|reject|declin|lost/.test(latestStatus)) {
             score -= 22;
             risks.push('Latest proposal is older than 14 days without a final outcome.');
         }
-        else if (ageDays > 7 && !/approved|accepted|reject|declin|lost/.test(latestStatus)) {
+        else if (ageDays > 7 &&
+            !/approved|accepted|reject|declin|lost/.test(latestStatus)) {
             score -= 12;
             risks.push('Latest proposal is older than 7 days and may need follow-up.');
         }
@@ -3257,8 +3314,12 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
                 nextStep: null,
                 lastCompletedStep: null,
                 daysSinceLastSequenceActivity: null,
-                signals: ['No Sales Accelerator follow-up sequence has been created yet.'],
-                risks: ['Sequence progress cannot be tracked until sequence activities exist.'],
+                signals: [
+                    'No Sales Accelerator follow-up sequence has been created yet.',
+                ],
+                risks: [
+                    'Sequence progress cannot be tracked until sequence activities exist.',
+                ],
                 recommendedAction: 'Create a follow-up sequence when the deal is ready for structured follow-up.',
             };
         }
@@ -3306,8 +3367,12 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
             nextStep,
             lastCompletedStep,
             daysSinceLastSequenceActivity,
-            signals: signals.length ? signals : ['Sequence activity is being tracked.'],
-            risks: risks.length ? risks : ['No major sequence execution risk detected.'],
+            signals: signals.length
+                ? signals
+                : ['Sequence activity is being tracked.'],
+            risks: risks.length
+                ? risks
+                : ['No major sequence execution risk detected.'],
             recommendedAction: this.followUpSequenceProgressAction(status, nextStep),
         };
     }
@@ -3386,7 +3451,8 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
         if (discovery.currentProvider) {
             proofPoints.push(`Incumbent/provider context: ${discovery.currentProvider}.`);
         }
-        if (context.marketSignalProfile?.segment && context.marketSignalProfile.segment !== 'Unknown') {
+        if (context.marketSignalProfile?.segment &&
+            context.marketSignalProfile.segment !== 'Unknown') {
             proofPoints.push(`Market segment: ${context.marketSignalProfile.segment}.`);
         }
         if (estimatedMonthlyGuardHours !== null) {
@@ -3458,7 +3524,8 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
             score += 6;
         if ((context.assessment?.discoveryQualityScore ?? 100) < 55)
             score -= 8;
-        if (context.forecast?.status === 'commit' || context.forecast?.status === 'likely')
+        if (context.forecast?.status === 'commit' ||
+            context.forecast?.status === 'likely')
             score += 5;
         if (context.forecast?.status === 'at_risk')
             score -= 8;
@@ -3513,7 +3580,8 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
         if (status === 'weak_value_case') {
             return 'Strengthen risk drivers, pain points, buyer outcomes, and success criteria before proposing.';
         }
-        return discoveryGaps[0] || 'Complete discovery before building value justification.';
+        return (discoveryGaps[0] ||
+            'Complete discovery before building value justification.');
     }
     valueHypothesis(entityType, discovery, marketSignalProfile, estimatedMonthlyGuardHours, primaryRisk) {
         const segment = marketSignalProfile?.segment && marketSignalProfile.segment !== 'Unknown'
@@ -3632,7 +3700,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
         const discoveryQualityScore = Math.max(10, Math.min(100, filled * 10));
         const riskSignal = (discovery?.painPoints?.length || 0) * 6 +
             (discovery?.riskConcerns?.length || 0) * 8;
-        const guardSignal = discovery?.guardCount ? Math.min(15, discovery.guardCount * 3) : 0;
+        const guardSignal = discovery?.guardCount
+            ? Math.min(15, discovery.guardCount * 3)
+            : 0;
         const buyerSignal = discovery?.buyerRole ? 10 : 0;
         const timelineSignal = this.timelineSignal(discovery?.decisionTimeline);
         const budgetPenalty = this.budgetPenalty(discovery?.budgetSensitivity);
@@ -3666,7 +3736,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
             objectionRisks: discovery?.objections && discovery.objections.length > 0
                 ? discovery.objections
                 : budgetPenalty > 0
-                    ? ['Budget sensitivity may create price pressure unless risk is quantified.']
+                    ? [
+                        'Budget sensitivity may create price pressure unless risk is quantified.',
+                    ]
                     : [],
             summary: `${priorityTier.toUpperCase()} priority with ${discoveryQualityScore}% discovery completeness and ${closeReadinessScore}% close readiness.`,
         };
@@ -3804,7 +3876,13 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
             missedQuestions.push('How are you weighing budget against risk reduction and accountability?');
             qualificationGaps.push('Budget sensitivity is not understood.');
         }
-        const captured = [hasRisk, hasScope, hasAuthority, hasTimeline, hasBudget].filter(Boolean).length;
+        const captured = [
+            hasRisk,
+            hasScope,
+            hasAuthority,
+            hasTimeline,
+            hasBudget,
+        ].filter(Boolean).length;
         const completenessScore = Math.max(15, captured * 20);
         return {
             completenessScore,
@@ -3812,7 +3890,9 @@ let SalesAcceleratorService = SalesAcceleratorService_1 = class SalesAccelerator
                 'What would make the first 90 days of this security program successful?',
             missedQuestions: missedQuestions.length > 0
                 ? missedQuestions
-                : ['Confirm success criteria and internal handoff needs before ending the call.'],
+                : [
+                    'Confirm success criteria and internal handoff needs before ending the call.',
+                ],
             livePrompts: [
                 'Anchor the conversation on risk before discussing guard hours.',
                 'Map each requested post or patrol to a specific exposure.',

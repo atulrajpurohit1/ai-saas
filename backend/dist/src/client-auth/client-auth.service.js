@@ -135,7 +135,8 @@ let ClientAuthService = class ClientAuthService {
             return tokens;
         }
         catch (error) {
-            if (error instanceof client_1.Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+            if (error instanceof client_1.Prisma.PrismaClientKnownRequestError &&
+                error.code === 'P2002') {
                 throw this.uniqueConflict(error);
             }
             throw error;
@@ -149,7 +150,9 @@ let ClientAuthService = class ClientAuthService {
         return true;
     }
     async refreshTokens(userId, rt) {
-        const user = await this.prisma.clientUser.findUnique({ where: { id: userId } });
+        const user = await this.prisma.clientUser.findUnique({
+            where: { id: userId },
+        });
         if (!user || !user.refreshToken)
             throw new common_1.ForbiddenException('Access Denied');
         const rtMatches = await bcrypt.compare(rt, user.refreshToken);

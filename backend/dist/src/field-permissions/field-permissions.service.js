@@ -103,7 +103,9 @@ let FieldPermissionsService = class FieldPermissionsService {
             await this.auditService.log({
                 tenantId: user.tenantId,
                 userId: user.sub,
-                action: existing ? 'FIELD_PERMISSION_UPDATED' : 'FIELD_PERMISSION_CREATED',
+                action: existing
+                    ? 'FIELD_PERMISSION_UPDATED'
+                    : 'FIELD_PERMISSION_CREATED',
                 entityType: 'FieldPermission',
                 entityId: saved.id,
                 details: `${role.name}: ${item.entity}.${item.field} view=${item.canView} edit=${item.canEdit}`,

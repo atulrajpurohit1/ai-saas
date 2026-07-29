@@ -70,7 +70,9 @@ let WebhooksService = class WebhooksService {
             where: { id: existing.id },
             data: {
                 ...(dto.event_type !== undefined ? { eventType: dto.event_type } : {}),
-                ...(dto.endpoint_url !== undefined ? { endpointUrl: dto.endpoint_url.trim() } : {}),
+                ...(dto.endpoint_url !== undefined
+                    ? { endpointUrl: dto.endpoint_url.trim() }
+                    : {}),
                 ...(dto.status !== undefined ? { status: dto.status } : {}),
             },
         });
@@ -338,18 +340,24 @@ let WebhooksService = class WebhooksService {
         return new Promise((resolve) => setTimeout(resolve, ms));
     }
     serializeWebhook(webhook) {
-        const latestDelivery = Array.isArray(webhook.deliveries) ? webhook.deliveries[0] : null;
+        const latestDelivery = Array.isArray(webhook.deliveries)
+            ? webhook.deliveries[0]
+            : null;
         return {
             id: webhook.id,
             tenant_id: webhook.tenantId,
             event_type: webhook.eventType,
             endpoint_url: webhook.endpointUrl,
-            secret_prefix: webhook.secretKey ? `${webhook.secretKey.slice(0, 12)}...` : null,
+            secret_prefix: webhook.secretKey
+                ? `${webhook.secretKey.slice(0, 12)}...`
+                : null,
             status: webhook.status,
             created_at: webhook.createdAt,
             updated_at: webhook.updatedAt,
             delivery_count: webhook._count?.deliveries || 0,
-            latest_delivery: latestDelivery ? this.serializeDelivery(latestDelivery) : null,
+            latest_delivery: latestDelivery
+                ? this.serializeDelivery(latestDelivery)
+                : null,
         };
     }
     serializeDelivery(delivery) {

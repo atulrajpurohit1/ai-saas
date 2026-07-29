@@ -154,14 +154,16 @@ let SessionsService = class SessionsService {
         return revoked;
     }
     async revokeById(tenantId, sessionId, action = 'SESSION_REVOKED') {
-        return this.prisma.userSession.update({
+        return this.prisma.userSession
+            .update({
             where: { id: sessionId },
             data: {
                 status: 'revoked',
                 refreshTokenHash: null,
                 revokedAt: new Date(),
             },
-        }).then(async (session) => {
+        })
+            .then(async (session) => {
             await this.auditService.log({
                 tenantId,
                 userId: session.userId,
@@ -174,11 +176,13 @@ let SessionsService = class SessionsService {
         });
     }
     absoluteExpiry() {
-        const days = Number(this.configService.get('SESSION_ABSOLUTE_DAYS') || DEFAULT_SESSION_DAYS);
+        const days = Number(this.configService.get('SESSION_ABSOLUTE_DAYS') ||
+            DEFAULT_SESSION_DAYS);
         return new Date(Date.now() + Math.max(1, days) * 24 * 60 * 60 * 1000);
     }
     idleTimeoutMs() {
-        const minutes = Number(this.configService.get('SESSION_IDLE_TIMEOUT_MINUTES') || DEFAULT_IDLE_TIMEOUT_MINUTES);
+        const minutes = Number(this.configService.get('SESSION_IDLE_TIMEOUT_MINUTES') ||
+            DEFAULT_IDLE_TIMEOUT_MINUTES);
         return Math.max(5, minutes) * 60 * 1000;
     }
 };

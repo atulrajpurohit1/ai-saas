@@ -44,7 +44,8 @@ let RolesService = class RolesService {
                 existing.description !== permission.description ||
                 existing.module !== permission.module);
         });
-        if (permissionsToSync.length === 0 && existingPermissions.length === rbac_constants_1.PERMISSIONS.length) {
+        if (permissionsToSync.length === 0 &&
+            existingPermissions.length === rbac_constants_1.PERMISSIONS.length) {
             this.permissionsReady = true;
             return;
         }
@@ -364,7 +365,9 @@ let RolesService = class RolesService {
         await this.auditService.log({
             tenantId: user.tenantId,
             userId: user.sub,
-            action: permissionKeys === undefined ? 'ROLE_UPDATED' : 'ROLE_PERMISSION_CHANGED',
+            action: permissionKeys === undefined
+                ? 'ROLE_UPDATED'
+                : 'ROLE_PERMISSION_CHANGED',
             entityType: 'Role',
             entityId: role.id,
             details: `Role "${role.name}" updated`,
@@ -630,7 +633,9 @@ let RolesService = class RolesService {
         }
     }
     async validatePermissionKeys(permissionKeys) {
-        const keys = [...new Set((permissionKeys || []).map((key) => key.trim()).filter(Boolean))];
+        const keys = [
+            ...new Set((permissionKeys || []).map((key) => key.trim()).filter(Boolean)),
+        ];
         const allowed = new Set(rbac_constants_1.ALL_PERMISSION_KEYS);
         const unknown = keys.filter((key) => !allowed.has(key));
         if (unknown.length > 0) {
@@ -647,7 +652,9 @@ let RolesService = class RolesService {
         await this.prisma.rolePermission.deleteMany({
             where: {
                 roleId,
-                permissionId: { notIn: permissionIds.length > 0 ? permissionIds : ['__none__'] },
+                permissionId: {
+                    notIn: permissionIds.length > 0 ? permissionIds : ['__none__'],
+                },
             },
         });
         if (permissionIds.length === 0)
@@ -723,10 +730,13 @@ let RolesService = class RolesService {
             return legacyRole === client_1.UserRole.FINANCE ? 'Finance' : 'Branch Admin';
         }
         const priority = ['Finance', 'Scheduler', 'Supervisor', 'Branch Admin'];
-        return priority.find((roleName) => roleNames.includes(roleName)) || roleNames[0];
+        return (priority.find((roleName) => roleNames.includes(roleName)) || roleNames[0]);
     }
     slug(value) {
-        return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        return value
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '');
     }
 };
 exports.RolesService = RolesService;

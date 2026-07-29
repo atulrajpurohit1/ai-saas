@@ -40,7 +40,9 @@ let AuthController = class AuthController {
     }
     requestContext(req) {
         return {
-            ipAddress: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip,
+            ipAddress: req.headers['x-forwarded-for']
+                ?.split(',')[0]
+                ?.trim() || req.ip,
             userAgent: req.headers['user-agent'] || null,
         };
     }

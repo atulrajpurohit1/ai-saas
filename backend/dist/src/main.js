@@ -9,7 +9,9 @@ async function bootstrap() {
     app.useGlobalFilters(new prisma_exception_filter_1.PrismaExceptionFilter());
     app.useGlobalPipes(new common_1.ValidationPipe({ whitelist: true, transform: true }));
     app.setGlobalPrefix('api');
-    const configuredOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || '')
+    const configuredOrigins = (process.env.CORS_ORIGINS ||
+        process.env.FRONTEND_URL ||
+        '')
         .split(',')
         .map((origin) => origin.trim())
         .filter(Boolean);

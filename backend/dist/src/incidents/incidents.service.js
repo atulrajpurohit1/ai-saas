@@ -318,7 +318,9 @@ let IncidentsService = class IncidentsService {
             details: `Guard "${assignment.guard.name}" submitted incident "${incident.title}"`,
         });
         const mappedIncident = this.mapIncident(incident);
-        await this.webhooksService.triggerEvent(tenantId, 'incident.created', { incident: mappedIncident });
+        await this.webhooksService.triggerEvent(tenantId, 'incident.created', {
+            incident: mappedIncident,
+        });
         return mappedIncident;
     }
     async findForGuard(tenantId, guardId) {

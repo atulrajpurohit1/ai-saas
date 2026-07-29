@@ -73,7 +73,10 @@ let ProposalsService = class ProposalsService {
             doc.on('error', reject);
             this.brandingService.addPdfHeader(doc, proposal.title, branding);
             doc.moveDown();
-            doc.fontSize(12).fillColor(branding.secondary_color).text(`Generated on: ${new Date().toLocaleDateString()}`, {
+            doc
+                .fontSize(12)
+                .fillColor(branding.secondary_color)
+                .text(`Generated on: ${new Date().toLocaleDateString()}`, {
                 align: 'right',
             });
             doc.moveDown();
@@ -121,7 +124,7 @@ let ProposalsService = class ProposalsService {
                 lead: true,
                 deal: true,
                 client: true,
-                _count: { select: { versions: true } }
+                _count: { select: { versions: true } },
             },
         });
     }
@@ -153,7 +156,8 @@ let ProposalsService = class ProposalsService {
             where: { id },
             data: updateProposalDto,
         });
-        if (updateProposalDto.content && updateProposalDto.content !== existing.content) {
+        if (updateProposalDto.content &&
+            updateProposalDto.content !== existing.content) {
             const nextVersion = existing.versions.length + 1;
             await this.prisma.proposalVersion.create({
                 data: {
@@ -200,7 +204,7 @@ let ProposalsService = class ProposalsService {
     async generateForLead(tenantId, leadId, userId, clientId) {
         const lead = await this.prisma.lead.findFirst({
             where: { id: leadId, tenantId },
-            include: { notes: true, deals: true }
+            include: { notes: true, deals: true },
         });
         if (!lead) {
             throw new common_1.NotFoundException(`Lead with ID ${leadId} not found`);
@@ -219,7 +223,7 @@ let ProposalsService = class ProposalsService {
         const leads = await this.prisma.lead.findMany({
             where: {
                 tenantId,
-                proposals: { none: {} }
+                proposals: { none: {} },
             },
         });
         let generatedCount = 0;

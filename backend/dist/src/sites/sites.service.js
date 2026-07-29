@@ -27,7 +27,11 @@ let SitesService = class SitesService {
             return null;
         }
         const client = await this.prisma.client.findFirst({
-            where: { id: normalizedClientId, tenantId: user.tenantId, ...(0, branch_scope_1.branchWhere)(user) },
+            where: {
+                id: normalizedClientId,
+                tenantId: user.tenantId,
+                ...(0, branch_scope_1.branchWhere)(user),
+            },
             select: { id: true, branchId: true },
         });
         if (!client) {
@@ -102,7 +106,9 @@ let SitesService = class SitesService {
             data: {
                 ...(dto.name !== undefined ? { name: dto.name } : {}),
                 ...(dto.address !== undefined ? { address: dto.address } : {}),
-                ...(dto.instructions !== undefined ? { instructions: dto.instructions } : {}),
+                ...(dto.instructions !== undefined
+                    ? { instructions: dto.instructions }
+                    : {}),
                 ...(clientId !== undefined ? { clientId } : {}),
                 ...(branchId !== undefined ? { branchId } : {}),
             },

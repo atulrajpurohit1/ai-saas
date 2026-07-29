@@ -31,7 +31,11 @@ let ShiftsService = class ShiftsService {
         const checkIn = events.find((event) => event.type === 'CHECK_IN');
         const checkOut = events.find((event) => event.type === 'CHECK_OUT');
         return {
-            attendanceStatus: checkOut ? 'completed' : checkIn ? 'checked_in' : 'not_started',
+            attendanceStatus: checkOut
+                ? 'completed'
+                : checkIn
+                    ? 'checked_in'
+                    : 'not_started',
             checkInTime: checkIn?.timestamp ?? null,
             checkOutTime: checkOut?.timestamp ?? null,
         };
@@ -59,9 +63,9 @@ let ShiftsService = class ShiftsService {
             },
             include: {
                 site: {
-                    select: { name: true }
-                }
-            }
+                    select: { name: true },
+                },
+            },
         });
         await this.auditService.log({
             tenantId: user.tenantId,
@@ -71,7 +75,9 @@ let ShiftsService = class ShiftsService {
             entityId: shift.id,
             details: `Shift created for site "${site.name}" (${dto.requiredGuards} guards)`,
         });
-        await this.webhooksService.triggerEvent(user.tenantId, 'shift.created', { shift });
+        await this.webhooksService.triggerEvent(user.tenantId, 'shift.created', {
+            shift,
+        });
         return shift;
     }
     async findAll(user, requestedBranchId) {
@@ -177,8 +183,7 @@ let ShiftsService = class ShiftsService {
         try {
             const recommendations = await this.recommendationService.recommendGuards(user.tenantId, shiftId, false);
             selectedRecommendation =
-                recommendations.find((recommendation) => recommendation.guard_id === guardId) ??
-                    null;
+                recommendations.find((recommendation) => recommendation.guard_id === guardId) ?? null;
         }
         catch (error) {
             console.warn('Failed to evaluate guard recommendation during assignment:', error instanceof Error ? error.message : error);

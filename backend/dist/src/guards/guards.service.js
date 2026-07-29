@@ -103,7 +103,9 @@ let GuardsService = class GuardsService {
         if (!phone && !email) {
             throw new common_1.BadRequestException('Guard phone or email is required');
         }
-        const passwordHash = dto.password ? await bcrypt.hash(dto.password, 10) : undefined;
+        const passwordHash = dto.password
+            ? await bcrypt.hash(dto.password, 10)
+            : undefined;
         const guard = await this.prisma.guard.create({
             data: {
                 name,
@@ -124,7 +126,9 @@ let GuardsService = class GuardsService {
             details: `Guard "${guard.name}" created`,
         });
         const safeGuard = this.withoutPasswordHash(guard);
-        await this.webhooksService.triggerEvent(user.tenantId, 'guard.created', { guard: safeGuard });
+        await this.webhooksService.triggerEvent(user.tenantId, 'guard.created', {
+            guard: safeGuard,
+        });
         return this.fieldPermissionsService.filterFieldsByPermission(user, 'guard', safeGuard);
     }
     async findAll(user, requestedBranchId) {
@@ -177,7 +181,9 @@ let GuardsService = class GuardsService {
             ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
             ...(dto.phone !== undefined ? { phone } : {}),
             ...(dto.email !== undefined ? { email } : {}),
-            ...(dto.password ? { passwordHash: await bcrypt.hash(dto.password, 10) } : {}),
+            ...(dto.password
+                ? { passwordHash: await bcrypt.hash(dto.password, 10) }
+                : {}),
             ...(branchId !== undefined ? { branchId } : {}),
             ...this.sensitiveGuardData(dto),
         };
