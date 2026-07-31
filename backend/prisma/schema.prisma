@@ -359,6 +359,11 @@ model Rfp {
   address                String?
   operatingHours         String?             @map("operating_hours")
   guardsRequired         Int?                @map("guards_required")
+  pricingModel           String?             @map("pricing_model")
+  requiredPricingItems   Json                @default("[]") @map("required_pricing_items")
+  paymentTerms           String?             @map("payment_terms")
+  pricingValidity        String?             @map("pricing_validity")
+  pricingNotes           String?             @map("pricing_notes")
   additionalRequirements String?             @map("additional_requirements")
   generatedContent       String?             @map("generated_content")
   status                 RfpStatus           @default(DRAFT)

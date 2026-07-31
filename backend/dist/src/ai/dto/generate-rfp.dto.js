@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.GenerateRfpDto = void 0;
 const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
+const create_rfp_dto_1 = require("../../rfp/dto/create-rfp.dto");
 class GenerateRfpDto {
     title;
     clientName;
@@ -28,6 +29,11 @@ class GenerateRfpDto {
     operatingHours;
     guardsRequired;
     additionalRequirements;
+    pricingModel;
+    requiredPricingItems;
+    paymentTerms;
+    pricingValidity;
+    pricingNotes;
 }
 exports.GenerateRfpDto = GenerateRfpDto;
 __decorate([
@@ -118,4 +124,32 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], GenerateRfpDto.prototype, "additionalRequirements", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(create_rfp_dto_1.PRICING_MODELS),
+    __metadata("design:type", String)
+], GenerateRfpDto.prototype, "pricingModel", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], GenerateRfpDto.prototype, "requiredPricingItems", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(200),
+    __metadata("design:type", String)
+], GenerateRfpDto.prototype, "paymentTerms", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(100),
+    __metadata("design:type", String)
+], GenerateRfpDto.prototype, "pricingValidity", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], GenerateRfpDto.prototype, "pricingNotes", void 0);
 //# sourceMappingURL=generate-rfp.dto.js.map

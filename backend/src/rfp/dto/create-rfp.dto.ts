@@ -15,6 +15,14 @@ import {
 export const RFP_STATUSES = ['DRAFT', 'GENERATED', 'FINALIZED'] as const;
 export type RfpStatusValue = (typeof RFP_STATUSES)[number];
 
+export const PRICING_MODELS = [
+  'Hourly',
+  'Monthly',
+  'Annual',
+  'Project Based',
+] as const;
+export type PricingModelValue = (typeof PRICING_MODELS)[number];
+
 export class CreateRfpDto {
   @IsString()
   @IsNotEmpty()
@@ -84,6 +92,29 @@ export class CreateRfpDto {
   @IsInt()
   @Min(0)
   guardsRequired?: number;
+
+  @IsOptional()
+  @IsIn(PRICING_MODELS)
+  pricingModel?: PricingModelValue;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  requiredPricingItems?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  paymentTerms?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  pricingValidity?: string;
+
+  @IsOptional()
+  @IsString()
+  pricingNotes?: string;
 
   @IsOptional()
   @IsString()

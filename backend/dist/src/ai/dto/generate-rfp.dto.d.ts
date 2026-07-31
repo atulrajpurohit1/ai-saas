@@ -1,3 +1,4 @@
+import { PricingModelValue } from '../../rfp/dto/create-rfp.dto';
 export declare class GenerateRfpDto {
     title: string;
     clientName: string;
@@ -14,4 +15,9 @@ export declare class GenerateRfpDto {
     operatingHours?: string;
     guardsRequired?: number;
     additionalRequirements?: string;
+    pricingModel?: PricingModelValue;
+    requiredPricingItems?: string[];
+    paymentTerms?: string;
+    pricingValidity?: string;
+    pricingNotes?: string;
 }

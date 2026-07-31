@@ -9,10 +9,16 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CreateRfpDto = exports.RFP_STATUSES = void 0;
+exports.CreateRfpDto = exports.PRICING_MODELS = exports.RFP_STATUSES = void 0;
 const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
 exports.RFP_STATUSES = ['DRAFT', 'GENERATED', 'FINALIZED'];
+exports.PRICING_MODELS = [
+    'Hourly',
+    'Monthly',
+    'Annual',
+    'Project Based',
+];
 class CreateRfpDto {
     title;
     clientName;
@@ -28,6 +34,11 @@ class CreateRfpDto {
     address;
     operatingHours;
     guardsRequired;
+    pricingModel;
+    requiredPricingItems;
+    paymentTerms;
+    pricingValidity;
+    pricingNotes;
     additionalRequirements;
     generatedContent;
     status;
@@ -116,6 +127,34 @@ __decorate([
     (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
 ], CreateRfpDto.prototype, "guardsRequired", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(exports.PRICING_MODELS),
+    __metadata("design:type", String)
+], CreateRfpDto.prototype, "pricingModel", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], CreateRfpDto.prototype, "requiredPricingItems", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(200),
+    __metadata("design:type", String)
+], CreateRfpDto.prototype, "paymentTerms", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(100),
+    __metadata("design:type", String)
+], CreateRfpDto.prototype, "pricingValidity", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateRfpDto.prototype, "pricingNotes", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),

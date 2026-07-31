@@ -156,6 +156,7 @@ export declare class AiService {
     explainGuardRecommendation(context: string, promptTemplate?: string | null): Promise<string | null>;
     generateCopilotAnswer(context: string): Promise<string | null>;
     private fallbackProposalDraft;
+    private fallbackPricingSection;
     private fallbackRfp;
     private fallbackLeadProposal;
     private fallbackEmailDraft;

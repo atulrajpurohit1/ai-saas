@@ -14,6 +14,28 @@ export const SECURITY_TYPE_OPTIONS = [
   'CCTV Monitoring',
 ] as const;
 
+export const PRICING_MODEL_OPTIONS = [
+  'Hourly',
+  'Monthly',
+  'Annual',
+  'Project Based',
+] as const;
+
+export const PRICING_COMPONENT_OPTIONS = [
+  'Guard Hourly Rate',
+  'Supervisor Rate',
+  'Mobile Patrol Cost',
+  'CCTV Monitoring Cost',
+  'Equipment Cost',
+  'Uniform Cost',
+  'Vehicle Cost',
+  'Overtime Rate',
+  'Weekend Rate',
+  'Holiday Rate',
+  'One-Time Setup Fee',
+  'Monthly Recurring Cost',
+] as const;
+
 export interface EvaluationReport {
   id: string;
   rfpId: string;
@@ -41,6 +63,11 @@ export interface Rfp {
   address: string | null;
   operatingHours: string | null;
   guardsRequired: number | null;
+  pricingModel: string | null;
+  requiredPricingItems: string[];
+  paymentTerms: string | null;
+  pricingValidity: string | null;
+  pricingNotes: string | null;
   additionalRequirements: string | null;
   generatedContent: string | null;
   status: RfpStatus;
@@ -71,6 +98,11 @@ export interface RfpFormInput {
   address?: string;
   operatingHours?: string;
   guardsRequired?: number;
+  pricingModel?: string;
+  requiredPricingItems?: string[];
+  paymentTerms?: string;
+  pricingValidity?: string;
+  pricingNotes?: string;
   additionalRequirements?: string;
 }
 

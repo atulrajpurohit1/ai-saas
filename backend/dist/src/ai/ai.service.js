@@ -521,6 +521,11 @@ let AiService = AiService_1 = class AiService {
       Operating Hours: ${dto.operatingHours || 'Not specified'}
       Guards Required: ${dto.guardsRequired ?? 'Not specified'}
       Additional Requirements: ${dto.additionalRequirements || 'None'}
+      Pricing Model: ${dto.pricingModel || 'Not specified'}
+      Required Pricing Components: ${dto.requiredPricingItems?.length ? dto.requiredPricingItems.join(', ') : 'Not specified'}
+      Payment Terms: ${dto.paymentTerms || 'Not specified'}
+      Pricing Validity Period: ${dto.pricingValidity || 'Not specified'}
+      Pricing Notes: ${dto.pricingNotes || 'None'}
     `;
         const prompt = `
       You are a senior security consultant drafting a formal Request for Proposal (RFP) for contract security guard services.
@@ -538,6 +543,7 @@ let AiService = AiService_1 = class AiService {
       ## Reporting Requirements
       ## Insurance Requirements
       ## Compliance
+      ## Pricing Proposal Requirements
       ## Evaluation Criteria
       ## Proposal Submission Instructions
 
@@ -546,6 +552,13 @@ let AiService = AiService_1 = class AiService {
       - Reference the required security service types, guard count, site count, and operating hours where relevant.
       - Keep pricing generic (do not invent a dollar figure beyond the stated estimated budget).
       - Use Markdown headings (##), short paragraphs, and bullet lists (-) where appropriate.
+
+      For the "Pricing Proposal Requirements" section specifically:
+      - Do NOT invent prices, do NOT estimate costs, and do NOT calculate budgets.
+      - Instead, write professional procurement language instructing the vendor on what pricing information they must submit.
+      - List the required pricing components from the context above (if any were specified) as items the vendor must itemize.
+      - Reference the stated Pricing Model, Payment Terms, and Pricing Validity Period if provided.
+      - Clearly distinguish one-time/setup fees from recurring charges where applicable, and state that all applicable taxes and additional costs must be identified separately.
     `;
         return this.generateText(prompt, 'RFP generation', () => this.fallbackRfp(dto));
     }
@@ -946,6 +959,34 @@ Recommended staffing: ${dto.guardCount} personnel.
       `.trim(),
         };
     }
+    fallbackPricingSection(dto) {
+        const items = dto.requiredPricingItems?.length
+            ? dto.requiredPricingItems
+            : null;
+        const lines = [
+            `The vendor shall submit a comprehensive pricing proposal${dto.pricingModel ? ` on a ${dto.pricingModel} basis` : ''}, itemizing the following${items ? '' : ' cost components relevant to the scope of work'}:`,
+            '',
+            ...(items
+                ? items.map((item) => `- ${item}`)
+                : [
+                    '- Guard hourly rates',
+                    '- Supervisor rates',
+                    '- Equipment and uniform costs',
+                    '- One-time implementation costs',
+                    '- Monthly recurring costs',
+                ]),
+            '',
+            'Pricing shall clearly distinguish one-time/setup fees from recurring charges. All applicable taxes and additional operational costs must be identified separately.',
+            '',
+            `Pricing shall remain valid for ${dto.pricingValidity || 'the period specified by the issuer'}.`,
+            '',
+            `Payment Terms: ${dto.paymentTerms || 'To be specified by the issuer'}.`,
+        ];
+        if (dto.pricingNotes) {
+            lines.push('', dto.pricingNotes);
+        }
+        return lines.join('\n');
+    }
     fallbackRfp(dto) {
         const securityTypes = dto.securityTypes?.length
             ? dto.securityTypes.join(', ')
@@ -979,6 +1020,9 @@ The vendor must carry general liability and workers' compensation insurance meet
 
 ## Compliance
 The vendor must comply with all applicable state licensing, background check, and training requirements for security personnel.
+
+## Pricing Proposal Requirements
+${this.fallbackPricingSection(dto)}
 
 ## Evaluation Criteria
 Proposals will be evaluated on experience, staffing plan, pricing, and compliance with the requirements above.

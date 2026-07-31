@@ -6,7 +6,15 @@ import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import RfpEditor from '@/components/RfpEditor';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { createRfp, generateRfp, markdownToHtml, RfpFormInput, SECURITY_TYPE_OPTIONS } from '@/lib/rfp';
+import {
+  createRfp,
+  generateRfp,
+  markdownToHtml,
+  PRICING_COMPONENT_OPTIONS,
+  PRICING_MODEL_OPTIONS,
+  RfpFormInput,
+  SECURITY_TYPE_OPTIONS,
+} from '@/lib/rfp';
 import { AlertTriangle, ArrowLeft, Loader2, Save, Sparkles } from 'lucide-react';
 
 const inputClass =
@@ -28,6 +36,11 @@ interface RfpFormState {
   address: string;
   operatingHours: string;
   guardsRequired: string;
+  pricingModel: string;
+  requiredPricingItems: string[];
+  paymentTerms: string;
+  pricingValidity: string;
+  pricingNotes: string;
   additionalRequirements: string;
 }
 
@@ -46,6 +59,11 @@ const emptyForm: RfpFormState = {
   address: '',
   operatingHours: '',
   guardsRequired: '',
+  pricingModel: '',
+  requiredPricingItems: [],
+  paymentTerms: '',
+  pricingValidity: '',
+  pricingNotes: '',
   additionalRequirements: '',
 };
 
@@ -65,6 +83,11 @@ function toFormInput(form: RfpFormState): RfpFormInput {
     address: form.address.trim() || undefined,
     operatingHours: form.operatingHours.trim() || undefined,
     guardsRequired: form.guardsRequired ? Number(form.guardsRequired) : undefined,
+    pricingModel: form.pricingModel || undefined,
+    requiredPricingItems: form.requiredPricingItems,
+    paymentTerms: form.paymentTerms.trim() || undefined,
+    pricingValidity: form.pricingValidity.trim() || undefined,
+    pricingNotes: form.pricingNotes.trim() || undefined,
     additionalRequirements: form.additionalRequirements.trim() || undefined,
   };
 }
@@ -89,6 +112,15 @@ export default function NewRfpPage() {
       securityTypes: current.securityTypes.includes(type)
         ? current.securityTypes.filter((item) => item !== type)
         : [...current.securityTypes, type],
+    }));
+  };
+
+  const togglePricingItem = (item: string) => {
+    setForm((current) => ({
+      ...current,
+      requiredPricingItems: current.requiredPricingItems.includes(item)
+        ? current.requiredPricingItems.filter((entry) => entry !== item)
+        : [...current.requiredPricingItems, item],
     }));
   };
 
@@ -265,6 +297,79 @@ export default function NewRfpPage() {
                 onChange={(e) => update('guardsRequired', e.target.value)}
               />
             </div>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
+          <h3 className="mb-4 text-lg font-bold text-white">Pricing Requirements</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label className={labelClass}>Pricing Model</label>
+              <select
+                className={inputClass}
+                value={form.pricingModel}
+                onChange={(e) => update('pricingModel', e.target.value)}
+              >
+                <option value="" className="bg-[#0e0e1a]">Select a pricing model</option>
+                {PRICING_MODEL_OPTIONS.map((option) => (
+                  <option key={option} value={option} className="bg-[#0e0e1a]">
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className={labelClass}>Payment Terms</label>
+              <input
+                placeholder="e.g. Net 30 Days"
+                className={inputClass}
+                value={form.paymentTerms}
+                onChange={(e) => update('paymentTerms', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className={labelClass}>Pricing Validity</label>
+              <input
+                placeholder="e.g. 90 Days"
+                className={inputClass}
+                value={form.pricingValidity}
+                onChange={(e) => update('pricingValidity', e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <label className={labelClass}>Pricing Components</label>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {PRICING_COMPONENT_OPTIONS.map((item) => {
+                const active = form.requiredPricingItems.includes(item);
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => togglePricingItem(item)}
+                    className={`min-h-11 rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                      active
+                        ? 'border-indigo-400/40 bg-indigo-500 text-white shadow-lg shadow-indigo-500/20'
+                        : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                    }`}
+                  >
+                    {item}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <label className={labelClass}>Pricing Notes</label>
+            <textarea
+              rows={3}
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
+              placeholder="Pricing should include all taxes, equipment, insurance, permits, and any additional operational costs. No hidden fees."
+              value={form.pricingNotes}
+              onChange={(e) => update('pricingNotes', e.target.value)}
+            />
           </div>
         </section>
 

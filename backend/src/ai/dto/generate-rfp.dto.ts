@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsIn,
   IsInt,
   IsISO8601,
   IsNotEmpty,
@@ -10,6 +11,10 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import {
+  PRICING_MODELS,
+  PricingModelValue,
+} from '../../rfp/dto/create-rfp.dto';
 
 export class GenerateRfpDto {
   @IsString()
@@ -84,4 +89,27 @@ export class GenerateRfpDto {
   @IsOptional()
   @IsString()
   additionalRequirements?: string;
+
+  @IsOptional()
+  @IsIn(PRICING_MODELS)
+  pricingModel?: PricingModelValue;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  requiredPricingItems?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  paymentTerms?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  pricingValidity?: string;
+
+  @IsOptional()
+  @IsString()
+  pricingNotes?: string;
 }

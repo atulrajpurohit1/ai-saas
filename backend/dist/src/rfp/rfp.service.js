@@ -64,6 +64,14 @@ let RfpService = class RfpService {
             .map((item) => item.trim())
             .filter(Boolean);
     }
+    normalizePricingItems(value) {
+        if (!Array.isArray(value))
+            return [];
+        return value
+            .filter((item) => typeof item === 'string')
+            .map((item) => item.trim())
+            .filter(Boolean);
+    }
     async findRfpOrThrow(tenantId, id) {
         const rfp = await this.prisma.rfp.findFirst({ where: { id, tenantId } });
         if (!rfp) {
@@ -89,6 +97,11 @@ let RfpService = class RfpService {
                 address: dto.address?.trim() || null,
                 operatingHours: dto.operatingHours?.trim() || null,
                 guardsRequired: dto.guardsRequired ?? null,
+                pricingModel: dto.pricingModel ?? null,
+                requiredPricingItems: this.normalizePricingItems(dto.requiredPricingItems),
+                paymentTerms: dto.paymentTerms?.trim() || null,
+                pricingValidity: dto.pricingValidity?.trim() || null,
+                pricingNotes: dto.pricingNotes?.trim() || null,
                 additionalRequirements: dto.additionalRequirements?.trim() || null,
                 generatedContent: dto.generatedContent ?? null,
                 status: dto.status || 'DRAFT',
@@ -195,6 +208,23 @@ let RfpService = class RfpService {
                     : {}),
                 ...(dto.guardsRequired !== undefined
                     ? { guardsRequired: dto.guardsRequired }
+                    : {}),
+                ...(dto.pricingModel !== undefined
+                    ? { pricingModel: dto.pricingModel ?? null }
+                    : {}),
+                ...(dto.requiredPricingItems !== undefined
+                    ? {
+                        requiredPricingItems: this.normalizePricingItems(dto.requiredPricingItems),
+                    }
+                    : {}),
+                ...(dto.paymentTerms !== undefined
+                    ? { paymentTerms: dto.paymentTerms?.trim() || null }
+                    : {}),
+                ...(dto.pricingValidity !== undefined
+                    ? { pricingValidity: dto.pricingValidity?.trim() || null }
+                    : {}),
+                ...(dto.pricingNotes !== undefined
+                    ? { pricingNotes: dto.pricingNotes?.trim() || null }
                     : {}),
                 ...(dto.additionalRequirements !== undefined
                     ? {
