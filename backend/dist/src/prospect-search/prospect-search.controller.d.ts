@@ -22,43 +22,43 @@ export declare class ProspectSearchController {
     importCompany(dto: ImportProspectDto, user: ActiveUser): Promise<import("./types/prospect-search.types").ImportProspectResult>;
     getHistory(user: ActiveUser, limit?: string): Promise<{
         id: string;
-        userId: string;
         tenantId: string;
+        userId: string;
+        provider: string;
         prompt: string;
         filters: import("@prisma/client/runtime/library").JsonValue;
-        provider: string;
         resultCount: number;
         searchedAt: Date;
     }[]>;
     getSavedSearches(user: ActiveUser): Promise<{
         id: string;
-        userId: string;
-        createdAt: Date;
-        tenantId: string;
         name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        userId: string;
         prompt: string;
         filters: import("@prisma/client/runtime/library").JsonValue;
-        updatedAt: Date;
     }[]>;
     createSavedSearch(dto: SaveSearchDto, user: ActiveUser): Promise<{
         id: string;
-        userId: string;
-        createdAt: Date;
-        tenantId: string;
         name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        userId: string;
         prompt: string;
         filters: import("@prisma/client/runtime/library").JsonValue;
-        updatedAt: Date;
     }>;
     renameSavedSearch(id: string, dto: RenameSavedSearchDto, user: ActiveUser): Promise<{
         id: string;
-        userId: string;
-        createdAt: Date;
-        tenantId: string;
         name: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        userId: string;
         prompt: string;
         filters: import("@prisma/client/runtime/library").JsonValue;
-        updatedAt: Date;
     }>;
     removeSavedSearch(id: string, user: ActiveUser): Promise<{
         success: boolean;
