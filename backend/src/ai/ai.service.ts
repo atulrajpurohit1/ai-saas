@@ -98,36 +98,53 @@ export interface AiEvaluationReportDraft {
   fullReportMarkdown: string;
 }
 
-export interface ProspectSearchFilters {
-  industry: string | null;
-  city: string | null;
-  state: string | null;
-  country: string | null;
-  employeeMin: number | null;
-  employeeMax: number | null;
-  revenueRange: string | null;
-  keywords: string[];
-}
-
 export interface ProspectCompanySummary {
   name: string;
-  industry: string;
-  website: string;
-  city: string;
-  state: string;
-  country: string;
-  employeeCount: number;
-  revenueRange: string;
-  description: string;
-  matchScore: number;
+  industry?: string;
+  website?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  employeeCount?: number;
+  revenueRange?: string;
+  description?: string;
 }
 
+export interface ProspectCompanyPersona {
+  name: string;
+  title?: string;
+  description?: string;
+}
+
+export interface ProspectCompanyObjection {
+  objection: string;
+  response: string;
+}
+
+/**
+ * Mirrors BlackPearl's actual playbook result schema (confirmed against the
+ * live API - see blackpearl-insight.provider.ts). companyName is the only
+ * required field; everything else is genuinely optional in real BlackPearl
+ * responses. The Gemini fallback (used only when BlackPearl is unconfigured
+ * or fails) only ever fills the AI-analysis fields it can honestly produce
+ * from general knowledge - it never fabricates keyPersonas,
+ * potentialObjections, contactOverview, or documentUrl, since those are
+ * meant to be real, sourced facts that an LLM cannot credibly invent.
+ */
 export interface ProspectCompanyInsight {
-  whyMatch: string;
-  opportunity: string;
-  outreachStrategy: string;
-  securityNeeds: string;
-  nextConversation: string;
+  companyName: string;
+  domain?: string;
+  website?: string;
+  businessSummary?: string;
+  businessObjective?: string;
+  valueProps: string[];
+  salesAngles: string[];
+  keyPersonas: ProspectCompanyPersona[];
+  potentialObjections: ProspectCompanyObjection[];
+  meetingNoteExample?: string;
+  contactOverview?: string;
+  readinessLevel?: string;
+  documentUrl?: string;
 }
 
 @Injectable()
@@ -1947,113 +1964,6 @@ Complete discovery, confirm scope, and finalize a proposal aligned to the client
     }
   }
 
-  async generateProspectSearchFilters(
-    prompt: string,
-    promptTemplate?: string | null,
-  ): Promise<ProspectSearchFilters> {
-    const trimmedPrompt = prompt.trim();
-    const fallback = this.fallbackProspectSearchFilters(trimmedPrompt);
-
-    if (!this.isAiAvailable()) {
-      if (this.getFallbackEnabled()) return fallback;
-      throw new InternalServerErrorException(
-        this.getUnavailableMessage('prospect search filter generation'),
-      );
-    }
-
-    const renderedPrompt =
-      this.renderPrompt(promptTemplate, { prompt: trimmedPrompt }) ||
-      `
-      You are a B2B prospecting assistant for a company that sells commercial security guard services.
-      Convert the user's request into structured company search filters. Only return JSON.
-
-      USER REQUEST:
-      "${trimmedPrompt}"
-
-      Return exactly this JSON shape:
-      {
-        "industry": "string or null",
-        "city": "string or null",
-        "state": "string or null",
-        "country": "string or null",
-        "employeeMin": 0,
-        "employeeMax": 0,
-        "revenueRange": "string or null, e.g. $10M-$50M",
-        "keywords": ["keyword"]
-      }
-
-      Rules:
-      - Use null for any field that cannot be confidently determined from the request.
-      - employeeMin and employeeMax must be numbers or null, never strings.
-      - keywords should be short, relevant nouns or phrases (max 5), not full sentences.
-      - Do not invent a location, industry, or size the user did not imply.
-    `;
-
-    try {
-      const result = await this.model.generateContent(renderedPrompt);
-      const response = await result.response;
-      const rawText = response.text();
-      const parsed =
-        this.parseJsonFromText<Partial<ProspectSearchFilters>>(rawText);
-
-      return {
-        industry: this.normalizeOptionalString(
-          parsed.industry,
-          fallback.industry,
-        ),
-        city: this.normalizeOptionalString(parsed.city, fallback.city),
-        state: this.normalizeOptionalString(parsed.state, fallback.state),
-        country: this.normalizeOptionalString(parsed.country, fallback.country),
-        employeeMin: this.normalizeOptionalNumber(
-          parsed.employeeMin,
-          fallback.employeeMin,
-        ),
-        employeeMax: this.normalizeOptionalNumber(
-          parsed.employeeMax,
-          fallback.employeeMax,
-        ),
-        revenueRange: this.normalizeOptionalString(
-          parsed.revenueRange,
-          fallback.revenueRange,
-        ),
-        keywords: this.normalizeStringArray(
-          parsed.keywords,
-          fallback.keywords,
-        ).slice(0, 5),
-      };
-    } catch (error) {
-      this.logger.warn(
-        `Prospect search filter generation failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-
-      if (this.getFallbackEnabled()) return fallback;
-
-      throw new InternalServerErrorException(
-        this.getUnavailableMessage('prospect search filter generation'),
-      );
-    }
-  }
-
-  private fallbackProspectSearchFilters(prompt: string): ProspectSearchFilters {
-    return {
-      industry: null,
-      city: null,
-      state: null,
-      country: null,
-      employeeMin: null,
-      employeeMax: null,
-      revenueRange: null,
-      keywords: this.normalizeStringArray(
-        prompt
-          .split(/\s+/)
-          .map((word) => word.replace(/[^a-zA-Z0-9-]/g, ''))
-          .filter((word) => word.length > 3),
-      ),
-    };
-  }
-
   async generateProspectCompanyInsight(
     company: ProspectCompanySummary,
     searchPrompt?: string | null,
@@ -2068,16 +1978,22 @@ Complete discovery, confirm scope, and finalize a proposal aligned to the client
       );
     }
 
-    const context = `
-      Company: ${company.name}
-      Industry: ${company.industry}
-      Location: ${company.city}, ${company.state}, ${company.country}
-      Employees: ${company.employeeCount}
-      Revenue range: ${company.revenueRange}
-      Description: ${company.description}
-      Match score against the search: ${company.matchScore}%
-      ${searchPrompt ? `Original search request: "${searchPrompt}"` : ''}
-    `.trim();
+    const location = [company.city, company.state, company.country]
+      .filter(Boolean)
+      .join(', ');
+    const context = [
+      `Company: ${company.name}`,
+      company.industry ? `Industry: ${company.industry}` : null,
+      location ? `Location: ${location}` : null,
+      company.employeeCount !== undefined
+        ? `Employees: ${company.employeeCount}`
+        : null,
+      company.revenueRange ? `Revenue range: ${company.revenueRange}` : null,
+      company.description ? `Description: ${company.description}` : null,
+      searchPrompt ? `Original search request: "${searchPrompt}"` : null,
+    ]
+      .filter(Boolean)
+      .join('\n      ');
 
     const renderedPrompt =
       this.renderPrompt(promptTemplate, { context }) ||
@@ -2090,16 +2006,17 @@ Complete discovery, confirm scope, and finalize a proposal aligned to the client
 
       Return exactly this JSON shape:
       {
-        "whyMatch": "one concise sentence on why this company matches the search",
-        "opportunity": "one concise sentence on the potential sales opportunity",
-        "outreachStrategy": "one concise recommended outreach strategy",
-        "securityNeeds": "one concise sentence on likely security needs",
-        "nextConversation": "one concise suggested next conversation topic or question"
+        "businessSummary": "1-2 sentences on the company's business and current situation",
+        "businessObjective": "1-2 sentences on why a security-services deal fits their objectives right now",
+        "valueProps": ["short value proposition", "short value proposition"],
+        "salesAngles": ["short recommended sales angle", "short recommended sales angle"],
+        "meetingNoteExample": "one example opening line/question for a first call",
+        "readinessLevel": "one word or short phrase, e.g. 'cold', 'warm', 'flagged'"
       }
 
       Rules:
-      - Keep each field to one sentence.
-      - Base the analysis only on the context provided. Do not invent facts.
+      - Base the analysis only on the context provided. Do not invent facts, names, or citations.
+      - Keep every field short and generic where specifics aren't in the context.
       - Focus on security risk, staffing, and service opportunity relevant to a guard services provider.
     `;
 
@@ -2111,20 +2028,24 @@ Complete discovery, confirm scope, and finalize a proposal aligned to the client
         this.parseJsonFromText<Partial<ProspectCompanyInsight>>(rawText);
 
       return {
-        whyMatch:
-          this.normalizeOptionalString(parsed.whyMatch) ?? fallback.whyMatch,
-        opportunity:
-          this.normalizeOptionalString(parsed.opportunity) ??
-          fallback.opportunity,
-        outreachStrategy:
-          this.normalizeOptionalString(parsed.outreachStrategy) ??
-          fallback.outreachStrategy,
-        securityNeeds:
-          this.normalizeOptionalString(parsed.securityNeeds) ??
-          fallback.securityNeeds,
-        nextConversation:
-          this.normalizeOptionalString(parsed.nextConversation) ??
-          fallback.nextConversation,
+        companyName: company.name,
+        website: company.website,
+        businessSummary:
+          this.normalizeOptionalString(parsed.businessSummary) ??
+          fallback.businessSummary,
+        businessObjective:
+          this.normalizeOptionalString(parsed.businessObjective) ??
+          fallback.businessObjective,
+        valueProps: this.normalizeStringArray(parsed.valueProps, fallback.valueProps),
+        salesAngles: this.normalizeStringArray(parsed.salesAngles, fallback.salesAngles),
+        keyPersonas: [],
+        potentialObjections: [],
+        meetingNoteExample:
+          this.normalizeOptionalString(parsed.meetingNoteExample) ??
+          fallback.meetingNoteExample,
+        readinessLevel:
+          this.normalizeOptionalString(parsed.readinessLevel) ??
+          fallback.readinessLevel,
       };
     } catch (error) {
       this.logger.warn(
@@ -2141,18 +2062,43 @@ Complete discovery, confirm scope, and finalize a proposal aligned to the client
     }
   }
 
+  /**
+   * Deliberately shallow: only the AI-analysis fields a general-knowledge
+   * model can honestly produce. keyPersonas/potentialObjections/
+   * contactOverview/documentUrl are left empty rather than fabricated -
+   * those are meant to be real, sourced facts BlackPearl's own research
+   * provides, not something to invent as a fallback.
+   */
   private fallbackProspectCompanyInsight(
     company: ProspectCompanySummary,
   ): ProspectCompanyInsight {
+    const profileParts = [
+      company.employeeCount !== undefined
+        ? `${company.employeeCount}-employee`
+        : null,
+      company.industry ? company.industry.toLowerCase() : null,
+      'company',
+      company.city && company.state
+        ? `in ${company.city}, ${company.state}`
+        : null,
+    ].filter(Boolean);
+
     return {
-      whyMatch: `${company.name} aligns with the search based on its industry, size, and location.`,
-      opportunity: `A ${company.employeeCount}-employee ${company.industry.toLowerCase()} company in ${company.city}, ${company.state} may need scalable coverage.`,
-      outreachStrategy:
-        'Open with a risk-focused conversation about current coverage gaps before discussing pricing.',
-      securityNeeds:
-        'Likely needs guard staffing, access control, or patrol coverage typical for this industry and size.',
-      nextConversation:
+      companyName: company.name,
+      website: company.website,
+      businessSummary: `${company.name} aligns with the search based on the information available.`,
+      businessObjective: `A ${profileParts.join(' ')} may need scalable coverage.`,
+      valueProps: [
+        'Risk-focused coverage assessment before any pricing conversation.',
+      ],
+      salesAngles: [
+        'Open with a risk-focused conversation about current coverage gaps.',
+      ],
+      keyPersonas: [],
+      potentialObjections: [],
+      meetingNoteExample:
         'Ask about their current security provider and any recent incidents or coverage gaps.',
+      readinessLevel: 'unknown',
     };
   }
 }

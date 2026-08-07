@@ -10,13 +10,10 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SaveSearchDto = void 0;
-const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
-const prospect_search_filters_dto_1 = require("./prospect-search-filters.dto");
 class SaveSearchDto {
     name;
     prompt;
-    filters;
 }
 exports.SaveSearchDto = SaveSearchDto;
 __decorate([
@@ -30,9 +27,4 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], SaveSearchDto.prototype, "prompt", void 0);
-__decorate([
-    (0, class_validator_1.ValidateNested)(),
-    (0, class_transformer_1.Type)(() => prospect_search_filters_dto_1.ProspectSearchFiltersDto),
-    __metadata("design:type", prospect_search_filters_dto_1.ProspectSearchFiltersDto)
-], SaveSearchDto.prototype, "filters", void 0);
 //# sourceMappingURL=save-search.dto.js.map

@@ -222,10 +222,10 @@ export declare class PublicApiController {
         dueDate: Date | null;
         internalAdjustments: string | null;
         siteId: string;
+        totalHours: number;
         invoiceNumber: string;
         billingStartDate: Date;
         billingEndDate: Date;
-        totalHours: number;
         hourlyRate: number;
         subtotal: number;
         tax: number;

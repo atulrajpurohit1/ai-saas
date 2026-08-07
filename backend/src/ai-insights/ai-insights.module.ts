@@ -3,15 +3,17 @@ import { AiGovernanceModule } from '../ai-governance/ai-governance.module';
 import { AiModule } from '../ai/ai.module';
 import { AiMonitoringModule } from '../ai-monitoring/ai-monitoring.module';
 import { PrismaModule } from '../prisma/prisma.module';
-import { AiInsightsController } from './ai-insights.controller';
-import { AiInsightsService } from './ai-insights.service';
 import { RecommendationService } from './recommendation.service';
-import { RevenueInsightsService } from './revenue-insights.service';
 
+/**
+ * AiInsightsController/AiInsightsService/RevenueInsightsService (the standalone
+ * AI Insights dashboard) were removed along with its frontend pages - out of
+ * approved client scope. RecommendationService stays: Shifts depends on it for
+ * guard recommendations.
+ */
 @Module({
   imports: [PrismaModule, AiModule, AiMonitoringModule, AiGovernanceModule],
-  controllers: [AiInsightsController],
-  providers: [AiInsightsService, RevenueInsightsService, RecommendationService],
-  exports: [AiInsightsService, RevenueInsightsService, RecommendationService],
+  providers: [RecommendationService],
+  exports: [RecommendationService],
 })
 export class AiInsightsModule {}

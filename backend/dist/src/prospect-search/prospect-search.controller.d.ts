@@ -13,7 +13,8 @@ export declare class ProspectSearchController {
     private readonly historyService;
     private readonly savedSearchService;
     constructor(prospectSearchService: ProspectSearchService, historyService: ProspectSearchHistoryService, savedSearchService: SavedProspectSearchService);
-    search(dto: SearchProspectsDto, user: ActiveUser): Promise<import("./types/prospect-search.types").ProspectSearchResult>;
+    search(dto: SearchProspectsDto, user: ActiveUser): Promise<import("./types/prospect-search.types").ProspectSearchSubmission>;
+    getSearchJobStatus(jobId: string, user: ActiveUser): Promise<import("./types/prospect-search.types").ProspectSearchJobStatusResult>;
     recordView(dto: ViewProspectDto, user: ActiveUser): Promise<{
         ok: true;
     }>;
@@ -21,43 +22,43 @@ export declare class ProspectSearchController {
     importCompany(dto: ImportProspectDto, user: ActiveUser): Promise<import("./types/prospect-search.types").ImportProspectResult>;
     getHistory(user: ActiveUser, limit?: string): Promise<{
         id: string;
-        tenantId: string;
         userId: string;
+        tenantId: string;
         prompt: string;
-        provider: string;
         filters: import("@prisma/client/runtime/library").JsonValue;
+        provider: string;
         resultCount: number;
         searchedAt: Date;
     }[]>;
     getSavedSearches(user: ActiveUser): Promise<{
         id: string;
-        name: string;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string;
         userId: string;
+        createdAt: Date;
+        tenantId: string;
+        name: string;
         prompt: string;
         filters: import("@prisma/client/runtime/library").JsonValue;
+        updatedAt: Date;
     }[]>;
     createSavedSearch(dto: SaveSearchDto, user: ActiveUser): Promise<{
         id: string;
-        name: string;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string;
         userId: string;
+        createdAt: Date;
+        tenantId: string;
+        name: string;
         prompt: string;
         filters: import("@prisma/client/runtime/library").JsonValue;
+        updatedAt: Date;
     }>;
     renameSavedSearch(id: string, dto: RenameSavedSearchDto, user: ActiveUser): Promise<{
         id: string;
-        name: string;
-        createdAt: Date;
-        updatedAt: Date;
-        tenantId: string;
         userId: string;
+        createdAt: Date;
+        tenantId: string;
+        name: string;
         prompt: string;
         filters: import("@prisma/client/runtime/library").JsonValue;
+        updatedAt: Date;
     }>;
     removeSavedSearch(id: string, user: ActiveUser): Promise<{
         success: boolean;

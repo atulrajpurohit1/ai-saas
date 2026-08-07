@@ -2,21 +2,17 @@ import { ConfigService } from '@nestjs/config';
 import { ProspectSearchCacheService } from './prospect-search-cache.service';
 import { ProspectSearchResult } from './types/prospect-search.types';
 
-function buildResult(prompt: string): ProspectSearchResult {
+function buildResult(companyName: string): ProspectSearchResult {
   return {
-    prompt,
-    filters: {
-      industry: null,
-      city: null,
-      state: null,
-      country: null,
-      employeeMin: null,
-      employeeMax: null,
-      revenueRange: null,
-      keywords: [],
+    companyName,
+    insight: {
+      companyName,
+      businessSummary: 'Growing security services company.',
+      valueProps: [],
+      salesAngles: [],
+      keyPersonas: [],
+      potentialObjections: [],
     },
-    results: [],
-    totalMatches: 0,
   };
 }
 
@@ -72,7 +68,7 @@ describe('ProspectSearchCacheService', () => {
     cache.set('tenant-1', 'Find security companies', 'mock', result);
 
     expect(
-      cache.get('tenant-1', 'Find security companies', 'apollo'),
+      cache.get('tenant-1', 'Find security companies', 'blackpearl'),
     ).toBeNull();
   });
 

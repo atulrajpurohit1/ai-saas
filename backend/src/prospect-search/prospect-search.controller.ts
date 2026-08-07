@@ -44,6 +44,15 @@ export class ProspectSearchController {
     return this.prospectSearchService.search(dto, user);
   }
 
+  @Get('search/:jobId')
+  @RequirePermission('prospect_search.view', 'prospect_search.search')
+  getSearchJobStatus(
+    @Param('jobId') jobId: string,
+    @GetUser() user: ActiveUser,
+  ) {
+    return this.prospectSearchService.getSearchJobStatus(jobId, user);
+  }
+
   @Post('view')
   @RequirePermission('prospect_search.view', 'prospect_search.search')
   @HttpCode(HttpStatus.OK)
@@ -99,7 +108,6 @@ export class ProspectSearchController {
       userId: user.sub,
       name: dto.name,
       prompt: dto.prompt,
-      filters: dto.filters,
     });
   }
 

@@ -19,87 +19,6 @@ function mockGeminiResponse(service: AiService, text: string) {
   (service as unknown as { genAI: unknown }).genAI = {};
 }
 
-describe('AiService.generateProspectSearchFilters', () => {
-  it('returns heuristic fallback filters when Gemini is unavailable and fallback is enabled', async () => {
-    const service = buildService({ ENABLE_AI_FALLBACK: 'true' });
-
-    const filters = await service.generateProspectSearchFilters(
-      'Find security companies in Texas',
-    );
-
-    expect(filters.industry).toBeNull();
-    expect(filters.keywords).toEqual(
-      expect.arrayContaining(['Find', 'security', 'companies', 'Texas']),
-    );
-  });
-
-  it('throws when Gemini is unavailable and fallback is disabled', async () => {
-    const service = buildService({});
-
-    await expect(
-      service.generateProspectSearchFilters('Find security companies in Texas'),
-    ).rejects.toThrow();
-  });
-
-  it('parses structured filters from a valid Gemini JSON response', async () => {
-    const service = buildService({ GEMINI_API_KEY: 'test-key' });
-    mockGeminiResponse(
-      service,
-      '```json\n' +
-        JSON.stringify({
-          industry: 'Security Services',
-          city: null,
-          state: 'Texas',
-          country: 'United States',
-          employeeMin: 50,
-          employeeMax: 200,
-          revenueRange: '$10M-$50M',
-          keywords: ['security', 'guard'],
-        }) +
-        '\n```',
-    );
-
-    const filters = await service.generateProspectSearchFilters(
-      'Find security companies in Texas with 50-200 employees',
-    );
-
-    expect(filters).toEqual({
-      industry: 'Security Services',
-      city: null,
-      state: 'Texas',
-      country: 'United States',
-      employeeMin: 50,
-      employeeMax: 200,
-      revenueRange: '$10M-$50M',
-      keywords: ['security', 'guard'],
-    });
-  });
-
-  it('falls back gracefully when Gemini returns malformed JSON and fallback is enabled', async () => {
-    const service = buildService({
-      GEMINI_API_KEY: 'test-key',
-      ENABLE_AI_FALLBACK: 'true',
-    });
-    mockGeminiResponse(service, 'not valid json');
-
-    const filters = await service.generateProspectSearchFilters(
-      'Find security companies',
-    );
-
-    expect(filters.industry).toBeNull();
-    expect(filters.keywords.length).toBeGreaterThan(0);
-  });
-
-  it('throws when Gemini returns malformed JSON and fallback is disabled', async () => {
-    const service = buildService({ GEMINI_API_KEY: 'test-key' });
-    mockGeminiResponse(service, 'not valid json');
-
-    await expect(
-      service.generateProspectSearchFilters('Find security companies'),
-    ).rejects.toThrow();
-  });
-});
-
 describe('AiService.generateProspectCompanyInsight', () => {
   const company: ProspectCompanySummary = {
     name: 'Lone Star Guard Services',
@@ -111,7 +30,6 @@ describe('AiService.generateProspectCompanyInsight', () => {
     employeeCount: 120,
     revenueRange: '$10M-$50M',
     description: 'Provides commercial security guard services across Texas.',
-    matchScore: 80,
   };
 
   it('returns a static fallback insight when Gemini is unavailable and fallback is enabled', async () => {
@@ -119,8 +37,10 @@ describe('AiService.generateProspectCompanyInsight', () => {
 
     const insight = await service.generateProspectCompanyInsight(company);
 
-    expect(insight.whyMatch).toContain(company.name);
-    expect(insight.nextConversation).toEqual(expect.any(String));
+    expect(insight.companyName).toBe(company.name);
+    expect(insight.businessSummary).toContain(company.name);
+    expect(insight.keyPersonas).toEqual([]);
+    expect(insight.potentialObjections).toEqual([]);
   });
 
   it('throws when Gemini is unavailable and fallback is disabled', async () => {
@@ -136,11 +56,12 @@ describe('AiService.generateProspectCompanyInsight', () => {
     mockGeminiResponse(
       service,
       JSON.stringify({
-        whyMatch: 'Matches industry, size, and location criteria.',
-        opportunity: 'Growing security firm may need scalable staffing.',
-        outreachStrategy: 'Lead with a risk-reduction conversation.',
-        securityNeeds: 'Likely needs guard staffing and patrol coverage.',
-        nextConversation: 'Ask about their current security provider.',
+        businessSummary: 'Growing security firm expanding regional coverage.',
+        businessObjective: 'Needs scalable guard staffing to support growth.',
+        valueProps: ['Risk-reduction assessment before pricing.'],
+        salesAngles: ['Lead with a risk-reduction conversation.'],
+        meetingNoteExample: 'Ask about their current security provider.',
+        readinessLevel: 'warm',
       }),
     );
 
@@ -150,11 +71,16 @@ describe('AiService.generateProspectCompanyInsight', () => {
     );
 
     expect(insight).toEqual({
-      whyMatch: 'Matches industry, size, and location criteria.',
-      opportunity: 'Growing security firm may need scalable staffing.',
-      outreachStrategy: 'Lead with a risk-reduction conversation.',
-      securityNeeds: 'Likely needs guard staffing and patrol coverage.',
-      nextConversation: 'Ask about their current security provider.',
+      companyName: company.name,
+      website: company.website,
+      businessSummary: 'Growing security firm expanding regional coverage.',
+      businessObjective: 'Needs scalable guard staffing to support growth.',
+      valueProps: ['Risk-reduction assessment before pricing.'],
+      salesAngles: ['Lead with a risk-reduction conversation.'],
+      keyPersonas: [],
+      potentialObjections: [],
+      meetingNoteExample: 'Ask about their current security provider.',
+      readinessLevel: 'warm',
     });
   });
 
@@ -167,7 +93,7 @@ describe('AiService.generateProspectCompanyInsight', () => {
 
     const insight = await service.generateProspectCompanyInsight(company);
 
-    expect(insight.whyMatch).toContain(company.name);
+    expect(insight.businessSummary).toContain(company.name);
   });
 
   it('throws when Gemini returns malformed JSON and fallback is disabled', async () => {

@@ -14,7 +14,6 @@ const validCompany = {
   employeeCount: 120,
   revenueRange: '$10M-$50M',
   description: 'Provides commercial security guard services across Texas.',
-  matchScore: 80,
 };
 
 describe('ImportProspectDto', () => {

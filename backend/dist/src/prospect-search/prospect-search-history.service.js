@@ -14,9 +14,6 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
-function toJsonValue(value) {
-    return JSON.parse(JSON.stringify(value ?? null));
-}
 let ProspectSearchHistoryService = class ProspectSearchHistoryService {
     prisma;
     constructor(prisma) {
@@ -28,7 +25,7 @@ let ProspectSearchHistoryService = class ProspectSearchHistoryService {
                 tenantId: input.tenantId,
                 userId: input.userId,
                 prompt: input.prompt,
-                filters: toJsonValue(input.filters),
+                filters: {},
                 provider: input.provider,
                 resultCount: input.resultCount,
             },

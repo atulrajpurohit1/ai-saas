@@ -3,23 +3,11 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { SaveSearchDto } from './save-search.dto';
 
-const validFilters = {
-  industry: 'Security Services',
-  city: null,
-  state: 'Texas',
-  country: null,
-  employeeMin: 50,
-  employeeMax: 200,
-  revenueRange: null,
-  keywords: ['security'],
-};
-
 describe('SaveSearchDto', () => {
   it('accepts a well-formed save-search payload', async () => {
     const dto = plainToInstance(SaveSearchDto, {
-      name: 'Texas security prospects',
-      prompt: 'Find security companies in Texas',
-      filters: validFilters,
+      name: 'Lone Star Guard Services',
+      prompt: 'Lone Star Guard Services',
     });
 
     const errors = await validate(dto);
@@ -30,8 +18,7 @@ describe('SaveSearchDto', () => {
   it('rejects a payload missing a name', async () => {
     const dto = plainToInstance(SaveSearchDto, {
       name: '',
-      prompt: 'Find security companies in Texas',
-      filters: validFilters,
+      prompt: 'Lone Star Guard Services',
     });
 
     const errors = await validate(dto);
@@ -39,11 +26,10 @@ describe('SaveSearchDto', () => {
     expect(errors.length).toBeGreaterThan(0);
   });
 
-  it('rejects a payload with invalid nested filters', async () => {
+  it('rejects a payload missing a prompt', async () => {
     const dto = plainToInstance(SaveSearchDto, {
-      name: 'Texas security prospects',
-      prompt: 'Find security companies in Texas',
-      filters: { ...validFilters, employeeMin: -5 },
+      name: 'Lone Star Guard Services',
+      prompt: '',
     });
 
     const errors = await validate(dto);
@@ -54,8 +40,7 @@ describe('SaveSearchDto', () => {
   it('rejects a name longer than the maximum length', async () => {
     const dto = plainToInstance(SaveSearchDto, {
       name: 'a'.repeat(121),
-      prompt: 'Find security companies in Texas',
-      filters: validFilters,
+      prompt: 'Lone Star Guard Services',
     });
 
     const errors = await validate(dto);

@@ -2,18 +2,21 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import {
   AlertTriangle,
   Building2,
   CheckCircle2,
   DollarSign,
   ExternalLink,
+  FileText,
   Globe,
+  HelpCircle,
+  Info,
   Loader2,
   MapPin,
+  MessageSquareQuote,
   Sparkles,
+  Target,
   UserPlus,
   Users,
   X,
@@ -29,18 +32,15 @@ import {
   recordProspectView,
 } from '@/lib/prospect-search';
 
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-
-function matchScoreClass(score: number) {
-  if (score >= 85) return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
-  if (score >= 70) return 'border-sky-500/30 bg-sky-500/10 text-sky-300';
-  if (score >= 50) return 'border-amber-500/30 bg-amber-500/10 text-amber-300';
-  return 'border-rose-500/30 bg-rose-500/10 text-rose-300';
-}
-
 type ImportPhase = 'idle' | 'importing' | 'duplicate' | 'success';
+
+function readinessLevelClass(level: string) {
+  const normalized = level.toLowerCase();
+  if (normalized.includes('hot')) return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
+  if (normalized.includes('warm')) return 'border-amber-500/30 bg-amber-500/10 text-amber-300';
+  if (normalized.includes('flag')) return 'border-rose-500/30 bg-rose-500/10 text-rose-300';
+  return 'border-white/10 bg-white/5 text-slate-300';
+}
 
 interface ProspectDetailsDrawerProps {
   company: ProspectCompany | null;
@@ -133,6 +133,16 @@ export default function ProspectDetailsDrawer({
 
   if (!company) return null;
 
+  const hasProfileData = Boolean(
+    company.industry ||
+      company.city ||
+      company.state ||
+      company.employeeCount !== undefined ||
+      company.revenueRange ||
+      company.website ||
+      company.description,
+  );
+
   const handleImport = async (force: boolean) => {
     setImportPhase('importing');
     setImportError('');
@@ -182,56 +192,69 @@ export default function ProspectDetailsDrawer({
         </div>
 
         <div className="flex-1 space-y-6 p-5">
-          <section>
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300">
-                {company.industry}
-              </span>
-              <span
-                className={cn(
-                  'rounded-full border px-3 py-1 text-xs font-bold',
-                  matchScoreClass(company.matchScore),
+          {hasProfileData && (
+            <section>
+              {company.industry && (
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300">
+                    {company.industry}
+                  </span>
+                </div>
+              )}
+
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-3 text-sm">
+                {(company.city || company.state) && (
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <MapPin size={14} className="shrink-0" aria-hidden="true" />
+                    <span>{[company.city, company.state].filter(Boolean).join(', ')}</span>
+                  </div>
                 )}
-              >
-                {company.matchScore}% Match
-              </span>
-            </div>
+                {company.employeeCount !== undefined && (
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <Users size={14} className="shrink-0" aria-hidden="true" />
+                    <span>{company.employeeCount.toLocaleString()} Employees</span>
+                  </div>
+                )}
+                {company.revenueRange && (
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <DollarSign size={14} className="shrink-0" aria-hidden="true" />
+                    <span>{company.revenueRange}</span>
+                  </div>
+                )}
+                {company.website && (
+                  <a
+                    href={company.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-indigo-300 transition hover:text-indigo-200"
+                  >
+                    <Globe size={14} className="shrink-0" aria-hidden="true" />
+                    <span className="truncate">Website</span>
+                    <ExternalLink size={12} aria-hidden="true" />
+                  </a>
+                )}
+              </dl>
 
-            <dl className="grid grid-cols-2 gap-x-3 gap-y-3 text-sm">
-              <div className="flex items-center gap-2 text-slate-400">
-                <MapPin size={14} className="shrink-0" aria-hidden="true" />
-                <span>
-                  {company.city}, {company.state}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-400">
-                <Users size={14} className="shrink-0" aria-hidden="true" />
-                <span>{company.employeeCount.toLocaleString()} Employees</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-400">
-                <DollarSign size={14} className="shrink-0" aria-hidden="true" />
-                <span>{company.revenueRange}</span>
-              </div>
-              <a
-                href={company.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-indigo-300 transition hover:text-indigo-200"
-              >
-                <Globe size={14} className="shrink-0" aria-hidden="true" />
-                <span className="truncate">Website</span>
-                <ExternalLink size={12} aria-hidden="true" />
-              </a>
-            </dl>
-
-            <p className="mt-4 text-sm leading-6 text-slate-400">{company.description}</p>
-          </section>
+              {company.description && (
+                <p className="mt-4 text-sm leading-6 text-slate-400">{company.description}</p>
+              )}
+            </section>
+          )}
 
           <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-white">
-              <Sparkles size={16} className="text-indigo-300" aria-hidden="true" />
-              AI Summary
-            </h3>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="flex items-center gap-2 text-sm font-bold text-white">
+                <Sparkles size={16} className="text-indigo-300" aria-hidden="true" />
+                AI Playbook
+              </h3>
+              {insight?.readinessLevel && (
+                <span
+                  className={`rounded-full border px-3 py-1 text-xs font-bold capitalize ${readinessLevelClass(insight.readinessLevel)}`}
+                >
+                  {insight.readinessLevel}
+                </span>
+              )}
+            </div>
 
             {insightLoading && (
               <div className="flex items-center gap-3 py-4 text-sm text-slate-400">
@@ -251,28 +274,118 @@ export default function ProspectDetailsDrawer({
             )}
 
             {!insightLoading && !insightError && insight && (
-              <ul className="space-y-3 text-sm leading-6 text-slate-300">
-                <li>
-                  <span className="font-bold text-white">Why this matches: </span>
-                  {insight.whyMatch}
-                </li>
-                <li>
-                  <span className="font-bold text-white">Opportunity: </span>
-                  {insight.opportunity}
-                </li>
-                <li>
-                  <span className="font-bold text-white">Outreach strategy: </span>
-                  {insight.outreachStrategy}
-                </li>
-                <li>
-                  <span className="font-bold text-white">Security needs: </span>
-                  {insight.securityNeeds}
-                </li>
-                <li>
-                  <span className="font-bold text-white">Next conversation: </span>
-                  {insight.nextConversation}
-                </li>
-              </ul>
+              <div className="space-y-5 text-sm leading-6 text-slate-300">
+                {(insight.businessSummary || insight.businessObjective) && (
+                  <div className="space-y-2">
+                    {insight.businessSummary && <p>{insight.businessSummary}</p>}
+                    {insight.businessObjective && <p>{insight.businessObjective}</p>}
+                  </div>
+                )}
+
+                {insight.valueProps.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                      <Target size={13} aria-hidden="true" />
+                      Value Props
+                    </h4>
+                    <ul className="list-disc space-y-1 pl-5">
+                      {insight.valueProps.map((prop, index) => (
+                        <li key={index}>{prop}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {insight.salesAngles.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                      <Target size={13} aria-hidden="true" />
+                      Sales Angles
+                    </h4>
+                    <ul className="list-disc space-y-1 pl-5">
+                      {insight.salesAngles.map((angle, index) => (
+                        <li key={index}>{angle}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {insight.keyPersonas.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                      <Users size={13} aria-hidden="true" />
+                      Key Personas
+                    </h4>
+                    <div className="space-y-3">
+                      {insight.keyPersonas.map((persona, index) => (
+                        <div key={index} className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
+                          <p className="font-bold text-white">
+                            {persona.name}
+                            {persona.title && (
+                              <span className="ml-1 font-normal text-slate-400">— {persona.title}</span>
+                            )}
+                          </p>
+                          {persona.description && (
+                            <p className="mt-1 text-slate-400">{persona.description}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {insight.potentialObjections.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                      <HelpCircle size={13} aria-hidden="true" />
+                      Potential Objections
+                    </h4>
+                    <div className="space-y-3">
+                      {insight.potentialObjections.map((item, index) => (
+                        <div key={index} className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
+                          <p className="font-bold text-white">&ldquo;{item.objection}&rdquo;</p>
+                          <p className="mt-1 text-slate-400">{item.response}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {insight.meetingNoteExample && (
+                  <div>
+                    <h4 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                      <MessageSquareQuote size={13} aria-hidden="true" />
+                      Meeting Note Example
+                    </h4>
+                    <blockquote className="border-l-2 border-indigo-400/40 pl-3 italic text-slate-400">
+                      {insight.meetingNoteExample}
+                    </blockquote>
+                  </div>
+                )}
+
+                {insight.contactOverview && (
+                  <div>
+                    <h4 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                      <Info size={13} aria-hidden="true" />
+                      Contact Overview
+                    </h4>
+                    <p className="text-slate-400">{insight.contactOverview}</p>
+                  </div>
+                )}
+
+                {insight.documentUrl && /^https?:\/\//.test(insight.documentUrl) && (
+                  <a
+                    href={insight.documentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-indigo-300 transition hover:text-indigo-200"
+                  >
+                    <FileText size={14} className="shrink-0" aria-hidden="true" />
+                    View full playbook
+                    <ExternalLink size={12} aria-hidden="true" />
+                  </a>
+                )}
+              </div>
             )}
           </section>
 

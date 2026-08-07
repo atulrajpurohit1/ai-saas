@@ -12,13 +12,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SearchProspectsDto = void 0;
 const class_validator_1 = require("class-validator");
 class SearchProspectsDto {
-    prompt;
+    companyName;
 }
 exports.SearchProspectsDto = SearchProspectsDto;
 __decorate([
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.MinLength)(5),
-    (0, class_validator_1.MaxLength)(500),
+    (0, class_validator_1.MinLength)(1),
+    (0, class_validator_1.MaxLength)(200),
     __metadata("design:type", String)
-], SearchProspectsDto.prototype, "prompt", void 0);
+], SearchProspectsDto.prototype, "companyName", void 0);
 //# sourceMappingURL=search-prospects.dto.js.map

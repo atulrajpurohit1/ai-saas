@@ -40,11 +40,8 @@ const finance_module_1 = require("./finance/finance.module");
 const timesheets_module_1 = require("./timesheets/timesheets.module");
 const rate_cards_module_1 = require("./rate-cards/rate-cards.module");
 const ai_insights_module_1 = require("./ai-insights/ai-insights.module");
-const ai_actions_module_1 = require("./ai-actions/ai-actions.module");
 const ai_monitoring_module_1 = require("./ai-monitoring/ai-monitoring.module");
 const ai_governance_module_1 = require("./ai-governance/ai-governance.module");
-const ai_copilot_module_1 = require("./ai-copilot/ai-copilot.module");
-const ai_predictions_module_1 = require("./ai-predictions/ai-predictions.module");
 const branches_module_1 = require("./branches/branches.module");
 const roles_module_1 = require("./roles/roles.module");
 const api_keys_module_1 = require("./api-keys/api-keys.module");
@@ -58,9 +55,6 @@ const sessions_module_1 = require("./sessions/sessions.module");
 const branding_module_1 = require("./branding/branding.module");
 const billing_module_1 = require("./billing/billing.module");
 const sales_accelerator_module_1 = require("./sales-accelerator/sales-accelerator.module");
-const sales_automation_module_1 = require("./sales-automation/sales-automation.module");
-const sales_delivery_module_1 = require("./sales-delivery/sales-delivery.module");
-const sales_imports_module_1 = require("./sales-imports/sales-imports.module");
 const patrols_module_1 = require("./patrols/patrols.module");
 const rfp_module_1 = require("./rfp/rfp.module");
 const vendors_module_1 = require("./vendors/vendors.module");
@@ -88,9 +82,6 @@ exports.AppModule = AppModule = __decorate([
             branding_module_1.BrandingModule,
             billing_module_1.BillingModule,
             sales_accelerator_module_1.SalesAcceleratorModule,
-            sales_automation_module_1.SalesAutomationModule,
-            sales_delivery_module_1.SalesDeliveryModule,
-            sales_imports_module_1.SalesImportsModule,
             prospect_search_module_1.ProspectSearchModule,
             users_module_1.UsersModule,
             auth_module_1.AuthModule,
@@ -105,11 +96,8 @@ exports.AppModule = AppModule = __decorate([
             invoice_disputes_module_1.InvoiceDisputesModule,
             finance_module_1.FinanceModule,
             ai_insights_module_1.AiInsightsModule,
-            ai_actions_module_1.AiActionsModule,
             ai_governance_module_1.AiGovernanceModule,
             ai_monitoring_module_1.AiMonitoringModule,
-            ai_copilot_module_1.AiCopilotModule,
-            ai_predictions_module_1.AiPredictionsModule,
             timesheets_module_1.TimesheetsModule,
             rate_cards_module_1.RateCardsModule,
             leads_module_1.LeadsModule,

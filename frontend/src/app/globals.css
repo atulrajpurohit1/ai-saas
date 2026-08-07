@@ -134,7 +134,7 @@ code {
     overflow: hidden;
   }
 
-  .responsive-table tr + tr {
+  .responsive-table tr+tr {
     margin-top: 0.75rem;
   }
 

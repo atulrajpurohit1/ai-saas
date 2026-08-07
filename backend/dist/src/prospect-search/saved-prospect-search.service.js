@@ -13,9 +13,6 @@ exports.SavedProspectSearchService = void 0;
 const common_1 = require("@nestjs/common");
 const audit_service_1 = require("../audit/audit.service");
 const prisma_service_1 = require("../prisma/prisma.service");
-function toJsonValue(value) {
-    return JSON.parse(JSON.stringify(value ?? null));
-}
 let SavedProspectSearchService = class SavedProspectSearchService {
     prisma;
     auditService;
@@ -36,7 +33,7 @@ let SavedProspectSearchService = class SavedProspectSearchService {
                 userId: input.userId,
                 name: input.name.trim(),
                 prompt: input.prompt,
-                filters: toJsonValue(input.filters),
+                filters: {},
             },
         });
         await this.auditService.log({

@@ -13,7 +13,6 @@ const validCompany = {
   employeeCount: 120,
   revenueRange: '$10M-$50M',
   description: 'Provides commercial security guard services across Texas.',
-  matchScore: 80,
 };
 
 describe('ProspectCompanyDto', () => {
@@ -25,21 +24,21 @@ describe('ProspectCompanyDto', () => {
     expect(errors).toHaveLength(0);
   });
 
+  it('accepts a payload with only the required id and name', async () => {
+    const dto = plainToInstance(ProspectCompanyDto, {
+      id: 'co-1',
+      name: 'Lone Star Guard Services',
+    });
+
+    const errors = await validate(dto);
+
+    expect(errors).toHaveLength(0);
+  });
+
   it('rejects a payload missing a required field', async () => {
     const { name, ...withoutName } = validCompany;
     void name;
     const dto = plainToInstance(ProspectCompanyDto, withoutName);
-
-    const errors = await validate(dto);
-
-    expect(errors.length).toBeGreaterThan(0);
-  });
-
-  it('rejects a matchScore above 100', async () => {
-    const dto = plainToInstance(ProspectCompanyDto, {
-      ...validCompany,
-      matchScore: 150,
-    });
 
     const errors = await validate(dto);
 

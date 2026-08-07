@@ -31,11 +31,8 @@ import { FinanceModule } from './finance/finance.module';
 import { TimesheetsModule } from './timesheets/timesheets.module';
 import { RateCardsModule } from './rate-cards/rate-cards.module';
 import { AiInsightsModule } from './ai-insights/ai-insights.module';
-import { AiActionsModule } from './ai-actions/ai-actions.module';
 import { AiMonitoringModule } from './ai-monitoring/ai-monitoring.module';
 import { AiGovernanceModule } from './ai-governance/ai-governance.module';
-import { AiCopilotModule } from './ai-copilot/ai-copilot.module';
-import { AiPredictionsModule } from './ai-predictions/ai-predictions.module';
 import { BranchesModule } from './branches/branches.module';
 import { RolesModule } from './roles/roles.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
@@ -49,9 +46,6 @@ import { SessionsModule } from './sessions/sessions.module';
 import { BrandingModule } from './branding/branding.module';
 import { BillingModule } from './billing/billing.module';
 import { SalesAcceleratorModule } from './sales-accelerator/sales-accelerator.module';
-import { SalesAutomationModule } from './sales-automation/sales-automation.module';
-import { SalesDeliveryModule } from './sales-delivery/sales-delivery.module';
-import { SalesImportsModule } from './sales-imports/sales-imports.module';
 import { PatrolsModule } from './patrols/patrols.module';
 import { RfpModule } from './rfp/rfp.module';
 import { VendorsModule } from './vendors/vendors.module';
@@ -76,9 +70,6 @@ import { ProspectSearchModule } from './prospect-search/prospect-search.module';
     BrandingModule,
     BillingModule,
     SalesAcceleratorModule,
-    SalesAutomationModule,
-    SalesDeliveryModule,
-    SalesImportsModule,
     ProspectSearchModule,
     UsersModule,
     AuthModule,
@@ -93,11 +84,8 @@ import { ProspectSearchModule } from './prospect-search/prospect-search.module';
     InvoiceDisputesModule,
     FinanceModule,
     AiInsightsModule,
-    AiActionsModule,
     AiGovernanceModule,
     AiMonitoringModule,
-    AiCopilotModule,
-    AiPredictionsModule,
     TimesheetsModule,
     RateCardsModule,
     LeadsModule,

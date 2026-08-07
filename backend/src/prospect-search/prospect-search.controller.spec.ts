@@ -8,6 +8,7 @@ describe('ProspectSearchController', () => {
   let controller: ProspectSearchController;
   let service: {
     search: jest.Mock;
+    getSearchJobStatus: jest.Mock;
     recordView: jest.Mock;
     getCompanyInsight: jest.Mock;
     importCompany: jest.Mock;
@@ -29,27 +30,30 @@ describe('ProspectSearchController', () => {
   beforeEach(() => {
     service = {
       search: jest.fn().mockResolvedValue({
-        prompt: 'Find security companies',
-        filters: {
-          industry: null,
-          city: null,
-          state: null,
-          country: null,
-          employeeMin: null,
-          employeeMax: null,
-          revenueRange: null,
-          keywords: [],
+        status: 'pending',
+        jobId: 'job-1',
+        companyName: 'Lone Star Guard Services',
+      }),
+      getSearchJobStatus: jest.fn().mockResolvedValue({
+        status: 'completed',
+        companyName: 'Lone Star Guard Services',
+        insight: {
+          companyName: 'Lone Star Guard Services',
+          businessSummary: 'x',
+          valueProps: [],
+          salesAngles: [],
+          keyPersonas: [],
+          potentialObjections: [],
         },
-        results: [],
-        totalMatches: 0,
       }),
       recordView: jest.fn().mockResolvedValue({ ok: true }),
       getCompanyInsight: jest.fn().mockResolvedValue({
-        whyMatch: 'x',
-        opportunity: 'x',
-        outreachStrategy: 'x',
-        securityNeeds: 'x',
-        nextConversation: 'x',
+        companyName: 'Lone Star Guard Services',
+        businessSummary: 'x',
+        valueProps: [],
+        salesAngles: [],
+        keyPersonas: [],
+        potentialObjections: [],
       }),
       importCompany: jest.fn().mockResolvedValue({
         duplicate: false,
@@ -82,12 +86,23 @@ describe('ProspectSearchController', () => {
   });
 
   it('delegates search requests to the service with the DTO and active user', async () => {
-    const dto = { prompt: 'Find security companies in Texas' };
+    const dto = { companyName: 'Lone Star Guard Services' };
 
     const result = await controller.search(dto, user);
 
     expect(service.search).toHaveBeenCalledWith(dto, user);
-    expect(result.totalMatches).toBe(0);
+    expect(result).toEqual({
+      status: 'pending',
+      jobId: 'job-1',
+      companyName: 'Lone Star Guard Services',
+    });
+  });
+
+  it('delegates job-status polling to the service with the job id and active user', async () => {
+    const result = await controller.getSearchJobStatus('job-1', user);
+
+    expect(service.getSearchJobStatus).toHaveBeenCalledWith('job-1', user);
+    expect(result.status).toBe('completed');
   });
 
   it('delegates view requests to the service with the DTO and active user', async () => {
@@ -112,7 +127,6 @@ describe('ProspectSearchController', () => {
         employeeCount: 120,
         revenueRange: '$10M-$50M',
         description: 'desc',
-        matchScore: 80,
       },
     };
 
@@ -134,7 +148,6 @@ describe('ProspectSearchController', () => {
         employeeCount: 120,
         revenueRange: '$10M-$50M',
         description: 'desc',
-        matchScore: 80,
       },
     };
 
@@ -168,18 +181,8 @@ describe('ProspectSearchController', () => {
 
   it('delegates saved-search creation with the tenant/user and DTO fields', async () => {
     const dto = {
-      name: 'Texas security prospects',
-      prompt: 'Find security companies in Texas',
-      filters: {
-        industry: null,
-        city: null,
-        state: 'Texas',
-        country: null,
-        employeeMin: null,
-        employeeMax: null,
-        revenueRange: null,
-        keywords: [],
-      },
+      name: 'Lone Star Guard Services',
+      prompt: 'Lone Star Guard Services',
     };
 
     await controller.createSavedSearch(dto, user);
@@ -189,7 +192,6 @@ describe('ProspectSearchController', () => {
       userId: 'user-1',
       name: dto.name,
       prompt: dto.prompt,
-      filters: dto.filters,
     });
   });
 

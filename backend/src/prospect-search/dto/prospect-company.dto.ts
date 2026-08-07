@@ -1,4 +1,4 @@
-import { IsInt, IsNotEmpty, IsString, Max, Min } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 
 export class ProspectCompanyDto {
   @IsString()
@@ -9,40 +9,36 @@ export class ProspectCompanyDto {
   @IsNotEmpty()
   name: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  industry: string;
+  industry?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  website: string;
+  website?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  city: string;
+  city?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  state: string;
+  state?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  country: string;
+  country?: string;
 
+  @IsOptional()
   @IsInt()
   @Min(0)
-  employeeCount: number;
+  employeeCount?: number;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  revenueRange: string;
+  revenueRange?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  description: string;
-
-  @IsInt()
-  @Min(0)
-  @Max(100)
-  matchScore: number;
+  description?: string;
 }

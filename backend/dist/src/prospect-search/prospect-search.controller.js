@@ -40,6 +40,9 @@ let ProspectSearchController = class ProspectSearchController {
     search(dto, user) {
         return this.prospectSearchService.search(dto, user);
     }
+    getSearchJobStatus(jobId, user) {
+        return this.prospectSearchService.getSearchJobStatus(jobId, user);
+    }
     recordView(dto, user) {
         return this.prospectSearchService.recordView(dto, user);
     }
@@ -61,7 +64,6 @@ let ProspectSearchController = class ProspectSearchController {
             userId: user.sub,
             name: dto.name,
             prompt: dto.prompt,
-            filters: dto.filters,
         });
     }
     renameSavedSearch(id, dto, user) {
@@ -83,6 +85,15 @@ __decorate([
     __metadata("design:paramtypes", [search_prospects_dto_1.SearchProspectsDto, Object]),
     __metadata("design:returntype", void 0)
 ], ProspectSearchController.prototype, "search", null);
+__decorate([
+    (0, common_1.Get)('search/:jobId'),
+    (0, permissions_decorator_1.RequirePermission)('prospect_search.view', 'prospect_search.search'),
+    __param(0, (0, common_1.Param)('jobId')),
+    __param(1, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], ProspectSearchController.prototype, "getSearchJobStatus", null);
 __decorate([
     (0, common_1.Post)('view'),
     (0, permissions_decorator_1.RequirePermission)('prospect_search.view', 'prospect_search.search'),

@@ -1,12 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { ProspectSearchFilters } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
-
-function toJsonValue(value: unknown): Prisma.InputJsonValue {
-  return JSON.parse(JSON.stringify(value ?? null)) as Prisma.InputJsonValue;
-}
 
 /**
  * Saved searches are tenant-shared resources, matching how Leads/Deals/Notes
@@ -33,7 +27,6 @@ export class SavedProspectSearchService {
     userId: string;
     name: string;
     prompt: string;
-    filters: ProspectSearchFilters;
   }) {
     const saved = await this.prisma.savedProspectSearch.create({
       data: {
@@ -41,7 +34,7 @@ export class SavedProspectSearchService {
         userId: input.userId,
         name: input.name.trim(),
         prompt: input.prompt,
-        filters: toJsonValue(input.filters),
+        filters: {},
       },
     });
 

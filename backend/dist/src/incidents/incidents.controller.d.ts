@@ -20,7 +20,7 @@ export declare class IncidentsController {
         title: string;
         description: string;
         severity: string;
-        status: "approved" | "rejected" | "under_review" | "submitted";
+        status: "approved" | "rejected" | "submitted" | "under_review";
         occurredAt: Date;
         attachmentUrl: string | null;
         notes: string | null;
@@ -67,7 +67,7 @@ export declare class IncidentsController {
         title: string;
         description: string;
         severity: string;
-        status: "approved" | "rejected" | "under_review" | "submitted";
+        status: "approved" | "rejected" | "submitted" | "under_review";
         occurredAt: Date;
         attachmentUrl: string | null;
         notes: string | null;
@@ -114,7 +114,7 @@ export declare class IncidentsController {
         title: string;
         description: string;
         severity: string;
-        status: "approved" | "rejected" | "under_review" | "submitted";
+        status: "approved" | "rejected" | "submitted" | "under_review";
         occurredAt: Date;
         attachmentUrl: string | null;
         notes: string | null;
@@ -161,7 +161,7 @@ export declare class IncidentsController {
         title: string;
         description: string;
         severity: string;
-        status: "approved" | "rejected" | "under_review" | "submitted";
+        status: "approved" | "rejected" | "submitted" | "under_review";
         occurredAt: Date;
         attachmentUrl: string | null;
         notes: string | null;

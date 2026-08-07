@@ -370,19 +370,7 @@ export const PERMISSIONS: PermissionDefinition[] = [
   {
     key: 'ai.view',
     name: 'View AI',
-    description: 'Access AI insights and copilots.',
-    module: 'ai',
-  },
-  {
-    key: 'ai.manage',
-    name: 'Manage AI',
-    description: 'Manage AI predictions.',
-    module: 'ai',
-  },
-  {
-    key: 'ai.governance',
-    name: 'AI governance',
-    description: 'Manage AI prompts and audit.',
+    description: 'Access AI Sales features (Prospect Search, Sales Accelerator, Sales Calls).',
     module: 'ai',
   },
   {

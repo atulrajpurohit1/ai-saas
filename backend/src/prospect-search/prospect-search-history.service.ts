@@ -1,14 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { ProspectSearchFilters } from '../ai/ai.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
-
-function toJsonValue(value: unknown): Prisma.InputJsonValue {
-  return JSON.parse(JSON.stringify(value ?? null)) as Prisma.InputJsonValue;
-}
 
 @Injectable()
 export class ProspectSearchHistoryService {
@@ -18,7 +12,6 @@ export class ProspectSearchHistoryService {
     tenantId: string;
     userId: string;
     prompt: string;
-    filters: ProspectSearchFilters;
     provider: string;
     resultCount: number;
   }) {
@@ -27,7 +20,7 @@ export class ProspectSearchHistoryService {
         tenantId: input.tenantId,
         userId: input.userId,
         prompt: input.prompt,
-        filters: toJsonValue(input.filters),
+        filters: {},
         provider: input.provider,
         resultCount: input.resultCount,
       },

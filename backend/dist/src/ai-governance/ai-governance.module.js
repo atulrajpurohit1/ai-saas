@@ -10,16 +10,13 @@ exports.AiGovernanceModule = void 0;
 const common_1 = require("@nestjs/common");
 const audit_module_1 = require("../audit/audit.module");
 const prisma_module_1 = require("../prisma/prisma.module");
-const ai_audit_controller_1 = require("./ai-audit.controller");
 const ai_governance_service_1 = require("./ai-governance.service");
-const ai_prompts_controller_1 = require("./ai-prompts.controller");
 let AiGovernanceModule = class AiGovernanceModule {
 };
 exports.AiGovernanceModule = AiGovernanceModule;
 exports.AiGovernanceModule = AiGovernanceModule = __decorate([
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule],
-        controllers: [ai_prompts_controller_1.AiPromptsController, ai_audit_controller_1.AiAuditController],
         providers: [ai_governance_service_1.AiGovernanceService],
         exports: [ai_governance_service_1.AiGovernanceService],
     })

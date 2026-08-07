@@ -1,12 +1,4 @@
-import { Type } from 'class-transformer';
-import {
-  IsNotEmpty,
-  IsString,
-  MaxLength,
-  MinLength,
-  ValidateNested,
-} from 'class-validator';
-import { ProspectSearchFiltersDto } from './prospect-search-filters.dto';
+import { IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class SaveSearchDto {
   @IsString()
@@ -17,8 +9,4 @@ export class SaveSearchDto {
   @IsString()
   @IsNotEmpty()
   prompt!: string;
-
-  @ValidateNested()
-  @Type(() => ProspectSearchFiltersDto)
-  filters!: ProspectSearchFiltersDto;
 }

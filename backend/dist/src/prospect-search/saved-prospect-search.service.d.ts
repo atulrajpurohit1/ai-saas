@@ -1,5 +1,3 @@
-import { Prisma } from '@prisma/client';
-import { ProspectSearchFilters } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 export declare class SavedProspectSearchService {
@@ -14,14 +12,13 @@ export declare class SavedProspectSearchService {
         tenantId: string;
         userId: string;
         prompt: string;
-        filters: Prisma.JsonValue;
+        filters: import("@prisma/client/runtime/library").JsonValue;
     }[]>;
     create(input: {
         tenantId: string;
         userId: string;
         name: string;
         prompt: string;
-        filters: ProspectSearchFilters;
     }): Promise<{
         id: string;
         name: string;
@@ -30,7 +27,7 @@ export declare class SavedProspectSearchService {
         tenantId: string;
         userId: string;
         prompt: string;
-        filters: Prisma.JsonValue;
+        filters: import("@prisma/client/runtime/library").JsonValue;
     }>;
     rename(id: string, tenantId: string, userId: string, name: string): Promise<{
         id: string;
@@ -40,7 +37,7 @@ export declare class SavedProspectSearchService {
         tenantId: string;
         userId: string;
         prompt: string;
-        filters: Prisma.JsonValue;
+        filters: import("@prisma/client/runtime/library").JsonValue;
     }>;
     remove(id: string, tenantId: string, userId: string): Promise<{
         success: boolean;

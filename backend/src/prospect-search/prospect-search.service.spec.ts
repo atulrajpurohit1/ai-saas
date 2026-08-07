@@ -1,58 +1,41 @@
+import { ServiceUnavailableException } from '@nestjs/common';
 import { AiService } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { LeadsService } from '../leads/leads.service';
 import { NotesService } from '../notes/notes.service';
 import { ProspectCompanyDto } from './dto/prospect-company.dto';
-import { CompanyRepository } from './interfaces/prospect-search.interface';
+import { BlackPearlInsightProvider } from './providers/blackpearl-insight.provider';
 import { ProspectSearchCacheService } from './prospect-search-cache.service';
 import { ProspectSearchHistoryService } from './prospect-search-history.service';
 import { ProspectSearchService } from './prospect-search.service';
-import { ProspectCompany } from './types/prospect-search.types';
 
 describe('ProspectSearchService', () => {
   let service: ProspectSearchService;
-  let aiService: {
-    generateProspectSearchFilters: jest.Mock;
-    generateProspectCompanyInsight: jest.Mock;
-  };
+  let aiService: { generateProspectCompanyInsight: jest.Mock };
   let auditService: { log: jest.Mock };
   let leadsService: { create: jest.Mock; findPotentialDuplicate: jest.Mock };
   let notesService: { create: jest.Mock };
   let cacheService: { get: jest.Mock; set: jest.Mock };
   let historyService: { record: jest.Mock };
-  let companyRepository: CompanyRepository;
-  const providerName = 'apollo';
+  let blackPearlInsightProvider: {
+    isConfigured: jest.Mock;
+    getPlaybook: jest.Mock;
+    submitPlaybookJob: jest.Mock;
+    getJobResult: jest.Mock;
+  };
 
   const tenantId = 'tenant-1';
   const user: ActiveUser = { sub: 'user-1', tenantId, role: 'admin' };
 
-  const sampleCompanies: ProspectCompany[] = [
-    {
-      id: 'co-1',
-      name: 'Lone Star Guard Services',
-      industry: 'Security Services',
-      website: 'https://lonestarguard.example.com',
-      city: 'Austin',
-      state: 'Texas',
-      country: 'United States',
-      employeeCount: 120,
-      revenueRange: '$10M-$50M',
-      description: 'Provides commercial security guard services across Texas.',
-    },
-    {
-      id: 'co-2',
-      name: 'Pacific Retail Solutions',
-      industry: 'Retail',
-      website: 'https://pacificretail.example.com',
-      city: 'Los Angeles',
-      state: 'California',
-      country: 'United States',
-      employeeCount: 300,
-      revenueRange: '$100M-$500M',
-      description: 'Multi-location retail chain specializing in home goods.',
-    },
-  ];
+  const insight = {
+    companyName: 'Lone Star Guard Services',
+    businessSummary: 'Growing security services company.',
+    valueProps: ['Risk-reduction assessment.'],
+    salesAngles: ['Lead with risk reduction.'],
+    keyPersonas: [],
+    potentialObjections: [],
+  };
 
   const prospectDto: ProspectCompanyDto = {
     id: 'co-1',
@@ -65,14 +48,10 @@ describe('ProspectSearchService', () => {
     employeeCount: 120,
     revenueRange: '$10M-$50M',
     description: 'Provides commercial security guard services across Texas.',
-    matchScore: 80,
   };
 
   beforeEach(() => {
-    aiService = {
-      generateProspectSearchFilters: jest.fn(),
-      generateProspectCompanyInsight: jest.fn(),
-    };
+    aiService = { generateProspectCompanyInsight: jest.fn() };
     auditService = { log: jest.fn().mockResolvedValue({ id: 'audit-1' }) };
     leadsService = {
       create: jest.fn().mockResolvedValue({
@@ -92,8 +71,17 @@ describe('ProspectSearchService', () => {
     historyService = {
       record: jest.fn().mockResolvedValue({ id: 'history-1' }),
     };
-    companyRepository = {
-      search: jest.fn().mockResolvedValue(sampleCompanies),
+    blackPearlInsightProvider = {
+      isConfigured: jest.fn().mockReturnValue(true),
+      getPlaybook: jest.fn().mockResolvedValue(insight),
+      submitPlaybookJob: jest.fn().mockResolvedValue('job-1'),
+      getJobResult: jest.fn().mockResolvedValue({
+        jobId: 'job-1',
+        status: 'completed',
+        progress: 100,
+        companyName: 'Acme Corp',
+        insight,
+      }),
     };
 
     service = new ProspectSearchService(
@@ -103,179 +91,153 @@ describe('ProspectSearchService', () => {
       notesService as unknown as NotesService,
       cacheService as unknown as ProspectSearchCacheService,
       historyService as unknown as ProspectSearchHistoryService,
-      companyRepository,
-      providerName,
+      blackPearlInsightProvider as unknown as BlackPearlInsightProvider,
     );
   });
 
-  it('ranks companies matching the AI-generated filters above non-matching ones', async () => {
-    aiService.generateProspectSearchFilters.mockResolvedValue({
-      industry: 'Security Services',
-      city: null,
-      state: 'Texas',
-      country: 'United States',
-      employeeMin: 50,
-      employeeMax: 200,
-      revenueRange: null,
-      keywords: ['security'],
+  describe('search', () => {
+    it('submits a BlackPearl job and returns a pending result with the job id', async () => {
+      const result = await service.search(
+        { companyName: 'Lone Star Guard Services' },
+        user,
+      );
+
+      expect(result).toEqual({
+        status: 'pending',
+        jobId: 'job-1',
+        companyName: 'Lone Star Guard Services',
+      });
+      expect(blackPearlInsightProvider.submitPlaybookJob).toHaveBeenCalledWith(
+        { name: 'Lone Star Guard Services' },
+      );
     });
 
-    const result = await service.search(
-      { prompt: 'Find security companies in Texas with 50-200 employees' },
-      user,
-    );
+    it('trims the submitted company name', async () => {
+      await service.search({ companyName: '  Acme Corp  ' }, user);
 
-    expect(result.results).toHaveLength(1);
-    expect(result.results[0].id).toBe('co-1');
-    expect(result.results[0].matchScore).toBeGreaterThan(0);
-    expect(result.totalMatches).toBe(1);
+      expect(blackPearlInsightProvider.submitPlaybookJob).toHaveBeenCalledWith({
+        name: 'Acme Corp',
+      });
+    });
+
+    it('throws a clear, BlackPearl-specific error when BLACKPEARL_API_KEY is not configured', async () => {
+      blackPearlInsightProvider.isConfigured.mockReturnValue(false);
+
+      await expect(
+        service.search({ companyName: 'Acme Corp' }, user),
+      ).rejects.toThrow(ServiceUnavailableException);
+      await expect(
+        service.search({ companyName: 'Acme Corp' }, user),
+      ).rejects.toThrow(/BLACKPEARL_API_KEY/);
+      expect(blackPearlInsightProvider.submitPlaybookJob).not.toHaveBeenCalled();
+    });
+
+    it('throws a clear error when BlackPearl cannot even start the job', async () => {
+      blackPearlInsightProvider.submitPlaybookJob.mockResolvedValue(null);
+
+      await expect(
+        service.search({ companyName: 'Acme Corp' }, user),
+      ).rejects.toThrow(ServiceUnavailableException);
+    });
+
+    it('logs a tenant-scoped audit event for every submitted job', async () => {
+      await service.search({ companyName: 'Acme Corp' }, user);
+
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId,
+          userId: user.sub,
+          action: 'PROSPECT_SEARCH_PERFORMED',
+          entityType: 'PROSPECT_SEARCH',
+        }),
+      );
+    });
+
+    it('returns the cached result immediately and skips submitting a new job on a cache hit', async () => {
+      const cachedResult = { companyName: 'Acme Corp', insight };
+      cacheService.get.mockReturnValue(cachedResult);
+
+      const result = await service.search({ companyName: 'Acme Corp' }, user);
+
+      expect(result).toEqual({
+        status: 'completed',
+        companyName: 'Acme Corp',
+        insight,
+      });
+      expect(blackPearlInsightProvider.submitPlaybookJob).not.toHaveBeenCalled();
+      expect(historyService.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId,
+          userId: user.sub,
+          prompt: 'Acme Corp',
+        }),
+      );
+    });
   });
 
-  it('excludes companies that do not match any filter or keyword', async () => {
-    aiService.generateProspectSearchFilters.mockResolvedValue({
-      industry: 'Security Services',
-      city: null,
-      state: 'Texas',
-      country: 'United States',
-      employeeMin: 50,
-      employeeMax: 200,
-      revenueRange: null,
-      keywords: ['security'],
+  describe('getSearchJobStatus', () => {
+    it('returns pending with progress while the job is still running', async () => {
+      blackPearlInsightProvider.getJobResult.mockResolvedValue({
+        jobId: 'job-1',
+        status: 'pending',
+        progress: 42,
+        companyName: 'Acme Corp',
+        insight: null,
+      });
+
+      const result = await service.getSearchJobStatus('job-1', user);
+
+      expect(result).toEqual({ status: 'pending', progress: 42 });
+      expect(cacheService.set).not.toHaveBeenCalled();
+      expect(historyService.record).not.toHaveBeenCalled();
     });
 
-    const result = await service.search(
-      { prompt: 'Find security companies in Texas' },
-      user,
-    );
+    it('caches and records history once the job completes', async () => {
+      const result = await service.getSearchJobStatus('job-1', user);
 
-    expect(result.results.map((company) => company.id)).not.toContain('co-2');
-  });
-
-  it('returns no results when nothing in the provider results matches', async () => {
-    aiService.generateProspectSearchFilters.mockResolvedValue({
-      industry: 'Aerospace',
-      city: null,
-      state: 'Wyoming',
-      country: 'United States',
-      employeeMin: 10000,
-      employeeMax: 20000,
-      revenueRange: '$1B+',
-      keywords: ['satellites'],
-    });
-
-    const result = await service.search(
-      { prompt: 'Find aerospace companies' },
-      user,
-    );
-
-    expect(result.results).toHaveLength(0);
-    expect(result.totalMatches).toBe(0);
-  });
-
-  it('logs a tenant-scoped audit event for every search', async () => {
-    aiService.generateProspectSearchFilters.mockResolvedValue({
-      industry: null,
-      city: null,
-      state: null,
-      country: null,
-      employeeMin: null,
-      employeeMax: null,
-      revenueRange: null,
-      keywords: [],
-    });
-
-    await service.search({ prompt: 'Find any companies' }, user);
-
-    expect(auditService.log).toHaveBeenCalledWith(
-      expect.objectContaining({
+      expect(result).toEqual({
+        status: 'completed',
+        companyName: 'Acme Corp',
+        insight,
+      });
+      expect(cacheService.set).toHaveBeenCalledWith(
         tenantId,
-        userId: user.sub,
-        action: 'PROSPECT_SEARCH_PERFORMED',
-        entityType: 'PROSPECT_SEARCH',
-      }),
-    );
-  });
-
-  it('delegates filter generation to AiService rather than calling Gemini directly', async () => {
-    aiService.generateProspectSearchFilters.mockResolvedValue({
-      industry: null,
-      city: null,
-      state: null,
-      country: null,
-      employeeMin: null,
-      employeeMax: null,
-      revenueRange: null,
-      keywords: [],
+        'Acme Corp',
+        'blackpearl',
+        { companyName: 'Acme Corp', insight },
+      );
+      expect(historyService.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId,
+          userId: user.sub,
+          prompt: 'Acme Corp',
+          provider: 'blackpearl',
+        }),
+      );
     });
 
-    await service.search({ prompt: 'Find any companies' }, user);
+    it('returns failed without caching anything when the job errors out', async () => {
+      blackPearlInsightProvider.getJobResult.mockResolvedValue({
+        jobId: 'job-1',
+        status: 'failed',
+        progress: null,
+        companyName: 'Acme Corp',
+        insight: null,
+      });
 
-    expect(aiService.generateProspectSearchFilters).toHaveBeenCalledWith(
-      'Find any companies',
-    );
-  });
+      const result = await service.getSearchJobStatus('job-1', user);
 
-  it('records search history on a cache miss', async () => {
-    aiService.generateProspectSearchFilters.mockResolvedValue({
-      industry: null,
-      city: null,
-      state: null,
-      country: null,
-      employeeMin: null,
-      employeeMax: null,
-      revenueRange: null,
-      keywords: [],
+      expect(result.status).toBe('failed');
+      expect(cacheService.set).not.toHaveBeenCalled();
     });
 
-    await service.search({ prompt: 'Find any companies' }, user);
+    it('throws when the status check itself fails', async () => {
+      blackPearlInsightProvider.getJobResult.mockResolvedValue(null);
 
-    expect(historyService.record).toHaveBeenCalledWith(
-      expect.objectContaining({
-        tenantId,
-        userId: user.sub,
-        prompt: 'Find any companies',
-        provider: providerName,
-      }),
-    );
-    expect(cacheService.set).toHaveBeenCalledWith(
-      tenantId,
-      'Find any companies',
-      providerName,
-      expect.objectContaining({ prompt: 'Find any companies' }),
-    );
-  });
-
-  it('returns the cached result and skips AI/provider calls on a cache hit', async () => {
-    const cachedResult = {
-      prompt: 'Find any companies',
-      filters: {
-        industry: null,
-        city: null,
-        state: null,
-        country: null,
-        employeeMin: null,
-        employeeMax: null,
-        revenueRange: null,
-        keywords: [],
-      },
-      results: [],
-      totalMatches: 0,
-    };
-    cacheService.get.mockReturnValue(cachedResult);
-
-    const result = await service.search({ prompt: 'Find any companies' }, user);
-
-    expect(result).toBe(cachedResult);
-    expect(aiService.generateProspectSearchFilters).not.toHaveBeenCalled();
-    // eslint-disable-next-line @typescript-eslint/unbound-method -- jest mock assertion on an interface-typed test double, never actually invoked unbound
-    expect(companyRepository.search).not.toHaveBeenCalled();
-    expect(historyService.record).toHaveBeenCalledWith(
-      expect.objectContaining({
-        tenantId,
-        userId: user.sub,
-        prompt: 'Find any companies',
-      }),
-    );
+      await expect(
+        service.getSearchJobStatus('job-1', user),
+      ).rejects.toThrow(ServiceUnavailableException);
+    });
   });
 
   describe('recordView', () => {
@@ -299,14 +261,27 @@ describe('ProspectSearchService', () => {
   });
 
   describe('getCompanyInsight', () => {
-    it('delegates to AiService and logs an AI_INSIGHT_GENERATED audit event', async () => {
-      const insight = {
-        whyMatch: 'Matches on industry and location.',
-        opportunity: 'Growing security services company.',
-        outreachStrategy: 'Lead with risk reduction.',
-        securityNeeds: 'Likely needs guard staffing.',
-        nextConversation: 'Ask about current provider.',
-      };
+    it('prefers the BlackPearl playbook over the Gemini fallback', async () => {
+      const result = await service.getCompanyInsight(
+        { company: prospectDto, prompt: 'Find security companies in Texas' },
+        user,
+      );
+
+      expect(result).toEqual(insight);
+      expect(aiService.generateProspectCompanyInsight).not.toHaveBeenCalled();
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId,
+          userId: user.sub,
+          action: 'AI_INSIGHT_GENERATED',
+          entityType: 'PROSPECT_SEARCH',
+          entityId: prospectDto.id,
+        }),
+      );
+    });
+
+    it('falls back to Gemini when BlackPearl has no playbook', async () => {
+      blackPearlInsightProvider.getPlaybook.mockResolvedValue(null);
       aiService.generateProspectCompanyInsight.mockResolvedValue(insight);
 
       const result = await service.getCompanyInsight(
@@ -318,15 +293,6 @@ describe('ProspectSearchService', () => {
       expect(aiService.generateProspectCompanyInsight).toHaveBeenCalledWith(
         prospectDto,
         'Find security companies in Texas',
-      );
-      expect(auditService.log).toHaveBeenCalledWith(
-        expect.objectContaining({
-          tenantId,
-          userId: user.sub,
-          action: 'AI_INSIGHT_GENERATED',
-          entityType: 'PROSPECT_SEARCH',
-          entityId: prospectDto.id,
-        }),
       );
     });
   });
@@ -354,7 +320,7 @@ describe('ProspectSearchService', () => {
           tenantId,
           userId: user.sub,
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.stringContaining() is typed `any` in @types/jest
-          content: expect.stringContaining(prospectDto.website),
+          content: expect.stringContaining(prospectDto.website as string),
         }),
       );
       expect(auditService.log).toHaveBeenCalledWith(
@@ -376,6 +342,18 @@ describe('ProspectSearchService', () => {
           status: 'new',
         },
       });
+    });
+
+    it('creates a lead with a name-only note when no profile fields are available', async () => {
+      const nameOnly: ProspectCompanyDto = { id: 'co-9', name: 'Acme Corp' };
+
+      await service.importCompany({ company: nameOnly }, user);
+
+      expect(notesService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: 'Imported from Prospect Search.',
+        }),
+      );
     });
 
     it('returns the existing lead instead of creating a new one when a duplicate is found', async () => {

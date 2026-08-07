@@ -3,9 +3,9 @@ import { validate } from 'class-validator';
 import { SearchProspectsDto } from './search-prospects.dto';
 
 describe('SearchProspectsDto', () => {
-  it('accepts a well-formed prompt', async () => {
+  it('accepts a well-formed company name', async () => {
     const dto = plainToInstance(SearchProspectsDto, {
-      prompt: 'Find security companies in Texas',
+      companyName: 'Acme Corp',
     });
 
     const errors = await validate(dto);
@@ -13,33 +13,25 @@ describe('SearchProspectsDto', () => {
     expect(errors).toHaveLength(0);
   });
 
-  it('rejects an empty prompt', async () => {
-    const dto = plainToInstance(SearchProspectsDto, { prompt: '' });
+  it('rejects an empty company name', async () => {
+    const dto = plainToInstance(SearchProspectsDto, { companyName: '' });
 
     const errors = await validate(dto);
 
     expect(errors.length).toBeGreaterThan(0);
   });
 
-  it('rejects a prompt shorter than the minimum length', async () => {
-    const dto = plainToInstance(SearchProspectsDto, { prompt: 'hi' });
+  it('rejects a non-string company name', async () => {
+    const dto = plainToInstance(SearchProspectsDto, { companyName: 12345 });
 
     const errors = await validate(dto);
 
     expect(errors.length).toBeGreaterThan(0);
   });
 
-  it('rejects a non-string prompt', async () => {
-    const dto = plainToInstance(SearchProspectsDto, { prompt: 12345 });
-
-    const errors = await validate(dto);
-
-    expect(errors.length).toBeGreaterThan(0);
-  });
-
-  it('rejects a prompt longer than the maximum length', async () => {
+  it('rejects a company name longer than the maximum length', async () => {
     const dto = plainToInstance(SearchProspectsDto, {
-      prompt: 'a'.repeat(501),
+      companyName: 'a'.repeat(201),
     });
 
     const errors = await validate(dto);

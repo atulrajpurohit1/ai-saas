@@ -309,12 +309,12 @@ export declare class RfpController {
         createdAt: Date;
         notes: string | null;
         tenantId: string;
-        incidentCount: number;
         rfpId: string;
         vendorId: string;
         reviewDate: Date;
         overallRating: number;
         slaCompliance: number;
+        incidentCount: number;
         responseTime: string;
     }[]>;
     createPerformanceReview(user: ActiveUser, id: string, dto: CreatePerformanceReviewDto): Promise<{
@@ -322,12 +322,12 @@ export declare class RfpController {
         createdAt: Date;
         notes: string | null;
         tenantId: string;
-        incidentCount: number;
         rfpId: string;
         vendorId: string;
         reviewDate: Date;
         overallRating: number;
         slaCompliance: number;
+        incidentCount: number;
         responseTime: string;
     }>;
     updatePerformanceReview(user: ActiveUser, id: string, dto: UpdatePerformanceReviewDto): Promise<{
@@ -335,12 +335,12 @@ export declare class RfpController {
         createdAt: Date;
         notes: string | null;
         tenantId: string;
-        incidentCount: number;
         rfpId: string;
         vendorId: string;
         reviewDate: Date;
         overallRating: number;
         slaCompliance: number;
+        incidentCount: number;
         responseTime: string;
     }>;
 }

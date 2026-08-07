@@ -1,11 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Briefcase, 
-  FileText, 
+import {
+  LayoutDashboard,
+  Users,
+  Briefcase,
+  FileText,
   LogOut,
   ChevronRight,
   MapPin,
@@ -21,19 +21,12 @@ import {
   Receipt,
   X,
   BrainCircuit,
-  FileSearch,
-  ScrollText,
-  Bot,
-  TrendingDown,
   GitBranch,
   Settings,
   Plug,
-  LockKeyhole,
   Palette,
-  BarChart3,
   FileSpreadsheet,
   PhoneCall,
-  Mail,
   CreditCard,
   Radar,
   Building2
@@ -58,16 +51,13 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const { user, logout, canAny } = useAuth();
   const navRef = useRef<HTMLElement | null>(null);
 
-  const adminLinks = [
-    { href: '/ai-copilot', label: 'AI Copilot', icon: Bot, permissions: ['ai.view'] },
+  const aiSalesLinks = [
     { href: '/prospect-search', label: 'Prospect Search', icon: Radar, permissions: ['prospect_search.view'] },
     { href: '/sales-accelerator', label: 'Sales Accelerator', icon: BrainCircuit, permissions: ['ai.view', 'leads.view'] },
     { href: '/sales-calls', label: 'Sales Calls', icon: PhoneCall, permissions: ['ai.view', 'deals.view'] },
-    { href: '/sales-automation', label: 'Sales Automation', icon: Bot, permissions: ['ai.view', 'deals.view'] },
-    { href: '/sales-delivery', label: 'Sales Delivery', icon: Mail, permissions: ['ai.view', 'deals.view'] },
-    { href: '/ai-predictions', label: 'AI Predictions', icon: TrendingDown, permissions: ['ai.manage'] },
-    { href: '/ai-prompts', label: 'AI Prompts', icon: ScrollText, permissions: ['ai.governance'] },
-    { href: '/ai-audit', label: 'AI Audit', icon: FileSearch, permissions: ['ai.governance'] },
+  ];
+
+  const adminLinks = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard, permissions: ['dashboard.view'] },
     { href: '/leads', label: 'Leads', icon: Users, permissions: ['leads.view'] },
     { href: '/deals', label: 'Deals', icon: Briefcase, permissions: ['deals.view'] },
@@ -86,19 +76,16 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     { href: '/invoices', label: 'Invoices', icon: Receipt, permissions: ['invoices.view'] },
     { href: '/invoice-disputes', label: 'Disputes', icon: FileWarning, permissions: ['invoice_disputes.view'] },
     { href: '/finance', label: 'Finance', icon: DollarSign, permissions: ['finance.view'] },
-    { href: '/ai-insights', label: 'AI Insights', icon: BrainCircuit, permissions: ['ai.view'] },
-    { href: '/sales-accelerator/reports', label: 'Sales Reports', icon: BarChart3, permissions: ['ai.view', 'deals.view'] },
-    { href: '/sales-imports', label: 'Sales Imports', icon: FileSpreadsheet, permissions: ['leads.import', 'deals.create'] },
     { href: '/integrations', label: 'Integrations', icon: Plug, permissions: ['integrations.view'] },
     { href: '/settings/branding', label: 'Branding', icon: Palette, permissions: ['branding.view'] },
     { href: '/settings/billing', label: 'Billing', icon: CreditCard, permissions: ['billing.view'] },
-    { href: '/settings/sessions', label: 'Sessions', icon: Activity, permissions: ['sessions.view'] },
     { href: '/settings/roles', label: 'Roles', icon: Settings, permissions: ['roles.view'] },
-    { href: '/settings/field-permissions', label: 'Field RBAC', icon: LockKeyhole, permissions: ['roles.view'] },
     { href: '/audit', label: 'Activity', icon: Activity, permissions: ['audit.view'] },
   ];
 
-  const links = adminLinks.filter((link) => canAny(link.permissions));
+  const visibleAiSalesLinks = aiSalesLinks.filter((link) => canAny(link.permissions));
+  const visibleAdminLinks = adminLinks.filter((link) => canAny(link.permissions));
+  const links = [...visibleAiSalesLinks, ...visibleAdminLinks];
 
   const saveScrollPosition = () => {
     if (typeof window === 'undefined' || !navRef.current) return;
@@ -120,6 +107,34 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     const frame = window.requestAnimationFrame(restoreScroll);
     return () => window.cancelAnimationFrame(frame);
   }, [links.length, pathname]);
+
+  const renderLink = (link: (typeof adminLinks)[number]) => {
+    const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+    const Icon = link.icon;
+
+    return (
+      <Link
+        key={link.href}
+        href={link.href}
+        onClick={() => {
+          saveScrollPosition();
+          onClose?.();
+        }}
+        className={cn(
+          "group flex min-h-11 items-center justify-between rounded-xl px-3 py-2.5 transition-all duration-200 sm:min-h-12 sm:px-4 sm:py-3",
+          isActive
+            ? "bg-primary text-white shadow-lg shadow-indigo-500/30"
+            : "hover:bg-white/5 text-muted-foreground hover:text-white"
+        )}
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <Icon size={20} className={cn("shrink-0", isActive ? "text-white" : "text-muted-foreground group-hover:text-indigo-400")} />
+          <span className="truncate font-medium">{link.label}</span>
+        </div>
+        {isActive && <ChevronRight size={16} />}
+      </Link>
+    );
+  };
 
   return (
     <aside
@@ -150,33 +165,16 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         onScroll={saveScrollPosition}
         className="flex-1 space-y-1 overflow-y-auto px-3 py-2 sm:px-4 sm:py-3"
       >
-        {links.map((link) => {
-          const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
-          const Icon = link.icon;
-          
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => {
-                saveScrollPosition();
-                onClose?.();
-              }}
-              className={cn(
-                "group flex min-h-11 items-center justify-between rounded-xl px-3 py-2.5 transition-all duration-200 sm:min-h-12 sm:px-4 sm:py-3",
-                isActive 
-                  ? "bg-primary text-white shadow-lg shadow-indigo-500/30" 
-                  : "hover:bg-white/5 text-muted-foreground hover:text-white"
-              )}
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <Icon size={20} className={cn("shrink-0", isActive ? "text-white" : "text-muted-foreground group-hover:text-indigo-400")} />
-                <span className="truncate font-medium">{link.label}</span>
-              </div>
-              {isActive && <ChevronRight size={16} />}
-            </Link>
-          );
-        })}
+        {visibleAiSalesLinks.length > 0 && (
+          <div className="mb-1">
+            <p className="px-3 pb-1 pt-2 text-xs font-bold uppercase tracking-wider text-muted-foreground sm:px-4">
+              AI Sales
+            </p>
+            {visibleAiSalesLinks.map(renderLink)}
+          </div>
+        )}
+
+        {visibleAdminLinks.map(renderLink)}
       </nav>
 
       <div className="p-4 mt-auto border-t border-white/5">

@@ -1,9 +1,9 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
-  AiService,
-  ProspectCompanyInsight,
-  ProspectSearchFilters,
-} from '../ai/ai.service';
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { AiService, ProspectCompanyInsight } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { LeadsService } from '../leads/leads.service';
@@ -13,21 +13,17 @@ import { ImportProspectDto } from './dto/import-prospect.dto';
 import { ProspectCompanyDto } from './dto/prospect-company.dto';
 import { SearchProspectsDto } from './dto/search-prospects.dto';
 import { ViewProspectDto } from './dto/view-prospect.dto';
-import {
-  COMPANY_PROVIDER_NAME,
-  COMPANY_REPOSITORY,
-  CompanyRepository,
-} from './interfaces/prospect-search.interface';
+import { BlackPearlInsightProvider } from './providers/blackpearl-insight.provider';
 import { ProspectSearchCacheService } from './prospect-search-cache.service';
 import { ProspectSearchHistoryService } from './prospect-search-history.service';
 import {
   ImportProspectResult,
-  ProspectCompany,
+  ProspectSearchJobStatusResult,
   ProspectSearchResult,
-  RankedProspectCompany,
+  ProspectSearchSubmission,
 } from './types/prospect-search.types';
 
-const MIN_KEYWORD_LENGTH = 3;
+const PROVIDER_NAME = 'blackpearl';
 
 @Injectable()
 export class ProspectSearchService {
@@ -40,85 +36,55 @@ export class ProspectSearchService {
     private readonly notesService: NotesService,
     private readonly cacheService: ProspectSearchCacheService,
     private readonly historyService: ProspectSearchHistoryService,
-    @Inject(COMPANY_REPOSITORY)
-    private readonly companyRepository: CompanyRepository,
-    @Inject(COMPANY_PROVIDER_NAME)
-    private readonly providerName: string,
+    private readonly blackPearlInsightProvider: BlackPearlInsightProvider,
   ) {}
 
+  /**
+   * BlackPearl playbook generation is asynchronous and commonly takes
+   * minutes, so this only submits the job (or returns a cached result
+   * instantly) - the caller polls getSearchJobStatus() for completion.
+   */
   async search(
     dto: SearchProspectsDto,
     user: ActiveUser,
-  ): Promise<ProspectSearchResult> {
-    const startedAt = Date.now();
+  ): Promise<ProspectSearchSubmission> {
+    const companyName = dto.companyName.trim();
+
     const cached = this.cacheService.get(
       user.tenantId,
-      dto.prompt,
-      this.providerName,
+      companyName,
+      PROVIDER_NAME,
     );
 
     if (cached) {
       this.logger.log(
-        `Prospect search cache hit: tenant=${user.tenantId} provider=${this.providerName} results=${cached.results.length}`,
+        `Prospect search cache hit: tenant=${user.tenantId} provider=${PROVIDER_NAME} company="${companyName}"`,
       );
-      await this.recordHistory(
-        dto.prompt,
-        cached.filters,
-        cached.results.length,
-        user,
-      );
-      return cached;
+      await this.recordHistory(companyName, user);
+      return { status: 'completed', companyName, insight: cached.insight };
     }
 
-    let filters: ProspectSearchFilters;
-    const aiStartedAt = Date.now();
-    try {
-      filters = await this.aiService.generateProspectSearchFilters(dto.prompt);
-    } catch (error) {
+    if (!this.blackPearlInsightProvider.isConfigured()) {
       this.logger.error(
-        `Prospect search AI filter generation failed: tenant=${user.tenantId} error=${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        'BLACKPEARL_API_KEY is not configured. Prospect Search cannot return results.',
       );
-      throw error;
-    }
-    const aiDurationMs = Date.now() - aiStartedAt;
-
-    let companies: ProspectCompany[];
-    const providerStartedAt = Date.now();
-    try {
-      companies = await this.companyRepository.search(filters);
-    } catch (error) {
-      this.logger.error(
-        `Prospect search provider failed: tenant=${user.tenantId} provider=${
-          this.providerName
-        } error=${error instanceof Error ? error.message : String(error)}`,
+      throw new ServiceUnavailableException(
+        'Prospect Search is not configured. Set BLACKPEARL_API_KEY in the backend environment and restart the server.',
       );
-      throw error;
     }
-    const providerDurationMs = Date.now() - providerStartedAt;
 
-    const results = this.rankCompanies(companies, filters, dto.prompt);
-    const totalDurationMs = Date.now() - startedAt;
+    const jobId = await this.blackPearlInsightProvider.submitPlaybookJob({
+      name: companyName,
+    });
+
+    if (!jobId) {
+      throw new ServiceUnavailableException(
+        'BlackPearl could not start playbook generation for this company right now. Please try again shortly.',
+      );
+    }
 
     this.logger.log(
-      `Prospect search completed: tenant=${user.tenantId} provider=${this.providerName} ` +
-        `aiMs=${aiDurationMs} providerMs=${providerDurationMs} totalMs=${totalDurationMs} ` +
-        `results=${results.length} cacheHit=false`,
-    );
-
-    const searchResult: ProspectSearchResult = {
-      prompt: dto.prompt,
-      filters,
-      results,
-      totalMatches: results.length,
-    };
-
-    this.cacheService.set(
-      user.tenantId,
-      dto.prompt,
-      this.providerName,
-      searchResult,
+      `Prospect search job submitted: tenant=${user.tenantId} provider=${PROVIDER_NAME} jobId=${jobId} company="${companyName}"`,
     );
 
     await this.auditService.log({
@@ -126,28 +92,93 @@ export class ProspectSearchService {
       userId: user.sub,
       action: 'PROSPECT_SEARCH_PERFORMED',
       entityType: 'PROSPECT_SEARCH',
-      details: `Prompt: "${dto.prompt}" -> ${results.length} match(es)`,
+      details: `Company: "${companyName}" (BlackPearl job ${jobId})`,
     });
 
-    await this.recordHistory(dto.prompt, filters, results.length, user);
+    return { status: 'pending', jobId, companyName };
+  }
 
-    return searchResult;
+  /**
+   * Polled by the caller until the BlackPearl job is no longer "pending".
+   * Writes to cache/history only once a result actually completes, since
+   * search() itself no longer waits for that. Deliberately never calls
+   * submitPlaybookJob() - per BlackPearl's guidance, the same job id is
+   * reused for every poll (including retries after a transient 503), and a
+   * new playbook must never be submitted just because a status check failed.
+   */
+  async getSearchJobStatus(
+    jobId: string,
+    user: ActiveUser,
+  ): Promise<ProspectSearchJobStatusResult> {
+    this.logger.debug(
+      `Checking prospect search job status: tenant=${user.tenantId} jobId=${jobId}`,
+    );
+
+    const result = await this.blackPearlInsightProvider.getJobResult(jobId);
+
+    if (!result) {
+      // This is a 503 from THIS line: getJobResult() returned null, which
+      // only happens when the BlackPearl status-check request itself could
+      // not be completed after its internal retries (auth failure, or a
+      // network/5xx failure that persisted across all retry attempts) - see
+      // BlackPearlInsightProvider's logs immediately above this line for the
+      // exact HTTP failure that caused it. This is NOT the same as the
+      // BlackPearl job having failed - the job may still be running fine.
+      this.logger.error(
+        `Prospect search job status check FAILED: tenant=${user.tenantId} jobId=${jobId} - returning 503. See BlackPearlInsightProvider logs above for the exact cause.`,
+      );
+      throw new ServiceUnavailableException(
+        'Could not check playbook status right now. Please try again shortly.',
+      );
+    }
+
+    if (result.status === 'pending') {
+      return { status: 'pending', progress: result.progress };
+    }
+
+    if (result.status === 'completed' && result.insight) {
+      const companyName = result.companyName ?? '';
+      const searchResult: ProspectSearchResult = {
+        companyName,
+        insight: result.insight,
+      };
+
+      this.cacheService.set(
+        user.tenantId,
+        companyName,
+        PROVIDER_NAME,
+        searchResult,
+      );
+      await this.recordHistory(companyName, user);
+
+      this.logger.log(
+        `Prospect search job completed: tenant=${user.tenantId} provider=${PROVIDER_NAME} jobId=${jobId}`,
+      );
+
+      return { status: 'completed', companyName, insight: result.insight };
+    }
+
+    this.logger.warn(
+      `Prospect search job failed: tenant=${user.tenantId} provider=${PROVIDER_NAME} jobId=${jobId}`,
+    );
+
+    return {
+      status: 'failed',
+      message: 'BlackPearl could not generate a playbook for this company. Please try again.',
+    };
   }
 
   private async recordHistory(
-    prompt: string,
-    filters: ProspectSearchFilters,
-    resultCount: number,
+    companyName: string,
     user: ActiveUser,
   ): Promise<void> {
     try {
       await this.historyService.record({
         tenantId: user.tenantId,
         userId: user.sub,
-        prompt,
-        filters,
-        provider: this.providerName,
-        resultCount,
+        prompt: companyName,
+        provider: PROVIDER_NAME,
+        resultCount: 1,
       });
     } catch (error) {
       this.logger.warn(
@@ -156,98 +187,6 @@ export class ProspectSearchService {
         }`,
       );
     }
-  }
-
-  private rankCompanies(
-    companies: ProspectCompany[],
-    filters: ProspectSearchFilters,
-    prompt: string,
-  ): RankedProspectCompany[] {
-    const promptTokens = this.tokenize(prompt);
-
-    return companies
-      .map((company) => ({
-        ...company,
-        matchScore: this.scoreCompany(company, filters, promptTokens),
-      }))
-      .filter((company) => company.matchScore > 0)
-      .sort((a, b) => b.matchScore - a.matchScore);
-  }
-
-  /**
-   * Country match alone (e.g. "United States") is too generic to qualify a
-   * result on its own - nearly every mock company shares it. It only ever
-   * adds to a score that another, more specific signal already qualified.
-   */
-  private scoreCompany(
-    company: ProspectCompany,
-    filters: ProspectSearchFilters,
-    promptTokens: string[],
-  ): number {
-    let qualifyingScore = 0;
-
-    if (
-      filters.industry &&
-      company.industry.toLowerCase().includes(filters.industry.toLowerCase())
-    ) {
-      qualifyingScore += 30;
-    }
-
-    if (
-      filters.state &&
-      company.state.toLowerCase() === filters.state.toLowerCase()
-    ) {
-      qualifyingScore += 20;
-    }
-
-    if (
-      filters.city &&
-      company.city.toLowerCase() === filters.city.toLowerCase()
-    ) {
-      qualifyingScore += 10;
-    }
-
-    if (filters.employeeMin !== null || filters.employeeMax !== null) {
-      const min = filters.employeeMin ?? 0;
-      const max = filters.employeeMax ?? Number.MAX_SAFE_INTEGER;
-      if (company.employeeCount >= min && company.employeeCount <= max) {
-        qualifyingScore += 20;
-      }
-    }
-
-    if (
-      filters.revenueRange &&
-      company.revenueRange.toLowerCase() === filters.revenueRange.toLowerCase()
-    ) {
-      qualifyingScore += 10;
-    }
-
-    const haystack =
-      `${company.name} ${company.industry} ${company.description}`.toLowerCase();
-    const keywordSource = filters.keywords.length
-      ? filters.keywords
-      : promptTokens;
-    const matchedKeywords = keywordSource.filter((keyword) =>
-      haystack.includes(keyword.toLowerCase()),
-    );
-    qualifyingScore += Math.min(matchedKeywords.length * 5, 15);
-
-    if (qualifyingScore === 0) return 0;
-
-    const countryBonus =
-      filters.country &&
-      company.country.toLowerCase() === filters.country.toLowerCase()
-        ? 5
-        : 0;
-
-    return Math.min(qualifyingScore + countryBonus, 100);
-  }
-
-  private tokenize(prompt: string): string[] {
-    return prompt
-      .split(/\s+/)
-      .map((word) => word.replace(/[^a-zA-Z0-9-]/g, ''))
-      .filter((word) => word.length > MIN_KEYWORD_LENGTH);
   }
 
   async recordView(
@@ -272,21 +211,30 @@ export class ProspectSearchService {
   ): Promise<ProspectCompanyInsight> {
     const aiStartedAt = Date.now();
     let insight: ProspectCompanyInsight;
+    let source: 'blackpearl' | 'gemini' = 'gemini';
     try {
-      insight = await this.aiService.generateProspectCompanyInsight(
+      const playbook = await this.blackPearlInsightProvider.getPlaybook(
         dto.company,
-        dto.prompt,
       );
+      if (playbook) {
+        insight = playbook;
+        source = 'blackpearl';
+      } else {
+        insight = await this.aiService.generateProspectCompanyInsight(
+          dto.company,
+          dto.prompt,
+        );
+      }
     } catch (error) {
       this.logger.error(
-        `AI insight generation failed: tenant=${user.tenantId} company=${
+        `Company insight generation failed: tenant=${user.tenantId} company=${
           dto.company.id
         } error=${error instanceof Error ? error.message : String(error)}`,
       );
       throw error;
     }
     this.logger.log(
-      `AI insight generated: tenant=${user.tenantId} company=${dto.company.id} aiMs=${
+      `Company insight generated: tenant=${user.tenantId} company=${dto.company.id} source=${source} ms=${
         Date.now() - aiStartedAt
       }`,
     );
@@ -297,7 +245,7 @@ export class ProspectSearchService {
       action: 'AI_INSIGHT_GENERATED',
       entityType: 'PROSPECT_SEARCH',
       entityId: dto.company.id,
-      details: `Generated AI insight for "${dto.company.name}"`,
+      details: `Generated ${source} insight for "${dto.company.name}"`,
     });
 
     return insight;
@@ -376,17 +324,32 @@ export class ProspectSearchService {
     }
   }
 
+  /**
+   * Only renders fields that are actually present - a BlackPearl-sourced
+   * company only ever has a name, so most of these are typically absent.
+   */
   private buildImportNote(company: ProspectCompanyDto): string {
-    return [
-      'Imported from Prospect Search.',
-      `Website: ${company.website}`,
-      `Industry: ${company.industry}`,
-      `Location: ${company.city}, ${company.state}, ${company.country}`,
-      `Employees: ${company.employeeCount}`,
-      `Revenue range: ${company.revenueRange}`,
-      `Match score: ${company.matchScore}%`,
-      '',
-      company.description,
-    ].join('\n');
+    const lines = ['Imported from Prospect Search.'];
+
+    if (company.website) lines.push(`Website: ${company.website}`);
+    if (company.industry) lines.push(`Industry: ${company.industry}`);
+
+    const location = [company.city, company.state, company.country]
+      .filter(Boolean)
+      .join(', ');
+    if (location) lines.push(`Location: ${location}`);
+
+    if (company.employeeCount !== undefined) {
+      lines.push(`Employees: ${company.employeeCount}`);
+    }
+    if (company.revenueRange) {
+      lines.push(`Revenue range: ${company.revenueRange}`);
+    }
+
+    if (company.description) {
+      lines.push('', company.description);
+    }
+
+    return lines.join('\n');
   }
 }

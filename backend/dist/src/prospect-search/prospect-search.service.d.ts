@@ -7,10 +7,10 @@ import { CompanyInsightDto } from './dto/company-insight.dto';
 import { ImportProspectDto } from './dto/import-prospect.dto';
 import { SearchProspectsDto } from './dto/search-prospects.dto';
 import { ViewProspectDto } from './dto/view-prospect.dto';
-import { CompanyRepository } from './interfaces/prospect-search.interface';
+import { BlackPearlInsightProvider } from './providers/blackpearl-insight.provider';
 import { ProspectSearchCacheService } from './prospect-search-cache.service';
 import { ProspectSearchHistoryService } from './prospect-search-history.service';
-import { ImportProspectResult, ProspectSearchResult } from './types/prospect-search.types';
+import { ImportProspectResult, ProspectSearchJobStatusResult, ProspectSearchSubmission } from './types/prospect-search.types';
 export declare class ProspectSearchService {
     private readonly aiService;
     private readonly auditService;
@@ -18,15 +18,12 @@ export declare class ProspectSearchService {
     private readonly notesService;
     private readonly cacheService;
     private readonly historyService;
-    private readonly companyRepository;
-    private readonly providerName;
+    private readonly blackPearlInsightProvider;
     private readonly logger;
-    constructor(aiService: AiService, auditService: AuditService, leadsService: LeadsService, notesService: NotesService, cacheService: ProspectSearchCacheService, historyService: ProspectSearchHistoryService, companyRepository: CompanyRepository, providerName: string);
-    search(dto: SearchProspectsDto, user: ActiveUser): Promise<ProspectSearchResult>;
+    constructor(aiService: AiService, auditService: AuditService, leadsService: LeadsService, notesService: NotesService, cacheService: ProspectSearchCacheService, historyService: ProspectSearchHistoryService, blackPearlInsightProvider: BlackPearlInsightProvider);
+    search(dto: SearchProspectsDto, user: ActiveUser): Promise<ProspectSearchSubmission>;
+    getSearchJobStatus(jobId: string, user: ActiveUser): Promise<ProspectSearchJobStatusResult>;
     private recordHistory;
-    private rankCompanies;
-    private scoreCompany;
-    private tokenize;
     recordView(dto: ViewProspectDto, user: ActiveUser): Promise<{
         ok: true;
     }>;

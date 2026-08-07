@@ -7,17 +7,6 @@ describe('ProspectSearchHistoryService', () => {
     prospectSearchHistory: { create: jest.Mock; findMany: jest.Mock };
   };
 
-  const filters = {
-    industry: 'Security Services',
-    city: null,
-    state: 'Texas',
-    country: null,
-    employeeMin: 50,
-    employeeMax: 200,
-    revenueRange: null,
-    keywords: ['security'],
-  };
-
   beforeEach(() => {
     prisma = {
       prospectSearchHistory: {
@@ -35,20 +24,19 @@ describe('ProspectSearchHistoryService', () => {
     await service.record({
       tenantId: 'tenant-1',
       userId: 'user-1',
-      prompt: 'Find security companies in Texas',
-      filters,
-      provider: 'mock',
-      resultCount: 3,
+      prompt: 'Lone Star Guard Services',
+      provider: 'blackpearl',
+      resultCount: 1,
     });
 
     expect(prisma.prospectSearchHistory.create).toHaveBeenCalledWith({
       data: {
         tenantId: 'tenant-1',
         userId: 'user-1',
-        prompt: 'Find security companies in Texas',
-        filters,
-        provider: 'mock',
-        resultCount: 3,
+        prompt: 'Lone Star Guard Services',
+        filters: {},
+        provider: 'blackpearl',
+        resultCount: 1,
       },
     });
   });

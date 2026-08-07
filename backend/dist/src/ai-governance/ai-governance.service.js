@@ -11,7 +11,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AiGovernanceService = exports.PROMPT_USAGE_REGISTRY = void 0;
 const common_1 = require("@nestjs/common");
-const audit_service_1 = require("../audit/audit.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const DEFAULT_PROMPT_VERSION = 'v5-phase-7';
 exports.PROMPT_USAGE_REGISTRY = [
@@ -53,109 +52,8 @@ exports.PROMPT_USAGE_REGISTRY = [
 ];
 let AiGovernanceService = class AiGovernanceService {
     prisma;
-    auditService;
-    constructor(prisma, auditService) {
+    constructor(prisma) {
         this.prisma = prisma;
-        this.auditService = auditService;
-    }
-    async listPrompts(tenantId) {
-        const prompts = await this.prisma.promptVersion.findMany({
-            where: { tenantId },
-            orderBy: [
-                { moduleName: 'asc' },
-                { promptKey: 'asc' },
-                { status: 'asc' },
-                { createdAt: 'desc' },
-            ],
-        });
-        return exports.PROMPT_USAGE_REGISTRY.map((definition) => {
-            const versions = prompts.filter((prompt) => prompt.moduleName === definition.moduleName &&
-                prompt.promptKey === definition.promptKey);
-            return {
-                ...definition,
-                activeVersion: versions.find((version) => version.status === 'active') ?? null,
-                versions,
-            };
-        });
-    }
-    async createPromptVersion(tenantId, userId, dto) {
-        this.ensureKnownPrompt(dto.moduleName, dto.promptKey);
-        const status = dto.status ?? 'inactive';
-        if (status === 'active') {
-            await this.prisma.promptVersion.updateMany({
-                where: {
-                    tenantId,
-                    moduleName: dto.moduleName,
-                    promptKey: dto.promptKey,
-                    status: 'active',
-                },
-                data: { status: 'inactive' },
-            });
-        }
-        const created = await this.prisma.promptVersion.create({
-            data: {
-                tenantId,
-                moduleName: dto.moduleName.trim(),
-                promptKey: dto.promptKey.trim(),
-                version: dto.version.trim(),
-                promptText: dto.promptText.trim(),
-                status,
-                createdBy: userId,
-            },
-        });
-        await this.auditService.log({
-            tenantId,
-            userId,
-            action: 'AI_PROMPT_VERSION_CREATED',
-            entityType: 'PromptVersion',
-            entityId: created.id,
-            details: `${created.moduleName}/${created.promptKey}@${created.version}`,
-        });
-        return created;
-    }
-    async activatePromptVersion(id, tenantId, userId) {
-        const prompt = await this.findPrompt(id, tenantId);
-        const updated = await this.prisma.$transaction(async (tx) => {
-            await tx.promptVersion.updateMany({
-                where: {
-                    tenantId,
-                    moduleName: prompt.moduleName,
-                    promptKey: prompt.promptKey,
-                    status: 'active',
-                    id: { not: prompt.id },
-                },
-                data: { status: 'inactive' },
-            });
-            return tx.promptVersion.update({
-                where: { id: prompt.id },
-                data: { status: 'active' },
-            });
-        });
-        await this.auditService.log({
-            tenantId,
-            userId,
-            action: 'AI_PROMPT_VERSION_ACTIVATED',
-            entityType: 'PromptVersion',
-            entityId: updated.id,
-            details: `${updated.moduleName}/${updated.promptKey}@${updated.version}`,
-        });
-        return updated;
-    }
-    async deactivatePromptVersion(id, tenantId, userId) {
-        await this.findPrompt(id, tenantId);
-        const updated = await this.prisma.promptVersion.update({
-            where: { id },
-            data: { status: 'inactive' },
-        });
-        await this.auditService.log({
-            tenantId,
-            userId,
-            action: 'AI_PROMPT_VERSION_DEACTIVATED',
-            entityType: 'PromptVersion',
-            entityId: updated.id,
-            details: `${updated.moduleName}/${updated.promptKey}@${updated.version}`,
-        });
-        return updated;
     }
     async resolvePromptVersion(input) {
         const promptKey = input.promptKey ?? this.defaultPromptKeyFor(input.moduleName);
@@ -181,91 +79,6 @@ let AiGovernanceService = class AiGovernanceService {
             promptVersionId: active.id,
             promptText: active.promptText,
         };
-    }
-    async findAudit(tenantId) {
-        const rows = await this.prisma.aiGeneration.findMany({
-            where: { tenantId },
-            include: {
-                promptVersionRecord: {
-                    select: {
-                        id: true,
-                        moduleName: true,
-                        promptKey: true,
-                        version: true,
-                        status: true,
-                    },
-                },
-                feedback: {
-                    select: {
-                        rating: true,
-                        isUseful: true,
-                        isAccurate: true,
-                    },
-                },
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 100,
-        });
-        return rows.map((row) => this.serializeGeneration(row));
-    }
-    async findAuditById(id, tenantId) {
-        const generation = await this.prisma.aiGeneration.findFirst({
-            where: { id, tenantId },
-            include: {
-                promptVersionRecord: true,
-                feedback: {
-                    orderBy: { createdAt: 'desc' },
-                    take: 25,
-                },
-                actions: {
-                    orderBy: { createdAt: 'desc' },
-                    take: 25,
-                },
-            },
-        });
-        if (!generation) {
-            throw new common_1.NotFoundException('AI audit record not found');
-        }
-        return this.serializeGeneration(generation);
-    }
-    async approveGeneration(id, tenantId, userId) {
-        const generation = await this.prisma.aiGeneration.findFirst({
-            where: { id, tenantId },
-            select: {
-                id: true,
-                sourceModule: true,
-                safetyStatus: true,
-                approvalStatus: true,
-            },
-        });
-        if (!generation) {
-            throw new common_1.NotFoundException('AI audit record not found');
-        }
-        if (generation.safetyStatus === 'blocked') {
-            throw new common_1.BadRequestException('Blocked AI output cannot be approved until the safety findings are fixed.');
-        }
-        const approved = await this.prisma.aiGeneration.update({
-            where: { id: generation.id },
-            data: {
-                approvalStatus: 'approved',
-                approvedBy: userId,
-                approvedAt: new Date(),
-            },
-            include: {
-                promptVersionRecord: true,
-                feedback: true,
-                actions: true,
-            },
-        });
-        await this.auditService.log({
-            tenantId,
-            userId,
-            action: 'AI_OUTPUT_APPROVED',
-            entityType: 'AiGeneration',
-            entityId: approved.id,
-            details: `${approved.sourceModule} approved for publishing`,
-        });
-        return this.serializeGeneration(approved);
     }
     evaluateSafety(input) {
         const text = this.stringifyTextValues(input.generatedOutput);
@@ -332,53 +145,12 @@ let AiGovernanceService = class AiGovernanceService {
             return 'blocked';
         return input.clientVisible ? 'pending' : 'not_required';
     }
-    toJsonValue(value) {
-        try {
-            return JSON.parse(JSON.stringify(value ?? null));
-        }
-        catch {
-            return { value: String(value) };
-        }
-    }
-    ensureKnownPrompt(moduleName, promptKey) {
-        const known = exports.PROMPT_USAGE_REGISTRY.some((item) => item.moduleName === moduleName && item.promptKey === promptKey);
-        if (!known) {
-            throw new common_1.BadRequestException(`Unsupported AI prompt target: ${moduleName}/${promptKey}`);
-        }
-    }
-    async findPrompt(id, tenantId) {
-        const prompt = await this.prisma.promptVersion.findFirst({
-            where: { id, tenantId },
-        });
-        if (!prompt) {
-            throw new common_1.NotFoundException('Prompt version not found');
-        }
-        return prompt;
-    }
     defaultPromptKeyFor(moduleName) {
         return (exports.PROMPT_USAGE_REGISTRY.find((item) => item.moduleName === moduleName)
             ?.promptKey ?? 'default');
     }
     defaultVersionFor(moduleName, promptKey) {
         return (exports.PROMPT_USAGE_REGISTRY.find((item) => item.moduleName === moduleName && item.promptKey === promptKey)?.defaultVersion ?? DEFAULT_PROMPT_VERSION);
-    }
-    serializeGeneration(generation) {
-        const feedback = Array.isArray(generation.feedback)
-            ? generation.feedback
-            : [];
-        const feedbackScore = feedback.length === 0
-            ? null
-            : Math.round((feedback.reduce((sum, item) => sum + item.rating, 0) /
-                feedback.length) *
-                100) / 100;
-        return {
-            ...generation,
-            safetyFindings: Array.isArray(generation.safetyFindings)
-                ? generation.safetyFindings
-                : [],
-            feedbackScore,
-            feedbackCount: feedback.length,
-        };
     }
     stringifyTextValues(value) {
         const values = [];
@@ -410,7 +182,6 @@ let AiGovernanceService = class AiGovernanceService {
 exports.AiGovernanceService = AiGovernanceService;
 exports.AiGovernanceService = AiGovernanceService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        audit_service_1.AuditService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], AiGovernanceService);
 //# sourceMappingURL=ai-governance.service.js.map

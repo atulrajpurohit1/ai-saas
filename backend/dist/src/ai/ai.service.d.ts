@@ -82,34 +82,40 @@ export interface AiEvaluationReportDraft {
     overallAnalysis: string;
     fullReportMarkdown: string;
 }
-export interface ProspectSearchFilters {
-    industry: string | null;
-    city: string | null;
-    state: string | null;
-    country: string | null;
-    employeeMin: number | null;
-    employeeMax: number | null;
-    revenueRange: string | null;
-    keywords: string[];
-}
 export interface ProspectCompanySummary {
     name: string;
-    industry: string;
-    website: string;
-    city: string;
-    state: string;
-    country: string;
-    employeeCount: number;
-    revenueRange: string;
-    description: string;
-    matchScore: number;
+    industry?: string;
+    website?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    employeeCount?: number;
+    revenueRange?: string;
+    description?: string;
+}
+export interface ProspectCompanyPersona {
+    name: string;
+    title?: string;
+    description?: string;
+}
+export interface ProspectCompanyObjection {
+    objection: string;
+    response: string;
 }
 export interface ProspectCompanyInsight {
-    whyMatch: string;
-    opportunity: string;
-    outreachStrategy: string;
-    securityNeeds: string;
-    nextConversation: string;
+    companyName: string;
+    domain?: string;
+    website?: string;
+    businessSummary?: string;
+    businessObjective?: string;
+    valueProps: string[];
+    salesAngles: string[];
+    keyPersonas: ProspectCompanyPersona[];
+    potentialObjections: ProspectCompanyObjection[];
+    meetingNoteExample?: string;
+    contactOverview?: string;
+    readinessLevel?: string;
+    documentUrl?: string;
 }
 export declare class AiService {
     private configService;
@@ -173,8 +179,6 @@ export declare class AiService {
         company: string;
         email: string;
     }>;
-    generateProspectSearchFilters(prompt: string, promptTemplate?: string | null): Promise<ProspectSearchFilters>;
-    private fallbackProspectSearchFilters;
     generateProspectCompanyInsight(company: ProspectCompanySummary, searchPrompt?: string | null, promptTemplate?: string | null): Promise<ProspectCompanyInsight>;
     private fallbackProspectCompanyInsight;
 }

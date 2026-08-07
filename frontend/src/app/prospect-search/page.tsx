@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import axios from 'axios';
 import DashboardLayout from '@/components/DashboardLayout';
 import ProspectDetailsDrawer from '@/components/ProspectDetailsDrawer';
 import { useAuth } from '@/context/AuthContext';
@@ -9,163 +10,42 @@ import {
   ProspectCompany,
   ProspectCompanyInsight,
   ProspectSearchHistoryEntry,
-  ProspectSearchResult,
   SavedProspectSearchEntry,
   deleteSavedProspectSearch,
   getProspectSearchHistory,
+  getProspectSearchJobStatus,
   getSavedProspectSearches,
   renameSavedProspectSearch,
   saveProspectSearch,
   searchProspects,
 } from '@/lib/prospect-search';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import {
   AlertTriangle,
-  ArrowUpDown,
   Bookmark,
   Clock,
-  DollarSign,
-  Globe,
   Loader2,
-  MapPin,
   Pencil,
   Radar,
   RotateCcw,
   Search,
-  SearchX,
-  Sparkles,
   Trash2,
-  Users,
 } from 'lucide-react';
 
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+// Per BlackPearl: generation typically takes 10-15 minutes; poll every
+// 15-30s and allow up to 30 minutes before giving up.
+const JOB_POLL_INTERVAL_MS = 20_000;
+const JOB_MAX_POLL_MS = 30 * 60 * 1000;
 
-type SortOption = 'match' | 'alphabetical' | 'employees';
+// A single 503 (or a run of them) is a confirmed-transient condition per
+// BlackPearl - the job keeps running server-side. Back off exponentially
+// between retries instead of polling at the normal cadence, capped so a
+// long outage still leaves room for several more attempts before
+// JOB_MAX_POLL_MS is reached; reset to the normal cadence the moment a
+// non-503 response comes back.
+const MAX_BACKOFF_MS = 5 * 60 * 1000;
 
-interface EmployeeBucket {
-  key: string;
-  label: string;
-  min: number;
-  max: number;
-}
-
-const EMPLOYEE_BUCKETS: EmployeeBucket[] = [
-  { key: 'all', label: 'All sizes', min: 0, max: Infinity },
-  { key: 'small', label: '1-50 employees', min: 0, max: 50 },
-  { key: 'medium', label: '51-200 employees', min: 51, max: 200 },
-  { key: 'large', label: '201-500 employees', min: 201, max: 500 },
-  { key: 'enterprise', label: '501+ employees', min: 501, max: Infinity },
-];
-
-const SORT_OPTIONS: Array<{ key: SortOption; label: string }> = [
-  { key: 'match', label: 'Match Score' },
-  { key: 'alphabetical', label: 'Alphabetical' },
-  { key: 'employees', label: 'Employees' },
-];
-
-function matchScoreClass(score: number) {
-  if (score >= 85) return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
-  if (score >= 70) return 'border-sky-500/30 bg-sky-500/10 text-sky-300';
-  if (score >= 50) return 'border-amber-500/30 bg-amber-500/10 text-amber-300';
-  return 'border-rose-500/30 bg-rose-500/10 text-rose-300';
-}
-
-function locationLabel(company: ProspectCompany) {
-  return `${company.city}, ${company.state}`;
-}
-
-const CompanyCard = React.memo(function CompanyCard({
-  company,
-  onViewDetails,
-}: {
-  company: ProspectCompany;
-  onViewDetails: (company: ProspectCompany) => void;
-}) {
-  return (
-    <article className="flex h-full flex-col justify-between rounded-2xl border border-white/10 bg-white/[0.04] p-5 transition hover:border-indigo-400/30">
-      <div>
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="truncate text-lg font-bold text-white">{company.name}</h3>
-            <span className="mt-1 inline-block rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-xs font-semibold text-slate-300">
-              {company.industry}
-            </span>
-          </div>
-          <span
-            className={cn(
-              'shrink-0 rounded-full border px-3 py-1 text-xs font-bold',
-              matchScoreClass(company.matchScore),
-            )}
-            aria-label={`${company.matchScore} percent match`}
-          >
-            {company.matchScore}% Match
-          </span>
-        </div>
-
-        <dl className="mb-4 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-          <div className="flex min-w-0 items-center gap-2 text-slate-400">
-            <MapPin size={14} className="shrink-0" aria-hidden="true" />
-            <span className="truncate">{locationLabel(company)}</span>
-          </div>
-          <div className="flex min-w-0 items-center gap-2 text-slate-400">
-            <Users size={14} className="shrink-0" aria-hidden="true" />
-            <span className="truncate">{company.employeeCount.toLocaleString()} Employees</span>
-          </div>
-          <div className="flex min-w-0 items-center gap-2 text-slate-400">
-            <DollarSign size={14} className="shrink-0" aria-hidden="true" />
-            <span className="truncate">{company.revenueRange}</span>
-          </div>
-          <a
-            href={company.website}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex min-w-0 items-center gap-2 text-indigo-300 transition hover:text-indigo-200"
-          >
-            <Globe size={14} className="shrink-0" aria-hidden="true" />
-            <span className="truncate">Website</span>
-          </a>
-        </dl>
-
-        <p className="mb-4 line-clamp-3 text-sm leading-6 text-slate-400">{company.description}</p>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => onViewDetails(company)}
-        className="mt-auto inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-white/10"
-      >
-        View Details
-      </button>
-    </article>
-  );
-});
-
-function SkeletonCard() {
-  return (
-    <div className="animate-pulse rounded-2xl border border-white/10 bg-white/[0.04] p-5" aria-hidden="true">
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="w-2/3">
-          <div className="h-5 w-3/4 rounded bg-white/10" />
-          <div className="mt-2 h-4 w-1/3 rounded-full bg-white/10" />
-        </div>
-        <div className="h-6 w-16 shrink-0 rounded-full bg-white/10" />
-      </div>
-      <div className="mb-4 grid grid-cols-2 gap-3">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div key={index} className="h-4 w-full rounded bg-white/10" />
-        ))}
-      </div>
-      <div className="space-y-2">
-        <div className="h-3 w-full rounded bg-white/10" />
-        <div className="h-3 w-5/6 rounded bg-white/10" />
-        <div className="h-3 w-2/3 rounded bg-white/10" />
-      </div>
-      <div className="mt-4 h-10 w-full rounded-xl bg-white/10" />
-    </div>
-  );
+function isTransient503(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 503;
 }
 
 function EmptyState() {
@@ -173,53 +53,24 @@ function EmptyState() {
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 px-6 py-16 text-center">
       <Radar className="mb-4 text-slate-600" size={48} aria-hidden="true" />
       <p className="max-w-sm text-sm font-semibold text-slate-400">
-        Describe the companies you&apos;re looking for to begin your search.
+        Enter a company name above to generate an AI sales playbook.
       </p>
-    </div>
-  );
-}
-
-function NoResultsState({
-  filtered,
-  onModifySearch,
-  onResetFilters,
-}: {
-  filtered: boolean;
-  onModifySearch: () => void;
-  onResetFilters: () => void;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 px-6 py-16 text-center">
-      <SearchX className="mb-4 text-slate-600" size={48} aria-hidden="true" />
-      <p className="mb-5 max-w-sm text-sm font-semibold text-slate-400">
-        {filtered ? 'No companies match your current filters.' : 'No matching companies found.'}
-      </p>
-      <button
-        type="button"
-        onClick={filtered ? onResetFilters : onModifySearch}
-        className="inline-flex items-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-400"
-      >
-        {filtered ? 'Reset Filters' : 'Modify Search'}
-      </button>
     </div>
   );
 }
 
 export default function ProspectSearchPage() {
   const { can } = useAuth();
-  const [prompt, setPrompt] = useState('');
-  const [searchResult, setSearchResult] = useState<ProspectSearchResult | null>(null);
+  const [companyName, setCompanyName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState('');
-  const [industryFilter, setIndustryFilter] = useState('all');
-  const [locationFilter, setLocationFilter] = useState('all');
-  const [employeeBucketKey, setEmployeeBucketKey] = useState('all');
-  const [sortBy, setSortBy] = useState<SortOption>('match');
   const [selectedCompany, setSelectedCompany] = useState<ProspectCompany | null>(null);
   const [insightCache, setInsightCache] = useState<Record<string, ProspectCompanyInsight>>({});
   const [history, setHistory] = useState<ProspectSearchHistoryEntry[]>([]);
   const [savedSearches, setSavedSearches] = useState<SavedProspectSearchEntry[]>([]);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const searchGenerationRef = useRef(0);
 
   const loadHistoryAndSaved = useCallback(async () => {
     try {
@@ -239,10 +90,6 @@ export default function ProspectSearchPage() {
     void loadHistoryAndSaved();
   }, [loadHistoryAndSaved]);
 
-  const handleViewDetails = useCallback((company: ProspectCompany) => {
-    setSelectedCompany(company);
-  }, []);
-
   const handleCloseDetails = useCallback(() => {
     setSelectedCompany(null);
   }, []);
@@ -251,82 +98,137 @@ export default function ProspectSearchPage() {
     setInsightCache((current) => ({ ...current, [companyId]: insight }));
   }, []);
 
+  const pollJobStatus = useCallback(
+    async (jobId: string, generation: number) => {
+      const startedAt = Date.now();
+      let consecutive503s = 0;
+
+      for (;;) {
+        if (searchGenerationRef.current !== generation) return;
+
+        if (Date.now() - startedAt > JOB_MAX_POLL_MS) {
+          setError('Playbook generation is taking longer than expected. Please try again later.');
+          setLoading(false);
+          return;
+        }
+
+        // Same jobId every iteration - a 503 backs off and retries the
+        // status check, it never triggers a new playbook submission.
+        const waitMs =
+          consecutive503s === 0
+            ? JOB_POLL_INTERVAL_MS
+            : Math.min(JOB_POLL_INTERVAL_MS * 2 ** consecutive503s, MAX_BACKOFF_MS);
+
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        if (searchGenerationRef.current !== generation) return;
+
+        try {
+          const status = await getProspectSearchJobStatus(jobId);
+          if (searchGenerationRef.current !== generation) return;
+          consecutive503s = 0;
+
+          if (status.status === 'pending') {
+            setProgress(status.progress);
+            continue;
+          }
+
+          if (status.status === 'completed') {
+            const company: ProspectCompany = { id: status.companyName, name: status.companyName };
+            setInsightCache((current) => ({ ...current, [company.id]: status.insight }));
+            setSelectedCompany(company);
+            setLoading(false);
+            void loadHistoryAndSaved();
+            return;
+          }
+
+          setError(status.message);
+          setLoading(false);
+          return;
+        } catch (err) {
+          if (searchGenerationRef.current !== generation) return;
+
+          if (isTransient503(err)) {
+            // Confirmed transient by BlackPearl: keep the loading state,
+            // don't surface an error, just back off and retry the same job.
+            consecutive503s += 1;
+            console.warn(
+              `Prospect search: transient 503 checking job ${jobId} (consecutive: ${consecutive503s}); retrying.`,
+            );
+            continue;
+          }
+
+          setError(getApiErrorMessage(err, 'Could not check playbook status. Please try again.'));
+          setLoading(false);
+          return;
+        }
+      }
+    },
+    [loadHistoryAndSaved],
+  );
+
   const runSearch = useCallback(async (value: string) => {
     const trimmed = value.trim();
     if (!trimmed) return;
 
+    const generation = searchGenerationRef.current + 1;
+    searchGenerationRef.current = generation;
+
     setLoading(true);
     setError('');
+    setProgress(null);
 
     try {
       const result = await searchProspects(trimmed);
-      setSearchResult(result);
-      setIndustryFilter('all');
-      setLocationFilter('all');
-      setEmployeeBucketKey('all');
-      setSortBy('match');
-      setPrompt(trimmed);
-      void loadHistoryAndSaved();
+      if (searchGenerationRef.current !== generation) return;
+      setCompanyName(trimmed);
+
+      if (result.status === 'completed') {
+        const company: ProspectCompany = { id: result.companyName, name: result.companyName };
+        setInsightCache((current) => ({ ...current, [company.id]: result.insight }));
+        setSelectedCompany(company);
+        setLoading(false);
+        void loadHistoryAndSaved();
+        return;
+      }
+
+      void pollJobStatus(result.jobId, generation);
     } catch (err) {
+      if (searchGenerationRef.current !== generation) return;
       setError(getApiErrorMessage(err, 'Prospect search failed. Please try again.'));
-      setSearchResult(null);
-    } finally {
       setLoading(false);
     }
-  }, [loadHistoryAndSaved]);
+  }, [loadHistoryAndSaved, pollJobStatus]);
 
   const handleSubmit = useCallback(
     (event: React.FormEvent) => {
       event.preventDefault();
       if (loading) return;
-      void runSearch(prompt);
+      void runSearch(companyName);
     },
-    [loading, prompt, runSearch],
+    [loading, companyName, runSearch],
   );
-
-  const handleKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-        event.preventDefault();
-        if (!loading) void runSearch(prompt);
-      }
-    },
-    [loading, prompt, runSearch],
-  );
-
-  const handleModifySearch = useCallback(() => {
-    setSearchResult(null);
-    setError('');
-    requestAnimationFrame(() => textareaRef.current?.focus());
-  }, []);
-
-  const handleResetFilters = useCallback(() => {
-    setIndustryFilter('all');
-    setLocationFilter('all');
-    setEmployeeBucketKey('all');
-  }, []);
 
   const handleRunAgain = useCallback(
     (value: string) => {
-      setPrompt(value);
+      setCompanyName(value);
       if (!loading) void runSearch(value);
     },
     [loading, runSearch],
   );
 
   const handleSaveSearch = useCallback(async () => {
-    if (!searchResult) return;
+    if (!selectedCompany) return;
 
-    const name = window.prompt('Name this search:', searchResult.prompt.slice(0, 60));
+    const name = window.prompt('Name this search:', selectedCompany.name.slice(0, 60));
     if (!name || !name.trim()) return;
 
     try {
-      await saveProspectSearch(name.trim(), searchResult.prompt, searchResult.filters);
+      await saveProspectSearch(name.trim(), selectedCompany.name);
       await loadHistoryAndSaved();
     } catch (err) {
       setError(getApiErrorMessage(err, 'Could not save this search.'));
     }
-  }, [searchResult, loadHistoryAndSaved]);
+  }, [selectedCompany, loadHistoryAndSaved]);
 
   const handleRenameSaved = useCallback(
     async (entry: SavedProspectSearchEntry) => {
@@ -357,48 +259,6 @@ export default function ProspectSearchPage() {
     [loadHistoryAndSaved],
   );
 
-  const industries = useMemo(() => {
-    if (!searchResult) return [];
-    return Array.from(new Set(searchResult.results.map((company) => company.industry))).sort();
-  }, [searchResult]);
-
-  const locations = useMemo(() => {
-    if (!searchResult) return [];
-    return Array.from(new Set(searchResult.results.map(locationLabel))).sort();
-  }, [searchResult]);
-
-  const filteredSortedResults = useMemo(() => {
-    if (!searchResult) return [];
-
-    const employeeBucket = EMPLOYEE_BUCKETS.find((bucket) => bucket.key === employeeBucketKey);
-
-    const filtered = searchResult.results.filter((company) => {
-      if (industryFilter !== 'all' && company.industry !== industryFilter) return false;
-      if (locationFilter !== 'all' && locationLabel(company) !== locationFilter) return false;
-      if (employeeBucket && employeeBucket.key !== 'all') {
-        if (company.employeeCount < employeeBucket.min || company.employeeCount > employeeBucket.max) {
-          return false;
-        }
-      }
-      return true;
-    });
-
-    const sorted = [...filtered];
-    if (sortBy === 'alphabetical') {
-      sorted.sort((a, b) => a.name.localeCompare(b.name));
-    } else if (sortBy === 'employees') {
-      sorted.sort((a, b) => b.employeeCount - a.employeeCount);
-    } else {
-      sorted.sort((a, b) => b.matchScore - a.matchScore);
-    }
-
-    return sorted;
-  }, [searchResult, industryFilter, locationFilter, employeeBucketKey, sortBy]);
-
-  const hasRawResults = (searchResult?.results.length ?? 0) > 0;
-  const hasFiltersApplied =
-    industryFilter !== 'all' || locationFilter !== 'all' || employeeBucketKey !== 'all';
-
   return (
     <DashboardLayout requiredPermissions="prospect_search.view">
       <div className="mb-6 sm:mb-8">
@@ -407,7 +267,7 @@ export default function ProspectSearchPage() {
           AI Prospect Search
         </h2>
         <p className="mt-2 text-slate-400">
-          Search and discover companies using natural language powered by AI.
+          Enter a company name to generate an AI-powered sales playbook.
         </p>
       </div>
 
@@ -480,27 +340,22 @@ export default function ProspectSearchPage() {
         onSubmit={handleSubmit}
         className="mb-6 rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:mb-8 sm:p-5"
       >
-        <label htmlFor="prospect-search-prompt" className="sr-only">
-          Describe the companies you&apos;re looking for
+        <label htmlFor="prospect-search-company-name" className="sr-only">
+          Company name
         </label>
-        <textarea
-          id="prospect-search-prompt"
-          ref={textareaRef}
-          value={prompt}
-          onChange={(event) => setPrompt(event.target.value)}
-          onKeyDown={handleKeyDown}
-          rows={3}
-          disabled={loading}
-          placeholder="Find security companies in Texas with 50-200 employees..."
-          aria-describedby="prospect-search-hint"
-          className="min-h-24 w-full resize-none rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-indigo-400 disabled:opacity-60"
-        />
-        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p id="prospect-search-hint" className="text-xs text-slate-500">
-            Press Ctrl/Cmd + Enter to search
-          </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <input
+            id="prospect-search-company-name"
+            ref={inputRef}
+            type="text"
+            value={companyName}
+            onChange={(event) => setCompanyName(event.target.value)}
+            disabled={loading}
+            placeholder="e.g. Acme Corp"
+            className="min-h-11 flex-1 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-indigo-400 disabled:opacity-60"
+          />
           <div className="flex gap-2">
-            {searchResult && can('prospect_search.manage') && (
+            {selectedCompany && can('prospect_search.manage') && (
               <button
                 type="button"
                 onClick={() => void handleSaveSearch()}
@@ -512,7 +367,7 @@ export default function ProspectSearchPage() {
             )}
             <button
               type="submit"
-              disabled={loading || !prompt.trim()}
+              disabled={loading || !companyName.trim()}
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
@@ -520,7 +375,7 @@ export default function ProspectSearchPage() {
               ) : (
                 <Search size={18} aria-hidden="true" />
               )}
-              {loading ? 'Searching...' : 'Search with AI'}
+              {loading ? 'Generating...' : 'Search with AI'}
             </button>
           </div>
         </div>
@@ -539,113 +394,17 @@ export default function ProspectSearchPage() {
       {loading && (
         <div className="mb-6 flex items-center gap-3 text-sm font-semibold text-slate-300">
           <Loader2 className="animate-spin text-indigo-300" size={18} aria-hidden="true" />
-          AI is analyzing your request...
+          {progress !== null
+            ? `Generating playbook... ${progress}% (typically 10-15 minutes)`
+            : 'Generating playbook — this typically takes 10-15 minutes...'}
         </div>
       )}
 
-      {!loading && searchResult && hasRawResults && (
-        <div className="mb-6">
-          <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">
-            AI Search Filters
-          </h3>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <select
-              aria-label="Filter by industry"
-              value={industryFilter}
-              onChange={(event) => setIndustryFilter(event.target.value)}
-              className="rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none focus:border-indigo-400"
-            >
-              <option value="all">All industries</option>
-              {industries.map((industry) => (
-                <option key={industry} value={industry}>
-                  {industry}
-                </option>
-              ))}
-            </select>
-
-            <select
-              aria-label="Filter by location"
-              value={locationFilter}
-              onChange={(event) => setLocationFilter(event.target.value)}
-              className="rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none focus:border-indigo-400"
-            >
-              <option value="all">All locations</option>
-              {locations.map((location) => (
-                <option key={location} value={location}>
-                  {location}
-                </option>
-              ))}
-            </select>
-
-            <select
-              aria-label="Filter by employee size"
-              value={employeeBucketKey}
-              onChange={(event) => setEmployeeBucketKey(event.target.value)}
-              className="rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none focus:border-indigo-400"
-            >
-              {EMPLOYEE_BUCKETS.map((bucket) => (
-                <option key={bucket.key} value={bucket.key}>
-                  {bucket.label}
-                </option>
-              ))}
-            </select>
-
-            <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2.5 text-sm text-white">
-              <ArrowUpDown size={15} className="shrink-0 text-slate-500" aria-hidden="true" />
-              <select
-                aria-label="Sort results"
-                value={sortBy}
-                onChange={(event) => setSortBy(event.target.value as SortOption)}
-                className="w-full bg-transparent text-sm text-white outline-none"
-              >
-                {SORT_OPTIONS.map((option) => (
-                  <option key={option.key} value={option.key} className="bg-slate-900">
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <SkeletonCard key={index} />
-          ))}
-        </div>
-      ) : !searchResult ? (
-        <EmptyState />
-      ) : filteredSortedResults.length === 0 ? (
-        <NoResultsState
-          filtered={hasRawResults && hasFiltersApplied}
-          onModifySearch={handleModifySearch}
-          onResetFilters={handleResetFilters}
-        />
-      ) : (
-        <>
-          <div className="mb-4">
-            <h3 className="flex items-center gap-2 text-lg font-bold text-white">
-              <Sparkles size={16} className="text-indigo-300" aria-hidden="true" />
-              AI Prospect Search Results
-            </h3>
-            <p className="mt-1 text-sm font-semibold text-slate-400">
-              {filteredSortedResults.length} of {searchResult.totalMatches} compan
-              {searchResult.totalMatches === 1 ? 'y' : 'ies'} shown
-            </p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {filteredSortedResults.map((company) => (
-              <CompanyCard key={company.id} company={company} onViewDetails={handleViewDetails} />
-            ))}
-          </div>
-        </>
-      )}
+      {!loading && <EmptyState />}
 
       <ProspectDetailsDrawer
         company={selectedCompany}
-        searchPrompt={searchResult?.prompt ?? prompt}
+        searchPrompt={selectedCompany?.name ?? ''}
         onClose={handleCloseDetails}
         canImportLeads={can('leads.create')}
         insightCache={insightCache}

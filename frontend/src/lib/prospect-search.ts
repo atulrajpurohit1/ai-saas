@@ -1,43 +1,63 @@
 import api from '@/lib/api';
 
-export interface ProspectSearchFilters {
-  industry: string | null;
-  city: string | null;
-  state: string | null;
-  country: string | null;
-  employeeMin: number | null;
-  employeeMax: number | null;
-  revenueRange: string | null;
-  keywords: string[];
-}
-
 export interface ProspectCompany {
   id: string;
   name: string;
-  industry: string;
-  website: string;
-  city: string;
-  state: string;
-  country: string;
-  employeeCount: number;
-  revenueRange: string;
-  description: string;
-  matchScore: number;
+  industry?: string;
+  website?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  employeeCount?: number;
+  revenueRange?: string;
+  description?: string;
 }
 
 export interface ProspectSearchResult {
-  prompt: string;
-  filters: ProspectSearchFilters;
-  results: ProspectCompany[];
-  totalMatches: number;
+  companyName: string;
+  insight: ProspectCompanyInsight;
 }
 
+/**
+ * BlackPearl playbook generation is asynchronous and commonly takes
+ * minutes, so a search either resolves immediately (cache hit) or returns a
+ * job to poll via getProspectSearchJobStatus().
+ */
+export type ProspectSearchSubmission =
+  | { status: 'completed'; companyName: string; insight: ProspectCompanyInsight }
+  | { status: 'pending'; jobId: string; companyName: string };
+
+export type ProspectSearchJobStatus =
+  | { status: 'pending'; progress: number | null }
+  | { status: 'completed'; companyName: string; insight: ProspectCompanyInsight }
+  | { status: 'failed'; message: string };
+
+export interface ProspectCompanyPersona {
+  name: string;
+  title?: string;
+  description?: string;
+}
+
+export interface ProspectCompanyObjection {
+  objection: string;
+  response: string;
+}
+
+/** Mirrors BlackPearl's actual playbook result schema. Only companyName is guaranteed. */
 export interface ProspectCompanyInsight {
-  whyMatch: string;
-  opportunity: string;
-  outreachStrategy: string;
-  securityNeeds: string;
-  nextConversation: string;
+  companyName: string;
+  domain?: string;
+  website?: string;
+  businessSummary?: string;
+  businessObjective?: string;
+  valueProps: string[];
+  salesAngles: string[];
+  keyPersonas: ProspectCompanyPersona[];
+  potentialObjections: ProspectCompanyObjection[];
+  meetingNoteExample?: string;
+  contactOverview?: string;
+  readinessLevel?: string;
+  documentUrl?: string;
 }
 
 export interface DuplicateLeadSummary {
@@ -61,7 +81,6 @@ export type ImportProspectResult =
 export interface ProspectSearchHistoryEntry {
   id: string;
   prompt: string;
-  filters: ProspectSearchFilters;
   provider: string;
   resultCount: number;
   searchedAt: string;
@@ -71,13 +90,17 @@ export interface SavedProspectSearchEntry {
   id: string;
   name: string;
   prompt: string;
-  filters: ProspectSearchFilters;
   createdAt: string;
   updatedAt: string;
 }
 
-export async function searchProspects(prompt: string) {
-  const res = await api.post<ProspectSearchResult>('prospect-search/search', { prompt });
+export async function searchProspects(companyName: string) {
+  const res = await api.post<ProspectSearchSubmission>('prospect-search/search', { companyName });
+  return res.data;
+}
+
+export async function getProspectSearchJobStatus(jobId: string) {
+  const res = await api.get<ProspectSearchJobStatus>(`prospect-search/search/${jobId}`);
   return res.data;
 }
 
@@ -117,15 +140,10 @@ export async function getSavedProspectSearches() {
   return res.data;
 }
 
-export async function saveProspectSearch(
-  name: string,
-  prompt: string,
-  filters: ProspectSearchFilters,
-) {
+export async function saveProspectSearch(name: string, prompt: string) {
   const res = await api.post<SavedProspectSearchEntry>('prospect-search/saved-searches', {
     name,
     prompt,
-    filters,
   });
   return res.data;
 }
