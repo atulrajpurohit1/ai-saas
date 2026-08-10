@@ -6,7 +6,7 @@ This domain covers how the platform turns approved guard work into client billin
 
 ---
 
-# 40. Invoice Generation & Management
+# 30. Invoice Generation & Management
 
 ## Purpose
 Automates turning a period of approved guard timesheets into a professional client invoice, so finance staff don't have to manually calculate billing from shift records.
@@ -73,7 +73,7 @@ Admin marks it "paid" once payment is received
 
 ---
 
-# 41. Invoice Dispute Resolution
+# 31. Invoice Dispute Resolution
 
 ## Purpose
 Gives a client a formal way to contest a billed invoice, and gives finance staff a structured, auditable process to review, respond to, and close that dispute.
@@ -106,11 +106,10 @@ Client sees the updated dispute status and the admin's response
 ## Business Value
 - Gives clients a legitimate, trackable channel to question a bill instead of simply refusing to pay or emailing back and forth.
 - Protects the company by requiring exactly one open dispute per invoice and a clear resolution trail.
-- A resolved dispute is automatically captured as organizational knowledge, so similar future situations can be answered faster (see AI Copilot / Knowledge Base).
 
 ## Technical Summary
 - **Modules:** `invoice-disputes` (admin review/respond/resolve/reject), with dispute *submission* itself living in `InvoicesService.disputeInvoice` (client-facing)
-- **Key logic:** A conflict check blocks a second open dispute on the same invoice. Status moves through `open` → `under_review` → `resolved`/`rejected`. Resolving or rejecting a dispute runs inside a database transaction that also updates the parent `Invoice`'s status (`resolved` or back to `issued`, respectively). Resolved disputes are pushed into the Knowledge Base (`KnowledgeBaseService.createFromDispute`) so AI Copilot can reference how similar disputes were previously handled.
+- **Key logic:** A conflict check blocks a second open dispute on the same invoice. Status moves through `open` → `under_review` → `resolved`/`rejected`. Resolving or rejecting a dispute runs inside a database transaction that also updates the parent `Invoice`'s status (`resolved` or back to `issued`, respectively). (Earlier documentation described resolved disputes feeding an AI Knowledge Base; that module was removed on 2026-07-15 and `invoice-disputes.service.ts` no longer references it.)
 - **Database tables:** `InvoiceDispute`, `Invoice`
 - **Frontend:** `/invoice-disputes` (admin queue) and `/invoice-disputes/[id]` (respond/resolve/reject); the dispute submission form is embedded directly in `/client/invoices/[id]` on the Client Portal.
 
@@ -119,7 +118,6 @@ Client sees the updated dispute status and the admin's response
 - One active dispute per invoice enforced server-side
 - Admin respond / resolve / reject workflow
 - Automatic invoice status sync across the dispute lifecycle
-- Resolved disputes automatically feed the Knowledge Base for AI grounding
 - Full audit trail (dispute opened, moved under review, responded to, resolved/rejected)
 
 ## Current Status
@@ -129,7 +127,7 @@ Client sees the updated dispute status and the admin's response
 
 ---
 
-# 42. Rate Card Management
+# 32. Rate Card Management
 
 ## Purpose
 Lets finance staff define the contracted hourly billing rate for a client (and optionally a specific site), so invoice generation always uses the correct, pre-approved rate instead of relying on manual entry every time.
@@ -184,7 +182,7 @@ The invoice locks in the resolved rate at the moment of generation
 
 ---
 
-# 43. Timesheet Management & Approval
+# 33. Timesheet Management & Approval
 
 ## Purpose
 Converts a guard's recorded shift attendance into a reviewable, approvable worked-hours record — the record that ultimately becomes the basis for what a client is billed.
@@ -243,7 +241,7 @@ edited, corrected, or rejected
 
 ---
 
-# 44. Finance Reporting
+# 34. Finance Reporting
 
 ## Purpose
 Gives finance staff a real-time view of billing performance — how much has been issued, collected, is still outstanding, or is under dispute — without manually tallying invoices in a spreadsheet.
@@ -299,10 +297,10 @@ Every report view and export is written to the audit log
 
 ---
 
-# 45. Subscription Billing & Plans
+# 35. Subscription Billing & Plans
 
 ## Purpose
-Defines what each tenant is allowed to use — user seats, branches, lead/deal volume, and gated features like SSO or the Public API — based on a subscription plan.
+Defines what each tenant is allowed to use — user seats, branches, lead/deal volume, and a small set of gated features — based on a subscription plan.
 
 ## Overview
 Four plans (Free, Starter, Growth, Enterprise) are defined directly in the backend code, each with its own usage limits and feature flags. Which plan a given tenant is on is decided by an environment variable — either a tenant-specific override or a platform-wide default — rather than by anything stored on the tenant's own database record. The Settings → Billing page shows the current plan, live usage against its limits, which gated features are enabled, and all four plans side by side for comparison, but it has no buttons to actually change plan.
@@ -310,7 +308,7 @@ Four plans (Free, Starter, Growth, Enterprise) are defined directly in the backe
 ## What User Can Do
 - View the current plan, its monthly price, and which environment variable is driving the assignment
 - View live usage vs. limits for admin users, client portal users, branches, leads, and deals
-- View which gated features (Sales Automation, Public API, Custom Domains, SSO, Priority Support) are enabled for the current plan
+- View which gated features (Sales Automation, Public API, Custom Domains, Priority Support — see Known Limitations regarding the first of these) are enabled for the current plan
 - View all four plans side by side for comparison
 - Be automatically blocked (server-side) from adding another admin or client user once a hard limit is reached
 
@@ -345,13 +343,13 @@ and redeploys the application
 
 ## Key Capabilities
 - Four-tier plan model (Free / Starter / Growth / Enterprise) with per-plan usage limits
-- Feature gating by plan (Sales Automation, Public API, Custom Domains, SSO, Priority Support)
+- Feature gating by plan (Sales Automation, Public API, Custom Domains, Priority Support)
 - Live usage tracking against limits, with per-limit remaining/percent/exceeded indicators
 - Hard server-side enforcement blocking over-limit admin/client user creation
 - Side-by-side plan comparison view
 
 ## Current Status
-**Partially Implemented.** Verified directly by reading `backend/src/billing/billing.service.ts` and `backend/src/billing/billing.controller.ts`: there is no payment processor or gateway integration of any kind (no Stripe or equivalent — nothing in the module handles a card, a charge, or a subscription object). Plan assignment is controlled entirely by environment variables (`BILLING_PLAN_<TENANT_SLUG>` / `BILLING_DEFAULT_PLAN`) rather than a field stored on the tenant's own database record, and there is no self-service upgrade/downgrade action anywhere in the frontend — changing a tenant's plan today requires an operator to edit an environment variable and redeploy. This confirms the preliminary assessment; the underlying limits/feature-flag engine itself is real and fully working.
+**Partially Implemented.** Verified directly by reading `backend/src/billing/billing.service.ts` and `backend/src/billing/billing.controller.ts`: there is no payment processor or gateway integration of any kind (no Stripe or equivalent — nothing in the module handles a card, a charge, or a subscription object). Plan assignment is controlled entirely by environment variables (`BILLING_PLAN_<TENANT_SLUG>` / `BILLING_DEFAULT_PLAN`) rather than a field stored on the tenant's own database record, and there is no self-service upgrade/downgrade action anywhere in the frontend — changing a tenant's plan today requires an operator to edit an environment variable and redeploy. This confirms the preliminary assessment; the underlying limits/feature-flag engine itself is real and fully working. **One stale reference worth flagging:** the `salesAutomation` feature flag still exists in `BillingService.featuresForPlan()` and is still shown on the plan-comparison screen, but the Sales Automation module it refers to was deleted from the codebase on 2026-08-07 (see `docs/features/03-sales-tools.md`) — this flag currently gates a feature that no longer exists. SSO, which appeared in earlier billing documentation, is not and was never a plan-gated feature flag in this module.
 
 **[Insert Screenshot Here]**
 

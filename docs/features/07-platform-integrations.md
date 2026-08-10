@@ -6,7 +6,7 @@ This domain covers the features that connect the platform to the outside world (
 
 ---
 
-# 46. Public API & API Keys
+# 36. Public API & API Keys
 
 ## Purpose
 Lets a company connect its own external systems (custom apps, internal tools, scripts) to its data in the platform using a secure, tenant-scoped API key instead of a personal login.
@@ -66,7 +66,7 @@ Admin can revoke or regenerate the key at any time
 
 ---
 
-# 47. Webhooks
+# 37. Webhooks
 
 ## Purpose
 Lets a company automatically notify its own external systems the moment something happens in the platform (a new incident, a guard assignment, an invoice being paid), instead of that system having to repeatedly poll the API for changes.
@@ -125,7 +125,7 @@ Admin can review delivery history and manually retry any failed delivery
 
 ---
 
-# 48. Integrations Overview Dashboard
+# 38. Integrations Overview Dashboard
 
 ## Purpose
 Gives an admin a single screen that summarizes the health and activity of every external-facing integration (API keys, webhooks, CRM connection) without having to check each one separately.
@@ -176,7 +176,7 @@ on the same page to take action
 
 ---
 
-# 49. CRM Connector (HubSpot)
+# 39. CRM Connector (HubSpot)
 
 ## Purpose
 Lets a company that already tracks contacts in HubSpot pull those contacts into this platform's lead pipeline, instead of re-entering them by hand.
@@ -231,7 +231,7 @@ Admin can disconnect at any time, revoking the stored tokens
 
 ---
 
-# 50. Multi-Branch Management
+# 40. Multi-Branch Management
 
 ## Purpose
 Lets a company that operates from multiple regional offices split its guards, clients, sites, and staff visibility by branch, instead of everyone seeing one undifferentiated pool of company-wide data.
@@ -285,7 +285,7 @@ Super admins continue to see and manage every branch
 
 ---
 
-# 51. White-Label Branding & Custom Domains
+# 41. White-Label Branding & Custom Domains
 
 ## Purpose
 Lets a company make the platform look and feel like their own product — their logo, their colors, their support contact — and, in principle, host it under their own domain name.
@@ -341,7 +341,7 @@ Domain is marked "verified" if found
 
 ---
 
-# 52. Shared Documents
+# 42. Shared Documents
 
 ## Purpose
 Gives admins a simple way to share files (contracts, certificates, compliance documents) with a specific client, viewable in that client's own portal.
@@ -391,7 +391,7 @@ Client downloads the document via its stored URL
 
 ---
 
-# 53. Client Portal (self-service)
+# 43. Client Portal (self-service)
 
 ## Purpose
 Gives a company's own clients a self-service window into their proposals, invoices, incidents, daily service reports, and documents — without needing to email the office for updates.
@@ -451,7 +451,7 @@ Client downloads shared documents as needed
 
 ---
 
-# 54. Email Notifications
+# 44. Email Notifications
 
 ## Purpose
 Sends a client an email when a proposal is ready for them to review, so they don't have to log in speculatively to check.
@@ -495,13 +495,13 @@ Proposal status is updated to "sent"
 - Proposal status auto-updated to "sent"
 
 ## Current Status
-**Partially Implemented.** The `email` module's scope is genuinely limited to proposal-delivery emails only — there is no welcome email, password-reset email, invoice-reminder email, or any other transactional email type built on this module. It also defaults to a non-production Ethereal test mailbox unless real SMTP credentials are set in the environment, so out of the box, "sent" emails are not actually delivered to a real inbox. (Note: a second, independent email-sending capability exists for AI-drafted deal follow-up emails in the Sales Delivery feature — see `docs/features/03-sales-tools.md` — which uses its own Nodemailer transporter and defaults to a local JSON mock transport rather than Ethereal. The two are separate code paths, not a shared notification system.)
+**Partially Implemented.** The `email` module's scope is genuinely limited to proposal-delivery emails only — there is no welcome email, password-reset email, invoice-reminder email, or any other transactional email type built on this module. It also defaults to a non-production Ethereal test mailbox unless real SMTP credentials are set in the environment, so out of the box, "sent" emails are not actually delivered to a real inbox. (Note: a previously-documented second email path — AI-drafted deal follow-up emails in a "Sales Delivery" feature — no longer exists; that module was deleted from the codebase on 2026-08-07. This `email` module is the platform's only remaining email-sending capability, and vendor-invitation/award/rejection emails on the RFP module reuse this same `EmailService` — see `docs/features/08-rfp-vendor-management.md`.)
 
 **[Insert Screenshot Here]**
 
 ---
 
-# 55. API Documentation
+# 45. API Documentation
 
 ## Purpose
 Gives developers integrating with the Public API a single, browsable reference for every available endpoint, its inputs, and how to verify webhook signatures.
@@ -549,13 +549,13 @@ requirements (X-API-Key header) to build their integration
 
 ---
 
-# 56. Custom Reports (Daily Service Reports)
+# 46. Custom Reports (Daily Service Reports)
 
 ## Purpose
 Produces a per-site, per-day operational summary — who worked, when, and what incidents occurred — that can be reviewed internally and then published for the client to see.
 
 ## Overview
-An admin generates a daily service report for a specific site and date; the system automatically pulls together every shift scheduled that day, each assigned guard's attendance (check-in/out and hours worked), and any approved incidents, into a single structured summary. The report starts as an internal draft and can be published, at which point it becomes visible to the client and feeds the AI Knowledge Base.
+An admin generates a daily service report for a specific site and date; the system automatically pulls together every shift scheduled that day, each assigned guard's attendance (check-in/out and hours worked), and any approved incidents, into a single structured summary. The report starts as an internal draft and can be published, at which point it becomes visible to the client.
 
 ## What User Can Do
 - Generate a daily report for a site and date (auto-compiled from real shift/attendance/incident data)
@@ -577,18 +577,16 @@ Admin reviews the draft, exports it as PDF if needed
         ↓
 Admin publishes the report
         ↓
-Report becomes visible/downloadable to the client in their portal,
-and is added as searchable context for the AI Knowledge Base
+Report becomes visible/downloadable to the client in their portal
 ```
 
 ## Business Value
 - Gives clients concrete, data-backed proof of service delivery (who was on site, for how long, and what happened) without manual report-writing.
 - Publishing (rather than auto-sharing every draft) lets admins review for accuracy before a client ever sees it.
-- Feeds real operational history into the AI layer, improving future AI-generated answers and insights.
 
 ## Technical Summary
 - **Modules:** `reports` (`ReportsService`, `ReportsController` for admin, `ClientReportsController` for the client-facing read/download endpoints)
-- **Key logic:** Report generation queries `Shift` (with assignments + attendance events) and approved `Incident` records for the given site/date window, computes attendance status and worked hours per guard, and stores the resulting structured summary as JSON in a single `summary` text column. Reports move through a `draft → published` status lifecycle; only `published` reports are ever visible to the `client-reports` endpoints. PDF export reuses the shared branding PDF header helper. Publishing a report also creates a `KnowledgeEntry` via the Knowledge Base service so it can ground future AI answers.
+- **Key logic:** Report generation queries `Shift` (with assignments + attendance events) and approved `Incident` records for the given site/date window, computes attendance status and worked hours per guard, and stores the resulting structured summary as JSON in a single `summary` text column. Reports move through a `draft → published` status lifecycle; only `published` reports are ever visible to the `client-reports` endpoints. PDF export reuses the shared branding PDF header helper. (Earlier documentation described publishing also feeding an AI Knowledge Base; that module was removed on 2026-07-15 and `reports.service.ts` no longer references it.)
 - **Database tables:** `DailyServiceReport` (report metadata + JSON summary), reads `Shift`, `Assignment`, `AttendanceEvent`, `Incident`, `Site`, `Client`
 - **Frontend:** `/reports` (+`[id]`) for admin generate/view/publish/export, and `/client/reports` (+`[id]`) for the client-facing published-only view and PDF download.
 
@@ -597,7 +595,6 @@ and is added as searchable context for the AI Knowledge Base
 - Draft/published status gating for client visibility
 - Branded PDF export (admin and client)
 - Branch-scoped visibility for admin users
-- Feeds the AI Knowledge Base on publish
 - Full audit trail (generated/viewed/published/exported/downloaded)
 
 ## Current Status

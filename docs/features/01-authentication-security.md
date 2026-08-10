@@ -149,72 +149,13 @@ Guard is taken to their shift dashboard
 
 ---
 
-# 4. Single Sign-On (SSO)
-
-## Purpose
-Lets enterprise clients' IT departments require staff to log in with their existing corporate identity (Google Workspace, Microsoft, Okta, Auth0, or another provider), instead of a separate password to remember.
-
-## Overview
-An admin configures a connection to their company's identity provider. From then on, staff can click "Continue with SSO" on the login page and are securely redirected to their company's own login screen; once approved there, they're brought back into the app already logged in, with their role automatically assigned based on their identity-provider group membership.
-
-## What User Can Do
-- Admin: configure, test, and manage one or more SSO providers per company
-- Admin: map identity-provider groups to in-app roles automatically
-- Admin: restrict SSO login to specific email domains
-- End user: log in via "Continue with SSO" instead of a password
-
-## Workflow
-```
-Admin configures an SSO provider (client ID/secret, discovery URL, allowed domains)
-        ↓
-Admin maps identity-provider groups to in-app roles
-        ↓
-User clicks "Continue with SSO" and enters their email
-        ↓
-System finds the matching provider and redirects to the identity provider
-        ↓
-User logs in with their corporate credentials
-        ↓
-Identity provider redirects back with a signed confirmation
-        ↓
-System verifies the signature, creates/updates the user, applies role mapping
-        ↓
-User is logged into the app
-```
-
-## Business Value
-- Removes password fatigue and reduces helpdesk password-reset requests for enterprise clients.
-- Centralizes access control — when an employee leaves the client company, disabling their corporate account also cuts off app access.
-- A recognized enterprise-readiness feature that helps close larger deals.
-
-## Technical Summary
-- **Modules:** `sso`
-- **Key logic:** Implements the industry-standard OIDC login flow with cryptographic verification of the identity provider's response, automatic user creation on first login, and role assignment driven by identity-provider group membership.
-- **Database tables:** `SSOProvider`, `SSORoleMapping`, `SSOLoginState`, `UserSession`
-- **Frontend:** SSO provider management screen (Settings → SSO), and a callback page that completes the login.
-
-## Key Capabilities
-- OIDC-based SSO login (Google/Microsoft/Okta/Auth0/generic)
-- Automatic ("just-in-time") user provisioning on first SSO login
-- Identity-provider group → in-app role mapping
-- Email-domain restriction per provider
-- Connectivity "test" tool for admins configuring a provider
-- Full audit trail of SSO configuration changes and login attempts
-
-## Current Status
-**Partially Implemented.** OIDC-based SSO (the most common enterprise standard) works fully end to end. **SAML-based SSO can be started but not completed** — an admin can configure a SAML provider and a user can be redirected to their identity provider, but there is currently no page to receive and complete that login, so a user choosing SAML SSO would not be able to finish signing in. This should be treated as an open item, not a working alternative to OIDC.
-
-**[Insert Screenshot Here]**
-
----
-
-# 5. Role-Based Access Control (RBAC)
+# 4. Role-Based Access Control (RBAC)
 
 ## Purpose
 Controls exactly what each staff member is allowed to see and do in the application, so sensitive actions (like issuing invoices or changing roles) are restricted to the right people.
 
 ## Overview
-Every company gets a set of ready-made roles (Super Admin, Branch Admin, Scheduler, Supervisor, Finance) covering common staffing patterns, and can also create fully custom roles built from a catalog of ~85 individual permissions (e.g. "view leads," "mark invoices paid," "manage SSO"). Roles can be assigned tenant-wide or scoped to a single branch.
+Every company gets a set of ready-made roles (Super Admin, Branch Admin, Scheduler, Supervisor, Finance) covering common staffing patterns, and can also create fully custom roles built from a catalog of individual permissions (e.g. "view leads," "mark invoices paid," "award RFP contracts"). Roles can be assigned tenant-wide or scoped to a single branch.
 
 ## What User Can Do
 - View the full permission catalog, grouped by module
@@ -262,7 +203,7 @@ Every API request checks the required permission before allowing the action
 
 ---
 
-# 6. Field-Level Permissions
+# 5. Field-Level Permissions
 
 ## Purpose
 Goes one level deeper than RBAC: restricts access to specific *sensitive fields* on a record (like a guard's salary or a client's private billing notes), even when a role can otherwise see the record itself.
@@ -271,20 +212,16 @@ Goes one level deeper than RBAC: restricts access to specific *sensitive fields*
 An admin can configure, per role, whether that role can view and/or edit particular sensitive fields — for example, letting a Scheduler see a guard's name and shifts, but hiding their salary and bank details, without needing an entirely separate "Guard (no payroll)" role.
 
 ## What User Can Do
-- View the catalog of protected fields (currently covering Guard, Client, and Invoice records)
-- Set per-role view/edit permission for each protected field
-- See sensitive fields automatically hidden or disabled in the UI based on their own role's permissions
+- See sensitive fields automatically hidden or disabled in the UI (Clients and Guards pages) based on their own role's permissions
+- Configure per-role view/edit permission for each protected field — **API only today, see Current Status**
 
 ## Workflow
 ```
-Admin opens Settings → Field Permissions
+Admin (via direct API call — no settings screen exists today) sets
+view/edit permission for a role on a protected field
         ↓
-Admin selects a role and a record type (e.g. Guard)
-        ↓
-Admin toggles view/edit for sensitive fields (salary, bank details, documents, personal notes)
-        ↓
-Any user with that role now has those fields automatically
-hidden (if view is off) or read-only (if edit is off) everywhere in the app
+Any user with that role has those fields automatically hidden
+(if view is off) or read-only (if edit is off) on the Clients/Guards pages
 ```
 
 ## Business Value
@@ -295,46 +232,44 @@ hidden (if view is off) or read-only (if edit is off) everywhere in the app
 - **Modules:** `field-permissions`
 - **Key logic:** A fixed catalog of sensitive fields per entity (guard salary/bank details/documents/personal notes; client billing/internal notes; invoice internal adjustments). Permission checks are applied both when data is read (fields are stripped from the response) and when data is written (an edit attempt on a locked field is rejected), and every blocked access attempt is logged.
 - **Database tables:** `FieldPermission`
-- **Frontend:** Settings → Field Permissions grid; consuming pages (Guards, Clients, Invoices) automatically hide/disable the relevant fields based on the logged-in user's effective permissions.
+- **Frontend:** No admin configuration screen exists (the former Settings → Field Permissions grid, `/settings/field-permissions`, was removed from the frontend on 2026-08-07). The consuming pages — Clients (`/clients`) and Guards (`/guards`) — still import `lib/field-permissions.ts` and automatically hide/disable the relevant fields based on the logged-in user's effective permissions, so enforcement itself is still live.
 
 ## Key Capabilities
-- Per-role, per-field view/edit control
-- Applies to Guard, Client, and Invoice records
-- Enforced on both read and write, not just visually hidden
+- Per-role, per-field view/edit control (backend)
+- Enforced on both read and write for Guard and Client records, not just visually hidden
 - Automatic audit logging of blocked access attempts
 - Super admins always see everything
 
 ## Current Status
-**Fully Implemented.** A genuinely complete feature, verified wired end-to-end into the three business areas it protects, not just a settings screen with no real effect.
+**Partially Implemented.** The backend service, permission catalog, and enforcement in the Clients/Guards pages all still work correctly. **The admin-facing configuration screen has been removed from the frontend** — there is currently no in-app way for an admin to change which fields are locked for which role; doing so would require a direct API call (`PATCH /field-permissions`) today.
 
 **[Insert Screenshot Here]**
 
 ---
 
-# 7. Session Management
+# 6. Session Management
 
 ## Purpose
 Gives admins visibility into who is currently logged into the admin application, and the ability to immediately force a suspicious or unwanted session to log out.
 
 ## Overview
-Every admin/SSO login creates a tracked session record (device, IP address, when they last used the app, when the session will expire). An admin with the right permission can view all active sessions for their company and revoke any one of them instantly.
+Every admin login creates a tracked session record (device, IP address, when they last used the app, when the session will expire). An admin with the right permission would be able to view all active sessions for their company and revoke any one of them instantly — see Current Status for why this is currently API-only.
 
 ## What User Can Do
-- View all active admin sessions for their company (user, login method, last activity, status)
-- Force any session to log out immediately
+- View all active admin sessions for their company (user, login method, last activity, status) — **API only today, see Current Status**
+- Force any session to log out immediately — **API only today, see Current Status**
 
 ## Workflow
 ```
-User logs in (password or SSO)
+User logs in
         ↓
 A session record is created (device/IP/timestamp)
         ↓
 Session automatically expires after a period of inactivity
 or after a fixed maximum duration
         ↓
-Admin can view the session list at any time
-        ↓
-Admin can force-revoke any session (e.g. a lost device, an offboarded employee)
+(No screen exists today for an admin to view or revoke sessions —
+this data is currently only reachable via the /sessions API)
 ```
 
 ## Business Value
@@ -345,28 +280,28 @@ Admin can force-revoke any session (e.g. a lost device, an offboarded employee)
 - **Modules:** `sessions`
 - **Key logic:** Every login/refresh creates or rotates a session record with an idle timeout (default 8 hours) and an absolute expiry (default 30 days); either condition automatically invalidates the session.
 - **Database tables:** `UserSession`
-- **Frontend:** Settings → Sessions page listing all sessions with a force-logout action.
+- **Frontend:** **None.** The former Settings → Sessions page (`/settings/sessions`) was removed from the frontend on 2026-08-07; no page or component in `frontend/src` currently calls the `/sessions` API.
 
 ## Key Capabilities
-- Full session listing (user, source, device, last seen, status)
+- Full session listing (user, source, device, last seen, status) — backend only
 - Idle timeout and absolute expiry enforcement
-- One-click forced logout
+- One-click forced logout — backend only
 - Full audit trail of session creation/expiry/revocation
 
 ## Current Status
-**Partially Implemented.** Fully working for the admin application, including SSO logins. **Not implemented for the Client Portal or Guard Portal** — those logins do not create a tracked session, so they are invisible to (and cannot be revoked from) this screen.
+**Partially Implemented — backend only, no frontend UI.** Session records are still created correctly on every admin login and expired/enforced server-side, but there is currently no screen anywhere in the app for an admin to view or force-revoke a session; this would require a direct API call today. This also does not cover the Client Portal or Guard Portal — those logins never created a tracked session in the first place.
 
 **[Insert Screenshot Here]**
 
 ---
 
-# 8. Audit Logging
+# 7. Audit Logging
 
 ## Purpose
 Keeps a record of security- and business-sensitive actions for traceability and compliance purposes.
 
 ## Overview
-Whenever something notable happens — a login, a role change, an SSO configuration update, a blocked access attempt, a forced logout, and many other actions across the platform — a record is written automatically, tagged with who did it, what it affected, and when.
+Whenever something notable happens — a login, a role change, a blocked access attempt, a forced logout, an RFP award, and many other actions across the platform — a record is written automatically, tagged with who did it, what it affected, and when.
 
 ## What User Can Do
 - View a company's recent activity log (latest 100 entries)
@@ -386,7 +321,7 @@ Admin with the "view audit log" permission can review recent activity
 
 ## Technical Summary
 - **Modules:** `audit`
-- **Key logic:** A single shared logging service is called from across the codebase (authentication, roles, sessions, SSO, field permissions, and more) to write a consistent activity record.
+- **Key logic:** A single shared logging service is called from across the codebase (authentication, roles, sessions, field permissions, RFP/vendor actions, and more) to write a consistent activity record.
 - **Database tables:** `AuditLog`
 - **Frontend:** Audit page with a simple activity table.
 

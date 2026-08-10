@@ -2,7 +2,8 @@
 
 > **Document type:** Enterprise product & technical documentation
 > **Audience:** Client stakeholders (non-technical) and development team (technical)
-> **Source of truth:** This document was produced by direct inspection of the actual source code (`backend/src`, `frontend/src`, `backend/prisma/schema.prisma`) as it exists today. No planned, assumed, or TODO functionality is described as implemented. Every feature below has been verified to have a working UI, API, service, and database layer unless explicitly marked otherwise in its **Current Status**.
+> **Source of truth:** This document was produced by direct inspection of the actual source code (`backend/src`, `frontend/src`, `backend/prisma/schema.prisma`) as it exists today, cross-referenced against the project's git history to distinguish currently-active code from features that were built and later removed. No planned, assumed, or TODO functionality is described as implemented. Every feature below has been verified to have a working UI, API, service, and database layer unless explicitly marked otherwise in its **Current Status**.
+> **Revision note:** This is a refresh of an earlier version of this document. Since that version was written, the codebase changed substantially: an entire **RFP & Vendor Management** domain was added, **AI Prospect Search was rebuilt** around a new live provider (BlackPearl) replacing the old mock/Apollo system, and a large cleanup **removed six previously-documented AI features** (AI Copilot, AI Business Insights dashboard, AI Revenue Intelligence, AI Governance's admin UI, AI Predictions, AI Actions) along with **Single Sign-On**, the **Knowledge Base**, and **Sales Automation / Sales Delivery / Sales Data Import**. Every section below reflects the codebase as it exists now, not the earlier version.
 
 ---
 
@@ -20,7 +21,7 @@
 10. [Security Features](#10-security-features)
 11. [Performance Features](#11-performance-features)
 12. [Known Limitations](#12-known-limitations)
-13. [Future Enhancements (Not Yet Implemented)](#13-future-enhancements-not-yet-implemented)
+13. [Removed / Not Implemented Features](#13-removed--not-implemented-features)
 14. [Glossary](#14-glossary)
 15. [Appendix](#15-appendix)
 
@@ -28,21 +29,23 @@
 
 ## 1. Project Overview
 
-This platform is a **multi-tenant Software-as-a-Service system for security guard services companies**, combining three things in one product:
+This platform is a **multi-tenant Software-as-a-Service system for security guard services companies**, combining four things in one product:
 
 1. **Field operations management** — scheduling guards, running patrols, logging incidents, and tracking attendance at client sites.
-2. **A sales CRM** — capturing leads, running a deal pipeline, generating proposals, and (as of the most recent development phase) AI-assisted prospecting.
-3. **AI-assisted decision support** — a shared AI layer (built on Google Gemini) that drafts proposals, scores leads, summarizes risk, answers natural-language questions about the business, and predicts operational problems before they happen.
+2. **A sales CRM** — capturing leads, running a deal pipeline, generating proposals, and AI-assisted single-company prospect research.
+3. **Vendor/subcontractor procurement** — drafting formal RFPs, inviting and evaluating subcontracted security vendors, and awarding/tracking contracts.
+4. **AI-assisted decision support** — a shared AI layer (built on Google Gemini, plus OpenAI for call transcription) that drafts proposals and RFPs, scores leads and deals, coaches sales reps through discovery calls, evaluates vendor bids, and recommends guards for open shifts.
 
 It is **multi-tenant**: every organization ("tenant") that signs up gets its own isolated data space, its own admin users, its own guards, its own clients, and its own configurable role/permission structure. A single tenant can also be split into multiple **branches** (regional offices), with branch-scoped visibility for non-super-admin staff.
 
-Three distinct user populations are served by three separate authenticated experiences:
+Three distinct user populations are served by three separate authenticated experiences, plus a fourth, token-based public flow for external vendors:
 
 | User | Portal | Purpose |
 |---|---|---|
-| **Admin / office staff** | Main application | Everything: CRM, scheduling, finance, AI tools, settings |
+| **Admin / office staff** | Main application | Everything: CRM, scheduling, finance, RFP/vendor procurement, AI tools, settings |
 | **Field guards** | Guard Portal (`/guard/*`) | View assigned shifts, check in/out, run patrols, file incidents — works offline |
 | **The tenant's own clients** | Client Portal (`/client/*`) | View/approve proposals, view invoices (and dispute them), view approved incident reports, view published daily reports, download shared documents |
+| **The tenant's subcontracted vendors** | Vendor Invitation Link (`/vendor/invitation/[token]`) | View one specific RFP they were invited to and submit a bid — no login, access via a one-time secure link |
 
 **[Insert Screenshot Here]**
 
@@ -55,10 +58,12 @@ Three distinct user populations are served by three separate authenticated exper
                               │        Next.js Frontend      │
                               │   (App Router, React 19)     │
                               │                               │
-                              │  Admin App │ Client Portal │  │
-                              │            │ Guard Portal  │  │
+                              │ Admin App │ Client Portal │   │
+                              │ Guard Portal │ Public Vendor  │
+                              │              Invitation Page  │
                               └───────────────┬───────────────┘
-                                              │  REST (JWT bearer)
+                                              │  REST (JWT bearer,
+                                              │  or a one-time token for vendors)
                                               ▼
                               ┌─────────────────────────────┐
                               │        NestJS Backend        │
@@ -71,7 +76,7 @@ Three distinct user populations are served by three separate authenticated exper
                                               ▼
                               ┌─────────────────────────────┐
                               │   PostgreSQL (multi-tenant)  │
-                              │   59 Prisma models, every    │
+                              │   61 Prisma models, every    │
                               │   tenant-scoped table carries │
                               │   a tenantId column           │
                               └─────────────────────────────┘
@@ -81,17 +86,18 @@ Three distinct user populations are served by three separate authenticated exper
                               │     External Integrations      │
                               │  Google Gemini (AI)             │
                               │  OpenAI Whisper (transcription) │
+                              │  BlackPearl (company playbooks) │
                               │  HubSpot (CRM contact import)   │
                               │  SMTP (email)                   │
                               │  Outbound Webhooks              │
                               └─────────────────────────────────┘
 ```
 
-**Backend** is organized as ~55 independent NestJS modules under `backend/src/`, each following the same pattern: a `*.controller.ts` (HTTP routes + guards + permission checks), a `*.service.ts` (business logic + Prisma queries), and DTOs (`class-validator`-based request validation). Every tenant-scoped query filters explicitly by `tenantId` — there is no database-level row-security; isolation is enforced in application code consistently across the codebase.
+**Backend** is organized as ~51 independent NestJS modules under `backend/src/`, each following the same pattern: a `*.controller.ts` (HTTP routes + guards + permission checks), a `*.service.ts` (business logic + Prisma queries), and DTOs (`class-validator`-based request validation). Every tenant-scoped query filters explicitly by `tenantId` — there is no database-level row-security; isolation is enforced in application code consistently across the codebase.
 
-**Frontend** is a single Next.js application that serves three different experiences from one codebase, distinguished by route prefix (`/`, `/client/*`, `/guard/*`) and by which JWT/localStorage token is active for that route.
+**Frontend** is a single Next.js application that serves four different experiences from one codebase, distinguished by route prefix (`/`, `/client/*`, `/guard/*`, `/vendor/invitation/*`) and by which credential (JWT/localStorage token, or a one-time invitation token in the URL) is active for that route.
 
-**AI layer**: one shared service (`AiService`, wrapping Google Gemini) is injected into every AI-flavored feature rather than each feature having its own model client. Every Gemini-backed capability has an explicit, hand-written fallback behavior for when the AI is unavailable — described in detail in [Section 5.4](#54-ai-features).
+**AI layer**: one shared service (`AiService`, wrapping Google Gemini) is injected into every Gemini-flavored feature rather than each feature having its own model client — proposal drafting, sales discovery/coaching, RFP drafting/evaluation, and guard-shift recommendation explanations all go through it. A second, independent provider (OpenAI's transcription API) powers Call Transcription only. A third, independent provider (BlackPearl) powers AI Prospect Search's company-playbook generation. Most Gemini-backed capabilities have an explicit, hand-written fallback behavior for when Gemini is unavailable — described in detail in [Section 5.4](#54-ai-features). BlackPearl and OpenAI, by contrast, have **no** fallback: if unconfigured or failing, their features return a clear error rather than fake content.
 
 **[Insert Screenshot Here]**
 
@@ -101,19 +107,21 @@ Three distinct user populations are served by three separate authenticated exper
 
 | Layer | Technology |
 |---|---|
-| Frontend framework | Next.js 16 (App Router), React 19, TypeScript |
-| Styling | Tailwind CSS v4 |
+| Frontend framework | Next.js (App Router), React 19, TypeScript |
+| Styling | Tailwind CSS v4, shadcn-style UI primitives (`components/ui/*`) |
 | Backend framework | NestJS 11 (Node.js), TypeScript |
 | Database | PostgreSQL |
 | ORM | Prisma 6 |
 | Authentication | JWT (access + refresh tokens), Passport.js |
-| AI provider | Google Gemini (`@google/generative-ai`) — primary/shared LLM |
-| Audio transcription | OpenAI Whisper API (`openai` SDK) — transcription only, not chat |
+| AI provider (general) | Google Gemini (`@google/generative-ai`) — proposals, sales assessment/discovery/coaching, RFP drafting/evaluation, guard-shift recommendation explanations |
+| Sales-intelligence provider | BlackPearl — live, external, paid B2B company-playbook API, powering AI Prospect Search |
+| Audio transcription | OpenAI Whisper-family API (`gpt-4o-mini-transcribe`) — transcription only, not chat |
 | Email | Nodemailer (SMTP, or Ethereal for local development) |
 | PDF generation | PDFKit |
 | CSV parsing/generation | `csv-parser`, `fast-csv` |
-| File/document links | URL-reference model (no built-in object storage) |
+| File/document links | URL-reference model for Shared Documents; disk storage with sanitized filenames for RFP vendor-submitted files |
 | CRM integration | HubSpot OAuth (contacts import only) |
+| Third-party chat widget | GoHighLevel (GHL) live-chat widget, embedded site-wide — a support-chat widget, unrelated to the platform's own AI features |
 
 ---
 
@@ -129,104 +137,103 @@ Every row below links to its full write-up in [Section 5](#5-detailed-feature-do
 | 1 | Admin Authentication (JWT) | ✅ Fully Implemented |
 | 2 | Client Portal Authentication | 🟡 Partially Implemented |
 | 3 | Guard Portal Authentication | 🟡 Partially Implemented |
-| 4 | Single Sign-On (SSO) | 🟡 Partially Implemented |
-| 5 | Role-Based Access Control (RBAC) | ✅ Fully Implemented |
-| 6 | Field-Level Permissions | ✅ Fully Implemented |
-| 7 | Session Management | 🟡 Partially Implemented |
-| 8 | Audit Logging | ✅ Fully Implemented (basic) |
+| 4 | Role-Based Access Control (RBAC) | ✅ Fully Implemented |
+| 5 | Field-Level Permissions | 🟡 Partially Implemented (enforcement works; admin config screen removed) |
+| 6 | Session Management | 🟡 Partially Implemented (backend only, no frontend UI) |
+| 7 | Audit Logging | ✅ Fully Implemented (basic) |
 
 ### 4.2 Core CRM
 *(full detail: [`docs/features/02-crm-core.md`](features/02-crm-core.md))*
 
 | # | Feature | Status |
 |---|---|---|
-| 9 | Lead Management | ✅ Fully Implemented |
-| 10 | Deal / Pipeline Management | 🟡 Partially Implemented |
-| 11 | Proposal Management | ✅ Fully Implemented |
-| 12 | Notes | ✅ Fully Implemented |
-| 13 | Activities | 🔴 Limited Implementation (backend only) |
-| 14 | Client Management | ✅ Fully Implemented |
+| 8 | Lead Management | ✅ Fully Implemented |
+| 9 | Deal / Pipeline Management | 🟡 Partially Implemented |
+| 10 | Proposal Management | ✅ Fully Implemented |
+| 11 | Notes | ✅ Fully Implemented |
+| 12 | Activities | 🟡 Partially Implemented (Sales Accelerator only, no standalone UI) |
+| 13 | Client Management | ✅ Fully Implemented |
 
 ### 4.3 Sales Tools
 *(full detail: [`docs/features/03-sales-tools.md`](features/03-sales-tools.md))*
 
 | # | Feature | Status |
 |---|---|---|
-| 15 | Sales Accelerator (Discovery & AI Coaching) | ✅ Fully Implemented |
-| 16 | Sales Automation | ✅ Fully Implemented |
-| 17 | Sales Delivery (Email & Calendar) | ✅ Fully Implemented |
-| 18 | Sales Data Import (CSV) | ✅ Fully Implemented |
-| 19 | AI Prospect Search | 🟡 Partially Implemented (mock data by default; live Apollo works if configured) |
+| 14 | Sales Accelerator (Discovery & AI Coaching) | ✅ Fully Implemented (dashboard/workspace); 🟡 4 secondary report views backend-only |
+| 15 | AI Prospect Search | ✅ Fully Implemented (single-company, live BlackPearl provider) |
 
 ### 4.4 AI Features
 *(full detail: [`docs/features/04-ai-features.md`](features/04-ai-features.md))*
 
 | # | Feature | Status |
 |---|---|---|
-| 20 | AI Proposal Drafting | ✅ Fully Implemented |
-| 21 | AI Sales Assessment & Lead Scoring | ✅ Fully Implemented |
-| 22 | AI Discovery Guide, Outreach & Call Intelligence | ✅ Fully Implemented |
-| 23 | AI Copilot (Natural Language Q&A) | ✅ Fully Implemented |
-| 24 | AI Business Insights & Recommendations | ✅ Fully Implemented |
-| 25 | AI Revenue Intelligence | ✅ Fully Implemented |
-| 26 | AI Governance (Prompt Versioning & Safety) | ✅ Fully Implemented |
-| 27 | AI Monitoring & Feedback | 🟡 Partially Implemented |
-| 28 | AI Predictions | ✅ Fully Implemented (rule-based, not LLM) |
-| 29 | AI Actions (Recommendation Workflow) | 🟡 Partially Implemented (no API controller, no UI) |
-| 30 | Knowledge Base & Retrieval | ✅ Fully Implemented (keyword search) |
-| 31 | Call Transcription | ✅ Fully Implemented |
-| — | AI Command Center / AI Executive Center | 🔴 Not Implemented |
+| 16 | AI Proposal Drafting | ✅ Fully Implemented |
+| 17 | AI Sales Assessment & Lead Scoring | ✅ Fully Implemented |
+| 18 | AI Discovery Guide, Outreach & Call Intelligence | ✅ Fully Implemented |
+| 19 | Guard Shift AI Recommendations | ✅ Fully Implemented |
+| 20 | AI Feedback Collection | 🟡 Partially Implemented (backend only, no reachable UI) |
+| 21 | Call Transcription | ✅ Fully Implemented |
+| — | AI Copilot, AI Business Insights, AI Revenue Intelligence, AI Governance admin UI, AI Predictions, AI Actions, Knowledge Base | 🔴 **Removed** (see [Section 13](#13-removed--not-implemented-features)) |
 
 ### 4.5 Field Operations
 *(full detail: [`docs/features/05-field-operations.md`](features/05-field-operations.md))*
 
 | # | Feature | Status |
 |---|---|---|
-| 32 | Site Management | ✅ Fully Implemented |
-| 33 | Guard Management | ✅ Fully Implemented |
-| 34 | Shift Scheduling & Assignment | ✅ Fully Implemented |
-| 35 | Assignments Overview | 🟡 Partially Implemented (no dedicated UI) |
-| 36 | Attendance & Availability | ✅ Fully Implemented |
-| 37 | Patrol Management | ✅ Fully Implemented (manual check-off, not QR/GPS verified) |
-| 38 | Incident Reporting & Review | ✅ Fully Implemented |
-| 39 | Guard Portal & Offline Sync | ✅ Fully Implemented |
+| 22 | Site Management | ✅ Fully Implemented |
+| 23 | Guard Management | ✅ Fully Implemented |
+| 24 | Shift Scheduling & Assignment | ✅ Fully Implemented |
+| 25 | Assignments Overview | 🟡 Partially Implemented (no dedicated UI) |
+| 26 | Attendance & Availability | ✅ Fully Implemented |
+| 27 | Patrol Management | ✅ Fully Implemented (manual check-off, not QR/GPS verified) |
+| 28 | Incident Reporting & Review | ✅ Fully Implemented |
+| 29 | Guard Portal & Offline Sync | ✅ Fully Implemented |
 
 ### 4.6 Finance
 *(full detail: [`docs/features/06-finance.md`](features/06-finance.md))*
 
 | # | Feature | Status |
 |---|---|---|
-| 40 | Invoice Generation & Management | ✅ Fully Implemented |
-| 41 | Invoice Dispute Resolution | ✅ Fully Implemented |
-| 42 | Rate Card Management | ✅ Fully Implemented |
-| 43 | Timesheet Management & Approval | ✅ Fully Implemented |
-| 44 | Finance Reporting | ✅ Fully Implemented |
-| 45 | Subscription Billing & Plans | 🟡 Partially Implemented (no payment processor) |
+| 30 | Invoice Generation & Management | ✅ Fully Implemented |
+| 31 | Invoice Dispute Resolution | ✅ Fully Implemented |
+| 32 | Rate Card Management | ✅ Fully Implemented |
+| 33 | Timesheet Management & Approval | ✅ Fully Implemented |
+| 34 | Finance Reporting | ✅ Fully Implemented |
+| 35 | Subscription Billing & Plans | 🟡 Partially Implemented (no payment processor; one gated feature flag now stale) |
 
 ### 4.7 Platform & Integrations
 *(full detail: [`docs/features/07-platform-integrations.md`](features/07-platform-integrations.md))*
 
 | # | Feature | Status |
 |---|---|---|
-| 46 | Public API & API Keys | ✅ Fully Implemented |
-| 47 | Webhooks | ✅ Fully Implemented |
-| 48 | Integrations Overview Dashboard | ✅ Fully Implemented |
-| 49 | CRM Connector (HubSpot) | ✅ Fully Implemented (HubSpot only) |
-| 50 | Multi-Branch Management | ✅ Fully Implemented |
-| 51 | White-Label Branding & Custom Domains | 🟡 Partially Implemented (no SSL automation) |
-| 52 | Shared Documents | ✅ Fully Implemented |
-| 53 | Client Portal (self-service) | ✅ Fully Implemented |
-| 54 | Email Notifications | 🟡 Partially Implemented (proposal emails only) |
-| 55 | API Documentation | ✅ Fully Implemented |
-| 56 | Custom Reports (Daily Service Reports) | ✅ Fully Implemented |
+| 36 | Public API & API Keys | ✅ Fully Implemented |
+| 37 | Webhooks | ✅ Fully Implemented |
+| 38 | Integrations Overview Dashboard | ✅ Fully Implemented |
+| 39 | CRM Connector (HubSpot) | ✅ Fully Implemented (HubSpot only) |
+| 40 | Multi-Branch Management | ✅ Fully Implemented |
+| 41 | White-Label Branding & Custom Domains | 🟡 Partially Implemented (no SSL automation) |
+| 42 | Shared Documents | ✅ Fully Implemented |
+| 43 | Client Portal (self-service) | ✅ Fully Implemented |
+| 44 | Email Notifications | 🟡 Partially Implemented (proposal emails only, shared with RFP vendor emails) |
+| 45 | API Documentation | ✅ Fully Implemented |
+| 46 | Custom Reports (Daily Service Reports) | ✅ Fully Implemented |
 
-**Legend:** ✅ Fully Implemented — UI, API, service, and database all verified working. 🟡 Partially Implemented — core logic works but a layer is missing, incomplete, or has no frontend. 🔴 Not Implemented / Limited — placeholder or backend-only stub with no usable feature.
+### 4.8 RFP & Vendor Management *(new domain)*
+*(full detail: [`docs/features/08-rfp-vendor-management.md`](features/08-rfp-vendor-management.md))*
+
+| # | Feature | Status |
+|---|---|---|
+| 47 | RFP Management (drafting, AI generation, invite, evaluate, award) | ✅ Fully Implemented |
+| 48 | Vendor Management | ✅ Fully Implemented |
+| 49 | Vendor Portal (public invitation link) | ✅ Fully Implemented |
+
+**Legend:** ✅ Fully Implemented — UI, API, service, and database all verified working. 🟡 Partially Implemented — core logic works but a layer is missing, incomplete, or has no frontend. 🔴 Not Implemented / Removed — no longer present, or never present, in any layer.
 
 ---
 
 ## 5. Detailed Feature Documentation
 
-To keep this document navigable, full feature write-ups (Purpose, Overview, What User Can Do, Workflow, Business Value, Technical Summary, Key Capabilities, Current Status) are organized into seven companion documents:
+To keep this document navigable, full feature write-ups (Purpose, Overview, What User Can Do, Workflow, Business Value, Technical Summary, Key Capabilities, Current Status) are organized into eight companion documents:
 
 | Domain | File |
 |---|---|
@@ -237,18 +244,18 @@ To keep this document navigable, full feature write-ups (Purpose, Overview, What
 | 5.5 Field Operations | [`docs/features/05-field-operations.md`](features/05-field-operations.md) |
 | 5.6 Finance | [`docs/features/06-finance.md`](features/06-finance.md) |
 | 5.7 Platform & Integrations | [`docs/features/07-platform-integrations.md`](features/07-platform-integrations.md) |
+| 5.8 RFP & Vendor Management | [`docs/features/08-rfp-vendor-management.md`](features/08-rfp-vendor-management.md) |
 
 ---
 
 ## 6. Database Mapping
 
-High-level map from feature area to the Prisma models that back it (59 models total in `backend/prisma/schema.prisma`).
+High-level map from feature area to the Prisma models that back it (**61 models** total in `backend/prisma/schema.prisma`).
 
 ```
 Authentication & Security
 └── User, Tenant, Permission, Role, RolePermission, UserRoleAssignment,
-    FieldPermission, SSOProvider, SSORoleMapping, SSOLoginState,
-    UserSession, ClientUser, AuditLog
+    FieldPermission, UserSession, ClientUser, AuditLog
 
 Core CRM
 └── Lead, Deal, Note, Activity, Proposal, ProposalVersion,
@@ -259,9 +266,9 @@ Sales Tools
     SavedProspectSearch   (+ reuses Lead/Note for prospect import)
 
 AI Features
-└── PromptVersion, AiGeneration, AiFeedback, KnowledgeEntry,
-    AiConversation, RecommendationAction
-    (+ reads Client/Guard/Site/Invoice/Incident/Shift for insight computation)
+└── PromptVersion, AiGeneration, AiFeedback
+    (+ reads Client/Guard/Site/Invoice/Incident/Shift for
+       guard-recommendation scoring and sales-accelerator context)
 
 Field Operations
 └── Site, Guard, Shift, Assignment, Availability, AttendanceEvent,
@@ -274,6 +281,10 @@ Finance
 Platform & Integrations
 └── ApiKey, ApiRequestLog, Webhook, WebhookDelivery, CrmConnection,
     Branch, TenantBranding, CustomDomain, SharedDocument
+
+RFP & Vendor Management
+└── Rfp, Vendor, RfpVendor, ProposalSubmission, EvaluationReport,
+    VendorPerformance
 ```
 
 ### Feature → Table Cross-Reference
@@ -287,10 +298,7 @@ Platform & Integrations
 | Client Management | `Client`, `ClientUser` |
 | Sales Accelerator | `DiscoverySession`, `SalesAssessment` |
 | AI Prospect Search | `ProspectSearchHistory`, `SavedProspectSearch` (imports write `Lead`/`Note`) |
-| AI Governance / Monitoring | `PromptVersion`, `AiGeneration`, `AiFeedback` |
-| AI Copilot | `AiConversation` |
-| AI Predictions / Actions | `RecommendationAction` |
-| Knowledge Base | `KnowledgeEntry` |
+| AI generation logging | `PromptVersion`, `AiGeneration`, `AiFeedback` |
 | Sites / Guards / Shifts | `Site`, `Guard`, `Shift`, `Assignment`, `Availability` |
 | Attendance | `AttendanceEvent` |
 | Patrols | `Checkpoint`, `PatrolRoute`, `PatrolRouteCheckpoint`, `PatrolRun`, `PatrolEvent` |
@@ -301,7 +309,6 @@ Platform & Integrations
 | Timesheets | `Timesheet` |
 | Custom Reports | `DailyServiceReport` |
 | RBAC | `Permission`, `Role`, `RolePermission`, `UserRoleAssignment`, `FieldPermission` |
-| SSO | `SSOProvider`, `SSORoleMapping`, `SSOLoginState` |
 | Sessions | `UserSession` |
 | Audit | `AuditLog` |
 | API Keys / Public API | `ApiKey`, `ApiRequestLog` |
@@ -310,22 +317,25 @@ Platform & Integrations
 | Branches | `Branch` |
 | Branding | `TenantBranding`, `CustomDomain` |
 | Shared Documents | `SharedDocument` |
+| RFP Management | `Rfp`, `RfpVendor`, `ProposalSubmission`, `EvaluationReport` |
+| Vendor Management | `Vendor`, `RfpVendor`, `VendorPerformance` |
+
+**Orphaned table:** `AiConversation` still exists in the Prisma schema (a leftover of the removed AI Copilot module) but has **zero references anywhere in `backend/src`** today — confirmed by a full-codebase search. It is not written to or read by any current feature.
 
 ---
 
 ## 7. API Summary
 
-The backend is mounted under the `/api` prefix. Authentication is via JWT bearer token (three separate token "roles": admin, client, guard — all issued by the same JWT infrastructure but distinguished by a `role` claim) or, for the Public API, an `X-API-Key` header. Full endpoint-by-endpoint detail is in each domain's feature document; the table below summarizes the entry points per feature area.
+The backend is mounted under the `/api` prefix. Authentication is via JWT bearer token (three separate token "roles": admin, client, guard — all issued by the same JWT infrastructure but distinguished by a `role` claim), an `X-API-Key` header for the Public API, or a one-time invitation token embedded in the URL for the Vendor Portal. Full endpoint-by-endpoint detail is in each domain's feature document; the table below summarizes the entry points per feature area.
 
 | Feature Area | Base Route | Auth |
 |---|---|---|
 | Admin Auth | `/auth/*` | Public (login/register), JWT for others |
 | Client Auth | `/client-auth/*` | Public |
 | Guard Auth | `/guard-auth/*` | Public |
-| SSO | `/auth/sso/*` (login), `/sso/*` (admin config) | Public login, JWT+RBAC for config |
 | RBAC | `/roles/*` | JWT + RBAC |
-| Field Permissions | `/field-permissions/*` | JWT + RBAC |
-| Sessions | `/sessions/*` | JWT + RBAC |
+| Field Permissions | `/field-permissions/*` | JWT + RBAC (no frontend consumer today) |
+| Sessions | `/sessions/*` | JWT + RBAC (no frontend consumer today) |
 | Audit | `/audit` | JWT + RBAC |
 | Leads | `/leads/*` | JWT + RBAC |
 | Deals | `/deals/*` | JWT + RBAC |
@@ -334,21 +344,13 @@ The backend is mounted under the `/api` prefix. Authentication is via JWT bearer
 | Activities | `/activities/*` | JWT + RBAC |
 | Clients | `/clients/*` | JWT + RBAC |
 | Sales Accelerator | `/sales-accelerator/*` | JWT + RBAC |
-| Sales Automation | `/sales-automation/*` | JWT + RBAC |
-| Sales Delivery | `/sales-delivery/*` | JWT + RBAC |
-| Sales Imports | `/sales-imports/*` | JWT + RBAC |
 | Prospect Search | `/prospect-search/*` | JWT + RBAC (+ rate limit) |
-| AI (core) | `/ai/*` | JWT + RBAC |
-| AI Copilot | `/ai-copilot/*` | JWT + RBAC |
-| AI Insights | `/ai-insights/*` | JWT + RBAC |
-| AI Predictions | `/ai-predictions/*` | JWT + RBAC |
-| AI Governance | `/ai-prompts/*`, `/ai-audit/*` | JWT + RBAC |
-| AI Feedback | `/ai-feedback/*` | JWT + RBAC |
-| Knowledge Base | `/knowledge-base/*` | JWT + RBAC |
+| AI (proposal draft only) | `/ai/*` | JWT + RBAC |
+| AI Feedback | `/ai-feedback/*` | JWT + RBAC (no frontend consumer today) |
 | Call Transcription | `/call-transcription/*` | JWT + RBAC |
 | Sites | `/sites/*` | JWT + RBAC |
 | Guards | `/v2/guards/*`, `/guards/*` | JWT + RBAC |
-| Shifts | `/v2/shifts/*` | JWT + RBAC |
+| Shifts (+ recommendations) | `/v2/shifts/*`, `/shifts/*` | JWT + RBAC |
 | Assignments | `/assignments` | JWT + RBAC |
 | Patrols (admin) | `/checkpoints/*`, `/patrol-routes/*`, `/patrol-runs/*` | JWT + RBAC |
 | Incidents (admin) | `/incidents/*` | JWT + RBAC |
@@ -371,6 +373,9 @@ The backend is mounted under the `/api` prefix. Authentication is via JWT bearer
 | Email | `/email/*` | JWT + RBAC |
 | API Docs | `/api-docs*` | Public |
 | Reports | `/reports/*` | JWT + RBAC |
+| RFP Management | `/rfp/*` | JWT + RBAC |
+| Vendors | `/vendors/*` | JWT + RBAC |
+| Vendor Portal | `/vendor/invitation/:token*` | Public (invitation token only, no login) |
 
 ---
 
@@ -383,7 +388,8 @@ The backend is mounted under the `/api` prefix. Authentication is via JWT bearer
        ↓
  2. Dashboard
        ↓
- 3. Find prospects — AI Prospect Search OR manual Lead entry OR CSV import
+ 3. Find prospects — AI Prospect Search (single-company BlackPearl
+    playbook) OR manual Lead entry OR AI PDF-to-lead extraction
        ↓
  4. Qualify — Sales Accelerator discovery capture + AI lead scoring
        ↓
@@ -396,6 +402,7 @@ The backend is mounted under the `/api` prefix. Authentication is via JWT bearer
  8. Client reviews, comments, approves/rejects in Client Portal
        ↓
  9. Deal won → Site set up, Shifts scheduled, Guards assigned
+    (with AI-assisted guard recommendations)
        ↓
 10. Guards check in/out via Guard Portal → Timesheets auto-generated
        ↓
@@ -410,7 +417,27 @@ The backend is mounted under the `/api` prefix. Authentication is via JWT bearer
 15. Finance dashboard reflects revenue in real time
 ```
 
-### 8.2 Guard — Daily Field Workflow
+### 8.2 Admin — RFP to Awarded Vendor Contract
+
+```
+1. Admin creates an RFP and generates its content with AI
+      ↓
+2. Admin shortlists and/or formally invites vendors (emails a
+   secure, tokenized link to each)
+      ↓
+3. Vendor opens the public link (no login) and submits proposal +
+   pricing/insurance/license documents before the due date
+      ↓
+4. Admin reviews submissions and generates an AI evaluation report
+   comparing vendors
+      ↓
+5. Admin awards the contract to one vendor (and/or rejects others) —
+   each action emails the vendor automatically
+      ↓
+6. Admin logs ongoing vendor performance reviews against the award
+```
+
+### 8.3 Guard — Daily Field Workflow
 
 ```
 1. Guard logs in (Guard Portal, phone/email + password)
@@ -428,7 +455,7 @@ The backend is mounted under the `/api` prefix. Authentication is via JWT bearer
 7. Checks out at shift end → Timesheet auto-created (status: pending)
 ```
 
-### 8.3 Client — Self-Service Workflow
+### 8.4 Client — Self-Service Workflow
 
 ```
 1. Client logs in to Client Portal
@@ -441,30 +468,33 @@ The backend is mounted under the `/api` prefix. Authentication is via JWT bearer
       ↓
 5. Views published daily service reports
       ↓
-6. Downloads shared documents (contracts, certificates)
+6. Downloads shared documents as needed
 ```
 
-### 8.4 Admin — AI-Assisted Decision Support
+### 8.5 Admin — AI-Assisted Sales Coaching
 
 ```
-1. Admin opens AI Insights dashboard → sees client/guard/site/billing/incident risk signals
+1. Admin/rep opens a Lead or Deal's Sales Accelerator workspace
       ↓
-2. Admin asks a free-text question in AI Copilot ("what's our overdue invoice total?")
+2. Rep captures discovery details and runs AI/rule-based scoring
       ↓
-3. Copilot answers using real tenant data, grounded by rule-based computation + Gemini polish
+3. Rep requests a discovery guide, outreach plan, or (via Call
+   Transcription) uploads a call recording for AI analysis
       ↓
-4. Admin reviews AI Predictions (staffing shortage risk, churn risk, payment-delay risk)
+4. Rep runs live coaching mid-call, or reviews structured call
+   intelligence afterward
       ↓
-5. Admin rates AI recommendations (thumbs up/down) → feeds the feedback loop
-      ↓
-6. Repeatedly-rejected recommendation types are automatically down-weighted in future output
+5. Rep generates a proposal directly from the discovery notes, or
+   creates a manual/AI-generated follow-up sequence
 ```
+
+> **Note:** an earlier version of this document also described a tenant-wide "AI-Assisted Decision Support" workflow built around AI Copilot Q&A, an AI Insights dashboard, and AI Predictions. That workflow no longer applies — all three of those features were removed from the codebase on 2026-08-07 (see [Section 13](#13-removed--not-implemented-features)).
 
 ---
 
 ## 9. Role Permissions
 
-The platform ships with **7 system roles** per tenant, auto-provisioned on first use, plus support for fully custom tenant-defined roles built from ~85 granular permission keys (`backend/src/roles/rbac.constants.ts`).
+The platform ships with **7 system roles** per tenant, auto-provisioned on first use, plus support for fully custom tenant-defined roles built from a catalog of granular permission keys (`backend/src/roles/rbac.constants.ts`) — including RFP/vendor-specific keys (`rfp.view`, `rfp.create`, `rfp.evaluate`, `rfp.award`, `vendor.performance`, `vendors.view`, etc.) added alongside the new procurement domain.
 
 | System Role | Scope | Portal |
 |---|---|---|
@@ -476,37 +506,37 @@ The platform ships with **7 system roles** per tenant, auto-provisioned on first
 | **Guard** | Portal-only — cannot be granted admin permissions | Guard Portal |
 | **Client** | Portal-only — cannot be granted admin permissions | Client Portal |
 
-Custom roles can combine any subset of permission keys (e.g. `leads.view`, `invoices.mark_paid`, `sso.manage`), can be branch-scoped, and are subject to a self-escalation guard (a non-super-admin cannot grant a role permissions they don't personally hold). See [`docs/features/01-authentication-security.md`](features/01-authentication-security.md) for the full RBAC and Field-Level Permissions write-up.
+Custom roles can combine any subset of permission keys (e.g. `leads.view`, `invoices.mark_paid`, `rfp.award`), can be branch-scoped, and are subject to a self-escalation guard (a non-super-admin cannot grant a role permissions they don't personally hold). Vendors are not a role at all — they never authenticate as a platform user; their access is entirely through the token-based Vendor Portal link. See [`docs/features/01-authentication-security.md`](features/01-authentication-security.md) for the full RBAC and Field-Level Permissions write-up.
 
 ---
 
 ## 10. Security Features
 
-- **JWT authentication** with access + refresh token pairs (admin/SSO flows); refresh rotation is bound to a tracked `UserSession`.
+- **JWT authentication** with access + refresh token pairs (admin flows); refresh rotation is bound to a tracked `UserSession`.
 - **Role-Based Access Control** enforced at the API route level (`PermissionGuard` + `@RequirePermission`) on every admin endpoint.
-- **Field-Level Permissions** — a second, finer-grained layer that can hide/lock specific sensitive fields (guard salary, bank details, client billing notes, invoice internal adjustments) per role, independent of route-level access.
-- **Multi-tenancy isolation** — every tenant-scoped query filters by `tenantId` in application code, consistently applied across all ~55 modules.
+- **Field-Level Permissions** — a second, finer-grained layer that can hide/lock specific sensitive fields (guard salary, bank details, client billing notes) per role, independent of route-level access. Enforcement is live in the Guards/Clients pages; the admin configuration screen for it has been removed (see Known Limitations).
+- **Multi-tenancy isolation** — every tenant-scoped query filters by `tenantId` in application code, consistently applied across all backend modules.
 - **Branch-scoping** — a second isolation layer for multi-branch tenants, restricting non-super-admin visibility to their own branch.
-- **Single Sign-On (OIDC)** — full Authorization Code + PKCE flow with manual JWKS signature verification, JIT provisioning, and IdP-group-to-role mapping.
-- **Session management** — admins can view all active admin/SSO sessions and force-revoke any one; idle timeout (default 8h) and absolute expiry (default 30 days) are enforced server-side.
-- **Audit logging** — a tenant-scoped trail of security-sensitive actions (logins, role changes, SSO events, forced logouts, field-access denials) via a single `AuditService`.
+- **Session management** — session records are still created and expiry-enforced server-side on every admin login, but there is currently no admin screen to view or force-revoke them (see Known Limitations).
+- **Audit logging** — a tenant-scoped trail of security-sensitive actions (logins, role changes, forced logouts, field-access denials, RFP awards/rejections) via a single `AuditService`.
 - **Public API authentication** — SHA-256-hashed API keys (plaintext shown only once), scoped permissions, per-key rate limiting, and full request logging.
 - **Webhook signing** — every outbound webhook payload is HMAC-SHA256 signed so receivers can verify authenticity.
-- **AI safety screening** — every AI-generated output is automatically scanned for PII (emails, SSNs, card numbers, phone numbers), unsafe automation language, and cross-client data leakage before it can be approved for client-visible use.
+- **AI safety screening** — `AiGovernanceService` still runs internally (invoked by `AiMonitoringService.logGeneration` and by guard-shift recommendations) to resolve prompt versions and screen AI output for PII/unsafe-language patterns before it is stamped client-visible, even though its admin-facing prompt-versioning and audit-log screens have been removed — see Known Limitations.
 - **Encrypted OAuth tokens** — the HubSpot CRM connector encrypts stored access/refresh tokens with AES-256-GCM.
+- **Vendor Portal access control** — external vendors never receive a platform login; access to a single RFP is gated purely by a cryptographically random, single-purpose invitation token and the RFP's own due date.
 
-See [`docs/features/01-authentication-security.md`](features/01-authentication-security.md) for full detail, including the honestly-documented gaps (SAML SSO has no completion endpoint; tokens are stored in `localStorage`, not httpOnly cookies; guard/client portal sessions aren't tracked in the admin Sessions view).
+See [`docs/features/01-authentication-security.md`](features/01-authentication-security.md) for full detail, including the honestly-documented gaps: tokens are stored in `localStorage`, not httpOnly cookies; guard/client portal sessions aren't tracked at all; **Single Sign-On has been removed from the codebase entirely** (it was documented as partially working in an earlier version of this document — see [Section 13](#13-removed--not-implemented-features)).
 
 ---
 
 ## 11. Performance Features
 
-- **AI response caching** — Prospect Search caches full search results (AI-parsed filters + ranked results) keyed by tenant + provider + prompt, with a configurable TTL, so a repeated search skips both the AI call and the data-provider call entirely.
+- **AI response caching** — AI Prospect Search caches a completed BlackPearl company playbook per tenant+company for a period, so a repeated search for the same company skips both the (slow, billed) BlackPearl job and the polling wait entirely.
 - **Rate limiting** — both the Public API and Prospect Search implement per-key/per-user rate limiting to protect against abuse and runaway AI/API costs.
-- **Graceful AI degradation** — nearly every AI-backed feature has a deterministic, non-LLM fallback path, so the platform keeps functioning (with reduced narrative quality) if the AI provider is slow, unavailable, or misconfigured.
-- **Bulk/batch operations** — bulk proposal generation, bulk proposal email sending, and CSV bulk import (leads/deals) all process many records in a single guarded request rather than requiring one-by-one admin action.
+- **Graceful AI degradation (Gemini features only)** — nearly every Gemini-backed feature (proposals, sales assessment/discovery/coaching, RFP drafting/evaluation, guard-recommendation explanations) has a deterministic, non-LLM fallback path. This does **not** apply to BlackPearl (Prospect Search) or OpenAI (Call Transcription) — both fail with a clear error, by design, rather than substituting fake content, if unconfigured or unreachable.
+- **Bulk/batch operations** — bulk proposal generation and bulk proposal email sending both process many records in a single guarded request rather than requiring one-by-one admin action.
 - **Offline-first field operations** — the Guard Portal queues check-in/out, incident, and patrol actions locally when offline and automatically replays them in order once connectivity returns, with server-side idempotent de-duplication.
-- **Background automation** — Sales Automation runs on a configurable interval (default 24h) to scan for stalling deals and auto-create follow-up tasks without any admin action.
+- **Resilient external-API polling** — the BlackPearl integration retries transient HTTP failures (timeouts, 429, 5xx — including a specifically-confirmed-transient 503) with exponential backoff at the request level, and the frontend polls job status for up to 30 minutes with its own backoff on repeated errors, without ever resubmitting a duplicate job.
 
 ---
 
@@ -516,40 +546,52 @@ These are real, verified gaps — not guesses — documented here so expectation
 
 | Area | Limitation |
 |---|---|
-| **AI Prospect Search** | Defaults to a fixed, hardcoded set of 22 sample companies (`COMPANY_PROVIDER=mock`). Apollo is a genuinely working live integration (real call to `api.apollo.io`) when `APOLLO_API_KEY` is configured, silently falling back to the mock dataset if the key is missing or the call fails. Crunchbase and Clearbit are true unimplemented stubs that always return a "not implemented" error. |
-| **SSO** | OIDC login is fully functional; SAML login can be started but has **no completion endpoint** — a user choosing SAML SSO cannot currently finish logging in. |
-| **Session tracking** | Guard Portal and Client Portal logins are not recorded in the admin-facing Session Management screen (only admin/SSO logins are). |
+| **AI Prospect Search** | Requires `BLACKPEARL_API_KEY` to be configured — if it is not, a search fails immediately with a `503 Service Unavailable` rather than falling back to sample data (unlike most other AI features in this platform, there is no mock/fallback dataset anymore). It is also a **single-company deep-research tool**, not a multi-company discovery/filter search — a rep must already know the specific company name to research. |
+| **Field-Level Permissions** | Enforcement (hiding/locking sensitive Guard and Client fields) still works correctly, but the admin-facing configuration screen (`/settings/field-permissions`) was removed from the frontend on 2026-08-07 — changing which fields are locked for which role currently requires a direct API call. |
+| **Session Management** | The backend still creates and expiry-enforces session records correctly, but the admin-facing screen (`/settings/sessions`) to view or force-revoke a session was removed from the frontend on 2026-08-07 — this capability is currently backend-only. |
 | **Token refresh** | The frontend never calls the refresh-token endpoint; sessions simply expire and require re-login, even though the backend fully supports rotation. |
-| **Activities** | The Activities feature (tasks/calls/meetings tied to a deal) is fully built on the backend but has **no frontend UI** — it cannot be used by an end user today. |
+| **Activities** | Now exclusively created and viewed through the Sales Accelerator's manual and AI-generated follow-up features — there is still no general-purpose Activities page for browsing or managing tasks independently. |
 | **CSV import/export for Leads** | Backend-complete, but has no frontend UI to trigger it. |
 | **Deal pipeline stage changes** | The backend supports changing a deal's stage and deleting a deal, but there is no UI control for either — deals can only be created and viewed, not moved through the pipeline or deleted, from the current interface. |
-| **AI Actions** | The recommendation approve/reject/execute workflow is fully built and tested on the backend but has no API controller and no frontend — recommendation records can be created but never actioned by a user. |
-| **AI Monitoring dashboard** | The aggregate AI-quality metrics computation exists but has no API route or frontend page. |
-| **AI Command Center / AI Executive Center** | Not implemented in any layer — empty placeholder route folders only. |
-| **AI Predictions labeling** | This feature is entirely rule-based (deterministic formulas), not LLM-generated, despite living under an "AI" module name — it always self-reports as a fallback-status generation. |
-| **Subscription Billing** | No payment processor integration exists. Plan assignment is controlled by environment variables, not stored per-tenant in the database, and there is no self-service upgrade/downgrade flow. |
+| **Sales Accelerator secondary reports** | The `alerts`, `forecast-report`, `coaching-analytics`, and `learning-loop` endpoints are backend-complete with working service logic, but the dedicated `/sales-accelerator/reports` frontend page that used to render them was removed on 2026-08-07 and has not been rebuilt — these views are currently unreachable. |
+| **AI Feedback Collection** | The rating-submission API works, but the `AiFeedbackControl` component that would call it is not imported by any page — there is no way for a user to submit AI feedback today. The recommendation-down-weighting logic that used to consume this feedback was removed along with AI Business Insights. |
+| **AI Governance** | `AiGovernanceService` still runs automatically in the background (prompt-version resolution defaulting to built-in templates, safety screening on logged generations), but its admin-facing prompt-authoring and AI-audit-log screens were removed on 2026-08-07 — there is currently no way for an admin to customize a prompt or review the audit trail through the UI. |
+| **Subscription Billing** | No payment processor integration exists. Plan assignment is controlled by environment variables, not stored per-tenant in the database, and there is no self-service upgrade/downgrade flow. The `salesAutomation` plan-gated feature flag is now stale — it still appears on the plan-comparison screen, but the Sales Automation feature it refers to was deleted from the codebase on 2026-08-07. |
 | **Patrol "QR scanning"** | There is no actual QR code decoding, NFC, or GPS verification — checkpoint "scans" are a manual tap-to-confirm checklist action by the guard. |
-| **Patrol admin permissions** | The admin patrol endpoints (checkpoints, patrol routes, patrol runs) require `patrols.manage`/`patrols.view` permission keys that do not exist in the RBAC permission catalog (`backend/src/roles/rbac.constants.ts`) — no system or custom role can be granted them. In practice only Super Admins (who bypass permission checks entirely) can use the patrol admin screens today; Branch Admin, Scheduler, and Supervisor cannot, despite otherwise having field-operations access. |
+| **Patrol admin permissions** | The admin patrol endpoints (checkpoints, patrol routes, patrol runs) require `patrols.manage`/`patrols.view` permission keys that do not exist in the RBAC permission catalog — no system or custom role can be granted them. In practice only Super Admins (who bypass permission checks entirely) can use the patrol admin screens today. |
 | **Custom Domains** | Domain *ownership* verification (DNS TXT record) is real; actual SSL certificate provisioning and traffic routing to the custom domain are not implemented. |
-| **Email Notifications** | Limited to proposal-delivery emails only (single-purpose), and defaults to a non-production test mailbox (Ethereal) unless SMTP credentials are configured. A second, independent email path exists for AI-drafted deal follow-up emails in Sales Delivery, with its own Nodemailer transporter defaulting to a local JSON mock rather than Ethereal — the two are separate code paths, not a shared notification system. |
+| **Email Notifications** | Limited to proposal-delivery and RFP vendor-notification emails (both sharing the same `EmailService`), and defaults to a non-production test mailbox (Ethereal) unless SMTP credentials are configured. |
 | **Public API rate limiting & Prospect Search cache/rate-limit** | Implemented in-memory, per server process — correct for a single-instance deployment, but would need a shared store (e.g. Redis) to behave correctly across multiple horizontally-scaled backend instances. |
-| **Guard authentication** | Guards share the same JWT signing infrastructure as admin users (differentiated only by a role claim), not a structurally separate identity system; guard email/phone lookup at login is not tenant-scoped at the database query level (though a correct password is still required). |
+| **Guard authentication** | Guards share the same JWT signing infrastructure as admin users (differentiated only by a role claim), not a structurally separate identity system. |
 | **Audit log read UI** | No filtering, search, date-range, or pagination controls — shows only the latest 100 entries. |
+| **RFP status lifecycle** | The `FINALIZED` value exists in the `RfpStatus` enum and DTO validation list but is never actually set by any service method — a defined-but-unused status. |
+| **`AiConversation` table** | Still present in the Prisma schema but has zero references anywhere in the current backend code — an orphaned leftover of the removed AI Copilot module. |
 
 ---
 
-## 13. Future Enhancements (Not Yet Implemented)
+## 13. Removed / Not Implemented Features
 
-The following are explicitly **not implemented in any layer today** and are listed here only because their names/placeholders exist somewhere in the codebase or product surface — they should not be represented to stakeholders as available functionality.
+The following are explicitly **not present in the current codebase** — either never built, or built and subsequently removed. They are listed here so they are not mistakenly represented to stakeholders as available functionality, whether because of outdated prior documentation, package dependencies, or leftover route folders.
 
-- **AI Command Center** — no backend module, no frontend page, no sidebar entry.
-- **AI Executive Center** — no backend module, no frontend page, no sidebar entry.
-- **Live external company data providers for Prospect Search** — Crunchbase and Clearbit exist only as interfaces/error-handling scaffolding with no real API integration. (Apollo is the exception: it is a genuinely working live integration when `APOLLO_API_KEY` is configured — see Known Limitations above.)
-- **SAML SSO completion (Assertion Consumer Service)** — the login can be started but not finished.
-- **Payment processor integration for Billing** — no Stripe/payment gateway of any kind is wired in.
-- **Self-service plan upgrade/downgrade** — plan changes currently require an environment variable change and a deploy.
-- **Real QR/NFC/GPS-verified patrol checkpoint scanning** — current implementation is a manual confirmation checklist.
-- **SSL/routing automation for custom domains** — only domain-ownership verification exists today.
+| Feature | Status | Detail |
+|---|---|---|
+| **AI Copilot** (natural-language Q&A over tenant data) | Removed 2026-08-07 | Backend module and `/ai-copilot` frontend page fully deleted. |
+| **AI Business Insights & Recommendations** (dashboard) | Removed 2026-08-07 | `/ai-insights` and `/ai-insights/incidents` frontend pages and their backing controller deleted. Only the unrelated guard-shift-recommendation capability of the same backend module survived (see feature 19). |
+| **AI Revenue Intelligence** | Removed 2026-08-07 | `RevenueInsightsService` and `/ai-insights/revenue` frontend page deleted. |
+| **AI Governance admin UI** (prompt versioning, AI audit log) | Removed 2026-08-07 | `/ai-prompts` and `/ai-audit` frontend pages and their backing controllers deleted; the underlying service still runs internally with no admin UI (see Known Limitations). |
+| **AI Predictions** (staffing/incident/churn/payment/renewal risk) | Removed 2026-08-07 | Backend module and `/ai-predictions` frontend page fully deleted. |
+| **AI Actions** (recommendation approve/reject/execute workflow) | Removed 2026-08-07 | Backend module deleted (it never had a controller or frontend page even before removal). |
+| **Knowledge Base & Retrieval** | Removed 2026-07-15 | Backend module, `/settings/knowledge-base` frontend page, and the `KnowledgeEntry` Prisma model fully deleted. |
+| **Single Sign-On (SSO)** | Removed 2026-07-15 | `sso` backend module, its settings/callback frontend pages, and the `SSOProvider`/`SSORoleMapping`/`SSOLoginState` Prisma models fully deleted. |
+| **Sales Automation** (background stalling-deal scanner) | Removed 2026-08-07 | Backend module and `/sales-automation` frontend page fully deleted. |
+| **Sales Delivery** (AI-drafted follow-up email/calendar) | Removed 2026-08-07 | Backend module and `/sales-delivery` frontend page fully deleted. |
+| **Sales Data Import (CSV)** | Removed 2026-08-07 | Backend module and `/sales-imports` frontend page fully deleted. |
+| **AI Prospect Search's old multi-provider system** (mock/Apollo/Crunchbase/Clearbit) | Removed 2026-08-07 | Fully replaced by the single-company BlackPearl integration (feature 15). |
+| **AI Command Center / AI Executive Center** | Never implemented | Empty placeholder directories only, in both backend and frontend, with no sidebar entry. |
+| **Payment processor integration for Billing** | Never implemented | No Stripe/payment gateway of any kind is wired in. |
+| **Self-service plan upgrade/downgrade** | Never implemented | Plan changes currently require an environment variable change and a deploy. |
+| **Real QR/NFC/GPS-verified patrol checkpoint scanning** | Never implemented | Current implementation is a manual confirmation checklist. |
+| **SSL/routing automation for custom domains** | Never implemented | Only domain-ownership verification exists today. |
 
 ---
 
@@ -563,14 +605,17 @@ The following are explicitly **not implemented in any layer today** and are list
 | **Deal** | A sales opportunity tracked through a pipeline, created from (or linked to) a Lead. |
 | **Client** | A tenant's own paying customer — the entity that receives guard services, invoices, and proposals. |
 | **Guard** | Field security personnel who work shifts, run patrols, and file incidents via the Guard Portal. |
+| **Vendor** | A subcontracted security company the tenant invites to bid on an RFP — a separate concept from a Client, with no login access of its own. |
+| **RFP (Request for Proposal)** | A formal procurement document the tenant issues to its own vendor pool describing a piece of security-services business to be bid on. |
+| **Playbook** | BlackPearl's term for the AI-generated company sales-intelligence document produced by AI Prospect Search. |
+| **Invitation Token** | A single-purpose, cryptographically random credential (not a password) that gives an external vendor access to exactly one RFP via a public link. |
 | **Discovery Session** | Structured notes captured about a lead/deal's needs (property type, guard count, pain points, etc.), used to power AI scoring and proposal generation. |
 | **Sales Assessment** | An AI- or rule-generated score/summary of a lead or deal's sales readiness. |
-| **Fallback (AI)** | A deterministic, non-LLM response the system returns when the AI provider is unavailable or fails, so the feature keeps working in a degraded mode. |
+| **Fallback (AI)** | A deterministic, non-LLM response the system returns when the AI provider is unavailable or fails, so the feature keeps working in a degraded mode. Applies to Gemini-backed features; BlackPearl and OpenAI-backed features have no fallback by design. |
 | **RBAC** | Role-Based Access Control — the permission-key system controlling what each role can do. |
 | **Field-Level Permission** | A finer-grained permission layer that can hide/lock specific sensitive fields on a record independent of general RBAC. |
 | **Webhook** | An outbound HTTP notification the platform sends to a tenant-configured external URL when a business event occurs. |
-| **Knowledge Entry** | A piece of organizational memory (from resolved incidents, disputes, published reports, or approved AI actions) retrievable as grounding context for AI Copilot and other AI features. |
-| **Prompt Version** | An admin-authored, versioned override of the default AI prompt template for a given AI capability, managed under AI Governance. |
+| **Prompt Version** | An admin-authored, versioned override of a default AI prompt template, resolved automatically by `AiGovernanceService` even though its management UI has been removed. |
 | **Rate Card** | A contract-defined hourly/overtime/holiday billing rate for a client (optionally per-site), used to price invoices. |
 | **Timesheet** | Worked-hours record auto-generated from a guard's shift check-in/check-out, requiring admin approval before it can be invoiced. |
 
@@ -580,7 +625,7 @@ The following are explicitly **not implemented in any layer today** and are list
 
 ### 15.1 Document Scope & Method
 
-This documentation was produced by direct, systematic inspection of the source code — backend controllers, services, DTOs, and the Prisma schema; frontend pages, components, and API client libraries — grouped into seven investigation passes (Authentication/Security, Core CRM, Sales Tools, AI Features, Field Operations, Finance, Platform/Integrations). Every feature's status was independently verified by confirming that its UI, API route, service logic, and database model are all present and connected; features missing any one of those layers are explicitly marked **Partially Implemented** or **Limited Implementation** rather than described as complete.
+This documentation was produced by direct, systematic inspection of the source code — backend controllers, services, DTOs, and the Prisma schema; frontend pages, components, and API client libraries — grouped into eight investigation passes (Authentication/Security, Core CRM, Sales Tools, AI Features, Field Operations, Finance, Platform/Integrations, RFP & Vendor Management), cross-checked against git commit history since the previous documentation pass to distinguish currently-live code from removed code. Every feature's status was independently verified by confirming that its UI, API route, service logic, and database model are all present and connected; features missing any one of those layers are explicitly marked **Partially Implemented** rather than described as complete, and features confirmed absent from the codebase are listed separately in [Section 13](#13-removed--not-implemented-features) rather than described as available.
 
 ### 15.2 How to Use This Document
 
@@ -590,4 +635,4 @@ This documentation was produced by direct, systematic inspection of the source c
 
 ### 15.3 Revision Note
 
-This document reflects the codebase at the time of writing. As features are added, changed, or removed, this documentation should be regenerated from the source code rather than hand-edited out of sync with it — per the same "codebase as single source of truth" principle used to produce it.
+This document reflects the codebase at the time of writing (2026-08-10). As features are added, changed, or removed, this documentation should be regenerated from the source code rather than hand-edited out of sync with it — per the same "codebase as single source of truth" principle used to produce it. The single biggest risk of staleness demonstrated by this revision: **a feature's presence in an older documentation pass, a route folder, or a database model is not evidence it is still active** — six previously fully-documented AI features and an entire authentication method (SSO) were removed from this codebase between the last documentation pass and this one, while their names lingered in stale references across multiple other feature write-ups until this revision corrected them.

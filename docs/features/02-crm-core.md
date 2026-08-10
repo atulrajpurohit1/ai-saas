@@ -6,7 +6,7 @@ This domain covers the sales-side data model at the heart of the platform: captu
 
 ---
 
-# 9. Lead Management
+# 8. Lead Management
 
 ## Purpose
 Lets office staff capture and track prospective customers — companies that might buy security guard services — from first contact through to becoming a deal.
@@ -44,7 +44,7 @@ Admin clicks "Convert" → a Deal is created and the lead is marked "converted"
 
 ## Technical Summary
 - **Modules:** `leads` (backend)
-- **Key logic:** Standard CRUD plus three AI/data-processing endpoints — CSV import (`csv-parser`) and export (`fast-csv`), and PDF analysis (`pdf-parse` + `AiService.extractLeadFromText`) that pulls out name/company/email from unstructured text. A duplicate-detection lookup (by company name or email domain) is available to calling code (used by Sales Automation's CSV import flow).
+- **Key logic:** Standard CRUD plus three AI/data-processing endpoints — CSV import (`csv-parser`) and export (`fast-csv`), and PDF analysis (`pdf-parse` + `AiService.extractLeadFromText`) that pulls out name/company/email from unstructured text. A duplicate-detection lookup (`findPotentialDuplicate`, by company name or email domain) is available to calling code — currently used by AI Prospect Search's lead-import flow (see `docs/features/03-sales-tools.md`).
 - **Database tables:** `Lead`
 - **Frontend:** `/leads` (list, search, status dropdown, "Add Lead" modal with PDF-upload auto-fill, "Convert to Deal" action) and `/leads/[id]` (detail page embedding the Sales Accelerator panel and the shared Notes panel).
 
@@ -64,7 +64,7 @@ Admin clicks "Convert" → a Deal is created and the lead is marked "converted"
 
 ---
 
-# 10. Deal / Pipeline Management
+# 9. Deal / Pipeline Management
 
 ## Purpose
 Tracks a sales opportunity — created from a qualified lead — as it moves toward becoming a signed, paying client.
@@ -116,7 +116,7 @@ Admin adds notes and reviews AI-generated close-readiness scoring on the deal de
 
 ---
 
-# 11. Proposal Management
+# 10. Proposal Management
 
 ## Purpose
 Lets sales staff generate, refine, version, share, and track formal security-services proposal documents for a lead or client, with AI doing the first draft.
@@ -180,7 +180,7 @@ Admin sees client comments and the decision on the admin side
 
 ---
 
-# 12. Notes
+# 11. Notes
 
 ## Purpose
 Gives staff a simple place to capture internal context and history against a specific Lead or Deal — the kind of running commentary a salesperson needs ("client asked about weekend coverage," "budget confirmed at $X").
@@ -230,50 +230,56 @@ Admin can delete a note if it's no longer needed
 
 ---
 
-# 13. Activities
+# 12. Activities
 
 ## Purpose
-Intended to let staff schedule and track follow-up tasks, calls, and meetings tied to a specific deal, and to power the automatic follow-up tasks the Sales Automation engine creates for stalling deals.
+Lets the AI Sales Accelerator schedule and track follow-up tasks, calls, and meetings tied to a specific deal — both the manual follow-up tasks a rep creates and the multi-step follow-up sequences the AI generates.
 
 ## Overview
-An Activity is a typed record (call, meeting, or task) with a subject, optional description, due date, and status (pending/completed), linked to a Deal. The backend is fully built to create, list (optionally filtered by deal), and update the status of activities. In practice, Activity records today are created only by the background Sales Automation job when it detects a stalling deal — there is no screen anywhere in the application where a user can create, view, or complete an activity themselves.
+An Activity is a typed record (call, meeting, or task) with a subject, optional description, due date, and status (pending/completed), linked to a Deal. The backend is fully built to create, list (optionally filtered by deal), and update the status of activities. Activity records today are created by the Sales Accelerator — either a rep manually logging a single follow-up task, or the AI-generated multi-step follow-up sequence creating several activities at once (see `docs/features/03-sales-tools.md`) — there is still no standalone screen anywhere in the application where a user can browse, create, or complete an activity directly by itself, independent of the Sales Accelerator workspace.
 
 ## What User Can Do
-- Nothing directly today — there is no Activities page, button, or panel anywhere in the admin app. (See Current Status.)
+- Create a manual follow-up task or trigger an AI-generated follow-up sequence from a deal's Sales Accelerator workspace (each step becomes an `Activity`)
+- View follow-up sequence progress (completed/pending/overdue steps) within that workspace
+- There is still no dedicated, general-purpose Activities page, button, or panel for browsing/editing activities outside the Sales Accelerator workspace.
 
 ## Workflow
 ```
-Sales Automation job scans deals on its schedule
+Rep opens a deal's Sales Accelerator workspace
         ↓
-For a stalling deal, it creates an Activity record (e.g. "Follow up with...")
+Rep manually logs a follow-up task, or requests an AI-generated
+follow-up sequence (multiple dated steps)
         ↓
-Activity is stored with status "pending"
+Each step is stored as an Activity record, tagged to the deal
         ↓
-(No screen exists for a user to see, complete, or reschedule that activity)
+Sequence progress (completed/pending/overdue) is shown back in
+the same workspace as the rep completes steps
 ```
 
 ## Business Value
-- As designed, this would give sales staff a task list tied to their deals (calls to make, meetings to hold) and confirm that automated follow-up suggestions actually get done — but since there is no user-facing surface, that value is not currently realized.
+- Gives sales staff a task list tied to their deals (calls to make, meetings to hold), generated automatically by the AI follow-up sequence rather than left to memory.
+- Historically this module was written by a separate background automation job (removed 2026-08-07); today it is exclusively driven by the Sales Accelerator's manual and AI-generated follow-up features.
 
 ## Technical Summary
-- **Modules:** `activities` (backend)
-- **Key logic:** Standard CRUD-style service — `create`, `findAll` (tenant + optional dealId filter), `updateStatus` — each guarded by `activities.manage` / `activities.view` permissions and logged to the audit trail. No frontend API client, page, or component calls any `/activities` endpoint anywhere in `frontend/src`.
+- **Modules:** `activities` (backend), consumed by `sales-accelerator`
+- **Key logic:** Standard CRUD-style service — `create`, `findAll` (tenant + optional dealId filter), `updateStatus` — each guarded by `activities.manage` / `activities.view` permissions and logged to the audit trail. `SalesAcceleratorService` is the only caller of `ActivitiesService.create` in the current codebase (used for both manual follow-up tasks and AI-generated follow-up sequence steps).
 - **Database tables:** `Activity`
-- **Frontend:** **None.** No `/activities` route exists. The dashboard's "recent activity" feed is a client-side computed list built from leads/deals/proposals timestamps — a different, cosmetic feature — not a view of the `Activity` table.
+- **Frontend:** No standalone `/activities` route exists. Activities are created and their progress reviewed through the Sales Accelerator lead/deal workspace only. The dashboard's "recent activity" feed is a separate, client-side computed list built from leads/deals/proposals timestamps — a cosmetic feature, not a view of the `Activity` table.
 
 ## Key Capabilities
 - Create/list/update-status API for call, meeting, and task records tied to a deal
-- Automatic activity creation from the Sales Automation stalling-deal scan
+- Manual follow-up task creation and AI-generated multi-step follow-up sequences (via Sales Accelerator)
+- Follow-up sequence progress tracking (completion rate, next/overdue step)
 - Full audit trail (create/status-update)
 
 ## Current Status
-**Limited Implementation — backend only.** The service and API are complete and are actively written to by Sales Automation, but there is no frontend page, panel, or component that lets a user view, create, or complete an activity. This should be treated as an internal/automation-only data store today, not a usable feature for end users.
+**Partially Implemented.** The service and API are complete and are actively written to by the Sales Accelerator's follow-up features, and sequence progress is visible in that workspace. There is still no general-purpose Activities page for browsing or managing tasks outside that specific workspace context.
 
 **[Insert Screenshot Here]**
 
 ---
 
-# 14. Client Management
+# 13. Client Management
 
 ## Purpose
 Manages the tenant's own paying customers — the companies that receive guard services, invoices, and proposals — including giving them their own portal login.

@@ -6,7 +6,7 @@ This domain covers everything that happens at a client's physical site: setting 
 
 ---
 
-# 32. Site Management
+# 22. Site Management
 
 ## Purpose
 Lets admin staff record every physical location a company provides guard services to, so shifts, patrols, incidents, and invoices can all be tied to a specific address.
@@ -57,7 +57,7 @@ Shift creation, Checkpoints, and Patrol Routes
 
 ---
 
-# 33. Guard Management
+# 23. Guard Management
 
 ## Purpose
 Maintains the roster of field security personnel — their contact details, login credentials, and (where permitted) sensitive payroll information — so they can be scheduled, paid, and given portal access.
@@ -109,7 +109,7 @@ and — if a password was set — can log into the Guard Portal
 
 ---
 
-# 34. Shift Scheduling & Assignment
+# 24. Shift Scheduling & Assignment
 
 ## Purpose
 Lets admins define the work that needs covering at each site (a shift with a start/end time and guard count) and assign specific guards to fill it — with an AI-assisted recommendation to help pick the right guard.
@@ -168,7 +168,7 @@ Shift status moves to "in_progress" then "completed"
 
 ---
 
-# 35. Assignments Overview
+# 25. Assignments Overview
 
 ## Purpose
 Provides a single combined list of every guard-to-shift assignment across the company, for reference and reporting purposes.
@@ -207,7 +207,7 @@ The Assignments API returns the combined list on request
 
 ---
 
-# 36. Attendance & Availability
+# 26. Attendance & Availability
 
 ## Purpose
 Tracks whether a guard is available to be scheduled, and records the actual times they checked in and out of a shift — which in turn drives payroll.
@@ -263,7 +263,7 @@ status "pending", ready for admin approval
 
 ---
 
-# 37. Patrol Management
+# 27. Patrol Management
 
 ## Purpose
 Lets admins define checkpoints and patrol routes at a site, and lets guards walk those routes during a shift, confirming they passed each checkpoint.
@@ -321,19 +321,19 @@ Any checkpoint not confirmed is auto-marked "missed"
 
 ---
 
-# 38. Incident Reporting & Review
+# 28. Incident Reporting & Review
 
 ## Purpose
 Lets a guard formally report something that happened during a shift (a theft, safety issue, disturbance, etc.), and lets office staff review, approve, or reject that report before it becomes visible to the client.
 
 ## Overview
-A guard who has checked in for a shift can file an incident with a title, description, severity, when it occurred, and an optional attachment link. It starts in "submitted" status; opening it as an admin automatically moves it to "under review," and a reviewer then approves or rejects it with an optional note. Approved incidents become visible in the Client Portal and are added to the platform's knowledge base for future AI grounding.
+A guard who has checked in for a shift can file an incident with a title, description, severity, when it occurred, and an optional attachment link. It starts in "submitted" status; opening it as an admin automatically moves it to "under review," and a reviewer then approves or rejects it with an optional note. Approved incidents become visible in the Client Portal.
 
 ## What User Can Do
 - Guard: file an incident report for a shift they've checked into
 - Guard: view their own submitted incidents
 - Admin: view all incidents (filterable by branch) and a dedicated review queue
-- Admin: view full incident detail, including similar historical cases
+- Admin: view full incident detail
 - Admin: approve or reject an incident, with a review note
 - Client: view approved incidents for their own sites only
 
@@ -350,17 +350,15 @@ Admin opens the incident → status auto-moves to "under review"
 Admin approves or rejects, with an optional note
         ↓
 If approved: incident becomes visible to the client
-and is captured into the Knowledge Base for future AI reference
 ```
 
 ## Business Value
 - Creates a documented, timestamped paper trail for every field incident, useful for liability and client trust.
 - The submit → review → approve gate ensures nothing reaches a client's view unvetted.
-- Feeding approved incidents into the AI knowledge base lets the AI Copilot and similar-case lookups learn from real operational history.
 
 ## Technical Summary
 - **Modules:** `incidents` (three controllers: admin, guard, client, sharing one service)
-- **Key logic:** A guard can only file an incident if they are assigned to the shift and have already checked in. Status transitions (`submitted` → `under_review` → `approved`/`rejected`) are enforced with guarded SQL updates so a review can't be double-applied. Approval triggers `KnowledgeBaseService.createFromIncident` and an outbound `incident.approved` webhook. Incident detail lookup also runs a similar-case retrieval against the knowledge base.
+- **Key logic:** A guard can only file an incident if they are assigned to the shift and have already checked in. Status transitions (`submitted` → `under_review` → `approved`/`rejected`) are enforced with guarded SQL updates so a review can't be double-applied. Approval triggers an outbound `incident.approved` webhook. (Earlier documentation described an AI Knowledge Base lookup on incident detail; the Knowledge Base module was removed on 2026-07-15 and `incidents.service.ts` no longer references it.)
 - **Database tables:** `Incident`
 - **Frontend:** Admin — `frontend/src/app/incidents` (list + detail) and `frontend/src/app/incidents/review` (review queue + detail). Guard — `frontend/src/app/guard/incidents`. Client — `frontend/src/app/client/incidents`.
 
@@ -370,7 +368,6 @@ and is captured into the Knowledge Base for future AI reference
 - Admin review queue with auto "under review" transition on open
 - Approve/reject with reviewer note, one-time-only review enforcement
 - Client-visible feed limited to approved incidents at their own sites
-- Similar-historical-case lookup on incident detail (AI knowledge retrieval)
 - Full audit trail and outbound webhooks
 
 ## Current Status
@@ -380,7 +377,7 @@ and is captured into the Knowledge Base for future AI reference
 
 ---
 
-# 39. Guard Portal & Offline Sync
+# 29. Guard Portal & Offline Sync
 
 ## Purpose
 Gives field guards a lightweight, phone-first application for their daily work — viewing shifts, checking in/out, running patrols, and filing incidents — that keeps working even when a guard has no signal, and catches up automatically once they're back online.
