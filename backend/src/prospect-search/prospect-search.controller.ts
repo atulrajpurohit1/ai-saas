@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CompanyInsightDto } from './dto/company-insight.dto';
+import { DiscoverProspectsDto } from './dto/discover-prospects.dto';
 import { ImportProspectDto } from './dto/import-prospect.dto';
 import { RenameSavedSearchDto } from './dto/rename-saved-search.dto';
 import { SaveSearchDto } from './dto/save-search.dto';
@@ -51,6 +52,36 @@ export class ProspectSearchController {
     @GetUser() user: ActiveUser,
   ) {
     return this.prospectSearchService.getSearchJobStatus(jobId, user);
+  }
+
+  /**
+   * Real, multi-company/multi-contact discovery search (BlackPearl
+   * Prospecting) - the primary "Prospect Search" experience. Distinct from
+   * /search above, which only ever researches one already-named company.
+   */
+  @Post('discover')
+  @UseGuards(ProspectSearchRateLimitGuard)
+  @RequirePermission('prospect_search.view', 'prospect_search.search')
+  @HttpCode(HttpStatus.OK)
+  discover(@Body() dto: DiscoverProspectsDto, @GetUser() user: ActiveUser) {
+    return this.prospectSearchService.discover(dto, user);
+  }
+
+  /**
+   * POST rather than GET (unlike /search/:jobId) because polling needs the
+   * original search criteria back to build a matching cache key and to
+   * label the result - not practical to round-trip an array of filters
+   * through a query string.
+   */
+  @Post('discover/:jobId')
+  @RequirePermission('prospect_search.view', 'prospect_search.search')
+  @HttpCode(HttpStatus.OK)
+  getDiscoveryJobStatus(
+    @Param('jobId') jobId: string,
+    @Body() dto: DiscoverProspectsDto,
+    @GetUser() user: ActiveUser,
+  ) {
+    return this.prospectSearchService.getDiscoveryJobStatus(jobId, dto, user);
   }
 
   @Post('view')

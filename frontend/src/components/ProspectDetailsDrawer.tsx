@@ -6,14 +6,12 @@ import {
   AlertTriangle,
   Building2,
   CheckCircle2,
-  DollarSign,
   ExternalLink,
   FileText,
   Globe,
   HelpCircle,
   Info,
   Loader2,
-  MapPin,
   MessageSquareQuote,
   Sparkles,
   Target,
@@ -133,14 +131,19 @@ export default function ProspectDetailsDrawer({
 
   if (!company) return null;
 
-  const hasProfileData = Boolean(
-    company.industry ||
-      company.city ||
-      company.state ||
-      company.employeeCount !== undefined ||
-      company.revenueRange ||
-      company.website ||
-      company.description,
+  // Only fields BlackPearl's playbook actually returns are ever shown below -
+  // there is no company-profile data (industry, headcount, revenue) attached
+  // to a prospect search result, so no such fields are rendered here.
+  const hasNarrativeContent = Boolean(
+    insight &&
+      (insight.businessSummary ||
+        insight.businessObjective ||
+        insight.valueProps.length > 0 ||
+        insight.salesAngles.length > 0 ||
+        insight.keyPersonas.length > 0 ||
+        insight.potentialObjections.length > 0 ||
+        insight.meetingNoteExample ||
+        insight.contactOverview),
   );
 
   const handleImport = async (force: boolean) => {
@@ -192,53 +195,27 @@ export default function ProspectDetailsDrawer({
         </div>
 
         <div className="flex-1 space-y-6 p-5">
-          {hasProfileData && (
-            <section>
-              {company.industry && (
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300">
-                    {company.industry}
-                  </span>
-                </div>
+          {insight && (insight.domain || insight.website) && (
+            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-400">
+              {insight.website && (
+                <a
+                  href={insight.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-indigo-300 transition hover:text-indigo-200"
+                >
+                  <Globe size={14} className="shrink-0" aria-hidden="true" />
+                  <span className="truncate">{insight.domain || insight.website}</span>
+                  <ExternalLink size={12} aria-hidden="true" />
+                </a>
               )}
-
-              <dl className="grid grid-cols-2 gap-x-3 gap-y-3 text-sm">
-                {(company.city || company.state) && (
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <MapPin size={14} className="shrink-0" aria-hidden="true" />
-                    <span>{[company.city, company.state].filter(Boolean).join(', ')}</span>
-                  </div>
-                )}
-                {company.employeeCount !== undefined && (
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <Users size={14} className="shrink-0" aria-hidden="true" />
-                    <span>{company.employeeCount.toLocaleString()} Employees</span>
-                  </div>
-                )}
-                {company.revenueRange && (
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <DollarSign size={14} className="shrink-0" aria-hidden="true" />
-                    <span>{company.revenueRange}</span>
-                  </div>
-                )}
-                {company.website && (
-                  <a
-                    href={company.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-indigo-300 transition hover:text-indigo-200"
-                  >
-                    <Globe size={14} className="shrink-0" aria-hidden="true" />
-                    <span className="truncate">Website</span>
-                    <ExternalLink size={12} aria-hidden="true" />
-                  </a>
-                )}
-              </dl>
-
-              {company.description && (
-                <p className="mt-4 text-sm leading-6 text-slate-400">{company.description}</p>
+              {!insight.website && insight.domain && (
+                <span className="flex items-center gap-2">
+                  <Globe size={14} className="shrink-0" aria-hidden="true" />
+                  {insight.domain}
+                </span>
               )}
-            </section>
+            </div>
           )}
 
           <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
@@ -273,7 +250,14 @@ export default function ProspectDetailsDrawer({
               </div>
             )}
 
-            {!insightLoading && !insightError && insight && (
+            {!insightLoading && !insightError && insight && !hasNarrativeContent && (
+              <p className="py-2 text-sm text-slate-400">
+                Limited detail was available for this company. Try importing it as a lead and
+                capturing what you learn directly in its notes.
+              </p>
+            )}
+
+            {!insightLoading && !insightError && insight && hasNarrativeContent && (
               <div className="space-y-5 text-sm leading-6 text-slate-300">
                 {(insight.businessSummary || insight.businessObjective) && (
                   <div className="space-y-2">

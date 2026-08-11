@@ -17,7 +17,4 @@ export declare class BlackPearlInsightProvider {
     getPlaybook(company: ProspectCompanySummary): Promise<ProspectCompanyInsight | null>;
     private getBaseUrl;
     private getBrandProfileKey;
-    private buildHeaders;
-    private request;
-    private logCompleteErrorResponse;
 }

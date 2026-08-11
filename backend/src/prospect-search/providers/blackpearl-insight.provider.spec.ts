@@ -10,7 +10,9 @@ function buildProvider(overrides: Record<string, string | undefined> = {}) {
   const configService = {
     get: jest.fn((key: string) => merged[key]),
   };
-  return new BlackPearlInsightProvider(configService as unknown as ConfigService);
+  return new BlackPearlInsightProvider(
+    configService as unknown as ConfigService,
+  );
 }
 
 function jsonResponse(
@@ -43,13 +45,19 @@ describe('BlackPearlInsightProvider', () => {
     });
 
     it('is false when BLACKPEARL_API_KEY is missing', () => {
-      expect(buildProvider({ BLACKPEARL_API_KEY: undefined }).isConfigured()).toBe(false);
+      expect(
+        buildProvider({ BLACKPEARL_API_KEY: undefined }).isConfigured(),
+      ).toBe(false);
     });
   });
 
   describe('submitPlaybookJob', () => {
     it('returns the job id from a successful submission', async () => {
-      global.fetch = jest.fn().mockResolvedValue(jsonResponse(202, { id: 'job-1', status: 'queued' }));
+      global.fetch = jest
+        .fn()
+        .mockResolvedValue(
+          jsonResponse(202, { id: 'job-1', status: 'queued' }),
+        );
       const provider = buildProvider();
 
       await expect(provider.submitPlaybookJob(COMPANY)).resolves.toBe('job-1');
@@ -64,7 +72,9 @@ describe('BlackPearlInsightProvider', () => {
     });
 
     it('returns null on a 401', async () => {
-      global.fetch = jest.fn().mockResolvedValue(jsonResponse(401, { detail: 'unauthorized' }));
+      global.fetch = jest
+        .fn()
+        .mockResolvedValue(jsonResponse(401, { detail: 'unauthorized' }));
       const provider = buildProvider();
 
       await expect(provider.submitPlaybookJob(COMPANY)).resolves.toBeNull();
@@ -81,7 +91,12 @@ describe('BlackPearlInsightProvider', () => {
   describe('getJobResult', () => {
     it('reports pending with progress while status is "queued" or "running"', async () => {
       global.fetch = jest.fn().mockResolvedValue(
-        jsonResponse(200, { id: 'job-1', status: 'running', progress: 42, input: { target_company: 'Acme Corp' } }),
+        jsonResponse(200, {
+          id: 'job-1',
+          status: 'running',
+          progress: 42,
+          input: { target_company: 'Acme Corp' },
+        }),
       );
       const provider = buildProvider();
 
@@ -109,8 +124,16 @@ describe('BlackPearlInsightProvider', () => {
             business_objective: 'Needs scalable coverage.',
             value_props: ['Faster onboarding'],
             sales_angles: ['Lead with ROI'],
-            key_personas: [{ name: 'Jane Doe', title: 'VP Sales', description: 'Decision maker' }],
-            potential_objections: [{ objection: 'Too expensive', response: 'ROI in 3 months' }],
+            key_personas: [
+              {
+                name: 'Jane Doe',
+                title: 'VP Sales',
+                description: 'Decision maker',
+              },
+            ],
+            potential_objections: [
+              { objection: 'Too expensive', response: 'ROI in 3 months' },
+            ],
             meeting_note_example: 'Ask about current vendor.',
             contact_overview: 'No enriched contacts.',
             readiness_level: 'warm',
@@ -131,8 +154,16 @@ describe('BlackPearlInsightProvider', () => {
         businessObjective: 'Needs scalable coverage.',
         valueProps: ['Faster onboarding'],
         salesAngles: ['Lead with ROI'],
-        keyPersonas: [{ name: 'Jane Doe', title: 'VP Sales', description: 'Decision maker' }],
-        potentialObjections: [{ objection: 'Too expensive', response: 'ROI in 3 months' }],
+        keyPersonas: [
+          {
+            name: 'Jane Doe',
+            title: 'VP Sales',
+            description: 'Decision maker',
+          },
+        ],
+        potentialObjections: [
+          { objection: 'Too expensive', response: 'ROI in 3 months' },
+        ],
         meetingNoteExample: 'Ask about current vendor.',
         contactOverview: 'No enriched contacts.',
         readinessLevel: 'warm',
@@ -159,7 +190,11 @@ describe('BlackPearlInsightProvider', () => {
 
     it('reports failed for a terminal non-success status (e.g. "failed")', async () => {
       global.fetch = jest.fn().mockResolvedValue(
-        jsonResponse(200, { id: 'job-1', status: 'failed', error: 'model timeout' }),
+        jsonResponse(200, {
+          id: 'job-1',
+          status: 'failed',
+          error: 'model timeout',
+        }),
       );
       const provider = buildProvider();
 
@@ -169,9 +204,11 @@ describe('BlackPearlInsightProvider', () => {
     });
 
     it('reports failed for any unrecognized terminal status', async () => {
-      global.fetch = jest.fn().mockResolvedValue(
-        jsonResponse(200, { id: 'job-1', status: 'cancelled' }),
-      );
+      global.fetch = jest
+        .fn()
+        .mockResolvedValue(
+          jsonResponse(200, { id: 'job-1', status: 'cancelled' }),
+        );
       const provider = buildProvider();
 
       await expect(provider.getJobResult('job-1')).resolves.toEqual(
@@ -189,7 +226,9 @@ describe('BlackPearlInsightProvider', () => {
     it('treats a 503 as transient and recovers if a later attempt within the same call succeeds', async () => {
       global.fetch = jest
         .fn()
-        .mockResolvedValueOnce(jsonResponse(503, { detail: 'temporarily unavailable' }))
+        .mockResolvedValueOnce(
+          jsonResponse(503, { detail: 'temporarily unavailable' }),
+        )
         .mockResolvedValueOnce(
           jsonResponse(200, {
             id: 'job-1',
@@ -213,14 +252,18 @@ describe('BlackPearlInsightProvider', () => {
     });
 
     it('logs the complete 503 response - status, body, headers, job id, and a timestamp - without exposing the API key', async () => {
-      global.fetch = jest.fn().mockResolvedValue(
-        jsonResponse(
-          503,
-          { detail: 'temporarily unavailable' },
-          { 'retry-after': '5', 'x-request-id': 'req-abc123' },
-        ),
-      );
-      const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      global.fetch = jest
+        .fn()
+        .mockResolvedValue(
+          jsonResponse(
+            503,
+            { detail: 'temporarily unavailable' },
+            { 'retry-after': '5', 'x-request-id': 'req-abc123' },
+          ),
+        );
+      const errorSpy = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => undefined);
       const provider = buildProvider();
 
       await provider.getJobResult('job-1');
@@ -266,8 +309,12 @@ describe('BlackPearlInsightProvider', () => {
     it('returns null if the job is still pending after the short-poll window', async () => {
       global.fetch = jest
         .fn()
-        .mockResolvedValueOnce(jsonResponse(202, { id: 'job-1', status: 'queued' }))
-        .mockResolvedValue(jsonResponse(200, { id: 'job-1', status: 'running', progress: 10 }));
+        .mockResolvedValueOnce(
+          jsonResponse(202, { id: 'job-1', status: 'queued' }),
+        )
+        .mockResolvedValue(
+          jsonResponse(200, { id: 'job-1', status: 'running', progress: 10 }),
+        );
       const provider = buildProvider();
 
       await expect(provider.getPlaybook(COMPANY)).resolves.toBeNull();

@@ -54,3 +54,55 @@ export type ImportProspectResult = {
     duplicate: false;
     lead: ImportedLeadSummary;
 };
+export interface DiscoveredProspectContact {
+    fullName?: string;
+    jobTitle?: string;
+    headline?: string;
+    location?: string;
+    profileUrl?: string;
+    email?: string;
+}
+export interface DiscoveredProspectSignal {
+    label: string;
+    snippet?: string;
+}
+export interface DiscoveredProspect {
+    id: string;
+    companyName?: string;
+    companyDomain?: string;
+    companyIndustry?: string;
+    companyHeadcount?: number;
+    companyLocation?: string;
+    companyDescription?: string;
+    contact: DiscoveredProspectContact;
+    qualificationScore: number;
+    qualificationReason?: string;
+    signals: DiscoveredProspectSignal[];
+}
+export interface ProspectDiscoveryResult {
+    query: string;
+    discoveredCount: number;
+    qualifiedCount: number;
+    prospects: DiscoveredProspect[];
+}
+export type ProspectDiscoverySubmission = {
+    status: 'completed';
+    query: string;
+    result: ProspectDiscoveryResult;
+} | {
+    status: 'pending';
+    jobId: string;
+    query: string;
+};
+export type ProspectDiscoveryJobStatusResult = {
+    status: 'pending';
+    progress: number | null;
+    stageLabel: string | null;
+} | {
+    status: 'completed';
+    query: string;
+    result: ProspectDiscoveryResult;
+} | {
+    status: 'failed';
+    message: string;
+};

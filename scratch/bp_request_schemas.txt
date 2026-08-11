@@ -1,0 +1,466 @@
+===== AudienceInput =====
+{
+  "properties": {
+    "name": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 160,
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Name",
+      "description": "Optional saved-campaign name. Defaults to a shortened objective when omitted.",
+      "examples": [
+        "North America RevOps leaders"
+      ]
+    },
+    "objective": {
+      "type": "string",
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Objective",
+      "description": "Required description of the companies and buyers the audience should contain.",
+      "examples": [
+        "Find VP and director-level revenue operations leaders at B2B SaaS companies."
+      ]
+    },
+    "website_url": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 253,
+          "minLength": 3,
+          "pattern": "^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "format": "hostname",
+      "title": "Website Url",
+      "description": "Optional seller website domain used as product context.",
+      "examples": [
+        "northstar.example"
+      ]
+    },
+    "product_name": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 160,
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Product Name",
+      "description": "Optional product name used to build the ideal customer profile.",
+      "examples": [
+        "Northstar Analytics"
+      ]
+    },
+    "product_description": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 12000,
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Product Description",
+      "description": "Optional product description used to refine the ideal customer profile.",
+      "examples": [
+        "Revenue-intelligence software for enterprise sales teams."
+      ]
+    },
+    "icp_description": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 8000,
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Icp Description",
+      "description": "Optional pre-existing ideal-customer-profile guidance.",
+      "examples": [
+        "Enterprise B2B SaaS companies with complex revenue operations."
+      ]
+    },
+    "additional_context": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 12000,
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Additional Context",
+      "description": "Optional additional targeting context, exclusions, or business constraints.",
+      "examples": [
+        "Prioritize companies hiring for RevOps in North America."
+      ]
+    },
+    "b2b": {
+      "type": "boolean",
+      "title": "B2B",
+      "description": "Whether the target audience is business-to-business.",
+      "default": true,
+      "examples": [
+        true
+      ]
+    },
+    "skip_intent": {
+      "type": "boolean",
+      "title": "Skip Intent",
+      "description": "Skip intent-topic discovery when an existing ICP is sufficient.",
+      "default": false,
+      "examples": [
+        false
+      ]
+    },
+    "target_size": {
+      "type": "integer",
+      "maximum": 2000,
+      "minimum": 1,
+      "title": "Target Size",
+      "description": "Requested maximum number of audience candidates before server-side plan limits apply.",
+      "default": 100,
+      "examples": [
+        100
+      ]
+    },
+    "max_contacts_per_company": {
+      "type": "integer",
+      "maximum": 10,
+      "minimum": 1,
+      "title": "Max Contacts Per Company",
+      "description": "Maximum contacts returned for each company candidate.",
+      "default": 3,
+      "examples": [
+        3
+      ]
+    },
+    "excluded_domains": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "maxItems": 200,
+          "minItems": 1
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Excluded Domains",
+      "description": "Company domains excluded from this run. URLs are normalized to domains.",
+      "examples": [
+        [
+          "existing-customer.example"
+        ]
+      ]
+    },
+    "playbooks_enabled": {
+      "type": "boolean",
+      "title": "Playbooks Enabled",
+      "description": "Whether the audience pipeline should generate candidate playbooks when the capability is entitled.",
+      "default": false,
+      "examples": [
+        false
+      ]
+    },
+    "model": {
+      "type": "string",
+      "enum": [
+        "default"
+      ],
+      "const": "default",
+      "title": "Model",
+      "description": "Audience-generation model selection. `default` is the currently supported model.",
+      "default": "default",
+      "examples": [
+        "default"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "objective"
+  ],
+  "title": "AudienceInput",
+  "description": "Stable public input shape for Audiences.\n\nOnly `objective` is required; everything else refines the ICP or bounds the\npipeline. Sizing fields are additionally clamped server-side by settings.",
+  "examples": [
+    {
+      "excluded_domains": [
+        "existing-customer.example"
+      ],
+      "max_contacts_per_company": 3,
+      "model": "default",
+      "name": "North America RevOps leaders",
+      "objective": "Find VP and director-level revenue operations leaders at B2B SaaS companies.",
+      "playbooks_enabled": false,
+      "product_description": "Revenue-intelligence software for enterprise sales teams.",
+      "product_name": "Northstar Analytics",
+      "target_size": 100,
+      "website_url": "northstar.example"
+    }
+  ]
+}
+
+===== ProspectingInput =====
+{
+  "properties": {
+    "campaign_name": {
+      "type": "string",
+      "maxLength": 160,
+      "minLength": 1,
+      "title": "Campaign Name",
+      "description": "The campaign name value for this prospectinginput.",
+      "examples": [
+        "Example campaign name"
+      ]
+    },
+    "product_info": {
+      "type": "string",
+      "maxLength": 12000,
+      "minLength": 1,
+      "title": "Product Info",
+      "description": "The product info value for this prospectinginput.",
+      "examples": [
+        "Example product info"
+      ]
+    },
+    "objective": {
+      "type": "string",
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Objective",
+      "description": "The objective value for this prospectinginput.",
+      "examples": [
+        "Example objective"
+      ]
+    },
+    "booking_url": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 2000
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Booking Url",
+      "description": "The booking url value for this prospectinginput.",
+      "examples": [
+        "https://example.com"
+      ]
+    },
+    "target": {
+      "$ref": "#/components/schemas/ProspectingTarget",
+      "description": "The target value for this prospectinginput.",
+      "examples": [
+        {}
+      ]
+    },
+    "limit": {
+      "type": "integer",
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Limit",
+      "default": 25,
+      "description": "The limit value for this prospectinginput."
+    },
+    "min_qualification_score": {
+      "type": "number",
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Min Qualification Score",
+      "default": 0.9,
+      "description": "The min qualification score value for this prospectinginput."
+    },
+    "delivery_mode": {
+      "type": "string",
+      "const": "draft_only",
+      "title": "Delivery Mode",
+      "default": "draft_only",
+      "description": "The delivery mode value for this prospectinginput."
+    },
+    "external_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 240
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "External Ref",
+      "description": "The external ref value for this prospectinginput.",
+      "examples": [
+        "Example external ref"
+      ]
+    },
+    "query": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 4000
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Query",
+      "description": "Natural-language brief the run uses; when omitted it is synthesized from objective, product_info and target.",
+      "examples": [
+        "Find VP Revenue Operations leaders at mid-market B2B SaaS companies in North America and draft a first-touch email."
+      ]
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "turbo",
+        "agentic"
+      ],
+      "title": "Mode",
+      "description": "Prospecting mode. `turbo` streams the deterministic database-search pipeline — fastest to first prospect. `agentic` engages the prospect agent, which plans the search, streams status updates and reasoning, and curates results; it requires the agentic backend and the run fails with a clear error when the connected backend does not support it (results are never fabricated).",
+      "default": "turbo",
+      "examples": [
+        "turbo"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "campaign_name",
+    "product_info",
+    "objective"
+  ],
+  "title": "ProspectingInput",
+  "description": "Stable public contract for evidence-backed prospect discovery.\n\nProvider credentials are deliberately absent because public job inputs are stored and\nreturned to the caller. Private provider keys belong in the prospecting service's secret\nstore; callers authenticate to this gateway only with their Blackpearl project API key.",
+  "examples": [
+    {
+      "campaign_name": "Example campaign name",
+      "product_info": "Example product info",
+      "objective": "Example objective"
+    }
+  ]
+}
+
+===== AudienceCreateIn =====
+{
+  "properties": {
+    "key": {
+      "type": "string",
+      "maxLength": 80,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9._-]*$",
+      "title": "Key",
+      "description": "The key value for this audiencecreatein.",
+      "examples": [
+        "example_key"
+      ]
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 240,
+      "minLength": 1,
+      "pattern": "^[^\\x00-\\x1f\\x7f]+$",
+      "title": "Name",
+      "description": "The name value for this audiencecreatein.",
+      "examples": [
+        "Example value"
+      ]
+    },
+    "prospecting_job_id": {
+      "type": "string",
+      "pattern": "^job_[a-f0-9]{24}$",
+      "title": "Prospecting Job Id",
+      "description": "The prospecting job id value for this audiencecreatein.",
+      "examples": [
+        "job_aaaaaaaaaaaaaaaaaaaaaaaa"
+      ]
+    },
+    "prospect_ids": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1f\\x7f]+$"
+          },
+          "type": "array",
+          "maxItems": 100,
+          "minItems": 1
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Prospect Ids",
+      "description": "The prospect ids value for this audiencecreatein.",
+      "examples": [
+        [
+          "Example value"
+        ]
+      ]
+    },
+    "external_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 240,
+          "minLength": 1,
+          "pattern": "^[^\\x00-\\x1f\\x7f]+$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "External Ref",
+      "description": "The external ref value for this audiencecreatein.",
+      "examples": [
+        "Example value"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "key",
+    "name",
+    "prospecting_job_id"
+  ],
+  "title": "AudienceCreateIn",
+  "description": "Materialize an immutable review snapshot from one typed prospecting result.",
+  "examples": [
+    {
+      "key": "example_key",
+      "name": "Example value",
+      "prospecting_job_id": "job_aaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ]
+}
+

@@ -1,0 +1,293 @@
+===== PublicProspectingRunEvents =====
+{
+  "properties": {
+    "job": {
+      "$ref": "#/components/schemas/ProspectingJobResponse",
+      "description": "Current typed state of the prospecting run.",
+      "examples": [
+        {
+          "created_at": "2026-07-13T12:00:00Z",
+          "expires_at": "2026-08-12T12:00:00Z",
+          "id": "job_prospecting_123",
+          "input": {
+            "campaign_name": "North America RevOps leaders",
+            "objective": "Find VP Revenue Operations leaders at mid-market B2B SaaS companies.",
+            "product_info": "Revenue analytics for B2B SaaS."
+          },
+          "progress": 55,
+          "project_id": "proj_123",
+          "stages": [
+            {
+              "key": "understand",
+              "label": "Understanding the brief",
+              "status": "completed"
+            },
+            {
+              "key": "search",
+              "label": "Searching the web",
+              "status": "running"
+            }
+          ],
+          "status": "running",
+          "type": "prospecting",
+          "usage": {
+            "cost_usd": 0
+          }
+        }
+      ]
+    },
+    "events": {
+      "items": {
+        "$ref": "#/components/schemas/PublicProspectingEvent"
+      },
+      "type": "array",
+      "title": "Events",
+      "description": "Events with seq greater than the requested after_seq, in ascending order.",
+      "examples": [
+        [
+          {
+            "created_at": "2026-07-13T12:00:00Z",
+            "data": {
+              "label": "Searching the web"
+            },
+            "seq": 6,
+            "type": "task_status"
+          },
+          {
+            "created_at": "2026-07-13T12:00:00Z",
+            "data": {
+              "text": "Scanning sources for B2B SaaS accounts hiring RevOps leaders..."
+            },
+            "seq": 7,
+            "type": "text"
+          }
+        ]
+      ]
+    },
+    "next_after_seq": {
+      "type": "integer",
+      "minimum": 0,
+      "title": "Next After Seq",
+      "description": "Highest seq returned this page; pass it back as after_seq to fetch only newer events.",
+      "examples": [
+        7
+      ]
+    }
+  },
+  "type": "object",
+  "required": [
+    "job",
+    "events",
+    "next_after_seq"
+  ],
+  "title": "PublicProspectingRunEvents",
+  "description": "A page of a prospecting run's live thread plus the run's current state.",
+  "examples": [
+    {
+      "events": [
+        {
+          "created_at": "2026-07-13T12:00:00Z",
+          "data": {
+            "label": "Searching the web"
+          },
+          "seq": 6,
+          "type": "task_status"
+        },
+        {
+          "created_at": "2026-07-13T12:00:00Z",
+          "data": {
+            "text": "Scanning sources for B2B SaaS accounts hiring RevOps leaders..."
+          },
+          "seq": 7,
+          "type": "text"
+        }
+      ],
+      "job": {
+        "created_at": "2026-07-13T12:00:00Z",
+        "expires_at": "2026-08-12T12:00:00Z",
+        "id": "job_prospecting_123",
+        "input": {
+          "campaign_name": "North America RevOps leaders",
+          "objective": "Find VP Revenue Operations leaders at mid-market B2B SaaS companies.",
+          "product_info": "Revenue analytics for B2B SaaS."
+        },
+        "progress": 55,
+        "project_id": "proj_123",
+        "stages": [
+          {
+            "key": "understand",
+            "label": "Understanding the brief",
+            "status": "completed"
+          },
+          {
+            "key": "search",
+            "label": "Searching the web",
+            "status": "running"
+          }
+        ],
+        "status": "running",
+        "type": "prospecting",
+        "usage": {
+          "cost_usd": 0
+        }
+      },
+      "next_after_seq": 7
+    }
+  ]
+}
+
+===== ProspectingResult =====
+{
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "2026-07-01",
+      "title": "Schema Version",
+      "description": "The schema version value for this prospectingresult."
+    },
+    "campaign": {
+      "$ref": "#/components/schemas/ProspectingCampaignResult",
+      "description": "The campaign value for this prospectingresult.",
+      "examples": [
+        {
+          "name": "Example name",
+          "status": "completed",
+          "delivery_mode": "draft_only",
+          "target": {}
+        }
+      ]
+    },
+    "summary": {
+      "$ref": "#/components/schemas/ProspectingSummary",
+      "description": "The summary value for this prospectingresult.",
+      "examples": [
+        {
+          "discovered": 0,
+          "evaluated": 0,
+          "qualified": 0,
+          "rejected": 0,
+          "enrichment_lookups": 0,
+          "emails_found": 0,
+          "drafts_created": 0
+        }
+      ]
+    },
+    "prospects": {
+      "items": {
+        "$ref": "#/components/schemas/Prospect"
+      },
+      "type": "array",
+      "maxItems": 100,
+      "title": "Prospects",
+      "description": "The prospects value for this prospectingresult.",
+      "examples": [
+        [
+          {
+            "id": "Example value",
+            "profile": {
+              "company": {}
+            },
+            "qualification": {
+              "status": "qualified",
+              "score": 0,
+              "confidence": 0,
+              "reason": "Example reason",
+              "selection_strategy": "cold_start"
+            },
+            "enrichment": {
+              "status": "not_requested"
+            },
+            "outreach": {
+              "state": "not_ready"
+            }
+          }
+        ]
+      ]
+    },
+    "provenance": {
+      "$ref": "#/components/schemas/ProspectingProvenance",
+      "description": "The provenance value for this prospectingresult.",
+      "examples": [
+        {
+          "backend": "Example backend",
+          "schema_version": "2026-07-01"
+        }
+      ]
+    },
+    "research": {
+      "$ref": "#/components/schemas/ProspectingResearchTrace",
+      "description": "The research value for this prospectingresult.",
+      "examples": [
+        {}
+      ]
+    },
+    "continuation": {
+      "anyOf": [
+        {
+          "$ref": "#/components/schemas/ProspectingContinuationLineage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The continuation value for this prospectingresult.",
+      "examples": [
+        {
+          "parent_job_id": "job_aaaaaaaaaaaaaaaaaaaaaaaa",
+          "parent_result_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "continuation_key": "example-key"
+        }
+      ]
+    },
+    "external_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 240
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "External Ref",
+      "description": "The external ref value for this prospectingresult.",
+      "examples": [
+        "Example external ref"
+      ]
+    }
+  },
+  "type": "object",
+  "required": [
+    "schema_version",
+    "campaign",
+    "summary",
+    "provenance"
+  ],
+  "title": "ProspectingResult",
+  "description": "Whitelisted result; raw provider rows, prompts, untyped traces and secrets are dropped.",
+  "examples": [
+    {
+      "schema_version": "2026-07-01",
+      "campaign": {
+        "name": "Example name",
+        "status": "completed",
+        "delivery_mode": "draft_only",
+        "target": {}
+      },
+      "summary": {
+        "discovered": 0,
+        "evaluated": 0,
+        "qualified": 0,
+        "rejected": 0,
+        "enrichment_lookups": 0,
+        "emails_found": 0,
+        "drafts_created": 0
+      },
+      "provenance": {
+        "backend": "Example backend",
+        "schema_version": "2026-07-01"
+      }
+    }
+  ]
+}
+

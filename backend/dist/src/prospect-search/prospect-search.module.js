@@ -15,6 +15,8 @@ const leads_module_1 = require("../leads/leads.module");
 const notes_module_1 = require("../notes/notes.module");
 const prisma_module_1 = require("../prisma/prisma.module");
 const blackpearl_insight_provider_1 = require("./providers/blackpearl-insight.provider");
+const blackpearl_prospecting_provider_1 = require("./providers/blackpearl-prospecting.provider");
+const prospect_discovery_cache_service_1 = require("./prospect-discovery-cache.service");
 const prospect_search_cache_service_1 = require("./prospect-search-cache.service");
 const prospect_search_controller_1 = require("./prospect-search.controller");
 const prospect_search_history_service_1 = require("./prospect-search-history.service");
@@ -38,10 +40,12 @@ exports.ProspectSearchModule = ProspectSearchModule = __decorate([
         providers: [
             prospect_search_service_1.ProspectSearchService,
             prospect_search_cache_service_1.ProspectSearchCacheService,
+            prospect_discovery_cache_service_1.ProspectDiscoveryCacheService,
             prospect_search_history_service_1.ProspectSearchHistoryService,
             prospect_search_rate_limit_service_1.ProspectSearchRateLimitService,
             saved_prospect_search_service_1.SavedProspectSearchService,
             blackpearl_insight_provider_1.BlackPearlInsightProvider,
+            blackpearl_prospecting_provider_1.BlackPearlProspectingProvider,
         ],
     })
 ], ProspectSearchModule);

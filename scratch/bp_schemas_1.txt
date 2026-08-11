@@ -1,0 +1,828 @@
+===== ProspectingInput =====
+{
+ "properties": {
+  "campaign_name": {
+   "type": "string",
+   "maxLength": 160,
+   "minLength": 1,
+   "title": "Campaign Name",
+   "description": "The campaign name value for this prospectinginput.",
+   "examples": [
+    "Example campaign name"
+   ]
+  },
+  "product_info": {
+   "type": "string",
+   "maxLength": 12000,
+   "minLength": 1,
+   "title": "Product Info",
+   "description": "The product info value for this prospectinginput.",
+   "examples": [
+    "Example product info"
+   ]
+  },
+  "objective": {
+   "type": "string",
+   "maxLength": 4000,
+   "minLength": 1,
+   "title": "Objective",
+   "description": "The objective value for this prospectinginput.",
+   "examples": [
+    "Example objective"
+   ]
+  },
+  "booking_url": {
+   "anyOf": [
+    {
+     "type": "string",
+     "maxLength": 2000
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Booking Url",
+   "description": "The booking url value for this prospectinginput.",
+   "examples": [
+    "https://example.com"
+   ]
+  },
+  "target": {
+   "$ref": "#/components/schemas/ProspectingTarget",
+   "description": "The target value for this prospectinginput.",
+   "examples": [
+    {}
+   ]
+  },
+  "limit": {
+   "type": "integer",
+   "maximum": 100,
+   "minimum": 1,
+   "title": "Limit",
+   "default": 25,
+   "description": "The limit value for this prospectinginput."
+  },
+  "min_qualification_score": {
+   "type": "number",
+   "maximum": 1,
+   "minimum": 0,
+   "title": "Min Qualification Score",
+   "default": 0.9,
+   "description": "The min qualification score value for this prospectinginput."
+  },
+  "delivery_mode": {
+   "type": "string",
+   "const": "draft_only",
+   "title": "Delivery Mode",
+   "default": "draft_only",
+   "description": "The delivery mode value for this prospectinginput."
+  },
+  "external_ref": {
+   "anyOf": [
+    {
+     "type": "string",
+     "maxLength": 240
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "External Ref",
+   "description": "The external ref value for this prospectinginput.",
+   "examples": [
+    "Example external ref"
+   ]
+  },
+  "query": {
+   "anyOf": [
+    {
+     "type": "string",
+     "maxLength": 4000
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Query",
+   "description": "Natural-language brief the run uses; when omitted it is synthesized from objective, product_info and target.",
+   "examples": [
+    "Find VP Revenue Operations leaders at mid-market B2B SaaS companies in North America and draft a first-touch email."
+   ]
+  },
+  "mode": {
+   "type": "string",
+   "enum": [
+    "turbo",
+    "agentic"
+   ],
+   "title": "Mode",
+   "description": "Prospecting mode. `turbo` streams the deterministic database-search pipeline — fastest to first prospect. `agentic` engages the prospect agent, which plans the search, streams status updates and reasoning, and curates results; it requires the agentic backend and the run fails with a clear error when the connected backend does not support it (results are never fabricated).",
+   "default": "turbo",
+   "examples": [
+    "turbo"
+   ]
+  }
+ },
+ "additionalProperties": false,
+ "type": "object",
+ "required": [
+  "campaign_name",
+  "product_info",
+  "objective"
+ ],
+ "title": "ProspectingInput",
+ "description": "Stable public contract for evidence-backed prospect discovery.\n\nProvider credentials are deliberately absent because public job inputs are stored and\nreturned to the caller. Private provider keys belong in the prospecting service's secret\nstore; callers authenticate to this gateway only with their Blackpearl project API key.",
+ "examples": [
+  {
+   "campaign_name": "Example campaign name",
+   "product_info": "Example product info",
+   "objective": "Example objective"
+  }
+ ]
+}
+
+===== ProspectingResult =====
+{
+ "properties": {
+  "schema_version": {
+   "type": "string",
+   "const": "2026-07-01",
+   "title": "Schema Version",
+   "description": "The schema version value for this prospectingresult."
+  },
+  "campaign": {
+   "$ref": "#/components/schemas/ProspectingCampaignResult",
+   "description": "The campaign value for this prospectingresult.",
+   "examples": [
+    {
+     "name": "Example name",
+     "status": "completed",
+     "delivery_mode": "draft_only",
+     "target": {}
+    }
+   ]
+  },
+  "summary": {
+   "$ref": "#/components/schemas/ProspectingSummary",
+   "description": "The summary value for this prospectingresult.",
+   "examples": [
+    {
+     "discovered": 0,
+     "evaluated": 0,
+     "qualified": 0,
+     "rejected": 0,
+     "enrichment_lookups": 0,
+     "emails_found": 0,
+     "drafts_created": 0
+    }
+   ]
+  },
+  "prospects": {
+   "items": {
+    "$ref": "#/components/schemas/Prospect"
+   },
+   "type": "array",
+   "maxItems": 100,
+   "title": "Prospects",
+   "description": "The prospects value for this prospectingresult.",
+   "examples": [
+    [
+     {
+      "id": "Example value",
+      "profile": {
+       "company": {}
+      },
+      "qualification": {
+       "status": "qualified",
+       "score": 0,
+       "confidence": 0,
+       "reason": "Example reason",
+       "selection_strategy": "cold_start"
+      },
+      "enrichment": {
+       "status": "not_requested"
+      },
+      "outreach": {
+       "state": "not_ready"
+      }
+     }
+    ]
+   ]
+  },
+  "provenance": {
+   "$ref": "#/components/schemas/ProspectingProvenance",
+   "description": "The provenance value for this prospectingresult.",
+   "examples": [
+    {
+     "backend": "Example backend",
+     "schema_version": "2026-07-01"
+    }
+   ]
+  },
+  "research": {
+   "$ref": "#/components/schemas/ProspectingResearchTrace",
+   "description": "The research value for this prospectingresult.",
+   "examples": [
+    {}
+   ]
+  },
+  "continuation": {
+   "anyOf": [
+    {
+     "$ref": "#/components/schemas/ProspectingContinuationLineage"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "description": "The continuation value for this prospectingresult.",
+   "examples": [
+    {
+     "parent_job_id": "job_aaaaaaaaaaaaaaaaaaaaaaaa",
+     "parent_result_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "continuation_key": "example-key"
+    }
+   ]
+  },
+  "external_ref": {
+   "anyOf": [
+    {
+     "type": "string",
+     "maxLength": 240
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "External Ref",
+   "description": "The external ref value for this prospectingresult.",
+   "examples": [
+    "Example external ref"
+   ]
+  }
+ },
+ "type": "object",
+ "required": [
+  "schema_version",
+  "campaign",
+  "summary",
+  "provenance"
+ ],
+ "title": "ProspectingResult",
+ "description": "Whitelisted result; raw provider rows, prompts, untyped traces and secrets are dropped.",
+ "examples": [
+  {
+   "schema_version": "2026-07-01",
+   "campaign": {
+    "name": "Example name",
+    "status": "completed",
+    "delivery_mode": "draft_only",
+    "target": {}
+   },
+   "summary": {
+    "discovered": 0,
+    "evaluated": 0,
+    "qualified": 0,
+    "rejected": 0,
+    "enrichment_lookups": 0,
+    "emails_found": 0,
+    "drafts_created": 0
+   },
+   "provenance": {
+    "backend": "Example backend",
+    "schema_version": "2026-07-01"
+   }
+  }
+ ]
+}
+
+===== ProspectingJobResponse =====
+{
+ "properties": {
+  "id": {
+   "type": "string",
+   "title": "Id",
+   "description": "Stable asynchronous job identifier.",
+   "examples": [
+    "job_playbook_123"
+   ]
+  },
+  "status": {
+   "type": "string",
+   "enum": [
+    "queued",
+    "running",
+    "succeeded",
+    "failed",
+    "canceled"
+   ],
+   "title": "Status",
+   "description": "Current job state.",
+   "examples": [
+    "succeeded"
+   ]
+  },
+  "progress": {
+   "type": "integer",
+   "maximum": 100,
+   "minimum": 0,
+   "title": "Progress",
+   "description": "Coarse completion percentage. Terminal successful jobs report 100.",
+   "examples": [
+    100
+   ]
+  },
+  "project_id": {
+   "type": "string",
+   "title": "Project Id",
+   "description": "Project that owns the job and its usage.",
+   "examples": [
+    "proj_123"
+   ]
+  },
+  "campaign_id": {
+   "anyOf": [
+    {
+     "type": "string"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Campaign Id",
+   "description": "Owning Audience campaign; null for Playbooks jobs.",
+   "examples": [
+    "camp_123"
+   ]
+  },
+  "error": {
+   "anyOf": [
+    {
+     "type": "string"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Error",
+   "description": "Stable human-readable job failure message; null unless the job failed.",
+   "examples": [
+    null
+   ]
+  },
+  "error_code": {
+   "anyOf": [
+    {
+     "$ref": "#/components/schemas/PublicErrorCode"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "description": "Stable machine-readable public failure code when one applies; null otherwise.",
+   "examples": [
+    "insufficient_credits"
+   ]
+  },
+  "usage": {
+   "$ref": "#/components/schemas/PublicJobUsage",
+   "description": "Usage attributed to this job.",
+   "examples": [
+    {
+     "backend_requests": 1,
+     "backend_runtime_ms": 1830,
+     "cache_write_tokens": 300,
+     "cached_input_tokens": 1200,
+     "cost_usd": 0.0123,
+     "input_tokens": 3500,
+     "output_tokens": 700,
+     "reasoning_tokens": 180,
+     "tokens": 4200
+    }
+   ]
+  },
+  "stages": {
+   "anyOf": [
+    {
+     "items": {
+      "$ref": "#/components/schemas/PublicJobStage"
+     },
+     "type": "array"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Stages",
+   "description": "Ordered Audience stages; null for Playbooks jobs.",
+   "examples": [
+    [
+     {
+      "key": "prelim",
+      "label": "Preliminary scoring",
+      "status": "completed"
+     }
+    ]
+   ]
+  },
+  "created_at": {
+   "type": "string",
+   "format": "date-time",
+   "title": "Created At",
+   "description": "When the server accepted the job.",
+   "examples": [
+    "2026-07-13T12:00:00Z"
+   ]
+  },
+  "expires_at": {
+   "type": "string",
+   "format": "date-time",
+   "title": "Expires At",
+   "description": "When the job input and result leave the 30-day public retention window.",
+   "examples": [
+    "2026-08-12T12:00:00Z"
+   ]
+  },
+  "started_at": {
+   "anyOf": [
+    {
+     "type": "string",
+     "format": "date-time"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Started At",
+   "description": "When execution began; null while queued.",
+   "examples": [
+    "2026-07-13T12:00:00Z"
+   ]
+  },
+  "finished_at": {
+   "anyOf": [
+    {
+     "type": "string",
+     "format": "date-time"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Finished At",
+   "description": "When execution reached a terminal state; null while active.",
+   "examples": [
+    "2026-07-13T12:00:00Z"
+   ]
+  },
+  "type": {
+   "type": "string",
+   "const": "prospecting",
+   "title": "Type",
+   "description": "Discriminator selecting the Prospecting input and result shapes.",
+   "examples": [
+    "prospecting"
+   ]
+  },
+  "input": {
+   "$ref": "#/components/schemas/ProspectingInput",
+   "description": "Typed Prospecting request snapshot retained with the job.",
+   "examples": [
+    {
+     "campaign_name": "Example campaign name",
+     "product_info": "Example product info",
+     "objective": "Example objective"
+    }
+   ]
+  },
+  "result": {
+   "anyOf": [
+    {
+     "$ref": "#/components/schemas/ProspectingResult"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "description": "Typed Prospecting result; null until the job succeeds.",
+   "examples": [
+    {
+     "schema_version": "2026-07-01",
+     "campaign": {
+      "name": "Example name",
+      "status": "completed",
+      "delivery_mode": "draft_only",
+      "target": {}
+     },
+     "summary": {
+      "discovered": 0,
+      "evaluated": 0,
+      "qualified": 0,
+      "rejected": 0,
+      "enrichment_lookups": 0,
+      "emails_found": 0,
+      "drafts_created": 0
+     },
+     "provenance": {
+      "backend": "Example backend",
+      "schema_version": "2026-07-01"
+     }
+    }
+   ]
+  }
+ },
+ "type": "object",
+ "required": [
+  "id",
+  "status",
+  "progress",
+  "project_id",
+  "usage",
+  "created_at",
+  "expires_at",
+  "type",
+  "input"
+ ],
+ "title": "ProspectingJobResponse",
+ "description": "A Prospecting-specific asynchronous job response.",
+ "examples": [
+  {
+   "id": "job_playbook_123",
+   "status": "succeeded",
+   "progress": 100,
+   "project_id": "proj_123",
+   "usage": {
+    "backend_requests": 1,
+    "backend_runtime_ms": 1830,
+    "cache_write_tokens": 300,
+    "cached_input_tokens": 1200,
+    "cost_usd": 0.0123,
+    "input_tokens": 3500,
+    "output_tokens": 700,
+    "reasoning_tokens": 180,
+    "tokens": 4200
+   },
+   "created_at": "2026-07-13T12:00:00Z",
+   "expires_at": "2026-08-12T12:00:00Z",
+   "type": "prospecting",
+   "input": {
+    "campaign_name": "Example campaign name",
+    "product_info": "Example product info",
+    "objective": "Example objective"
+   }
+  }
+ ]
+}
+
+===== ProspectingTarget =====
+{
+ "properties": {
+  "company_names": {
+   "items": {
+    "type": "string",
+    "maxLength": 500,
+    "minLength": 1
+   },
+   "type": "array",
+   "maxItems": 100,
+   "title": "Company Names",
+   "description": "The company names value for this prospectingtarget.",
+   "examples": [
+    [
+     "Example company names"
+    ]
+   ]
+  },
+  "company_domains": {
+   "items": {
+    "type": "string",
+    "maxLength": 253,
+    "minLength": 1
+   },
+   "type": "array",
+   "maxItems": 100,
+   "title": "Company Domains",
+   "description": "The company domains value for this prospectingtarget.",
+   "examples": [
+    [
+     "Example company domains"
+    ]
+   ]
+  },
+  "job_titles": {
+   "items": {
+    "type": "string",
+    "maxLength": 500,
+    "minLength": 1
+   },
+   "type": "array",
+   "maxItems": 100,
+   "title": "Job Titles",
+   "description": "The job titles value for this prospectingtarget.",
+   "examples": [
+    [
+     "Example job titles"
+    ]
+   ]
+  },
+  "seniorities": {
+   "items": {
+    "type": "string",
+    "enum": [
+     "individual_contributor",
+     "manager",
+     "director",
+     "vp",
+     "c_suite",
+     "owner",
+     "founder"
+    ]
+   },
+   "type": "array",
+   "maxItems": 20,
+   "title": "Seniorities",
+   "description": "The seniorities value for this prospectingtarget.",
+   "examples": [
+    [
+     "individual_contributor"
+    ]
+   ]
+  },
+  "industries": {
+   "items": {
+    "type": "string",
+    "maxLength": 500,
+    "minLength": 1
+   },
+   "type": "array",
+   "maxItems": 100,
+   "title": "Industries",
+   "description": "The industries value for this prospectingtarget.",
+   "examples": [
+    [
+     "Example industries"
+    ]
+   ]
+  },
+  "locations": {
+   "items": {
+    "type": "string",
+    "maxLength": 500,
+    "minLength": 1
+   },
+   "type": "array",
+   "maxItems": 100,
+   "title": "Locations",
+   "description": "The locations value for this prospectingtarget.",
+   "examples": [
+    [
+     "Example locations"
+    ]
+   ]
+  },
+  "keywords": {
+   "items": {
+    "type": "string",
+    "maxLength": 500,
+    "minLength": 1
+   },
+   "type": "array",
+   "maxItems": 100,
+   "title": "Keywords",
+   "description": "The keywords value for this prospectingtarget.",
+   "examples": [
+    [
+     "Example keywords"
+    ]
+   ]
+  },
+  "company_headcount": {
+   "anyOf": [
+    {
+     "$ref": "#/components/schemas/CompanyHeadcount"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "description": "The company headcount value for this prospectingtarget.",
+   "examples": [
+    {}
+   ]
+  },
+  "country_code": {
+   "anyOf": [
+    {
+     "$ref": "#/components/schemas/CountryCode"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "description": "The country code value for this prospectingtarget.",
+   "examples": [
+    "AD"
+   ]
+  }
+ },
+ "additionalProperties": false,
+ "type": "object",
+ "title": "ProspectingTarget",
+ "description": "Structured prospectingtarget data exposed by the public API.",
+ "examples": [
+  {}
+ ]
+}
+
+===== ProspectingSummary =====
+{
+ "properties": {
+  "discovered": {
+   "type": "integer",
+   "minimum": 0,
+   "title": "Discovered",
+   "description": "The discovered value for this prospectingsummary.",
+   "examples": [
+    0
+   ]
+  },
+  "evaluated": {
+   "type": "integer",
+   "minimum": 0,
+   "title": "Evaluated",
+   "description": "The evaluated value for this prospectingsummary.",
+   "examples": [
+    0
+   ]
+  },
+  "qualified": {
+   "type": "integer",
+   "minimum": 0,
+   "title": "Qualified",
+   "description": "The qualified value for this prospectingsummary.",
+   "examples": [
+    0
+   ]
+  },
+  "rejected": {
+   "type": "integer",
+   "minimum": 0,
+   "title": "Rejected",
+   "description": "The rejected value for this prospectingsummary.",
+   "examples": [
+    0
+   ]
+  },
+  "enrichment_lookups": {
+   "type": "integer",
+   "minimum": 0,
+   "title": "Enrichment Lookups",
+   "description": "The enrichment lookups value for this prospectingsummary.",
+   "examples": [
+    0
+   ]
+  },
+  "emails_found": {
+   "type": "integer",
+   "minimum": 0,
+   "title": "Emails Found",
+   "description": "The emails found value for this prospectingsummary.",
+   "examples": [
+    0
+   ]
+  },
+  "drafts_created": {
+   "type": "integer",
+   "minimum": 0,
+   "title": "Drafts Created",
+   "description": "The drafts created value for this prospectingsummary.",
+   "examples": [
+    0
+   ]
+  }
+ },
+ "type": "object",
+ "required": [
+  "discovered",
+  "evaluated",
+  "qualified",
+  "rejected",
+  "enrichment_lookups",
+  "emails_found",
+  "drafts_created"
+ ],
+ "title": "ProspectingSummary",
+ "description": "Structured prospectingsummary data exposed by the public API.",
+ "examples": [
+  {
+   "discovered": 0,
+   "evaluated": 0,
+   "qualified": 0,
+   "rejected": 0,
+   "enrichment_lookups": 0,
+   "emails_found": 0,
+   "drafts_created": 0
+  }
+ ]
+}
+

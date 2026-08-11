@@ -1,5 +1,6 @@
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CompanyInsightDto } from './dto/company-insight.dto';
+import { DiscoverProspectsDto } from './dto/discover-prospects.dto';
 import { ImportProspectDto } from './dto/import-prospect.dto';
 import { RenameSavedSearchDto } from './dto/rename-saved-search.dto';
 import { SaveSearchDto } from './dto/save-search.dto';
@@ -15,6 +16,8 @@ export declare class ProspectSearchController {
     constructor(prospectSearchService: ProspectSearchService, historyService: ProspectSearchHistoryService, savedSearchService: SavedProspectSearchService);
     search(dto: SearchProspectsDto, user: ActiveUser): Promise<import("./types/prospect-search.types").ProspectSearchSubmission>;
     getSearchJobStatus(jobId: string, user: ActiveUser): Promise<import("./types/prospect-search.types").ProspectSearchJobStatusResult>;
+    discover(dto: DiscoverProspectsDto, user: ActiveUser): Promise<import("./types/prospect-search.types").ProspectDiscoverySubmission>;
+    getDiscoveryJobStatus(jobId: string, dto: DiscoverProspectsDto, user: ActiveUser): Promise<import("./types/prospect-search.types").ProspectDiscoveryJobStatusResult>;
     recordView(dto: ViewProspectDto, user: ActiveUser): Promise<{
         ok: true;
     }>;

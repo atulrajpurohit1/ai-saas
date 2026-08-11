@@ -1,0 +1,128 @@
+===== Prospect =====
+{
+  "properties": {
+    "id": {
+      "type": "string",
+      "maxLength": 120,
+      "minLength": 1,
+      "pattern": "^[^\\x00-\\x1f\\x7f]+$",
+      "title": "Id",
+      "description": "The id value for this prospect.",
+      "examples": [
+        "Example value"
+      ]
+    },
+    "external_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "External Id",
+      "description": "The external id value for this prospect.",
+      "examples": [
+        "Example external id"
+      ]
+    },
+    "is_synthetic": {
+      "type": "boolean",
+      "title": "Is Synthetic",
+      "default": false,
+      "description": "The is synthetic value for this prospect."
+    },
+    "profile": {
+      "$ref": "#/components/schemas/ProspectProfile",
+      "description": "The profile value for this prospect.",
+      "examples": [
+        {
+          "company": {}
+        }
+      ]
+    },
+    "qualification": {
+      "$ref": "#/components/schemas/Qualification",
+      "description": "The qualification value for this prospect.",
+      "examples": [
+        {
+          "status": "qualified",
+          "score": 0,
+          "confidence": 0,
+          "reason": "Example reason",
+          "selection_strategy": "cold_start"
+        }
+      ]
+    },
+    "enrichment": {
+      "$ref": "#/components/schemas/ProspectEnrichment",
+      "description": "The enrichment value for this prospect.",
+      "examples": [
+        {
+          "status": "not_requested"
+        }
+      ]
+    },
+    "outreach": {
+      "$ref": "#/components/schemas/ProspectOutreach",
+      "description": "The outreach value for this prospect.",
+      "examples": [
+        {
+          "state": "not_ready"
+        }
+      ]
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/components/schemas/EvidenceRef"
+      },
+      "type": "array",
+      "maxItems": 200,
+      "title": "Evidence",
+      "description": "The evidence value for this prospect.",
+      "examples": [
+        [
+          {
+            "id": "Example id",
+            "source": "web",
+            "label": "Example label",
+            "confidence": 0
+          }
+        ]
+      ]
+    }
+  },
+  "type": "object",
+  "required": [
+    "id",
+    "profile",
+    "qualification",
+    "enrichment",
+    "outreach"
+  ],
+  "title": "Prospect",
+  "description": "Structured prospect data exposed by the public API.",
+  "examples": [
+    {
+      "id": "Example value",
+      "profile": {
+        "company": {}
+      },
+      "qualification": {
+        "status": "qualified",
+        "score": 0,
+        "confidence": 0,
+        "reason": "Example reason",
+        "selection_strategy": "cold_start"
+      },
+      "enrichment": {
+        "status": "not_requested"
+      },
+      "outreach": {
+        "state": "not_ready"
+      }
+    }
+  ]
+}

@@ -1,0 +1,639 @@
+===== Prospect =====
+{
+ "properties": {
+  "id": {
+   "type": "string",
+   "maxLength": 120,
+   "minLength": 1,
+   "pattern": "^[^\\x00-\\x1f\\x7f]+$",
+   "title": "Id",
+   "description": "The id value for this prospect.",
+   "examples": [
+    "Example value"
+   ]
+  },
+  "external_id": {
+   "anyOf": [
+    {
+     "type": "string",
+     "maxLength": 500
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "External Id",
+   "description": "The external id value for this prospect.",
+   "examples": [
+    "Example external id"
+   ]
+  },
+  "is_synthetic": {
+   "type": "boolean",
+   "title": "Is Synthetic",
+   "default": false,
+   "description": "The is synthetic value for this prospect."
+  },
+  "profile": {
+   "$ref": "#/components/schemas/ProspectProfile",
+   "description": "The profile value for this prospect.",
+   "examples": [
+    {
+     "company": {}
+    }
+   ]
+  },
+  "qualification": {
+   "$ref": "#/components/schemas/Qualification",
+   "description": "The qualification value for this prospect.",
+   "examples": [
+    {
+     "status": "qualified",
+     "score": 0,
+     "confidence": 0,
+     "reason": "Example reason",
+     "selection_strategy": "cold_start"
+    }
+   ]
+  },
+  "enrichment": {
+   "$ref": "#/components/schemas/ProspectEnrichment",
+   "description": "The enrichment value for this prospect.",
+   "examples": [
+    {
+     "status": "not_requested"
+    }
+   ]
+  },
+  "outreach": {
+   "$ref": "#/components/schemas/ProspectOutreach",
+   "description": "The outreach value for this prospect.",
+   "examples": [
+    {
+     "state": "not_ready"
+    }
+   ]
+  },
+  "evidence": {
+   "items": {
+    "$ref": "#/components/schemas/EvidenceRef"
+   },
+   "type": "array",
+   "maxItems": 200,
+   "title": "Evidence",
+   "description": "The evidence value for this prospect.",
+   "examples": [
+    [
+     {
+      "id": "Example id",
+      "source": "web",
+      "label": "Example label",
+      "confidence": 0
+     }
+    ]
+   ]
+  }
+ },
+ "type": "object",
+ "required": [
+  "id",
+  "profile",
+  "qualification",
+  "enrichment",
+  "outreach"
+ ],
+ "title": "Prospect",
+ "description": "Structured prospect data exposed by the public API.",
+ "examples": [
+  {
+   "id": "Example value",
+   "profile": {
+    "company": {}
+   },
+   "qualification": {
+    "status": "qualified",
+    "score": 0,
+    "confidence": 0,
+    "reason": "Example reason",
+    "selection_strategy": "cold_start"
+   },
+   "enrichment": {
+    "status": "not_requested"
+   },
+   "outreach": {
+    "state": "not_ready"
+   }
+  }
+ ]
+}
+
+===== ProspectProfile =====
+{
+ "properties": {
+  "full_name": {
+   "anyOf": [
+    {
+     "type": "string",
+     "maxLength": 240
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Full Name",
+   "description": "The full name value for this prospectprofile.",
+   "examples": [
+    "Example full name"
+   ]
+  },
+  "headline": {
+   "anyOf": [
+    {
+     "type": "string",
+     "maxLength": 500
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Headline",
+   "description": "The headline value for this prospectprofile.",
+   "examples": [
+    "Example headline"
+   ]
+  },
+  "job_title": {
+   "anyOf": [
+    {
+     "type": "string",
+     "maxLength": 240
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Job Title",
+   "description": "The job title value for this prospectprofile.",
+   "examples": [
+    "Example job title"
+   ]
+  },
+  "seniority": {
+   "anyOf": [
+    {
+     "type": "string",
+     "maxLength": 80
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Seniority",
+   "description": "The seniority value for this prospectprofile.",
+   "examples": [
+    "Example seniority"
+   ]
+  },
+  "location": {
+   "anyOf": [
+    {
+     "type": "string",
+     "maxLength": 500
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Location",
+   "description": "The location value for this prospectprofile.",
+   "examples": [
+    "Example location"
+   ]
+  },
+  "profile_url": {
+   "anyOf": [
+    {
+     "type": "string",
+     "maxLength": 2000
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Profile Url",
+   "description": "The profile url value for this prospectprofile.",
+   "examples": [
+    "https://example.com"
+   ]
+  },
+  "company": {
+   "$ref": "#/components/schemas/ProspectCompany",
+   "description": "The company value for this prospectprofile.",
+   "examples": [
+    {}
+   ]
+  }
+ },
+ "type": "object",
+ "required": [
+  "company"
+ ],
+ "title": "ProspectProfile",
+ "description": "Structured prospectprofile data exposed by the public API.",
+ "examples": [
+  {
+   "company": {}
+  }
+ ]
+}
+
+===== ProspectCompany =====
+{
+ "properties": {
+  "name": {
+   "anyOf": [
+    {
+     "type": "string",
+     "maxLength": 240
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Name",
+   "description": "The name value for this prospectcompany.",
+   "examples": [
+    "Example name"
+   ]
+  },
+  "domain": {
+   "anyOf": [
+    {
+     "type": "string",
+     "maxLength": 253
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Domain",
+   "description": "The domain value for this prospectcompany.",
+   "examples": [
+    "Example domain"
+   ]
+  },
+  "description": {
+   "anyOf": [
+    {
+     "type": "string",
+     "maxLength": 2000
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Description",
+   "description": "The description value for this prospectcompany.",
+   "examples": [
+    "Example description"
+   ]
+  },
+  "industry": {
+   "anyOf": [
+    {
+     "type": "string",
+     "maxLength": 240
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Industry",
+   "description": "The industry value for this prospectcompany.",
+   "examples": [
+    "Example industry"
+   ]
+  },
+  "headcount": {
+   "anyOf": [
+    {
+     "type": "integer",
+     "minimum": 0
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Headcount",
+   "description": "The headcount value for this prospectcompany.",
+   "examples": [
+    0
+   ]
+  },
+  "location": {
+   "anyOf": [
+    {
+     "type": "string",
+     "maxLength": 500
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Location",
+   "description": "The location value for this prospectcompany.",
+   "examples": [
+    "Example location"
+   ]
+  }
+ },
+ "type": "object",
+ "title": "ProspectCompany",
+ "description": "Structured prospectcompany data exposed by the public API.",
+ "examples": [
+  {}
+ ]
+}
+
+===== ProspectIdentityOut =====
+{
+ "properties": {
+  "prospecting_job_id": {
+   "type": "string",
+   "pattern": "^job_[a-f0-9]{24}$",
+   "title": "Prospecting Job Id",
+   "description": "The prospecting job id value for this prospectidentityout.",
+   "examples": [
+    "job_aaaaaaaaaaaaaaaaaaaaaaaa"
+   ]
+  },
+  "prospect_id": {
+   "type": "string",
+   "maxLength": 120,
+   "minLength": 1,
+   "pattern": "^[^\\x00-\\x1f\\x7f]+$",
+   "title": "Prospect Id",
+   "description": "The prospect id value for this prospectidentityout.",
+   "examples": [
+    "Example value"
+   ]
+  },
+  "full_name": {
+   "anyOf": [
+    {
+     "type": "string"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Full Name",
+   "description": "The full name value for this prospectidentityout.",
+   "examples": [
+    "Example full name"
+   ]
+  },
+  "job_title": {
+   "anyOf": [
+    {
+     "type": "string"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Job Title",
+   "description": "The job title value for this prospectidentityout.",
+   "examples": [
+    "Example job title"
+   ]
+  },
+  "company_name": {
+   "anyOf": [
+    {
+     "type": "string"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Company Name",
+   "description": "The company name value for this prospectidentityout.",
+   "examples": [
+    "Example company name"
+   ]
+  },
+  "work_email": {
+   "anyOf": [
+    {
+     "type": "string"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Work Email",
+   "description": "The work email value for this prospectidentityout.",
+   "examples": [
+    "Example work email"
+   ]
+  },
+  "is_synthetic": {
+   "type": "boolean",
+   "title": "Is Synthetic",
+   "description": "The is synthetic value for this prospectidentityout.",
+   "examples": [
+    true
+   ]
+  }
+ },
+ "additionalProperties": false,
+ "type": "object",
+ "required": [
+  "prospecting_job_id",
+  "prospect_id",
+  "is_synthetic"
+ ],
+ "title": "ProspectIdentityOut",
+ "description": "Structured prospectidentityout data exposed by the public API.",
+ "examples": [
+  {
+   "prospecting_job_id": "job_aaaaaaaaaaaaaaaaaaaaaaaa",
+   "prospect_id": "Example value",
+   "is_synthetic": true
+  }
+ ]
+}
+
+===== ProspectEnrichment =====
+{
+ "properties": {
+  "status": {
+   "type": "string",
+   "enum": [
+    "not_requested",
+    "pending",
+    "found",
+    "not_found",
+    "failed"
+   ],
+   "title": "Status",
+   "description": "The status value for this prospectenrichment.",
+   "examples": [
+    "not_requested"
+   ]
+  },
+  "work_email": {
+   "anyOf": [
+    {
+     "type": "string",
+     "maxLength": 320
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Work Email",
+   "description": "The work email value for this prospectenrichment.",
+   "examples": [
+    "Example work email"
+   ]
+  },
+  "confidence": {
+   "anyOf": [
+    {
+     "type": "number",
+     "maximum": 1,
+     "minimum": 0
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Confidence",
+   "description": "The confidence value for this prospectenrichment.",
+   "examples": [
+    0
+   ]
+  },
+  "evidence_ids": {
+   "items": {
+    "type": "string"
+   },
+   "type": "array",
+   "maxItems": 100,
+   "title": "Evidence Ids",
+   "description": "The evidence ids value for this prospectenrichment.",
+   "examples": [
+    [
+     "Example evidence ids"
+    ]
+   ]
+  }
+ },
+ "type": "object",
+ "required": [
+  "status"
+ ],
+ "title": "ProspectEnrichment",
+ "description": "Structured prospectenrichment data exposed by the public API.",
+ "examples": [
+  {
+   "status": "not_requested"
+  }
+ ]
+}
+
+===== ProspectOutreach =====
+{
+ "properties": {
+  "state": {
+   "type": "string",
+   "enum": [
+    "not_ready",
+    "ready_to_contact"
+   ],
+   "title": "State",
+   "description": "The state value for this prospectoutreach.",
+   "examples": [
+    "not_ready"
+   ]
+  },
+  "draft": {
+   "anyOf": [
+    {
+     "$ref": "#/components/schemas/OutreachDraft"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "description": "The draft value for this prospectoutreach.",
+   "examples": [
+    {
+     "subject": "Example subject",
+     "body": "Example body"
+    }
+   ]
+  }
+ },
+ "type": "object",
+ "required": [
+  "state"
+ ],
+ "title": "ProspectOutreach",
+ "description": "Structured prospectoutreach data exposed by the public API.",
+ "examples": [
+  {
+   "state": "not_ready"
+  }
+ ]
+}
+
+===== CompanyHeadcount =====
+{
+ "properties": {
+  "min": {
+   "anyOf": [
+    {
+     "type": "integer",
+     "maximum": 10000000,
+     "minimum": 1
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Min",
+   "description": "The min value for this companyheadcount.",
+   "examples": [
+    1
+   ]
+  },
+  "max": {
+   "anyOf": [
+    {
+     "type": "integer",
+     "maximum": 10000000,
+     "minimum": 1
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "title": "Max",
+   "description": "The max value for this companyheadcount.",
+   "examples": [
+    1
+   ]
+  }
+ },
+ "additionalProperties": false,
+ "type": "object",
+ "title": "CompanyHeadcount",
+ "description": "Structured companyheadcount data exposed by the public API.",
+ "examples": [
+  {}
+ ]
+}
+

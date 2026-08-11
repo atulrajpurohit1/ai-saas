@@ -1,0 +1,716 @@
+===== ProspectProfile =====
+{
+  "properties": {
+    "full_name": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 240
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Full Name",
+      "description": "The full name value for this prospectprofile.",
+      "examples": [
+        "Example full name"
+      ]
+    },
+    "headline": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Headline",
+      "description": "The headline value for this prospectprofile.",
+      "examples": [
+        "Example headline"
+      ]
+    },
+    "job_title": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 240
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Job Title",
+      "description": "The job title value for this prospectprofile.",
+      "examples": [
+        "Example job title"
+      ]
+    },
+    "seniority": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 80
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Seniority",
+      "description": "The seniority value for this prospectprofile.",
+      "examples": [
+        "Example seniority"
+      ]
+    },
+    "location": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Location",
+      "description": "The location value for this prospectprofile.",
+      "examples": [
+        "Example location"
+      ]
+    },
+    "profile_url": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 2000
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Profile Url",
+      "description": "The profile url value for this prospectprofile.",
+      "examples": [
+        "https://example.com"
+      ]
+    },
+    "company": {
+      "$ref": "#/components/schemas/ProspectCompany",
+      "description": "The company value for this prospectprofile.",
+      "examples": [
+        {}
+      ]
+    }
+  },
+  "type": "object",
+  "required": [
+    "company"
+  ],
+  "title": "ProspectProfile",
+  "description": "Structured prospectprofile data exposed by the public API.",
+  "examples": [
+    {
+      "company": {}
+    }
+  ]
+}
+
+MISSING: ProspectCompanyProfile
+MISSING: ProspectPersonProfile
+===== ProspectEnrichment =====
+{
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "not_requested",
+        "pending",
+        "found",
+        "not_found",
+        "failed"
+      ],
+      "title": "Status",
+      "description": "The status value for this prospectenrichment.",
+      "examples": [
+        "not_requested"
+      ]
+    },
+    "work_email": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 320
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Work Email",
+      "description": "The work email value for this prospectenrichment.",
+      "examples": [
+        "Example work email"
+      ]
+    },
+    "confidence": {
+      "anyOf": [
+        {
+          "type": "number",
+          "maximum": 1,
+          "minimum": 0
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Confidence",
+      "description": "The confidence value for this prospectenrichment.",
+      "examples": [
+        0
+      ]
+    },
+    "evidence_ids": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array",
+      "maxItems": 100,
+      "title": "Evidence Ids",
+      "description": "The evidence ids value for this prospectenrichment.",
+      "examples": [
+        [
+          "Example evidence ids"
+        ]
+      ]
+    }
+  },
+  "type": "object",
+  "required": [
+    "status"
+  ],
+  "title": "ProspectEnrichment",
+  "description": "Structured prospectenrichment data exposed by the public API.",
+  "examples": [
+    {
+      "status": "not_requested"
+    }
+  ]
+}
+
+===== Qualification =====
+{
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "qualified",
+        "rejected",
+        "unknown"
+      ],
+      "title": "Status",
+      "description": "The status value for this qualification.",
+      "examples": [
+        "qualified"
+      ]
+    },
+    "score": {
+      "type": "number",
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Score",
+      "description": "The score value for this qualification.",
+      "examples": [
+        0
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Confidence",
+      "description": "The confidence value for this qualification.",
+      "examples": [
+        0
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 2000,
+      "title": "Reason",
+      "description": "The reason value for this qualification.",
+      "examples": [
+        "Example reason"
+      ]
+    },
+    "selection_strategy": {
+      "type": "string",
+      "enum": [
+        "cold_start",
+        "explore",
+        "exploit"
+      ],
+      "title": "Selection Strategy",
+      "description": "The selection strategy value for this qualification.",
+      "examples": [
+        "cold_start"
+      ]
+    },
+    "evidence_ids": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array",
+      "maxItems": 100,
+      "title": "Evidence Ids",
+      "description": "The evidence ids value for this qualification.",
+      "examples": [
+        [
+          "Example evidence ids"
+        ]
+      ]
+    }
+  },
+  "type": "object",
+  "required": [
+    "status",
+    "score",
+    "confidence",
+    "reason",
+    "selection_strategy"
+  ],
+  "title": "Qualification",
+  "description": "Structured qualification data exposed by the public API.",
+  "examples": [
+    {
+      "status": "qualified",
+      "score": 0,
+      "confidence": 0,
+      "reason": "Example reason",
+      "selection_strategy": "cold_start"
+    }
+  ]
+}
+
+===== EvidenceRef =====
+{
+  "properties": {
+    "id": {
+      "type": "string",
+      "maxLength": 120,
+      "title": "Id",
+      "description": "The id value for this evidenceref.",
+      "examples": [
+        "Example id"
+      ]
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "web",
+        "provider",
+        "crm",
+        "user_input"
+      ],
+      "title": "Source",
+      "description": "The source value for this evidenceref.",
+      "examples": [
+        "web"
+      ]
+    },
+    "label": {
+      "type": "string",
+      "maxLength": 500,
+      "title": "Label",
+      "description": "The label value for this evidenceref.",
+      "examples": [
+        "Example label"
+      ]
+    },
+    "url": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 2000
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Url",
+      "description": "The url value for this evidenceref.",
+      "examples": [
+        "https://example.com"
+      ]
+    },
+    "snippet": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 2000
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Snippet",
+      "description": "The snippet value for this evidenceref.",
+      "examples": [
+        "Example snippet"
+      ]
+    },
+    "observed_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 80
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Observed At",
+      "description": "The observed at value for this evidenceref.",
+      "examples": [
+        "Example observed at"
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Confidence",
+      "description": "The confidence value for this evidenceref.",
+      "examples": [
+        0
+      ]
+    }
+  },
+  "type": "object",
+  "required": [
+    "id",
+    "source",
+    "label",
+    "confidence"
+  ],
+  "title": "EvidenceRef",
+  "description": "Structured evidenceref data exposed by the public API.",
+  "examples": [
+    {
+      "id": "Example id",
+      "source": "web",
+      "label": "Example label",
+      "confidence": 0
+    }
+  ]
+}
+
+===== CompanyHeadcount =====
+{
+  "properties": {
+    "min": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "maximum": 10000000,
+          "minimum": 1
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Min",
+      "description": "The min value for this companyheadcount.",
+      "examples": [
+        1
+      ]
+    },
+    "max": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "maximum": 10000000,
+          "minimum": 1
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Max",
+      "description": "The max value for this companyheadcount.",
+      "examples": [
+        1
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "title": "CompanyHeadcount",
+  "description": "Structured companyheadcount data exposed by the public API.",
+  "examples": [
+    {}
+  ]
+}
+
+===== CountryCode =====
+{
+  "type": "string",
+  "enum": [
+    "AD",
+    "AE",
+    "AF",
+    "AG",
+    "AI",
+    "AL",
+    "AM",
+    "AO",
+    "AQ",
+    "AR",
+    "AS",
+    "AT",
+    "AU",
+    "AW",
+    "AX",
+    "AZ",
+    "BA",
+    "BB",
+    "BD",
+    "BE",
+    "BF",
+    "BG",
+    "BH",
+    "BI",
+    "BJ",
+    "BL",
+    "BM",
+    "BN",
+    "BO",
+    "BQ",
+    "BR",
+    "BS",
+    "BT",
+    "BV",
+    "BW",
+    "BY",
+    "BZ",
+    "CA",
+    "CC",
+    "CD",
+    "CF",
+    "CG",
+    "CH",
+    "CI",
+    "CK",
+    "CL",
+    "CM",
+    "CN",
+    "CO",
+    "CR",
+    "CU",
+    "CV",
+    "CW",
+    "CX",
+    "CY",
+    "CZ",
+    "DE",
+    "DJ",
+    "DK",
+    "DM",
+    "DO",
+    "DZ",
+    "EC",
+    "EE",
+    "EG",
+    "EH",
+    "ER",
+    "ES",
+    "ET",
+    "FI",
+    "FJ",
+    "FK",
+    "FM",
+    "FO",
+    "FR",
+    "GA",
+    "GB",
+    "GD",
+    "GE",
+    "GF",
+    "GG",
+    "GH",
+    "GI",
+    "GL",
+    "GM",
+    "GN",
+    "GP",
+    "GQ",
+    "GR",
+    "GS",
+    "GT",
+    "GU",
+    "GW",
+    "GY",
+    "HK",
+    "HM",
+    "HN",
+    "HR",
+    "HT",
+    "HU",
+    "ID",
+    "IE",
+    "IL",
+    "IM",
+    "IN",
+    "IO",
+    "IQ",
+    "IR",
+    "IS",
+    "IT",
+    "JE",
+    "JM",
+    "JO",
+    "JP",
+    "KE",
+    "KG",
+    "KH",
+    "KI",
+    "KM",
+    "KN",
+    "KP",
+    "KR",
+    "KW",
+    "KY",
+    "KZ",
+    "LA",
+    "LB",
+    "LC",
+    "LI",
+    "LK",
+    "LR",
+    "LS",
+    "LT",
+    "LU",
+    "LV",
+    "LY",
+    "MA",
+    "MC",
+    "MD",
+    "ME",
+    "MF",
+    "MG",
+    "MH",
+    "MK",
+    "ML",
+    "MM",
+    "MN",
+    "MO",
+    "MP",
+    "MQ",
+    "MR",
+    "MS",
+    "MT",
+    "MU",
+    "MV",
+    "MW",
+    "MX",
+    "MY",
+    "MZ",
+    "NA",
+    "NC",
+    "NE",
+    "NF",
+    "NG",
+    "NI",
+    "NL",
+    "NO",
+    "NP",
+    "NR",
+    "NU",
+    "NZ",
+    "OM",
+    "PA",
+    "PE",
+    "PF",
+    "PG",
+    "PH",
+    "PK",
+    "PL",
+    "PM",
+    "PN",
+    "PR",
+    "PS",
+    "PT",
+    "PW",
+    "PY",
+    "QA",
+    "RE",
+    "RO",
+    "RS",
+    "RU",
+    "RW",
+    "SA",
+    "SB",
+    "SC",
+    "SD",
+    "SE",
+    "SG",
+    "SH",
+    "SI",
+    "SJ",
+    "SK",
+    "SL",
+    "SM",
+    "SN",
+    "SO",
+    "SR",
+    "SS",
+    "ST",
+    "SV",
+    "SX",
+    "SY",
+    "SZ",
+    "TC",
+    "TD",
+    "TF",
+    "TG",
+    "TH",
+    "TJ",
+    "TK",
+    "TL",
+    "TM",
+    "TN",
+    "TO",
+    "TR",
+    "TT",
+    "TV",
+    "TW",
+    "TZ",
+    "UA",
+    "UG",
+    "UM",
+    "US",
+    "UY",
+    "UZ",
+    "VA",
+    "VC",
+    "VE",
+    "VG",
+    "VI",
+    "VN",
+    "VU",
+    "WF",
+    "WS",
+    "YE",
+    "YT",
+    "ZA",
+    "ZM",
+    "ZW"
+  ],
+  "title": "CountryCode",
+  "description": "Structured countrycode data exposed by the public API.",
+  "examples": [
+    "AD"
+  ]
+}
+

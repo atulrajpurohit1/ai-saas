@@ -4,29 +4,15 @@ import {
   ProspectCompanyInsight,
   ProspectCompanySummary,
 } from '../../ai/ai.service';
+import {
+  blackPearlHeaders,
+  blackPearlRequest,
+  normalizeString,
+  sleep,
+} from './blackpearl-http.util';
 
 const DEFAULT_BASE_URL = 'https://api.blackpearl.com/v1';
 const DEFAULT_BRAND_PROFILE_KEY = 'blackpearl';
-const REQUEST_TIMEOUT_MS = 10_000;
-
-/**
- * A single HTTP call to BlackPearl is retried this many times (in addition
- * to the first attempt) when it fails for a transient reason - network
- * error, timeout, HTTP 429, or HTTP 5xx (including 503, which BlackPearl has
- * confirmed is a transient condition - the job keeps running server-side
- * even when a status check returns 503). Backoff is exponential
- * (RETRY_BASE_DELAY_MS * 2^attempt). This is the fast, sub-request-level
- * retry for a momentary blip; the caller's own polling loop (every 15-30s,
- * for up to 30 minutes, per BlackPearl's guidance) is what carries a
- * sustained outage across multiple polls without giving up or resubmitting
- * the job. Auth failures (401/403) and 404 are never retried - retrying
- * won't fix those.
- */
-const MAX_ATTEMPTS = 3;
-const RETRY_BASE_DELAY_MS = 1000;
-
-/** Truncated for log readability - a completed playbook body can be several KB. */
-const LOG_BODY_PREVIEW_CHARS = 500;
 
 /**
  * Statuses BlackPearl reports while a playbook job is still in progress.
@@ -133,11 +119,12 @@ export class BlackPearlInsightProvider {
       `BlackPearl job creation: submitting playbook request for company="${company.name}" brandProfileKey="${this.getBrandProfileKey()}"`,
     );
 
-    const job = await this.request<RawBlackPearlJob>(
+    const job = await blackPearlRequest<RawBlackPearlJob>(
+      this.logger,
       `${this.getBaseUrl()}/playbooks`,
       {
         method: 'POST',
-        headers: this.buildHeaders(apiKey),
+        headers: blackPearlHeaders(apiKey),
         body: JSON.stringify({
           target_company: company.name,
           brand_profile_key: this.getBrandProfileKey(),
@@ -174,9 +161,10 @@ export class BlackPearlInsightProvider {
     const apiKey = this.configService.get<string>('BLACKPEARL_API_KEY');
     if (!apiKey) return null;
 
-    const job = await this.request<RawBlackPearlJob>(
+    const job = await blackPearlRequest<RawBlackPearlJob>(
+      this.logger,
       `${this.getBaseUrl()}/jobs/${encodeURIComponent(jobId)}`,
-      { method: 'GET', headers: this.buildHeaders(apiKey) },
+      { method: 'GET', headers: blackPearlHeaders(apiKey) },
       `check job ${jobId}`,
       jobId,
     );
@@ -232,7 +220,13 @@ export class BlackPearlInsightProvider {
       );
     }
 
-    return { jobId, status: 'failed', progress: null, companyName, insight: null };
+    return {
+      jobId,
+      status: 'failed',
+      progress: null,
+      companyName,
+      insight: null,
+    };
   }
 
   /**
@@ -280,174 +274,6 @@ export class BlackPearlInsightProvider {
       DEFAULT_BRAND_PROFILE_KEY
     );
   }
-
-  private buildHeaders(apiKey: string): Record<string, string> {
-    return {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    };
-  }
-
-  /**
-   * Performs one HTTP call to BlackPearl, retrying transient failures
-   * (network error, timeout, 429, 5xx) up to MAX_ATTEMPTS times with
-   * exponential backoff. 401/403/404 are never retried. Every attempt logs
-   * its outgoing request and the resulting response (status, elapsed time,
-   * and a truncated body preview) so a failure's exact cause is always
-   * visible in the logs, not just its final null result. A 503 specifically
-   * gets a full, untruncated structured capture (status, body, headers,
-   * job id, timestamp) - confirmed by BlackPearl as a transient condition
-   * during job polling, so this is the signal most worth debugging in full
-   * if it ever needs investigating.
-   */
-  private async request<T>(
-    url: string,
-    init: RequestInit,
-    context: string,
-    jobId?: string,
-  ): Promise<T | null> {
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-      const startedAt = Date.now();
-
-      this.logger.debug(
-        `BlackPearl -> ${init.method} ${context} (attempt ${attempt}/${MAX_ATTEMPTS})`,
-      );
-
-      let response: Response;
-      try {
-        response = await fetch(url, { ...init, signal: controller.signal });
-      } catch (error) {
-        clearTimeout(timeout);
-        const elapsedMs = Date.now() - startedAt;
-        const isTimeout = error instanceof Error && error.name === 'AbortError';
-        const reason = isTimeout
-          ? `timed out after ${REQUEST_TIMEOUT_MS}ms`
-          : `network error: ${error instanceof Error ? error.message : String(error)}`;
-
-        this.logger.error(
-          `BlackPearl <- FAILED ${context} (attempt ${attempt}/${MAX_ATTEMPTS}) after ${elapsedMs}ms: ${reason}`,
-        );
-
-        if (attempt < MAX_ATTEMPTS) {
-          await sleep(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
-          continue;
-        }
-        return null;
-      }
-      clearTimeout(timeout);
-
-      const elapsedMs = Date.now() - startedAt;
-      const bodyText = await safeReadText(response);
-
-      if (response.status === 401 || response.status === 403) {
-        this.logger.error(
-          `BlackPearl <- HTTP ${response.status} ${context} in ${elapsedMs}ms - authentication failed, check BLACKPEARL_API_KEY. Body: ${truncate(bodyText)}`,
-        );
-        return null; // never retry - a bad key won't fix itself
-      }
-
-      if (response.status === 404) {
-        this.logger.warn(
-          `BlackPearl <- HTTP 404 ${context} in ${elapsedMs}ms. Body: ${truncate(bodyText)}`,
-        );
-        return null; // never retry - the resource genuinely doesn't exist
-      }
-
-      if (response.status === 503) {
-        this.logCompleteErrorResponse(response, bodyText, context, jobId);
-      }
-
-      if (response.status === 429 || response.status >= 500) {
-        if (response.status !== 503) {
-          this.logger.error(
-            `BlackPearl <- HTTP ${response.status} ${context} in ${elapsedMs}ms - transient failure. Body: ${truncate(bodyText)}`,
-          );
-        }
-        if (attempt < MAX_ATTEMPTS) {
-          const backoffMs =
-            RETRY_BASE_DELAY_MS *
-            2 ** (attempt - 1) *
-            (response.status === 429 ? 2 : 1);
-          await sleep(backoffMs);
-          continue;
-        }
-        return null;
-      }
-
-      if (!response.ok) {
-        this.logger.error(
-          `BlackPearl <- HTTP ${response.status} ${context} in ${elapsedMs}ms. Body: ${truncate(bodyText)}`,
-        );
-        return null;
-      }
-
-      this.logger.log(
-        `BlackPearl <- HTTP ${response.status} ${context} in ${elapsedMs}ms. Body: ${truncate(bodyText)}`,
-      );
-
-      try {
-        return JSON.parse(bodyText) as T;
-      } catch (error) {
-        this.logger.error(
-          `BlackPearl returned an unparseable response trying to ${context}: ${
-            error instanceof Error ? error.message : String(error)
-          }. Raw body: ${truncate(bodyText)}`,
-        );
-        return null;
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Full, untruncated capture of a 503 response for debugging - status,
-   * complete body, response headers, job id, and an explicit ISO timestamp.
-   * Only ever logs response headers (never our own outgoing Authorization
-   * request header), so the API key is never exposed.
-   */
-  private logCompleteErrorResponse(
-    response: Response,
-    bodyText: string,
-    context: string,
-    jobId?: string,
-  ): void {
-    const headers: Record<string, string> = {};
-    response.headers.forEach((value, key) => {
-      headers[key] = value;
-    });
-
-    this.logger.error(
-      `BlackPearl 503 (transient - job continues running server-side) trying to ${context}: ${JSON.stringify(
-        {
-          httpStatus: response.status,
-          jobId: jobId ?? null,
-          timestamp: new Date().toISOString(),
-          responseHeaders: headers,
-          responseBody: bodyText,
-        },
-      )}`,
-    );
-  }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function safeReadText(response: Response): Promise<string> {
-  try {
-    return await response.text();
-  } catch (error) {
-    return `<failed to read response body: ${error instanceof Error ? error.message : String(error)}>`;
-  }
-}
-
-function truncate(text: string, maxLength: number = LOG_BODY_PREVIEW_CHARS): string {
-  if (text.length <= maxLength) return text;
-  return `${text.slice(0, maxLength)}... (${text.length} chars total)`;
 }
 
 function toStringArray(value: unknown): string[] {
@@ -455,14 +281,15 @@ function toStringArray(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === 'string');
 }
 
-function normalizeString(value: string | null | undefined): string | undefined {
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
-}
-
-function normalizePersonas(value: unknown): ProspectCompanyInsight['keyPersonas'] {
+function normalizePersonas(
+  value: unknown,
+): ProspectCompanyInsight['keyPersonas'] {
   if (!Array.isArray(value)) return [];
   return value
-    .filter((item): item is RawBlackPearlPersona => typeof item === 'object' && item !== null)
+    .filter(
+      (item): item is RawBlackPearlPersona =>
+        typeof item === 'object' && item !== null,
+    )
     .map((item) => ({
       name: normalizeString(item.name) ?? 'Unknown',
       title: normalizeString(item.title),
@@ -470,10 +297,15 @@ function normalizePersonas(value: unknown): ProspectCompanyInsight['keyPersonas'
     }));
 }
 
-function normalizeObjections(value: unknown): ProspectCompanyInsight['potentialObjections'] {
+function normalizeObjections(
+  value: unknown,
+): ProspectCompanyInsight['potentialObjections'] {
   if (!Array.isArray(value)) return [];
   return value
-    .filter((item): item is RawBlackPearlObjection => typeof item === 'object' && item !== null)
+    .filter(
+      (item): item is RawBlackPearlObjection =>
+        typeof item === 'object' && item !== null,
+    )
     .map((item) => ({
       objection: normalizeString(item.objection) ?? '',
       response: normalizeString(item.response) ?? '',
@@ -491,7 +323,8 @@ function normalizeBlackPearlResult(
   raw: RawBlackPearlResult,
   fallbackCompanyName: string | null,
 ): ProspectCompanyInsight | null {
-  const companyName = normalizeString(raw.company_name) ?? fallbackCompanyName ?? undefined;
+  const companyName =
+    normalizeString(raw.company_name) ?? fallbackCompanyName ?? undefined;
   if (!companyName) return null;
 
   return {

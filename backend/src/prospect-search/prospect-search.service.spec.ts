@@ -6,6 +6,8 @@ import { LeadsService } from '../leads/leads.service';
 import { NotesService } from '../notes/notes.service';
 import { ProspectCompanyDto } from './dto/prospect-company.dto';
 import { BlackPearlInsightProvider } from './providers/blackpearl-insight.provider';
+import { BlackPearlProspectingProvider } from './providers/blackpearl-prospecting.provider';
+import { ProspectDiscoveryCacheService } from './prospect-discovery-cache.service';
 import { ProspectSearchCacheService } from './prospect-search-cache.service';
 import { ProspectSearchHistoryService } from './prospect-search-history.service';
 import { ProspectSearchService } from './prospect-search.service';
@@ -17,11 +19,21 @@ describe('ProspectSearchService', () => {
   let leadsService: { create: jest.Mock; findPotentialDuplicate: jest.Mock };
   let notesService: { create: jest.Mock };
   let cacheService: { get: jest.Mock; set: jest.Mock };
+  let discoveryCacheService: {
+    buildKey: jest.Mock;
+    get: jest.Mock;
+    set: jest.Mock;
+  };
   let historyService: { record: jest.Mock };
   let blackPearlInsightProvider: {
     isConfigured: jest.Mock;
     getPlaybook: jest.Mock;
     submitPlaybookJob: jest.Mock;
+    getJobResult: jest.Mock;
+  };
+  let blackPearlProspectingProvider: {
+    isConfigured: jest.Mock;
+    submitProspectingJob: jest.Mock;
     getJobResult: jest.Mock;
   };
 
@@ -68,6 +80,11 @@ describe('ProspectSearchService', () => {
       get: jest.fn().mockReturnValue(null),
       set: jest.fn(),
     };
+    discoveryCacheService = {
+      buildKey: jest.fn().mockReturnValue('cache-key'),
+      get: jest.fn().mockReturnValue(null),
+      set: jest.fn(),
+    };
     historyService = {
       record: jest.fn().mockResolvedValue({ id: 'history-1' }),
     };
@@ -83,6 +100,21 @@ describe('ProspectSearchService', () => {
         insight,
       }),
     };
+    blackPearlProspectingProvider = {
+      isConfigured: jest.fn().mockReturnValue(true),
+      submitProspectingJob: jest.fn().mockResolvedValue('discovery-job-1'),
+      getJobResult: jest.fn().mockResolvedValue({
+        status: 'completed',
+        progress: 100,
+        stageLabel: null,
+        result: {
+          query: '',
+          discoveredCount: 0,
+          qualifiedCount: 0,
+          prospects: [],
+        },
+      }),
+    };
 
     service = new ProspectSearchService(
       aiService as unknown as AiService,
@@ -90,8 +122,10 @@ describe('ProspectSearchService', () => {
       leadsService as unknown as LeadsService,
       notesService as unknown as NotesService,
       cacheService as unknown as ProspectSearchCacheService,
+      discoveryCacheService as unknown as ProspectDiscoveryCacheService,
       historyService as unknown as ProspectSearchHistoryService,
       blackPearlInsightProvider as unknown as BlackPearlInsightProvider,
+      blackPearlProspectingProvider as unknown as BlackPearlProspectingProvider,
     );
   });
 
@@ -107,9 +141,9 @@ describe('ProspectSearchService', () => {
         jobId: 'job-1',
         companyName: 'Lone Star Guard Services',
       });
-      expect(blackPearlInsightProvider.submitPlaybookJob).toHaveBeenCalledWith(
-        { name: 'Lone Star Guard Services' },
-      );
+      expect(blackPearlInsightProvider.submitPlaybookJob).toHaveBeenCalledWith({
+        name: 'Lone Star Guard Services',
+      });
     });
 
     it('trims the submitted company name', async () => {
@@ -120,16 +154,20 @@ describe('ProspectSearchService', () => {
       });
     });
 
-    it('throws a clear, BlackPearl-specific error when BLACKPEARL_API_KEY is not configured', async () => {
+    it('throws a clean, non-internal error when BLACKPEARL_API_KEY is not configured', async () => {
       blackPearlInsightProvider.isConfigured.mockReturnValue(false);
 
       await expect(
         service.search({ companyName: 'Acme Corp' }, user),
       ).rejects.toThrow(ServiceUnavailableException);
+      // The user-facing message must never name internal config (env var
+      // names, provider names) - that detail belongs in the server log only.
       await expect(
         service.search({ companyName: 'Acme Corp' }, user),
-      ).rejects.toThrow(/BLACKPEARL_API_KEY/);
-      expect(blackPearlInsightProvider.submitPlaybookJob).not.toHaveBeenCalled();
+      ).rejects.not.toThrow(/BLACKPEARL_API_KEY/);
+      expect(
+        blackPearlInsightProvider.submitPlaybookJob,
+      ).not.toHaveBeenCalled();
     });
 
     it('throws a clear error when BlackPearl cannot even start the job', async () => {
@@ -164,7 +202,9 @@ describe('ProspectSearchService', () => {
         companyName: 'Acme Corp',
         insight,
       });
-      expect(blackPearlInsightProvider.submitPlaybookJob).not.toHaveBeenCalled();
+      expect(
+        blackPearlInsightProvider.submitPlaybookJob,
+      ).not.toHaveBeenCalled();
       expect(historyService.record).toHaveBeenCalledWith(
         expect.objectContaining({
           tenantId,
@@ -234,9 +274,9 @@ describe('ProspectSearchService', () => {
     it('throws when the status check itself fails', async () => {
       blackPearlInsightProvider.getJobResult.mockResolvedValue(null);
 
-      await expect(
-        service.getSearchJobStatus('job-1', user),
-      ).rejects.toThrow(ServiceUnavailableException);
+      await expect(service.getSearchJobStatus('job-1', user)).rejects.toThrow(
+        ServiceUnavailableException,
+      );
     });
   });
 
@@ -402,6 +442,191 @@ describe('ProspectSearchService', () => {
       expect(leadsService.findPotentialDuplicate).not.toHaveBeenCalled();
       expect(leadsService.create).toHaveBeenCalled();
       expect(result.duplicate).toBe(false);
+    });
+  });
+
+  describe('discover', () => {
+    const dto = { objective: 'Marketing agencies in India' };
+
+    it('submits a BlackPearl prospecting job and returns a pending result with the job id', async () => {
+      const result = await service.discover(dto, user);
+
+      expect(result).toEqual({
+        status: 'pending',
+        jobId: 'discovery-job-1',
+        query: 'Marketing agencies in India',
+      });
+      expect(
+        blackPearlProspectingProvider.submitProspectingJob,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({ objective: 'Marketing agencies in India' }),
+      );
+    });
+
+    it('throws a clean, non-internal error when BLACKPEARL_API_KEY is not configured', async () => {
+      blackPearlProspectingProvider.isConfigured.mockReturnValue(false);
+
+      await expect(service.discover(dto, user)).rejects.toThrow(
+        ServiceUnavailableException,
+      );
+      await expect(service.discover(dto, user)).rejects.not.toThrow(
+        /BLACKPEARL_API_KEY/,
+      );
+      expect(
+        blackPearlProspectingProvider.submitProspectingJob,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('throws a clear error when BlackPearl cannot even start the job', async () => {
+      blackPearlProspectingProvider.submitProspectingJob.mockResolvedValue(
+        null,
+      );
+
+      await expect(service.discover(dto, user)).rejects.toThrow(
+        ServiceUnavailableException,
+      );
+    });
+
+    it('logs a tenant-scoped audit event for every submitted discovery job', async () => {
+      await service.discover(dto, user);
+
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId,
+          userId: user.sub,
+          action: 'PROSPECT_DISCOVERY_PERFORMED',
+          entityType: 'PROSPECT_SEARCH',
+        }),
+      );
+    });
+
+    it('returns the cached result immediately and skips submitting a new job on a cache hit', async () => {
+      const cachedResult = {
+        query: 'Marketing agencies in India',
+        discoveredCount: 1,
+        qualifiedCount: 1,
+        prospects: [
+          {
+            id: 'pros-1',
+            companyName: 'Acme Marketing',
+            contact: {},
+            qualificationScore: 0.9,
+            signals: [],
+          },
+        ],
+      };
+      discoveryCacheService.get.mockReturnValue(cachedResult);
+
+      const result = await service.discover(dto, user);
+
+      expect(result).toEqual({
+        status: 'completed',
+        query: 'Marketing agencies in India',
+        result: cachedResult,
+      });
+      expect(
+        blackPearlProspectingProvider.submitProspectingJob,
+      ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getDiscoveryJobStatus', () => {
+    const dto = { objective: 'Marketing agencies in India' };
+
+    it('returns pending with progress and stage label while the job runs', async () => {
+      blackPearlProspectingProvider.getJobResult.mockResolvedValue({
+        status: 'pending',
+        progress: 40,
+        stageLabel: 'Finding contacts',
+        result: null,
+      });
+
+      const result = await service.getDiscoveryJobStatus(
+        'discovery-job-1',
+        dto,
+        user,
+      );
+
+      expect(result).toEqual({
+        status: 'pending',
+        progress: 40,
+        stageLabel: 'Finding contacts',
+      });
+    });
+
+    it('caches and records history once the job completes', async () => {
+      const prospects = [
+        {
+          id: 'pros-1',
+          companyName: 'Acme Marketing',
+          contact: { fullName: 'Jane Doe', jobTitle: 'CEO' },
+          qualificationScore: 0.9,
+          signals: [],
+        },
+      ];
+      blackPearlProspectingProvider.getJobResult.mockResolvedValue({
+        status: 'completed',
+        progress: 100,
+        stageLabel: null,
+        result: { query: '', discoveredCount: 1, qualifiedCount: 1, prospects },
+      });
+
+      const result = await service.getDiscoveryJobStatus(
+        'discovery-job-1',
+        dto,
+        user,
+      );
+
+      expect(result).toEqual({
+        status: 'completed',
+        query: 'Marketing agencies in India',
+        result: {
+          query: 'Marketing agencies in India',
+          discoveredCount: 1,
+          qualifiedCount: 1,
+          prospects,
+        },
+      });
+      expect(discoveryCacheService.set).toHaveBeenCalledWith(
+        'cache-key',
+        expect.objectContaining({ prospects }),
+      );
+      expect(historyService.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId,
+          prompt: 'Marketing agencies in India',
+          provider: 'blackpearl_prospecting',
+          resultCount: 1,
+        }),
+      );
+    });
+
+    it('reports a clean failure message without exposing internals when the job fails', async () => {
+      blackPearlProspectingProvider.getJobResult.mockResolvedValue({
+        status: 'failed',
+        progress: null,
+        stageLabel: null,
+        result: null,
+      });
+
+      const result = await service.getDiscoveryJobStatus(
+        'discovery-job-1',
+        dto,
+        user,
+      );
+
+      expect(result.status).toBe('failed');
+      if (result.status === 'failed') {
+        expect(result.message).not.toMatch(/BlackPearl/i);
+      }
+    });
+
+    it('throws a clean 503 when the status check itself fails after retries', async () => {
+      blackPearlProspectingProvider.getJobResult.mockResolvedValue(null);
+
+      await expect(
+        service.getDiscoveryJobStatus('discovery-job-1', dto, user),
+      ).rejects.toThrow(ServiceUnavailableException);
     });
   });
 });

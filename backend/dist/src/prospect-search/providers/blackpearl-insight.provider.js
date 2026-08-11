@@ -13,12 +13,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BlackPearlInsightProvider = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
+const blackpearl_http_util_1 = require("./blackpearl-http.util");
 const DEFAULT_BASE_URL = 'https://api.blackpearl.com/v1';
 const DEFAULT_BRAND_PROFILE_KEY = 'blackpearl';
-const REQUEST_TIMEOUT_MS = 10_000;
-const MAX_ATTEMPTS = 3;
-const RETRY_BASE_DELAY_MS = 1000;
-const LOG_BODY_PREVIEW_CHARS = 500;
 const PENDING_JOB_STATUSES = new Set(['queued', 'running']);
 const SUCCESS_JOB_STATUS = 'succeeded';
 let BlackPearlInsightProvider = BlackPearlInsightProvider_1 = class BlackPearlInsightProvider {
@@ -37,9 +34,9 @@ let BlackPearlInsightProvider = BlackPearlInsightProvider_1 = class BlackPearlIn
             return null;
         }
         this.logger.log(`BlackPearl job creation: submitting playbook request for company="${company.name}" brandProfileKey="${this.getBrandProfileKey()}"`);
-        const job = await this.request(`${this.getBaseUrl()}/playbooks`, {
+        const job = await (0, blackpearl_http_util_1.blackPearlRequest)(this.logger, `${this.getBaseUrl()}/playbooks`, {
             method: 'POST',
-            headers: this.buildHeaders(apiKey),
+            headers: (0, blackpearl_http_util_1.blackPearlHeaders)(apiKey),
             body: JSON.stringify({
                 target_company: company.name,
                 brand_profile_key: this.getBrandProfileKey(),
@@ -56,7 +53,7 @@ let BlackPearlInsightProvider = BlackPearlInsightProvider_1 = class BlackPearlIn
         const apiKey = this.configService.get('BLACKPEARL_API_KEY');
         if (!apiKey)
             return null;
-        const job = await this.request(`${this.getBaseUrl()}/jobs/${encodeURIComponent(jobId)}`, { method: 'GET', headers: this.buildHeaders(apiKey) }, `check job ${jobId}`, jobId);
+        const job = await (0, blackpearl_http_util_1.blackPearlRequest)(this.logger, `${this.getBaseUrl()}/jobs/${encodeURIComponent(jobId)}`, { method: 'GET', headers: (0, blackpearl_http_util_1.blackPearlHeaders)(apiKey) }, `check job ${jobId}`, jobId);
         if (!job) {
             this.logger.error(`BlackPearl job polling FAILED for jobId=${jobId} - status check could not be completed after retries. See the request log above for the exact HTTP failure. This poll attempt will be reported as unavailable, NOT as a job failure.`);
             return null;
@@ -89,7 +86,13 @@ let BlackPearlInsightProvider = BlackPearlInsightProvider_1 = class BlackPearlIn
         else {
             this.logger.warn(`BlackPearl job FINAL STATUS: jobId=${jobId} status="${job.status}"${job.error ? ` (${job.error_code ?? 'error'}: ${job.error})` : ''} - treating as failed.`);
         }
-        return { jobId, status: 'failed', progress: null, companyName, insight: null };
+        return {
+            jobId,
+            status: 'failed',
+            progress: null,
+            companyName,
+            insight: null,
+        };
     }
     async getPlaybook(company) {
         if (!this.isConfigured())
@@ -100,7 +103,7 @@ let BlackPearlInsightProvider = BlackPearlInsightProvider_1 = class BlackPearlIn
         const shortPollAttempts = 3;
         const shortPollDelayMs = 2000;
         for (let attempt = 0; attempt < shortPollAttempts; attempt += 1) {
-            await sleep(shortPollDelayMs);
+            await (0, blackpearl_http_util_1.sleep)(shortPollDelayMs);
             const result = await this.getJobResult(jobId);
             if (!result || result.status === 'pending')
                 continue;
@@ -116,120 +119,16 @@ let BlackPearlInsightProvider = BlackPearlInsightProvider_1 = class BlackPearlIn
         return (this.configService.get('BLACKPEARL_BRAND_PROFILE_KEY') ||
             DEFAULT_BRAND_PROFILE_KEY);
     }
-    buildHeaders(apiKey) {
-        return {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-        };
-    }
-    async request(url, init, context, jobId) {
-        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-            const startedAt = Date.now();
-            this.logger.debug(`BlackPearl -> ${init.method} ${context} (attempt ${attempt}/${MAX_ATTEMPTS})`);
-            let response;
-            try {
-                response = await fetch(url, { ...init, signal: controller.signal });
-            }
-            catch (error) {
-                clearTimeout(timeout);
-                const elapsedMs = Date.now() - startedAt;
-                const isTimeout = error instanceof Error && error.name === 'AbortError';
-                const reason = isTimeout
-                    ? `timed out after ${REQUEST_TIMEOUT_MS}ms`
-                    : `network error: ${error instanceof Error ? error.message : String(error)}`;
-                this.logger.error(`BlackPearl <- FAILED ${context} (attempt ${attempt}/${MAX_ATTEMPTS}) after ${elapsedMs}ms: ${reason}`);
-                if (attempt < MAX_ATTEMPTS) {
-                    await sleep(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
-                    continue;
-                }
-                return null;
-            }
-            clearTimeout(timeout);
-            const elapsedMs = Date.now() - startedAt;
-            const bodyText = await safeReadText(response);
-            if (response.status === 401 || response.status === 403) {
-                this.logger.error(`BlackPearl <- HTTP ${response.status} ${context} in ${elapsedMs}ms - authentication failed, check BLACKPEARL_API_KEY. Body: ${truncate(bodyText)}`);
-                return null;
-            }
-            if (response.status === 404) {
-                this.logger.warn(`BlackPearl <- HTTP 404 ${context} in ${elapsedMs}ms. Body: ${truncate(bodyText)}`);
-                return null;
-            }
-            if (response.status === 503) {
-                this.logCompleteErrorResponse(response, bodyText, context, jobId);
-            }
-            if (response.status === 429 || response.status >= 500) {
-                if (response.status !== 503) {
-                    this.logger.error(`BlackPearl <- HTTP ${response.status} ${context} in ${elapsedMs}ms - transient failure. Body: ${truncate(bodyText)}`);
-                }
-                if (attempt < MAX_ATTEMPTS) {
-                    const backoffMs = RETRY_BASE_DELAY_MS *
-                        2 ** (attempt - 1) *
-                        (response.status === 429 ? 2 : 1);
-                    await sleep(backoffMs);
-                    continue;
-                }
-                return null;
-            }
-            if (!response.ok) {
-                this.logger.error(`BlackPearl <- HTTP ${response.status} ${context} in ${elapsedMs}ms. Body: ${truncate(bodyText)}`);
-                return null;
-            }
-            this.logger.log(`BlackPearl <- HTTP ${response.status} ${context} in ${elapsedMs}ms. Body: ${truncate(bodyText)}`);
-            try {
-                return JSON.parse(bodyText);
-            }
-            catch (error) {
-                this.logger.error(`BlackPearl returned an unparseable response trying to ${context}: ${error instanceof Error ? error.message : String(error)}. Raw body: ${truncate(bodyText)}`);
-                return null;
-            }
-        }
-        return null;
-    }
-    logCompleteErrorResponse(response, bodyText, context, jobId) {
-        const headers = {};
-        response.headers.forEach((value, key) => {
-            headers[key] = value;
-        });
-        this.logger.error(`BlackPearl 503 (transient - job continues running server-side) trying to ${context}: ${JSON.stringify({
-            httpStatus: response.status,
-            jobId: jobId ?? null,
-            timestamp: new Date().toISOString(),
-            responseHeaders: headers,
-            responseBody: bodyText,
-        })}`);
-    }
 };
 exports.BlackPearlInsightProvider = BlackPearlInsightProvider;
 exports.BlackPearlInsightProvider = BlackPearlInsightProvider = BlackPearlInsightProvider_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [config_1.ConfigService])
 ], BlackPearlInsightProvider);
-function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-async function safeReadText(response) {
-    try {
-        return await response.text();
-    }
-    catch (error) {
-        return `<failed to read response body: ${error instanceof Error ? error.message : String(error)}>`;
-    }
-}
-function truncate(text, maxLength = LOG_BODY_PREVIEW_CHARS) {
-    if (text.length <= maxLength)
-        return text;
-    return `${text.slice(0, maxLength)}... (${text.length} chars total)`;
-}
 function toStringArray(value) {
     if (!Array.isArray(value))
         return [];
     return value.filter((item) => typeof item === 'string');
-}
-function normalizeString(value) {
-    return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 function normalizePersonas(value) {
     if (!Array.isArray(value))
@@ -237,9 +136,9 @@ function normalizePersonas(value) {
     return value
         .filter((item) => typeof item === 'object' && item !== null)
         .map((item) => ({
-        name: normalizeString(item.name) ?? 'Unknown',
-        title: normalizeString(item.title),
-        description: normalizeString(item.description),
+        name: (0, blackpearl_http_util_1.normalizeString)(item.name) ?? 'Unknown',
+        title: (0, blackpearl_http_util_1.normalizeString)(item.title),
+        description: (0, blackpearl_http_util_1.normalizeString)(item.description),
     }));
 }
 function normalizeObjections(value) {
@@ -248,29 +147,29 @@ function normalizeObjections(value) {
     return value
         .filter((item) => typeof item === 'object' && item !== null)
         .map((item) => ({
-        objection: normalizeString(item.objection) ?? '',
-        response: normalizeString(item.response) ?? '',
+        objection: (0, blackpearl_http_util_1.normalizeString)(item.objection) ?? '',
+        response: (0, blackpearl_http_util_1.normalizeString)(item.response) ?? '',
     }))
         .filter((item) => item.objection && item.response);
 }
 function normalizeBlackPearlResult(raw, fallbackCompanyName) {
-    const companyName = normalizeString(raw.company_name) ?? fallbackCompanyName ?? undefined;
+    const companyName = (0, blackpearl_http_util_1.normalizeString)(raw.company_name) ?? fallbackCompanyName ?? undefined;
     if (!companyName)
         return null;
     return {
         companyName,
-        domain: normalizeString(raw.domain),
-        website: normalizeString(raw.website),
-        businessSummary: normalizeString(raw.business_summary),
-        businessObjective: normalizeString(raw.business_objective),
+        domain: (0, blackpearl_http_util_1.normalizeString)(raw.domain),
+        website: (0, blackpearl_http_util_1.normalizeString)(raw.website),
+        businessSummary: (0, blackpearl_http_util_1.normalizeString)(raw.business_summary),
+        businessObjective: (0, blackpearl_http_util_1.normalizeString)(raw.business_objective),
         valueProps: toStringArray(raw.value_props),
         salesAngles: toStringArray(raw.sales_angles),
         keyPersonas: normalizePersonas(raw.key_personas),
         potentialObjections: normalizeObjections(raw.potential_objections),
-        meetingNoteExample: normalizeString(raw.meeting_note_example),
-        contactOverview: normalizeString(raw.contact_overview),
-        readinessLevel: normalizeString(raw.readiness_level),
-        documentUrl: normalizeString(raw.document_url),
+        meetingNoteExample: (0, blackpearl_http_util_1.normalizeString)(raw.meeting_note_example),
+        contactOverview: (0, blackpearl_http_util_1.normalizeString)(raw.contact_overview),
+        readinessLevel: (0, blackpearl_http_util_1.normalizeString)(raw.readiness_level),
+        documentUrl: (0, blackpearl_http_util_1.normalizeString)(raw.document_url),
     };
 }
 //# sourceMappingURL=blackpearl-insight.provider.js.map

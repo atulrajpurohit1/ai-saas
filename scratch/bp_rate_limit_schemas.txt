@@ -1,0 +1,381 @@
+===== PublicRateLimitPolicy =====
+{
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "title": "Limit",
+      "description": "Maximum authenticated requests per window.",
+      "examples": [
+        120
+      ]
+    },
+    "window_seconds": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "title": "Window Seconds",
+      "description": "Rate-limit window length in seconds.",
+      "examples": [
+        60
+      ]
+    }
+  },
+  "type": "object",
+  "required": [
+    "limit",
+    "window_seconds"
+  ],
+  "title": "PublicRateLimitPolicy",
+  "description": "API-key request-rate policy applied independently of billable usage.",
+  "examples": [
+    {
+      "limit": 120,
+      "window_seconds": 60
+    }
+  ]
+}
+
+===== PublicUsageTier =====
+{
+  "properties": {
+    "key": {
+      "type": "string",
+      "title": "Key",
+      "description": "Stable tier key.",
+      "examples": [
+        "tier_1"
+      ]
+    },
+    "name": {
+      "type": "string",
+      "title": "Name",
+      "description": "Human-readable tier name.",
+      "examples": [
+        "Tier 1"
+      ]
+    },
+    "rank": {
+      "type": "integer",
+      "minimum": 0,
+      "title": "Rank",
+      "description": "Tier position; higher ranks have higher limits.",
+      "examples": [
+        1
+      ]
+    },
+    "rate_limit_per_minute": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "title": "Rate Limit Per Minute",
+      "description": "Authenticated requests per minute allowed at this tier.",
+      "examples": [
+        120
+      ]
+    },
+    "monthly_cost_cap_usd": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Monthly Cost Cap Usd",
+      "description": "Monthly attributed-cost ceiling in USD at this tier, or null when uncapped.",
+      "examples": [
+        500
+      ]
+    }
+  },
+  "type": "object",
+  "required": [
+    "key",
+    "name",
+    "rank",
+    "rate_limit_per_minute"
+  ],
+  "title": "PublicUsageTier",
+  "description": "The organization's current usage tier. Tiers grow with cumulative paid\nusage and account age; each tier sets the request rate limit and the\nmonthly spend cap.",
+  "examples": [
+    {
+      "key": "tier_1",
+      "monthly_cost_cap_usd": 500,
+      "name": "Tier 1",
+      "rank": 1,
+      "rate_limit_per_minute": 120
+    }
+  ]
+}
+
+===== PublicQuotaStatus =====
+{
+  "properties": {
+    "metric": {
+      "type": "string",
+      "enum": [
+        "requests",
+        "tokens",
+        "cost"
+      ],
+      "title": "Metric",
+      "description": "Usage counter governed by this quota.",
+      "examples": [
+        "requests"
+      ]
+    },
+    "period": {
+      "type": "string",
+      "const": "month",
+      "title": "Period",
+      "description": "UTC calendar period used by this quota.",
+      "examples": [
+        "month"
+      ]
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "organization",
+        "project",
+        "api_key"
+      ],
+      "title": "Scope",
+      "description": "Narrowest tenant scope selected by this quota.",
+      "examples": [
+        "project"
+      ]
+    },
+    "capability_key": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Capability Key",
+      "description": "Capability restriction, or null when all capabilities share the quota.",
+      "examples": [
+        "playbooks"
+      ]
+    },
+    "limit_value": {
+      "type": "number",
+      "minimum": 0,
+      "title": "Limit Value",
+      "description": "Configured monthly limit in the metric's units.",
+      "examples": [
+        1000
+      ]
+    },
+    "used": {
+      "type": "number",
+      "minimum": 0,
+      "title": "Used",
+      "description": "Usage recorded in the quota's complete scope this month.",
+      "examples": [
+        12
+      ]
+    },
+    "remaining": {
+      "type": "number",
+      "minimum": 0,
+      "title": "Remaining",
+      "description": "Non-negative limit minus used value.",
+      "examples": [
+        988
+      ]
+    },
+    "resets_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Resets At",
+      "description": "UTC boundary at which the monthly counter resets.",
+      "examples": [
+        "2026-08-01T00:00:00Z"
+      ]
+    }
+  },
+  "type": "object",
+  "required": [
+    "metric",
+    "period",
+    "scope",
+    "limit_value",
+    "used",
+    "remaining",
+    "resets_at"
+  ],
+  "title": "PublicQuotaStatus",
+  "description": "One monthly usage quota applicable to the authenticated project key.",
+  "examples": [
+    {
+      "capability_key": "playbooks",
+      "limit_value": 1000,
+      "metric": "requests",
+      "period": "month",
+      "remaining": 988,
+      "resets_at": "2026-08-01T00:00:00Z",
+      "scope": "project",
+      "used": 12
+    }
+  ]
+}
+
+===== PublicBudgetStatus =====
+{
+  "properties": {
+    "period": {
+      "type": "string",
+      "const": "month",
+      "title": "Period",
+      "description": "UTC calendar period used by this budget.",
+      "examples": [
+        "month"
+      ]
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "organization",
+        "project"
+      ],
+      "title": "Scope",
+      "description": "Tenant scope selected by this budget.",
+      "examples": [
+        "project"
+      ]
+    },
+    "capability_key": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Capability Key",
+      "description": "Capability restriction, or null when all capability spend is included.",
+      "examples": [
+        null
+      ]
+    },
+    "limit_usd": {
+      "type": "number",
+      "minimum": 0,
+      "title": "Limit Usd",
+      "description": "Configured monthly cost ceiling in USD.",
+      "examples": [
+        50
+      ]
+    },
+    "spend_usd": {
+      "type": "number",
+      "minimum": 0,
+      "title": "Spend Usd",
+      "description": "Cost-ledger spend in this budget's complete scope this month.",
+      "examples": [
+        1.243
+      ]
+    },
+    "remaining_usd": {
+      "type": "number",
+      "minimum": 0,
+      "title": "Remaining Usd",
+      "description": "Non-negative budget limit minus current spend.",
+      "examples": [
+        48.757
+      ]
+    },
+    "hard_limit": {
+      "type": "boolean",
+      "title": "Hard Limit",
+      "description": "Whether reaching the ceiling rejects new work.",
+      "examples": [
+        true
+      ]
+    },
+    "resets_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Resets At",
+      "description": "UTC boundary at which the monthly budget period resets.",
+      "examples": [
+        "2026-08-01T00:00:00Z"
+      ]
+    }
+  },
+  "type": "object",
+  "required": [
+    "period",
+    "scope",
+    "limit_usd",
+    "spend_usd",
+    "remaining_usd",
+    "hard_limit",
+    "resets_at"
+  ],
+  "title": "PublicBudgetStatus",
+  "description": "One monthly cost budget applicable to the authenticated project.",
+  "examples": [
+    {
+      "hard_limit": true,
+      "limit_usd": 50,
+      "period": "month",
+      "remaining_usd": 48.757,
+      "resets_at": "2026-08-01T00:00:00Z",
+      "scope": "project",
+      "spend_usd": 1.243
+    }
+  ]
+}
+
+===== PublicCredits =====
+{
+  "properties": {
+    "billing_enabled": {
+      "type": "boolean",
+      "title": "Billing Enabled",
+      "description": "Whether the organization uses prepaid usage billing.",
+      "examples": [
+        true
+      ]
+    },
+    "balance_usd": {
+      "type": "number",
+      "title": "Balance Usd",
+      "description": "Current prepaid credit balance in USD.",
+      "examples": [
+        98.757
+      ]
+    },
+    "topup_increment_usd": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "title": "Topup Increment Usd",
+      "description": "Permitted prepaid top-up increment in USD.",
+      "examples": [
+        25
+      ]
+    }
+  },
+  "type": "object",
+  "required": [
+    "billing_enabled",
+    "balance_usd",
+    "topup_increment_usd"
+  ],
+  "title": "PublicCredits",
+  "description": "Current prepaid-credit context for the organization.",
+  "examples": [
+    {
+      "balance_usd": 98.757,
+      "billing_enabled": true,
+      "topup_increment_usd": 25
+    }
+  ]
+}
+

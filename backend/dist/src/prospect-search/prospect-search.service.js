@@ -17,26 +17,33 @@ const audit_service_1 = require("../audit/audit.service");
 const leads_service_1 = require("../leads/leads.service");
 const notes_service_1 = require("../notes/notes.service");
 const blackpearl_insight_provider_1 = require("./providers/blackpearl-insight.provider");
+const blackpearl_prospecting_provider_1 = require("./providers/blackpearl-prospecting.provider");
+const prospect_discovery_cache_service_1 = require("./prospect-discovery-cache.service");
 const prospect_search_cache_service_1 = require("./prospect-search-cache.service");
 const prospect_search_history_service_1 = require("./prospect-search-history.service");
 const PROVIDER_NAME = 'blackpearl';
+const DISCOVERY_PROVIDER_NAME = 'blackpearl_prospecting';
 let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchService {
     aiService;
     auditService;
     leadsService;
     notesService;
     cacheService;
+    discoveryCacheService;
     historyService;
     blackPearlInsightProvider;
+    blackPearlProspectingProvider;
     logger = new common_1.Logger(ProspectSearchService_1.name);
-    constructor(aiService, auditService, leadsService, notesService, cacheService, historyService, blackPearlInsightProvider) {
+    constructor(aiService, auditService, leadsService, notesService, cacheService, discoveryCacheService, historyService, blackPearlInsightProvider, blackPearlProspectingProvider) {
         this.aiService = aiService;
         this.auditService = auditService;
         this.leadsService = leadsService;
         this.notesService = notesService;
         this.cacheService = cacheService;
+        this.discoveryCacheService = discoveryCacheService;
         this.historyService = historyService;
         this.blackPearlInsightProvider = blackPearlInsightProvider;
+        this.blackPearlProspectingProvider = blackPearlProspectingProvider;
     }
     async search(dto, user) {
         const companyName = dto.companyName.trim();
@@ -48,13 +55,13 @@ let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchServic
         }
         if (!this.blackPearlInsightProvider.isConfigured()) {
             this.logger.error('BLACKPEARL_API_KEY is not configured. Prospect Search cannot return results.');
-            throw new common_1.ServiceUnavailableException('Prospect Search is not configured. Set BLACKPEARL_API_KEY in the backend environment and restart the server.');
+            throw new common_1.ServiceUnavailableException('Prospect Search is temporarily unavailable. Please contact your administrator.');
         }
         const jobId = await this.blackPearlInsightProvider.submitPlaybookJob({
             name: companyName,
         });
         if (!jobId) {
-            throw new common_1.ServiceUnavailableException('BlackPearl could not start playbook generation for this company right now. Please try again shortly.');
+            throw new common_1.ServiceUnavailableException("We couldn't start researching this company right now. Please try again shortly.");
         }
         this.logger.log(`Prospect search job submitted: tenant=${user.tenantId} provider=${PROVIDER_NAME} jobId=${jobId} company="${companyName}"`);
         await this.auditService.log({
@@ -90,7 +97,7 @@ let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchServic
         this.logger.warn(`Prospect search job failed: tenant=${user.tenantId} provider=${PROVIDER_NAME} jobId=${jobId}`);
         return {
             status: 'failed',
-            message: 'BlackPearl could not generate a playbook for this company. Please try again.',
+            message: "We couldn't generate a sales playbook for this company. Please try again.",
         };
     }
     async recordHistory(companyName, user) {
@@ -106,6 +113,111 @@ let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchServic
         catch (error) {
             this.logger.warn(`Failed to record prospect search history: ${error instanceof Error ? error.message : String(error)}`);
         }
+    }
+    async discover(dto, user) {
+        const objective = dto.objective.trim();
+        const cacheKey = this.discoveryCacheService.buildKey(user.tenantId, DISCOVERY_PROVIDER_NAME, this.normalizeDiscoveryQuery(dto));
+        const cached = this.discoveryCacheService.get(cacheKey);
+        if (cached) {
+            this.logger.log(`Prospect discovery cache hit: tenant=${user.tenantId} objective="${objective}"`);
+            await this.recordDiscoveryHistory(objective, cached.prospects.length, user);
+            return { status: 'completed', query: objective, result: cached };
+        }
+        if (!this.blackPearlProspectingProvider.isConfigured()) {
+            this.logger.error('BLACKPEARL_API_KEY is not configured. Prospect discovery cannot return results.');
+            throw new common_1.ServiceUnavailableException('Prospect Search is temporarily unavailable. Please contact your administrator.');
+        }
+        const jobId = await this.blackPearlProspectingProvider.submitProspectingJob({
+            objective,
+            target: {
+                locations: dto.locations,
+                industries: dto.industries,
+                jobTitles: dto.jobTitles,
+                keywords: dto.keywords,
+                companyHeadcountMin: dto.companyHeadcountMin,
+                companyHeadcountMax: dto.companyHeadcountMax,
+            },
+            limit: dto.limit,
+        });
+        if (!jobId) {
+            throw new common_1.ServiceUnavailableException("We couldn't start this search right now. Please try again shortly.");
+        }
+        this.logger.log(`Prospect discovery job submitted: tenant=${user.tenantId} jobId=${jobId} objective="${objective}"`);
+        await this.auditService.log({
+            tenantId: user.tenantId,
+            userId: user.sub,
+            action: 'PROSPECT_DISCOVERY_PERFORMED',
+            entityType: 'PROSPECT_SEARCH',
+            details: `Objective: "${objective}" (BlackPearl prospecting job ${jobId})`,
+        });
+        return { status: 'pending', jobId, query: objective };
+    }
+    async getDiscoveryJobStatus(jobId, dto, user) {
+        const poll = await this.blackPearlProspectingProvider.getJobResult(jobId);
+        if (!poll) {
+            this.logger.error(`Prospect discovery job status check FAILED: tenant=${user.tenantId} jobId=${jobId} - returning 503.`);
+            throw new common_1.ServiceUnavailableException('Could not check search status right now. Please try again shortly.');
+        }
+        if (poll.status === 'pending') {
+            return {
+                status: 'pending',
+                progress: poll.progress,
+                stageLabel: poll.stageLabel,
+            };
+        }
+        if (poll.status === 'completed' && poll.result) {
+            const objective = dto.objective.trim();
+            const result = { ...poll.result, query: objective };
+            const cacheKey = this.discoveryCacheService.buildKey(user.tenantId, DISCOVERY_PROVIDER_NAME, this.normalizeDiscoveryQuery(dto));
+            this.discoveryCacheService.set(cacheKey, result);
+            await this.recordDiscoveryHistory(objective, result.prospects.length, user);
+            this.logger.log(`Prospect discovery job completed: tenant=${user.tenantId} jobId=${jobId} prospects=${result.prospects.length}`);
+            return { status: 'completed', query: objective, result };
+        }
+        this.logger.warn(`Prospect discovery job failed: tenant=${user.tenantId} jobId=${jobId}`);
+        return {
+            status: 'failed',
+            message: "We couldn't complete this search. Please try again.",
+        };
+    }
+    async recordDiscoveryHistory(objective, resultCount, user) {
+        try {
+            await this.historyService.record({
+                tenantId: user.tenantId,
+                userId: user.sub,
+                prompt: objective,
+                provider: DISCOVERY_PROVIDER_NAME,
+                resultCount,
+            });
+        }
+        catch (error) {
+            this.logger.warn(`Failed to record prospect discovery history: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+    normalizeDiscoveryQuery(dto) {
+        const parts = [
+            dto.objective.trim().toLowerCase(),
+            (dto.locations ?? [])
+                .map((v) => v.toLowerCase())
+                .sort()
+                .join(','),
+            (dto.industries ?? [])
+                .map((v) => v.toLowerCase())
+                .sort()
+                .join(','),
+            (dto.jobTitles ?? [])
+                .map((v) => v.toLowerCase())
+                .sort()
+                .join(','),
+            (dto.keywords ?? [])
+                .map((v) => v.toLowerCase())
+                .sort()
+                .join(','),
+            dto.companyHeadcountMin ?? '',
+            dto.companyHeadcountMax ?? '',
+            dto.limit ?? '',
+        ];
+        return parts.join('|');
     }
     async recordView(dto, user) {
         await this.auditService.log({
@@ -134,7 +246,7 @@ let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchServic
         }
         catch (error) {
             this.logger.error(`Company insight generation failed: tenant=${user.tenantId} company=${dto.company.id} error=${error instanceof Error ? error.message : String(error)}`);
-            throw error;
+            throw new common_1.ServiceUnavailableException("We couldn't generate an AI insight for this company right now. Please try again shortly.");
         }
         this.logger.log(`Company insight generated: tenant=${user.tenantId} company=${dto.company.id} source=${source} ms=${Date.now() - aiStartedAt}`);
         await this.auditService.log({
@@ -231,7 +343,9 @@ exports.ProspectSearchService = ProspectSearchService = ProspectSearchService_1 
         leads_service_1.LeadsService,
         notes_service_1.NotesService,
         prospect_search_cache_service_1.ProspectSearchCacheService,
+        prospect_discovery_cache_service_1.ProspectDiscoveryCacheService,
         prospect_search_history_service_1.ProspectSearchHistoryService,
-        blackpearl_insight_provider_1.BlackPearlInsightProvider])
+        blackpearl_insight_provider_1.BlackPearlInsightProvider,
+        blackpearl_prospecting_provider_1.BlackPearlProspectingProvider])
 ], ProspectSearchService);
 //# sourceMappingURL=prospect-search.service.js.map

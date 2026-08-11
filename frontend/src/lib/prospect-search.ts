@@ -160,3 +160,86 @@ export async function deleteSavedProspectSearch(id: string) {
   const res = await api.delete<{ success: true }>(`prospect-search/saved-searches/${id}`);
   return res.data;
 }
+
+/**
+ * Real, multi-company/multi-contact prospect discovery (BlackPearl's
+ * Prospecting capability) - the primary Prospect Search experience. Distinct
+ * from searchProspects() above, which only ever researches one already-named
+ * company.
+ */
+export interface DiscoverProspectsRequest {
+  objective: string;
+  locations?: string[];
+  industries?: string[];
+  jobTitles?: string[];
+  keywords?: string[];
+  companyHeadcountMin?: number;
+  companyHeadcountMax?: number;
+  limit?: number;
+}
+
+export interface DiscoveredProspectContact {
+  fullName?: string;
+  jobTitle?: string;
+  headline?: string;
+  location?: string;
+  profileUrl?: string;
+  email?: string;
+}
+
+export interface DiscoveredProspectSignal {
+  label: string;
+  snippet?: string;
+}
+
+export interface DiscoveredProspect {
+  id: string;
+  companyName?: string;
+  companyDomain?: string;
+  companyIndustry?: string;
+  companyHeadcount?: number;
+  companyLocation?: string;
+  companyDescription?: string;
+  contact: DiscoveredProspectContact;
+  qualificationScore: number;
+  qualificationReason?: string;
+  signals: DiscoveredProspectSignal[];
+}
+
+export interface ProspectDiscoveryResult {
+  query: string;
+  discoveredCount: number;
+  qualifiedCount: number;
+  prospects: DiscoveredProspect[];
+}
+
+export type ProspectDiscoverySubmission =
+  | { status: 'completed'; query: string; result: ProspectDiscoveryResult }
+  | { status: 'pending'; jobId: string; query: string };
+
+export type ProspectDiscoveryJobStatus =
+  | { status: 'pending'; progress: number | null; stageLabel: string | null }
+  | { status: 'completed'; query: string; result: ProspectDiscoveryResult }
+  | { status: 'failed'; message: string };
+
+export async function discoverProspects(request: DiscoverProspectsRequest) {
+  const res = await api.post<ProspectDiscoverySubmission>('prospect-search/discover', request);
+  return res.data;
+}
+
+/**
+ * POST rather than GET - polling needs the original search criteria back to
+ * label the result and match the server's cache key, and that criteria can
+ * include several filter arrays that aren't practical to round-trip through
+ * a query string.
+ */
+export async function getProspectDiscoveryJobStatus(
+  jobId: string,
+  request: DiscoverProspectsRequest,
+) {
+  const res = await api.post<ProspectDiscoveryJobStatus>(
+    `prospect-search/discover/${jobId}`,
+    request,
+  );
+  return res.data;
+}

@@ -19,6 +19,7 @@ const permissions_decorator_1 = require("../auth/decorators/permissions.decorato
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const permission_guard_1 = require("../auth/guards/permission.guard");
 const company_insight_dto_1 = require("./dto/company-insight.dto");
+const discover_prospects_dto_1 = require("./dto/discover-prospects.dto");
 const import_prospect_dto_1 = require("./dto/import-prospect.dto");
 const rename_saved_search_dto_1 = require("./dto/rename-saved-search.dto");
 const save_search_dto_1 = require("./dto/save-search.dto");
@@ -42,6 +43,12 @@ let ProspectSearchController = class ProspectSearchController {
     }
     getSearchJobStatus(jobId, user) {
         return this.prospectSearchService.getSearchJobStatus(jobId, user);
+    }
+    discover(dto, user) {
+        return this.prospectSearchService.discover(dto, user);
+    }
+    getDiscoveryJobStatus(jobId, dto, user) {
+        return this.prospectSearchService.getDiscoveryJobStatus(jobId, dto, user);
     }
     recordView(dto, user) {
         return this.prospectSearchService.recordView(dto, user);
@@ -94,6 +101,28 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], ProspectSearchController.prototype, "getSearchJobStatus", null);
+__decorate([
+    (0, common_1.Post)('discover'),
+    (0, common_1.UseGuards)(prospect_search_rate_limit_guard_1.ProspectSearchRateLimitGuard),
+    (0, permissions_decorator_1.RequirePermission)('prospect_search.view', 'prospect_search.search'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [discover_prospects_dto_1.DiscoverProspectsDto, Object]),
+    __metadata("design:returntype", void 0)
+], ProspectSearchController.prototype, "discover", null);
+__decorate([
+    (0, common_1.Post)('discover/:jobId'),
+    (0, permissions_decorator_1.RequirePermission)('prospect_search.view', 'prospect_search.search'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Param)('jobId')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, discover_prospects_dto_1.DiscoverProspectsDto, Object]),
+    __metadata("design:returntype", void 0)
+], ProspectSearchController.prototype, "getDiscoveryJobStatus", null);
 __decorate([
     (0, common_1.Post)('view'),
     (0, permissions_decorator_1.RequirePermission)('prospect_search.view', 'prospect_search.search'),

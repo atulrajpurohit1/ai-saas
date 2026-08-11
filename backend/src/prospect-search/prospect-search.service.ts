@@ -9,21 +9,27 @@ import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { LeadsService } from '../leads/leads.service';
 import { NotesService } from '../notes/notes.service';
 import { CompanyInsightDto } from './dto/company-insight.dto';
+import { DiscoverProspectsDto } from './dto/discover-prospects.dto';
 import { ImportProspectDto } from './dto/import-prospect.dto';
 import { ProspectCompanyDto } from './dto/prospect-company.dto';
 import { SearchProspectsDto } from './dto/search-prospects.dto';
 import { ViewProspectDto } from './dto/view-prospect.dto';
 import { BlackPearlInsightProvider } from './providers/blackpearl-insight.provider';
+import { BlackPearlProspectingProvider } from './providers/blackpearl-prospecting.provider';
+import { ProspectDiscoveryCacheService } from './prospect-discovery-cache.service';
 import { ProspectSearchCacheService } from './prospect-search-cache.service';
 import { ProspectSearchHistoryService } from './prospect-search-history.service';
 import {
   ImportProspectResult,
+  ProspectDiscoveryJobStatusResult,
+  ProspectDiscoverySubmission,
   ProspectSearchJobStatusResult,
   ProspectSearchResult,
   ProspectSearchSubmission,
 } from './types/prospect-search.types';
 
 const PROVIDER_NAME = 'blackpearl';
+const DISCOVERY_PROVIDER_NAME = 'blackpearl_prospecting';
 
 @Injectable()
 export class ProspectSearchService {
@@ -35,8 +41,10 @@ export class ProspectSearchService {
     private readonly leadsService: LeadsService,
     private readonly notesService: NotesService,
     private readonly cacheService: ProspectSearchCacheService,
+    private readonly discoveryCacheService: ProspectDiscoveryCacheService,
     private readonly historyService: ProspectSearchHistoryService,
     private readonly blackPearlInsightProvider: BlackPearlInsightProvider,
+    private readonly blackPearlProspectingProvider: BlackPearlProspectingProvider,
   ) {}
 
   /**
@@ -69,7 +77,7 @@ export class ProspectSearchService {
         'BLACKPEARL_API_KEY is not configured. Prospect Search cannot return results.',
       );
       throw new ServiceUnavailableException(
-        'Prospect Search is not configured. Set BLACKPEARL_API_KEY in the backend environment and restart the server.',
+        'Prospect Search is temporarily unavailable. Please contact your administrator.',
       );
     }
 
@@ -79,7 +87,7 @@ export class ProspectSearchService {
 
     if (!jobId) {
       throw new ServiceUnavailableException(
-        'BlackPearl could not start playbook generation for this company right now. Please try again shortly.',
+        "We couldn't start researching this company right now. Please try again shortly.",
       );
     }
 
@@ -164,7 +172,8 @@ export class ProspectSearchService {
 
     return {
       status: 'failed',
-      message: 'BlackPearl could not generate a playbook for this company. Please try again.',
+      message:
+        "We couldn't generate a sales playbook for this company. Please try again.",
     };
   }
 
@@ -187,6 +196,193 @@ export class ProspectSearchService {
         }`,
       );
     }
+  }
+
+  /**
+   * Real, multi-company/multi-contact prospect discovery
+   * (BlackPearl's "Prospecting" capability, confirmed enabled on this
+   * account). Same async job-submission shape as single-company search()
+   * above, but our own live testing showed prospecting jobs typically
+   * complete in about a minute in turbo mode - much faster than Playbooks.
+   */
+  async discover(
+    dto: DiscoverProspectsDto,
+    user: ActiveUser,
+  ): Promise<ProspectDiscoverySubmission> {
+    const objective = dto.objective.trim();
+    const cacheKey = this.discoveryCacheService.buildKey(
+      user.tenantId,
+      DISCOVERY_PROVIDER_NAME,
+      this.normalizeDiscoveryQuery(dto),
+    );
+
+    const cached = this.discoveryCacheService.get(cacheKey);
+    if (cached) {
+      this.logger.log(
+        `Prospect discovery cache hit: tenant=${user.tenantId} objective="${objective}"`,
+      );
+      await this.recordDiscoveryHistory(
+        objective,
+        cached.prospects.length,
+        user,
+      );
+      return { status: 'completed', query: objective, result: cached };
+    }
+
+    if (!this.blackPearlProspectingProvider.isConfigured()) {
+      this.logger.error(
+        'BLACKPEARL_API_KEY is not configured. Prospect discovery cannot return results.',
+      );
+      throw new ServiceUnavailableException(
+        'Prospect Search is temporarily unavailable. Please contact your administrator.',
+      );
+    }
+
+    const jobId = await this.blackPearlProspectingProvider.submitProspectingJob(
+      {
+        objective,
+        target: {
+          locations: dto.locations,
+          industries: dto.industries,
+          jobTitles: dto.jobTitles,
+          keywords: dto.keywords,
+          companyHeadcountMin: dto.companyHeadcountMin,
+          companyHeadcountMax: dto.companyHeadcountMax,
+        },
+        limit: dto.limit,
+      },
+    );
+
+    if (!jobId) {
+      throw new ServiceUnavailableException(
+        "We couldn't start this search right now. Please try again shortly.",
+      );
+    }
+
+    this.logger.log(
+      `Prospect discovery job submitted: tenant=${user.tenantId} jobId=${jobId} objective="${objective}"`,
+    );
+
+    await this.auditService.log({
+      tenantId: user.tenantId,
+      userId: user.sub,
+      action: 'PROSPECT_DISCOVERY_PERFORMED',
+      entityType: 'PROSPECT_SEARCH',
+      details: `Objective: "${objective}" (BlackPearl prospecting job ${jobId})`,
+    });
+
+    return { status: 'pending', jobId, query: objective };
+  }
+
+  /**
+   * Polled by the caller until the prospecting job is no longer "pending".
+   * Never resubmits - same job id is reused for every poll, matching the
+   * single-company search's polling contract.
+   */
+  async getDiscoveryJobStatus(
+    jobId: string,
+    dto: DiscoverProspectsDto,
+    user: ActiveUser,
+  ): Promise<ProspectDiscoveryJobStatusResult> {
+    const poll = await this.blackPearlProspectingProvider.getJobResult(jobId);
+
+    if (!poll) {
+      this.logger.error(
+        `Prospect discovery job status check FAILED: tenant=${user.tenantId} jobId=${jobId} - returning 503.`,
+      );
+      throw new ServiceUnavailableException(
+        'Could not check search status right now. Please try again shortly.',
+      );
+    }
+
+    if (poll.status === 'pending') {
+      return {
+        status: 'pending',
+        progress: poll.progress,
+        stageLabel: poll.stageLabel,
+      };
+    }
+
+    if (poll.status === 'completed' && poll.result) {
+      const objective = dto.objective.trim();
+      const result = { ...poll.result, query: objective };
+
+      const cacheKey = this.discoveryCacheService.buildKey(
+        user.tenantId,
+        DISCOVERY_PROVIDER_NAME,
+        this.normalizeDiscoveryQuery(dto),
+      );
+      this.discoveryCacheService.set(cacheKey, result);
+      await this.recordDiscoveryHistory(
+        objective,
+        result.prospects.length,
+        user,
+      );
+
+      this.logger.log(
+        `Prospect discovery job completed: tenant=${user.tenantId} jobId=${jobId} prospects=${result.prospects.length}`,
+      );
+
+      return { status: 'completed', query: objective, result };
+    }
+
+    this.logger.warn(
+      `Prospect discovery job failed: tenant=${user.tenantId} jobId=${jobId}`,
+    );
+
+    return {
+      status: 'failed',
+      message: "We couldn't complete this search. Please try again.",
+    };
+  }
+
+  private async recordDiscoveryHistory(
+    objective: string,
+    resultCount: number,
+    user: ActiveUser,
+  ): Promise<void> {
+    try {
+      await this.historyService.record({
+        tenantId: user.tenantId,
+        userId: user.sub,
+        prompt: objective,
+        provider: DISCOVERY_PROVIDER_NAME,
+        resultCount,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Failed to record prospect discovery history: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  /** A stable cache key from the objective plus every optional filter, order-independent. */
+  private normalizeDiscoveryQuery(dto: DiscoverProspectsDto): string {
+    const parts = [
+      dto.objective.trim().toLowerCase(),
+      (dto.locations ?? [])
+        .map((v) => v.toLowerCase())
+        .sort()
+        .join(','),
+      (dto.industries ?? [])
+        .map((v) => v.toLowerCase())
+        .sort()
+        .join(','),
+      (dto.jobTitles ?? [])
+        .map((v) => v.toLowerCase())
+        .sort()
+        .join(','),
+      (dto.keywords ?? [])
+        .map((v) => v.toLowerCase())
+        .sort()
+        .join(','),
+      dto.companyHeadcountMin ?? '',
+      dto.companyHeadcountMax ?? '',
+      dto.limit ?? '',
+    ];
+    return parts.join('|');
   }
 
   async recordView(
@@ -226,12 +422,16 @@ export class ProspectSearchService {
         );
       }
     } catch (error) {
+      // Log the real cause (which may name internal config like GEMINI_API_KEY
+      // or the AI provider) server-side only - never forward it to the client.
       this.logger.error(
         `Company insight generation failed: tenant=${user.tenantId} company=${
           dto.company.id
         } error=${error instanceof Error ? error.message : String(error)}`,
       );
-      throw error;
+      throw new ServiceUnavailableException(
+        "We couldn't generate an AI insight for this company right now. Please try again shortly.",
+      );
     }
     this.logger.log(
       `Company insight generated: tenant=${user.tenantId} company=${dto.company.id} source=${source} ms=${

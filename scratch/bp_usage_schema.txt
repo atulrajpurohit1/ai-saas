@@ -1,0 +1,227 @@
+{
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "title": "Project Id",
+      "description": "Project whose usage is reported.",
+      "examples": [
+        "proj_123"
+      ]
+    },
+    "period": {
+      "type": "string",
+      "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+      "title": "Period",
+      "description": "UTC billing period key in `YYYY-MM` form.",
+      "examples": [
+        "2026-07"
+      ]
+    },
+    "period_start": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Period Start",
+      "description": "Inclusive UTC start of the reported monthly period.",
+      "examples": [
+        "2026-07-01T00:00:00Z"
+      ]
+    },
+    "period_end": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Period End",
+      "description": "Exclusive UTC end and reset time of the reported monthly period.",
+      "examples": [
+        "2026-08-01T00:00:00Z"
+      ]
+    },
+    "rollup": {
+      "$ref": "#/components/schemas/PublicUsageRollup",
+      "description": "All-capability usage totals for the period.",
+      "examples": [
+        {
+          "cost_usd": 1.243,
+          "requests": 12,
+          "tokens": 45200
+        }
+      ]
+    },
+    "by_capability": {
+      "items": {
+        "$ref": "#/components/schemas/PublicUsageByCapability"
+      },
+      "type": "array",
+      "title": "By Capability",
+      "description": "Usage totals for capabilities with recorded usage.",
+      "examples": [
+        [
+          {
+            "capability_key": "playbooks",
+            "cost_usd": 1.243,
+            "requests": 12,
+            "tokens": 45200
+          }
+        ]
+      ]
+    },
+    "rate_limit": {
+      "$ref": "#/components/schemas/PublicRateLimitPolicy",
+      "description": "Per-API-key request rate policy. Current-window counters are returned in response headers.",
+      "examples": [
+        {
+          "limit": 120,
+          "window_seconds": 60
+        }
+      ]
+    },
+    "usage_tier": {
+      "anyOf": [
+        {
+          "$ref": "#/components/schemas/PublicUsageTier"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The organization's current usage tier, or null when tiers are not configured. The rate limit and a monthly spend cap derive from it.",
+      "examples": [
+        {
+          "key": "tier_1",
+          "monthly_cost_cap_usd": 500,
+          "name": "Tier 1",
+          "rank": 1,
+          "rate_limit_per_minute": 120
+        }
+      ]
+    },
+    "quotas": {
+      "items": {
+        "$ref": "#/components/schemas/PublicQuotaStatus"
+      },
+      "type": "array",
+      "title": "Quotas",
+      "description": "Monthly quotas that can block this project key; empty when none apply.",
+      "examples": [
+        [
+          {
+            "capability_key": "playbooks",
+            "limit_value": 1000,
+            "metric": "requests",
+            "period": "month",
+            "remaining": 988,
+            "resets_at": "2026-08-01T00:00:00Z",
+            "scope": "project",
+            "used": 12
+          }
+        ]
+      ]
+    },
+    "budgets": {
+      "items": {
+        "$ref": "#/components/schemas/PublicBudgetStatus"
+      },
+      "type": "array",
+      "title": "Budgets",
+      "description": "Monthly budgets that can affect this project; empty when none apply.",
+      "examples": [
+        [
+          {
+            "hard_limit": true,
+            "limit_usd": 50,
+            "period": "month",
+            "remaining_usd": 48.757,
+            "resets_at": "2026-08-01T00:00:00Z",
+            "scope": "project",
+            "spend_usd": 1.243
+          }
+        ]
+      ]
+    },
+    "credits": {
+      "$ref": "#/components/schemas/PublicCredits",
+      "description": "Organization prepaid-credit context.",
+      "examples": [
+        {
+          "balance_usd": 98.757,
+          "billing_enabled": true,
+          "topup_increment_usd": 25
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "required": [
+    "project_id",
+    "period",
+    "period_start",
+    "period_end",
+    "rollup",
+    "by_capability",
+    "rate_limit",
+    "quotas",
+    "budgets",
+    "credits"
+  ],
+  "title": "PublicUsageResponse",
+  "description": "Month-to-date project usage and prepaid-credit information.",
+  "examples": [
+    {
+      "budgets": [
+        {
+          "hard_limit": true,
+          "limit_usd": 50,
+          "period": "month",
+          "remaining_usd": 48.757,
+          "resets_at": "2026-08-01T00:00:00Z",
+          "scope": "project",
+          "spend_usd": 1.243
+        }
+      ],
+      "by_capability": [
+        {
+          "capability_key": "playbooks",
+          "cost_usd": 1.243,
+          "requests": 12,
+          "tokens": 45200
+        }
+      ],
+      "credits": {
+        "balance_usd": 98.757,
+        "billing_enabled": true,
+        "topup_increment_usd": 25
+      },
+      "period": "2026-07",
+      "period_end": "2026-08-01T00:00:00Z",
+      "period_start": "2026-07-01T00:00:00Z",
+      "project_id": "proj_123",
+      "quotas": [
+        {
+          "capability_key": "playbooks",
+          "limit_value": 1000,
+          "metric": "requests",
+          "period": "month",
+          "remaining": 988,
+          "resets_at": "2026-08-01T00:00:00Z",
+          "scope": "project",
+          "used": 12
+        }
+      ],
+      "rate_limit": {
+        "limit": 120,
+        "window_seconds": 60
+      },
+      "rollup": {
+        "cost_usd": 1.243,
+        "requests": 12,
+        "tokens": 45200
+      },
+      "usage_tier": {
+        "key": "tier_1",
+        "monthly_cost_cap_usd": 500,
+        "name": "Tier 1",
+        "rank": 1,
+        "rate_limit_per_minute": 120
+      }
+    }
+  ]
+}
