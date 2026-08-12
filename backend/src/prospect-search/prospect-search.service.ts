@@ -242,6 +242,7 @@ export class ProspectSearchService {
       {
         objective,
         target: {
+          companyNames: dto.companyNames,
           locations: dto.locations,
           industries: dto.industries,
           jobTitles: dto.jobTitles,
@@ -362,6 +363,10 @@ export class ProspectSearchService {
   private normalizeDiscoveryQuery(dto: DiscoverProspectsDto): string {
     const parts = [
       dto.objective.trim().toLowerCase(),
+      (dto.companyNames ?? [])
+        .map((v) => v.toLowerCase())
+        .sort()
+        .join(','),
       (dto.locations ?? [])
         .map((v) => v.toLowerCase())
         .sort()
@@ -477,8 +482,16 @@ export class ProspectSearchService {
       }
     }
 
+    // Prefer the real discovered contact's name for the Lead's "name" field;
+    // only a BlackPearl Prospecting result carries one. Fall back to the
+    // company name (not a fabrication - it's the same behavior this always
+    // had) when no contact was found for this company.
     const lead = await this.leadsService.create(
-      { name: company.name, company: company.name },
+      {
+        name: company.contactName?.trim() || company.name,
+        company: company.name,
+        email: company.contactEmail?.trim() || undefined,
+      },
       user.tenantId,
       user.sub,
     );
@@ -525,11 +538,31 @@ export class ProspectSearchService {
   }
 
   /**
-   * Only renders fields that are actually present - a BlackPearl-sourced
-   * company only ever has a name, so most of these are typically absent.
+   * Only renders fields that are actually present - a single-company deep
+   * research result only ever has a name, so most of these are typically
+   * absent there; a BlackPearl Prospecting discovery result is usually
+   * richer (contact, qualification reasoning, signals) and that context has
+   * nowhere else to live, since the Lead model has no columns for it. This
+   * note is also read as free-text signal by Sales Accelerator's
+   * marketSignalProfile() (see sales-accelerator.service.ts), so a fuller
+   * note here directly improves that deterministic scoring - not a separate
+   * cosmetic detail.
    */
   private buildImportNote(company: ProspectCompanyDto): string {
     const lines = ['Imported from Prospect Search.'];
+
+    if (company.contactName) {
+      const titleSuffix = company.contactTitle
+        ? ` (${company.contactTitle})`
+        : '';
+      lines.push(`Contact: ${company.contactName}${titleSuffix}`);
+    } else if (company.contactTitle) {
+      lines.push(`Contact title: ${company.contactTitle}`);
+    }
+    if (company.contactEmail)
+      lines.push(`Contact email: ${company.contactEmail}`);
+    if (company.contactProfileUrl)
+      lines.push(`Contact profile: ${company.contactProfileUrl}`);
 
     if (company.website) lines.push(`Website: ${company.website}`);
     if (company.industry) lines.push(`Industry: ${company.industry}`);
@@ -544,6 +577,20 @@ export class ProspectSearchService {
     }
     if (company.revenueRange) {
       lines.push(`Revenue range: ${company.revenueRange}`);
+    }
+
+    if (company.qualificationReason) {
+      lines.push(
+        '',
+        `Why this prospect matched: ${company.qualificationReason}`,
+      );
+    }
+    if (company.signals && company.signals.length > 0) {
+      lines.push(
+        '',
+        'Signals:',
+        ...company.signals.map((signal) => `- ${signal}`),
+      );
     }
 
     if (company.description) {

@@ -33,6 +33,13 @@ export class DiscoverProspectsDto {
   @ArrayMaxSize(10)
   @IsString({ each: true })
   @MaxLength(200, { each: true })
+  companyNames?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  @MaxLength(200, { each: true })
   locations?: string[];
 
   @IsOptional()

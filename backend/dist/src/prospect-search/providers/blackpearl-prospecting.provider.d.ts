@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { ProspectDiscoveryResult } from '../types/prospect-search.types';
 export interface ProspectingTargetInput {
+    companyNames?: string[];
     locations?: string[];
     industries?: string[];
     jobTitles?: string[];

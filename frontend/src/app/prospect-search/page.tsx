@@ -5,6 +5,7 @@ import axios from 'axios';
 import DashboardLayout from '@/components/DashboardLayout';
 import ProspectDetailsDrawer from '@/components/ProspectDetailsDrawer';
 import ProspectDiscoveryResultCard from '@/components/ProspectDiscoveryResultCard';
+import ProspectSearchFilterChip from '@/components/ProspectSearchFilterChip';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
@@ -26,19 +27,32 @@ import {
 } from '@/lib/prospect-search';
 import {
   AlertTriangle,
+  ArrowRight,
   Bookmark,
-  ChevronDown,
+  Briefcase,
+  Building2,
   Clock,
+  Factory,
   Loader2,
+  MapPin,
   Pencil,
   Radar,
   RotateCcw,
-  Search,
-  SlidersHorizontal,
+  Tags,
   Trash2,
+  Users,
 } from 'lucide-react';
 
 const DISCOVERY_PROVIDER = 'blackpearl_prospecting';
+
+type FilterKey = 'company' | 'location' | 'industry' | 'jobTitle' | 'headcount' | 'keywords';
+
+// Two honest presets for the real `limit` sent to BlackPearl - not a
+// separate BlackPearl "mode", just how many prospects we ask for. Preview
+// keeps a quick look cheap; Full uses our full app-level cap (BlackPearl's
+// own per-request max is 100 - see docs/features/03-sales-tools.md).
+const SEARCH_MODE_LIMITS = { preview: 5, full: 20 } as const;
+type SearchMode = keyof typeof SEARCH_MODE_LIMITS;
 
 // Our own live testing showed turbo-mode prospecting jobs typically complete
 // in about a minute - poll modestly and don't wait unreasonably long.
@@ -82,12 +96,15 @@ export default function ProspectSearchPage() {
 
   // --- Primary discovery search state ---
   const [objective, setObjective] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<FilterKey | null>(null);
+  const [companyNamesText, setCompanyNamesText] = useState('');
   const [locationsText, setLocationsText] = useState('');
   const [industriesText, setIndustriesText] = useState('');
   const [jobTitlesText, setJobTitlesText] = useState('');
+  const [keywordsText, setKeywordsText] = useState('');
   const [headcountMin, setHeadcountMin] = useState('');
   const [headcountMax, setHeadcountMax] = useState('');
+  const [searchMode, setSearchMode] = useState<SearchMode>('full');
 
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
@@ -132,13 +149,25 @@ export default function ProspectSearchPage() {
   const buildRequest = useCallback(
     (objectiveValue: string): DiscoverProspectsRequest => ({
       objective: objectiveValue,
+      companyNames: parseList(companyNamesText),
       locations: parseList(locationsText),
       industries: parseList(industriesText),
       jobTitles: parseList(jobTitlesText),
+      keywords: parseList(keywordsText),
       companyHeadcountMin: headcountMin ? Number(headcountMin) : undefined,
       companyHeadcountMax: headcountMax ? Number(headcountMax) : undefined,
+      limit: SEARCH_MODE_LIMITS[searchMode],
     }),
-    [locationsText, industriesText, jobTitlesText, headcountMin, headcountMax],
+    [
+      companyNamesText,
+      locationsText,
+      industriesText,
+      jobTitlesText,
+      keywordsText,
+      headcountMin,
+      headcountMax,
+      searchMode,
+    ],
   );
 
   const pollDiscoveryJob = useCallback(
@@ -486,25 +515,203 @@ export default function ProspectSearchPage() {
         onSubmit={handleSubmit}
         className="mb-6 rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:mb-8 sm:p-5"
       >
+        <div className="mb-3 flex flex-wrap gap-2">
+          <ProspectSearchFilterChip
+            label="Company"
+            icon={Building2}
+            isActive={Boolean(companyNamesText.trim())}
+            isOpen={activeFilter === 'company'}
+            disabled={loading}
+            onToggle={() => setActiveFilter((current) => (current === 'company' ? null : 'company'))}
+            onClose={() => setActiveFilter(null)}
+          >
+            <label htmlFor="filter-company" className="mb-1 block text-xs font-semibold text-slate-500">
+              Company name
+            </label>
+            <input
+              id="filter-company"
+              type="text"
+              autoFocus
+              value={companyNamesText}
+              onChange={(event) => setCompanyNamesText(event.target.value)}
+              placeholder="Acme Corp, Globex"
+              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-indigo-400"
+            />
+          </ProspectSearchFilterChip>
+
+          <ProspectSearchFilterChip
+            label="Location"
+            icon={MapPin}
+            isActive={Boolean(locationsText.trim())}
+            isOpen={activeFilter === 'location'}
+            disabled={loading}
+            onToggle={() => setActiveFilter((current) => (current === 'location' ? null : 'location'))}
+            onClose={() => setActiveFilter(null)}
+          >
+            <label htmlFor="filter-locations" className="mb-1 block text-xs font-semibold text-slate-500">
+              Locations
+            </label>
+            <input
+              id="filter-locations"
+              type="text"
+              autoFocus
+              value={locationsText}
+              onChange={(event) => setLocationsText(event.target.value)}
+              placeholder="India, Texas"
+              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-indigo-400"
+            />
+          </ProspectSearchFilterChip>
+
+          <ProspectSearchFilterChip
+            label="Industry"
+            icon={Factory}
+            isActive={Boolean(industriesText.trim())}
+            isOpen={activeFilter === 'industry'}
+            disabled={loading}
+            onToggle={() => setActiveFilter((current) => (current === 'industry' ? null : 'industry'))}
+            onClose={() => setActiveFilter(null)}
+          >
+            <label htmlFor="filter-industries" className="mb-1 block text-xs font-semibold text-slate-500">
+              Industries
+            </label>
+            <input
+              id="filter-industries"
+              type="text"
+              autoFocus
+              value={industriesText}
+              onChange={(event) => setIndustriesText(event.target.value)}
+              placeholder="Marketing, SaaS"
+              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-indigo-400"
+            />
+          </ProspectSearchFilterChip>
+
+          <ProspectSearchFilterChip
+            label="Job title"
+            icon={Briefcase}
+            isActive={Boolean(jobTitlesText.trim())}
+            isOpen={activeFilter === 'jobTitle'}
+            disabled={loading}
+            onToggle={() => setActiveFilter((current) => (current === 'jobTitle' ? null : 'jobTitle'))}
+            onClose={() => setActiveFilter(null)}
+          >
+            <label htmlFor="filter-job-titles" className="mb-1 block text-xs font-semibold text-slate-500">
+              Job titles
+            </label>
+            <input
+              id="filter-job-titles"
+              type="text"
+              autoFocus
+              value={jobTitlesText}
+              onChange={(event) => setJobTitlesText(event.target.value)}
+              placeholder="Founder, CEO"
+              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-indigo-400"
+            />
+          </ProspectSearchFilterChip>
+
+          <ProspectSearchFilterChip
+            label="Headcount"
+            icon={Users}
+            isActive={Boolean(headcountMin || headcountMax)}
+            isOpen={activeFilter === 'headcount'}
+            disabled={loading}
+            onToggle={() => setActiveFilter((current) => (current === 'headcount' ? null : 'headcount'))}
+            onClose={() => setActiveFilter(null)}
+          >
+            <label className="mb-1 block text-xs font-semibold text-slate-500">Company headcount</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                autoFocus
+                value={headcountMin}
+                onChange={(event) => setHeadcountMin(event.target.value)}
+                placeholder="Min"
+                className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-indigo-400"
+              />
+              <span className="text-slate-600">-</span>
+              <input
+                type="number"
+                min={1}
+                value={headcountMax}
+                onChange={(event) => setHeadcountMax(event.target.value)}
+                placeholder="Max"
+                className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-indigo-400"
+              />
+            </div>
+          </ProspectSearchFilterChip>
+
+          <ProspectSearchFilterChip
+            label="Keywords"
+            icon={Tags}
+            isActive={Boolean(keywordsText.trim())}
+            isOpen={activeFilter === 'keywords'}
+            disabled={loading}
+            onToggle={() => setActiveFilter((current) => (current === 'keywords' ? null : 'keywords'))}
+            onClose={() => setActiveFilter(null)}
+          >
+            <label htmlFor="filter-keywords" className="mb-1 block text-xs font-semibold text-slate-500">
+              Keywords
+            </label>
+            <input
+              id="filter-keywords"
+              type="text"
+              autoFocus
+              value={keywordsText}
+              onChange={(event) => setKeywordsText(event.target.value)}
+              placeholder="hiring, expanding"
+              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-indigo-400"
+            />
+          </ProspectSearchFilterChip>
+        </div>
+
         <label htmlFor="prospect-search-objective" className="sr-only">
           Describe who you&apos;re looking for
         </label>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <input
-            id="prospect-search-objective"
-            type="text"
-            value={objective}
-            onChange={(event) => setObjective(event.target.value)}
-            disabled={loading}
-            placeholder="e.g. Marketing agencies in India"
-            className="min-h-11 flex-1 rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-indigo-400 disabled:opacity-60"
-          />
-          <div className="flex gap-2">
+        <textarea
+          id="prospect-search-objective"
+          rows={2}
+          value={objective}
+          onChange={(event) => setObjective(event.target.value)}
+          disabled={loading}
+          placeholder={"Describe what you're looking for... e.g. \"Marketing agencies in India\""}
+          className="w-full resize-none rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-indigo-400 disabled:opacity-60"
+        />
+
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div
+              role="group"
+              aria-label="Search depth"
+              className="inline-flex rounded-full border border-white/10 bg-slate-950/60 p-0.5 text-xs font-bold"
+            >
+              {(Object.keys(SEARCH_MODE_LIMITS) as SearchMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setSearchMode(mode)}
+                  disabled={loading}
+                  aria-pressed={searchMode === mode}
+                  className={`rounded-full px-3 py-1.5 capitalize transition disabled:cursor-not-allowed ${
+                    searchMode === mode
+                      ? 'bg-indigo-500 text-white'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+            <span className="text-xs text-slate-500">
+              Expected: up to {SEARCH_MODE_LIMITS[searchMode]} results &middot; ~1 min
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
             {objective.trim() && can('prospect_search.manage') && (
               <button
                 type="button"
                 onClick={() => void handleSaveSearch()}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-white transition hover:bg-white/10"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-bold text-white transition hover:bg-white/10"
               >
                 <Bookmark size={16} aria-hidden="true" />
                 Save
@@ -513,102 +720,17 @@ export default function ProspectSearchPage() {
             <button
               type="submit"
               disabled={loading || !objective.trim()}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label={loading ? 'Searching' : 'Search'}
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
                 <Loader2 className="animate-spin" size={18} aria-hidden="true" />
               ) : (
-                <Search size={18} aria-hidden="true" />
+                <ArrowRight size={18} aria-hidden="true" />
               )}
-              {loading ? 'Searching...' : 'Search'}
             </button>
           </div>
         </div>
-
-        <button
-          type="button"
-          onClick={() => setShowFilters((current) => !current)}
-          className="mt-3 flex items-center gap-1.5 text-xs font-bold text-slate-400 transition hover:text-white"
-        >
-          <SlidersHorizontal size={13} aria-hidden="true" />
-          Refine search
-          <ChevronDown
-            size={13}
-            aria-hidden="true"
-            className={`transition-transform ${showFilters ? 'rotate-180' : ''}`}
-          />
-        </button>
-
-        {showFilters && (
-          <div className="mt-3 grid grid-cols-1 gap-3 border-t border-white/10 pt-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <label htmlFor="filter-locations" className="mb-1 block text-xs font-semibold text-slate-500">
-                Locations
-              </label>
-              <input
-                id="filter-locations"
-                type="text"
-                value={locationsText}
-                onChange={(event) => setLocationsText(event.target.value)}
-                disabled={loading}
-                placeholder="India, Texas"
-                className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-indigo-400 disabled:opacity-60"
-              />
-            </div>
-            <div>
-              <label htmlFor="filter-industries" className="mb-1 block text-xs font-semibold text-slate-500">
-                Industries
-              </label>
-              <input
-                id="filter-industries"
-                type="text"
-                value={industriesText}
-                onChange={(event) => setIndustriesText(event.target.value)}
-                disabled={loading}
-                placeholder="Marketing, SaaS"
-                className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-indigo-400 disabled:opacity-60"
-              />
-            </div>
-            <div>
-              <label htmlFor="filter-job-titles" className="mb-1 block text-xs font-semibold text-slate-500">
-                Job titles
-              </label>
-              <input
-                id="filter-job-titles"
-                type="text"
-                value={jobTitlesText}
-                onChange={(event) => setJobTitlesText(event.target.value)}
-                disabled={loading}
-                placeholder="Founder, CEO"
-                className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-indigo-400 disabled:opacity-60"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-500">Company headcount</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min={1}
-                  value={headcountMin}
-                  onChange={(event) => setHeadcountMin(event.target.value)}
-                  disabled={loading}
-                  placeholder="Min"
-                  className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-indigo-400 disabled:opacity-60"
-                />
-                <span className="text-slate-600">-</span>
-                <input
-                  type="number"
-                  min={1}
-                  value={headcountMax}
-                  onChange={(event) => setHeadcountMax(event.target.value)}
-                  disabled={loading}
-                  placeholder="Max"
-                  className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-indigo-400 disabled:opacity-60"
-                />
-              </div>
-            </div>
-          </div>
-        )}
       </form>
 
       {error && (

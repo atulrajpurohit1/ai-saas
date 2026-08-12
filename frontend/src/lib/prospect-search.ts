@@ -11,6 +11,15 @@ export interface ProspectCompany {
   employeeCount?: number;
   revenueRange?: string;
   description?: string;
+  // Carries the discovered contact/prospect through to Lead import - only
+  // populated when the company came from a real BlackPearl Prospecting
+  // result, since the single-company deep-research flow has no contact data.
+  contactName?: string;
+  contactTitle?: string;
+  contactEmail?: string;
+  contactProfileUrl?: string;
+  qualificationReason?: string;
+  signals?: string[];
 }
 
 export interface ProspectSearchResult {
@@ -169,6 +178,7 @@ export async function deleteSavedProspectSearch(id: string) {
  */
 export interface DiscoverProspectsRequest {
   objective: string;
+  companyNames?: string[];
   locations?: string[];
   industries?: string[];
   jobTitles?: string[];

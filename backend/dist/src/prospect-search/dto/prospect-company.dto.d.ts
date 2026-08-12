@@ -9,4 +9,10 @@ export declare class ProspectCompanyDto {
     employeeCount?: number;
     revenueRange?: string;
     description?: string;
+    contactName?: string;
+    contactTitle?: string;
+    contactEmail?: string;
+    contactProfileUrl?: string;
+    qualificationReason?: string;
+    signals?: string[];
 }

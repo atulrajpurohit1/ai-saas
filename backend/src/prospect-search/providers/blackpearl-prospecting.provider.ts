@@ -100,6 +100,7 @@ interface RawProspectingJob {
 }
 
 export interface ProspectingTargetInput {
+  companyNames?: string[];
   locations?: string[];
   industries?: string[];
   jobTitles?: string[];
@@ -175,6 +176,7 @@ export class BlackPearlProspectingProvider {
           limit: input.limit ?? 10,
           mode: 'turbo',
           target: {
+            company_names: input.target?.companyNames ?? [],
             locations: input.target?.locations ?? [],
             industries: input.target?.industries ?? [],
             job_titles: input.target?.jobTitles ?? [],

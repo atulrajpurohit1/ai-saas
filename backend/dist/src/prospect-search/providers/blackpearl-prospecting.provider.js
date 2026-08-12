@@ -45,6 +45,7 @@ let BlackPearlProspectingProvider = BlackPearlProspectingProvider_1 = class Blac
                 limit: input.limit ?? 10,
                 mode: 'turbo',
                 target: {
+                    company_names: input.target?.companyNames ?? [],
                     locations: input.target?.locations ?? [],
                     industries: input.target?.industries ?? [],
                     job_titles: input.target?.jobTitles ?? [],

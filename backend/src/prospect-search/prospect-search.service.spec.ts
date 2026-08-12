@@ -384,6 +384,65 @@ describe('ProspectSearchService', () => {
       });
     });
 
+    it('uses the discovered contact as the lead name/email when a Prospecting result includes one', async () => {
+      const withContact: ProspectCompanyDto = {
+        ...prospectDto,
+        contactName: 'Jordan Rivera',
+        contactTitle: 'VP of Operations',
+        contactEmail: 'jordan.rivera@lonestarguard.example.com',
+        contactProfileUrl: 'https://www.linkedin.com/in/jordan-rivera-example',
+        qualificationReason: 'Actively expanding office coverage across Texas.',
+        signals: ['Recently opened a second office location.'],
+      };
+
+      await service.importCompany({ company: withContact }, user);
+
+      expect(leadsService.create).toHaveBeenCalledWith(
+        {
+          name: 'Jordan Rivera',
+          company: 'Lone Star Guard Services',
+          email: 'jordan.rivera@lonestarguard.example.com',
+        },
+        tenantId,
+        user.sub,
+      );
+      expect(notesService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- expect.stringContaining() is typed `any` in @types/jest
+          content: expect.stringContaining(
+            'Contact: Jordan Rivera (VP of Operations)',
+          ),
+        }),
+      );
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- jest.Mock's untyped `.mock.calls` is `any[][]`
+      const importNoteCall = notesService.create.mock.calls[0][0] as {
+        content: string;
+      };
+      const noteContent = importNoteCall.content;
+      expect(noteContent).toContain(
+        'Contact email: jordan.rivera@lonestarguard.example.com',
+      );
+      expect(noteContent).toContain(
+        'Contact profile: https://www.linkedin.com/in/jordan-rivera-example',
+      );
+      expect(noteContent).toContain(
+        'Why this prospect matched: Actively expanding office coverage across Texas.',
+      );
+      expect(noteContent).toContain(
+        '- Recently opened a second office location.',
+      );
+    });
+
+    it('falls back to the company name when no discovered contact is available', async () => {
+      await service.importCompany({ company: prospectDto }, user);
+
+      expect(leadsService.create).toHaveBeenCalledWith(
+        { name: prospectDto.name, company: prospectDto.name, email: undefined },
+        tenantId,
+        user.sub,
+      );
+    });
+
     it('creates a lead with a name-only note when no profile fields are available', async () => {
       const nameOnly: ProspectCompanyDto = { id: 'co-9', name: 'Acme Corp' };
 

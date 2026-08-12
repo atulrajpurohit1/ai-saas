@@ -130,6 +130,7 @@ let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchServic
         const jobId = await this.blackPearlProspectingProvider.submitProspectingJob({
             objective,
             target: {
+                companyNames: dto.companyNames,
                 locations: dto.locations,
                 industries: dto.industries,
                 jobTitles: dto.jobTitles,
@@ -197,6 +198,10 @@ let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchServic
     normalizeDiscoveryQuery(dto) {
         const parts = [
             dto.objective.trim().toLowerCase(),
+            (dto.companyNames ?? [])
+                .map((v) => v.toLowerCase())
+                .sort()
+                .join(','),
             (dto.locations ?? [])
                 .map((v) => v.toLowerCase())
                 .sort()
@@ -275,7 +280,11 @@ let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchServic
                 };
             }
         }
-        const lead = await this.leadsService.create({ name: company.name, company: company.name }, user.tenantId, user.sub);
+        const lead = await this.leadsService.create({
+            name: company.contactName?.trim() || company.name,
+            company: company.name,
+            email: company.contactEmail?.trim() || undefined,
+        }, user.tenantId, user.sub);
         await this.notesService.create({
             content: this.buildImportNote(company),
             leadId: lead.id,
@@ -314,6 +323,19 @@ let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchServic
     }
     buildImportNote(company) {
         const lines = ['Imported from Prospect Search.'];
+        if (company.contactName) {
+            const titleSuffix = company.contactTitle
+                ? ` (${company.contactTitle})`
+                : '';
+            lines.push(`Contact: ${company.contactName}${titleSuffix}`);
+        }
+        else if (company.contactTitle) {
+            lines.push(`Contact title: ${company.contactTitle}`);
+        }
+        if (company.contactEmail)
+            lines.push(`Contact email: ${company.contactEmail}`);
+        if (company.contactProfileUrl)
+            lines.push(`Contact profile: ${company.contactProfileUrl}`);
         if (company.website)
             lines.push(`Website: ${company.website}`);
         if (company.industry)
@@ -328,6 +350,12 @@ let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchServic
         }
         if (company.revenueRange) {
             lines.push(`Revenue range: ${company.revenueRange}`);
+        }
+        if (company.qualificationReason) {
+            lines.push('', `Why this prospect matched: ${company.qualificationReason}`);
+        }
+        if (company.signals && company.signals.length > 0) {
+            lines.push('', 'Signals:', ...company.signals.map((signal) => `- ${signal}`));
         }
         if (company.description) {
             lines.push('', company.description);

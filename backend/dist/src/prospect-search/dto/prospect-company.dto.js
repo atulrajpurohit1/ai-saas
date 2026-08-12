@@ -22,6 +22,12 @@ class ProspectCompanyDto {
     employeeCount;
     revenueRange;
     description;
+    contactName;
+    contactTitle;
+    contactEmail;
+    contactProfileUrl;
+    qualificationReason;
+    signals;
 }
 exports.ProspectCompanyDto = ProspectCompanyDto;
 __decorate([
@@ -75,4 +81,36 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], ProspectCompanyDto.prototype, "description", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], ProspectCompanyDto.prototype, "contactName", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], ProspectCompanyDto.prototype, "contactTitle", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], ProspectCompanyDto.prototype, "contactEmail", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], ProspectCompanyDto.prototype, "contactProfileUrl", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], ProspectCompanyDto.prototype, "qualificationReason", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayMaxSize)(10),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], ProspectCompanyDto.prototype, "signals", void 0);
 //# sourceMappingURL=prospect-company.dto.js.map
