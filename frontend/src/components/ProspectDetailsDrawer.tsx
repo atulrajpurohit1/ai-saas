@@ -13,6 +13,7 @@ import {
   Info,
   Loader2,
   MessageSquareQuote,
+  Plug,
   Sparkles,
   Target,
   UserPlus,
@@ -20,6 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { syncProspectToCrm } from '@/lib/integrations';
 import {
   DuplicateLeadSummary,
   ImportedLeadSummary,
@@ -31,6 +33,7 @@ import {
 } from '@/lib/prospect-search';
 
 type ImportPhase = 'idle' | 'importing' | 'duplicate' | 'success';
+type GhlSyncPhase = 'idle' | 'syncing' | 'success' | 'error';
 
 function readinessLevelClass(level: string) {
   const normalized = level.toLowerCase();
@@ -45,6 +48,7 @@ interface ProspectDetailsDrawerProps {
   searchPrompt: string;
   onClose: () => void;
   canImportLeads: boolean;
+  ghlConnected: boolean;
   insightCache: Record<string, ProspectCompanyInsight>;
   onInsightCached: (companyId: string, insight: ProspectCompanyInsight) => void;
 }
@@ -54,6 +58,7 @@ export default function ProspectDetailsDrawer({
   searchPrompt,
   onClose,
   canImportLeads,
+  ghlConnected,
   insightCache,
   onInsightCached,
 }: ProspectDetailsDrawerProps) {
@@ -65,6 +70,8 @@ export default function ProspectDetailsDrawer({
   const [importError, setImportError] = useState('');
   const [duplicateLead, setDuplicateLead] = useState<DuplicateLeadSummary | null>(null);
   const [importedLead, setImportedLead] = useState<ImportedLeadSummary | null>(null);
+  const [ghlPhase, setGhlPhase] = useState<GhlSyncPhase>('idle');
+  const [ghlError, setGhlError] = useState('');
 
   const insight = company ? insightCache[company.id] : undefined;
 
@@ -74,6 +81,8 @@ export default function ProspectDetailsDrawer({
     setImportError('');
     setDuplicateLead(null);
     setImportedLead(null);
+    setGhlPhase('idle');
+    setGhlError('');
   }, [company?.id]);
 
   // Record the view and lazily fetch the AI insight; skip the AI call entirely
@@ -162,6 +171,31 @@ export default function ProspectDetailsDrawer({
     } catch (err) {
       setImportError(getApiErrorMessage(err, 'Failed to import this company as a lead.'));
       setImportPhase('idle');
+    }
+  };
+
+  const handleGhlSync = async () => {
+    setGhlPhase('syncing');
+    setGhlError('');
+
+    try {
+      await syncProspectToCrm('ghl', {
+        name: company.name,
+        contactEmail: company.contactEmail!,
+        contactName: company.contactName,
+        contactTitle: company.contactTitle,
+        contactProfileUrl: company.contactProfileUrl,
+        website: company.website,
+        city: company.city,
+        state: company.state,
+        country: company.country,
+        qualificationReason: company.qualificationReason,
+        signals: company.signals,
+      });
+      setGhlPhase('success');
+    } catch (err) {
+      setGhlError(getApiErrorMessage(err, 'Failed to sync this contact to GHL.'));
+      setGhlPhase('error');
     }
   };
 
@@ -440,10 +474,27 @@ export default function ProspectDetailsDrawer({
               {importError}
             </div>
           )}
+
+          {ghlPhase === 'success' && (
+            <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-bold text-emerald-200">
+              <CheckCircle2 size={16} aria-hidden="true" />
+              Synced to GHL
+            </div>
+          )}
+
+          {ghlPhase === 'error' && ghlError && (
+            <div
+              role="alert"
+              className="flex items-center gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-300"
+            >
+              <AlertTriangle size={16} aria-hidden="true" />
+              {ghlError}
+            </div>
+          )}
         </div>
 
         {(importPhase === 'idle' || importPhase === 'importing') && (
-          <div className="border-t border-white/10 p-5">
+          <div className="flex flex-col gap-2 border-t border-white/10 p-5">
             <button
               type="button"
               onClick={() => void handleImport(false)}
@@ -458,6 +509,28 @@ export default function ProspectDetailsDrawer({
               )}
               {importPhase === 'importing' ? 'Importing...' : 'Import Lead'}
             </button>
+            {ghlPhase !== 'success' && (
+              <button
+                type="button"
+                onClick={() => void handleGhlSync()}
+                disabled={!ghlConnected || !company.contactEmail || ghlPhase === 'syncing'}
+                title={
+                  !ghlConnected
+                    ? 'Connect GHL from the Integrations page first'
+                    : !company.contactEmail
+                      ? 'GHL sync requires an email address to avoid creating duplicate contacts - this prospect has none available'
+                      : undefined
+                }
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {ghlPhase === 'syncing' ? (
+                  <Loader2 className="animate-spin" size={18} aria-hidden="true" />
+                ) : (
+                  <Plug size={18} aria-hidden="true" />
+                )}
+                {ghlPhase === 'syncing' ? 'Syncing...' : 'Import to GHL'}
+              </button>
+            )}
           </div>
         )}
       </div>

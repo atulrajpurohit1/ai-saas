@@ -19,6 +19,7 @@ const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const permission_guard_1 = require("../auth/guards/permission.guard");
 const crm_connectors_service_1 = require("./crm-connectors.service");
+const sync_contact_dto_1 = require("./dto/sync-contact.dto");
 let CrmConnectorsController = class CrmConnectorsController {
     crmConnectorsService;
     constructor(crmConnectorsService) {
@@ -27,23 +28,26 @@ let CrmConnectorsController = class CrmConnectorsController {
     getStatus(user) {
         return this.crmConnectorsService.getStatus(user);
     }
-    getHubSpotConnectUrl(user) {
-        return this.crmConnectorsService.getHubSpotConnectUrl(user);
+    getConnectUrl(user, provider) {
+        return this.crmConnectorsService.getConnectUrl(user, provider);
     }
-    async hubSpotCallback(code, state) {
+    async callback(provider, code, state) {
         try {
-            await this.crmConnectorsService.handleHubSpotCallback(code, state);
-            return { url: this.crmConnectorsService.hubSpotResultUrl(true) };
+            await this.crmConnectorsService.handleCallback(provider, code, state);
+            return { url: this.crmConnectorsService.callbackResultUrl(provider, true) };
         }
         catch {
-            return { url: this.crmConnectorsService.hubSpotResultUrl(false) };
+            return { url: this.crmConnectorsService.callbackResultUrl(provider, false) };
         }
     }
-    importHubSpotContacts(user) {
-        return this.crmConnectorsService.importHubSpotContacts(user);
+    importContacts(user, provider) {
+        return this.crmConnectorsService.importContacts(user, provider);
     }
-    disconnectHubSpot(user) {
-        return this.crmConnectorsService.disconnectHubSpot(user);
+    disconnect(user, provider) {
+        return this.crmConnectorsService.disconnect(user, provider);
+    }
+    syncContact(user, provider, dto) {
+        return this.crmConnectorsService.importProspectContact(user, provider, dto);
     }
 };
 exports.CrmConnectorsController = CrmConnectorsController;
@@ -57,41 +61,56 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], CrmConnectorsController.prototype, "getStatus", null);
 __decorate([
-    (0, common_1.Get)('hubspot/connect-url'),
+    (0, common_1.Get)(':provider/connect-url'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     (0, permissions_decorator_1.RequireAnyPermission)('integrations.manage', 'crm.manage'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('provider')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
-], CrmConnectorsController.prototype, "getHubSpotConnectUrl", null);
+], CrmConnectorsController.prototype, "getConnectUrl", null);
 __decorate([
-    (0, common_1.Get)('hubspot/callback'),
+    (0, common_1.Get)(':provider/callback'),
     (0, common_1.Redirect)(),
-    __param(0, (0, common_1.Query)('code')),
-    __param(1, (0, common_1.Query)('state')),
+    __param(0, (0, common_1.Param)('provider')),
+    __param(1, (0, common_1.Query)('code')),
+    __param(2, (0, common_1.Query)('state')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", Promise)
-], CrmConnectorsController.prototype, "hubSpotCallback", null);
+], CrmConnectorsController.prototype, "callback", null);
 __decorate([
-    (0, common_1.Post)('hubspot/import-contacts'),
+    (0, common_1.Post)(':provider/import-contacts'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     (0, permissions_decorator_1.RequireAnyPermission)('integrations.manage', 'crm.manage', 'leads.import'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('provider')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
-], CrmConnectorsController.prototype, "importHubSpotContacts", null);
+], CrmConnectorsController.prototype, "importContacts", null);
 __decorate([
-    (0, common_1.Post)('hubspot/disconnect'),
+    (0, common_1.Post)(':provider/disconnect'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     (0, permissions_decorator_1.RequirePermission)('integrations.manage'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('provider')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
-], CrmConnectorsController.prototype, "disconnectHubSpot", null);
+], CrmConnectorsController.prototype, "disconnect", null);
+__decorate([
+    (0, common_1.Post)(':provider/contacts'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, permissions_decorator_1.RequireAnyPermission)('integrations.manage', 'crm.manage', 'leads.import'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('provider')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, sync_contact_dto_1.SyncContactDto]),
+    __metadata("design:returntype", void 0)
+], CrmConnectorsController.prototype, "syncContact", null);
 exports.CrmConnectorsController = CrmConnectorsController = __decorate([
     (0, common_1.Controller)('crm-connectors'),
     __metadata("design:paramtypes", [crm_connectors_service_1.CrmConnectorsService])

@@ -45,6 +45,8 @@ export declare class RfpService {
         pricingNotes: string | null;
         additionalRequirements: string | null;
         generatedContent: string | null;
+        issuerLogoUrl: string | null;
+        recipientLogoUrl: string | null;
         createdBy: string | null;
         awardedVendorId: string | null;
         awardDate: Date | null;
@@ -78,6 +80,8 @@ export declare class RfpService {
         pricingNotes: string | null;
         additionalRequirements: string | null;
         generatedContent: string | null;
+        issuerLogoUrl: string | null;
+        recipientLogoUrl: string | null;
         createdBy: string | null;
         awardedVendorId: string | null;
         awardDate: Date | null;
@@ -112,6 +116,8 @@ export declare class RfpService {
         pricingNotes: string | null;
         additionalRequirements: string | null;
         generatedContent: string | null;
+        issuerLogoUrl: string | null;
+        recipientLogoUrl: string | null;
         createdBy: string | null;
         awardedVendorId: string | null;
         awardDate: Date | null;
@@ -167,6 +173,8 @@ export declare class RfpService {
         pricingNotes: string | null;
         additionalRequirements: string | null;
         generatedContent: string | null;
+        issuerLogoUrl: string | null;
+        recipientLogoUrl: string | null;
         createdBy: string | null;
         awardedVendorId: string | null;
         awardDate: Date | null;
@@ -205,6 +213,8 @@ export declare class RfpService {
         pricingNotes: string | null;
         additionalRequirements: string | null;
         generatedContent: string | null;
+        issuerLogoUrl: string | null;
+        recipientLogoUrl: string | null;
         createdBy: string | null;
         awardedVendorId: string | null;
         awardDate: Date | null;
@@ -350,6 +360,8 @@ export declare class RfpService {
         pricingNotes: string | null;
         additionalRequirements: string | null;
         generatedContent: string | null;
+        issuerLogoUrl: string | null;
+        recipientLogoUrl: string | null;
         createdBy: string | null;
         awardedVendorId: string | null;
         awardDate: Date | null;

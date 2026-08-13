@@ -6,6 +6,8 @@ const common_1 = require("@nestjs/common");
 const prisma_exception_filter_1 = require("./prisma/prisma-exception.filter");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
+    app.useBodyParser('json', { limit: '10mb' });
+    app.useBodyParser('urlencoded', { limit: '10mb', extended: true });
     app.useGlobalFilters(new prisma_exception_filter_1.PrismaExceptionFilter());
     app.useGlobalPipes(new common_1.ValidationPipe({ whitelist: true, transform: true }));
     app.setGlobalPrefix('api');

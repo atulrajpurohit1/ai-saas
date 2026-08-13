@@ -1,28 +1,30 @@
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { PrismaService } from '../prisma/prisma.service';
+import { SyncContactDto } from './dto/sync-contact.dto';
+import { CrmProviderAdapter } from './providers/crm-provider.interface';
 export declare class CrmConnectorsService {
     private readonly prisma;
     private readonly auditService;
-    constructor(prisma: PrismaService, auditService: AuditService);
-    getStatus(user: ActiveUser): Promise<{
-        hubspot: {
-            configured: boolean;
-            connected: boolean;
-            status: string;
-            portal_id: string | null;
-            external_account_name: string | null;
-            scopes: string[];
-            token_expires_at: Date | null;
-            last_sync_at: Date | null;
-            last_error: string | null;
-        };
-    }>;
-    getHubSpotConnectUrl(user: ActiveUser): {
+    private readonly logger;
+    private readonly providers;
+    constructor(prisma: PrismaService, auditService: AuditService, providers: CrmProviderAdapter[]);
+    getStatus(user: ActiveUser): Promise<Record<string, {
+        configured: boolean;
+        connected: boolean;
+        status: string;
+        portal_id: string | null;
+        external_account_name: string | null;
+        scopes: string[];
+        token_expires_at: Date | null;
+        last_sync_at: Date | null;
+        last_error: string | null;
+    }>>;
+    getConnectUrl(user: ActiveUser, providerKey: string): {
         provider: string;
         url: string;
     };
-    handleHubSpotCallback(code: string | undefined, state: string | undefined): Promise<{
+    handleCallback(providerKey: string, code: string | undefined, state: string | undefined): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
@@ -38,34 +40,36 @@ export declare class CrmConnectorsService {
         externalAccountName: string | null;
         lastSyncAt: Date | null;
     }>;
-    disconnectHubSpot(user: ActiveUser): Promise<{
-        provider: any;
-        status: any;
-        portal_id: any;
-        external_account_name: any;
-        scopes: any;
-        token_expires_at: any;
-        last_sync_at: any;
-        last_error: any;
+    disconnect(user: ActiveUser, providerKey: string): Promise<{
+        provider: string;
+        status: string;
+        portal_id: string | null;
+        external_account_name: string | null;
+        scopes: string[];
+        token_expires_at: Date | null;
+        last_sync_at: Date | null;
+        last_error: string | null;
     }>;
-    importHubSpotContacts(user: ActiveUser): Promise<{
+    importContacts(user: ActiveUser, providerKey: string): Promise<{
         provider: string;
         total: number;
         created: number;
         updated: number;
         skipped: number;
     }>;
-    private activeHubSpotConnection;
+    importProspectContact(user: ActiveUser, providerKey: string, dto: SyncContactDto): Promise<import("./providers/crm-provider.interface").CrmContactUpsertResult>;
+    callbackResultUrl(providerKey: string, success: boolean): string;
+    private toContactInput;
+    private requireProvider;
+    private activeConnection;
+    private callProvider;
+    private translateProviderError;
+    private persistRefreshedToken;
     private validAccessToken;
-    private exchangeCode;
-    private refreshToken;
+    private markConnectionError;
     private recordSyncError;
+    private serializeStatus;
     private serializeConnection;
-    private isHubSpotConfigured;
-    private assertHubSpotConfigured;
-    private hubSpotClientId;
-    private hubSpotClientSecret;
-    private hubSpotRedirectUri;
     private frontendUrl;
     private signState;
     private verifyState;
@@ -74,6 +78,4 @@ export declare class CrmConnectorsService {
     private encryptionKey;
     private secret;
     private scopeList;
-    private clean;
-    hubSpotResultUrl(success: boolean): string;
 }

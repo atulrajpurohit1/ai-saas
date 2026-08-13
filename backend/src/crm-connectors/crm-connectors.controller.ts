@@ -1,6 +1,8 @@
 import {
+  Body,
   Controller,
   Get,
+  Param,
   Post,
   Query,
   Redirect,
@@ -15,6 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CrmConnectorsService } from './crm-connectors.service';
+import { SyncContactDto } from './dto/sync-contact.dto';
 
 @Controller('crm-connectors')
 export class CrmConnectorsController {
@@ -27,38 +30,50 @@ export class CrmConnectorsController {
     return this.crmConnectorsService.getStatus(user);
   }
 
-  @Get('hubspot/connect-url')
+  @Get(':provider/connect-url')
   @UseGuards(JwtAuthGuard, PermissionGuard)
   @RequireAnyPermission('integrations.manage', 'crm.manage')
-  getHubSpotConnectUrl(@GetUser() user: ActiveUser) {
-    return this.crmConnectorsService.getHubSpotConnectUrl(user);
+  getConnectUrl(@GetUser() user: ActiveUser, @Param('provider') provider: string) {
+    return this.crmConnectorsService.getConnectUrl(user, provider);
   }
 
-  @Get('hubspot/callback')
+  @Get(':provider/callback')
   @Redirect()
-  async hubSpotCallback(
+  async callback(
+    @Param('provider') provider: string,
     @Query('code') code?: string,
     @Query('state') state?: string,
   ) {
     try {
-      await this.crmConnectorsService.handleHubSpotCallback(code, state);
-      return { url: this.crmConnectorsService.hubSpotResultUrl(true) };
+      await this.crmConnectorsService.handleCallback(provider, code, state);
+      return { url: this.crmConnectorsService.callbackResultUrl(provider, true) };
     } catch {
-      return { url: this.crmConnectorsService.hubSpotResultUrl(false) };
+      return { url: this.crmConnectorsService.callbackResultUrl(provider, false) };
     }
   }
 
-  @Post('hubspot/import-contacts')
+  @Post(':provider/import-contacts')
   @UseGuards(JwtAuthGuard, PermissionGuard)
   @RequireAnyPermission('integrations.manage', 'crm.manage', 'leads.import')
-  importHubSpotContacts(@GetUser() user: ActiveUser) {
-    return this.crmConnectorsService.importHubSpotContacts(user);
+  importContacts(@GetUser() user: ActiveUser, @Param('provider') provider: string) {
+    return this.crmConnectorsService.importContacts(user, provider);
   }
 
-  @Post('hubspot/disconnect')
+  @Post(':provider/disconnect')
   @UseGuards(JwtAuthGuard, PermissionGuard)
   @RequirePermission('integrations.manage')
-  disconnectHubSpot(@GetUser() user: ActiveUser) {
-    return this.crmConnectorsService.disconnectHubSpot(user);
+  disconnect(@GetUser() user: ActiveUser, @Param('provider') provider: string) {
+    return this.crmConnectorsService.disconnect(user, provider);
+  }
+
+  @Post(':provider/contacts')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequireAnyPermission('integrations.manage', 'crm.manage', 'leads.import')
+  syncContact(
+    @GetUser() user: ActiveUser,
+    @Param('provider') provider: string,
+    @Body() dto: SyncContactDto,
+  ) {
+    return this.crmConnectorsService.importProspectContact(user, provider, dto);
   }
 }

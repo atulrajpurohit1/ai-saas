@@ -24,5 +24,7 @@ export declare class CreateRfpDto {
     pricingNotes?: string;
     additionalRequirements?: string;
     generatedContent?: string;
+    issuerLogoUrl?: string;
+    recipientLogoUrl?: string;
     status?: RfpStatusValue;
 }

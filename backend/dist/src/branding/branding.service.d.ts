@@ -75,7 +75,7 @@ export declare class BrandingService {
         updated_at: any;
     }>;
     brandingSnapshot(tenantId: string): Promise<BrandingSnapshot>;
-    addPdfHeader(doc: any, title: string, branding: BrandingSnapshot): void;
+    addPdfHeader(doc: any, title: string, branding: BrandingSnapshot, issuerLogoUrl?: string | null): void;
     emailShell(branding: BrandingSnapshot, title: string, bodyHtml: string): string;
     private hasVerificationTxtRecord;
     private serializeBranding;
@@ -83,6 +83,6 @@ export declare class BrandingService {
     private serializeDomain;
     private normalizeDomain;
     private nullable;
-    private tryAddPdfLogo;
+    tryAddPdfLogo(doc: any, logoUrl: string | null, x: number, y: number, width: number, height: number): void;
     private safeHex;
 }

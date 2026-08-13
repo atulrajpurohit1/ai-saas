@@ -79,19 +79,19 @@ export interface IntegrationOverview {
   failures_last_24h: number;
 }
 
-export interface CrmConnectorStatus {
-  hubspot: {
-    configured: boolean;
-    connected: boolean;
-    status: string;
-    portal_id?: string | null;
-    external_account_name?: string | null;
-    scopes: string[];
-    token_expires_at?: string | null;
-    last_sync_at?: string | null;
-    last_error?: string | null;
-  };
+export interface CrmProviderStatus {
+  configured: boolean;
+  connected: boolean;
+  status: string;
+  portal_id?: string | null;
+  external_account_name?: string | null;
+  scopes: string[];
+  token_expires_at?: string | null;
+  last_sync_at?: string | null;
+  last_error?: string | null;
 }
+
+export type CrmConnectorStatus = Record<string, CrmProviderStatus>;
 
 export async function getIntegrationOverview() {
   const res = await api.get<IntegrationOverview>('integrations');
@@ -195,19 +195,41 @@ export async function getCrmConnectorStatus() {
   return res.data;
 }
 
-export async function getHubSpotConnectUrl() {
-  const res = await api.get<{ provider: string; url: string }>('crm-connectors/hubspot/connect-url');
+export async function getCrmConnectUrl(provider: string) {
+  const res = await api.get<{ provider: string; url: string }>(`crm-connectors/${provider}/connect-url`);
   return res.data;
 }
 
-export async function importHubSpotContacts() {
+export async function importCrmContacts(provider: string) {
   const res = await api.post<{ provider: string; total: number; created: number; updated: number; skipped: number }>(
-    'crm-connectors/hubspot/import-contacts',
+    `crm-connectors/${provider}/import-contacts`,
   );
   return res.data;
 }
 
-export async function disconnectHubSpot() {
-  const res = await api.post('crm-connectors/hubspot/disconnect');
+export async function disconnectCrm(provider: string) {
+  const res = await api.post(`crm-connectors/${provider}/disconnect`);
+  return res.data;
+}
+
+export interface SyncContactPayload {
+  name?: string;
+  contactEmail: string;
+  contactName?: string;
+  contactTitle?: string;
+  contactProfileUrl?: string;
+  website?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  qualificationReason?: string;
+  signals?: string[];
+}
+
+export async function syncProspectToCrm(provider: string, contact: SyncContactPayload) {
+  const res = await api.post<{ externalId: string; created: boolean }>(
+    `crm-connectors/${provider}/contacts`,
+    contact,
+  );
   return res.data;
 }

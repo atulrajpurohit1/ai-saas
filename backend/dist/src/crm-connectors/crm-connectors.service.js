@@ -8,71 +8,59 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+var CrmConnectorsService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CrmConnectorsService = void 0;
 const common_1 = require("@nestjs/common");
 const crypto_1 = require("crypto");
 const audit_service_1 = require("../audit/audit.service");
 const prisma_service_1 = require("../prisma/prisma.service");
-const HUBSPOT_PROVIDER = 'hubspot';
-const HUBSPOT_AUTH_URL = 'https://app.hubspot.com/oauth/authorize';
-const HUBSPOT_TOKEN_URL = 'https://api.hubapi.com/oauth/v1/token';
-const HUBSPOT_CONTACTS_URL = 'https://api.hubapi.com/crm/v3/objects/contacts';
-const HUBSPOT_SCOPES = ['crm.objects.contacts.read'];
-let CrmConnectorsService = class CrmConnectorsService {
+const crm_provider_interface_1 = require("./providers/crm-provider.interface");
+let CrmConnectorsService = CrmConnectorsService_1 = class CrmConnectorsService {
     prisma;
     auditService;
-    constructor(prisma, auditService) {
+    logger = new common_1.Logger(CrmConnectorsService_1.name);
+    providers;
+    constructor(prisma, auditService, providers) {
         this.prisma = prisma;
         this.auditService = auditService;
+        this.providers = new Map(providers.map((provider) => [provider.key, provider]));
     }
     async getStatus(user) {
-        const connection = await this.prisma.crmConnection.findUnique({
-            where: {
-                tenantId_provider: {
-                    tenantId: user.tenantId,
-                    provider: HUBSPOT_PROVIDER,
-                },
-            },
+        const connections = await this.prisma.crmConnection.findMany({
+            where: { tenantId: user.tenantId },
         });
-        return {
-            hubspot: {
-                configured: this.isHubSpotConfigured(),
-                connected: connection?.status === 'connected',
-                status: connection?.status || 'not_connected',
-                portal_id: connection?.portalId || null,
-                external_account_name: connection?.externalAccountName || null,
-                scopes: connection?.scopes || HUBSPOT_SCOPES,
-                token_expires_at: connection?.tokenExpiresAt || null,
-                last_sync_at: connection?.lastSyncAt || null,
-                last_error: connection?.lastError || null,
-            },
-        };
+        const connectionByProvider = new Map(connections.map((connection) => [connection.provider, connection]));
+        const status = {};
+        for (const provider of this.providers.values()) {
+            const connection = connectionByProvider.get(provider.key);
+            status[provider.key] = this.serializeStatus(provider, connection);
+        }
+        return status;
     }
-    getHubSpotConnectUrl(user) {
-        this.assertHubSpotConfigured();
-        const params = new URLSearchParams({
-            client_id: this.hubSpotClientId(),
-            redirect_uri: this.hubSpotRedirectUri(),
-            scope: HUBSPOT_SCOPES.join(' '),
-            state: this.signState({
-                tenantId: user.tenantId,
-                userId: user.sub,
-                nonce: (0, crypto_1.randomBytes)(12).toString('base64url'),
-                createdAt: Date.now(),
-            }),
+    getConnectUrl(user, providerKey) {
+        const provider = this.requireProvider(providerKey);
+        const state = this.signState({
+            tenantId: user.tenantId,
+            userId: user.sub,
+            nonce: (0, crypto_1.randomBytes)(12).toString('base64url'),
+            createdAt: Date.now(),
         });
-        return {
-            provider: HUBSPOT_PROVIDER,
-            url: `${HUBSPOT_AUTH_URL}?${params.toString()}`,
-        };
+        return { provider: provider.key, url: provider.buildAuthUrl(state) };
     }
-    async handleHubSpotCallback(code, state) {
-        this.assertHubSpotConfigured();
-        if (!code)
-            throw new common_1.BadRequestException('Missing HubSpot authorization code');
+    async handleCallback(providerKey, code, state) {
+        const provider = this.requireProvider(providerKey);
+        if (!provider.isConfigured()) {
+            throw new common_1.BadRequestException(`${provider.label} OAuth environment variables are not configured`);
+        }
+        if (!code) {
+            throw new common_1.BadRequestException(`Missing ${provider.label} authorization code`);
+        }
         const parsedState = this.verifyState(state);
-        const token = await this.exchangeCode(code);
+        const token = await provider.exchangeCode(code);
         const accessToken = this.encrypt(token.access_token);
         const refreshToken = token.refresh_token
             ? this.encrypt(token.refresh_token)
@@ -80,11 +68,12 @@ let CrmConnectorsService = class CrmConnectorsService {
         const expiresAt = token.expires_in
             ? new Date(Date.now() + Number(token.expires_in) * 1000)
             : null;
+        const meta = provider.extractAccountMeta(token);
         const connection = await this.prisma.crmConnection.upsert({
             where: {
                 tenantId_provider: {
                     tenantId: parsedState.tenantId,
-                    provider: HUBSPOT_PROVIDER,
+                    provider: provider.key,
                 },
             },
             update: {
@@ -92,21 +81,21 @@ let CrmConnectorsService = class CrmConnectorsService {
                 accessToken,
                 refreshToken,
                 tokenExpiresAt: expiresAt,
-                scopes: this.scopeList(token.scope),
-                portalId: token.hub_id ? String(token.hub_id) : undefined,
-                externalAccountName: token.hub_domain || null,
+                scopes: this.scopeList(provider, token.scope),
+                portalId: meta.portalId ?? undefined,
+                externalAccountName: meta.externalAccountName,
                 lastError: null,
             },
             create: {
                 tenantId: parsedState.tenantId,
-                provider: HUBSPOT_PROVIDER,
+                provider: provider.key,
                 status: 'connected',
                 accessToken,
                 refreshToken,
                 tokenExpiresAt: expiresAt,
-                scopes: this.scopeList(token.scope),
-                portalId: token.hub_id ? String(token.hub_id) : null,
-                externalAccountName: token.hub_domain || null,
+                scopes: this.scopeList(provider, token.scope),
+                portalId: meta.portalId,
+                externalAccountName: meta.externalAccountName,
             },
         });
         await this.auditService.log({
@@ -115,21 +104,20 @@ let CrmConnectorsService = class CrmConnectorsService {
             action: 'CRM_CONNECTED',
             entityType: 'CrmConnection',
             entityId: connection.id,
-            details: 'HubSpot connected',
+            details: `${provider.label} connected`,
         });
         return connection;
     }
-    async disconnectHubSpot(user) {
+    async disconnect(user, providerKey) {
+        const provider = this.requireProvider(providerKey);
         const connection = await this.prisma.crmConnection.findUnique({
             where: {
-                tenantId_provider: {
-                    tenantId: user.tenantId,
-                    provider: HUBSPOT_PROVIDER,
-                },
+                tenantId_provider: { tenantId: user.tenantId, provider: provider.key },
             },
         });
-        if (!connection)
-            throw new common_1.NotFoundException('HubSpot is not connected');
+        if (!connection) {
+            throw new common_1.NotFoundException(`${provider.label} is not connected`);
+        }
         const updated = await this.prisma.crmConnection.update({
             where: { id: connection.id },
             data: {
@@ -145,53 +133,43 @@ let CrmConnectorsService = class CrmConnectorsService {
             action: 'CRM_DISCONNECTED',
             entityType: 'CrmConnection',
             entityId: connection.id,
-            details: 'HubSpot disconnected',
+            details: `${provider.label} disconnected`,
         });
         return this.serializeConnection(updated);
     }
-    async importHubSpotContacts(user) {
-        const connection = await this.activeHubSpotConnection(user.tenantId);
-        const token = await this.validAccessToken(connection);
-        const url = new URL(HUBSPOT_CONTACTS_URL);
-        url.searchParams.set('limit', '100');
-        url.searchParams.set('properties', 'firstname,lastname,email,company,hs_lead_status');
-        const response = await fetch(url, {
-            headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) {
-            const message = await response.text();
-            await this.recordSyncError(connection.id, message || `HubSpot import failed: ${response.status}`);
-            throw new common_1.BadRequestException('HubSpot contact import failed');
-        }
-        const payload = (await response.json());
-        const contacts = payload.results || [];
+    async importContacts(user, providerKey) {
+        const provider = this.requireProvider(providerKey);
+        const connection = await this.activeConnection(provider, user.tenantId);
+        const contacts = await this.callProvider(provider, connection, (accessToken) => provider.fetchContacts(accessToken, connection.portalId));
         let created = 0;
         let updated = 0;
         let skipped = 0;
         for (const contact of contacts) {
-            const properties = contact.properties || {};
-            const email = this.clean(properties.email);
-            const firstName = this.clean(properties.firstname);
-            const lastName = this.clean(properties.lastname);
-            const name = [firstName, lastName].filter(Boolean).join(' ') ||
-                email ||
-                'HubSpot Contact';
-            const company = this.clean(properties.company) || 'HubSpot Contact';
-            const status = this.clean(properties.hs_lead_status)?.toLowerCase() || 'new';
-            if (!email && !name) {
+            const name = [contact.firstName, contact.lastName].filter(Boolean).join(' ') ||
+                contact.email ||
+                `${provider.label} Contact`;
+            const company = contact.company || `${provider.label} Contact`;
+            if (!contact.email && !name) {
                 skipped += 1;
                 continue;
             }
             const existing = await this.prisma.lead.findFirst({
                 where: {
                     tenantId: user.tenantId,
-                    OR: email ? [{ email }, { name, company }] : [{ name, company }],
+                    OR: contact.email
+                        ? [{ email: contact.email }, { name, company }]
+                        : [{ name, company }],
                 },
             });
             if (existing) {
                 await this.prisma.lead.update({
                     where: { id: existing.id },
-                    data: { name, company, ...(email ? { email } : {}), status },
+                    data: {
+                        name,
+                        company,
+                        ...(contact.email ? { email: contact.email } : {}),
+                        status: contact.status,
+                    },
                 });
                 updated += 1;
             }
@@ -201,8 +179,8 @@ let CrmConnectorsService = class CrmConnectorsService {
                         tenantId: user.tenantId,
                         name,
                         company,
-                        email,
-                        status,
+                        email: contact.email,
+                        status: contact.status,
                     },
                 });
                 created += 1;
@@ -218,92 +196,179 @@ let CrmConnectorsService = class CrmConnectorsService {
             action: 'CRM_IMPORT',
             entityType: 'CrmConnection',
             entityId: connection.id,
-            details: `Imported HubSpot contacts: ${created} created, ${updated} updated`,
+            details: `Imported ${provider.label} contacts: ${created} created, ${updated} updated`,
         });
+        return { provider: provider.key, total: contacts.length, created, updated, skipped };
+    }
+    async importProspectContact(user, providerKey, dto) {
+        const provider = this.requireProvider(providerKey);
+        if (!provider.upsertContact) {
+            throw new common_1.BadRequestException(`${provider.label} does not support syncing contacts yet`);
+        }
+        if (!dto.contactEmail) {
+            throw new common_1.BadRequestException('An email address is required to sync a contact (needed to avoid creating duplicates).');
+        }
+        const contact = this.toContactInput(dto);
+        const connection = await this.activeConnection(provider, user.tenantId);
+        const result = await this.callProvider(provider, connection, (accessToken) => provider.upsertContact(accessToken, connection.portalId, contact));
+        await this.prisma.crmConnection.update({
+            where: { id: connection.id },
+            data: { lastSyncAt: new Date(), lastError: null },
+        });
+        await this.auditService.log({
+            tenantId: user.tenantId,
+            userId: user.sub,
+            action: 'CRM_CONTACT_SYNCED',
+            entityType: 'CrmConnection',
+            entityId: connection.id,
+            details: `Synced prospect "${contact.name || contact.companyName || contact.email}" to ${provider.label} (${result.created ? 'created' : 'updated'})`,
+        });
+        return result;
+    }
+    callbackResultUrl(providerKey, success) {
+        const params = new URLSearchParams({
+            crm: success ? `${providerKey}_connected` : `${providerKey}_failed`,
+        });
+        return `${this.frontendUrl()}/integrations?${params.toString()}`;
+    }
+    toContactInput(dto) {
+        const noteLines = [];
+        if (dto.qualificationReason) {
+            noteLines.push(`Why this prospect matched: ${dto.qualificationReason}`);
+        }
+        if (dto.signals && dto.signals.length > 0) {
+            noteLines.push('Signals:', ...dto.signals.map((signal) => `- ${signal}`));
+        }
         return {
-            provider: HUBSPOT_PROVIDER,
-            total: contacts.length,
-            created,
-            updated,
-            skipped,
+            name: dto.contactName?.trim() || dto.name,
+            email: dto.contactEmail,
+            companyName: dto.name,
+            website: dto.website,
+            city: dto.city,
+            state: dto.state,
+            country: dto.country,
+            jobTitle: dto.contactTitle,
+            linkedinUrl: dto.contactProfileUrl,
+            note: noteLines.length > 0 ? noteLines.join('\n') : null,
         };
     }
-    async activeHubSpotConnection(tenantId) {
+    requireProvider(providerKey) {
+        const provider = this.providers.get(providerKey);
+        if (!provider) {
+            throw new common_1.BadRequestException(`Unknown CRM provider: ${providerKey}`);
+        }
+        return provider;
+    }
+    async activeConnection(provider, tenantId) {
         const connection = await this.prisma.crmConnection.findUnique({
-            where: {
-                tenantId_provider: {
-                    tenantId,
-                    provider: HUBSPOT_PROVIDER,
-                },
-            },
+            where: { tenantId_provider: { tenantId, provider: provider.key } },
         });
-        if (!connection ||
-            connection.status !== 'connected' ||
-            !connection.accessToken) {
-            throw new common_1.BadRequestException('HubSpot is not connected');
+        if (!connection || connection.status === 'disconnected' || !connection.accessToken) {
+            throw new common_1.BadRequestException(`${provider.label} is not connected`);
         }
         return connection;
     }
-    async validAccessToken(connection) {
-        if (connection.tokenExpiresAt &&
-            connection.tokenExpiresAt.getTime() < Date.now() + 2 * 60 * 1000 &&
-            connection.refreshToken) {
-            const refreshed = await this.refreshToken(this.decrypt(connection.refreshToken));
-            await this.prisma.crmConnection.update({
-                where: { id: connection.id },
-                data: {
-                    accessToken: this.encrypt(refreshed.access_token),
-                    refreshToken: refreshed.refresh_token
-                        ? this.encrypt(refreshed.refresh_token)
-                        : connection.refreshToken,
-                    tokenExpiresAt: refreshed.expires_in
-                        ? new Date(Date.now() + Number(refreshed.expires_in) * 1000)
-                        : connection.tokenExpiresAt,
-                    scopes: this.scopeList(refreshed.scope),
-                },
-            });
+    async callProvider(provider, connection, fn) {
+        const accessToken = await this.validAccessToken(provider, connection);
+        try {
+            return await fn(accessToken);
+        }
+        catch (err) {
+            if (!(err instanceof crm_provider_interface_1.CrmApiError))
+                throw err;
+            if (err.status === 401 && connection.refreshToken) {
+                try {
+                    const refreshed = await provider.refreshToken(this.decrypt(connection.refreshToken));
+                    await this.persistRefreshedToken(connection, provider, refreshed);
+                    return await fn(refreshed.access_token);
+                }
+                catch {
+                    await this.markConnectionError(connection.id, `${provider.label} connection expired. Please reconnect.`);
+                    throw new common_1.UnauthorizedException(`${provider.label} connection expired. Please reconnect.`);
+                }
+            }
+            throw await this.translateProviderError(provider, connection, err);
+        }
+    }
+    async translateProviderError(provider, connection, err) {
+        this.logger.warn(`${provider.label} API error for connection ${connection.id}: status=${err.status} message=${err.message}`);
+        if (err.status === 401) {
+            await this.markConnectionError(connection.id, `${provider.label} connection expired. Please reconnect.`);
+            return new common_1.UnauthorizedException(`${provider.label} connection expired. Please reconnect.`);
+        }
+        if (err.status === 403) {
+            await this.markConnectionError(connection.id, `${provider.label} denied this request. Please reconnect with the required permissions.`);
+            return new common_1.ForbiddenException(`${provider.label} denied this request. Please reconnect with the required permissions.`);
+        }
+        if (err.status === 429) {
+            return new common_1.HttpException(`${provider.label} rate limit reached. Please try again shortly.`, 429);
+        }
+        if (err.status >= 500) {
+            await this.recordSyncError(connection.id, err.message);
+            return new common_1.ServiceUnavailableException(`${provider.label} is temporarily unavailable. Please try again.`);
+        }
+        await this.recordSyncError(connection.id, err.message);
+        return new common_1.BadRequestException(`${provider.label} rejected this request: ${err.message}`);
+    }
+    async persistRefreshedToken(connection, provider, refreshed) {
+        await this.prisma.crmConnection.update({
+            where: { id: connection.id },
+            data: {
+                accessToken: this.encrypt(refreshed.access_token),
+                refreshToken: refreshed.refresh_token
+                    ? this.encrypt(refreshed.refresh_token)
+                    : connection.refreshToken,
+                tokenExpiresAt: refreshed.expires_in
+                    ? new Date(Date.now() + Number(refreshed.expires_in) * 1000)
+                    : connection.tokenExpiresAt,
+                scopes: this.scopeList(provider, refreshed.scope),
+            },
+        });
+    }
+    async validAccessToken(provider, connection) {
+        const needsRefresh = connection.tokenExpiresAt &&
+            connection.tokenExpiresAt.getTime() < Date.now() + 2 * 60 * 1000;
+        if (!needsRefresh) {
+            return this.decrypt(connection.accessToken);
+        }
+        if (!connection.refreshToken) {
+            await this.markConnectionError(connection.id, `${provider.label} connection expired. Please reconnect.`);
+            throw new common_1.UnauthorizedException(`${provider.label} connection expired. Please reconnect.`);
+        }
+        try {
+            const refreshed = await provider.refreshToken(this.decrypt(connection.refreshToken));
+            await this.persistRefreshedToken(connection, provider, refreshed);
             return refreshed.access_token;
         }
-        return this.decrypt(connection.accessToken);
-    }
-    async exchangeCode(code) {
-        const response = await fetch(HUBSPOT_TOKEN_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                grant_type: 'authorization_code',
-                client_id: this.hubSpotClientId(),
-                client_secret: this.hubSpotClientSecret(),
-                redirect_uri: this.hubSpotRedirectUri(),
-                code,
-            }),
-        });
-        if (!response.ok) {
-            throw new common_1.BadRequestException('HubSpot token exchange failed');
+        catch {
+            await this.markConnectionError(connection.id, `${provider.label} connection expired. Please reconnect.`);
+            throw new common_1.UnauthorizedException(`${provider.label} connection expired. Please reconnect.`);
         }
-        return response.json();
     }
-    async refreshToken(refreshToken) {
-        const response = await fetch(HUBSPOT_TOKEN_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                grant_type: 'refresh_token',
-                client_id: this.hubSpotClientId(),
-                client_secret: this.hubSpotClientSecret(),
-                refresh_token: refreshToken,
-            }),
+    async markConnectionError(connectionId, message) {
+        await this.prisma.crmConnection.update({
+            where: { id: connectionId },
+            data: { status: 'error', lastError: message.slice(0, 500) },
         });
-        if (!response.ok) {
-            throw new common_1.BadRequestException('HubSpot token refresh failed');
-        }
-        return response.json();
     }
     async recordSyncError(connectionId, message) {
         await this.prisma.crmConnection.update({
             where: { id: connectionId },
             data: { lastError: message.slice(0, 500) },
         });
+    }
+    serializeStatus(provider, connection) {
+        return {
+            configured: provider.isConfigured(),
+            connected: connection?.status === 'connected',
+            status: connection?.status || 'not_connected',
+            portal_id: connection?.portalId || null,
+            external_account_name: connection?.externalAccountName || null,
+            scopes: connection?.scopes || provider.scopes,
+            token_expires_at: connection?.tokenExpiresAt || null,
+            last_sync_at: connection?.lastSyncAt || null,
+            last_error: connection?.lastError || null,
+        };
     }
     serializeConnection(connection) {
         return {
@@ -317,42 +382,19 @@ let CrmConnectorsService = class CrmConnectorsService {
             last_error: connection.lastError,
         };
     }
-    isHubSpotConfigured() {
-        return Boolean(this.hubSpotClientId() &&
-            this.hubSpotClientSecret() &&
-            this.hubSpotRedirectUri());
-    }
-    assertHubSpotConfigured() {
-        if (!this.isHubSpotConfigured()) {
-            throw new common_1.BadRequestException('HubSpot OAuth environment variables are not configured');
-        }
-    }
-    hubSpotClientId() {
-        return process.env.HUBSPOT_CLIENT_ID || '';
-    }
-    hubSpotClientSecret() {
-        return process.env.HUBSPOT_CLIENT_SECRET || '';
-    }
-    hubSpotRedirectUri() {
-        return process.env.HUBSPOT_REDIRECT_URI || '';
-    }
     frontendUrl() {
         return (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '');
     }
     signState(payload) {
         const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
-        const sig = (0, crypto_1.createHmac)('sha256', this.secret())
-            .update(body)
-            .digest('base64url');
+        const sig = (0, crypto_1.createHmac)('sha256', this.secret()).update(body).digest('base64url');
         return `${body}.${sig}`;
     }
     verifyState(state) {
         if (!state)
             throw new common_1.BadRequestException('Missing OAuth state');
         const [body, sig] = state.split('.');
-        const expected = (0, crypto_1.createHmac)('sha256', this.secret())
-            .update(body)
-            .digest('base64url');
+        const expected = (0, crypto_1.createHmac)('sha256', this.secret()).update(body).digest('base64url');
         if (!body || !sig || sig !== expected) {
             throw new common_1.BadRequestException('Invalid OAuth state');
         }
@@ -365,10 +407,7 @@ let CrmConnectorsService = class CrmConnectorsService {
     encrypt(value) {
         const iv = (0, crypto_1.randomBytes)(12);
         const cipher = (0, crypto_1.createCipheriv)('aes-256-gcm', this.encryptionKey(), iv);
-        const encrypted = Buffer.concat([
-            cipher.update(value, 'utf8'),
-            cipher.final(),
-        ]);
+        const encrypted = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
         const tag = cipher.getAuthTag();
         return `${iv.toString('base64url')}.${tag.toString('base64url')}.${encrypted.toString('base64url')}`;
     }
@@ -389,24 +428,15 @@ let CrmConnectorsService = class CrmConnectorsService {
             process.env.JWT_ACCESS_SECRET ||
             'local-crm-token-secret');
     }
-    scopeList(scope) {
-        return scope ? scope.split(/\s+/).filter(Boolean) : HUBSPOT_SCOPES;
-    }
-    clean(value) {
-        const trimmed = value?.trim();
-        return trimmed || null;
-    }
-    hubSpotResultUrl(success) {
-        const params = new URLSearchParams({
-            crm: success ? 'hubspot_connected' : 'hubspot_failed',
-        });
-        return `${this.frontendUrl()}/integrations?${params.toString()}`;
+    scopeList(provider, scope) {
+        return scope ? scope.split(/\s+/).filter(Boolean) : provider.scopes;
     }
 };
 exports.CrmConnectorsService = CrmConnectorsService;
-exports.CrmConnectorsService = CrmConnectorsService = __decorate([
+exports.CrmConnectorsService = CrmConnectorsService = CrmConnectorsService_1 = __decorate([
     (0, common_1.Injectable)(),
+    __param(2, (0, common_1.Inject)(crm_provider_interface_1.CRM_PROVIDERS)),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        audit_service_1.AuditService])
+        audit_service_1.AuditService, Array])
 ], CrmConnectorsService);
 //# sourceMappingURL=crm-connectors.service.js.map

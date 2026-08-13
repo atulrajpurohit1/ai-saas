@@ -104,6 +104,8 @@ let RfpService = class RfpService {
                 pricingNotes: dto.pricingNotes?.trim() || null,
                 additionalRequirements: dto.additionalRequirements?.trim() || null,
                 generatedContent: dto.generatedContent ?? null,
+                issuerLogoUrl: dto.issuerLogoUrl?.trim() || null,
+                recipientLogoUrl: dto.recipientLogoUrl?.trim() || null,
                 status: dto.status || 'DRAFT',
                 createdBy: userId,
             },
@@ -233,6 +235,12 @@ let RfpService = class RfpService {
                     : {}),
                 ...(dto.generatedContent !== undefined
                     ? { generatedContent: dto.generatedContent }
+                    : {}),
+                ...(dto.issuerLogoUrl !== undefined
+                    ? { issuerLogoUrl: dto.issuerLogoUrl?.trim() || null }
+                    : {}),
+                ...(dto.recipientLogoUrl !== undefined
+                    ? { recipientLogoUrl: dto.recipientLogoUrl?.trim() || null }
                     : {}),
                 ...(dto.status !== undefined ? { status: dto.status } : {}),
             },
@@ -370,8 +378,17 @@ let RfpService = class RfpService {
             doc.on('data', (chunk) => chunks.push(chunk));
             doc.on('end', () => resolve(Buffer.concat(chunks)));
             doc.on('error', reject);
-            this.brandingService.addPdfHeader(doc, rfp.title, branding);
+            this.brandingService.addPdfHeader(doc, rfp.title, branding, rfp.issuerLogoUrl);
             doc.moveDown();
+            if (rfp.recipientLogoUrl) {
+                doc
+                    .fontSize(8)
+                    .fillColor(branding.secondary_color)
+                    .text('Prepared for:');
+                doc.moveDown(0.2);
+                this.brandingService.tryAddPdfLogo(doc, rfp.recipientLogoUrl, 50, doc.y, 60, 30);
+                doc.y += 34;
+            }
             doc
                 .fontSize(10)
                 .fillColor(branding.secondary_color)

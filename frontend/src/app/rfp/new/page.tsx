@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import RfpEditor from '@/components/RfpEditor';
+import RfpLogoUploadField from '@/components/RfpLogoUploadField';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
   createRfp,
@@ -42,6 +43,8 @@ interface RfpFormState {
   pricingValidity: string;
   pricingNotes: string;
   additionalRequirements: string;
+  issuerLogoUrl: string;
+  recipientLogoUrl: string;
 }
 
 const emptyForm: RfpFormState = {
@@ -65,6 +68,8 @@ const emptyForm: RfpFormState = {
   pricingValidity: '',
   pricingNotes: '',
   additionalRequirements: '',
+  issuerLogoUrl: '',
+  recipientLogoUrl: '',
 };
 
 function toFormInput(form: RfpFormState): RfpFormInput {
@@ -89,6 +94,8 @@ function toFormInput(form: RfpFormState): RfpFormInput {
     pricingValidity: form.pricingValidity.trim() || undefined,
     pricingNotes: form.pricingNotes.trim() || undefined,
     additionalRequirements: form.additionalRequirements.trim() || undefined,
+    issuerLogoUrl: form.issuerLogoUrl || undefined,
+    recipientLogoUrl: form.recipientLogoUrl || undefined,
   };
 }
 
@@ -138,7 +145,11 @@ export default function NewRfpPage() {
     setGenerating(true);
     setError('');
     try {
-      const { content } = await generateRfp(toFormInput(form));
+      const { content } = await generateRfp({
+        ...toFormInput(form),
+        issuerLogoUrl: undefined,
+        recipientLogoUrl: undefined,
+      });
       setGeneratedHtml(markdownToHtml(content));
       setHasGenerated(true);
       setRevision((current) => current + 1);
@@ -235,6 +246,25 @@ export default function NewRfpPage() {
               <label className={labelClass}>End Date</label>
               <input type="date" className={inputClass} value={form.endDate} onChange={(e) => update('endDate', e.target.value)} />
             </div>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
+          <h3 className="mb-4 text-lg font-bold text-white">Branding</h3>
+          <p className="mb-4 text-xs text-muted-foreground">
+            Logos shown on the generated RFP PDF. The issuer logo falls back to your tenant branding logo if left blank.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <RfpLogoUploadField
+              label="Your Company Logo (Issuer)"
+              value={form.issuerLogoUrl}
+              onChange={(value) => update('issuerLogoUrl', value)}
+            />
+            <RfpLogoUploadField
+              label="Recipient / Client Logo"
+              value={form.recipientLogoUrl}
+              onChange={(value) => update('recipientLogoUrl', value)}
+            />
           </div>
         </section>
 

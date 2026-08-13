@@ -366,6 +366,8 @@ model Rfp {
   pricingNotes           String?             @map("pricing_notes")
   additionalRequirements String?             @map("additional_requirements")
   generatedContent       String?             @map("generated_content")
+  issuerLogoUrl          String?             @map("issuer_logo_url")
+  recipientLogoUrl       String?             @map("recipient_logo_url")
   status                 RfpStatus           @default(DRAFT)
   awardedVendorId        String?             @map("awarded_vendor_id")
   awardedVendor          Vendor?             @relation("AwardedVendor", fields: [awardedVendorId], references: [id], onDelete: SetNull)

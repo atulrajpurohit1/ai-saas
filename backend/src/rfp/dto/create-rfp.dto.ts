@@ -125,6 +125,14 @@ export class CreateRfpDto {
   generatedContent?: string;
 
   @IsOptional()
+  @IsString()
+  issuerLogoUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  recipientLogoUrl?: string;
+
+  @IsOptional()
   @IsIn(RFP_STATUSES)
   status?: RfpStatusValue;
 }

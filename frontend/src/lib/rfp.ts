@@ -70,6 +70,8 @@ export interface Rfp {
   pricingNotes: string | null;
   additionalRequirements: string | null;
   generatedContent: string | null;
+  issuerLogoUrl: string | null;
+  recipientLogoUrl: string | null;
   status: RfpStatus;
   createdBy: string | null;
   createdByUser: { id: string; name: string | null; email: string } | null;
@@ -104,11 +106,33 @@ export interface RfpFormInput {
   pricingValidity?: string;
   pricingNotes?: string;
   additionalRequirements?: string;
+  issuerLogoUrl?: string;
+  recipientLogoUrl?: string;
 }
 
 export interface RfpInput extends RfpFormInput {
   generatedContent?: string;
   status?: RfpStatus;
+}
+
+const LOGO_MAX_BYTES = 1.5 * 1024 * 1024;
+
+/** Reads an image file into a base64 data URL for storage/preview, rejecting non-images and oversized files. */
+export function readImageAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      reject(new Error('Please choose an image file (PNG, JPG, SVG, or WEBP).'));
+      return;
+    }
+    if (file.size > LOGO_MAX_BYTES) {
+      reject(new Error('Logo images must be 1.5MB or smaller.'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('Could not read this image file.'));
+    reader.readAsDataURL(file);
+  });
 }
 
 export async function getRfps() {

@@ -8,6 +8,7 @@ import ProspectDiscoveryResultCard from '@/components/ProspectDiscoveryResultCar
 import ProspectSearchFilterChip from '@/components/ProspectSearchFilterChip';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { getCrmConnectorStatus } from '@/lib/integrations';
 import {
   DiscoverProspectsRequest,
   ProspectCompany,
@@ -127,6 +128,15 @@ export default function ProspectSearchPage() {
   const [deepResearchError, setDeepResearchError] = useState('');
   const [insightCache, setInsightCache] = useState<Record<string, ProspectCompanyInsight>>({});
   const deepResearchGenerationRef = useRef(0);
+  const [ghlConnected, setGhlConnected] = useState(false);
+
+  useEffect(() => {
+    getCrmConnectorStatus()
+      .then((status) => setGhlConnected(Boolean(status.ghl?.connected)))
+      .catch(() => {
+        // Non-critical - "Import to GHL" simply stays disabled if this fails.
+      });
+  }, []);
 
   const loadHistoryAndSaved = useCallback(async () => {
     try {
@@ -766,6 +776,7 @@ export default function ProspectSearchPage() {
                 key={prospect.id}
                 prospect={prospect}
                 canImportLeads={can('leads.create')}
+                ghlConnected={ghlConnected}
                 onOpenDeepResearch={handleOpenDeepResearch}
               />
             ))}
@@ -805,6 +816,7 @@ export default function ProspectSearchPage() {
           searchPrompt={deepResearchCompany.name}
           onClose={() => setDeepResearchCompany(null)}
           canImportLeads={can('leads.create')}
+          ghlConnected={ghlConnected}
           insightCache={insightCache}
           onInsightCached={(companyId, insight) =>
             setInsightCache((current) => ({ ...current, [companyId]: insight }))

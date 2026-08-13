@@ -41,6 +41,8 @@ class CreateRfpDto {
     pricingNotes;
     additionalRequirements;
     generatedContent;
+    issuerLogoUrl;
+    recipientLogoUrl;
     status;
 }
 exports.CreateRfpDto = CreateRfpDto;
@@ -165,6 +167,16 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateRfpDto.prototype, "generatedContent", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateRfpDto.prototype, "issuerLogoUrl", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateRfpDto.prototype, "recipientLogoUrl", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsIn)(exports.RFP_STATUSES),

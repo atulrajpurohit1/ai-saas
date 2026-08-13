@@ -11,12 +11,14 @@ import {
   Loader2,
   Mail,
   MapPin,
+  Plug,
   Quote,
   Sparkles,
   UserPlus,
   Users,
 } from 'lucide-react';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { syncProspectToCrm } from '@/lib/integrations';
 import {
   DiscoveredProspect,
   DuplicateLeadSummary,
@@ -26,6 +28,7 @@ import {
 } from '@/lib/prospect-search';
 
 type ImportPhase = 'idle' | 'importing' | 'duplicate' | 'success';
+type GhlSyncPhase = 'idle' | 'syncing' | 'success' | 'error';
 
 function qualificationClass(score: number) {
   if (score >= 0.85) return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
@@ -36,12 +39,14 @@ function qualificationClass(score: number) {
 interface ProspectDiscoveryResultCardProps {
   prospect: DiscoveredProspect;
   canImportLeads: boolean;
+  ghlConnected: boolean;
   onOpenDeepResearch: (company: ProspectCompany) => void;
 }
 
 export default function ProspectDiscoveryResultCard({
   prospect,
   canImportLeads,
+  ghlConnected,
   onOpenDeepResearch,
 }: ProspectDiscoveryResultCardProps) {
   const router = useRouter();
@@ -49,6 +54,8 @@ export default function ProspectDiscoveryResultCard({
   const [importError, setImportError] = useState('');
   const [duplicateLead, setDuplicateLead] = useState<DuplicateLeadSummary | null>(null);
   const [importedLead, setImportedLead] = useState<ImportedLeadSummary | null>(null);
+  const [ghlPhase, setGhlPhase] = useState<GhlSyncPhase>('idle');
+  const [ghlError, setGhlError] = useState('');
 
   const companyName = prospect.companyName ?? 'Unknown company';
 
@@ -97,6 +104,32 @@ export default function ProspectDiscoveryResultCard({
     } catch (err) {
       setImportError(getApiErrorMessage(err, 'Failed to import this company as a lead.'));
       setImportPhase('idle');
+    }
+  };
+
+  const handleGhlSync = async () => {
+    setGhlPhase('syncing');
+    setGhlError('');
+
+    try {
+      const company = asProspectCompany();
+      await syncProspectToCrm('ghl', {
+        name: company.name,
+        contactEmail: company.contactEmail!,
+        contactName: company.contactName,
+        contactTitle: company.contactTitle,
+        contactProfileUrl: company.contactProfileUrl,
+        website: company.website,
+        city: company.city,
+        state: company.state,
+        country: company.country,
+        qualificationReason: company.qualificationReason,
+        signals: company.signals,
+      });
+      setGhlPhase('success');
+    } catch (err) {
+      setGhlError(getApiErrorMessage(err, 'Failed to sync this contact to GHL.'));
+      setGhlPhase('error');
     }
   };
 
@@ -262,6 +295,23 @@ export default function ProspectDiscoveryResultCard({
         </div>
       )}
 
+      {ghlPhase === 'success' && (
+        <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-200">
+          <CheckCircle2 size={15} aria-hidden="true" />
+          Synced to GHL
+        </div>
+      )}
+
+      {ghlPhase === 'error' && ghlError && (
+        <div
+          role="alert"
+          className="mt-3 flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-300"
+        >
+          <AlertTriangle size={14} aria-hidden="true" />
+          {ghlError}
+        </div>
+      )}
+
       {(importPhase === 'idle' || importPhase === 'importing') && (
         <div className="mt-4 flex flex-wrap gap-2">
           <button
@@ -278,6 +328,28 @@ export default function ProspectDiscoveryResultCard({
             )}
             {importPhase === 'importing' ? 'Importing...' : 'Import as Lead'}
           </button>
+          {ghlPhase !== 'success' && (
+            <button
+              type="button"
+              onClick={() => void handleGhlSync()}
+              disabled={!ghlConnected || !prospect.contact.email || ghlPhase === 'syncing'}
+              title={
+                !ghlConnected
+                  ? 'Connect GHL from the Integrations page first'
+                  : !prospect.contact.email
+                    ? 'GHL sync requires an email address to avoid creating duplicate contacts - this prospect has none available'
+                    : undefined
+              }
+              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {ghlPhase === 'syncing' ? (
+                <Loader2 className="animate-spin" size={14} aria-hidden="true" />
+              ) : (
+                <Plug size={14} aria-hidden="true" />
+              )}
+              {ghlPhase === 'syncing' ? 'Syncing...' : 'Import to GHL'}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onOpenDeepResearch(asProspectCompany())}

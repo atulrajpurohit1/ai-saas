@@ -228,13 +228,25 @@ export class BrandingService {
     return this.getForTenant(tenantId);
   }
 
-  addPdfHeader(doc: any, title: string, branding: BrandingSnapshot) {
+  addPdfHeader(
+    doc: any,
+    title: string,
+    branding: BrandingSnapshot,
+    issuerLogoUrl?: string | null,
+  ) {
     const primary = this.safeHex(branding.primary_color, '#111827');
     const secondary = this.safeHex(branding.secondary_color, '#4b5563');
     const accent = this.safeHex(branding.accent_color, primary);
     const startY = doc.y;
 
-    this.tryAddPdfLogo(doc, branding.logo_url, 50, startY, 72, 36);
+    this.tryAddPdfLogo(
+      doc,
+      issuerLogoUrl ?? branding.logo_url,
+      50,
+      startY,
+      72,
+      36,
+    );
     doc
       .rect(50, startY + 45, 512, 3)
       .fillColor(accent)
@@ -362,7 +374,7 @@ export class BrandingService {
     return trimmed || null;
   }
 
-  private tryAddPdfLogo(
+  tryAddPdfLogo(
     doc: any,
     logoUrl: string | null,
     x: number,

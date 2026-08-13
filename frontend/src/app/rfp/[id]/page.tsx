@@ -126,6 +126,26 @@ export default function RfpViewPage() {
         <div className="space-y-6">
           <div className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:flex-row sm:items-start sm:justify-between sm:p-6">
             <div className="min-w-0">
+              {(rfp.issuerLogoUrl || rfp.recipientLogoUrl) && (
+                <div className="mb-3 flex items-center gap-3">
+                  {rfp.issuerLogoUrl && (
+                    <img
+                      src={rfp.issuerLogoUrl}
+                      alt="Issuer logo"
+                      title="Issuer logo"
+                      className="h-10 w-auto max-w-28 rounded-lg border border-white/10 bg-white/5 object-contain p-1"
+                    />
+                  )}
+                  {rfp.recipientLogoUrl && (
+                    <img
+                      src={rfp.recipientLogoUrl}
+                      alt="Recipient logo"
+                      title="Recipient logo"
+                      className="h-10 w-auto max-w-28 rounded-lg border border-white/10 bg-white/5 object-contain p-1"
+                    />
+                  )}
+                </div>
+              )}
               <div className="flex flex-wrap items-center gap-3">
                 <h2 className="text-xl font-bold text-white sm:text-2xl">{rfp.title}</h2>
                 <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-widest ${statusClass[rfp.status]}`}>
