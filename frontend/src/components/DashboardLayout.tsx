@@ -87,7 +87,7 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
 
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <main className="min-w-0 px-3 py-4 sm:px-6 sm:py-7 lg:ml-64 lg:px-8 lg:py-8">
+      <main className="min-w-0 px-3 py-4 pb-24 sm:px-6 sm:py-7 sm:pb-16 lg:ml-64 lg:px-8 lg:py-8">
         <div className="mx-auto w-full max-w-7xl">
           {children}
         </div>

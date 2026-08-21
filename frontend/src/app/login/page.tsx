@@ -36,8 +36,14 @@ export default function LoginPage() {
   const slugLabel = role === 'admin' ? 'Company Slug' : 'Company Name';
   const slugPlaceholder = role === 'admin' ? 'acme-security' : 'Acme Security';
 
-  const completeAdminLogin = async (accessToken: string, fallbackName: string, fallbackTenantName?: string) => {
+  const completeAdminLogin = async (
+    accessToken: string,
+    refreshToken: string | undefined,
+    fallbackName: string,
+    fallbackTenantName?: string,
+  ) => {
     localStorage.setItem('token', accessToken);
+    if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
     const me = await api.get('users/me');
     login(accessToken, {
       ...me.data,
@@ -58,6 +64,7 @@ export default function LoginPage() {
       if (role === 'admin') {
         if (isRegister) {
           localStorage.removeItem('client_token');
+          localStorage.removeItem('client_refresh_token');
           localStorage.removeItem('guard_token');
           const res = await api.post('auth/register', {
             name: name || 'Admin',
@@ -66,17 +73,19 @@ export default function LoginPage() {
             tenantName,
             tenantSlug: normalizedTenantSlug
           });
-          await completeAdminLogin(res.data.access_token, name || 'Admin', tenantName);
+          await completeAdminLogin(res.data.access_token, res.data.refresh_token, name || 'Admin', tenantName);
         } else {
           localStorage.removeItem('client_token');
+          localStorage.removeItem('client_refresh_token');
           localStorage.removeItem('guard_token');
           const res = await api.post('auth/login', { email, password });
-          await completeAdminLogin(res.data.access_token, 'Admin User');
+          await completeAdminLogin(res.data.access_token, res.data.refresh_token, 'Admin User');
         }
       } else {
         // Client Flow
         if (isRegister) {
           localStorage.removeItem('token');
+          localStorage.removeItem('refresh_token');
           localStorage.removeItem('user');
           localStorage.removeItem('guard_token');
           const res = await api.post('client-auth/register', {
@@ -89,6 +98,7 @@ export default function LoginPage() {
           router.push('/client/dashboard');
         } else {
           localStorage.removeItem('token');
+          localStorage.removeItem('refresh_token');
           localStorage.removeItem('user');
           localStorage.removeItem('guard_token');
           const res = await api.post('client-auth/login', { email, password });
@@ -105,7 +115,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#05050a] px-4 py-8">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#05050a] px-4 pb-28 pt-8 sm:pb-8">
        {/* Background decoration */}
        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full"></div>
        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full"></div>

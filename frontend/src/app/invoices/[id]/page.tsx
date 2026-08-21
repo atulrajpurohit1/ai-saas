@@ -7,6 +7,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { cancelInvoice, getAdminInvoice, Invoice, issueInvoice, markInvoicePaid } from '@/lib/invoices';
+import { formatEnumLabel } from '@/lib/format';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -343,7 +344,7 @@ export default function InvoiceDetailPage() {
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
                           <span className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-widest ${disputeStatusClass[dispute.status] || disputeStatusClass.open}`}>
-                            {dispute.status.replace('_', ' ')}
+                            {formatEnumLabel(dispute.status)}
                           </span>
                           <span className="text-xs font-semibold text-slate-500">{formatDate(dispute.createdAt)}</span>
                         </div>

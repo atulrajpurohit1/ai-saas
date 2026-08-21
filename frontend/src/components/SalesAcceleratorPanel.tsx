@@ -18,6 +18,7 @@ import {
   Target,
 } from 'lucide-react';
 import api from '@/lib/api';
+import { formatEnumLabel, isUnknownValue } from '@/lib/format';
 
 type EntityType = 'lead' | 'deal';
 
@@ -1003,28 +1004,50 @@ export default function SalesAcceleratorPanel({
                   <p className="text-sm leading-6 text-slate-300">{marketSignalProfile.recommendedAction}</p>
                 </div>
                 <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${scoreColor(marketSignalProfile.score)}`}>
-                  {marketSignalProfile.score} market
+                  {isUnknownValue(marketSignalProfile.score) ? 'Score unavailable' : `${marketSignalProfile.score} market`}
                 </span>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-4">
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Segment</div>
-                  <div className="mt-2 text-sm font-bold capitalize text-white">{marketSignalProfile.segment}</div>
+                  <div className="mt-2 text-sm font-bold text-white">
+                    {isUnknownValue(marketSignalProfile.segment) ? (
+                      <span className="font-normal text-slate-500">Not available</span>
+                    ) : (
+                      formatEnumLabel(marketSignalProfile.segment)
+                    )}
+                  </div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Security</div>
-                  <div className="mt-2 text-sm font-bold capitalize text-white">{marketSignalProfile.existingSecurityLikelihood}</div>
+                  <div className="mt-2 text-sm font-bold text-white">
+                    {isUnknownValue(marketSignalProfile.existingSecurityLikelihood) ? (
+                      <span className="font-normal text-slate-500">Not available</span>
+                    ) : (
+                      formatEnumLabel(marketSignalProfile.existingSecurityLikelihood)
+                    )}
+                  </div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Renewal</div>
-                  <div className="mt-2 text-sm font-bold capitalize text-white">
-                    {marketSignalProfile.renewalTimingSignal.replace(/_/g, ' ')}
+                  <div className="mt-2 text-sm font-bold text-white">
+                    {isUnknownValue(marketSignalProfile.renewalTimingSignal) ? (
+                      <span className="font-normal text-slate-500">Not available</span>
+                    ) : (
+                      formatEnumLabel(marketSignalProfile.renewalTimingSignal)
+                    )}
                   </div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Authority</div>
-                  <div className="mt-2 text-sm font-bold capitalize text-white">{marketSignalProfile.decisionAuthoritySignal}</div>
+                  <div className="mt-2 text-sm font-bold text-white">
+                    {isUnknownValue(marketSignalProfile.decisionAuthoritySignal) ? (
+                      <span className="font-normal text-slate-500">Not available</span>
+                    ) : (
+                      formatEnumLabel(marketSignalProfile.decisionAuthoritySignal)
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1052,7 +1075,7 @@ export default function SalesAcceleratorPanel({
                   <p className="text-sm leading-6 text-slate-300">{valueJustification.recommendedAction}</p>
                 </div>
                 <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${valueJustificationColor(valueJustification.status)}`}>
-                  {valueJustification.status.replace(/_/g, ' ')} {valueJustification.score}
+                  {formatEnumLabel(valueJustification.status)} {valueJustification.score}
                 </span>
               </div>
 
@@ -1072,7 +1095,7 @@ export default function SalesAcceleratorPanel({
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Status</div>
                   <div className="mt-2 text-sm font-bold capitalize text-white">
-                    {valueJustification.status.replace(/_/g, ' ')}
+                    {formatEnumLabel(valueJustification.status)}
                   </div>
                 </div>
               </div>
@@ -1120,7 +1143,7 @@ export default function SalesAcceleratorPanel({
                   <p className="text-sm leading-6 text-slate-300">{rateCardPricing.recommendedAction}</p>
                 </div>
                 <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${rateCardPricingColor(rateCardPricing.status)}`}>
-                  {rateCardPricing.status.replace(/_/g, ' ')}
+                  {formatEnumLabel(rateCardPricing.status)}
                 </span>
               </div>
 
@@ -1142,7 +1165,7 @@ export default function SalesAcceleratorPanel({
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Source</div>
                   <div className="mt-2 text-sm font-bold capitalize text-white">
-                    {rateCardPricing.benchmarkSource.replace(/_/g, ' ')}
+                    {formatEnumLabel(rateCardPricing.benchmarkSource)}
                   </div>
                 </div>
               </div>
@@ -1188,7 +1211,7 @@ export default function SalesAcceleratorPanel({
                   <p className="text-sm leading-6 text-slate-300">{proposalEngagement.recommendedAction}</p>
                 </div>
                 <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${proposalEngagementColor(proposalEngagement.status)}`}>
-                  {proposalEngagement.status.replace(/_/g, ' ')} {proposalEngagement.score}
+                  {formatEnumLabel(proposalEngagement.status)} {proposalEngagement.score}
                 </span>
               </div>
 
@@ -1331,7 +1354,7 @@ export default function SalesAcceleratorPanel({
                   <p className="text-sm leading-6 text-slate-300">{followUpSequenceProgress.recommendedAction}</p>
                 </div>
                 <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${followUpProgressColor(followUpSequenceProgress.status)}`}>
-                  {followUpSequenceProgress.status.replace(/_/g, ' ')} {followUpSequenceProgress.completionRate}%
+                  {formatEnumLabel(followUpSequenceProgress.status)} {followUpSequenceProgress.completionRate}%
                 </span>
               </div>
 
@@ -1484,7 +1507,7 @@ export default function SalesAcceleratorPanel({
                   <p className="text-sm leading-6 text-slate-300">{pricingGuardrails.floorGuidance}</p>
                 </div>
                 <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${pricingGuardrailColor(pricingGuardrails.status)}`}>
-                  {pricingGuardrails.status.replace('_', ' ')} {pricingGuardrails.confidenceScore}
+                  {formatEnumLabel(pricingGuardrails.status)} {pricingGuardrails.confidenceScore}
                 </span>
               </div>
 

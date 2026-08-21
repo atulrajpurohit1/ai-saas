@@ -8,6 +8,7 @@ import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { createGuardIncident, IncidentSeverity } from '@/lib/incidents';
 import { OfflineSync } from '@/lib/offline-sync';
+import { formatEnumLabel } from '@/lib/format';
 import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, Clock, FileWarning, Loader2, LogIn, LogOut, MapPin, Navigation, Send, ShieldCheck, X } from 'lucide-react';
 
 interface GuardShiftDetail {
@@ -205,10 +206,10 @@ export default function GuardShiftDetailPage() {
           <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8">
             <div className="mb-4 flex flex-wrap items-center gap-3">
               <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-emerald-300">
-                {shift.status}
+                Schedule: {formatEnumLabel(shift.status)}
               </span>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold uppercase tracking-widest text-slate-300">
-                {shift.assignmentStatus}
+                My Status: {formatEnumLabel(shift.assignmentStatus)}
               </span>
             </div>
 

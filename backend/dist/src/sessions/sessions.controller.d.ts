@@ -26,8 +26,8 @@ export declare class SessionsController {
         id: string;
         createdAt: Date;
         tenantId: string;
-        userId: string;
         status: string;
+        userId: string;
         revokedAt: Date | null;
         source: string;
         refreshTokenHash: string | null;

@@ -18,6 +18,7 @@ const client_auth_service_1 = require("./client-auth.service");
 const client_login_dto_1 = require("./dto/client-login.dto");
 const client_auth_service_2 = require("./client-auth.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const jwt_refresh_guard_1 = require("../auth/guards/jwt-refresh.guard");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 let ClientAuthController = class ClientAuthController {
     clientAuthService;
@@ -26,6 +27,10 @@ let ClientAuthController = class ClientAuthController {
     }
     login(dto) {
         return this.clientAuthService.login(dto);
+    }
+    refreshTokens(req) {
+        const user = req.user;
+        return this.clientAuthService.refreshTokens(user.sub, user.refreshToken);
     }
     register(dto) {
         return this.clientAuthService.register(dto);
@@ -43,6 +48,15 @@ __decorate([
     __metadata("design:paramtypes", [client_login_dto_1.ClientLoginDto]),
     __metadata("design:returntype", void 0)
 ], ClientAuthController.prototype, "login", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_refresh_guard_1.JwtRefreshGuard),
+    (0, common_1.Post)('refresh'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], ClientAuthController.prototype, "refreshTokens", null);
 __decorate([
     (0, common_1.Post)('register'),
     __param(0, (0, common_1.Body)()),

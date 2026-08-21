@@ -17,6 +17,7 @@ import {
   UserPlus,
   Users,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { syncProspectToCrm } from '@/lib/integrations';
 import {
@@ -97,13 +98,17 @@ export default function ProspectDiscoveryResultCard({
       if (result.duplicate) {
         setDuplicateLead(result.existingLead);
         setImportPhase('duplicate');
+        toast.info('This company is already a lead.');
       } else {
         setImportedLead(result.lead);
         setImportPhase('success');
+        toast.success('Prospect imported as lead.');
       }
     } catch (err) {
-      setImportError(getApiErrorMessage(err, 'Failed to import this company as a lead.'));
+      const message = getApiErrorMessage(err, 'Unable to import prospect. Please try again.');
+      setImportError(message);
       setImportPhase('idle');
+      toast.error(message);
     }
   };
 

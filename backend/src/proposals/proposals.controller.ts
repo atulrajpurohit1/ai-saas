@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -17,6 +18,7 @@ import { PermissionGuard } from '../auth/guards/permission.guard';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { Request, Response } from 'express';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { findUnresolvedPlaceholders } from './proposal-content.util';
 
 @UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('proposals')
@@ -142,6 +144,16 @@ export class ProposalsController {
   ) {
     const user = req.user as unknown as ActiveUser;
     const existing = await this.proposalsService.findOne(user.tenantId, id);
+
+    if (existing.status === 'draft') {
+      const unresolved = findUnresolvedPlaceholders(existing.content);
+      if (unresolved.length > 0) {
+        throw new BadRequestException(
+          `This proposal still contains unresolved template placeholders and cannot be sent: ${unresolved.join(', ')}`,
+        );
+      }
+    }
+
     const updateData =
       existing.status === 'draft' ? { clientId, status: 'sent' } : { clientId };
     const updated = await this.proposalsService.update(

@@ -20,6 +20,7 @@ const update_proposal_dto_1 = require("./dto/update-proposal.dto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const permission_guard_1 = require("../auth/guards/permission.guard");
 const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
+const proposal_content_util_1 = require("./proposal-content.util");
 let ProposalsController = class ProposalsController {
     proposalsService;
     constructor(proposalsService) {
@@ -70,6 +71,12 @@ let ProposalsController = class ProposalsController {
     async share(req, id, clientId) {
         const user = req.user;
         const existing = await this.proposalsService.findOne(user.tenantId, id);
+        if (existing.status === 'draft') {
+            const unresolved = (0, proposal_content_util_1.findUnresolvedPlaceholders)(existing.content);
+            if (unresolved.length > 0) {
+                throw new common_1.BadRequestException(`This proposal still contains unresolved template placeholders and cannot be sent: ${unresolved.join(', ')}`);
+            }
+        }
         const updateData = existing.status === 'draft' ? { clientId, status: 'sent' } : { clientId };
         const updated = await this.proposalsService.update(user.tenantId, id, updateData, user.sub);
         await this.proposalsService.logAction(user.tenantId, user.sub, id, 'DOCUMENT_SHARED', `Proposal shared with client`);

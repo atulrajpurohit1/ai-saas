@@ -15,15 +15,15 @@ export declare class GuardPatrolsController {
                 updatedAt: Date;
                 tenantId: string;
                 status: string;
-                description: string | null;
                 siteId: string;
+                description: string | null;
                 locationNote: string | null;
                 qrCodeValue: string | null;
             };
         } & {
             id: string;
-            patrolRouteId: string;
             checkpointId: string;
+            patrolRouteId: string;
             sequenceOrder: number;
         })[];
     } & {
@@ -33,8 +33,8 @@ export declare class GuardPatrolsController {
         updatedAt: Date;
         tenantId: string;
         status: string;
-        description: string | null;
         siteId: string;
+        description: string | null;
     })[]>;
     startPatrolRun(user: ActiveUser, shiftId: string, dto: StartPatrolRunDto): Promise<{
         patrolRoute: {
@@ -46,15 +46,15 @@ export declare class GuardPatrolsController {
                     updatedAt: Date;
                     tenantId: string;
                     status: string;
-                    description: string | null;
                     siteId: string;
+                    description: string | null;
                     locationNote: string | null;
                     qrCodeValue: string | null;
                 };
             } & {
                 id: string;
-                patrolRouteId: string;
                 checkpointId: string;
+                patrolRouteId: string;
                 sequenceOrder: number;
             })[];
         } & {
@@ -64,8 +64,8 @@ export declare class GuardPatrolsController {
             updatedAt: Date;
             tenantId: string;
             status: string;
-            description: string | null;
             siteId: string;
+            description: string | null;
         };
     } & {
         id: string;
@@ -87,8 +87,8 @@ export declare class GuardPatrolsController {
             updatedAt: Date;
             tenantId: string;
             status: string;
-            description: string | null;
             siteId: string;
+            description: string | null;
             locationNote: string | null;
             qrCodeValue: string | null;
         };
@@ -112,8 +112,8 @@ export declare class GuardPatrolsController {
                 updatedAt: Date;
                 tenantId: string;
                 status: string;
-                description: string | null;
                 siteId: string;
+                description: string | null;
                 locationNote: string | null;
                 qrCodeValue: string | null;
             };

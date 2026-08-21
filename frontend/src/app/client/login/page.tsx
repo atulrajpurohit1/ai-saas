@@ -38,6 +38,7 @@ export default function ClientLoginPage() {
     
     try {
       localStorage.removeItem('token');
+      localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
       localStorage.removeItem('guard_token');
 
@@ -54,6 +55,7 @@ export default function ClientLoginPage() {
           });
 
       localStorage.setItem('client_token', res.data.access_token);
+      if (res.data.refresh_token) localStorage.setItem('client_refresh_token', res.data.refresh_token);
       router.push('/client/dashboard');
     } catch (err: unknown) {
       setError((err as ApiError).response?.data?.message || 'Could not access the client portal.');
@@ -63,7 +65,7 @@ export default function ClientLoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#05050a] px-4 py-8">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#05050a] px-4 pb-28 pt-8 sm:pb-8">
       {/* Background decoration */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full"></div>

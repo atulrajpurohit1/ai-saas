@@ -202,6 +202,7 @@ let RolesService = class RolesService {
         if (!user) {
             throw new common_1.NotFoundException('User not found');
         }
+        await this.ensureTenantSystemRoles(user.tenantId);
         await this.ensureDefaultAssignmentForUser(user.id);
         const assignments = user.roleAssignments.length > 0
             ? user.roleAssignments

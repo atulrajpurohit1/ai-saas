@@ -19,6 +19,7 @@ const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const audit_service_1 = require("../audit/audit.service");
 const proposals_service_1 = require("../proposals/proposals.service");
+const proposal_content_util_1 = require("../proposals/proposal-content.util");
 let ClientPortalController = class ClientPortalController {
     prisma;
     auditService;
@@ -71,6 +72,10 @@ let ClientPortalController = class ClientPortalController {
     }
     async approveProposal(user, id) {
         const proposal = await this.getProposal(user, id);
+        const unresolved = (0, proposal_content_util_1.findUnresolvedPlaceholders)(proposal.content);
+        if (unresolved.length > 0) {
+            throw new common_1.BadRequestException(`This proposal still contains unresolved template placeholders and cannot be approved: ${unresolved.join(', ')}`);
+        }
         const updated = await this.prisma.proposal.update({
             where: { id: proposal.id },
             data: { status: 'approved' },

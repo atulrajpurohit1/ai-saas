@@ -12,6 +12,7 @@ import {
   resolveInvoiceDispute,
   respondToInvoiceDispute,
 } from '@/lib/invoice-disputes';
+import { formatEnumLabel } from '@/lib/format';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -148,10 +149,10 @@ export default function InvoiceDisputeDetailPage() {
             <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-8">
               <div className="mb-4 flex flex-wrap items-center gap-3">
                 <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-widest ${disputeStatusClass[dispute.status] || disputeStatusClass.open}`}>
-                  {dispute.status.replace('_', ' ')}
+                  {formatEnumLabel(dispute.status)}
                 </span>
                 <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-widest ${invoiceStatusClass[dispute.invoice?.status || 'draft'] || invoiceStatusClass.draft}`}>
-                  Invoice {dispute.invoice?.status || 'unknown'}
+                  Invoice {dispute.invoice?.status ? formatEnumLabel(dispute.invoice.status) : 'Unknown'}
                 </span>
               </div>
 

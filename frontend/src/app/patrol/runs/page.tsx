@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Search, ShieldAlert, Eye, Calendar, Clock, CheckCircle2, AlertCircle, XCircle, Plus } from 'lucide-react';
 import { PatrolRun, getPatrolRuns, getPatrolRun } from '@/lib/patrols';
+import { formatEnumLabel } from '@/lib/format';
 
 export default function PatrolRunsPage() {
   const [runs, setRuns] = useState<PatrolRun[]>([]);
@@ -141,7 +142,7 @@ export default function PatrolRunsPage() {
                     </td>
                     <td className="px-6 py-4 align-middle" data-label="Status">
                       <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${getStatusStyle(run.status)}`}>
-                        {run.status.replace('_', ' ')}
+                        {formatEnumLabel(run.status)}
                       </span>
                     </td>
                     <td className="px-6 py-4 align-middle text-sm text-muted-foreground" data-label="Started">
@@ -223,7 +224,7 @@ export default function PatrolRunsPage() {
                   <div>
                     <span className="text-xs text-muted-foreground block">Completion State</span>
                     <span className={`inline-block mt-1 rounded-full px-2 py-0.5 text-xs font-bold ${getStatusStyle(selectedRunDetail.status)}`}>
-                      {selectedRunDetail.status.replace('_', ' ')}
+                      {formatEnumLabel(selectedRunDetail.status)}
                     </span>
                   </div>
                 </div>

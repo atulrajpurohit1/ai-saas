@@ -266,3 +266,27 @@ code {
   color: #f8fafc;
   font-weight: 700;
 }
+
+/*
+ * Third-party support/chat widget (GoHighLevel LeadConnector, loaded globally
+ * in layout.tsx). It renders a <chat-widget> custom element (occasionally
+ * div[data-chat-widget]) as a shadow-DOM host appended to <body> with its own
+ * fixed bottom-right positioning. Host-level layout properties (position,
+ * size, transform) apply from outside even through shadow DOM, so this
+ * reliably shrinks/repositions it clear of primary CTAs on small screens
+ * without depending on its internal markup.
+ */
+chat-widget,
+div[data-chat-widget] {
+  z-index: 40 !important;
+}
+
+@media (max-width: 640px) {
+  chat-widget,
+  div[data-chat-widget] {
+    transform: scale(0.82) !important;
+    transform-origin: bottom right !important;
+    bottom: max(8px, env(safe-area-inset-bottom)) !important;
+    right: 8px !important;
+  }
+}

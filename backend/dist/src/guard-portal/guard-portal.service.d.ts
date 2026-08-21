@@ -81,8 +81,8 @@ export declare class GuardPortalService {
         createdAt: Date;
         tenantId: string;
         status: string;
-        payload: Prisma.JsonValue;
         guardId: string;
+        payload: Prisma.JsonValue;
         errorMessage: string | null;
         actionType: string;
         syncedAt: Date | null;
@@ -92,8 +92,8 @@ export declare class GuardPortalService {
         createdAt: Date;
         tenantId: string;
         status: string;
-        payload: Prisma.JsonValue;
         guardId: string;
+        payload: Prisma.JsonValue;
         errorMessage: string | null;
         actionType: string;
         syncedAt: Date | null;

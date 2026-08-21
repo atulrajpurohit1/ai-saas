@@ -14,6 +14,13 @@ export default function BranchesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({ name: '', location: '' });
 
+  const filteredBranches = branches.filter(
+    (branch) =>
+      !searchQuery ||
+      branch.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      branch.location.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
   const fetchBranches = async () => {
     setLoading(true);
     try {
@@ -96,12 +103,12 @@ export default function BranchesPage() {
               <Loader2 className="mx-auto mb-3 animate-spin text-indigo-300" />
               Loading branches...
             </div>
-          ) : branches.filter(branch => !searchQuery || branch.name.toLowerCase().includes(searchQuery.toLowerCase()) || branch.location.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 ? (
+          ) : filteredBranches.length === 0 ? (
             <div className="col-span-full rounded-3xl border border-dashed border-white/10 py-16 text-center text-slate-400">
-              No branches match your search.
+              {branches.length === 0 ? 'No branches exist yet.' : 'No branches match your search.'}
             </div>
           ) : (
-            branches.filter(branch => !searchQuery || branch.name.toLowerCase().includes(searchQuery.toLowerCase()) || branch.location.toLowerCase().includes(searchQuery.toLowerCase())).map((branch) => (
+            filteredBranches.map((branch) => (
               <div key={branch.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                 <div className="mb-5 flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-3">

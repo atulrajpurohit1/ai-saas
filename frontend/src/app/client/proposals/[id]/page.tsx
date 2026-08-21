@@ -4,7 +4,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import ClientLayout from '@/components/ClientLayout';
 import api from '@/lib/api';
-import { 
+import ReactMarkdown from 'react-markdown';
+import { formatEnumLabel } from '@/lib/format';
+import {
   FileText, 
   CheckCircle, 
   XCircle, 
@@ -173,8 +175,8 @@ export default function ClientProposalView() {
             <h1 className="relative z-10 mb-6 break-words text-2xl font-extrabold text-white sm:text-3xl">{proposal.title}</h1>
             
             <div className="prose prose-invert max-w-none relative z-10">
-              <div className="whitespace-pre-wrap rounded-3xl border border-white/5 bg-white/5 p-4 font-serif text-base leading-relaxed text-slate-300 sm:p-8 sm:text-lg">
-                {proposal.content}
+              <div className="rounded-3xl border border-white/5 bg-white/5 p-4 font-serif text-base leading-relaxed text-slate-300 sm:p-8 sm:text-lg">
+                <ReactMarkdown>{proposal.content}</ReactMarkdown>
               </div>
             </div>
           </div>
@@ -310,7 +312,7 @@ export default function ClientProposalView() {
                 ) : timeline.map((item) => (
                   <div key={item.id} className="relative pl-6 pb-2 border-l border-white/10 last:border-0 last:pb-0">
                     <div className="absolute left-[-5px] top-1 w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]"></div>
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.action.replace(/_/g, ' ')}</div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{formatEnumLabel(item.action)}</div>
                     <div className="text-[9px] text-slate-500 mb-1">{new Date(item.createdAt).toLocaleDateString()}</div>
                     {item.details && <div className="text-[10px] text-slate-500 leading-tight italic">{item.details}</div>}
                   </div>

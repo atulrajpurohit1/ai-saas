@@ -15,8 +15,8 @@ export declare class VendorsController {
         companyName: string;
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
-        address: string | null;
         createdBy: string | null;
+        address: string | null;
         contactPerson: string | null;
         services: import("@prisma/client/runtime/library").JsonValue;
     }>;
@@ -30,8 +30,8 @@ export declare class VendorsController {
         companyName: string;
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
-        address: string | null;
         createdBy: string | null;
+        address: string | null;
         contactPerson: string | null;
         services: import("@prisma/client/runtime/library").JsonValue;
     }[]>;
@@ -45,8 +45,8 @@ export declare class VendorsController {
         companyName: string;
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
-        address: string | null;
         createdBy: string | null;
+        address: string | null;
         contactPerson: string | null;
         services: import("@prisma/client/runtime/library").JsonValue;
     }>;
@@ -60,8 +60,8 @@ export declare class VendorsController {
         companyName: string;
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
-        address: string | null;
         createdBy: string | null;
+        address: string | null;
         contactPerson: string | null;
         services: import("@prisma/client/runtime/library").JsonValue;
     }>;

@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import BranchSelect from '@/components/BranchSelect';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { formatEnumLabel } from '@/lib/format';
 import {
   Permission,
   Role,
@@ -40,10 +41,6 @@ const emptyForm: RoleFormState = {
   description: '',
   permissionKeys: [],
 };
-
-function formatModule(value: string) {
-  return value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
 
 export default function RolesSettingsPage() {
   const { can } = useAuth();
@@ -335,7 +332,7 @@ export default function RolesSettingsPage() {
                 {Object.entries(permissionsByModule).map(([moduleName, modulePermissions]) => (
                   <div key={moduleName} className="rounded-xl border border-white/10 bg-slate-950/20 p-4">
                     <div className="mb-3 text-sm font-black uppercase tracking-widest text-slate-400">
-                      {formatModule(moduleName)}
+                      {formatEnumLabel(moduleName)}
                     </div>
                     <div className="grid gap-2 md:grid-cols-2">
                       {modulePermissions.map((permission) => {

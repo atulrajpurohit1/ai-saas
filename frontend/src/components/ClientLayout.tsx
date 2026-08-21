@@ -12,6 +12,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   const handleLogout = () => {
     localStorage.removeItem('client_token');
+    localStorage.removeItem('client_refresh_token');
     router.push('/client/login');
   };
 

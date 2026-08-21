@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import api from '@/lib/api';
-import { Plus, Search, User, Upload, Loader2 } from 'lucide-react';
+import { Plus, Search, User, Upload, Loader2, AlertTriangle } from 'lucide-react';
 
 interface Lead {
   id: string;
@@ -35,6 +35,7 @@ const priorityLabel = (value?: string | null) => value ? value.toUpperCase() : '
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [newLead, setNewLead] = useState({ name: '', email: '', company: '' });
@@ -88,11 +89,14 @@ export default function LeadsPage() {
   };
 
   const fetchLeads = async () => {
+    setLoading(true);
+    setLoadError(null);
     try {
       const res = await api.get('leads');
       setLeads(res.data);
     } catch (err) {
       console.error(err);
+      setLoadError("Couldn't load leads. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -169,6 +173,21 @@ export default function LeadsPage() {
             <tbody className="divide-y divide-white/5">
               {loading ? (
                 <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">Loading leads...</td></tr>
+              ) : loadError ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-10 text-center">
+                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                      <AlertTriangle className="text-amber-400" size={22} />
+                      <span>{loadError}</span>
+                      <button
+                        onClick={fetchLeads}
+                        className="rounded-xl bg-white/5 border border-white/10 px-4 py-2 text-xs font-bold text-slate-200 hover:bg-white/10 transition-all"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  </td>
+                </tr>
               ) : leads.length === 0 ? (
                 <tr><td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">No leads found.</td></tr>
               ) : filteredLeads.length === 0 ? (

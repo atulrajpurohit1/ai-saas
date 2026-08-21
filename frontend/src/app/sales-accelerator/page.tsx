@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import api from '@/lib/api';
+import { formatEnumLabel, isUnknownValue } from '@/lib/format';
 import {
   AlertTriangle,
   BrainCircuit,
@@ -440,7 +441,7 @@ export default function SalesAcceleratorDashboardPage() {
                 <p className="mt-2 text-sm leading-6 text-slate-400">{dashboard.salesCoachSummary.headline}</p>
               </div>
               <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${coachClass(dashboard.salesCoachSummary.status)}`}>
-                {dashboard.salesCoachSummary.status.replace('_', ' ')} {dashboard.salesCoachSummary.score}
+                {formatEnumLabel(dashboard.salesCoachSummary.status)} {dashboard.salesCoachSummary.score}
               </span>
             </div>
 
@@ -535,13 +536,24 @@ export default function SalesAcceleratorDashboardPage() {
                     <div className="mt-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">
                       {item.label}
                     </div>
-                    {item.marketSignal && (
-                      <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                        <span>{item.marketSignal.segment}</span>
-                        <span>{item.marketSignal.score} market</span>
-                        <span>{item.marketSignal.renewalTimingSignal.replace('_', ' ')}</span>
-                      </div>
-                    )}
+                    {item.marketSignal && (() => {
+                      const { segment, score, renewalTimingSignal } = item.marketSignal;
+                      const parts = [
+                        !isUnknownValue(segment) ? segment : null,
+                        !isUnknownValue(score) ? `${score} market` : null,
+                        !isUnknownValue(renewalTimingSignal) ? formatEnumLabel(renewalTimingSignal) : null,
+                      ].filter((part): part is string => Boolean(part));
+
+                      if (parts.length === 0) return null;
+
+                      return (
+                        <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                          {parts.map((part) => (
+                            <span key={part}>{part}</span>
+                          ))}
+                        </div>
+                      );
+                    })()}
                     <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-400">{item.nextAction}</p>
                   </Link>
                 ))}
@@ -583,11 +595,24 @@ export default function SalesAcceleratorDashboardPage() {
                     <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-400">
                       {lead.assessment?.recommendedNextAction || 'Open lead details to run discovery.'}
                     </p>
-                    <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                      <span>{lead.marketSignalProfile.segment}</span>
-                      <span>{lead.marketSignalProfile.score} market</span>
-                      <span>{lead.marketSignalProfile.existingSecurityLikelihood} security</span>
-                    </div>
+                    {(() => {
+                      const { segment, score, existingSecurityLikelihood } = lead.marketSignalProfile;
+                      const parts = [
+                        !isUnknownValue(segment) ? segment : null,
+                        !isUnknownValue(score) ? `${score} market` : null,
+                        !isUnknownValue(existingSecurityLikelihood) ? `${formatEnumLabel(existingSecurityLikelihood)} security` : null,
+                      ].filter((part): part is string => Boolean(part));
+
+                      if (parts.length === 0) return null;
+
+                      return (
+                        <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                          {parts.map((part) => (
+                            <span key={part}>{part}</span>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </Link>
                 ))}
               </div>
@@ -626,11 +651,24 @@ export default function SalesAcceleratorDashboardPage() {
                     <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-400">
                       {deal.assessment?.recommendedNextAction || 'Open deal details to run close-readiness scoring.'}
                     </p>
-                    <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                      <span>{deal.marketSignalProfile.segment}</span>
-                      <span>{deal.marketSignalProfile.score} market</span>
-                      <span>{deal.marketSignalProfile.renewalTimingSignal.replace('_', ' ')}</span>
-                    </div>
+                    {(() => {
+                      const { segment, score, renewalTimingSignal } = deal.marketSignalProfile;
+                      const parts = [
+                        !isUnknownValue(segment) ? segment : null,
+                        !isUnknownValue(score) ? `${score} market` : null,
+                        !isUnknownValue(renewalTimingSignal) ? formatEnumLabel(renewalTimingSignal) : null,
+                      ].filter((part): part is string => Boolean(part));
+
+                      if (parts.length === 0) return null;
+
+                      return (
+                        <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                          {parts.map((part) => (
+                            <span key={part}>{part}</span>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </Link>
                 ))}
               </div>

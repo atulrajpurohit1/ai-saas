@@ -3,6 +3,7 @@
 import React from 'react';
 import { CalendarDays, Filter, RotateCcw } from 'lucide-react';
 import { FinanceClient, FinanceFilters } from '@/lib/finance';
+import { formatEnumLabel } from '@/lib/format';
 
 interface FinanceFiltersProps {
   filters: FinanceFilters;
@@ -78,7 +79,7 @@ export default function FinanceFiltersBar({
           <option value="" className="bg-[#0e0e1a] text-white">All</option>
           {statusOptions.map((status) => (
             <option key={status} value={status} className="bg-[#0e0e1a] text-white">
-              {status.replace('_', ' ')}
+              {formatEnumLabel(status)}
             </option>
           ))}
         </select>

@@ -102,6 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (e) {
         if (axios.isAxiosError(e) && e.response?.status === 401) {
           localStorage.removeItem('token');
+          localStorage.removeItem('refresh_token');
           localStorage.removeItem('user');
           if (mounted) setUser(null);
         } else if (axios.isAxiosError(e) && !e.response) {
@@ -137,6 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
     setUser(null);
     router.push('/login');

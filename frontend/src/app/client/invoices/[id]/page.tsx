@@ -7,6 +7,7 @@ import ClientLayout from '@/components/ClientLayout';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { acceptClientInvoice, disputeClientInvoice, getClientInvoice, Invoice } from '@/lib/invoices';
+import { formatEnumLabel } from '@/lib/format';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -304,7 +305,7 @@ export default function ClientInvoiceDetailPage() {
                 </h2>
                 {latestDispute && (
                   <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-widest ${disputeStatusClass[latestDispute.status] || disputeStatusClass.open}`}>
-                    {latestDispute.status.replace('_', ' ')}
+                    {formatEnumLabel(latestDispute.status)}
                   </span>
                 )}
               </div>

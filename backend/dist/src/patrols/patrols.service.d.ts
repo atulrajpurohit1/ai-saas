@@ -24,8 +24,8 @@ export declare class PatrolsService {
         updatedAt: Date;
         tenantId: string;
         status: string;
-        description: string | null;
         siteId: string;
+        description: string | null;
         locationNote: string | null;
         qrCodeValue: string | null;
     }>;
@@ -41,8 +41,8 @@ export declare class PatrolsService {
         updatedAt: Date;
         tenantId: string;
         status: string;
-        description: string | null;
         siteId: string;
+        description: string | null;
         locationNote: string | null;
         qrCodeValue: string | null;
     })[]>;
@@ -58,8 +58,8 @@ export declare class PatrolsService {
         updatedAt: Date;
         tenantId: string;
         status: string;
-        description: string | null;
         siteId: string;
+        description: string | null;
         locationNote: string | null;
         qrCodeValue: string | null;
     }>;
@@ -75,8 +75,8 @@ export declare class PatrolsService {
         updatedAt: Date;
         tenantId: string;
         status: string;
-        description: string | null;
         siteId: string;
+        description: string | null;
     }>;
     findAllPatrolRoutes(user: ActiveUser, siteId?: string): Promise<({
         checkpoints: {
@@ -93,8 +93,8 @@ export declare class PatrolsService {
         updatedAt: Date;
         tenantId: string;
         status: string;
-        description: string | null;
         siteId: string;
+        description: string | null;
     })[]>;
     findPatrolRoute(user: ActiveUser, id: string): Promise<{
         checkpoints: ({
@@ -105,15 +105,15 @@ export declare class PatrolsService {
                 updatedAt: Date;
                 tenantId: string;
                 status: string;
-                description: string | null;
                 siteId: string;
+                description: string | null;
                 locationNote: string | null;
                 qrCodeValue: string | null;
             };
         } & {
             id: string;
-            patrolRouteId: string;
             checkpointId: string;
+            patrolRouteId: string;
             sequenceOrder: number;
         })[];
         site: {
@@ -127,8 +127,8 @@ export declare class PatrolsService {
         updatedAt: Date;
         tenantId: string;
         status: string;
-        description: string | null;
         siteId: string;
+        description: string | null;
     }>;
     updatePatrolRoute(user: ActiveUser, id: string, dto: UpdatePatrolRouteDto): Promise<{
         site: {
@@ -142,8 +142,8 @@ export declare class PatrolsService {
         updatedAt: Date;
         tenantId: string;
         status: string;
-        description: string | null;
         siteId: string;
+        description: string | null;
     }>;
     attachCheckpoints(user: ActiveUser, routeId: string, dto: AttachCheckpointsDto): Promise<({
         checkpoints: ({
@@ -154,15 +154,15 @@ export declare class PatrolsService {
                 updatedAt: Date;
                 tenantId: string;
                 status: string;
-                description: string | null;
                 siteId: string;
+                description: string | null;
                 locationNote: string | null;
                 qrCodeValue: string | null;
             };
         } & {
             id: string;
-            patrolRouteId: string;
             checkpointId: string;
+            patrolRouteId: string;
             sequenceOrder: number;
         })[];
     } & {
@@ -172,14 +172,10 @@ export declare class PatrolsService {
         updatedAt: Date;
         tenantId: string;
         status: string;
-        description: string | null;
         siteId: string;
+        description: string | null;
     }) | null>;
     findAllPatrolRuns(user: ActiveUser): Promise<({
-        guard: {
-            id: string;
-            name: string;
-        };
         shift: {
             id: string;
             site: {
@@ -188,6 +184,10 @@ export declare class PatrolsService {
             };
             startTime: Date;
             endTime: Date;
+        };
+        guard: {
+            id: string;
+            name: string;
         };
         patrolRoute: {
             id: string;
@@ -206,10 +206,6 @@ export declare class PatrolsService {
         completedAt: Date | null;
     })[]>;
     findPatrolRun(user: ActiveUser, id: string): Promise<{
-        guard: {
-            id: string;
-            name: string;
-        };
         shift: {
             id: string;
             site: {
@@ -218,6 +214,10 @@ export declare class PatrolsService {
             };
             startTime: Date;
             endTime: Date;
+        };
+        guard: {
+            id: string;
+            name: string;
         };
         patrolRoute: {
             id: string;
@@ -231,8 +231,8 @@ export declare class PatrolsService {
                 updatedAt: Date;
                 tenantId: string;
                 status: string;
-                description: string | null;
                 siteId: string;
+                description: string | null;
                 locationNote: string | null;
                 qrCodeValue: string | null;
             };
@@ -268,15 +268,15 @@ export declare class PatrolsService {
                 updatedAt: Date;
                 tenantId: string;
                 status: string;
-                description: string | null;
                 siteId: string;
+                description: string | null;
                 locationNote: string | null;
                 qrCodeValue: string | null;
             };
         } & {
             id: string;
-            patrolRouteId: string;
             checkpointId: string;
+            patrolRouteId: string;
             sequenceOrder: number;
         })[];
     } & {
@@ -286,8 +286,8 @@ export declare class PatrolsService {
         updatedAt: Date;
         tenantId: string;
         status: string;
-        description: string | null;
         siteId: string;
+        description: string | null;
     })[]>;
     startPatrolRun(tenantId: string, guardId: string, shiftId: string, dto: StartPatrolRunDto): Promise<{
         patrolRoute: {
@@ -299,15 +299,15 @@ export declare class PatrolsService {
                     updatedAt: Date;
                     tenantId: string;
                     status: string;
-                    description: string | null;
                     siteId: string;
+                    description: string | null;
                     locationNote: string | null;
                     qrCodeValue: string | null;
                 };
             } & {
                 id: string;
-                patrolRouteId: string;
                 checkpointId: string;
+                patrolRouteId: string;
                 sequenceOrder: number;
             })[];
         } & {
@@ -317,8 +317,8 @@ export declare class PatrolsService {
             updatedAt: Date;
             tenantId: string;
             status: string;
-            description: string | null;
             siteId: string;
+            description: string | null;
         };
     } & {
         id: string;
@@ -340,8 +340,8 @@ export declare class PatrolsService {
             updatedAt: Date;
             tenantId: string;
             status: string;
-            description: string | null;
             siteId: string;
+            description: string | null;
             locationNote: string | null;
             qrCodeValue: string | null;
         };
@@ -365,8 +365,8 @@ export declare class PatrolsService {
                 updatedAt: Date;
                 tenantId: string;
                 status: string;
-                description: string | null;
                 siteId: string;
+                description: string | null;
                 locationNote: string | null;
                 qrCodeValue: string | null;
             };

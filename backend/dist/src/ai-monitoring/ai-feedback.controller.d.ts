@@ -15,8 +15,8 @@ export declare class AiFeedbackController {
         id: string;
         createdAt: Date;
         tenantId: string;
-        aiGenerationId: string;
         createdBy: string;
+        aiGenerationId: string;
         recommendationId: string | null;
         actionId: string | null;
         rating: number;
@@ -38,8 +38,8 @@ export declare class AiFeedbackController {
         id: string;
         createdAt: Date;
         tenantId: string;
-        aiGenerationId: string;
         createdBy: string;
+        aiGenerationId: string;
         recommendationId: string | null;
         actionId: string | null;
         rating: number;

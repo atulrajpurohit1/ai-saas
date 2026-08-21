@@ -122,8 +122,8 @@ export default function ClientProfilePage() {
             
             <div className="space-y-4">
               <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
-                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Company ID</div>
-                <div className="text-sm font-mono text-slate-300">{profile.id}</div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Account Reference</div>
+                <div className="text-sm font-mono text-slate-300">ACCT-{profile.id.slice(0, 8).toUpperCase()}</div>
               </div>
               
               <div className="p-4 rounded-2xl bg-white/5 border border-white/5">

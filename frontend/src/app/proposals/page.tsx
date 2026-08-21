@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import api from '@/lib/api';
-import { 
+import ReactMarkdown from 'react-markdown';
+import {
   Plus, 
   Sparkles, 
   Send, 
@@ -542,8 +543,8 @@ export default function ProposalsPage() {
             
             <div className="grid flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-3 lg:overflow-hidden">
               <div className="overflow-y-visible border-r border-white/5 p-5 sm:p-8 lg:col-span-2 lg:overflow-y-auto">
-                <div className="prose prose-invert max-w-none whitespace-pre-wrap rounded-3xl border border-white/5 bg-white/5 p-4 text-sm leading-relaxed text-slate-300 sm:p-8">
-                  {selectedProposal.content}
+                <div className="prose prose-invert max-w-none rounded-3xl border border-white/5 bg-white/5 p-4 text-sm leading-relaxed text-slate-300 sm:p-8">
+                  <ReactMarkdown>{selectedProposal.content}</ReactMarkdown>
                 </div>
               </div>
               

@@ -42,7 +42,7 @@ export default function GuardLoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#071013] px-4 py-8 text-slate-100">
+    <div className="flex min-h-screen items-center justify-center bg-[#071013] px-4 pb-28 pt-8 text-slate-100 sm:pb-8">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-xl shadow-emerald-500/20">

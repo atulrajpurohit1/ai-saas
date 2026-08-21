@@ -240,6 +240,7 @@ export default function RateCardsPage() {
           <input
             type="number"
             min="0.01"
+            max="500"
             step="0.01"
             className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
             value={formData.hourly_rate}
@@ -253,6 +254,7 @@ export default function RateCardsPage() {
           <input
             type="number"
             min="0.01"
+            max="500"
             step="0.01"
             className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
             value={formData.overtime_rate}
@@ -265,6 +267,7 @@ export default function RateCardsPage() {
           <input
             type="number"
             min="0.01"
+            max="500"
             step="0.01"
             className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
             value={formData.holiday_rate}

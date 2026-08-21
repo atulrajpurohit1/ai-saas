@@ -5,6 +5,7 @@ import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { AdminInvoiceDispute, getInvoiceDisputes } from '@/lib/invoice-disputes';
+import { formatEnumLabel } from '@/lib/format';
 import {
   AlertTriangle,
   ArrowRight,
@@ -119,7 +120,7 @@ export default function InvoiceDisputesPage() {
                 statusFilter === status ? 'bg-indigo-500 text-white' : 'bg-white/5 text-slate-300 hover:bg-white/10'
               }`}
             >
-              {status.replace('_', ' ')}
+              {formatEnumLabel(status)}
             </button>
           ))}
         </div>
@@ -170,7 +171,7 @@ export default function InvoiceDisputesPage() {
                       <div className="mt-1 text-slate-500">{dispute.invoice ? formatMoney(dispute.invoice.totalAmount) : 'N/A'}</div>
                       <div className="mt-2">
                         <span className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-widest ${invoiceStatusClass[dispute.invoice?.status || 'draft'] || invoiceStatusClass.draft}`}>
-                          {dispute.invoice?.status || 'unknown'}
+                          {dispute.invoice?.status ? formatEnumLabel(dispute.invoice.status) : 'Unknown'}
                         </span>
                       </div>
                     </td>
@@ -183,7 +184,7 @@ export default function InvoiceDisputesPage() {
                     </td>
                     <td className="px-6 py-4" data-label="Status">
                       <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-widest ${disputeStatusClass[dispute.status] || disputeStatusClass.open}`}>
-                        {dispute.status.replace('_', ' ')}
+                        {formatEnumLabel(dispute.status)}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right" data-label="Actions">

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import GuardLayout from '@/components/GuardLayout';
 import { getGuardPatrolRuns, PatrolRun } from '@/lib/patrols';
+import { formatEnumLabel } from '@/lib/format';
 import { Navigation, Calendar, Clock, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 
 export default function GuardPatrolRunsPage() {
@@ -106,7 +107,7 @@ export default function GuardPatrolRunsPage() {
                 <span className="text-xs text-slate-500 md:hidden">STATUS</span>
                 <div className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(run.status)}`}>
                   {getStatusIcon(run.status)}
-                  <span>{run.status.replace('_', ' ')}</span>
+                  <span>{formatEnumLabel(run.status)}</span>
                 </div>
               </div>
             </div>

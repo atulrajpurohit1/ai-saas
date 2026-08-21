@@ -171,9 +171,8 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     setFormData((current) => {
-      if (clients.length === 0) return { ...current, client_id: '', site_id: '' };
       if (clients.some((client) => client.id === current.client_id)) return current;
-      return { ...current, client_id: clients[0].id, site_id: '' };
+      return { ...current, client_id: '', site_id: '' };
     });
   }, [clients, formData.client_id]);
 
@@ -351,11 +350,14 @@ export default function InvoicesPage() {
             {clients.length === 0 ? (
               <option value="" className="bg-[#0e0e1a] text-white">Create a client first</option>
             ) : (
-              clients.map((client) => (
-                <option key={client.id} value={client.id} className="bg-[#0e0e1a] text-white">
-                  {client.companyName || client.name}
-                </option>
-              ))
+              <>
+                <option value="" disabled className="bg-[#0e0e1a] text-white">Select Client</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id} className="bg-[#0e0e1a] text-white">
+                    {client.companyName || client.name}
+                  </option>
+                ))}
+              </>
             )}
           </select>
         </div>

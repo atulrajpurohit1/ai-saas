@@ -70,8 +70,8 @@ export declare class GuardPortalController {
         createdAt: Date;
         tenantId: string;
         status: string;
-        payload: import("@prisma/client/runtime/library").JsonValue;
         guardId: string;
+        payload: import("@prisma/client/runtime/library").JsonValue;
         errorMessage: string | null;
         actionType: string;
         syncedAt: Date | null;
@@ -81,8 +81,8 @@ export declare class GuardPortalController {
         createdAt: Date;
         tenantId: string;
         status: string;
-        payload: import("@prisma/client/runtime/library").JsonValue;
         guardId: string;
+        payload: import("@prisma/client/runtime/library").JsonValue;
         errorMessage: string | null;
         actionType: string;
         syncedAt: Date | null;

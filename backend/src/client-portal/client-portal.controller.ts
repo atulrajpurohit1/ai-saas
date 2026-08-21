@@ -16,6 +16,7 @@ import { GetUser } from '../auth/decorators/get-user.decorator';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { AuditService } from '../audit/audit.service';
 import { ProposalsService } from '../proposals/proposals.service';
+import { findUnresolvedPlaceholders } from '../proposals/proposal-content.util';
 import { Response as ExpressResponse } from 'express';
 
 @Controller('client-portal')
@@ -93,6 +94,13 @@ export class ClientPortalController {
   @Post('proposals/:id/approve')
   async approveProposal(@GetUser() user: ActiveUser, @Param('id') id: string) {
     const proposal = await this.getProposal(user, id);
+
+    const unresolved = findUnresolvedPlaceholders(proposal.content);
+    if (unresolved.length > 0) {
+      throw new BadRequestException(
+        `This proposal still contains unresolved template placeholders and cannot be approved: ${unresolved.join(', ')}`,
+      );
+    }
 
     const updated = await this.prisma.proposal.update({
       where: { id: proposal.id },

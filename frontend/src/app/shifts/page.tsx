@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { GuardRecommendation } from '@/lib/ai-insights';
 import { branchParams, BranchSummary } from '@/lib/branches';
+import { formatEnumLabel } from '@/lib/format';
 import { Plus, Search, Calendar, Clock, Users, MapPin, Sparkles, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface Site {
@@ -312,13 +313,13 @@ export default function ShiftsPage() {
                   </td>
                   <td className="px-6 py-4" data-label="Status">
                     <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${shift.status === 'assigned' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
-                      {shift.status}
+                      Schedule: {formatEnumLabel(shift.status)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap" data-label="Attendance">
                     <div className="space-y-1.5">
                       <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${attendanceBadgeClass(shift.attendanceStatus)}`}>
-                        {formatAttendanceStatus(shift.attendanceStatus)}
+                        Attendance: {formatAttendanceStatus(shift.attendanceStatus)}
                       </span>
                       <div className="text-xs text-muted-foreground">
                         In: {shift.checkInTime ? formatDateTime(shift.checkInTime) : 'Not recorded'}

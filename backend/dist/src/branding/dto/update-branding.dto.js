@@ -75,6 +75,9 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(40),
+    (0, class_validator_1.Matches)(/^[\d()+\-.\s]{7,40}$/, {
+        message: 'support_phone must be a plausible phone number (digits, spaces, +, -, (, ) only)',
+    }),
     __metadata("design:type", Object)
 ], UpdateBrandingDto.prototype, "support_phone", void 0);
 //# sourceMappingURL=update-branding.dto.js.map

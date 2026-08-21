@@ -4,20 +4,6 @@ export declare class AssignmentsController {
     private readonly assignmentsService;
     constructor(assignmentsService: AssignmentsService);
     findAll(user: ActiveUser): Promise<({
-        guard: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            documents: string | null;
-            email: string | null;
-            tenantId: string;
-            branchId: string | null;
-            phone: string | null;
-            passwordHash: string | null;
-            salary: number | null;
-            bankDetails: string | null;
-            personalNotes: string | null;
-        };
         shift: {
             site: {
                 id: string;
@@ -39,6 +25,20 @@ export declare class AssignmentsController {
             startTime: Date;
             endTime: Date;
             requiredGuards: number;
+        };
+        guard: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            documents: string | null;
+            email: string | null;
+            tenantId: string;
+            branchId: string | null;
+            phone: string | null;
+            passwordHash: string | null;
+            salary: number | null;
+            bankDetails: string | null;
+            personalNotes: string | null;
         };
     } & {
         id: string;

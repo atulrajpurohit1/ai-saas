@@ -241,6 +241,11 @@ export class RolesService {
       throw new NotFoundException('User not found');
     }
 
+    // Keep this tenant's system-role permission sets current even for users
+    // who already have a role assignment — ensureDefaultAssignmentForUser only
+    // syncs on first-ever assignment, so an existing assignment would otherwise
+    // stay pinned to whatever permission set existed when it was first created.
+    await this.ensureTenantSystemRoles(user.tenantId);
     await this.ensureDefaultAssignmentForUser(user.id);
 
     const assignments =

@@ -7,6 +7,7 @@ import FinanceFiltersBar from '@/components/FinanceFilters';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { buildCsv, downloadTextFile } from '@/lib/csv';
+import { formatEnumLabel } from '@/lib/format';
 import {
   DisputeReportRow,
   disputeStatuses,
@@ -191,7 +192,7 @@ export default function DisputeReportPage() {
                     </td>
                     <td className="px-6 py-4" data-label="Status">
                       <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-widest ${disputeStatusClass[row.status] || disputeStatusClass.open}`}>
-                        {row.status.replace('_', ' ')}
+                        {formatEnumLabel(row.status)}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-300" data-label="Created">

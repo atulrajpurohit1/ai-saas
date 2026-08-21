@@ -36,6 +36,7 @@ export declare class SalesAcceleratorController {
             assessment: {
                 id: string;
                 createdAt: Date;
+                summary: string | null;
                 leadScore: number | null;
                 priorityTier: string | null;
                 closeReadinessScore: number | null;
@@ -45,7 +46,6 @@ export declare class SalesAcceleratorController {
                 recommendedNextAction: string | null;
                 missingQuestions: string[];
                 objectionRisks: string[];
-                summary: string | null;
             };
             marketSignalProfile: import("./sales-accelerator.service").MarketSignalProfile;
             id: string;
@@ -55,20 +55,21 @@ export declare class SalesAcceleratorController {
                 id: string;
                 createdAt: Date;
                 notes: string | null;
-                guardCount: number | null;
-                objections: string[];
                 propertyType: string | null;
                 buyerRole: string | null;
                 currentProvider: string | null;
+                guardCount: number | null;
                 serviceHours: string | null;
                 painPoints: string[];
                 riskConcerns: string[];
                 decisionTimeline: string | null;
                 budgetSensitivity: string | null;
+                objections: string[];
             }[];
             salesAssessments: {
                 id: string;
                 createdAt: Date;
+                summary: string | null;
                 leadScore: number | null;
                 priorityTier: string | null;
                 closeReadinessScore: number | null;
@@ -78,7 +79,6 @@ export declare class SalesAcceleratorController {
                 recommendedNextAction: string | null;
                 missingQuestions: string[];
                 objectionRisks: string[];
-                summary: string | null;
             }[];
             status: string;
             company: string;
@@ -87,6 +87,7 @@ export declare class SalesAcceleratorController {
             assessment: {
                 id: string;
                 createdAt: Date;
+                summary: string | null;
                 leadScore: number | null;
                 priorityTier: string | null;
                 closeReadinessScore: number | null;
@@ -96,7 +97,6 @@ export declare class SalesAcceleratorController {
                 recommendedNextAction: string | null;
                 missingQuestions: string[];
                 objectionRisks: string[];
-                summary: string | null;
             };
             momentum: import("./sales-accelerator.service").DealMomentum;
             forecast: import("./sales-accelerator.service").DealForecast;
@@ -116,20 +116,21 @@ export declare class SalesAcceleratorController {
                 id: string;
                 createdAt: Date;
                 notes: string | null;
-                guardCount: number | null;
-                objections: string[];
                 propertyType: string | null;
                 buyerRole: string | null;
                 currentProvider: string | null;
+                guardCount: number | null;
                 serviceHours: string | null;
                 painPoints: string[];
                 riskConcerns: string[];
                 decisionTimeline: string | null;
                 budgetSensitivity: string | null;
+                objections: string[];
             }[];
             salesAssessments: {
                 id: string;
                 createdAt: Date;
+                summary: string | null;
                 leadScore: number | null;
                 priorityTier: string | null;
                 closeReadinessScore: number | null;
@@ -139,7 +140,6 @@ export declare class SalesAcceleratorController {
                 recommendedNextAction: string | null;
                 missingQuestions: string[];
                 objectionRisks: string[];
-                summary: string | null;
             }[];
             client: {
                 id: string;
@@ -157,6 +157,7 @@ export declare class SalesAcceleratorController {
             assessment: {
                 id: string;
                 createdAt: Date;
+                summary: string | null;
                 leadScore: number | null;
                 priorityTier: string | null;
                 closeReadinessScore: number | null;
@@ -166,7 +167,6 @@ export declare class SalesAcceleratorController {
                 recommendedNextAction: string | null;
                 missingQuestions: string[];
                 objectionRisks: string[];
-                summary: string | null;
             };
             momentum: import("./sales-accelerator.service").DealMomentum;
             forecast: import("./sales-accelerator.service").DealForecast;
@@ -186,20 +186,21 @@ export declare class SalesAcceleratorController {
                 id: string;
                 createdAt: Date;
                 notes: string | null;
-                guardCount: number | null;
-                objections: string[];
                 propertyType: string | null;
                 buyerRole: string | null;
                 currentProvider: string | null;
+                guardCount: number | null;
                 serviceHours: string | null;
                 painPoints: string[];
                 riskConcerns: string[];
                 decisionTimeline: string | null;
                 budgetSensitivity: string | null;
+                objections: string[];
             }[];
             salesAssessments: {
                 id: string;
                 createdAt: Date;
+                summary: string | null;
                 leadScore: number | null;
                 priorityTier: string | null;
                 closeReadinessScore: number | null;
@@ -209,7 +210,6 @@ export declare class SalesAcceleratorController {
                 recommendedNextAction: string | null;
                 missingQuestions: string[];
                 objectionRisks: string[];
-                summary: string | null;
             }[];
             client: {
                 id: string;
@@ -227,6 +227,7 @@ export declare class SalesAcceleratorController {
             assessment: {
                 id: string;
                 createdAt: Date;
+                summary: string | null;
                 leadScore: number | null;
                 priorityTier: string | null;
                 closeReadinessScore: number | null;
@@ -236,7 +237,6 @@ export declare class SalesAcceleratorController {
                 recommendedNextAction: string | null;
                 missingQuestions: string[];
                 objectionRisks: string[];
-                summary: string | null;
             };
             momentum: import("./sales-accelerator.service").DealMomentum;
             forecast: import("./sales-accelerator.service").DealForecast;
@@ -256,20 +256,21 @@ export declare class SalesAcceleratorController {
                 id: string;
                 createdAt: Date;
                 notes: string | null;
-                guardCount: number | null;
-                objections: string[];
                 propertyType: string | null;
                 buyerRole: string | null;
                 currentProvider: string | null;
+                guardCount: number | null;
                 serviceHours: string | null;
                 painPoints: string[];
                 riskConcerns: string[];
                 decisionTimeline: string | null;
                 budgetSensitivity: string | null;
+                objections: string[];
             }[];
             salesAssessments: {
                 id: string;
                 createdAt: Date;
+                summary: string | null;
                 leadScore: number | null;
                 priorityTier: string | null;
                 closeReadinessScore: number | null;
@@ -279,7 +280,6 @@ export declare class SalesAcceleratorController {
                 recommendedNextAction: string | null;
                 missingQuestions: string[];
                 objectionRisks: string[];
-                summary: string | null;
             }[];
             client: {
                 id: string;
@@ -298,6 +298,7 @@ export declare class SalesAcceleratorController {
             assessment: {
                 id: string;
                 createdAt: Date;
+                summary: string | null;
                 leadScore: number | null;
                 priorityTier: string | null;
                 closeReadinessScore: number | null;
@@ -307,7 +308,6 @@ export declare class SalesAcceleratorController {
                 recommendedNextAction: string | null;
                 missingQuestions: string[];
                 objectionRisks: string[];
-                summary: string | null;
             };
             momentum: import("./sales-accelerator.service").DealMomentum;
             forecast: import("./sales-accelerator.service").DealForecast;
@@ -327,20 +327,21 @@ export declare class SalesAcceleratorController {
                 id: string;
                 createdAt: Date;
                 notes: string | null;
-                guardCount: number | null;
-                objections: string[];
                 propertyType: string | null;
                 buyerRole: string | null;
                 currentProvider: string | null;
+                guardCount: number | null;
                 serviceHours: string | null;
                 painPoints: string[];
                 riskConcerns: string[];
                 decisionTimeline: string | null;
                 budgetSensitivity: string | null;
+                objections: string[];
             }[];
             salesAssessments: {
                 id: string;
                 createdAt: Date;
+                summary: string | null;
                 leadScore: number | null;
                 priorityTier: string | null;
                 closeReadinessScore: number | null;
@@ -350,7 +351,6 @@ export declare class SalesAcceleratorController {
                 recommendedNextAction: string | null;
                 missingQuestions: string[];
                 objectionRisks: string[];
-                summary: string | null;
             }[];
             client: {
                 id: string;
@@ -373,20 +373,21 @@ export declare class SalesAcceleratorController {
                 id: string;
                 createdAt: Date;
                 notes: string | null;
-                guardCount: number | null;
-                objections: string[];
                 propertyType: string | null;
                 buyerRole: string | null;
                 currentProvider: string | null;
+                guardCount: number | null;
                 serviceHours: string | null;
                 painPoints: string[];
                 riskConcerns: string[];
                 decisionTimeline: string | null;
                 budgetSensitivity: string | null;
+                objections: string[];
             }[];
             salesAssessments: {
                 id: string;
                 createdAt: Date;
+                summary: string | null;
                 leadScore: number | null;
                 priorityTier: string | null;
                 closeReadinessScore: number | null;
@@ -396,7 +397,6 @@ export declare class SalesAcceleratorController {
                 recommendedNextAction: string | null;
                 missingQuestions: string[];
                 objectionRisks: string[];
-                summary: string | null;
             }[];
             status: string;
             company: string;
@@ -405,6 +405,7 @@ export declare class SalesAcceleratorController {
             assessment: {
                 id: string;
                 createdAt: Date;
+                summary: string | null;
                 leadScore: number | null;
                 priorityTier: string | null;
                 closeReadinessScore: number | null;
@@ -414,7 +415,6 @@ export declare class SalesAcceleratorController {
                 recommendedNextAction: string | null;
                 missingQuestions: string[];
                 objectionRisks: string[];
-                summary: string | null;
             };
             momentum: import("./sales-accelerator.service").DealMomentum;
             forecast: import("./sales-accelerator.service").DealForecast;
@@ -434,20 +434,21 @@ export declare class SalesAcceleratorController {
                 id: string;
                 createdAt: Date;
                 notes: string | null;
-                guardCount: number | null;
-                objections: string[];
                 propertyType: string | null;
                 buyerRole: string | null;
                 currentProvider: string | null;
+                guardCount: number | null;
                 serviceHours: string | null;
                 painPoints: string[];
                 riskConcerns: string[];
                 decisionTimeline: string | null;
                 budgetSensitivity: string | null;
+                objections: string[];
             }[];
             salesAssessments: {
                 id: string;
                 createdAt: Date;
+                summary: string | null;
                 leadScore: number | null;
                 priorityTier: string | null;
                 closeReadinessScore: number | null;
@@ -457,7 +458,6 @@ export declare class SalesAcceleratorController {
                 recommendedNextAction: string | null;
                 missingQuestions: string[];
                 objectionRisks: string[];
-                summary: string | null;
             }[];
             client: {
                 id: string;
@@ -484,12 +484,12 @@ export declare class SalesAcceleratorController {
                 name: string;
                 stage: string;
             } | null;
+            summary: string | null;
+            assessmentType: string;
             leadScore: number | null;
             priorityTier: string | null;
             closeReadinessScore: number | null;
             recommendedNextAction: string | null;
-            summary: string | null;
-            assessmentType: string;
         }[];
     }>;
     getAlerts(user: ActiveUser): Promise<{
@@ -638,16 +638,16 @@ export declare class SalesAcceleratorController {
             tenantId: string;
             dealId: string | null;
             leadId: string | null;
-            guardCount: number | null;
-            objections: string[];
             propertyType: string | null;
             buyerRole: string | null;
             currentProvider: string | null;
+            guardCount: number | null;
             serviceHours: string | null;
             painPoints: string[];
             riskConcerns: string[];
             decisionTimeline: string | null;
             budgetSensitivity: string | null;
+            objections: string[];
             createdBy: string | null;
         } | null;
         assessment: {
@@ -657,6 +657,10 @@ export declare class SalesAcceleratorController {
             tenantId: string;
             dealId: string | null;
             leadId: string | null;
+            summary: string | null;
+            createdBy: string | null;
+            discoverySessionId: string | null;
+            assessmentType: string;
             leadScore: number | null;
             priorityTier: string | null;
             closeReadinessScore: number | null;
@@ -666,12 +670,8 @@ export declare class SalesAcceleratorController {
             recommendedNextAction: string | null;
             missingQuestions: string[];
             objectionRisks: string[];
-            summary: string | null;
-            discoverySessionId: string | null;
-            assessmentType: string;
             generatedOutput: import("@prisma/client/runtime/library").JsonValue | null;
             aiGenerationId: string | null;
-            createdBy: string | null;
         } | null;
         objectionPatterns: import("./sales-accelerator.service").ObjectionPattern[];
         marketSignalProfile: import("./sales-accelerator.service").MarketSignalProfile;
@@ -757,16 +757,16 @@ export declare class SalesAcceleratorController {
             tenantId: string;
             dealId: string | null;
             leadId: string | null;
-            guardCount: number | null;
-            objections: string[];
             propertyType: string | null;
             buyerRole: string | null;
             currentProvider: string | null;
+            guardCount: number | null;
             serviceHours: string | null;
             painPoints: string[];
             riskConcerns: string[];
             decisionTimeline: string | null;
             budgetSensitivity: string | null;
+            objections: string[];
             createdBy: string | null;
         } | null;
         assessment: {
@@ -776,6 +776,10 @@ export declare class SalesAcceleratorController {
             tenantId: string;
             dealId: string | null;
             leadId: string | null;
+            summary: string | null;
+            createdBy: string | null;
+            discoverySessionId: string | null;
+            assessmentType: string;
             leadScore: number | null;
             priorityTier: string | null;
             closeReadinessScore: number | null;
@@ -785,12 +789,8 @@ export declare class SalesAcceleratorController {
             recommendedNextAction: string | null;
             missingQuestions: string[];
             objectionRisks: string[];
-            summary: string | null;
-            discoverySessionId: string | null;
-            assessmentType: string;
             generatedOutput: import("@prisma/client/runtime/library").JsonValue | null;
             aiGenerationId: string | null;
-            createdBy: string | null;
         } | null;
         objectionPatterns: import("./sales-accelerator.service").ObjectionPattern[];
         momentum: import("./sales-accelerator.service").DealMomentum;
@@ -812,16 +812,16 @@ export declare class SalesAcceleratorController {
         tenantId: string;
         dealId: string | null;
         leadId: string | null;
-        guardCount: number | null;
-        objections: string[];
         propertyType: string | null;
         buyerRole: string | null;
         currentProvider: string | null;
+        guardCount: number | null;
         serviceHours: string | null;
         painPoints: string[];
         riskConcerns: string[];
         decisionTimeline: string | null;
         budgetSensitivity: string | null;
+        objections: string[];
         createdBy: string | null;
     }>;
     saveDealDiscovery(dealId: string, dto: SaveDiscoveryDto, user: ActiveUser): Promise<{
@@ -832,16 +832,16 @@ export declare class SalesAcceleratorController {
         tenantId: string;
         dealId: string | null;
         leadId: string | null;
-        guardCount: number | null;
-        objections: string[];
         propertyType: string | null;
         buyerRole: string | null;
         currentProvider: string | null;
+        guardCount: number | null;
         serviceHours: string | null;
         painPoints: string[];
         riskConcerns: string[];
         decisionTimeline: string | null;
         budgetSensitivity: string | null;
+        objections: string[];
         createdBy: string | null;
     }>;
     generateLeadDiscoveryGuide(leadId: string, user: ActiveUser): Promise<{
@@ -892,6 +892,10 @@ export declare class SalesAcceleratorController {
             tenantId: string;
             dealId: string | null;
             leadId: string | null;
+            summary: string | null;
+            createdBy: string | null;
+            discoverySessionId: string | null;
+            assessmentType: string;
             leadScore: number | null;
             priorityTier: string | null;
             closeReadinessScore: number | null;
@@ -901,12 +905,8 @@ export declare class SalesAcceleratorController {
             recommendedNextAction: string | null;
             missingQuestions: string[];
             objectionRisks: string[];
-            summary: string | null;
-            discoverySessionId: string | null;
-            assessmentType: string;
             generatedOutput: import("@prisma/client/runtime/library").JsonValue | null;
             aiGenerationId: string | null;
-            createdBy: string | null;
         };
         aiGenerationId: string | null;
         fallbackUsed: boolean;
@@ -919,6 +919,10 @@ export declare class SalesAcceleratorController {
             tenantId: string;
             dealId: string | null;
             leadId: string | null;
+            summary: string | null;
+            createdBy: string | null;
+            discoverySessionId: string | null;
+            assessmentType: string;
             leadScore: number | null;
             priorityTier: string | null;
             closeReadinessScore: number | null;
@@ -928,12 +932,8 @@ export declare class SalesAcceleratorController {
             recommendedNextAction: string | null;
             missingQuestions: string[];
             objectionRisks: string[];
-            summary: string | null;
-            discoverySessionId: string | null;
-            assessmentType: string;
             generatedOutput: import("@prisma/client/runtime/library").JsonValue | null;
             aiGenerationId: string | null;
-            createdBy: string | null;
         };
         aiGenerationId: string | null;
         fallbackUsed: boolean;
@@ -945,8 +945,8 @@ export declare class SalesAcceleratorController {
             updatedAt: Date;
             tenantId: string;
             clientId: string | null;
-            content: string;
             title: string;
+            content: string;
             status: string;
             dealId: string | null;
             leadId: string | null;
@@ -965,8 +965,8 @@ export declare class SalesAcceleratorController {
         tenantId: string;
         status: string;
         dealId: string | null;
-        description: string | null;
         dueDate: Date | null;
+        description: string | null;
         subject: string;
         type: string;
     }>;

@@ -13,6 +13,7 @@ exports.CreateRateCardDto = exports.RATE_CARD_STATUSES = void 0;
 const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
 exports.RATE_CARD_STATUSES = ['active', 'inactive'];
+const MAX_PLAUSIBLE_RATE = 500;
 class CreateRateCardDto {
     client_id;
     site_id;
@@ -45,6 +46,7 @@ __decorate([
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.Min)(0.01),
+    (0, class_validator_1.Max)(MAX_PLAUSIBLE_RATE),
     __metadata("design:type", Number)
 ], CreateRateCardDto.prototype, "hourly_rate", void 0);
 __decorate([
@@ -52,6 +54,7 @@ __decorate([
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.Min)(0.01),
+    (0, class_validator_1.Max)(MAX_PLAUSIBLE_RATE),
     __metadata("design:type", Number)
 ], CreateRateCardDto.prototype, "overtime_rate", void 0);
 __decorate([
@@ -59,6 +62,7 @@ __decorate([
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.Min)(0.01),
+    (0, class_validator_1.Max)(MAX_PLAUSIBLE_RATE),
     __metadata("design:type", Number)
 ], CreateRateCardDto.prototype, "holiday_rate", void 0);
 __decorate([

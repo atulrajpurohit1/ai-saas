@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  Matches,
   MaxLength,
 } from 'class-validator';
 
@@ -49,5 +50,8 @@ export class UpdateBrandingDto {
   @IsOptional()
   @IsString()
   @MaxLength(40)
+  @Matches(/^[\d()+\-.\s]{7,40}$/, {
+    message: 'support_phone must be a plausible phone number (digits, spaces, +, -, (, ) only)',
+  })
   support_phone?: string | null;
 }

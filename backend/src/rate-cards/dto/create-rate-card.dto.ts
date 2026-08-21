@@ -6,12 +6,18 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
 } from 'class-validator';
 
 export const RATE_CARD_STATUSES = ['active', 'inactive'] as const;
 export type RateCardStatus = (typeof RATE_CARD_STATUSES)[number];
+
+// Generous ceiling for a per-hour guard billing rate (covers premium/executive
+// protection rates) — just enough to catch clear data-entry errors like a
+// stray extra digit (e.g. $75,421/hr), not to constrain legitimate pricing.
+const MAX_PLAUSIBLE_RATE = 500;
 
 export class CreateRateCardDto {
   @IsString()
@@ -30,18 +36,21 @@ export class CreateRateCardDto {
   @Type(() => Number)
   @IsNumber()
   @Min(0.01)
+  @Max(MAX_PLAUSIBLE_RATE)
   hourly_rate: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0.01)
+  @Max(MAX_PLAUSIBLE_RATE)
   overtime_rate?: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0.01)
+  @Max(MAX_PLAUSIBLE_RATE)
   holiday_rate?: number;
 
   @IsISO8601()

@@ -13,6 +13,7 @@ import {
   updateBranding,
   verifyCustomDomain,
 } from '@/lib/branding';
+import { formatPhoneNumber, isValidPhoneNumber } from '@/lib/format';
 import { useAuth } from '@/context/AuthContext';
 import { Check, Copy, Globe2, Loader2, Palette, Plus, Save, ShieldCheck } from 'lucide-react';
 
@@ -99,6 +100,10 @@ export default function BrandingSettingsPage() {
   }, []);
 
   const save = async () => {
+    if (!isValidPhoneNumber(form.support_phone || '')) {
+      setError('Enter a valid support phone number before saving.');
+      return;
+    }
     setSaving(true);
     setError('');
     setMessage('');
@@ -203,7 +208,22 @@ export default function BrandingSettingsPage() {
               </label>
               <label className="space-y-2 text-sm font-semibold text-slate-300">
                 Support Phone
-                <input value={form.support_phone || ''} onChange={(event) => setForm({ ...form, support_phone: event.target.value })} disabled={!canManage} className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60" />
+                <input
+                  type="tel"
+                  value={form.support_phone || ''}
+                  onChange={(event) => setForm({ ...form, support_phone: event.target.value })}
+                  onBlur={(event) => {
+                    if (event.target.value.trim()) {
+                      setForm((current) => ({ ...current, support_phone: formatPhoneNumber(event.target.value) }));
+                    }
+                  }}
+                  disabled={!canManage}
+                  placeholder="(555) 555-5555"
+                  className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60"
+                />
+                {!isValidPhoneNumber(form.support_phone || '') && (
+                  <span className="block text-xs font-medium text-rose-400">Enter a valid phone number (7-15 digits).</span>
+                )}
               </label>
               <label className="space-y-2 text-sm font-semibold text-slate-300">
                 Logo URL
