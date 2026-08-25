@@ -14,8 +14,8 @@ export declare class ShiftsController {
         createdAt: Date;
         tenantId: string;
         branchId: string | null;
-        status: string;
         siteId: string;
+        status: string;
         startTime: Date;
         endTime: Date;
         requiredGuards: number;
@@ -48,8 +48,8 @@ export declare class ShiftsController {
         createdAt: Date;
         tenantId: string;
         branchId: string | null;
-        status: string;
         siteId: string;
+        status: string;
         startTime: Date;
         endTime: Date;
         requiredGuards: number;

@@ -7,10 +7,10 @@ export declare class ActivitiesController {
         id: string;
         createdAt: Date;
         tenantId: string;
+        description: string | null;
         status: string;
         dealId: string | null;
         dueDate: Date | null;
-        description: string | null;
         subject: string;
         type: string;
     }>;
@@ -18,10 +18,10 @@ export declare class ActivitiesController {
         id: string;
         createdAt: Date;
         tenantId: string;
+        description: string | null;
         status: string;
         dealId: string | null;
         dueDate: Date | null;
-        description: string | null;
         subject: string;
         type: string;
     }[]>;
@@ -29,10 +29,10 @@ export declare class ActivitiesController {
         id: string;
         createdAt: Date;
         tenantId: string;
+        description: string | null;
         status: string;
         dealId: string | null;
         dueDate: Date | null;
-        description: string | null;
         subject: string;
         type: string;
     }>;

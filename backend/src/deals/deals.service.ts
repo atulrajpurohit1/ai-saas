@@ -95,6 +95,7 @@ export class DealsService {
             priorityTier: true,
             closeReadinessScore: true,
             discoveryQualityScore: true,
+            riskProfile: true,
             recommendedNextAction: true,
             createdAt: true,
           },

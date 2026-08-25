@@ -10,13 +10,18 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateCheckpointDto = void 0;
+const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
+const checkpoint_verification_constants_1 = require("../checkpoint-verification.constants");
 class CreateCheckpointDto {
     name;
     site_id;
     description;
     location_note;
     qr_code_value;
+    latitude;
+    longitude;
+    geofence_radius_meters;
 }
 exports.CreateCheckpointDto = CreateCheckpointDto;
 __decorate([
@@ -44,4 +49,24 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateCheckpointDto.prototype, "qr_code_value", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsLatitude)(),
+    __metadata("design:type", Number)
+], CreateCheckpointDto.prototype, "latitude", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsLongitude)(),
+    __metadata("design:type", Number)
+], CreateCheckpointDto.prototype, "longitude", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(checkpoint_verification_constants_1.MIN_GEOFENCE_RADIUS_METERS),
+    (0, class_validator_1.Max)(checkpoint_verification_constants_1.MAX_GEOFENCE_RADIUS_METERS),
+    __metadata("design:type", Number)
+], CreateCheckpointDto.prototype, "geofence_radius_meters", void 0);
 //# sourceMappingURL=create-checkpoint.dto.js.map

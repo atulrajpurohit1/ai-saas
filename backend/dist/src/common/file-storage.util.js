@@ -1,10 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VENDOR_UPLOAD_ALLOWED_EXTENSIONS = exports.VENDOR_UPLOAD_DIR = void 0;
+exports.GUARD_COMPLIANCE_UPLOAD_ALLOWED_EXTENSIONS = exports.GUARD_COMPLIANCE_UPLOAD_DIR = exports.VENDOR_UPLOAD_ALLOWED_EXTENSIONS = exports.VENDOR_UPLOAD_DIR = void 0;
 exports.ensureVendorUploadDir = ensureVendorUploadDir;
 exports.sanitizeFilename = sanitizeFilename;
 exports.vendorUploadMaxMb = vendorUploadMaxMb;
 exports.vendorUploadMaxBytes = vendorUploadMaxBytes;
+exports.ensureGuardComplianceUploadDir = ensureGuardComplianceUploadDir;
+exports.guardComplianceUploadMaxMb = guardComplianceUploadMaxMb;
+exports.guardComplianceUploadMaxBytes = guardComplianceUploadMaxBytes;
 const fs_1 = require("fs");
 const path_1 = require("path");
 exports.VENDOR_UPLOAD_DIR = (0, path_1.join)(process.cwd(), 'uploads', 'vendor-submissions');
@@ -26,5 +29,20 @@ function vendorUploadMaxMb() {
 }
 function vendorUploadMaxBytes() {
     return vendorUploadMaxMb() * 1024 * 1024;
+}
+exports.GUARD_COMPLIANCE_UPLOAD_DIR = (0, path_1.join)(process.cwd(), 'uploads', 'guard-compliance');
+function ensureGuardComplianceUploadDir() {
+    if (!(0, fs_1.existsSync)(exports.GUARD_COMPLIANCE_UPLOAD_DIR)) {
+        (0, fs_1.mkdirSync)(exports.GUARD_COMPLIANCE_UPLOAD_DIR, { recursive: true });
+    }
+    return exports.GUARD_COMPLIANCE_UPLOAD_DIR;
+}
+exports.GUARD_COMPLIANCE_UPLOAD_ALLOWED_EXTENSIONS = /\.(pdf|jpg|jpeg|png)$/i;
+function guardComplianceUploadMaxMb() {
+    const parsed = Number(process.env.GUARD_COMPLIANCE_UPLOAD_MAX_MB || 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
+}
+function guardComplianceUploadMaxBytes() {
+    return guardComplianceUploadMaxMb() * 1024 * 1024;
 }
 //# sourceMappingURL=file-storage.util.js.map

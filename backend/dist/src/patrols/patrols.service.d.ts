@@ -8,6 +8,7 @@ import { UpdatePatrolRouteDto } from './dto/update-patrol-route.dto';
 import { AttachCheckpointsDto } from './dto/attach-checkpoints.dto';
 import { StartPatrolRunDto } from './dto/start-patrol-run.dto';
 import { ScanCheckpointDto } from './dto/scan-checkpoint.dto';
+import { UpdateLocationDto } from './dto/update-location.dto';
 export declare class PatrolsService {
     private prisma;
     private auditService;
@@ -23,11 +24,14 @@ export declare class PatrolsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
         siteId: string;
         description: string | null;
         locationNote: string | null;
         qrCodeValue: string | null;
+        latitude: number | null;
+        longitude: number | null;
+        geofenceRadiusMeters: number | null;
+        status: string;
     }>;
     findAllCheckpoints(user: ActiveUser, siteId?: string): Promise<({
         site: {
@@ -40,11 +44,14 @@ export declare class PatrolsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
         siteId: string;
         description: string | null;
         locationNote: string | null;
         qrCodeValue: string | null;
+        latitude: number | null;
+        longitude: number | null;
+        geofenceRadiusMeters: number | null;
+        status: string;
     })[]>;
     updateCheckpoint(user: ActiveUser, id: string, dto: UpdateCheckpointDto): Promise<{
         site: {
@@ -57,12 +64,17 @@ export declare class PatrolsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
         siteId: string;
         description: string | null;
         locationNote: string | null;
         qrCodeValue: string | null;
+        latitude: number | null;
+        longitude: number | null;
+        geofenceRadiusMeters: number | null;
+        status: string;
     }>;
+    private resolveGeofenceForCreate;
+    private resolveGeofenceForUpdate;
     createPatrolRoute(user: ActiveUser, dto: CreatePatrolRouteDto): Promise<{
         site: {
             id: string;
@@ -74,9 +86,9 @@ export declare class PatrolsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
         siteId: string;
         description: string | null;
+        status: string;
     }>;
     findAllPatrolRoutes(user: ActiveUser, siteId?: string): Promise<({
         checkpoints: {
@@ -92,9 +104,9 @@ export declare class PatrolsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
         siteId: string;
         description: string | null;
+        status: string;
     })[]>;
     findPatrolRoute(user: ActiveUser, id: string): Promise<{
         checkpoints: ({
@@ -104,11 +116,14 @@ export declare class PatrolsService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                status: string;
                 siteId: string;
                 description: string | null;
                 locationNote: string | null;
                 qrCodeValue: string | null;
+                latitude: number | null;
+                longitude: number | null;
+                geofenceRadiusMeters: number | null;
+                status: string;
             };
         } & {
             id: string;
@@ -126,9 +141,9 @@ export declare class PatrolsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
         siteId: string;
         description: string | null;
+        status: string;
     }>;
     updatePatrolRoute(user: ActiveUser, id: string, dto: UpdatePatrolRouteDto): Promise<{
         site: {
@@ -141,9 +156,9 @@ export declare class PatrolsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
         siteId: string;
         description: string | null;
+        status: string;
     }>;
     attachCheckpoints(user: ActiveUser, routeId: string, dto: AttachCheckpointsDto): Promise<({
         checkpoints: ({
@@ -153,11 +168,14 @@ export declare class PatrolsService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                status: string;
                 siteId: string;
                 description: string | null;
                 locationNote: string | null;
                 qrCodeValue: string | null;
+                latitude: number | null;
+                longitude: number | null;
+                geofenceRadiusMeters: number | null;
+                status: string;
             };
         } & {
             id: string;
@@ -171,11 +189,15 @@ export declare class PatrolsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
         siteId: string;
         description: string | null;
+        status: string;
     }) | null>;
-    findAllPatrolRuns(user: ActiveUser): Promise<({
+    findAllPatrolRuns(user: ActiveUser, status?: string): Promise<({
+        guard: {
+            id: string;
+            name: string;
+        };
         shift: {
             id: string;
             site: {
@@ -184,10 +206,6 @@ export declare class PatrolsService {
             };
             startTime: Date;
             endTime: Date;
-        };
-        guard: {
-            id: string;
-            name: string;
         };
         patrolRoute: {
             id: string;
@@ -204,8 +222,16 @@ export declare class PatrolsService {
         patrolRouteId: string;
         startedAt: Date | null;
         completedAt: Date | null;
+        lastLatitude: number | null;
+        lastLongitude: number | null;
+        lastAccuracyMeters: number | null;
+        lastLocationAt: Date | null;
     })[]>;
     findPatrolRun(user: ActiveUser, id: string): Promise<{
+        guard: {
+            id: string;
+            name: string;
+        };
         shift: {
             id: string;
             site: {
@@ -214,10 +240,6 @@ export declare class PatrolsService {
             };
             startTime: Date;
             endTime: Date;
-        };
-        guard: {
-            id: string;
-            name: string;
         };
         patrolRoute: {
             id: string;
@@ -230,11 +252,14 @@ export declare class PatrolsService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                status: string;
                 siteId: string;
                 description: string | null;
                 locationNote: string | null;
                 qrCodeValue: string | null;
+                latitude: number | null;
+                longitude: number | null;
+                geofenceRadiusMeters: number | null;
+                status: string;
             };
         } & {
             id: string;
@@ -242,10 +267,14 @@ export declare class PatrolsService {
             notes: string | null;
             tenantId: string;
             status: string;
-            guardId: string;
-            checkpointId: string;
-            scannedAt: Date;
             patrolRunId: string;
+            checkpointId: string;
+            guardId: string;
+            scannedAt: Date;
+            verificationStatus: string | null;
+            distanceMeters: number | null;
+            submittedLatitude: number | null;
+            submittedLongitude: number | null;
         })[];
     } & {
         id: string;
@@ -258,6 +287,10 @@ export declare class PatrolsService {
         patrolRouteId: string;
         startedAt: Date | null;
         completedAt: Date | null;
+        lastLatitude: number | null;
+        lastLongitude: number | null;
+        lastAccuracyMeters: number | null;
+        lastLocationAt: Date | null;
     }>;
     getShiftPatrolRoutes(tenantId: string, guardId: string, shiftId: string): Promise<({
         checkpoints: ({
@@ -267,11 +300,14 @@ export declare class PatrolsService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                status: string;
                 siteId: string;
                 description: string | null;
                 locationNote: string | null;
                 qrCodeValue: string | null;
+                latitude: number | null;
+                longitude: number | null;
+                geofenceRadiusMeters: number | null;
+                status: string;
             };
         } & {
             id: string;
@@ -285,9 +321,9 @@ export declare class PatrolsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
         siteId: string;
         description: string | null;
+        status: string;
     })[]>;
     startPatrolRun(tenantId: string, guardId: string, shiftId: string, dto: StartPatrolRunDto): Promise<{
         patrolRoute: {
@@ -298,11 +334,14 @@ export declare class PatrolsService {
                     createdAt: Date;
                     updatedAt: Date;
                     tenantId: string;
-                    status: string;
                     siteId: string;
                     description: string | null;
                     locationNote: string | null;
                     qrCodeValue: string | null;
+                    latitude: number | null;
+                    longitude: number | null;
+                    geofenceRadiusMeters: number | null;
+                    status: string;
                 };
             } & {
                 id: string;
@@ -316,9 +355,9 @@ export declare class PatrolsService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            status: string;
             siteId: string;
             description: string | null;
+            status: string;
         };
     } & {
         id: string;
@@ -331,6 +370,10 @@ export declare class PatrolsService {
         patrolRouteId: string;
         startedAt: Date | null;
         completedAt: Date | null;
+        lastLatitude: number | null;
+        lastLongitude: number | null;
+        lastAccuracyMeters: number | null;
+        lastLocationAt: Date | null;
     }>;
     scanCheckpoint(tenantId: string, guardId: string, runId: string, checkpointId: string, dto?: ScanCheckpointDto): Promise<{
         checkpoint: {
@@ -339,11 +382,14 @@ export declare class PatrolsService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            status: string;
             siteId: string;
             description: string | null;
             locationNote: string | null;
             qrCodeValue: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            geofenceRadiusMeters: number | null;
+            status: string;
         };
     } & {
         id: string;
@@ -351,11 +397,16 @@ export declare class PatrolsService {
         notes: string | null;
         tenantId: string;
         status: string;
-        guardId: string;
-        checkpointId: string;
-        scannedAt: Date;
         patrolRunId: string;
+        checkpointId: string;
+        guardId: string;
+        scannedAt: Date;
+        verificationStatus: string | null;
+        distanceMeters: number | null;
+        submittedLatitude: number | null;
+        submittedLongitude: number | null;
     }>;
+    private verifyCheckpointLocation;
     completePatrolRun(tenantId: string, guardId: string, runId: string): Promise<{
         events: ({
             checkpoint: {
@@ -364,11 +415,14 @@ export declare class PatrolsService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                status: string;
                 siteId: string;
                 description: string | null;
                 locationNote: string | null;
                 qrCodeValue: string | null;
+                latitude: number | null;
+                longitude: number | null;
+                geofenceRadiusMeters: number | null;
+                status: string;
             };
         } & {
             id: string;
@@ -376,10 +430,14 @@ export declare class PatrolsService {
             notes: string | null;
             tenantId: string;
             status: string;
-            guardId: string;
-            checkpointId: string;
-            scannedAt: Date;
             patrolRunId: string;
+            checkpointId: string;
+            guardId: string;
+            scannedAt: Date;
+            verificationStatus: string | null;
+            distanceMeters: number | null;
+            submittedLatitude: number | null;
+            submittedLongitude: number | null;
         })[];
     } & {
         id: string;
@@ -392,6 +450,17 @@ export declare class PatrolsService {
         patrolRouteId: string;
         startedAt: Date | null;
         completedAt: Date | null;
+        lastLatitude: number | null;
+        lastLongitude: number | null;
+        lastAccuracyMeters: number | null;
+        lastLocationAt: Date | null;
+    }>;
+    updateLocation(tenantId: string, guardId: string, runId: string, dto: UpdateLocationDto): Promise<{
+        id: string;
+        lastLatitude: number | null;
+        lastLongitude: number | null;
+        lastAccuracyMeters: number | null;
+        lastLocationAt: Date | null;
     }>;
     getGuardPatrolRuns(tenantId: string, guardId: string): Promise<({
         shift: {
@@ -418,5 +487,9 @@ export declare class PatrolsService {
         patrolRouteId: string;
         startedAt: Date | null;
         completedAt: Date | null;
+        lastLatitude: number | null;
+        lastLongitude: number | null;
+        lastAccuracyMeters: number | null;
+        lastLocationAt: Date | null;
     })[]>;
 }

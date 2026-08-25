@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
 import api from '@/lib/api';
 import { branchParams, BranchSummary } from '@/lib/branches';
 import { FieldAccessMap, getEffectiveFieldPermissions } from '@/lib/field-permissions';
-import { Plus, Search, ShieldCheck, Edit2, Phone, AlertTriangle, RefreshCw, Mail, KeyRound } from 'lucide-react';
+import { Plus, Search, ShieldCheck, Edit2, Phone, AlertTriangle, RefreshCw, Mail, KeyRound, FileCheck2 } from 'lucide-react';
 
 interface Guard {
   id: string;
@@ -293,7 +294,14 @@ export default function GuardsPage() {
                     {new Date(guard.createdAt).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 text-right align-middle" data-label="Actions">
-                    <button 
+                    <Link
+                      href={`/guards/compliance?search=${encodeURIComponent(guard.name)}`}
+                      className="inline-flex p-2 hover:bg-white/10 rounded-lg transition-colors text-emerald-400 hover:text-emerald-300"
+                      title="View compliance records"
+                    >
+                      <FileCheck2 size={18} />
+                    </Link>
+                    <button
                       onClick={() => handleEdit(guard)}
                       className="p-2 hover:bg-white/10 rounded-lg transition-colors text-indigo-400 hover:text-indigo-300"
                     >

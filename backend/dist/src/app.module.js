@@ -61,6 +61,8 @@ const vendors_module_1 = require("./vendors/vendors.module");
 const vendor_portal_module_1 = require("./vendor-portal/vendor-portal.module");
 const field_permissions_module_1 = require("./field-permissions/field-permissions.module");
 const prospect_search_module_1 = require("./prospect-search/prospect-search.module");
+const dashboard_module_1 = require("./dashboard/dashboard.module");
+const guard_compliance_module_1 = require("./guard-compliance/guard-compliance.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -70,6 +72,8 @@ exports.AppModule = AppModule = __decorate([
             config_1.ConfigModule.forRoot({ isGlobal: true }),
             prisma_module_1.PrismaModule,
             roles_module_1.RolesModule,
+            dashboard_module_1.DashboardModule,
+            guard_compliance_module_1.GuardComplianceModule,
             field_permissions_module_1.FieldPermissionsModule,
             api_keys_module_1.ApiKeysModule,
             webhooks_module_1.WebhooksModule,

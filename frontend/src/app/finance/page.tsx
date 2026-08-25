@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import FinanceFiltersBar from '@/components/FinanceFilters';
+import CategoryBarChart from '@/components/charts/CategoryBarChart';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { downloadBlobFile } from '@/lib/csv';
@@ -49,6 +50,15 @@ const statusClass: Record<string, string> = {
   resolved: 'border-violet-400/20 bg-violet-400/10 text-violet-300',
   paid: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
   cancelled: 'border-slate-400/20 bg-slate-400/10 text-slate-300',
+};
+
+const statusChartColor: Record<string, string> = {
+  draft: '#fbbf24',
+  issued: '#38bdf8',
+  disputed: '#fb923c',
+  resolved: '#a78bfa',
+  paid: '#34d399',
+  cancelled: '#94a3b8',
 };
 
 function formatMoney(value: number) {
@@ -169,6 +179,25 @@ export default function FinancePage() {
             </div>
           );
         })}
+      </div>
+
+      <div className="mb-6 rounded-3xl border border-white/5 bg-white/[0.04] p-5 sm:p-6">
+        <h3 className="mb-6 font-bold text-white">Invoice Count By Status</h3>
+        {loading ? (
+          <div className="flex h-32 items-center justify-center text-muted-foreground">
+            <Loader2 className="animate-spin" size={20} />
+          </div>
+        ) : (
+          <CategoryBarChart
+            data={invoiceStatuses.map((status) => ({
+              key: status,
+              label: status.charAt(0).toUpperCase() + status.slice(1),
+              value: summary.invoiceCountByStatus[status] || 0,
+              color: statusChartColor[status],
+            }))}
+            emptyMessage="No invoices generated yet."
+          />
+        )}
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">

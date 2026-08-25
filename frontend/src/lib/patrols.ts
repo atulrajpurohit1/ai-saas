@@ -8,6 +8,11 @@ export interface Checkpoint {
   description: string | null;
   locationNote: string | null;
   qrCodeValue: string | null;
+  // GPS geofence (Phase 3A) - null/null/null means this checkpoint has no
+  // geofence configured yet and scans against it are NO_GEOFENCE_CONFIGURED.
+  latitude: number | null;
+  longitude: number | null;
+  geofenceRadiusMeters: number | null;
   status: 'active' | 'inactive';
   createdAt: string;
   updatedAt: string;
@@ -16,6 +21,15 @@ export interface Checkpoint {
     name: string;
   };
 }
+
+// Mirrors backend/src/patrols/checkpoint-verification.constants.ts exactly -
+// always computed server-side from submitted coordinates, never client-set.
+export type CheckpointVerificationStatus =
+  | 'SUCCESS'
+  | 'OUTSIDE_GEOFENCE'
+  | 'LOCATION_UNAVAILABLE'
+  | 'NO_GEOFENCE_CONFIGURED'
+  | 'INVALID_LOCATION';
 
 export interface PatrolRouteCheckpoint {
   id: string;
@@ -50,6 +64,13 @@ export interface PatrolRun {
   status: 'not_started' | 'in_progress' | 'completed' | 'missed';
   startedAt: string | null;
   completedAt: string | null;
+  // Live tracking (Phase 3B) - the LATEST known guard location for this run
+  // only, not a history. Present only while/after the run has received at
+  // least one location update.
+  lastLatitude: number | null;
+  lastLongitude: number | null;
+  lastAccuracyMeters: number | null;
+  lastLocationAt: string | null;
   createdAt: string;
   updatedAt: string;
   patrolRoute?: {
@@ -82,6 +103,10 @@ export interface PatrolEvent {
   scannedAt: string;
   status: 'completed' | 'missed' | 'skipped';
   notes: string | null;
+  verificationStatus: CheckpointVerificationStatus | null;
+  distanceMeters: number | null;
+  submittedLatitude: number | null;
+  submittedLongitude: number | null;
   checkpoint?: Checkpoint;
 }
 
@@ -92,6 +117,9 @@ export interface CreateCheckpointInput {
   description?: string;
   location_note?: string;
   qr_code_value?: string;
+  latitude?: number;
+  longitude?: number;
+  geofence_radius_meters?: number;
 }
 
 export interface UpdateCheckpointInput {
@@ -100,6 +128,10 @@ export interface UpdateCheckpointInput {
   location_note?: string;
   qr_code_value?: string;
   status?: 'active' | 'inactive';
+  latitude?: number;
+  longitude?: number;
+  geofence_radius_meters?: number;
+  clear_geofence?: boolean;
 }
 
 export interface CreatePatrolRouteInput {
@@ -130,6 +162,17 @@ export interface StartPatrolRunInput {
 export interface ScanCheckpointInput {
   notes?: string;
   status?: 'completed' | 'skipped';
+  // Raw device coordinates only - the server computes the verification
+  // result itself, it never accepts a verdict from the client.
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface UpdateLocationInput {
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  timestamp?: string;
 }
 
 // API Calls - Admin
@@ -177,8 +220,10 @@ export async function attachRouteCheckpoints(routeId: string, input: AttachCheck
   return response.data;
 }
 
-export async function getPatrolRuns() {
-  const response = await api.get<PatrolRun[]>('patrol-runs');
+export async function getPatrolRuns(status?: PatrolRun['status']) {
+  const response = await api.get<PatrolRun[]>('patrol-runs', {
+    params: status ? { status } : undefined,
+  });
   return response.data;
 }
 
@@ -203,6 +248,11 @@ export async function scanPatrolCheckpoint(runId: string, checkpointId: string, 
     `guard/patrol-runs/${runId}/checkpoints/${checkpointId}/scan`,
     input || {},
   );
+  return response.data;
+}
+
+export async function updateGuardLocation(runId: string, input: UpdateLocationInput) {
+  const response = await api.post<PatrolRun>(`guard/patrol-runs/${runId}/location`, input);
   return response.data;
 }
 

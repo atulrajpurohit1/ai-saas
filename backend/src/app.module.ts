@@ -52,12 +52,16 @@ import { VendorsModule } from './vendors/vendors.module';
 import { VendorPortalModule } from './vendor-portal/vendor-portal.module';
 import { FieldPermissionsModule } from './field-permissions/field-permissions.module';
 import { ProspectSearchModule } from './prospect-search/prospect-search.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { GuardComplianceModule } from './guard-compliance/guard-compliance.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     RolesModule,
+    DashboardModule,
+    GuardComplianceModule,
     FieldPermissionsModule,
     ApiKeysModule,
     WebhooksModule,

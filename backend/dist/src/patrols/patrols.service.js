@@ -14,6 +14,8 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const audit_service_1 = require("../audit/audit.service");
 const branch_scope_1 = require("../branches/branch-scope");
+const geo_util_1 = require("../common/geo.util");
+const checkpoint_verification_constants_1 = require("./checkpoint-verification.constants");
 let PatrolsService = class PatrolsService {
     prisma;
     auditService;
@@ -28,6 +30,7 @@ let PatrolsService = class PatrolsService {
         if (!site) {
             throw new common_1.NotFoundException('Site not found');
         }
+        const geofence = this.resolveGeofenceForCreate(dto);
         const checkpoint = await this.prisma.checkpoint.create({
             data: {
                 tenantId: user.tenantId,
@@ -37,6 +40,9 @@ let PatrolsService = class PatrolsService {
                 locationNote: dto.location_note,
                 qrCodeValue: dto.qr_code_value,
                 status: 'active',
+                latitude: geofence.latitude,
+                longitude: geofence.longitude,
+                geofenceRadiusMeters: geofence.geofenceRadiusMeters,
             },
             include: {
                 site: { select: { id: true, name: true } },
@@ -74,6 +80,7 @@ let PatrolsService = class PatrolsService {
         if (!checkpoint) {
             throw new common_1.NotFoundException('Checkpoint not found');
         }
+        const geofenceUpdate = this.resolveGeofenceForUpdate(checkpoint, dto);
         const updated = await this.prisma.checkpoint.update({
             where: { id },
             data: {
@@ -88,6 +95,7 @@ let PatrolsService = class PatrolsService {
                     ? { qrCodeValue: dto.qr_code_value }
                     : {}),
                 ...(dto.status !== undefined ? { status: dto.status } : {}),
+                ...geofenceUpdate,
             },
             include: {
                 site: { select: { id: true, name: true } },
@@ -102,6 +110,45 @@ let PatrolsService = class PatrolsService {
             details: `Checkpoint "${checkpoint.name}" updated`,
         });
         return updated;
+    }
+    resolveGeofenceForCreate(dto) {
+        const hasLatitude = dto.latitude !== undefined;
+        const hasLongitude = dto.longitude !== undefined;
+        if (hasLatitude !== hasLongitude) {
+            throw new common_1.BadRequestException('Both latitude and longitude are required to configure a checkpoint geofence');
+        }
+        if (!hasLatitude) {
+            return { latitude: null, longitude: null, geofenceRadiusMeters: null };
+        }
+        return {
+            latitude: dto.latitude,
+            longitude: dto.longitude,
+            geofenceRadiusMeters: dto.geofence_radius_meters ?? checkpoint_verification_constants_1.DEFAULT_GEOFENCE_RADIUS_METERS,
+        };
+    }
+    resolveGeofenceForUpdate(checkpoint, dto) {
+        if (dto.clear_geofence) {
+            return { latitude: null, longitude: null, geofenceRadiusMeters: null };
+        }
+        const touchesGeofence = dto.latitude !== undefined ||
+            dto.longitude !== undefined ||
+            dto.geofence_radius_meters !== undefined;
+        if (!touchesGeofence) {
+            return {};
+        }
+        const latitude = dto.latitude ?? checkpoint.latitude;
+        const longitude = dto.longitude ?? checkpoint.longitude;
+        if ((latitude === null) !== (longitude === null)) {
+            throw new common_1.BadRequestException('Both latitude and longitude are required to configure a checkpoint geofence');
+        }
+        if (latitude === null || longitude === null) {
+            return { latitude: null, longitude: null, geofenceRadiusMeters: null };
+        }
+        return {
+            latitude,
+            longitude,
+            geofenceRadiusMeters: dto.geofence_radius_meters ?? checkpoint.geofenceRadiusMeters ?? checkpoint_verification_constants_1.DEFAULT_GEOFENCE_RADIUS_METERS,
+        };
     }
     async createPatrolRoute(user, dto) {
         const site = await this.prisma.site.findFirst({
@@ -253,11 +300,12 @@ let PatrolsService = class PatrolsService {
         });
         return result;
     }
-    async findAllPatrolRuns(user) {
+    async findAllPatrolRuns(user, status) {
         return this.prisma.patrolRun.findMany({
             where: {
                 tenantId: user.tenantId,
                 shift: { ...(0, branch_scope_1.branchWhere)(user) },
+                ...(status ? { status } : {}),
             },
             include: {
                 patrolRoute: {
@@ -398,7 +446,7 @@ let PatrolsService = class PatrolsService {
             include: {
                 patrolRoute: {
                     include: {
-                        checkpoints: true,
+                        checkpoints: { include: { checkpoint: true } },
                     },
                 },
             },
@@ -410,6 +458,16 @@ let PatrolsService = class PatrolsService {
         if (!checkpointOnRoute) {
             throw new common_1.BadRequestException('Checkpoint does not belong to this patrol route');
         }
+        const verification = this.verifyCheckpointLocation(checkpointOnRoute.checkpoint, dto);
+        const eventData = {
+            scannedAt: new Date(),
+            status: dto?.status || 'completed',
+            notes: dto?.notes || null,
+            verificationStatus: verification.status,
+            distanceMeters: verification.distanceMeters,
+            submittedLatitude: verification.submittedLatitude,
+            submittedLongitude: verification.submittedLongitude,
+        };
         const existingEvent = await this.prisma.patrolEvent.findFirst({
             where: {
                 patrolRunId: runId,
@@ -419,11 +477,7 @@ let PatrolsService = class PatrolsService {
         if (existingEvent) {
             return this.prisma.patrolEvent.update({
                 where: { id: existingEvent.id },
-                data: {
-                    scannedAt: new Date(),
-                    status: dto?.status || 'completed',
-                    notes: dto?.notes || null,
-                },
+                data: eventData,
                 include: {
                     checkpoint: true,
                 },
@@ -435,14 +489,52 @@ let PatrolsService = class PatrolsService {
                 patrolRunId: runId,
                 checkpointId,
                 guardId,
-                scannedAt: new Date(),
-                status: dto?.status || 'completed',
-                notes: dto?.notes || null,
+                ...eventData,
             },
             include: {
                 checkpoint: true,
             },
         });
+    }
+    verifyCheckpointLocation(checkpoint, dto) {
+        const hasGeofence = checkpoint.latitude !== null &&
+            checkpoint.longitude !== null &&
+            checkpoint.geofenceRadiusMeters !== null;
+        if (!hasGeofence) {
+            return {
+                status: checkpoint_verification_constants_1.CheckpointVerificationStatus.NO_GEOFENCE_CONFIGURED,
+                distanceMeters: null,
+                submittedLatitude: dto?.latitude ?? null,
+                submittedLongitude: dto?.longitude ?? null,
+            };
+        }
+        const hasSubmittedLocation = dto?.latitude !== undefined && dto?.longitude !== undefined;
+        if (!hasSubmittedLocation) {
+            return {
+                status: checkpoint_verification_constants_1.CheckpointVerificationStatus.LOCATION_UNAVAILABLE,
+                distanceMeters: null,
+                submittedLatitude: null,
+                submittedLongitude: null,
+            };
+        }
+        if (!(0, geo_util_1.isValidCoordinate)(dto.latitude, dto.longitude)) {
+            return {
+                status: checkpoint_verification_constants_1.CheckpointVerificationStatus.INVALID_LOCATION,
+                distanceMeters: null,
+                submittedLatitude: dto.latitude ?? null,
+                submittedLongitude: dto.longitude ?? null,
+            };
+        }
+        const distanceMeters = (0, geo_util_1.haversineDistanceMeters)({ latitude: checkpoint.latitude, longitude: checkpoint.longitude }, { latitude: dto.latitude, longitude: dto.longitude });
+        const withinRadius = distanceMeters <= checkpoint.geofenceRadiusMeters;
+        return {
+            status: withinRadius
+                ? checkpoint_verification_constants_1.CheckpointVerificationStatus.SUCCESS
+                : checkpoint_verification_constants_1.CheckpointVerificationStatus.OUTSIDE_GEOFENCE,
+            distanceMeters: Math.round(distanceMeters),
+            submittedLatitude: dto.latitude,
+            submittedLongitude: dto.longitude,
+        };
     }
     async completePatrolRun(tenantId, guardId, runId) {
         const run = await this.prisma.patrolRun.findFirst({
@@ -489,6 +581,39 @@ let PatrolsService = class PatrolsService {
                 events: {
                     include: { checkpoint: true },
                 },
+            },
+        });
+    }
+    async updateLocation(tenantId, guardId, runId, dto) {
+        const run = await this.prisma.patrolRun.findFirst({
+            where: {
+                id: runId,
+                tenantId,
+                guardId,
+                status: 'in_progress',
+            },
+            select: { id: true },
+        });
+        if (!run) {
+            throw new common_1.NotFoundException('Active patrol run not found');
+        }
+        if (!(0, geo_util_1.isValidCoordinate)(dto.latitude, dto.longitude)) {
+            throw new common_1.BadRequestException('Invalid coordinates');
+        }
+        return this.prisma.patrolRun.update({
+            where: { id: runId },
+            data: {
+                lastLatitude: dto.latitude,
+                lastLongitude: dto.longitude,
+                lastAccuracyMeters: dto.accuracy ?? null,
+                lastLocationAt: dto.timestamp ? new Date(dto.timestamp) : new Date(),
+            },
+            select: {
+                id: true,
+                lastLatitude: true,
+                lastLongitude: true,
+                lastAccuracyMeters: true,
+                lastLocationAt: true,
             },
         });
     }

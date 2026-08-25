@@ -19,11 +19,14 @@ export declare class PatrolsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
         siteId: string;
         description: string | null;
         locationNote: string | null;
         qrCodeValue: string | null;
+        latitude: number | null;
+        longitude: number | null;
+        geofenceRadiusMeters: number | null;
+        status: string;
     }>;
     findAllCheckpoints(user: ActiveUser, siteId?: string): Promise<({
         site: {
@@ -36,11 +39,14 @@ export declare class PatrolsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
         siteId: string;
         description: string | null;
         locationNote: string | null;
         qrCodeValue: string | null;
+        latitude: number | null;
+        longitude: number | null;
+        geofenceRadiusMeters: number | null;
+        status: string;
     })[]>;
     updateCheckpoint(user: ActiveUser, id: string, dto: UpdateCheckpointDto): Promise<{
         site: {
@@ -53,11 +59,14 @@ export declare class PatrolsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
         siteId: string;
         description: string | null;
         locationNote: string | null;
         qrCodeValue: string | null;
+        latitude: number | null;
+        longitude: number | null;
+        geofenceRadiusMeters: number | null;
+        status: string;
     }>;
     createPatrolRoute(user: ActiveUser, dto: CreatePatrolRouteDto): Promise<{
         site: {
@@ -70,9 +79,9 @@ export declare class PatrolsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
         siteId: string;
         description: string | null;
+        status: string;
     }>;
     findAllPatrolRoutes(user: ActiveUser, siteId?: string): Promise<({
         checkpoints: {
@@ -88,9 +97,9 @@ export declare class PatrolsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
         siteId: string;
         description: string | null;
+        status: string;
     })[]>;
     findPatrolRoute(user: ActiveUser, id: string): Promise<{
         checkpoints: ({
@@ -100,11 +109,14 @@ export declare class PatrolsController {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                status: string;
                 siteId: string;
                 description: string | null;
                 locationNote: string | null;
                 qrCodeValue: string | null;
+                latitude: number | null;
+                longitude: number | null;
+                geofenceRadiusMeters: number | null;
+                status: string;
             };
         } & {
             id: string;
@@ -122,9 +134,9 @@ export declare class PatrolsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
         siteId: string;
         description: string | null;
+        status: string;
     }>;
     updatePatrolRoute(user: ActiveUser, id: string, dto: UpdatePatrolRouteDto): Promise<{
         site: {
@@ -137,9 +149,9 @@ export declare class PatrolsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
         siteId: string;
         description: string | null;
+        status: string;
     }>;
     attachCheckpoints(user: ActiveUser, routeId: string, dto: AttachCheckpointsDto): Promise<({
         checkpoints: ({
@@ -149,11 +161,14 @@ export declare class PatrolsController {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                status: string;
                 siteId: string;
                 description: string | null;
                 locationNote: string | null;
                 qrCodeValue: string | null;
+                latitude: number | null;
+                longitude: number | null;
+                geofenceRadiusMeters: number | null;
+                status: string;
             };
         } & {
             id: string;
@@ -167,11 +182,15 @@ export declare class PatrolsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        status: string;
         siteId: string;
         description: string | null;
+        status: string;
     }) | null>;
-    findAllPatrolRuns(user: ActiveUser): Promise<({
+    findAllPatrolRuns(user: ActiveUser, status?: string): Promise<({
+        guard: {
+            id: string;
+            name: string;
+        };
         shift: {
             id: string;
             site: {
@@ -180,10 +199,6 @@ export declare class PatrolsController {
             };
             startTime: Date;
             endTime: Date;
-        };
-        guard: {
-            id: string;
-            name: string;
         };
         patrolRoute: {
             id: string;
@@ -200,8 +215,16 @@ export declare class PatrolsController {
         patrolRouteId: string;
         startedAt: Date | null;
         completedAt: Date | null;
+        lastLatitude: number | null;
+        lastLongitude: number | null;
+        lastAccuracyMeters: number | null;
+        lastLocationAt: Date | null;
     })[]>;
     findPatrolRun(user: ActiveUser, id: string): Promise<{
+        guard: {
+            id: string;
+            name: string;
+        };
         shift: {
             id: string;
             site: {
@@ -210,10 +233,6 @@ export declare class PatrolsController {
             };
             startTime: Date;
             endTime: Date;
-        };
-        guard: {
-            id: string;
-            name: string;
         };
         patrolRoute: {
             id: string;
@@ -226,11 +245,14 @@ export declare class PatrolsController {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                status: string;
                 siteId: string;
                 description: string | null;
                 locationNote: string | null;
                 qrCodeValue: string | null;
+                latitude: number | null;
+                longitude: number | null;
+                geofenceRadiusMeters: number | null;
+                status: string;
             };
         } & {
             id: string;
@@ -238,10 +260,14 @@ export declare class PatrolsController {
             notes: string | null;
             tenantId: string;
             status: string;
-            guardId: string;
-            checkpointId: string;
-            scannedAt: Date;
             patrolRunId: string;
+            checkpointId: string;
+            guardId: string;
+            scannedAt: Date;
+            verificationStatus: string | null;
+            distanceMeters: number | null;
+            submittedLatitude: number | null;
+            submittedLongitude: number | null;
         })[];
     } & {
         id: string;
@@ -254,5 +280,9 @@ export declare class PatrolsController {
         patrolRouteId: string;
         startedAt: Date | null;
         completedAt: Date | null;
+        lastLatitude: number | null;
+        lastLongitude: number | null;
+        lastAccuracyMeters: number | null;
+        lastLocationAt: Date | null;
     }>;
 }

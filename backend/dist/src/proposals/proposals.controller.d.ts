@@ -11,9 +11,9 @@ export declare class ProposalsController {
         updatedAt: Date;
         tenantId: string;
         clientId: string | null;
+        status: string;
         title: string;
         content: string;
-        status: string;
         dealId: string | null;
         leadId: string | null;
     }>;
@@ -60,9 +60,9 @@ export declare class ProposalsController {
         updatedAt: Date;
         tenantId: string;
         clientId: string | null;
+        status: string;
         title: string;
         content: string;
-        status: string;
         dealId: string | null;
         leadId: string | null;
     })[]>;
@@ -72,9 +72,9 @@ export declare class ProposalsController {
         updatedAt: Date;
         tenantId: string;
         clientId: string | null;
+        status: string;
         title: string;
         content: string;
-        status: string;
         dealId: string | null;
         leadId: string | null;
     }>;
@@ -129,9 +129,9 @@ export declare class ProposalsController {
         updatedAt: Date;
         tenantId: string;
         clientId: string | null;
+        status: string;
         title: string;
         content: string;
-        status: string;
         dealId: string | null;
         leadId: string | null;
     }>;
@@ -141,9 +141,9 @@ export declare class ProposalsController {
         updatedAt: Date;
         tenantId: string;
         clientId: string | null;
+        status: string;
         title: string;
         content: string;
-        status: string;
         dealId: string | null;
         leadId: string | null;
     }>;
@@ -172,9 +172,9 @@ export declare class ProposalsController {
         updatedAt: Date;
         tenantId: string;
         clientId: string | null;
+        status: string;
         title: string;
         content: string;
-        status: string;
         dealId: string | null;
         leadId: string | null;
     }>;

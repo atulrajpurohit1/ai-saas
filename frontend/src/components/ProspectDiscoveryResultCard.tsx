@@ -25,6 +25,7 @@ import {
   DuplicateLeadSummary,
   ImportedLeadSummary,
   ProspectCompany,
+  discoveredProspectToCompany,
   importProspectAsLead,
 } from '@/lib/prospect-search';
 
@@ -37,11 +38,24 @@ function qualificationClass(score: number) {
   return 'border-white/10 bg-white/5 text-slate-300';
 }
 
+interface ExternalImportResult {
+  duplicate: boolean;
+  lead?: ImportedLeadSummary;
+  existingLead?: DuplicateLeadSummary;
+}
+
 interface ProspectDiscoveryResultCardProps {
   prospect: DiscoveredProspect;
   canImportLeads: boolean;
   ghlConnected: boolean;
   onOpenDeepResearch: (company: ProspectCompany) => void;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelected?: () => void;
+  // Set by the page after a bulk-import pass so this card adopts the same
+  // success/duplicate UI it already uses for a single import, without a
+  // second, duplicate implementation of that UI.
+  externalImportResult?: ExternalImportResult | null;
 }
 
 export default function ProspectDiscoveryResultCard({
@@ -49,6 +63,10 @@ export default function ProspectDiscoveryResultCard({
   canImportLeads,
   ghlConnected,
   onOpenDeepResearch,
+  selectable = false,
+  selected = false,
+  onToggleSelected,
+  externalImportResult,
 }: ProspectDiscoveryResultCardProps) {
   const router = useRouter();
   const [importPhase, setImportPhase] = useState<ImportPhase>('idle');
@@ -58,36 +76,19 @@ export default function ProspectDiscoveryResultCard({
   const [ghlPhase, setGhlPhase] = useState<GhlSyncPhase>('idle');
   const [ghlError, setGhlError] = useState('');
 
+  React.useEffect(() => {
+    if (!externalImportResult) return;
+    if (externalImportResult.duplicate && externalImportResult.existingLead) {
+      setDuplicateLead(externalImportResult.existingLead);
+      setImportPhase('duplicate');
+    } else if (externalImportResult.lead) {
+      setImportedLead(externalImportResult.lead);
+      setImportPhase('success');
+    }
+  }, [externalImportResult]);
+
   const companyName = prospect.companyName ?? 'Unknown company';
-
-  const asProspectCompany = (): ProspectCompany => {
-    // companyLocation is a single free-text string from BlackPearl (e.g.
-    // "Kansas City, MO" or just "Mumbai") - splitting it on commas is a
-    // mechanical parse of real data, not a guess, so partial location parts
-    // are left undefined rather than invented.
-    const [city, state, country] = (prospect.companyLocation ?? '')
-      .split(',')
-      .map((part) => part.trim())
-      .filter(Boolean);
-
-    return {
-      id: prospect.id,
-      name: companyName,
-      industry: prospect.companyIndustry,
-      website: prospect.companyDomain,
-      city,
-      state,
-      country,
-      employeeCount: prospect.companyHeadcount,
-      description: prospect.companyDescription,
-      contactName: prospect.contact.fullName,
-      contactTitle: prospect.contact.jobTitle,
-      contactEmail: prospect.contact.email,
-      contactProfileUrl: prospect.contact.profileUrl,
-      qualificationReason: prospect.qualificationReason,
-      signals: prospect.signals.map((signal) => signal.snippet || signal.label),
-    };
-  };
+  const asProspectCompany = (): ProspectCompany => discoveredProspectToCompany(prospect);
 
   const handleImport = async (force: boolean) => {
     setImportPhase('importing');
@@ -139,9 +140,23 @@ export default function ProspectDiscoveryResultCard({
   };
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
+    <div
+      className={`rounded-2xl border p-4 transition-colors sm:p-5 ${
+        selectable && selected ? 'border-indigo-400/50 bg-indigo-500/[0.06]' : 'border-white/10 bg-white/[0.04]'
+      }`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
+        <div className="flex min-w-0 items-start gap-3">
+          {selectable && (
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggleSelected}
+              aria-label={`Select ${companyName}`}
+              className="mt-1 h-4 w-4 shrink-0 cursor-pointer rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-400"
+            />
+          )}
+          <div className="min-w-0">
           <div className="flex items-center gap-2">
             <Building2 size={16} className="shrink-0 text-indigo-300" aria-hidden="true" />
             <h3 className="truncate text-base font-bold text-white">{companyName}</h3>
@@ -175,6 +190,7 @@ export default function ProspectDiscoveryResultCard({
                 <ExternalLink size={11} aria-hidden="true" />
               </a>
             )}
+          </div>
           </div>
         </div>
 

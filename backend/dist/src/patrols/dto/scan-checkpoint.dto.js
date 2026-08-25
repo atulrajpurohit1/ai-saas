@@ -10,10 +10,13 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ScanCheckpointDto = void 0;
+const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
 class ScanCheckpointDto {
     notes;
     status;
+    latitude;
+    longitude;
 }
 exports.ScanCheckpointDto = ScanCheckpointDto;
 __decorate([
@@ -27,4 +30,16 @@ __decorate([
     (0, class_validator_1.IsIn)(['completed', 'skipped']),
     __metadata("design:type", String)
 ], ScanCheckpointDto.prototype, "status", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], ScanCheckpointDto.prototype, "latitude", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], ScanCheckpointDto.prototype, "longitude", void 0);
 //# sourceMappingURL=scan-checkpoint.dto.js.map

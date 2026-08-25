@@ -1,10 +1,13 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
 import api from '@/lib/api';
-import { Plus, Search, MapPin, Edit2, QrCode, CheckCircle2 } from 'lucide-react';
+import { getApiErrorMessage } from '@/lib/api-error';
+import { Plus, Search, MapPin, MapPinOff, Edit2, QrCode, Crosshair, Loader2 } from 'lucide-react';
 import { Checkpoint, getCheckpoints, createCheckpoint, updateCheckpoint } from '@/lib/patrols';
+import { requestCurrentLocation, geolocationErrorMessage } from '@/lib/geolocation';
 
 interface Site {
   id: string;
@@ -26,7 +29,11 @@ export default function CheckpointsPage() {
     location_note: '',
     qr_code_value: '',
     status: 'active' as 'active' | 'inactive',
+    latitude: '',
+    longitude: '',
+    geofence_radius_meters: '',
   });
+  const [locatingForForm, setLocatingForForm] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -52,9 +59,26 @@ export default function CheckpointsPage() {
     e.preventDefault();
     try {
       if (!formData.site_id) {
-        alert('Please select a site');
+        toast.error('Please select a site');
         return;
       }
+
+      const hasLat = formData.latitude.trim() !== '';
+      const hasLng = formData.longitude.trim() !== '';
+      if (hasLat !== hasLng) {
+        toast.error('Enter both latitude and longitude, or leave both blank.');
+        return;
+      }
+
+      const geofenceFields = hasLat
+        ? {
+            latitude: Number(formData.latitude),
+            longitude: Number(formData.longitude),
+            geofence_radius_meters: formData.geofence_radius_meters.trim()
+              ? Number(formData.geofence_radius_meters)
+              : undefined,
+          }
+        : {};
 
       if (isEditing) {
         await updateCheckpoint(isEditing, {
@@ -63,6 +87,7 @@ export default function CheckpointsPage() {
           location_note: formData.location_note || undefined,
           qr_code_value: formData.qr_code_value || undefined,
           status: formData.status,
+          ...(hasLat ? geofenceFields : { clear_geofence: true }),
         });
       } else {
         await createCheckpoint({
@@ -71,15 +96,36 @@ export default function CheckpointsPage() {
           description: formData.description || undefined,
           location_note: formData.location_note || undefined,
           qr_code_value: formData.qr_code_value || undefined,
+          ...geofenceFields,
         });
       }
       setShowModal(false);
       resetForm();
       fetchData();
+      toast.success(isEditing ? 'Checkpoint updated.' : 'Checkpoint created.');
     } catch (err) {
       console.error(err);
-      alert('An error occurred while saving the checkpoint.');
+      toast.error(getApiErrorMessage(err, 'An error occurred while saving the checkpoint.'));
     }
+  };
+
+  const handleUseCurrentLocation = async () => {
+    setLocatingForForm(true);
+    const result = await requestCurrentLocation();
+    setLocatingForForm(false);
+
+    if (result.status !== 'success') {
+      toast.error(geolocationErrorMessage(result.status));
+      return;
+    }
+
+    setFormData((current) => ({
+      ...current,
+      latitude: result.latitude.toFixed(6),
+      longitude: result.longitude.toFixed(6),
+      geofence_radius_meters: current.geofence_radius_meters || '50',
+    }));
+    toast.success(`Location captured (±${Math.round(result.accuracy)}m accuracy).`);
   };
 
   const handleEdit = (cp: Checkpoint) => {
@@ -90,6 +136,9 @@ export default function CheckpointsPage() {
       location_note: cp.locationNote || '',
       qr_code_value: cp.qrCodeValue || '',
       status: cp.status,
+      latitude: cp.latitude !== null ? String(cp.latitude) : '',
+      longitude: cp.longitude !== null ? String(cp.longitude) : '',
+      geofence_radius_meters: cp.geofenceRadiusMeters !== null ? String(cp.geofenceRadiusMeters) : '',
     });
     setIsEditing(cp.id);
     setShowModal(true);
@@ -103,6 +152,9 @@ export default function CheckpointsPage() {
       location_note: '',
       qr_code_value: '',
       status: 'active',
+      latitude: '',
+      longitude: '',
+      geofence_radius_meters: '',
     });
     setIsEditing(null);
   };
@@ -219,9 +271,20 @@ export default function CheckpointsPage() {
                       )}
                     </td>
                     <td className="px-6 py-4 align-middle" data-label="Location Details">
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-sm text-muted-foreground block">
                         {cp.locationNote || 'No location notes'}
                       </span>
+                      {cp.latitude !== null && cp.longitude !== null ? (
+                        <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-emerald-400">
+                          <MapPin size={11} />
+                          GPS geofence ({cp.geofenceRadiusMeters}m)
+                        </span>
+                      ) : (
+                        <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                          <MapPinOff size={11} />
+                          No GPS configured
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 align-middle" data-label="Status">
                       <span
@@ -317,6 +380,60 @@ export default function CheckpointsPage() {
                   value={formData.location_note}
                   onChange={(e) => setFormData({ ...formData, location_note: e.target.value })}
                 />
+              </div>
+
+              <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-sm font-medium text-muted-foreground">GPS Geofence (Optional)</label>
+                  <button
+                    type="button"
+                    onClick={() => void handleUseCurrentLocation()}
+                    disabled={locatingForForm}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-indigo-300 transition hover:bg-white/10 disabled:opacity-50"
+                  >
+                    {locatingForForm ? <Loader2 className="animate-spin" size={12} /> : <Crosshair size={12} />}
+                    Use my location
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  When set, guards must be physically within the radius to have this checkpoint marked as location-verified.
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  <input
+                    type="number"
+                    step="any"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    placeholder="Latitude"
+                    value={formData.latitude}
+                    onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                  />
+                  <input
+                    type="number"
+                    step="any"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    placeholder="Longitude"
+                    value={formData.longitude}
+                    onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                  />
+                  <input
+                    type="number"
+                    min={5}
+                    max={2000}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    placeholder="Radius (m)"
+                    value={formData.geofence_radius_meters}
+                    onChange={(e) => setFormData({ ...formData, geofence_radius_meters: e.target.value })}
+                  />
+                </div>
+                {formData.latitude && (
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, latitude: '', longitude: '', geofence_radius_meters: '' })}
+                    className="text-xs font-semibold text-slate-500 hover:text-rose-300"
+                  >
+                    Clear geofence
+                  </button>
+                )}
               </div>
 
               <div className="space-y-1">

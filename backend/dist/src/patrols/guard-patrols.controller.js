@@ -21,6 +21,7 @@ const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const start_patrol_run_dto_1 = require("./dto/start-patrol-run.dto");
 const scan_checkpoint_dto_1 = require("./dto/scan-checkpoint.dto");
+const update_location_dto_1 = require("./dto/update-location.dto");
 let GuardPatrolsController = class GuardPatrolsController {
     patrolsService;
     constructor(patrolsService) {
@@ -46,6 +47,10 @@ let GuardPatrolsController = class GuardPatrolsController {
     scanCheckpoint(user, runId, checkpointId, dto) {
         const { tenantId, guardId } = this.getGuardContext(user);
         return this.patrolsService.scanCheckpoint(tenantId, guardId, runId, checkpointId, dto);
+    }
+    updateLocation(user, runId, dto) {
+        const { tenantId, guardId } = this.getGuardContext(user);
+        return this.patrolsService.updateLocation(tenantId, guardId, runId, dto);
     }
     completePatrolRun(user, runId) {
         const { tenantId, guardId } = this.getGuardContext(user);
@@ -84,6 +89,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, String, scan_checkpoint_dto_1.ScanCheckpointDto]),
     __metadata("design:returntype", void 0)
 ], GuardPatrolsController.prototype, "scanCheckpoint", null);
+__decorate([
+    (0, common_1.Post)('patrol-runs/:id/location'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, update_location_dto_1.UpdateLocationDto]),
+    __metadata("design:returntype", void 0)
+], GuardPatrolsController.prototype, "updateLocation", null);
 __decorate([
     (0, common_1.Post)('patrol-runs/:id/complete'),
     __param(0, (0, get_user_decorator_1.GetUser)()),

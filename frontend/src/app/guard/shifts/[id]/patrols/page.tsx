@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import GuardLayout from '@/components/GuardLayout';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -14,7 +15,10 @@ import {
   scanPatrolCheckpoint,
   completePatrolRun,
   getGuardPatrolRuns,
+  updateGuardLocation,
 } from '@/lib/patrols';
+import { GeolocationResult, geolocationErrorMessage, requestCurrentLocation } from '@/lib/geolocation';
+import { LOCATION_UPDATE_INTERVAL_MS } from '@/lib/guard-tracking.constants';
 import { OfflineSync } from '@/lib/offline-sync';
 import {
   ArrowLeft,
@@ -23,10 +27,51 @@ import {
   Play,
   QrCode,
   MapPin,
+  MapPinOff,
+  Radar,
   Clock,
   Loader2,
   AlertTriangle,
 } from 'lucide-react';
+
+type TrackingStatus = 'inactive' | 'active' | 'waiting' | 'unavailable';
+
+function verificationBadge(status: string | null | undefined, distanceMeters: number | null | undefined) {
+  switch (status) {
+    case 'SUCCESS':
+      return { label: 'Location verified', className: 'text-emerald-400', icon: MapPin };
+    case 'OUTSIDE_GEOFENCE':
+      return {
+        label: `Outside checkpoint area${typeof distanceMeters === 'number' ? ` (${distanceMeters}m away)` : ''}`,
+        className: 'text-amber-400',
+        icon: MapPinOff,
+      };
+    case 'LOCATION_UNAVAILABLE':
+      return { label: 'Location unavailable', className: 'text-amber-400', icon: MapPinOff };
+    case 'INVALID_LOCATION':
+      return { label: 'Location could not be verified', className: 'text-amber-400', icon: MapPinOff };
+    case 'NO_GEOFENCE_CONFIGURED':
+    default:
+      return null;
+  }
+}
+
+function TrackingStatusBadge({ status }: { status: TrackingStatus }) {
+  if (status === 'inactive') return null;
+
+  const config = {
+    active: { label: 'Tracking active', className: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20', pulse: true },
+    waiting: { label: 'Starting tracking…', className: 'bg-white/5 text-slate-400 border-white/10', pulse: false },
+    unavailable: { label: 'Tracking unavailable', className: 'bg-amber-500/10 text-amber-300 border-amber-500/20', pulse: false },
+  }[status];
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${config.className}`}>
+      <Radar size={11} className={config.pulse ? 'animate-pulse' : ''} />
+      {config.label}
+    </span>
+  );
+}
 
 interface GuardShiftDetail {
   id: string;
@@ -56,6 +101,19 @@ export default function GuardPatrolPage() {
   const [scanNotes, setScanNotes] = useState('');
   const [scanStatus, setScanStatus] = useState<'completed' | 'skipped'>('completed');
   const [submittingScan, setSubmittingScan] = useState(false);
+
+  // Device location for the checkpoint currently being scanned - a single
+  // one-shot reading captured when the scan modal opens, never continuous
+  // tracking. See lib/geolocation.ts.
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'locating' | 'ready' | 'failed'>('idle');
+  const [locationResult, setLocationResult] = useState<GeolocationResult | null>(null);
+
+  // Phase 3B: live location tracking while this patrol is in_progress.
+  // Periodic one-shot captures (reusing Phase 3A's requestCurrentLocation),
+  // never watchPosition and never running outside an active patrol.
+  const [trackingStatus, setTrackingStatus] = useState<TrackingStatus>('inactive');
+  const trackingRunIdRef = useRef<string | null>(null);
+  const trackingInFlightRef = useRef(false);
 
   const fetchPatrolContext = useCallback(async () => {
     if (!id) return;
@@ -98,6 +156,63 @@ export default function GuardPatrolPage() {
     fetchPatrolContext();
   }, [fetchPatrolContext]);
 
+  // Live tracking loop: starts automatically the moment activeRun is
+  // in_progress, stops automatically the moment it isn't (patrol completed,
+  // navigated away, or component unmounted) - the guard never manually
+  // starts/stops this.
+  useEffect(() => {
+    const runId = activeRun?.status === 'in_progress' ? activeRun.id : null;
+    trackingRunIdRef.current = runId;
+
+    if (!runId) {
+      setTrackingStatus('inactive');
+      return;
+    }
+
+    setTrackingStatus('waiting');
+
+    const sendLocationTick = async () => {
+      // Guard against overlapping requests (a slow request from the
+      // previous tick still in flight) and against a stale timer firing
+      // after the run this tick was set up for has already ended.
+      if (trackingInFlightRef.current || trackingRunIdRef.current !== runId) return;
+      trackingInFlightRef.current = true;
+
+      try {
+        const result = await requestCurrentLocation();
+        if (trackingRunIdRef.current !== runId) return; // patrol ended while locating
+
+        if (result.status !== 'success') {
+          setTrackingStatus('unavailable');
+          return;
+        }
+
+        await updateGuardLocation(runId, {
+          latitude: result.latitude,
+          longitude: result.longitude,
+          accuracy: result.accuracy,
+          timestamp: new Date().toISOString(),
+        });
+        if (trackingRunIdRef.current === runId) setTrackingStatus('active');
+      } catch {
+        // A failed tick is not fatal - the next tick will simply try again
+        // with a fresh location. Nothing is queued, nothing is lost beyond
+        // this one interval's reading.
+        if (trackingRunIdRef.current === runId) setTrackingStatus('unavailable');
+      } finally {
+        trackingInFlightRef.current = false;
+      }
+    };
+
+    void sendLocationTick();
+    const intervalId = setInterval(sendLocationTick, LOCATION_UPDATE_INTERVAL_MS);
+
+    return () => {
+      clearInterval(intervalId);
+      if (trackingRunIdRef.current === runId) trackingRunIdRef.current = null;
+    };
+  }, [activeRun?.id, activeRun?.status]);
+
   const handleStartPatrol = async (routeId: string) => {
     if (!id) return;
 
@@ -116,6 +231,13 @@ export default function GuardPatrolPage() {
     setScanningCheckpointId(checkpointId);
     setScanNotes('');
     setScanStatus('completed');
+    setLocationStatus('locating');
+    setLocationResult(null);
+
+    requestCurrentLocation().then((result) => {
+      setLocationResult(result);
+      setLocationStatus(result.status === 'success' ? 'ready' : 'failed');
+    });
   };
 
   const handleConfirmScan = async (e: React.FormEvent) => {
@@ -128,6 +250,9 @@ export default function GuardPatrolPage() {
       const dto = {
         notes: scanNotes.trim() || undefined,
         status: scanStatus,
+        ...(locationResult?.status === 'success'
+          ? { latitude: locationResult.latitude, longitude: locationResult.longitude }
+          : {}),
       };
 
       if (!navigator.onLine) {
@@ -136,8 +261,9 @@ export default function GuardPatrolPage() {
           checkpointId: scanningCheckpointId,
           dto,
         });
-        
-        // Optimistic update
+
+        // Optimistic update - verification can't be computed offline; it's
+        // resolved server-side once this action syncs.
         setActiveRun(prev => prev ? {
           ...prev,
           events: [
@@ -148,20 +274,42 @@ export default function GuardPatrolPage() {
               status: scanStatus,
               notes: dto.notes || null,
               scannedAt: new Date().toISOString(),
+              verificationStatus: null,
+              distanceMeters: null,
             } as any
           ]
         } : prev);
         setScanningCheckpointId(null);
+        toast.info('Saved offline. This checkpoint will be location-verified once it syncs.');
       } else {
-        await scanPatrolCheckpoint(activeRun.id, scanningCheckpointId, dto);
+        const event = await scanPatrolCheckpoint(activeRun.id, scanningCheckpointId, dto);
 
         // Refresh run details
         const fullRun = await api.get<PatrolRun>(`guard/patrol-runs/${activeRun.id}`);
         setActiveRun(fullRun.data);
         setScanningCheckpointId(null);
+
+        switch (event.verificationStatus) {
+          case 'SUCCESS':
+            toast.success('Checkpoint verified.');
+            break;
+          case 'OUTSIDE_GEOFENCE':
+            toast.warning(
+              `You are outside the checkpoint area${typeof event.distanceMeters === 'number' ? ` (${event.distanceMeters}m away)` : ''}.`,
+            );
+            break;
+          case 'LOCATION_UNAVAILABLE':
+            toast.warning(geolocationErrorMessage('unavailable'));
+            break;
+          case 'INVALID_LOCATION':
+            toast.warning("Your location couldn't be verified, but the checkpoint was recorded.");
+            break;
+          default:
+            toast.success('Checkpoint recorded.');
+        }
       }
     } catch (err) {
-      alert(getApiErrorMessage(err, 'Failed to submit checkpoint scan.'));
+      toast.error(getApiErrorMessage(err, 'Failed to submit checkpoint scan.'));
     } finally {
       setSubmittingScan(false);
     }
@@ -277,9 +425,12 @@ export default function GuardPatrolPage() {
         /* ACTIVE PATROL RUN CHECKLIST */
         <div className="space-y-6">
           <div className="rounded-3xl border border-indigo-500/30 bg-indigo-500/5 p-6">
-            <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest text-indigo-400 mb-2">
-              <Clock className="animate-pulse" size={14} />
-              <span>Patrol In Progress</span>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest text-indigo-400">
+                <Clock className="animate-pulse" size={14} />
+                <span>Patrol In Progress</span>
+              </div>
+              <TrackingStatusBadge status={trackingStatus} />
             </div>
             <h2 className="text-2xl font-extrabold text-white">{activeRun.patrolRoute?.name}</h2>
 
@@ -348,12 +499,25 @@ export default function GuardPatrolPage() {
                     </div>
                   </div>
 
-                  <div className="shrink-0">
+                  <div className="shrink-0 text-right">
                     {isScanned ? (
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
-                        <CheckCircle2 size={16} />
-                        <span>Scanned</span>
-                      </div>
+                      <>
+                        <div className="flex items-center justify-end gap-1.5 text-xs font-bold text-emerald-400">
+                          <CheckCircle2 size={16} />
+                          <span>Scanned</span>
+                        </div>
+                        {(() => {
+                          const badge = verificationBadge(scannedEvent?.verificationStatus, scannedEvent?.distanceMeters);
+                          if (!badge) return null;
+                          const Icon = badge.icon;
+                          return (
+                            <div className={`mt-1 flex items-center justify-end gap-1 text-[10px] font-semibold ${badge.className}`}>
+                              <Icon size={11} />
+                              <span>{badge.label}</span>
+                            </div>
+                          );
+                        })()}
+                      </>
                     ) : (
                       <button
                         onClick={() => handleOpenScan(rcp.checkpointId)}
@@ -393,6 +557,35 @@ export default function GuardPatrolPage() {
             <p className="text-sm text-slate-400 mb-4">
               Enter any notes or observations about this checkpoint location.
             </p>
+
+            <div
+              className={`mb-4 flex items-center gap-2 rounded-2xl border px-4 py-3 text-xs font-semibold ${
+                locationStatus === 'ready'
+                  ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
+                  : locationStatus === 'failed'
+                    ? 'border-amber-500/20 bg-amber-500/10 text-amber-300'
+                    : 'border-white/10 bg-white/5 text-slate-400'
+              }`}
+            >
+              {locationStatus === 'locating' && (
+                <>
+                  <Loader2 className="animate-spin shrink-0" size={14} />
+                  <span>Location verification required — acquiring your location&hellip;</span>
+                </>
+              )}
+              {locationStatus === 'ready' && locationResult?.status === 'success' && (
+                <>
+                  <MapPin className="shrink-0" size={14} />
+                  <span>Location ready (±{Math.round(locationResult.accuracy)}m accuracy)</span>
+                </>
+              )}
+              {locationStatus === 'failed' && locationResult && locationResult.status !== 'success' && (
+                <>
+                  <MapPinOff className="shrink-0" size={14} />
+                  <span>{geolocationErrorMessage(locationResult.status)}</span>
+                </>
+              )}
+            </div>
 
             <form onSubmit={handleConfirmScan} className="space-y-4">
               <div className="space-y-1">

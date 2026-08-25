@@ -53,8 +53,8 @@ let PatrolsController = class PatrolsController {
     attachCheckpoints(user, routeId, dto) {
         return this.patrolsService.attachCheckpoints(user, routeId, dto);
     }
-    findAllPatrolRuns(user) {
-        return this.patrolsService.findAllPatrolRuns(user);
+    findAllPatrolRuns(user, status) {
+        return this.patrolsService.findAllPatrolRuns(user, status);
     }
     findPatrolRun(user, id) {
         return this.patrolsService.findPatrolRun(user, id);
@@ -140,8 +140,9 @@ __decorate([
     (0, common_1.Get)('patrol-runs'),
     (0, permissions_decorator_1.RequireAnyPermission)('patrols.view', 'patrols.manage'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Query)('status')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], PatrolsController.prototype, "findAllPatrolRuns", null);
 __decorate([

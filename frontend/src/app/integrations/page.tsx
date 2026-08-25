@@ -48,7 +48,7 @@ function formatDate(value?: string | null) {
 
 const CRM_PROVIDERS_META = [
   { id: 'hubspot', label: 'HubSpot CRM', description: 'Connect HubSpot and import contacts into leads.' },
-  { id: 'ghl', label: 'GHL CRM', description: 'Connect GoHighLevel and import contacts into leads.' },
+  { id: 'ghl', label: 'GoHighLevel (GHL) CRM', description: 'Connect GoHighLevel and import contacts into leads.' },
 ];
 
 export default function IntegrationsPage() {

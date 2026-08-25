@@ -1,20 +1,106 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
-import { Search, ShieldAlert, Eye, Calendar, Clock, CheckCircle2, AlertCircle, XCircle, Plus } from 'lucide-react';
+import { Search, ShieldAlert, Eye, Calendar, Clock, CheckCircle2, AlertCircle, XCircle, Plus, MapPin, MapPinOff, Radar, ExternalLink } from 'lucide-react';
 import { PatrolRun, getPatrolRuns, getPatrolRun } from '@/lib/patrols';
 import { formatEnumLabel } from '@/lib/format';
+import { ADMIN_LOCATION_POLL_INTERVAL_MS, LOCATION_STALE_THRESHOLD_MS } from '@/lib/guard-tracking.constants';
+
+function isLocationStale(lastLocationAt: string | null): boolean {
+  if (!lastLocationAt) return true;
+  return Date.now() - new Date(lastLocationAt).getTime() > LOCATION_STALE_THRESHOLD_MS;
+}
+
+function relativeTime(iso: string): string {
+  const seconds = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function LiveLocationCard({ run }: { run: PatrolRun }) {
+  if (run.lastLatitude === null || run.lastLongitude === null || !run.lastLocationAt) {
+    return (
+      <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-semibold text-slate-400">
+        <Radar size={14} />
+        Waiting for the guard&apos;s first location update…
+      </div>
+    );
+  }
+
+  const stale = isLocationStale(run.lastLocationAt);
+  const mapsUrl = `https://www.google.com/maps?q=${run.lastLatitude},${run.lastLongitude}`;
+
+  return (
+    <div
+      className={`rounded-2xl border px-4 py-3 ${
+        stale ? 'border-amber-500/20 bg-amber-500/5' : 'border-emerald-500/20 bg-emerald-500/5'
+      }`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className={`inline-flex items-center gap-1.5 text-xs font-bold ${stale ? 'text-amber-300' : 'text-emerald-300'}`}>
+          <Radar size={13} className={stale ? '' : 'animate-pulse'} />
+          {stale ? 'Last known location (stale)' : 'Live location'}
+        </span>
+        <span className="text-[11px] font-semibold text-slate-400">Updated {relativeTime(run.lastLocationAt)}</span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-300">
+        <span className="font-mono">
+          {run.lastLatitude.toFixed(5)}, {run.lastLongitude.toFixed(5)}
+        </span>
+        {typeof run.lastAccuracyMeters === 'number' && (
+          <span className="text-slate-500">±{Math.round(run.lastAccuracyMeters)}m accuracy</span>
+        )}
+        <a
+          href={mapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-indigo-300 hover:text-indigo-200"
+        >
+          Open in Maps
+          <ExternalLink size={11} />
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function geofenceBadge(status: string | null | undefined, distanceMeters: number | null | undefined) {
+  switch (status) {
+    case 'SUCCESS':
+      return { label: 'Location verified', className: 'bg-emerald-500/10 text-emerald-400', icon: MapPin };
+    case 'OUTSIDE_GEOFENCE':
+      return {
+        label: `Outside geofence${typeof distanceMeters === 'number' ? ` (${distanceMeters}m)` : ''}`,
+        className: 'bg-amber-500/10 text-amber-400',
+        icon: MapPinOff,
+      };
+    case 'LOCATION_UNAVAILABLE':
+      return { label: 'Location unavailable', className: 'bg-amber-500/10 text-amber-400', icon: MapPinOff };
+    case 'INVALID_LOCATION':
+      return { label: 'Invalid location', className: 'bg-amber-500/10 text-amber-400', icon: MapPinOff };
+    case 'NO_GEOFENCE_CONFIGURED':
+    default:
+      return null;
+  }
+}
 
 export default function PatrolRunsPage() {
   const [runs, setRuns] = useState<PatrolRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Selected run for detailed view
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [selectedRunDetail, setSelectedRunDetail] = useState<PatrolRun | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+
+  // Phase 3B: currently-active guards, polled independently of the full
+  // (potentially large, historical) runs list below.
+  const [liveRuns, setLiveRuns] = useState<PatrolRun[]>([]);
+  const [liveLoading, setLiveLoading] = useState(true);
 
   const fetchRuns = async () => {
     try {
@@ -28,9 +114,26 @@ export default function PatrolRunsPage() {
     }
   };
 
+  const fetchLiveRuns = useCallback(async () => {
+    try {
+      const res = await getPatrolRuns('in_progress');
+      setLiveRuns(res);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLiveLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchRuns();
   }, []);
+
+  useEffect(() => {
+    fetchLiveRuns();
+    const intervalId = setInterval(fetchLiveRuns, ADMIN_LOCATION_POLL_INTERVAL_MS);
+    return () => clearInterval(intervalId);
+  }, [fetchLiveRuns]);
 
   const handleViewDetails = async (runId: string) => {
     setSelectedRunId(runId);
@@ -87,6 +190,47 @@ export default function PatrolRunsPage() {
           <h2 className="text-2xl font-bold sm:text-3xl">Patrol Logs</h2>
           <p className="text-muted-foreground">Monitor guard patrol runs, scan checkpoints, and completion timelines.</p>
         </div>
+      </div>
+
+      {/* LIVE GUARDS - Phase 3B */}
+      <div className="glass-card mb-6 rounded-3xl border border-white/5 p-5 sm:p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Radar className="text-indigo-400" size={20} />
+          <h3 className="text-lg font-bold text-white">Live Guards</h3>
+          <span className="ml-auto text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            {liveRuns.length} on patrol
+          </span>
+        </div>
+        {liveLoading ? (
+          <div className="py-6 text-center text-sm text-muted-foreground">Loading live guards…</div>
+        ) : liveRuns.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-white/10 py-6 text-center text-sm text-muted-foreground">
+            No guards currently on patrol.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {liveRuns.map((run) => (
+              <div key={run.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <div>
+                    <span className="block text-sm font-bold text-white">{run.guard?.name || 'Unknown Guard'}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {run.patrolRoute?.name} &middot; {run.shift?.site.name}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleViewDetails(run.id)}
+                    className="text-xs font-bold text-indigo-300 hover:text-indigo-200"
+                  >
+                    View patrol
+                  </button>
+                </div>
+                <LiveLocationCard run={run} />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="glass-card rounded-3xl overflow-hidden border border-white/5">
@@ -229,6 +373,13 @@ export default function PatrolRunsPage() {
                   </div>
                 </div>
 
+                {selectedRunDetail.status === 'in_progress' && (
+                  <div>
+                    <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3">Live Location</h4>
+                    <LiveLocationCard run={selectedRunDetail} />
+                  </div>
+                )}
+
                 {/* TIMELINE LIST */}
                 <div>
                   <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">Checkpoint Scan Checklist</h4>
@@ -267,12 +418,25 @@ export default function PatrolRunsPage() {
                                   &ldquo;{event.notes}&rdquo;
                                 </div>
                               )}
-                              <span className={`inline-block mt-1 text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.25 rounded-md ${
-                                isCompleted ? 'bg-emerald-500/10 text-emerald-400' :
-                                isSkipped ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'
-                              }`}>
-                                {event.status}
-                              </span>
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                <span className={`inline-block text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.25 rounded-md ${
+                                  isCompleted ? 'bg-emerald-500/10 text-emerald-400' :
+                                  isSkipped ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'
+                                }`}>
+                                  {event.status}
+                                </span>
+                                {(() => {
+                                  const badge = geofenceBadge(event.verificationStatus, event.distanceMeters);
+                                  if (!badge) return null;
+                                  const Icon = badge.icon;
+                                  return (
+                                    <span className={`inline-flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.25 rounded-md ${badge.className}`}>
+                                      <Icon size={10} />
+                                      {badge.label}
+                                    </span>
+                                  );
+                                })()}
+                              </div>
                             </div>
                           </div>
                         );

@@ -107,8 +107,8 @@ export declare class PublicApiService {
         createdAt: Date;
         tenantId: string;
         branchId: string | null;
-        status: string;
         siteId: string;
+        status: string;
         startTime: Date;
         endTime: Date;
         requiredGuards: number;
@@ -124,8 +124,8 @@ export declare class PublicApiService {
         createdAt: Date;
         tenantId: string;
         branchId: string | null;
-        status: string;
         siteId: string;
+        status: string;
         startTime: Date;
         endTime: Date;
         requiredGuards: number;
@@ -138,12 +138,6 @@ export declare class PublicApiService {
         shiftId: string;
     }>;
     listIncidents(apiKey: ApiKeyContext, query: Record<string, string | undefined>): Promise<({
-        shift: {
-            id: string;
-            status: string;
-            startTime: Date;
-            endTime: Date;
-        };
         site: {
             id: string;
             name: string;
@@ -155,18 +149,24 @@ export declare class PublicApiService {
             email: string | null;
             phone: string | null;
         };
+        shift: {
+            id: string;
+            status: string;
+            startTime: Date;
+            endTime: Date;
+        };
     } & {
         id: string;
         createdAt: Date;
         notes: string | null;
         tenantId: string;
         branchId: string | null;
-        title: string;
-        status: string;
         siteId: string;
-        guardId: string;
-        shiftId: string;
         description: string;
+        status: string;
+        guardId: string;
+        title: string;
+        shiftId: string;
         severity: string;
         occurredAt: Date;
         attachmentUrl: string | null;
@@ -180,12 +180,12 @@ export declare class PublicApiService {
         notes: string | null;
         tenantId: string;
         branchId: string | null;
-        title: string;
-        status: string;
         siteId: string;
-        guardId: string;
-        shiftId: string;
         description: string;
+        status: string;
+        guardId: string;
+        title: string;
+        shiftId: string;
         severity: string;
         occurredAt: Date;
         attachmentUrl: string | null;
@@ -207,10 +207,10 @@ export declare class PublicApiService {
         };
         items: {
             id: string;
-            hourlyRate: number;
-            rateCardId: string | null;
             guardId: string;
             shiftId: string;
+            hourlyRate: number;
+            rateCardId: string | null;
             invoiceId: string;
             timesheetId: string | null;
             workedHours: number;
@@ -222,20 +222,20 @@ export declare class PublicApiService {
         tenantId: string;
         branchId: string | null;
         clientId: string;
-        status: string;
         siteId: string;
+        status: string;
+        hourlyRate: number;
+        dueDate: Date | null;
+        internalAdjustments: string | null;
+        totalHours: number;
         invoiceNumber: string;
         billingStartDate: Date;
         billingEndDate: Date;
-        totalHours: number;
-        hourlyRate: number;
         subtotal: number;
         tax: number;
         totalAmount: number;
         issuedAt: Date | null;
         paidAt: Date | null;
-        dueDate: Date | null;
-        internalAdjustments: string | null;
         rateCardId: string | null;
         rateSource: string;
     })[]>;
@@ -257,10 +257,10 @@ export declare class PublicApiService {
         tenantId: string;
         branchId: string | null;
         clientId: string;
-        status: string;
         siteId: string;
-        reportDate: Date;
+        status: string;
         summary: string;
+        reportDate: Date;
         publishedAt: Date | null;
     })[]>;
     private resolveBranch;

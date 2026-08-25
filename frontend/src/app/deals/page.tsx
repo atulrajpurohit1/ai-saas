@@ -3,26 +3,13 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
+import DealsKanbanBoard from '@/components/DealsKanbanBoard';
+import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
-import { Plus, Search, DollarSign, Target, Briefcase } from 'lucide-react';
+import { Deal, getDeals } from '@/lib/deals';
+import { Plus, Search, DollarSign, Target, Briefcase, LayoutGrid, List } from 'lucide-react';
 
-interface Deal {
-  id: string;
-  name: string;
-  stage: string;
-  lead: { name: string; company: string };
-  createdAt: string;
-  clientId: string | null;
-  client?: { name: string; companyName: string };
-  salesAssessments?: Array<{
-    leadScore: number | null;
-    priorityTier: string | null;
-    closeReadinessScore: number | null;
-    discoveryQualityScore: number | null;
-    recommendedNextAction: string | null;
-    createdAt: string;
-  }>;
-}
+const VIEW_STORAGE_KEY = 'ai-saas-deals-view';
 
 interface LeadOption {
   id: string;
@@ -44,6 +31,8 @@ const scoreClass = (score?: number | null) => {
 };
 
 export default function DealsPage() {
+  const { can } = useAuth();
+  const canUpdateStage = can('deals.update');
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -51,6 +40,17 @@ export default function DealsPage() {
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [newDeal, setNewDeal] = useState({ name: '', leadId: '', clientId: '' });
   const [searchQuery, setSearchQuery] = useState('');
+  const [view, setView] = useState<'kanban' | 'list'>('kanban');
+
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem(VIEW_STORAGE_KEY) : null;
+    if (stored === 'kanban' || stored === 'list') setView(stored);
+  }, []);
+
+  const changeView = (nextView: 'kanban' | 'list') => {
+    setView(nextView);
+    localStorage.setItem(VIEW_STORAGE_KEY, nextView);
+  };
 
   const getClientLabel = (client: ClientOption) => {
     const companyName = client.companyName;
@@ -64,13 +64,13 @@ export default function DealsPage() {
 
   const fetchData = async () => {
     const [dealsResult, leadsResult, clientsResult] = await Promise.allSettled([
-      api.get('deals'),
+      getDeals(),
       api.get('leads'),
       api.get('clients'),
     ]);
 
     if (dealsResult.status === 'fulfilled') {
-      setDeals(dealsResult.value.data);
+      setDeals(dealsResult.value);
     } else {
       console.error('Failed to fetch deals', dealsResult.reason);
     }
@@ -117,22 +117,51 @@ export default function DealsPage() {
           <h2 className="text-2xl font-bold sm:text-3xl">Sales Pipeline</h2>
           <p className="text-muted-foreground">Track your active deals and conversion progress.</p>
         </div>
-        <button 
-          onClick={() => setShowModal(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-indigo-500 sm:w-auto"
-        >
-          <Plus size={20} />
-          <span>New Deal</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex rounded-2xl border border-white/10 bg-white/5 p-1">
+            <button
+              type="button"
+              onClick={() => changeView('kanban')}
+              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold transition-all ${view === 'kanban' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-white'}`}
+            >
+              <LayoutGrid size={16} />
+              <span className="hidden sm:inline">Kanban</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => changeView('list')}
+              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold transition-all ${view === 'list' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-white'}`}
+            >
+              <List size={16} />
+              <span className="hidden sm:inline">List</span>
+            </button>
+          </div>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-indigo-500 sm:flex-none"
+          >
+            <Plus size={20} />
+            <span>New Deal</span>
+          </button>
+        </div>
       </div>
 
+      {loading ? (
+        <div className="glass-card rounded-3xl p-20 text-center text-muted-foreground italic">Syncing with pipeline...</div>
+      ) : view === 'kanban' ? (
+        deals.length === 0 ? (
+          <div className="glass-card rounded-3xl p-20 text-center text-muted-foreground">No active deals. Start by converting a lead!</div>
+        ) : (
+          <DealsKanbanBoard deals={deals} onDealsChange={setDeals} canUpdateStage={canUpdateStage} />
+        )
+      ) : (
       <div className="glass-card rounded-3xl overflow-hidden">
         <div className="border-b border-white/5 bg-white/5 p-4 sm:p-6">
           <div className="relative w-full sm:max-w-sm">
             <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
-            <input 
-              type="text" 
-              placeholder="Filter deals..." 
+            <input
+              type="text"
+              placeholder="Filter deals..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary"
@@ -206,6 +235,7 @@ export default function DealsPage() {
           ))}
         </div>
       </div>
+      )}
 
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">

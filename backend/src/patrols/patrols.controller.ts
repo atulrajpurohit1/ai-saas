@@ -102,8 +102,11 @@ export class PatrolsController {
 
   @Get('patrol-runs')
   @RequireAnyPermission('patrols.view', 'patrols.manage')
-  findAllPatrolRuns(@GetUser() user: ActiveUser) {
-    return this.patrolsService.findAllPatrolRuns(user);
+  findAllPatrolRuns(
+    @GetUser() user: ActiveUser,
+    @Query('status') status?: string,
+  ) {
+    return this.patrolsService.findAllPatrolRuns(user, status);
   }
 
   @Get('patrol-runs/:id')

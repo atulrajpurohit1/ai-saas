@@ -216,6 +216,38 @@ export interface DiscoveredProspect {
   signals: DiscoveredProspectSignal[];
 }
 
+// Shared conversion used by both the result card (single import) and the
+// search page (bulk import/export) so this mapping only lives in one place.
+export function discoveredProspectToCompany(prospect: DiscoveredProspect): ProspectCompany {
+  const companyName = prospect.companyName ?? 'Unknown company';
+  // companyLocation is a single free-text string from BlackPearl (e.g.
+  // "Kansas City, MO" or just "Mumbai") - splitting it on commas is a
+  // mechanical parse of real data, not a guess, so partial location parts
+  // are left undefined rather than invented.
+  const [city, state, country] = (prospect.companyLocation ?? '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return {
+    id: prospect.id,
+    name: companyName,
+    industry: prospect.companyIndustry,
+    website: prospect.companyDomain,
+    city,
+    state,
+    country,
+    employeeCount: prospect.companyHeadcount,
+    description: prospect.companyDescription,
+    contactName: prospect.contact.fullName,
+    contactTitle: prospect.contact.jobTitle,
+    contactEmail: prospect.contact.email,
+    contactProfileUrl: prospect.contact.profileUrl,
+    qualificationReason: prospect.qualificationReason,
+    signals: prospect.signals.map((signal) => signal.snippet || signal.label),
+  };
+}
+
 export interface ProspectDiscoveryResult {
   query: string;
   discoveredCount: number;

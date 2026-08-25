@@ -4,10 +4,12 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
+import { Checkpoint } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { branchWhere } from '../branches/branch-scope';
+import { haversineDistanceMeters, isValidCoordinate } from '../common/geo.util';
 import { CreateCheckpointDto } from './dto/create-checkpoint.dto';
 import { UpdateCheckpointDto } from './dto/update-checkpoint.dto';
 import { CreatePatrolRouteDto } from './dto/create-patrol-route.dto';
@@ -15,6 +17,11 @@ import { UpdatePatrolRouteDto } from './dto/update-patrol-route.dto';
 import { AttachCheckpointsDto } from './dto/attach-checkpoints.dto';
 import { StartPatrolRunDto } from './dto/start-patrol-run.dto';
 import { ScanCheckpointDto } from './dto/scan-checkpoint.dto';
+import { UpdateLocationDto } from './dto/update-location.dto';
+import {
+  CheckpointVerificationStatus,
+  DEFAULT_GEOFENCE_RADIUS_METERS,
+} from './checkpoint-verification.constants';
 
 @Injectable()
 export class PatrolsService {
@@ -35,6 +42,8 @@ export class PatrolsService {
       throw new NotFoundException('Site not found');
     }
 
+    const geofence = this.resolveGeofenceForCreate(dto);
+
     const checkpoint = await this.prisma.checkpoint.create({
       data: {
         tenantId: user.tenantId,
@@ -44,6 +53,9 @@ export class PatrolsService {
         locationNote: dto.location_note,
         qrCodeValue: dto.qr_code_value,
         status: 'active',
+        latitude: geofence.latitude,
+        longitude: geofence.longitude,
+        geofenceRadiusMeters: geofence.geofenceRadiusMeters,
       },
       include: {
         site: { select: { id: true, name: true } },
@@ -91,6 +103,8 @@ export class PatrolsService {
       throw new NotFoundException('Checkpoint not found');
     }
 
+    const geofenceUpdate = this.resolveGeofenceForUpdate(checkpoint, dto);
+
     const updated = await this.prisma.checkpoint.update({
       where: { id },
       data: {
@@ -105,6 +119,7 @@ export class PatrolsService {
           ? { qrCodeValue: dto.qr_code_value }
           : {}),
         ...(dto.status !== undefined ? { status: dto.status } : {}),
+        ...geofenceUpdate,
       },
       include: {
         site: { select: { id: true, name: true } },
@@ -121,6 +136,64 @@ export class PatrolsService {
     });
 
     return updated;
+  }
+
+  // Requires both latitude and longitude together (a checkpoint can't have
+  // just one), defaults the radius when omitted, and leaves the geofence
+  // entirely unset when neither coordinate is provided.
+  private resolveGeofenceForCreate(dto: CreateCheckpointDto) {
+    const hasLatitude = dto.latitude !== undefined;
+    const hasLongitude = dto.longitude !== undefined;
+
+    if (hasLatitude !== hasLongitude) {
+      throw new BadRequestException(
+        'Both latitude and longitude are required to configure a checkpoint geofence',
+      );
+    }
+
+    if (!hasLatitude) {
+      return { latitude: null, longitude: null, geofenceRadiusMeters: null };
+    }
+
+    return {
+      latitude: dto.latitude as number,
+      longitude: dto.longitude as number,
+      geofenceRadiusMeters: dto.geofence_radius_meters ?? DEFAULT_GEOFENCE_RADIUS_METERS,
+    };
+  }
+
+  private resolveGeofenceForUpdate(checkpoint: Checkpoint, dto: UpdateCheckpointDto) {
+    if (dto.clear_geofence) {
+      return { latitude: null, longitude: null, geofenceRadiusMeters: null };
+    }
+
+    const touchesGeofence =
+      dto.latitude !== undefined ||
+      dto.longitude !== undefined ||
+      dto.geofence_radius_meters !== undefined;
+    if (!touchesGeofence) {
+      return {};
+    }
+
+    const latitude = dto.latitude ?? checkpoint.latitude;
+    const longitude = dto.longitude ?? checkpoint.longitude;
+
+    if ((latitude === null) !== (longitude === null)) {
+      throw new BadRequestException(
+        'Both latitude and longitude are required to configure a checkpoint geofence',
+      );
+    }
+
+    if (latitude === null || longitude === null) {
+      return { latitude: null, longitude: null, geofenceRadiusMeters: null };
+    }
+
+    return {
+      latitude,
+      longitude,
+      geofenceRadiusMeters:
+        dto.geofence_radius_meters ?? checkpoint.geofenceRadiusMeters ?? DEFAULT_GEOFENCE_RADIUS_METERS,
+    };
   }
 
   async createPatrolRoute(user: ActiveUser, dto: CreatePatrolRouteDto) {
@@ -302,11 +375,12 @@ export class PatrolsService {
     return result;
   }
 
-  async findAllPatrolRuns(user: ActiveUser) {
+  async findAllPatrolRuns(user: ActiveUser, status?: string) {
     return this.prisma.patrolRun.findMany({
       where: {
         tenantId: user.tenantId,
         shift: { ...branchWhere(user) },
+        ...(status ? { status } : {}),
       },
       include: {
         patrolRoute: {
@@ -465,6 +539,11 @@ export class PatrolsService {
     checkpointId: string,
     dto?: ScanCheckpointDto,
   ) {
+    // Authorization: the run must genuinely belong to this guard (from the
+    // JWT, never client-supplied) and be in progress - this is the existing
+    // check that already prevents a guard from scanning another guard's
+    // run. The checkpoint-on-route check below similarly prevents scanning
+    // a checkpoint ID that isn't actually part of this run's route.
     const run = await this.prisma.patrolRun.findFirst({
       where: {
         id: runId,
@@ -475,7 +554,7 @@ export class PatrolsService {
       include: {
         patrolRoute: {
           include: {
-            checkpoints: true,
+            checkpoints: { include: { checkpoint: true } },
           },
         },
       },
@@ -493,6 +572,21 @@ export class PatrolsService {
       );
     }
 
+    const verification = this.verifyCheckpointLocation(
+      checkpointOnRoute.checkpoint,
+      dto,
+    );
+
+    const eventData = {
+      scannedAt: new Date(),
+      status: dto?.status || 'completed',
+      notes: dto?.notes || null,
+      verificationStatus: verification.status,
+      distanceMeters: verification.distanceMeters,
+      submittedLatitude: verification.submittedLatitude,
+      submittedLongitude: verification.submittedLongitude,
+    };
+
     const existingEvent = await this.prisma.patrolEvent.findFirst({
       where: {
         patrolRunId: runId,
@@ -503,11 +597,7 @@ export class PatrolsService {
     if (existingEvent) {
       return this.prisma.patrolEvent.update({
         where: { id: existingEvent.id },
-        data: {
-          scannedAt: new Date(),
-          status: dto?.status || 'completed',
-          notes: dto?.notes || null,
-        },
+        data: eventData,
         include: {
           checkpoint: true,
         },
@@ -520,14 +610,64 @@ export class PatrolsService {
         patrolRunId: runId,
         checkpointId,
         guardId,
-        scannedAt: new Date(),
-        status: dto?.status || 'completed',
-        notes: dto?.notes || null,
+        ...eventData,
       },
       include: {
         checkpoint: true,
       },
     });
+  }
+
+  // The server is the sole source of truth for geofence verification - it
+  // never accepts a verdict from the client, only raw coordinates (or none).
+  private verifyCheckpointLocation(checkpoint: Checkpoint, dto?: ScanCheckpointDto) {
+    const hasGeofence =
+      checkpoint.latitude !== null &&
+      checkpoint.longitude !== null &&
+      checkpoint.geofenceRadiusMeters !== null;
+
+    if (!hasGeofence) {
+      return {
+        status: CheckpointVerificationStatus.NO_GEOFENCE_CONFIGURED,
+        distanceMeters: null,
+        submittedLatitude: dto?.latitude ?? null,
+        submittedLongitude: dto?.longitude ?? null,
+      };
+    }
+
+    const hasSubmittedLocation = dto?.latitude !== undefined && dto?.longitude !== undefined;
+    if (!hasSubmittedLocation) {
+      return {
+        status: CheckpointVerificationStatus.LOCATION_UNAVAILABLE,
+        distanceMeters: null,
+        submittedLatitude: null,
+        submittedLongitude: null,
+      };
+    }
+
+    if (!isValidCoordinate(dto.latitude, dto.longitude)) {
+      return {
+        status: CheckpointVerificationStatus.INVALID_LOCATION,
+        distanceMeters: null,
+        submittedLatitude: dto.latitude ?? null,
+        submittedLongitude: dto.longitude ?? null,
+      };
+    }
+
+    const distanceMeters = haversineDistanceMeters(
+      { latitude: checkpoint.latitude as number, longitude: checkpoint.longitude as number },
+      { latitude: dto.latitude as number, longitude: dto.longitude as number },
+    );
+    const withinRadius = distanceMeters <= (checkpoint.geofenceRadiusMeters as number);
+
+    return {
+      status: withinRadius
+        ? CheckpointVerificationStatus.SUCCESS
+        : CheckpointVerificationStatus.OUTSIDE_GEOFENCE,
+      distanceMeters: Math.round(distanceMeters),
+      submittedLatitude: dto.latitude as number,
+      submittedLongitude: dto.longitude as number,
+    };
   }
 
   async completePatrolRun(tenantId: string, guardId: string, runId: string) {
@@ -580,6 +720,53 @@ export class PatrolsService {
         events: {
           include: { checkpoint: true },
         },
+      },
+    });
+  }
+
+  // Phase 3B: live location tracking, scoped to an active patrol run only.
+  // Authorization mirrors scanCheckpoint exactly - the run must belong to
+  // this guard (from the JWT, never client-supplied), this tenant, and be
+  // in_progress. Once the run isn't in_progress (completed, or any future
+  // cancelled/missed state), updates are rejected - tracking stops the
+  // instant the patrol does, with no separate "stop tracking" call needed.
+  async updateLocation(
+    tenantId: string,
+    guardId: string,
+    runId: string,
+    dto: UpdateLocationDto,
+  ) {
+    const run = await this.prisma.patrolRun.findFirst({
+      where: {
+        id: runId,
+        tenantId,
+        guardId,
+        status: 'in_progress',
+      },
+      select: { id: true },
+    });
+    if (!run) {
+      throw new NotFoundException('Active patrol run not found');
+    }
+
+    if (!isValidCoordinate(dto.latitude, dto.longitude)) {
+      throw new BadRequestException('Invalid coordinates');
+    }
+
+    return this.prisma.patrolRun.update({
+      where: { id: runId },
+      data: {
+        lastLatitude: dto.latitude,
+        lastLongitude: dto.longitude,
+        lastAccuracyMeters: dto.accuracy ?? null,
+        lastLocationAt: dto.timestamp ? new Date(dto.timestamp) : new Date(),
+      },
+      select: {
+        id: true,
+        lastLatitude: true,
+        lastLongitude: true,
+        lastAccuracyMeters: true,
+        lastLocationAt: true,
       },
     });
   }

@@ -53,6 +53,7 @@ model Tenant {
   auditLogs             AuditLog[]
   sites                 Site[]
   guards                Guard[]
+  guardComplianceRecords GuardCompliance[]
   shifts                Shift[]
   availabilities        Availability[]
   clients               Client[]
@@ -623,11 +624,44 @@ model Guard {
   patrolRuns       PatrolRun[]
   patrolEvents     PatrolEvent[]
   syncQueues       GuardSyncQueue[]
+  complianceRecords GuardCompliance[]
 
   @@index([tenantId])
   @@index([branchId])
   @@index([email])
   @@index([phone])
+}
+
+// Phase 3C: guard licenses/certifications/COI. Status is never stored -
+// always derived server-side from expirationDate at read time (see
+// guard-compliance/compliance-status.util.ts) so it can never go stale or
+// be spoofed by a client-supplied value.
+model GuardCompliance {
+  id               String    @id @default(uuid())
+  tenantId         String    @map("tenant_id")
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  guardId          String    @map("guard_id")
+  guard            Guard     @relation(fields: [guardId], references: [id], onDelete: Cascade)
+  type             String
+  documentNumber   String?   @map("document_number")
+  issuingAuthority String?   @map("issuing_authority")
+  issueDate        DateTime? @map("issue_date")
+  expirationDate   DateTime? @map("expiration_date")
+  notes            String?
+  // Original filename shown to users vs. the sanitized, unique on-disk
+  // filename - never expose storedFileName to the client (path/enumeration
+  // risk), only fileName.
+  fileName         String?   @map("file_name")
+  storedFileName   String?   @map("stored_file_name")
+  createdBy        String?   @map("created_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([guardId])
+  @@index([type])
+  @@index([expirationDate])
+  @@map("GuardCompliance")
 }
 
 model Shift {
@@ -1301,18 +1335,24 @@ model CustomDomain {
 }
 
 model Checkpoint {
-  id           String   @id @default(uuid())
-  tenantId     String   @map("tenant_id")
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  siteId       String   @map("site_id")
-  site         Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  name         String
-  description  String?
-  locationNote String?  @map("location_note")
-  qrCodeValue  String?  @map("qr_code_value")
-  status       String   @default("active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id                    String   @id @default(uuid())
+  tenantId              String   @map("tenant_id")
+  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId                String   @map("site_id")
+  site                  Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name                  String
+  description           String?
+  locationNote          String?  @map("location_note")
+  qrCodeValue           String?  @map("qr_code_value")
+  // GPS geofence (Phase 3A). All nullable - existing checkpoints and any
+  // future checkpoint created without GPS data keep working unverified
+  // (see NO_GEOFENCE_CONFIGURED in patrols.service.ts).
+  latitude              Float?
+  longitude             Float?
+  geofenceRadiusMeters  Int?     @map("geofence_radius_meters")
+  status                String   @default("active")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
 
   patrolRouteCheckpoints PatrolRouteCheckpoint[]
   patrolEvents           PatrolEvent[]
@@ -1371,6 +1411,14 @@ model PatrolRun {
   status        String      @default("not_started")
   startedAt     DateTime?   @map("started_at")
   completedAt   DateTime?   @map("completed_at")
+  // Live tracking (Phase 3B) - LATEST known guard location only, overwritten
+  // on every update. Deliberately not a history table: tracking exists only
+  // for the duration of an in_progress run, and only the current position
+  // matters for the admin "where is this guard right now" view.
+  lastLatitude       Float?    @map("last_latitude")
+  lastLongitude      Float?    @map("last_longitude")
+  lastAccuracyMeters Float?    @map("last_accuracy_meters")
+  lastLocationAt     DateTime? @map("last_location_at")
   createdAt     DateTime    @default(now()) @map("created_at")
   updatedAt     DateTime    @updatedAt @map("updated_at")
 
@@ -1397,6 +1445,13 @@ model PatrolEvent {
   scannedAt    DateTime   @default(now()) @map("scanned_at")
   status       String     @default("completed")
   notes        String?
+  // GPS geofence verification (Phase 3A). Only the location submitted for
+  // THIS checkpoint scan is stored - one point tied to one event, never a
+  // continuous location trail, per the Phase 3A privacy rule.
+  verificationStatus  String?  @map("verification_status")
+  distanceMeters      Float?   @map("distance_meters")
+  submittedLatitude   Float?   @map("submitted_latitude")
+  submittedLongitude  Float?   @map("submitted_longitude")
   createdAt    DateTime   @default(now()) @map("created_at")
 
   @@index([tenantId])

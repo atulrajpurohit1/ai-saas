@@ -15,6 +15,7 @@ import { GetUser } from '../auth/decorators/get-user.decorator';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { StartPatrolRunDto } from './dto/start-patrol-run.dto';
 import { ScanCheckpointDto } from './dto/scan-checkpoint.dto';
+import { UpdateLocationDto } from './dto/update-location.dto';
 
 @Controller('guard')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -67,6 +68,16 @@ export class GuardPatrolsController {
       checkpointId,
       dto,
     );
+  }
+
+  @Post('patrol-runs/:id/location')
+  updateLocation(
+    @GetUser() user: ActiveUser,
+    @Param('id') runId: string,
+    @Body() dto: UpdateLocationDto,
+  ) {
+    const { tenantId, guardId } = this.getGuardContext(user);
+    return this.patrolsService.updateLocation(tenantId, guardId, runId, dto);
   }
 
   @Post('patrol-runs/:id/complete')

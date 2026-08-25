@@ -44,6 +44,7 @@ export declare class DealsService {
             priorityTier: string | null;
             closeReadinessScore: number | null;
             discoveryQualityScore: number | null;
+            riskProfile: string | null;
             recommendedNextAction: string | null;
         }[];
         client: {

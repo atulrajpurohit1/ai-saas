@@ -1,4 +1,6 @@
-import { IsOptional, IsString, IsIn } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsBoolean, IsIn, IsInt, IsLatitude, IsLongitude, IsOptional, IsString, Max, Min } from 'class-validator';
+import { MAX_GEOFENCE_RADIUS_METERS, MIN_GEOFENCE_RADIUS_METERS } from '../checkpoint-verification.constants';
 
 export class UpdateCheckpointDto {
   @IsOptional()
@@ -21,4 +23,27 @@ export class UpdateCheckpointDto {
   @IsString()
   @IsIn(['active', 'inactive'])
   status?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsLatitude()
+  latitude?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsLongitude()
+  longitude?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(MIN_GEOFENCE_RADIUS_METERS)
+  @Max(MAX_GEOFENCE_RADIUS_METERS)
+  geofence_radius_meters?: number;
+
+  // Allows an admin to explicitly clear a previously-configured geofence
+  // without needing separate DELETE plumbing.
+  @IsOptional()
+  @IsBoolean()
+  clear_geofence?: boolean;
 }

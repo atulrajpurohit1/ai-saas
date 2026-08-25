@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
+import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
 import ProspectDetailsDrawer from '@/components/ProspectDetailsDrawer';
 import ProspectDiscoveryResultCard from '@/components/ProspectDiscoveryResultCard';
@@ -9,8 +10,11 @@ import ProspectSearchFilterChip from '@/components/ProspectSearchFilterChip';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { getCrmConnectorStatus } from '@/lib/integrations';
+import { buildCsv, downloadTextFile } from '@/lib/csv';
 import {
   DiscoverProspectsRequest,
+  DuplicateLeadSummary,
+  ImportedLeadSummary,
   ProspectCompany,
   ProspectCompanyInsight,
   ProspectDiscoveryResult,
@@ -18,9 +22,11 @@ import {
   SavedProspectSearchEntry,
   deleteSavedProspectSearch,
   discoverProspects,
+  discoveredProspectToCompany,
   getProspectDiscoveryJobStatus,
   getProspectSearchHistory,
   getSavedProspectSearches,
+  importProspectAsLead,
   renameSavedProspectSearch,
   saveProspectSearch,
   searchProspects,
@@ -28,19 +34,25 @@ import {
 } from '@/lib/prospect-search';
 import {
   AlertTriangle,
+  ArrowDownAZ,
   ArrowRight,
+  ArrowUpDown,
   Bookmark,
   Briefcase,
   Building2,
+  CheckSquare,
   Clock,
+  Download,
   Factory,
   Loader2,
   MapPin,
   Pencil,
   Radar,
   RotateCcw,
+  Square,
   Tags,
   Trash2,
+  UserPlus,
   Users,
 } from 'lucide-react';
 
@@ -129,6 +141,122 @@ export default function ProspectSearchPage() {
   const [insightCache, setInsightCache] = useState<Record<string, ProspectCompanyInsight>>({});
   const deepResearchGenerationRef = useRef(0);
   const [ghlConnected, setGhlConnected] = useState(false);
+
+  // --- Results toolbar: sort, pagination, bulk select/import/export ---
+  const [sortBy, setSortBy] = useState<'match' | 'name'>('match');
+  const [currentPage, setCurrentPage] = useState(1);
+  const RESULTS_PER_PAGE = 8;
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkImporting, setBulkImporting] = useState(false);
+  const [bulkImportResults, setBulkImportResults] = useState<
+    Record<string, { duplicate: boolean; lead?: ImportedLeadSummary; existingLead?: DuplicateLeadSummary }>
+  >({});
+
+  // A fresh result set invalidates any prior selection/page/bulk-import state.
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedIds(new Set());
+    setBulkImportResults({});
+  }, [result]);
+
+  const sortedProspects = useMemo(() => {
+    const prospects = result?.prospects ?? [];
+    const copy = [...prospects];
+    if (sortBy === 'name') {
+      copy.sort((a, b) => (a.companyName ?? '').localeCompare(b.companyName ?? ''));
+    } else {
+      copy.sort((a, b) => b.qualificationScore - a.qualificationScore);
+    }
+    return copy;
+  }, [result, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedProspects.length / RESULTS_PER_PAGE));
+  const pagedProspects = sortedProspects.slice(
+    (currentPage - 1) * RESULTS_PER_PAGE,
+    currentPage * RESULTS_PER_PAGE,
+  );
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const allOnPageSelected = pagedProspects.length > 0 && pagedProspects.every((p) => selectedIds.has(p.id));
+
+  const toggleSelectAllOnPage = () => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (allOnPageSelected) {
+        pagedProspects.forEach((p) => next.delete(p.id));
+      } else {
+        pagedProspects.forEach((p) => next.add(p.id));
+      }
+      return next;
+    });
+  };
+
+  const handleBulkImport = useCallback(async () => {
+    const targets = sortedProspects.filter((p) => selectedIds.has(p.id));
+    if (targets.length === 0) return;
+
+    setBulkImporting(true);
+    let imported = 0;
+    let duplicates = 0;
+    let failed = 0;
+    const results: typeof bulkImportResults = {};
+
+    for (const prospect of targets) {
+      try {
+        // force=false: never silently overwrite an existing lead in bulk -
+        // duplicates are reported, not re-imported.
+        const outcome = await importProspectAsLead(discoveredProspectToCompany(prospect), false);
+        results[prospect.id] = outcome;
+        if (outcome.duplicate) duplicates += 1;
+        else imported += 1;
+      } catch (err) {
+        failed += 1;
+        console.error('Bulk import failed for prospect', prospect.id, err);
+      }
+    }
+
+    setBulkImportResults(results);
+    setBulkImporting(false);
+    setSelectedIds(new Set());
+
+    const parts = [`${imported} imported`];
+    if (duplicates > 0) parts.push(`${duplicates} already existed`);
+    if (failed > 0) parts.push(`${failed} failed`);
+    const summary = parts.join(', ') + '.';
+
+    if (failed > 0 && imported === 0) toast.error(summary);
+    else if (failed > 0) toast.warning(summary);
+    else toast.success(summary);
+  }, [sortedProspects, selectedIds]);
+
+  const handleExportCsv = useCallback(() => {
+    const rows = sortedProspects.map((p) => [
+      p.companyName ?? '',
+      p.companyIndustry ?? '',
+      p.companyLocation ?? '',
+      p.companyHeadcount ?? '',
+      p.companyDomain ?? '',
+      p.contact.fullName ?? '',
+      p.contact.jobTitle ?? '',
+      p.contact.email ?? '',
+      Math.round(p.qualificationScore * 100),
+      p.qualificationReason ?? '',
+    ]);
+    const csv = buildCsv(
+      ['Company', 'Industry', 'Location', 'Headcount', 'Domain', 'Contact Name', 'Contact Title', 'Contact Email', 'Match %', 'Reason'],
+      rows,
+    );
+    downloadTextFile(`prospect-search-results-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+    toast.success(`Exported ${rows.length} prospect${rows.length === 1 ? '' : 's'} to CSV.`);
+  }, [sortedProspects]);
 
   useEffect(() => {
     getCrmConnectorStatus()
@@ -534,6 +662,7 @@ export default function ProspectSearchPage() {
             disabled={loading}
             onToggle={() => setActiveFilter((current) => (current === 'company' ? null : 'company'))}
             onClose={() => setActiveFilter(null)}
+            onClear={() => setCompanyNamesText('')}
           >
             <label htmlFor="filter-company" className="mb-1 block text-xs font-semibold text-slate-500">
               Company name
@@ -557,6 +686,7 @@ export default function ProspectSearchPage() {
             disabled={loading}
             onToggle={() => setActiveFilter((current) => (current === 'location' ? null : 'location'))}
             onClose={() => setActiveFilter(null)}
+            onClear={() => setLocationsText('')}
           >
             <label htmlFor="filter-locations" className="mb-1 block text-xs font-semibold text-slate-500">
               Locations
@@ -580,6 +710,7 @@ export default function ProspectSearchPage() {
             disabled={loading}
             onToggle={() => setActiveFilter((current) => (current === 'industry' ? null : 'industry'))}
             onClose={() => setActiveFilter(null)}
+            onClear={() => setIndustriesText('')}
           >
             <label htmlFor="filter-industries" className="mb-1 block text-xs font-semibold text-slate-500">
               Industries
@@ -603,6 +734,7 @@ export default function ProspectSearchPage() {
             disabled={loading}
             onToggle={() => setActiveFilter((current) => (current === 'jobTitle' ? null : 'jobTitle'))}
             onClose={() => setActiveFilter(null)}
+            onClear={() => setJobTitlesText('')}
           >
             <label htmlFor="filter-job-titles" className="mb-1 block text-xs font-semibold text-slate-500">
               Job titles
@@ -626,6 +758,7 @@ export default function ProspectSearchPage() {
             disabled={loading}
             onToggle={() => setActiveFilter((current) => (current === 'headcount' ? null : 'headcount'))}
             onClose={() => setActiveFilter(null)}
+            onClear={() => { setHeadcountMin(''); setHeadcountMax(''); }}
           >
             <label className="mb-1 block text-xs font-semibold text-slate-500">Company headcount</label>
             <div className="flex items-center gap-2">
@@ -658,6 +791,7 @@ export default function ProspectSearchPage() {
             disabled={loading}
             onToggle={() => setActiveFilter((current) => (current === 'keywords' ? null : 'keywords'))}
             onClose={() => setActiveFilter(null)}
+            onClear={() => setKeywordsText('')}
           >
             <label htmlFor="filter-keywords" className="mb-1 block text-xs font-semibold text-slate-500">
               Keywords
@@ -770,17 +904,101 @@ export default function ProspectSearchPage() {
               ? `${result.qualifiedCount} of ${result.discoveredCount} discovered ${result.discoveredCount === 1 ? 'company' : 'companies'} qualified`
               : 'No qualifying prospects found for this search. Try broadening your criteria.'}
           </p>
+
+          {result.prospects.length > 0 && (
+            <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+              <button
+                type="button"
+                onClick={toggleSelectAllOnPage}
+                className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-xs font-bold text-slate-300 transition hover:bg-white/5 hover:text-white"
+              >
+                {allOnPageSelected ? <CheckSquare size={16} className="text-indigo-400" /> : <Square size={16} />}
+                {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all on page'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleBulkImport()}
+                disabled={selectedIds.size === 0 || bulkImporting || !can('leads.create')}
+                title={can('leads.create') ? undefined : 'You do not have permission to import leads'}
+                className="inline-flex items-center gap-2 rounded-xl bg-indigo-500 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {bulkImporting ? <Loader2 className="animate-spin" size={13} /> : <UserPlus size={13} />}
+                Import Selected {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-white/10"
+              >
+                <Download size={13} />
+                Export CSV
+              </button>
+
+              <div className="ml-auto flex items-center gap-1.5 text-xs">
+                <span className="flex items-center gap-1 font-bold text-slate-500">
+                  <ArrowUpDown size={13} />
+                  Sort:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSortBy('match')}
+                  className={`rounded-lg px-2.5 py-1 font-bold transition ${sortBy === 'match' ? 'bg-indigo-500/20 text-indigo-200' : 'text-slate-400 hover:text-white'}`}
+                >
+                  Best match
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSortBy('name')}
+                  className={`flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition ${sortBy === 'name' ? 'bg-indigo-500/20 text-indigo-200' : 'text-slate-400 hover:text-white'}`}
+                >
+                  <ArrowDownAZ size={12} />
+                  Name
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-4">
-            {result.prospects.map((prospect) => (
+            {pagedProspects.map((prospect) => (
               <ProspectDiscoveryResultCard
                 key={prospect.id}
                 prospect={prospect}
                 canImportLeads={can('leads.create')}
                 ghlConnected={ghlConnected}
                 onOpenDeepResearch={handleOpenDeepResearch}
+                selectable={result.prospects.length > 0}
+                selected={selectedIds.has(prospect.id)}
+                onToggleSelected={() => toggleSelected(prospect.id)}
+                externalImportResult={bulkImportResults[prospect.id] ?? null}
               />
             ))}
           </div>
+
+          {totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <span className="text-xs font-semibold text-slate-400">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       )}
 

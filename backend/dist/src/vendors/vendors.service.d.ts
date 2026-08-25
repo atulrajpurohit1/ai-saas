@@ -18,8 +18,8 @@ export declare class VendorsService {
         companyName: string;
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
-        createdBy: string | null;
         address: string | null;
+        createdBy: string | null;
         contactPerson: string | null;
         services: import("@prisma/client/runtime/library").JsonValue;
     }>;
@@ -33,8 +33,8 @@ export declare class VendorsService {
         companyName: string;
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
-        createdBy: string | null;
         address: string | null;
+        createdBy: string | null;
         contactPerson: string | null;
         services: import("@prisma/client/runtime/library").JsonValue;
     }[]>;
@@ -48,8 +48,8 @@ export declare class VendorsService {
         companyName: string;
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
-        createdBy: string | null;
         address: string | null;
+        createdBy: string | null;
         contactPerson: string | null;
         services: import("@prisma/client/runtime/library").JsonValue;
     }>;
@@ -63,8 +63,8 @@ export declare class VendorsService {
         companyName: string;
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
-        createdBy: string | null;
         address: string | null;
+        createdBy: string | null;
         contactPerson: string | null;
         services: import("@prisma/client/runtime/library").JsonValue;
     }>;

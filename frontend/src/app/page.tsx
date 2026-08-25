@@ -4,12 +4,20 @@ import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
-import { 
-  Users, 
-  Briefcase, 
-  FileText, 
-  TrendingUp, 
-  Clock
+import { DashboardSummary, getDashboardSummary } from '@/lib/dashboard';
+import { DEAL_STAGE_COLORS } from '@/lib/deals';
+import { formatEnumLabel } from '@/lib/format';
+import TrendAreaChart from '@/components/charts/TrendAreaChart';
+import CategoryBarChart from '@/components/charts/CategoryBarChart';
+import StatDelta from '@/components/charts/StatDelta';
+import {
+  Users,
+  Briefcase,
+  FileText,
+  Clock,
+  TrendingUp,
+  GitBranch,
+  Loader2,
 } from 'lucide-react';
 
 interface DashboardEntity {
@@ -55,6 +63,11 @@ const formatRelativeTime = (timestamp: number) => {
   return new Date(timestamp).toLocaleDateString();
 };
 
+const formatWeekLabel = (isoDate: string) => {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+};
+
 const buildRecentActivities = (
   leads: DashboardEntity[],
   deals: DashboardEntity[],
@@ -89,51 +102,84 @@ const buildRecentActivities = (
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [stats, setStats] = useState({
-    leads: 0,
-    deals: 0,
-    proposals: 0,
-  });
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchDashboard = async () => {
+      setLoading(true);
       try {
-        const [leadsRes, dealsRes, proposalsRes] = await Promise.allSettled([
+        const [summaryRes, leadsRes, dealsRes, proposalsRes] = await Promise.allSettled([
+          getDashboardSummary(),
           api.get('leads'),
           api.get('deals'),
           api.get('proposals'),
         ]);
 
+        if (summaryRes.status === 'fulfilled') {
+          setSummary(summaryRes.value);
+        }
+
         const leads = leadsRes.status === 'fulfilled' && Array.isArray(leadsRes.value.data) ? leadsRes.value.data : [];
         const deals = dealsRes.status === 'fulfilled' && Array.isArray(dealsRes.value.data) ? dealsRes.value.data : [];
         const proposals = proposalsRes.status === 'fulfilled' && Array.isArray(proposalsRes.value.data) ? proposalsRes.value.data : [];
-
-        setStats({
-          leads: leads.length,
-          deals: deals.length,
-          proposals: proposals.length,
-        });
         setActivities(buildRecentActivities(leads, deals, proposals));
-        setError(
-          [leadsRes, dealsRes, proposalsRes].some((result) => result.status === 'rejected')
-            ? 'Some dashboard stats could not be loaded. Check that the backend API is running.'
-            : '',
-        );
+
+        if (summaryRes.status === 'rejected') {
+          setError('Dashboard analytics could not be loaded. Check that the backend API is running.');
+        } else {
+          setError('');
+        }
       } catch (err) {
-        console.error('Failed to fetch stats', err);
+        console.error('Failed to fetch dashboard', err);
         setError('Dashboard stats could not be loaded. Check that the backend API is running.');
+      } finally {
+        setLoading(false);
       }
     };
-    fetchStats();
+    fetchDashboard();
   }, []);
 
-  const statCards = [
-    { label: 'Total Leads', value: stats.leads, icon: Users, color: 'indigo' },
-    { label: 'Active Deals', value: stats.deals, icon: Briefcase, color: 'purple' },
-    { label: 'Proposals Sent', value: stats.proposals, icon: FileText, color: 'blue' },
-  ];
+  const statCards = summary
+    ? [
+        {
+          label: 'Total Leads',
+          value: summary.leads.total,
+          icon: Users,
+          color: 'indigo',
+          deltaPct: summary.leads.deltaPct,
+          hasActivity: summary.leads.last7Days > 0,
+        },
+        {
+          label: 'Active Deals',
+          value: summary.deals.active,
+          icon: Briefcase,
+          color: 'purple',
+          deltaPct: summary.deals.deltaPct,
+          hasActivity: summary.deals.last7Days > 0,
+        },
+        {
+          label: 'Proposals Sent',
+          value: summary.proposals.sent,
+          icon: FileText,
+          color: 'blue',
+          deltaPct: summary.proposals.deltaPct,
+          hasActivity: summary.proposals.last7Days > 0,
+        },
+      ]
+    : [];
+
+  const dealStageData = (summary?.deals.byStage || [])
+    .slice()
+    .sort((a, b) => b.count - a.count)
+    .map((s) => ({
+      key: s.stage,
+      label: formatEnumLabel(s.stage),
+      value: s.count,
+      color: DEAL_STAGE_COLORS[s.stage] || '#818cf8',
+    }));
 
   return (
     <DashboardLayout>
@@ -148,25 +194,70 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-        {statCards.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <div key={stat.label} className="glass-card group cursor-default rounded-3xl p-5 transition-all hover:border-primary/50 sm:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className={`p-3 rounded-2xl bg-${stat.color}-500/10 text-${stat.color}-400 group-hover:scale-110 transition-transform`}>
-                  <Icon size={24} />
-                </div>
-                <div className="flex items-center gap-1 text-emerald-400 text-sm font-bold bg-emerald-500/10 px-2 py-1 rounded-lg">
-                  <TrendingUp size={14} />
-                  <span>+12%</span>
-                </div>
-              </div>
-              <p className="text-muted-foreground font-medium mb-1">{stat.label}</p>
-              <h3 className="text-3xl font-bold sm:text-4xl">{stat.value}</h3>
+      {loading ? (
+        <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="glass-card animate-pulse rounded-3xl p-5 sm:p-6">
+              <div className="mb-4 h-10 w-10 rounded-2xl bg-white/5" />
+              <div className="mb-2 h-4 w-24 rounded bg-white/5" />
+              <div className="h-8 w-16 rounded bg-white/5" />
             </div>
-          );
-        })}
+          ))}
+        </div>
+      ) : (
+        <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+          {statCards.map((stat) => {
+            const Icon = stat.icon;
+            return (
+              <div key={stat.label} className="glass-card group cursor-default rounded-3xl p-5 transition-all hover:border-primary/50 sm:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`p-3 rounded-2xl bg-${stat.color}-500/10 text-${stat.color}-400 group-hover:scale-110 transition-transform`}>
+                    <Icon size={24} />
+                  </div>
+                  <StatDelta deltaPct={stat.deltaPct} hasActivity={stat.hasActivity} />
+                </div>
+                <p className="text-muted-foreground font-medium mb-1">{stat.label}</p>
+                <h3 className="text-3xl font-bold sm:text-4xl">{stat.value}</h3>
+                <p className="mt-1 text-xs text-muted-foreground">vs. previous 7 days</p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-5">
+        <div className="glass-card rounded-3xl p-5 sm:p-6 xl:col-span-3">
+          <div className="mb-6 flex items-center gap-2">
+            <TrendingUp className="text-indigo-400" size={20} />
+            <h3 className="text-xl font-bold">Lead Trend</h3>
+            <span className="ml-auto text-xs font-bold uppercase tracking-widest text-muted-foreground">Last 8 weeks</span>
+          </div>
+          {loading ? (
+            <div className="flex h-[200px] items-center justify-center text-muted-foreground">
+              <Loader2 className="animate-spin" size={20} />
+            </div>
+          ) : (
+            <TrendAreaChart
+              points={(summary?.leads.weeklyTrend || []).map((w) => ({ label: formatWeekLabel(w.weekStart), value: w.count }))}
+              emptyMessage="No leads created in the last 8 weeks."
+              seriesColor="#818cf8"
+            />
+          )}
+        </div>
+
+        <div className="glass-card rounded-3xl p-5 sm:p-6 xl:col-span-2">
+          <div className="mb-6 flex items-center gap-2">
+            <GitBranch className="text-indigo-400" size={20} />
+            <h3 className="text-xl font-bold">Deals by Stage</h3>
+          </div>
+          {loading ? (
+            <div className="flex h-32 items-center justify-center text-muted-foreground">
+              <Loader2 className="animate-spin" size={20} />
+            </div>
+          ) : (
+            <CategoryBarChart data={dealStageData} emptyMessage="No deals in the pipeline yet." />
+          )}
+        </div>
       </div>
 
       <div className="glass-card rounded-3xl p-5 sm:p-6">
