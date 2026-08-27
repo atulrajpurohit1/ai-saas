@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { useAuth, type User } from '@/context/AuthContext';
+import { getBranding } from '@/lib/branding';
 import { useRouter } from 'next/navigation';
 import { Menu } from 'lucide-react';
 
@@ -16,6 +17,15 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
   const { user, loading, can } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [companyName, setCompanyName] = useState<string | null>(null);
+
+  useEffect(() => {
+    getBranding()
+      .then((branding) => setCompanyName(branding.company_name || null))
+      .catch(() => {
+        // Roles without branding.view just keep the tenant-name fallback below.
+      });
+  }, []);
   const permissionsBlocked = Boolean(user && requiredPermissions && !can(requiredPermissions));
   const isBlocked = Boolean(
     user &&
@@ -78,7 +88,7 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
               <Menu size={22} />
             </button>
             <div className="min-w-0 text-right">
-              <div className="truncate text-sm font-bold text-white">{user?.tenantName || 'Ai Saas'}</div>
+              <div className="truncate text-sm font-bold text-white">{companyName || user?.tenantName || 'Ai Saas'}</div>
               <div className="text-xs text-muted-foreground">{user.role === 'finance' ? 'Finance workspace' : 'Admin workspace'}</div>
             </div>
           </div>

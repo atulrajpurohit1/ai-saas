@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { CalendarDays, FileWarning, LayoutDashboard, LogOut, ShieldCheck, Navigation } from 'lucide-react';
 import { SyncIndicator } from './SyncIndicator';
+import GuardPanicButton from './GuardPanicButton';
 
 export default function GuardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -74,6 +75,8 @@ export default function GuardLayout({ children }: { children: React.ReactNode })
             );
           })}
         </nav>
+
+        <GuardPanicButton />
       </header>
 
       <main className="mx-auto max-w-5xl px-4 pb-28 pt-6 sm:pb-8 sm:py-8">

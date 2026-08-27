@@ -15,3 +15,8 @@ export const ADMIN_LOCATION_POLL_INTERVAL_MS = 15_000;
 // more than one missed update cycle so a single slow/failed request
 // doesn't immediately flip the badge.
 export const LOCATION_STALE_THRESHOLD_MS = LOCATION_UPDATE_INTERVAL_MS * 3;
+
+// Phase 3D: how often the admin active-alerts panel re-polls for new/updated
+// panic alerts. Faster than the location poll above since this is a safety
+// signal, but still plain polling - no WebSockets/SSE exist in this app.
+export const EMERGENCY_ALERT_POLL_INTERVAL_MS = 10_000;

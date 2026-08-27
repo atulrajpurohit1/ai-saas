@@ -61,6 +61,28 @@ export default function BrandingSettingsPage() {
   const [domainSaving, setDomainSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [logoUploadError, setLogoUploadError] = useState('');
+
+  const MAX_LOGO_FILE_BYTES = 300 * 1024;
+
+  const handleLogoFile = (file: File | undefined) => {
+    setLogoUploadError('');
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setLogoUploadError('Please choose an image file.');
+      return;
+    }
+    if (file.size > MAX_LOGO_FILE_BYTES) {
+      setLogoUploadError('Image is too large - please choose one under 300KB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setForm((current) => ({ ...current, logo_url: String(reader.result || '') }));
+    };
+    reader.onerror = () => setLogoUploadError('Could not read that file - please try again.');
+    reader.readAsDataURL(file);
+  };
 
   const previewStyle = useMemo(
     () => ({
@@ -228,6 +250,21 @@ export default function BrandingSettingsPage() {
               <label className="space-y-2 text-sm font-semibold text-slate-300">
                 Logo URL
                 <input value={form.logo_url || ''} onChange={(event) => setForm({ ...form, logo_url: event.target.value })} disabled={!canManage} className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60" />
+                <span className="flex items-center gap-2 text-xs font-medium text-slate-400">
+                  or
+                  <label className={`cursor-pointer font-bold text-indigo-300 hover:text-indigo-200 ${!canManage ? 'pointer-events-none opacity-60' : ''}`}>
+                    upload an image
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={!canManage}
+                      onChange={(event) => handleLogoFile(event.target.files?.[0])}
+                      className="hidden"
+                    />
+                  </label>
+                  (under 300KB)
+                </span>
+                {logoUploadError && <span className="block text-xs font-medium text-rose-400">{logoUploadError}</span>}
               </label>
               <label className="space-y-2 text-sm font-semibold text-slate-300">
                 Favicon URL

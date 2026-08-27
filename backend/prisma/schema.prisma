@@ -97,6 +97,7 @@ model Tenant {
   proposalSubmissions   ProposalSubmission[]
   evaluationReports     EvaluationReport[]
   vendorPerformances    VendorPerformance[]
+  emergencyAlerts       EmergencyAlert[]
 }
 
 model Branch {
@@ -118,6 +119,7 @@ model Branch {
   reports         DailyServiceReport[]
   invoices        Invoice[]
   roleAssignments UserRoleAssignment[]
+  emergencyAlerts EmergencyAlert[]
 
   @@index([tenantId])
   @@index([managerId])
@@ -143,6 +145,8 @@ model User {
   reviewedIncidents Incident[]           @relation("IncidentReviewer")
   roleAssignments   UserRoleAssignment[]
   sessions          UserSession[]
+  acknowledgedEmergencyAlerts EmergencyAlert[] @relation("EmergencyAlertAcknowledgedBy")
+  resolvedEmergencyAlerts     EmergencyAlert[] @relation("EmergencyAlertResolvedBy")
 
   @@index([tenantId])
   @@index([branchId])
@@ -625,6 +629,7 @@ model Guard {
   patrolEvents     PatrolEvent[]
   syncQueues       GuardSyncQueue[]
   complianceRecords GuardCompliance[]
+  emergencyAlerts  EmergencyAlert[]
 
   @@index([tenantId])
   @@index([branchId])
@@ -1423,6 +1428,7 @@ model PatrolRun {
   updatedAt     DateTime    @updatedAt @map("updated_at")
 
   events PatrolEvent[]
+  emergencyAlerts EmergencyAlert[]
 
   @@index([tenantId])
   @@index([shiftId])
@@ -1459,6 +1465,59 @@ model PatrolEvent {
   @@index([checkpointId])
   @@index([guardId])
   @@map("PatrolEvent")
+}
+
+// Phase 3D: guard panic/duress alerts. A dedicated model rather than reusing
+// Incident - Incident requires a shiftId/siteId (NOT NULL) and models a
+// submitted->reviewed report workflow, whereas a duress alert must be
+// createable without an active shift/site and needs a distinct
+// ACTIVE->ACKNOWLEDGED->RESOLVED lifecycle with acknowledger/resolver
+// identity, neither of which Incident supports without risking the existing
+// incident-reporting feature. Status is a plain string (matching
+// Incident.status/PatrolRun.status convention in this schema), validated at
+// the application layer - see emergency-alerts/emergency-alert-status.util.ts.
+model EmergencyAlert {
+  id            String    @id @default(uuid())
+  tenantId      String    @map("tenant_id")
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  guardId       String    @map("guard_id")
+  guard         Guard     @relation(fields: [guardId], references: [id], onDelete: Cascade)
+  // Snapshot of the guard's branch at trigger time, for branch-scoped admin
+  // visibility - not a live relation the guard can influence afterward.
+  branchId      String?   @map("branch_id")
+  branch        Branch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  // Optional - set only if the guard had an in_progress PatrolRun when the
+  // alert was triggered. A real emergency must not require an active patrol.
+  patrolRunId   String?   @map("patrol_run_id")
+  patrolRun     PatrolRun? @relation(fields: [patrolRunId], references: [id], onDelete: SetNull)
+  status        String    @default("ACTIVE")
+  triggeredAt   DateTime  @default(now()) @map("triggered_at")
+  acknowledgedAt DateTime? @map("acknowledged_at")
+  resolvedAt    DateTime? @map("resolved_at")
+  acknowledgedById String? @map("acknowledged_by")
+  acknowledgedBy   User?   @relation("EmergencyAlertAcknowledgedBy", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+  resolvedById  String?   @map("resolved_by")
+  resolvedBy    User?     @relation("EmergencyAlertResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+  notes         String?
+  // Location snapshot copied from PatrolRun.last* at trigger time only - not
+  // a live/continuously-updated field. locationCapturedAt is when that
+  // underlying location reading was taken (PatrolRun.lastLocationAt), which
+  // may predate triggeredAt slightly; null on both if no location was known.
+  lastLatitude       Float?    @map("last_latitude")
+  lastLongitude      Float?    @map("last_longitude")
+  lastAccuracyMeters Float?    @map("last_accuracy_meters")
+  locationCapturedAt DateTime? @map("location_captured_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([guardId])
+  @@index([branchId])
+  @@index([patrolRunId])
+  @@index([status])
+  @@index([acknowledgedById])
+  @@index([resolvedById])
+  @@map("EmergencyAlert")
 }
 
 model ProspectSearchHistory {

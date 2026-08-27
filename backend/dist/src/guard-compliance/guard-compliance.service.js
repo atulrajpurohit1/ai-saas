@@ -46,7 +46,9 @@ let GuardComplianceService = class GuardComplianceService {
         return record;
     }
     assertDateOrder(issueDate, expirationDate) {
-        if (issueDate && expirationDate && expirationDate.getTime() < issueDate.getTime()) {
+        if (issueDate &&
+            expirationDate &&
+            expirationDate.getTime() < issueDate.getTime()) {
             throw new common_1.BadRequestException('Expiration date cannot be before issue date');
         }
     }
@@ -79,7 +81,9 @@ let GuardComplianceService = class GuardComplianceService {
     async create(user, dto) {
         const guard = await this.findGuardOrThrow(user, dto.guard_id);
         const issueDate = dto.issue_date ? new Date(dto.issue_date) : null;
-        const expirationDate = dto.expiration_date ? new Date(dto.expiration_date) : null;
+        const expirationDate = dto.expiration_date
+            ? new Date(dto.expiration_date)
+            : null;
         this.assertDateOrder(issueDate, expirationDate);
         const record = await this.prisma.guardCompliance.create({
             data: {
@@ -106,7 +110,11 @@ let GuardComplianceService = class GuardComplianceService {
     }
     async update(user, id, dto) {
         const record = await this.findRecordOrThrow(user, id);
-        const nextIssue = dto.issue_date !== undefined ? (dto.issue_date ? new Date(dto.issue_date) : null) : record.issueDate;
+        const nextIssue = dto.issue_date !== undefined
+            ? dto.issue_date
+                ? new Date(dto.issue_date)
+                : null
+            : record.issueDate;
         const nextExpiration = dto.expiration_date !== undefined
             ? dto.expiration_date
                 ? new Date(dto.expiration_date)
@@ -117,10 +125,16 @@ let GuardComplianceService = class GuardComplianceService {
             where: { id },
             data: {
                 ...(dto.type !== undefined ? { type: dto.type } : {}),
-                ...(dto.document_number !== undefined ? { documentNumber: dto.document_number || null } : {}),
-                ...(dto.issuing_authority !== undefined ? { issuingAuthority: dto.issuing_authority || null } : {}),
+                ...(dto.document_number !== undefined
+                    ? { documentNumber: dto.document_number || null }
+                    : {}),
+                ...(dto.issuing_authority !== undefined
+                    ? { issuingAuthority: dto.issuing_authority || null }
+                    : {}),
                 ...(dto.issue_date !== undefined ? { issueDate: nextIssue } : {}),
-                ...(dto.expiration_date !== undefined ? { expirationDate: nextExpiration } : {}),
+                ...(dto.expiration_date !== undefined
+                    ? { expirationDate: nextExpiration }
+                    : {}),
                 ...(dto.notes !== undefined ? { notes: dto.notes || null } : {}),
             },
         });
@@ -229,7 +243,10 @@ let GuardComplianceService = class GuardComplianceService {
         if (!(0, fs_1.existsSync)(filePath)) {
             throw new common_1.NotFoundException('File not found on server');
         }
-        return { stream: (0, fs_1.createReadStream)(filePath), filename: record.fileName || record.storedFileName };
+        return {
+            stream: (0, fs_1.createReadStream)(filePath),
+            filename: record.fileName || record.storedFileName,
+        };
     }
 };
 exports.GuardComplianceService = GuardComplianceService;

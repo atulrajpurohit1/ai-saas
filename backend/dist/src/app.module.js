@@ -63,6 +63,7 @@ const field_permissions_module_1 = require("./field-permissions/field-permission
 const prospect_search_module_1 = require("./prospect-search/prospect-search.module");
 const dashboard_module_1 = require("./dashboard/dashboard.module");
 const guard_compliance_module_1 = require("./guard-compliance/guard-compliance.module");
+const emergency_alerts_module_1 = require("./emergency-alerts/emergency-alerts.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -74,6 +75,7 @@ exports.AppModule = AppModule = __decorate([
             roles_module_1.RolesModule,
             dashboard_module_1.DashboardModule,
             guard_compliance_module_1.GuardComplianceModule,
+            emergency_alerts_module_1.EmergencyAlertsModule,
             field_permissions_module_1.FieldPermissionsModule,
             api_keys_module_1.ApiKeysModule,
             webhooks_module_1.WebhooksModule,

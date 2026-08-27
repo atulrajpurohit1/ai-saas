@@ -33,6 +33,7 @@ import {
   FileCheck2
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { getBranding } from '@/lib/branding';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -51,6 +52,20 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout, canAny } = useAuth();
   const navRef = useRef<HTMLElement | null>(null);
+  const [logoUrl, setLogoUrl] = React.useState<string | null>(null);
+  const [companyName, setCompanyName] = React.useState<string | null>(null);
+
+  useEffect(() => {
+    getBranding()
+      .then((branding) => {
+        setLogoUrl(branding.logo_url || null);
+        setCompanyName(branding.company_name || null);
+      })
+      .catch(() => {
+        // Roles without branding.view (or a network hiccup) just keep the
+        // default wordmark below - not worth surfacing an error for this.
+      });
+  }, []);
 
   const dashboardLink = { href: '/', label: 'Dashboard', icon: LayoutDashboard, permissions: ['dashboard.view'] };
 
@@ -170,9 +185,17 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     >
       <div className="flex items-start justify-between gap-4 p-4 sm:p-5">
         <div className="min-w-0">
-          <h1 className="pb-2 text-2xl font-bold gradient-text">Ai Saas</h1>
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={companyName || user?.tenantName || 'Company logo'}
+              className="mb-2 h-9 max-w-full object-contain object-left"
+            />
+          ) : (
+            <h1 className="pb-2 text-2xl font-bold gradient-text">Ai Saas</h1>
+          )}
           <p className="truncate text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            {user?.tenantName || 'Management'}
+            {companyName || user?.tenantName || 'Management'}
           </p>
         </div>
         <button

@@ -1,11 +1,15 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
-import { Search, ShieldAlert, Eye, Calendar, Clock, CheckCircle2, AlertCircle, XCircle, Plus, MapPin, MapPinOff, Radar, ExternalLink } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { Search, Eye, Calendar, Clock, CheckCircle2, AlertCircle, XCircle, Plus, MapPin, MapPinOff, Radar, ExternalLink, BellRing, Siren } from 'lucide-react';
 import { PatrolRun, getPatrolRuns, getPatrolRun } from '@/lib/patrols';
 import { formatEnumLabel } from '@/lib/format';
-import { ADMIN_LOCATION_POLL_INTERVAL_MS, LOCATION_STALE_THRESHOLD_MS } from '@/lib/guard-tracking.constants';
+import { getApiErrorMessage } from '@/lib/api-error';
+import { ADMIN_LOCATION_POLL_INTERVAL_MS, LOCATION_STALE_THRESHOLD_MS, EMERGENCY_ALERT_POLL_INTERVAL_MS } from '@/lib/guard-tracking.constants';
+import { EmergencyAlert, getEmergencyAlerts, acknowledgeEmergencyAlert, resolveEmergencyAlert } from '@/lib/emergency-alerts';
 
 function isLocationStale(lastLocationAt: string | null): boolean {
   if (!lastLocationAt) return true;
@@ -67,6 +71,42 @@ function LiveLocationCard({ run }: { run: PatrolRun }) {
   );
 }
 
+function AlertLocationCard({ location }: { location: EmergencyAlert['location'] }) {
+  if (!location) {
+    return (
+      <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-400">
+        <MapPinOff size={13} />
+        Location unavailable
+      </div>
+    );
+  }
+
+  const mapsUrl = `https://www.google.com/maps?q=${location.latitude},${location.longitude}`;
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-300">
+      <span className="font-mono">
+        {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
+      </span>
+      {typeof location.accuracyMeters === 'number' && (
+        <span className="text-slate-500">±{Math.round(location.accuracyMeters)}m</span>
+      )}
+      {location.capturedAt && (
+        <span className="text-slate-500">as of {relativeTime(location.capturedAt)}</span>
+      )}
+      <a
+        href={mapsUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 font-semibold text-indigo-300 hover:text-indigo-200"
+      >
+        Open in Maps
+        <ExternalLink size={11} />
+      </a>
+    </div>
+  );
+}
+
 function geofenceBadge(status: string | null | undefined, distanceMeters: number | null | undefined) {
   switch (status) {
     case 'SUCCESS':
@@ -88,9 +128,19 @@ function geofenceBadge(status: string | null | undefined, distanceMeters: number
 }
 
 export default function PatrolRunsPage() {
+  const { can } = useAuth();
+  const canReview = can('incidents.review');
+
   const [runs, setRuns] = useState<PatrolRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Phase 3D: panic/duress alerts, polled independently of everything else
+  // on this page - this is the "obvious active-duress area" on the existing
+  // patrol monitoring UI, not a separate application.
+  const [alerts, setAlerts] = useState<EmergencyAlert[]>([]);
+  const [alertsLoading, setAlertsLoading] = useState(true);
+  const [alertActionId, setAlertActionId] = useState<string | null>(null);
 
   // Selected run for detailed view
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
@@ -134,6 +184,50 @@ export default function PatrolRunsPage() {
     const intervalId = setInterval(fetchLiveRuns, ADMIN_LOCATION_POLL_INTERVAL_MS);
     return () => clearInterval(intervalId);
   }, [fetchLiveRuns]);
+
+  const fetchAlerts = useCallback(async () => {
+    try {
+      const res = await getEmergencyAlerts();
+      setAlerts(res.filter((alert) => alert.status !== 'RESOLVED'));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAlertsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAlerts();
+    const intervalId = setInterval(fetchAlerts, EMERGENCY_ALERT_POLL_INTERVAL_MS);
+    return () => clearInterval(intervalId);
+  }, [fetchAlerts]);
+
+  const handleAcknowledge = async (alertId: string) => {
+    setAlertActionId(alertId);
+    try {
+      await acknowledgeEmergencyAlert(alertId);
+      toast.success('Alert acknowledged.');
+      await fetchAlerts();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Failed to acknowledge alert.'));
+    } finally {
+      setAlertActionId(null);
+    }
+  };
+
+  const handleResolve = async (alertId: string, guardName: string) => {
+    if (!window.confirm(`Mark the emergency alert for ${guardName} as resolved?`)) return;
+    setAlertActionId(alertId);
+    try {
+      await resolveEmergencyAlert(alertId);
+      toast.success('Alert resolved.');
+      await fetchAlerts();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Failed to resolve alert.'));
+    } finally {
+      setAlertActionId(null);
+    }
+  };
 
   const handleViewDetails = async (runId: string) => {
     setSelectedRunId(runId);
@@ -190,6 +284,105 @@ export default function PatrolRunsPage() {
           <h2 className="text-2xl font-bold sm:text-3xl">Patrol Logs</h2>
           <p className="text-muted-foreground">Monitor guard patrol runs, scan checkpoints, and completion timelines.</p>
         </div>
+      </div>
+
+      {/* ACTIVE EMERGENCY ALERTS - Phase 3D */}
+      <div
+        className={`mb-6 rounded-3xl border p-5 sm:p-6 ${
+          alerts.length > 0
+            ? 'border-rose-500/40 bg-rose-950/20'
+            : 'glass-card border-white/5'
+        }`}
+      >
+        <div className="mb-4 flex items-center gap-2">
+          <Siren className={alerts.length > 0 ? 'text-rose-400' : 'text-muted-foreground'} size={20} />
+          <h3 className="text-lg font-bold text-white">Emergency Alerts</h3>
+          {alerts.length > 0 && (
+            <span className="ml-auto rounded-full bg-rose-500 px-2.5 py-0.5 text-xs font-bold text-white">
+              {alerts.length} active
+            </span>
+          )}
+        </div>
+        {alertsLoading ? (
+          <div className="py-6 text-center text-sm text-muted-foreground">Checking for active alerts…</div>
+        ) : alerts.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-white/10 py-6 text-center text-sm text-muted-foreground">
+            No active emergency alerts.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {alerts.map((alert) => (
+              <div
+                key={alert.id}
+                className={`rounded-2xl border p-4 ${
+                  alert.status === 'ACTIVE'
+                    ? 'border-rose-500/40 bg-rose-500/5'
+                    : 'border-amber-500/40 bg-amber-500/5'
+                }`}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                          alert.status === 'ACTIVE'
+                            ? 'bg-rose-500/20 text-rose-300'
+                            : 'bg-amber-500/20 text-amber-300'
+                        }`}
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${alert.status === 'ACTIVE' ? 'bg-rose-400 animate-pulse' : 'bg-amber-400'}`} />
+                        {alert.status}
+                      </span>
+                      <span className="text-xs text-slate-500">Triggered {relativeTime(alert.triggeredAt)}</span>
+                    </div>
+                    <div className="mt-1 text-base font-bold text-white">{alert.guard?.name || 'Unknown Guard'}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {alert.site?.name || alert.branch?.name || 'No active patrol context'}
+                      {alert.patrolRoute?.name ? ` · ${alert.patrolRoute.name}` : ''}
+                      {alert.guard?.phone ? ` · ${alert.guard.phone}` : ''}
+                    </div>
+                    {alert.status === 'ACKNOWLEDGED' && alert.acknowledgedBy && (
+                      <div className="mt-1 text-xs text-amber-300/80">
+                        Acknowledged by {alert.acknowledgedBy.name || alert.acknowledgedBy.email} {alert.acknowledgedAt ? relativeTime(alert.acknowledgedAt) : ''}
+                      </div>
+                    )}
+                  </div>
+
+                  {canReview && (
+                    <div className="flex shrink-0 gap-2">
+                      {alert.status === 'ACTIVE' && (
+                        <button
+                          type="button"
+                          onClick={() => handleAcknowledge(alert.id)}
+                          disabled={alertActionId === alert.id}
+                          className="flex items-center gap-1.5 rounded-xl bg-amber-500/15 px-3 py-1.5 text-xs font-bold text-amber-300 transition-all hover:bg-amber-500/25 disabled:opacity-60"
+                        >
+                          <BellRing size={13} />
+                          Acknowledge
+                        </button>
+                      )}
+                      {alert.status === 'ACKNOWLEDGED' && (
+                        <button
+                          type="button"
+                          onClick={() => handleResolve(alert.id, alert.guard?.name || 'this guard')}
+                          disabled={alertActionId === alert.id}
+                          className="flex items-center gap-1.5 rounded-xl bg-emerald-500/15 px-3 py-1.5 text-xs font-bold text-emerald-300 transition-all hover:bg-emerald-500/25 disabled:opacity-60"
+                        >
+                          <CheckCircle2 size={13} />
+                          Resolve
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-3">
+                  <AlertLocationCard location={alert.location} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* LIVE GUARDS - Phase 3B */}

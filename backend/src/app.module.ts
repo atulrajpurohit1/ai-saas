@@ -54,6 +54,7 @@ import { FieldPermissionsModule } from './field-permissions/field-permissions.mo
 import { ProspectSearchModule } from './prospect-search/prospect-search.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { GuardComplianceModule } from './guard-compliance/guard-compliance.module';
+import { EmergencyAlertsModule } from './emergency-alerts/emergency-alerts.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { GuardComplianceModule } from './guard-compliance/guard-compliance.modul
     RolesModule,
     DashboardModule,
     GuardComplianceModule,
+    EmergencyAlertsModule,
     FieldPermissionsModule,
     ApiKeysModule,
     WebhooksModule,
