@@ -492,4 +492,26 @@ export declare class PatrolsService {
         lastAccuracyMeters: number | null;
         lastLocationAt: Date | null;
     })[]>;
+    getLiveSiteStatusForClient(tenantId: string, clientId: string): Promise<{
+        site: {
+            id: string;
+            name: string;
+            address: string;
+        };
+        guardsOnSite: {
+            guardId: string;
+            guardName: string;
+            shiftId: string;
+            patrolRoute: {
+                id: string;
+                name: string;
+            } | null;
+            location: {
+                latitude: number;
+                longitude: number;
+                accuracyMeters: number | null;
+                capturedAt: Date | null;
+            } | null;
+        }[];
+    }[]>;
 }

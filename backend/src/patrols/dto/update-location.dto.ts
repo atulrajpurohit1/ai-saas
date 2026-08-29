@@ -1,5 +1,13 @@
 import { Type } from 'class-transformer';
-import { IsISO8601, IsLatitude, IsLongitude, IsNumber, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsISO8601,
+  IsLatitude,
+  IsLongitude,
+  IsNumber,
+  IsOptional,
+  Max,
+  Min,
+} from 'class-validator';
 
 // Unlike ScanCheckpointDto (Phase 3A), a location ping carries no other
 // operational meaning on its own - if the coordinates are invalid there is

@@ -20,3 +20,8 @@ export const LOCATION_STALE_THRESHOLD_MS = LOCATION_UPDATE_INTERVAL_MS * 3;
 // panic alerts. Faster than the location poll above since this is a safety
 // signal, but still plain polling - no WebSockets/SSE exist in this app.
 export const EMERGENCY_ALERT_POLL_INTERVAL_MS = 10_000;
+
+// Phase 3E: how often the client portal's "guard on site now" panel
+// re-polls. Same cadence as the admin live-guards panel - not safety-
+// critical like the alert poll above, just a presence/trust indicator.
+export const CLIENT_LIVE_STATUS_POLL_INTERVAL_MS = ADMIN_LOCATION_POLL_INTERVAL_MS;

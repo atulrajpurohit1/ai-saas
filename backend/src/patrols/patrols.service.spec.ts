@@ -9,10 +9,11 @@ import { ActiveUser } from '../auth/interfaces/active-user.interface';
 describe('PatrolsService - geofence verification', () => {
   let service: PatrolsService;
   let prisma: {
-    site: { findFirst: jest.Mock };
+    site: { findFirst: jest.Mock; findMany: jest.Mock };
     checkpoint: { create: jest.Mock; findFirst: jest.Mock; update: jest.Mock };
     patrolRun: { findFirst: jest.Mock; update: jest.Mock; findMany: jest.Mock };
     patrolEvent: { findFirst: jest.Mock; create: jest.Mock; update: jest.Mock };
+    shift: { findMany: jest.Mock };
   };
 
   const TENANT_ID = 'tenant-1';
@@ -51,10 +52,23 @@ describe('PatrolsService - geofence verification', () => {
 
   beforeEach(async () => {
     prisma = {
-      site: { findFirst: jest.fn() },
-      checkpoint: { create: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
-      patrolRun: { findFirst: jest.fn(), update: jest.fn(), findMany: jest.fn() },
-      patrolEvent: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn(), update: jest.fn() },
+      site: { findFirst: jest.fn(), findMany: jest.fn() },
+      checkpoint: {
+        create: jest.fn(),
+        findFirst: jest.fn(),
+        update: jest.fn(),
+      },
+      patrolRun: {
+        findFirst: jest.fn(),
+        update: jest.fn(),
+        findMany: jest.fn(),
+      },
+      patrolEvent: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn(),
+        update: jest.fn(),
+      },
+      shift: { findMany: jest.fn() },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -66,20 +80,32 @@ describe('PatrolsService - geofence verification', () => {
     }).compile();
 
     service = module.get<PatrolsService>(PatrolsService);
-    prisma.patrolEvent.create.mockImplementation(({ data }) => Promise.resolve(data));
-    prisma.patrolEvent.update.mockImplementation(({ data }) => Promise.resolve(data));
+    prisma.patrolEvent.create.mockImplementation(({ data }) =>
+      Promise.resolve(data),
+    );
+    prisma.patrolEvent.update.mockImplementation(({ data }) =>
+      Promise.resolve(data),
+    );
   });
 
   describe('scanCheckpoint - verification outcomes', () => {
     it('marks SUCCESS when the guard scans at the exact checkpoint location', async () => {
       mockRunWithCheckpoint(geofencedCheckpoint);
 
-      const event = await service.scanCheckpoint(TENANT_ID, GUARD_ID, RUN_ID, CHECKPOINT_ID, {
-        latitude: geofencedCheckpoint.latitude,
-        longitude: geofencedCheckpoint.longitude,
-      });
+      const event = await service.scanCheckpoint(
+        TENANT_ID,
+        GUARD_ID,
+        RUN_ID,
+        CHECKPOINT_ID,
+        {
+          latitude: geofencedCheckpoint.latitude,
+          longitude: geofencedCheckpoint.longitude,
+        },
+      );
 
-      expect(event.verificationStatus).toBe(CheckpointVerificationStatus.SUCCESS);
+      expect(event.verificationStatus).toBe(
+        CheckpointVerificationStatus.SUCCESS,
+      );
       expect(event.distanceMeters).toBeLessThanOrEqual(1);
     });
 
@@ -87,58 +113,98 @@ describe('PatrolsService - geofence verification', () => {
       mockRunWithCheckpoint(geofencedCheckpoint);
 
       // ~30m north of the checkpoint, well inside the 50m radius.
-      const event = await service.scanCheckpoint(TENANT_ID, GUARD_ID, RUN_ID, CHECKPOINT_ID, {
-        latitude: geofencedCheckpoint.latitude + 0.00027,
-        longitude: geofencedCheckpoint.longitude,
-      });
+      const event = await service.scanCheckpoint(
+        TENANT_ID,
+        GUARD_ID,
+        RUN_ID,
+        CHECKPOINT_ID,
+        {
+          latitude: geofencedCheckpoint.latitude + 0.00027,
+          longitude: geofencedCheckpoint.longitude,
+        },
+      );
 
-      expect(event.verificationStatus).toBe(CheckpointVerificationStatus.SUCCESS);
+      expect(event.verificationStatus).toBe(
+        CheckpointVerificationStatus.SUCCESS,
+      );
     });
 
     it('marks OUTSIDE_GEOFENCE when the guard is beyond the configured radius', async () => {
       mockRunWithCheckpoint(geofencedCheckpoint);
 
       // ~500m away - well outside the 50m radius.
-      const event = await service.scanCheckpoint(TENANT_ID, GUARD_ID, RUN_ID, CHECKPOINT_ID, {
-        latitude: geofencedCheckpoint.latitude + 0.0045,
-        longitude: geofencedCheckpoint.longitude,
-      });
+      const event = await service.scanCheckpoint(
+        TENANT_ID,
+        GUARD_ID,
+        RUN_ID,
+        CHECKPOINT_ID,
+        {
+          latitude: geofencedCheckpoint.latitude + 0.0045,
+          longitude: geofencedCheckpoint.longitude,
+        },
+      );
 
-      expect(event.verificationStatus).toBe(CheckpointVerificationStatus.OUTSIDE_GEOFENCE);
+      expect(event.verificationStatus).toBe(
+        CheckpointVerificationStatus.OUTSIDE_GEOFENCE,
+      );
       expect(event.distanceMeters).toBeGreaterThan(50);
     });
 
     it('marks LOCATION_UNAVAILABLE when the device could not provide a location', async () => {
       mockRunWithCheckpoint(geofencedCheckpoint);
 
-      const event = await service.scanCheckpoint(TENANT_ID, GUARD_ID, RUN_ID, CHECKPOINT_ID, {
-        status: 'completed',
-      });
+      const event = await service.scanCheckpoint(
+        TENANT_ID,
+        GUARD_ID,
+        RUN_ID,
+        CHECKPOINT_ID,
+        {
+          status: 'completed',
+        },
+      );
 
-      expect(event.verificationStatus).toBe(CheckpointVerificationStatus.LOCATION_UNAVAILABLE);
+      expect(event.verificationStatus).toBe(
+        CheckpointVerificationStatus.LOCATION_UNAVAILABLE,
+      );
       expect(event.distanceMeters).toBeNull();
     });
 
     it('marks INVALID_LOCATION for out-of-range coordinates', async () => {
       mockRunWithCheckpoint(geofencedCheckpoint);
 
-      const event = await service.scanCheckpoint(TENANT_ID, GUARD_ID, RUN_ID, CHECKPOINT_ID, {
-        latitude: 200,
-        longitude: -122.4783,
-      });
+      const event = await service.scanCheckpoint(
+        TENANT_ID,
+        GUARD_ID,
+        RUN_ID,
+        CHECKPOINT_ID,
+        {
+          latitude: 200,
+          longitude: -122.4783,
+        },
+      );
 
-      expect(event.verificationStatus).toBe(CheckpointVerificationStatus.INVALID_LOCATION);
+      expect(event.verificationStatus).toBe(
+        CheckpointVerificationStatus.INVALID_LOCATION,
+      );
     });
 
     it('marks NO_GEOFENCE_CONFIGURED for a checkpoint without GPS data, and the scan still succeeds', async () => {
       mockRunWithCheckpoint(nonGpsCheckpoint);
 
-      const event = await service.scanCheckpoint(TENANT_ID, GUARD_ID, RUN_ID, CHECKPOINT_ID, {
-        latitude: 37.8199,
-        longitude: -122.4783,
-      });
+      const event = await service.scanCheckpoint(
+        TENANT_ID,
+        GUARD_ID,
+        RUN_ID,
+        CHECKPOINT_ID,
+        {
+          latitude: 37.8199,
+          longitude: -122.4783,
+        },
+      );
 
-      expect(event.verificationStatus).toBe(CheckpointVerificationStatus.NO_GEOFENCE_CONFIGURED);
+      expect(event.verificationStatus).toBe(
+        CheckpointVerificationStatus.NO_GEOFENCE_CONFIGURED,
+      );
       expect(event.status).toBe('completed');
     });
 
@@ -148,15 +214,23 @@ describe('PatrolsService - geofence verification', () => {
       // A malicious/buggy client sending a fabricated "verified" flag and a
       // location far outside the geofence - the server must compute its own
       // result from the coordinates, not honor any extra field.
-      const event = await service.scanCheckpoint(TENANT_ID, GUARD_ID, RUN_ID, CHECKPOINT_ID, {
-        latitude: geofencedCheckpoint.latitude + 0.0045,
-        longitude: geofencedCheckpoint.longitude,
-        // @ts-expect-error - simulating a hostile payload with fabricated verdict fields
-        verificationStatus: 'SUCCESS',
-        isWithinGeofence: true,
-      });
+      const event = await service.scanCheckpoint(
+        TENANT_ID,
+        GUARD_ID,
+        RUN_ID,
+        CHECKPOINT_ID,
+        {
+          latitude: geofencedCheckpoint.latitude + 0.0045,
+          longitude: geofencedCheckpoint.longitude,
+          // @ts-expect-error - simulating a hostile payload with fabricated verdict fields
+          verificationStatus: 'SUCCESS',
+          isWithinGeofence: true,
+        },
+      );
 
-      expect(event.verificationStatus).toBe(CheckpointVerificationStatus.OUTSIDE_GEOFENCE);
+      expect(event.verificationStatus).toBe(
+        CheckpointVerificationStatus.OUTSIDE_GEOFENCE,
+      );
     });
   });
 
@@ -165,7 +239,10 @@ describe('PatrolsService - geofence verification', () => {
       prisma.patrolRun.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.scanCheckpoint(TENANT_ID, GUARD_ID, RUN_ID, CHECKPOINT_ID, { latitude: 1, longitude: 1 }),
+        service.scanCheckpoint(TENANT_ID, GUARD_ID, RUN_ID, CHECKPOINT_ID, {
+          latitude: 1,
+          longitude: 1,
+        }),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -173,19 +250,32 @@ describe('PatrolsService - geofence verification', () => {
       mockRunWithCheckpoint(geofencedCheckpoint);
 
       await expect(
-        service.scanCheckpoint(TENANT_ID, GUARD_ID, RUN_ID, 'some-other-checkpoint', {
-          latitude: 1,
-          longitude: 1,
-        }),
+        service.scanCheckpoint(
+          TENANT_ID,
+          GUARD_ID,
+          RUN_ID,
+          'some-other-checkpoint',
+          {
+            latitude: 1,
+            longitude: 1,
+          },
+        ),
       ).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('createCheckpoint - geofence configuration validation', () => {
-    const user = { sub: 'user-1', tenantId: TENANT_ID, role: 'admin' } as ActiveUser;
+    const user = {
+      sub: 'user-1',
+      tenantId: TENANT_ID,
+      role: 'admin',
+    } as ActiveUser;
 
     beforeEach(() => {
-      prisma.site.findFirst.mockResolvedValue({ id: 'site-1', name: 'Test Site' });
+      prisma.site.findFirst.mockResolvedValue({
+        id: 'site-1',
+        name: 'Test Site',
+      });
       prisma.checkpoint.create.mockImplementation(({ data }) =>
         Promise.resolve({ ...data, site: { id: 'site-1', name: 'Test Site' } }),
       );
@@ -241,7 +331,12 @@ describe('PatrolsService - geofence verification', () => {
 
       expect(prisma.patrolRun.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: RUN_ID, tenantId: TENANT_ID, guardId: GUARD_ID, status: 'in_progress' },
+          where: {
+            id: RUN_ID,
+            tenantId: TENANT_ID,
+            guardId: GUARD_ID,
+            status: 'in_progress',
+          },
         }),
       );
       expect(result.lastLatitude).toBe(37.7749);
@@ -270,7 +365,10 @@ describe('PatrolsService - geofence verification', () => {
       prisma.patrolRun.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateLocation(TENANT_ID, GUARD_ID, RUN_ID, { latitude: 1, longitude: 1 }),
+        service.updateLocation(TENANT_ID, GUARD_ID, RUN_ID, {
+          latitude: 1,
+          longitude: 1,
+        }),
       ).rejects.toThrow(NotFoundException);
       expect(prisma.patrolRun.update).not.toHaveBeenCalled();
     });
@@ -290,7 +388,11 @@ describe('PatrolsService - geofence verification', () => {
   });
 
   describe('findAllPatrolRuns - Phase 3B admin visibility', () => {
-    const adminUser = { sub: 'admin-1', tenantId: TENANT_ID, role: 'admin' } as ActiveUser;
+    const adminUser = {
+      sub: 'admin-1',
+      tenantId: TENANT_ID,
+      role: 'admin',
+    } as ActiveUser;
 
     it("scopes the query to the admin's own tenant, never a client-supplied tenant", async () => {
       prisma.patrolRun.findMany.mockResolvedValue([]);
@@ -326,6 +428,151 @@ describe('PatrolsService - geofence verification', () => {
 
       expect(runs[0].lastLatitude).toBe(37.7749);
       expect(runs[0].lastLocationAt).toBeInstanceOf(Date);
+    });
+  });
+
+  describe('getLiveSiteStatusForClient - Phase 3E client-facing guard status', () => {
+    const CLIENT_ID = 'client-1';
+    const SITE_ID = 'site-1';
+    const SHIFT_ID = 'shift-1';
+
+    it("returns one entry per the client's own site, scoped to tenant and client", async () => {
+      prisma.site.findMany.mockResolvedValue([
+        { id: SITE_ID, name: 'Downtown Tower', address: '1 Main St' },
+      ]);
+      prisma.shift.findMany.mockResolvedValue([]);
+
+      const result = await service.getLiveSiteStatusForClient(
+        TENANT_ID,
+        CLIENT_ID,
+      );
+
+      expect(prisma.site.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tenantId: TENANT_ID, clientId: CLIENT_ID },
+        }),
+      );
+      expect(result).toEqual([
+        {
+          site: { id: SITE_ID, name: 'Downtown Tower', address: '1 Main St' },
+          guardsOnSite: [],
+        },
+      ]);
+    });
+
+    it('returns no sites (and does not query shifts) when the client has none', async () => {
+      prisma.site.findMany.mockResolvedValue([]);
+
+      const result = await service.getLiveSiteStatusForClient(
+        TENANT_ID,
+        CLIENT_ID,
+      );
+
+      expect(result).toEqual([]);
+      expect(prisma.shift.findMany).not.toHaveBeenCalled();
+    });
+
+    it('reports a guard as on-site once checked in and not yet checked out, with no fabricated location', async () => {
+      prisma.site.findMany.mockResolvedValue([
+        { id: SITE_ID, name: 'Downtown Tower', address: '1 Main St' },
+      ]);
+      prisma.shift.findMany.mockResolvedValue([
+        {
+          id: SHIFT_ID,
+          siteId: SITE_ID,
+          assignments: [
+            { guardId: GUARD_ID, guard: { id: GUARD_ID, name: 'Alex Guard' } },
+          ],
+          attendanceEvents: [{ guardId: GUARD_ID, type: 'CHECK_IN' }],
+        },
+      ]);
+      prisma.patrolRun.findMany.mockResolvedValue([]); // no active patrol - location must be null, not fabricated
+
+      const result = await service.getLiveSiteStatusForClient(
+        TENANT_ID,
+        CLIENT_ID,
+      );
+
+      expect(result[0].guardsOnSite).toEqual([
+        {
+          guardId: GUARD_ID,
+          guardName: 'Alex Guard',
+          shiftId: SHIFT_ID,
+          patrolRoute: null,
+          location: null,
+        },
+      ]);
+    });
+
+    it('excludes a guard who has already checked out of the shift', async () => {
+      prisma.site.findMany.mockResolvedValue([
+        { id: SITE_ID, name: 'Downtown Tower', address: '1 Main St' },
+      ]);
+      prisma.shift.findMany.mockResolvedValue([
+        {
+          id: SHIFT_ID,
+          siteId: SITE_ID,
+          assignments: [
+            { guardId: GUARD_ID, guard: { id: GUARD_ID, name: 'Alex Guard' } },
+          ],
+          attendanceEvents: [
+            { guardId: GUARD_ID, type: 'CHECK_IN' },
+            { guardId: GUARD_ID, type: 'CHECK_OUT' },
+          ],
+        },
+      ]);
+      prisma.patrolRun.findMany.mockResolvedValue([]);
+
+      const result = await service.getLiveSiteStatusForClient(
+        TENANT_ID,
+        CLIENT_ID,
+      );
+
+      expect(result[0].guardsOnSite).toEqual([]);
+    });
+
+    it("surfaces the guard's active patrol location snapshot (reusing Phase 3B fields) when one exists", async () => {
+      const locationAt = new Date();
+      prisma.site.findMany.mockResolvedValue([
+        { id: SITE_ID, name: 'Downtown Tower', address: '1 Main St' },
+      ]);
+      prisma.shift.findMany.mockResolvedValue([
+        {
+          id: SHIFT_ID,
+          siteId: SITE_ID,
+          assignments: [
+            { guardId: GUARD_ID, guard: { id: GUARD_ID, name: 'Alex Guard' } },
+          ],
+          attendanceEvents: [{ guardId: GUARD_ID, type: 'CHECK_IN' }],
+        },
+      ]);
+      prisma.patrolRun.findMany.mockResolvedValue([
+        {
+          shiftId: SHIFT_ID,
+          guardId: GUARD_ID,
+          lastLatitude: 37.7749,
+          lastLongitude: -122.4194,
+          lastAccuracyMeters: 12,
+          lastLocationAt: locationAt,
+          patrolRoute: { id: 'route-1', name: 'North Loop' },
+        },
+      ]);
+
+      const result = await service.getLiveSiteStatusForClient(
+        TENANT_ID,
+        CLIENT_ID,
+      );
+
+      expect(result[0].guardsOnSite[0].location).toEqual({
+        latitude: 37.7749,
+        longitude: -122.4194,
+        accuracyMeters: 12,
+        capturedAt: locationAt,
+      });
+      expect(result[0].guardsOnSite[0].patrolRoute).toEqual({
+        id: 'route-1',
+        name: 'North Loop',
+      });
     });
   });
 });

@@ -1,16 +1,112 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import ClientLayout from '@/components/ClientLayout';
 import Link from 'next/link';
 import api from '@/lib/api';
-import { FileText, Clock, CheckCircle, XCircle, ArrowRight, Sparkles, AlertTriangle } from 'lucide-react';
+import { FileText, Clock, CheckCircle, XCircle, ArrowRight, Sparkles, AlertTriangle, ShieldCheck, MapPin, ExternalLink, Radar } from 'lucide-react';
+import { ClientSiteLiveStatus, getClientSitesLiveStatus } from '@/lib/client-patrols';
+import { CLIENT_LIVE_STATUS_POLL_INTERVAL_MS } from '@/lib/guard-tracking.constants';
 
 interface Proposal {
   id: string;
   title: string;
   status: string;
   createdAt: string;
+}
+
+function relativeTime(iso: string): string {
+  const seconds = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function LiveSiteStatusPanel() {
+  const [sites, setSites] = useState<ClientSiteLiveStatus[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const res = await getClientSitesLiveStatus();
+      setSites(res);
+    } catch (err) {
+      console.error('Failed to load live site status', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStatus();
+    const intervalId = setInterval(fetchStatus, CLIENT_LIVE_STATUS_POLL_INTERVAL_MS);
+    return () => clearInterval(intervalId);
+  }, [fetchStatus]);
+
+  if (loading) {
+    return (
+      <div className="glass-card mb-8 rounded-[2rem] border border-white/5 p-6 text-center text-sm text-slate-500 sm:mb-10">
+        Checking live site status...
+      </div>
+    );
+  }
+
+  if (sites.length === 0) {
+    return null; // No sites on this client account - nothing useful to show.
+  }
+
+  return (
+    <div className="glass-card mb-8 rounded-[2rem] border border-white/5 p-5 sm:mb-10 sm:p-8">
+      <div className="mb-5 flex items-center gap-2">
+        <Radar className="text-indigo-400" size={20} />
+        <h2 className="text-lg font-bold text-white sm:text-xl">Guards On Site Now</h2>
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {sites.map(({ site, guardsOnSite }) => (
+          <div key={site.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="mb-2">
+              <div className="font-bold text-white">{site.name}</div>
+              <div className="text-xs text-slate-500">{site.address}</div>
+            </div>
+            {guardsOnSite.length === 0 ? (
+              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <MapPin size={12} />
+                No guard currently on site
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {guardsOnSite.map((guard) => (
+                  <div key={guard.guardId} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2">
+                    <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-300">
+                      <ShieldCheck size={13} />
+                      {guard.guardName}
+                    </span>
+                    {guard.location ? (
+                      <a
+                        href={`https://www.google.com/maps?q=${guard.location.latitude},${guard.location.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-300 hover:text-indigo-200"
+                      >
+                        On patrol - view location
+                        <ExternalLink size={10} />
+                      </a>
+                    ) : (
+                      <span className="text-[11px] text-slate-500">Live location unavailable</span>
+                    )}
+                    {guard.location?.capturedAt && (
+                      <span className="text-[11px] text-slate-600">as of {relativeTime(guard.location.capturedAt)}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function ClientDashboard() {
@@ -52,6 +148,8 @@ export default function ClientDashboard() {
         <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Your Proposals</h1>
         <p className="mt-2 text-base text-slate-400 sm:text-lg">Review and manage your security service proposals.</p>
       </div>
+
+      <LiveSiteStatusPanel />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (

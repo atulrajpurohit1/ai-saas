@@ -18,7 +18,10 @@ describe('UpdateLocationDto', () => {
   });
 
   it('accepts a location update with only latitude/longitude', async () => {
-    const dto = plainToInstance(UpdateLocationDto, { latitude: 0, longitude: 0 });
+    const dto = plainToInstance(UpdateLocationDto, {
+      latitude: 0,
+      longitude: 0,
+    });
 
     const errors = await validate(dto);
 
@@ -26,7 +29,10 @@ describe('UpdateLocationDto', () => {
   });
 
   it('rejects an out-of-range latitude', async () => {
-    const dto = plainToInstance(UpdateLocationDto, { latitude: 200, longitude: 0 });
+    const dto = plainToInstance(UpdateLocationDto, {
+      latitude: 200,
+      longitude: 0,
+    });
 
     const errors = await validate(dto);
 
@@ -34,7 +40,10 @@ describe('UpdateLocationDto', () => {
   });
 
   it('rejects an out-of-range longitude', async () => {
-    const dto = plainToInstance(UpdateLocationDto, { latitude: 0, longitude: -200 });
+    const dto = plainToInstance(UpdateLocationDto, {
+      latitude: 0,
+      longitude: -200,
+    });
 
     const errors = await validate(dto);
 
@@ -42,7 +51,11 @@ describe('UpdateLocationDto', () => {
   });
 
   it('rejects a negative accuracy value', async () => {
-    const dto = plainToInstance(UpdateLocationDto, { latitude: 0, longitude: 0, accuracy: -5 });
+    const dto = plainToInstance(UpdateLocationDto, {
+      latitude: 0,
+      longitude: 0,
+      accuracy: -5,
+    });
 
     const errors = await validate(dto);
 
@@ -50,7 +63,11 @@ describe('UpdateLocationDto', () => {
   });
 
   it('rejects an unreasonably large accuracy value', async () => {
-    const dto = plainToInstance(UpdateLocationDto, { latitude: 0, longitude: 0, accuracy: 999_999 });
+    const dto = plainToInstance(UpdateLocationDto, {
+      latitude: 0,
+      longitude: 0,
+      accuracy: 999_999,
+    });
 
     const errors = await validate(dto);
 
@@ -58,7 +75,11 @@ describe('UpdateLocationDto', () => {
   });
 
   it('rejects a malformed timestamp', async () => {
-    const dto = plainToInstance(UpdateLocationDto, { latitude: 0, longitude: 0, timestamp: 'not-a-date' });
+    const dto = plainToInstance(UpdateLocationDto, {
+      latitude: 0,
+      longitude: 0,
+      timestamp: 'not-a-date',
+    });
 
     const errors = await validate(dto);
 

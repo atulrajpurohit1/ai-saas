@@ -158,11 +158,15 @@ export class PatrolsService {
     return {
       latitude: dto.latitude as number,
       longitude: dto.longitude as number,
-      geofenceRadiusMeters: dto.geofence_radius_meters ?? DEFAULT_GEOFENCE_RADIUS_METERS,
+      geofenceRadiusMeters:
+        dto.geofence_radius_meters ?? DEFAULT_GEOFENCE_RADIUS_METERS,
     };
   }
 
-  private resolveGeofenceForUpdate(checkpoint: Checkpoint, dto: UpdateCheckpointDto) {
+  private resolveGeofenceForUpdate(
+    checkpoint: Checkpoint,
+    dto: UpdateCheckpointDto,
+  ) {
     if (dto.clear_geofence) {
       return { latitude: null, longitude: null, geofenceRadiusMeters: null };
     }
@@ -192,7 +196,9 @@ export class PatrolsService {
       latitude,
       longitude,
       geofenceRadiusMeters:
-        dto.geofence_radius_meters ?? checkpoint.geofenceRadiusMeters ?? DEFAULT_GEOFENCE_RADIUS_METERS,
+        dto.geofence_radius_meters ??
+        checkpoint.geofenceRadiusMeters ??
+        DEFAULT_GEOFENCE_RADIUS_METERS,
     };
   }
 
@@ -620,7 +626,10 @@ export class PatrolsService {
 
   // The server is the sole source of truth for geofence verification - it
   // never accepts a verdict from the client, only raw coordinates (or none).
-  private verifyCheckpointLocation(checkpoint: Checkpoint, dto?: ScanCheckpointDto) {
+  private verifyCheckpointLocation(
+    checkpoint: Checkpoint,
+    dto?: ScanCheckpointDto,
+  ) {
     const hasGeofence =
       checkpoint.latitude !== null &&
       checkpoint.longitude !== null &&
@@ -635,7 +644,8 @@ export class PatrolsService {
       };
     }
 
-    const hasSubmittedLocation = dto?.latitude !== undefined && dto?.longitude !== undefined;
+    const hasSubmittedLocation =
+      dto?.latitude !== undefined && dto?.longitude !== undefined;
     if (!hasSubmittedLocation) {
       return {
         status: CheckpointVerificationStatus.LOCATION_UNAVAILABLE,
@@ -655,10 +665,14 @@ export class PatrolsService {
     }
 
     const distanceMeters = haversineDistanceMeters(
-      { latitude: checkpoint.latitude as number, longitude: checkpoint.longitude as number },
+      {
+        latitude: checkpoint.latitude as number,
+        longitude: checkpoint.longitude as number,
+      },
       { latitude: dto.latitude as number, longitude: dto.longitude as number },
     );
-    const withinRadius = distanceMeters <= (checkpoint.geofenceRadiusMeters as number);
+    const withinRadius =
+      distanceMeters <= (checkpoint.geofenceRadiusMeters as number);
 
     return {
       status: withinRadius
@@ -791,6 +805,120 @@ export class PatrolsService {
         },
       },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  // ==========================================
+  // CLIENT PORTAL SERVICE METHODS
+  // ==========================================
+
+  // Phase 3E: "guard on site now" for the client portal. Reuses Phase 3B's
+  // PatrolRun.last* location fields exactly as-is - no new location
+  // tracking is introduced here. Presence itself is derived from
+  // AttendanceEvent (the guard's own check-in/check-out record), not the
+  // shift-wide `status` flag, since that flag is set by whichever assigned
+  // guard last acted and is not reliable per-guard on a multi-guard shift.
+  async getLiveSiteStatusForClient(tenantId: string, clientId: string) {
+    const sites = await this.prisma.site.findMany({
+      where: { tenantId, clientId },
+      select: { id: true, name: true, address: true },
+      orderBy: { name: 'asc' },
+    });
+    if (sites.length === 0) return [];
+
+    const siteIds = sites.map((site) => site.id);
+
+    const activeShifts = await this.prisma.shift.findMany({
+      where: { tenantId, siteId: { in: siteIds }, status: 'in_progress' },
+      select: {
+        id: true,
+        siteId: true,
+        assignments: {
+          select: {
+            guardId: true,
+            guard: { select: { id: true, name: true } },
+          },
+        },
+        attendanceEvents: { select: { guardId: true, type: true } },
+      },
+    });
+
+    const shiftIds = activeShifts.map((shift) => shift.id);
+    const assignedGuardIds = Array.from(
+      new Set(
+        activeShifts.flatMap((shift) =>
+          shift.assignments.map((a) => a.guardId),
+        ),
+      ),
+    );
+
+    const activePatrolRuns =
+      assignedGuardIds.length === 0
+        ? []
+        : await this.prisma.patrolRun.findMany({
+            where: {
+              tenantId,
+              shiftId: { in: shiftIds },
+              guardId: { in: assignedGuardIds },
+              status: 'in_progress',
+            },
+            select: {
+              shiftId: true,
+              guardId: true,
+              lastLatitude: true,
+              lastLongitude: true,
+              lastAccuracyMeters: true,
+              lastLocationAt: true,
+              patrolRoute: { select: { id: true, name: true } },
+            },
+          });
+    const patrolByShiftGuard = new Map(
+      activePatrolRuns.map((run) => [`${run.shiftId}:${run.guardId}`, run]),
+    );
+
+    return sites.map((site) => {
+      const guardsOnSite = activeShifts
+        .filter((shift) => shift.siteId === site.id)
+        .flatMap((shift) => {
+          const checkedIn = new Set(
+            shift.attendanceEvents
+              .filter((event) => event.type === 'CHECK_IN')
+              .map((event) => event.guardId),
+          );
+          const checkedOut = new Set(
+            shift.attendanceEvents
+              .filter((event) => event.type === 'CHECK_OUT')
+              .map((event) => event.guardId),
+          );
+
+          return shift.assignments
+            .filter(
+              (a) => checkedIn.has(a.guardId) && !checkedOut.has(a.guardId),
+            )
+            .map((a) => {
+              const run = patrolByShiftGuard.get(`${shift.id}:${a.guardId}`);
+              return {
+                guardId: a.guardId,
+                guardName: a.guard.name,
+                shiftId: shift.id,
+                patrolRoute: run?.patrolRoute ?? null,
+                location:
+                  run && run.lastLatitude !== null && run.lastLongitude !== null
+                    ? {
+                        latitude: run.lastLatitude,
+                        longitude: run.lastLongitude,
+                        accuracyMeters: run.lastAccuracyMeters,
+                        capturedAt: run.lastLocationAt,
+                      }
+                    : null,
+              };
+            });
+        });
+
+      return {
+        site: { id: site.id, name: site.name, address: site.address },
+        guardsOnSite,
+      };
     });
   }
 }

@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const patrols_service_1 = require("./patrols.service");
 const patrols_controller_1 = require("./patrols.controller");
 const guard_patrols_controller_1 = require("./guard-patrols.controller");
+const client_patrols_controller_1 = require("./client-patrols.controller");
 const prisma_module_1 = require("../prisma/prisma.module");
 const audit_module_1 = require("../audit/audit.module");
 let PatrolsModule = class PatrolsModule {
@@ -19,7 +20,11 @@ exports.PatrolsModule = PatrolsModule;
 exports.PatrolsModule = PatrolsModule = __decorate([
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule],
-        controllers: [patrols_controller_1.PatrolsController, guard_patrols_controller_1.GuardPatrolsController],
+        controllers: [
+            patrols_controller_1.PatrolsController,
+            guard_patrols_controller_1.GuardPatrolsController,
+            client_patrols_controller_1.ClientPatrolsController,
+        ],
         providers: [patrols_service_1.PatrolsService],
         exports: [patrols_service_1.PatrolsService],
     })

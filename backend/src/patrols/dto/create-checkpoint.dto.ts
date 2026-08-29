@@ -1,6 +1,18 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsLatitude, IsLongitude, IsNotEmpty, IsOptional, IsString, Max, Min } from 'class-validator';
-import { MAX_GEOFENCE_RADIUS_METERS, MIN_GEOFENCE_RADIUS_METERS } from '../checkpoint-verification.constants';
+import {
+  IsInt,
+  IsLatitude,
+  IsLongitude,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
+import {
+  MAX_GEOFENCE_RADIUS_METERS,
+  MIN_GEOFENCE_RADIUS_METERS,
+} from '../checkpoint-verification.constants';
 
 export class CreateCheckpointDto {
   @IsNotEmpty()

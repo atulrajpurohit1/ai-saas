@@ -147,7 +147,9 @@ let PatrolsService = class PatrolsService {
         return {
             latitude,
             longitude,
-            geofenceRadiusMeters: dto.geofence_radius_meters ?? checkpoint.geofenceRadiusMeters ?? checkpoint_verification_constants_1.DEFAULT_GEOFENCE_RADIUS_METERS,
+            geofenceRadiusMeters: dto.geofence_radius_meters ??
+                checkpoint.geofenceRadiusMeters ??
+                checkpoint_verification_constants_1.DEFAULT_GEOFENCE_RADIUS_METERS,
         };
     }
     async createPatrolRoute(user, dto) {
@@ -525,7 +527,10 @@ let PatrolsService = class PatrolsService {
                 submittedLongitude: dto.longitude ?? null,
             };
         }
-        const distanceMeters = (0, geo_util_1.haversineDistanceMeters)({ latitude: checkpoint.latitude, longitude: checkpoint.longitude }, { latitude: dto.latitude, longitude: dto.longitude });
+        const distanceMeters = (0, geo_util_1.haversineDistanceMeters)({
+            latitude: checkpoint.latitude,
+            longitude: checkpoint.longitude,
+        }, { latitude: dto.latitude, longitude: dto.longitude });
         const withinRadius = distanceMeters <= checkpoint.geofenceRadiusMeters;
         return {
             status: withinRadius
@@ -637,6 +642,87 @@ let PatrolsService = class PatrolsService {
                 },
             },
             orderBy: { createdAt: 'desc' },
+        });
+    }
+    async getLiveSiteStatusForClient(tenantId, clientId) {
+        const sites = await this.prisma.site.findMany({
+            where: { tenantId, clientId },
+            select: { id: true, name: true, address: true },
+            orderBy: { name: 'asc' },
+        });
+        if (sites.length === 0)
+            return [];
+        const siteIds = sites.map((site) => site.id);
+        const activeShifts = await this.prisma.shift.findMany({
+            where: { tenantId, siteId: { in: siteIds }, status: 'in_progress' },
+            select: {
+                id: true,
+                siteId: true,
+                assignments: {
+                    select: {
+                        guardId: true,
+                        guard: { select: { id: true, name: true } },
+                    },
+                },
+                attendanceEvents: { select: { guardId: true, type: true } },
+            },
+        });
+        const shiftIds = activeShifts.map((shift) => shift.id);
+        const assignedGuardIds = Array.from(new Set(activeShifts.flatMap((shift) => shift.assignments.map((a) => a.guardId))));
+        const activePatrolRuns = assignedGuardIds.length === 0
+            ? []
+            : await this.prisma.patrolRun.findMany({
+                where: {
+                    tenantId,
+                    shiftId: { in: shiftIds },
+                    guardId: { in: assignedGuardIds },
+                    status: 'in_progress',
+                },
+                select: {
+                    shiftId: true,
+                    guardId: true,
+                    lastLatitude: true,
+                    lastLongitude: true,
+                    lastAccuracyMeters: true,
+                    lastLocationAt: true,
+                    patrolRoute: { select: { id: true, name: true } },
+                },
+            });
+        const patrolByShiftGuard = new Map(activePatrolRuns.map((run) => [`${run.shiftId}:${run.guardId}`, run]));
+        return sites.map((site) => {
+            const guardsOnSite = activeShifts
+                .filter((shift) => shift.siteId === site.id)
+                .flatMap((shift) => {
+                const checkedIn = new Set(shift.attendanceEvents
+                    .filter((event) => event.type === 'CHECK_IN')
+                    .map((event) => event.guardId));
+                const checkedOut = new Set(shift.attendanceEvents
+                    .filter((event) => event.type === 'CHECK_OUT')
+                    .map((event) => event.guardId));
+                return shift.assignments
+                    .filter((a) => checkedIn.has(a.guardId) && !checkedOut.has(a.guardId))
+                    .map((a) => {
+                    const run = patrolByShiftGuard.get(`${shift.id}:${a.guardId}`);
+                    return {
+                        guardId: a.guardId,
+                        guardName: a.guard.name,
+                        shiftId: shift.id,
+                        patrolRoute: run?.patrolRoute ?? null,
+                        location: run && run.lastLatitude !== null && run.lastLongitude !== null
+                            ? {
+                                latitude: run.lastLatitude,
+                                longitude: run.lastLongitude,
+                                accuracyMeters: run.lastAccuracyMeters,
+                                capturedAt: run.lastLocationAt,
+                            }
+                            : null,
+                    };
+                });
+            });
+            return {
+                site: { id: site.id, name: site.name, address: site.address },
+                guardsOnSite,
+            };
         });
     }
 };
