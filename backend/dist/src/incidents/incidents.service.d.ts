@@ -326,5 +326,57 @@ export declare class IncidentsService {
             address: string;
         };
     }>;
+    private serializeEvidence;
+    private unlinkQuietly;
+    private findAdminIncidentForEvidence;
+    private findClientIncidentForEvidence;
+    addEvidenceForAdmin(user: ActiveUser, incidentId: string, file: Express.Multer.File): Promise<{
+        id: string;
+        incidentId: string;
+        mediaType: string;
+        mimeType: string;
+        fileName: string;
+        fileSizeBytes: number;
+        uploadedById: string | null;
+        createdAt: Date;
+    }>;
+    listEvidenceForAdmin(user: ActiveUser, incidentId: string): Promise<{
+        id: string;
+        incidentId: string;
+        mediaType: string;
+        mimeType: string;
+        fileName: string;
+        fileSizeBytes: number;
+        uploadedById: string | null;
+        createdAt: Date;
+    }[]>;
+    getEvidenceFileForAdmin(user: ActiveUser, incidentId: string, evidenceId: string): Promise<{
+        stream: import("fs").ReadStream;
+        mimeType: string;
+        fileName: string;
+        fileSizeBytes: number;
+        mediaType: string;
+    }>;
+    deleteEvidenceForAdmin(user: ActiveUser, incidentId: string, evidenceId: string): Promise<{
+        success: boolean;
+    }>;
+    listEvidenceForClient(tenantId: string, clientId: string, userId: string, incidentId: string): Promise<{
+        id: string;
+        incidentId: string;
+        mediaType: string;
+        mimeType: string;
+        fileName: string;
+        fileSizeBytes: number;
+        uploadedById: string | null;
+        createdAt: Date;
+    }[]>;
+    getEvidenceFileForClient(tenantId: string, clientId: string, incidentId: string, evidenceId: string): Promise<{
+        stream: import("fs").ReadStream;
+        mimeType: string;
+        fileName: string;
+        fileSizeBytes: number;
+        mediaType: string;
+    }>;
+    private resolveEvidenceFile;
 }
 export {};

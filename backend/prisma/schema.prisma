@@ -98,6 +98,7 @@ model Tenant {
   evaluationReports     EvaluationReport[]
   vendorPerformances    VendorPerformance[]
   emergencyAlerts       EmergencyAlert[]
+  incidentEvidence      IncidentEvidence[]
 }
 
 model Branch {
@@ -767,6 +768,7 @@ model Incident {
   reviewedAt    DateTime? @map("reviewed_at")
   reviewNote    String?   @map("review_note")
   createdAt     DateTime  @default(now()) @map("created_at")
+  evidence      IncidentEvidence[]
 
   @@index([tenantId])
   @@index([branchId])
@@ -777,6 +779,33 @@ model Incident {
   @@index([severity])
   @@index([status])
   @@map("Incident")
+}
+
+// Phase 3F: photo/video evidence attached to a security incident. A dedicated
+// table (rather than overloading Incident.attachmentUrl, which is a single
+// free-text URL the guard sets at report time) so an incident can carry many
+// evidence items, each with its own media metadata. Files live on local disk
+// under uploads/incident-evidence (same pattern as GuardCompliance /
+// vendor-submissions - this project has no object storage). storedFileName is
+// the sanitized on-disk name and is NEVER returned to a client (path /
+// enumeration risk); only fileName (the original upload name) is exposed.
+model IncidentEvidence {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  incidentId     String   @map("incident_id")
+  incident       Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  mediaType      String   @map("media_type") // 'image' | 'video' - derived server-side from the validated MIME type
+  mimeType       String   @map("mime_type")
+  fileName       String   @map("file_name")
+  storedFileName String   @map("stored_file_name")
+  fileSizeBytes  Int      @map("file_size_bytes")
+  uploadedById   String?  @map("uploaded_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([incidentId])
+  @@map("IncidentEvidence")
 }
 
 model Client {

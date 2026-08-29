@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
+import IncidentEvidencePanel from '@/components/IncidentEvidencePanel';
+import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { getAdminIncident, Incident } from '@/lib/incidents';
 import {
@@ -33,6 +35,7 @@ const statusClass: Record<string, string> = {
 
 export default function IncidentDetailPage() {
   const params = useParams<{ id: string }>();
+  const { can } = useAuth();
   const incidentId = Array.isArray(params.id) ? params.id[0] : params.id;
   const [incident, setIncident] = useState<Incident | null>(null);
   const [loading, setLoading] = useState(true);
@@ -177,6 +180,12 @@ export default function IncidentDetailPage() {
               </a>
             </section>
           )}
+
+          <IncidentEvidencePanel
+            incidentId={incident.id}
+            apiBase="incidents"
+            canManage={can('incidents.review')}
+          />
 
           {incident.notes && (
             <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">

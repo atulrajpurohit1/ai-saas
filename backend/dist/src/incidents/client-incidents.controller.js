@@ -42,6 +42,21 @@ let ClientIncidentsController = class ClientIncidentsController {
         const { tenantId, clientId, userId } = this.getClientContext(user);
         return this.incidentsService.findApprovedDetailForClient(tenantId, clientId, userId, id);
     }
+    listEvidence(user, id) {
+        const { tenantId, clientId, userId } = this.getClientContext(user);
+        return this.incidentsService.listEvidenceForClient(tenantId, clientId, userId, id);
+    }
+    async downloadEvidence(user, id, evidenceId, res) {
+        const { tenantId, clientId } = this.getClientContext(user);
+        const { stream, mimeType, fileName, fileSizeBytes } = await this.incidentsService.getEvidenceFileForClient(tenantId, clientId, id, evidenceId);
+        res.set({
+            'Content-Type': mimeType || 'application/octet-stream',
+            'Content-Length': String(fileSizeBytes),
+            'Content-Disposition': `inline; filename="${encodeURIComponent(fileName)}"`,
+            'Cache-Control': 'private, no-store',
+        });
+        stream.pipe(res);
+    }
 };
 exports.ClientIncidentsController = ClientIncidentsController;
 __decorate([
@@ -59,6 +74,24 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], ClientIncidentsController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Get)(':id/evidence'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], ClientIncidentsController.prototype, "listEvidence", null);
+__decorate([
+    (0, common_1.Get)(':id/evidence/:evidenceId/file'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Param)('evidenceId')),
+    __param(3, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String, Object]),
+    __metadata("design:returntype", Promise)
+], ClientIncidentsController.prototype, "downloadEvidence", null);
 exports.ClientIncidentsController = ClientIncidentsController = __decorate([
     (0, common_1.Controller)('client/incidents'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),

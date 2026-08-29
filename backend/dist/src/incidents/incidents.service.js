@@ -12,10 +12,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.IncidentsService = void 0;
 const common_1 = require("@nestjs/common");
 const crypto_1 = require("crypto");
+const fs_1 = require("fs");
+const path_1 = require("path");
 const client_1 = require("@prisma/client");
 const audit_service_1 = require("../audit/audit.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const webhooks_service_1 = require("../webhooks/webhooks.service");
+const file_storage_util_1 = require("../common/file-storage.util");
 const create_incident_dto_1 = require("./dto/create-incident.dto");
 const review_incident_dto_1 = require("./dto/review-incident.dto");
 let IncidentsService = class IncidentsService {
@@ -468,6 +471,168 @@ let IncidentsService = class IncidentsService {
             details: `Client viewed incident "${incident.title}"`,
         });
         return this.mapClientIncident(incident);
+    }
+    serializeEvidence(evidence) {
+        return {
+            id: evidence.id,
+            incidentId: evidence.incidentId,
+            mediaType: evidence.mediaType,
+            mimeType: evidence.mimeType,
+            fileName: evidence.fileName,
+            fileSizeBytes: evidence.fileSizeBytes,
+            uploadedById: evidence.uploadedById,
+            createdAt: evidence.createdAt,
+        };
+    }
+    unlinkQuietly(storedFileName) {
+        try {
+            const filePath = (0, path_1.join)(file_storage_util_1.INCIDENT_EVIDENCE_UPLOAD_DIR, storedFileName);
+            if ((0, fs_1.existsSync)(filePath)) {
+                (0, fs_1.unlinkSync)(filePath);
+            }
+        }
+        catch {
+        }
+    }
+    async findAdminIncidentForEvidence(user, incidentId) {
+        const rows = await this.prisma.$queryRaw(client_1.Prisma.sql `
+        SELECT i."id", i."title"
+        FROM "Incident" i
+        WHERE i."tenant_id" = ${user.tenantId}
+          ${this.adminBranchSql(user)}
+          AND i."id" = ${incidentId}
+        LIMIT 1
+      `);
+        const incident = rows[0];
+        if (!incident) {
+            throw new common_1.NotFoundException('Incident not found');
+        }
+        return incident;
+    }
+    async findClientIncidentForEvidence(tenantId, clientId, incidentId) {
+        const rows = await this.prisma.$queryRaw(client_1.Prisma.sql `
+        SELECT i."id", i."title"
+        FROM "Incident" i
+        INNER JOIN "Site" s ON s."id" = i."site_id"
+        WHERE i."tenant_id" = ${tenantId}
+          AND i."id" = ${incidentId}
+          AND i."status" = 'approved'
+          AND s."client_id" = ${clientId}
+        LIMIT 1
+      `);
+        const incident = rows[0];
+        if (!incident) {
+            throw new common_1.NotFoundException('Incident not found');
+        }
+        return incident;
+    }
+    async addEvidenceForAdmin(user, incidentId, file) {
+        const incident = await this.findAdminIncidentForEvidence(user, incidentId);
+        const mediaType = (0, file_storage_util_1.classifyIncidentEvidence)(file.originalname, file.mimetype);
+        if (!mediaType) {
+            this.unlinkQuietly(file.filename);
+            throw new common_1.BadRequestException('Unsupported file. Only image (JPG, PNG, WEBP, GIF, HEIC) and video (MP4, MOV, M4V, WEBM) evidence is allowed.');
+        }
+        const maxBytes = (0, file_storage_util_1.incidentEvidenceMaxBytesFor)(mediaType);
+        if (file.size > maxBytes) {
+            this.unlinkQuietly(file.filename);
+            const limitMb = mediaType === 'image'
+                ? (0, file_storage_util_1.incidentEvidenceImageMaxMb)()
+                : (0, file_storage_util_1.incidentEvidenceVideoMaxMb)();
+            throw new common_1.BadRequestException(`${mediaType === 'image' ? 'Image' : 'Video'} evidence must be ${limitMb} MB or smaller.`);
+        }
+        const created = await this.prisma.incidentEvidence.create({
+            data: {
+                tenantId: user.tenantId,
+                incidentId: incident.id,
+                mediaType,
+                mimeType: file.mimetype.toLowerCase().split(';')[0].trim(),
+                fileName: file.originalname,
+                storedFileName: file.filename,
+                fileSizeBytes: file.size,
+                uploadedById: user.sub,
+            },
+        });
+        await this.auditService.log({
+            tenantId: user.tenantId,
+            userId: user.sub,
+            action: 'INCIDENT_EVIDENCE_UPLOADED',
+            entityType: 'IncidentEvidence',
+            entityId: created.id,
+            details: `Attached ${mediaType} evidence to incident "${incident.title}"`,
+        });
+        return this.serializeEvidence(created);
+    }
+    async listEvidenceForAdmin(user, incidentId) {
+        await this.findAdminIncidentForEvidence(user, incidentId);
+        const items = await this.prisma.incidentEvidence.findMany({
+            where: { tenantId: user.tenantId, incidentId },
+            orderBy: { createdAt: 'desc' },
+        });
+        return items.map((item) => this.serializeEvidence(item));
+    }
+    async getEvidenceFileForAdmin(user, incidentId, evidenceId) {
+        await this.findAdminIncidentForEvidence(user, incidentId);
+        return this.resolveEvidenceFile(user.tenantId, incidentId, evidenceId);
+    }
+    async deleteEvidenceForAdmin(user, incidentId, evidenceId) {
+        const incident = await this.findAdminIncidentForEvidence(user, incidentId);
+        const evidence = await this.prisma.incidentEvidence.findFirst({
+            where: { id: evidenceId, tenantId: user.tenantId, incidentId },
+        });
+        if (!evidence) {
+            throw new common_1.NotFoundException('Evidence not found');
+        }
+        await this.prisma.incidentEvidence.delete({ where: { id: evidence.id } });
+        this.unlinkQuietly(evidence.storedFileName);
+        await this.auditService.log({
+            tenantId: user.tenantId,
+            userId: user.sub,
+            action: 'INCIDENT_EVIDENCE_DELETED',
+            entityType: 'IncidentEvidence',
+            entityId: evidence.id,
+            details: `Removed ${evidence.mediaType} evidence from incident "${incident.title}"`,
+        });
+        return { success: true };
+    }
+    async listEvidenceForClient(tenantId, clientId, userId, incidentId) {
+        await this.findClientIncidentForEvidence(tenantId, clientId, incidentId);
+        const items = await this.prisma.incidentEvidence.findMany({
+            where: { tenantId, incidentId },
+            orderBy: { createdAt: 'desc' },
+        });
+        await this.auditService.log({
+            tenantId,
+            userId,
+            action: 'CLIENT_INCIDENT_EVIDENCE_VIEWED',
+            entityType: 'Incident',
+            entityId: incidentId,
+            details: 'Client viewed incident evidence list',
+        });
+        return items.map((item) => this.serializeEvidence(item));
+    }
+    async getEvidenceFileForClient(tenantId, clientId, incidentId, evidenceId) {
+        await this.findClientIncidentForEvidence(tenantId, clientId, incidentId);
+        return this.resolveEvidenceFile(tenantId, incidentId, evidenceId);
+    }
+    async resolveEvidenceFile(tenantId, incidentId, evidenceId) {
+        const evidence = await this.prisma.incidentEvidence.findFirst({
+            where: { id: evidenceId, tenantId, incidentId },
+        });
+        if (!evidence) {
+            throw new common_1.NotFoundException('Evidence not found');
+        }
+        const filePath = (0, path_1.join)(file_storage_util_1.INCIDENT_EVIDENCE_UPLOAD_DIR, evidence.storedFileName);
+        if (!(0, fs_1.existsSync)(filePath)) {
+            throw new common_1.NotFoundException('Evidence file not found on server');
+        }
+        return {
+            stream: (0, fs_1.createReadStream)(filePath),
+            mimeType: evidence.mimeType,
+            fileName: evidence.fileName,
+            fileSizeBytes: evidence.fileSizeBytes,
+            mediaType: evidence.mediaType,
+        };
     }
 };
 exports.IncidentsService = IncidentsService;

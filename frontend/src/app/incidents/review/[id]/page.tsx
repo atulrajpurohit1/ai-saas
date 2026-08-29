@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
+import IncidentEvidencePanel from '@/components/IncidentEvidencePanel';
+import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { getAdminIncident, Incident, reviewIncident as submitIncidentReview } from '@/lib/incidents';
 import {
@@ -35,6 +37,7 @@ const statusClass: Record<string, string> = {
 
 export default function IncidentReviewDetailPage() {
   const params = useParams<{ id: string }>();
+  const { can } = useAuth();
   const incidentId = Array.isArray(params.id) ? params.id[0] : params.id;
   const [incident, setIncident] = useState<Incident | null>(null);
   const [reviewNote, setReviewNote] = useState('');
@@ -202,6 +205,12 @@ export default function IncidentReviewDetailPage() {
                 <p className="whitespace-pre-wrap text-sm leading-7 text-slate-300">{incident.notes}</p>
               </section>
             )}
+
+            <IncidentEvidencePanel
+              incidentId={incident.id}
+              apiBase="incidents"
+              canManage={can('incidents.review')}
+            />
 
           </div>
 

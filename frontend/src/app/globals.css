@@ -1,19 +1,73 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f6f6f8;
-  --foreground: #14161a;
+  --background: #f8f9fc;
+  --foreground: #111827;
   --card: #ffffff;
-  --card-foreground: #14161a;
+  --card-foreground: #111827;
   --primary: #4f46e5;
+  --primary-hover: #4338ca;
   --primary-foreground: #ffffff;
   --secondary: #ecedf1;
-  --secondary-foreground: #14161a;
-  --muted: #efeff2;
-  --muted-foreground: #62666e;
+  --secondary-foreground: #111827;
+  --muted: #f1f2f6;
+  --muted-foreground: #6b7280;
   --accent: #4338ca;
   --accent-foreground: #ffffff;
-  --border: #e4e5ea;
+  --border: #e5e7eb;
+
+  /* Semantic status colors - used selectively (badges, deltas, verification
+     states), never as the primary accent. Each has a soft "wash" background
+     tuned for a light surface, matching the --*-wash convention pills use
+     throughout the app. */
+  --success: #059669;
+  --success-wash: #ecfdf5;
+  --warning: #d97706;
+  --warning-wash: #fffbeb;
+  --error: #dc2626;
+  --error-wash: #fef2f2;
+  --info: #2563eb;
+  --info-wash: #eff6ff;
+
+  --radius: 14px;
+  --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.04);
+  --shadow-md: 0 4px 12px rgba(17, 24, 39, 0.06);
+}
+
+/*
+ * Registers the tokens above as real Tailwind v4 utilities (bg-card,
+ * text-muted-foreground, border-border, bg-primary/8, text-error, etc.),
+ * including opacity-modifier variants. Without this block Tailwind v4 never
+ * generates CSS for a custom color name - confirmed by grepping the last
+ * production build's compiled CSS: `text-muted-foreground` produced zero
+ * rules anywhere, meaning it silently did nothing across the whole app.
+ * This fixes that pre-existing gap for every file that already uses these
+ * names, not just new code.
+ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-success: var(--success);
+  --color-success-wash: var(--success-wash);
+  --color-warning: var(--warning);
+  --color-warning-wash: var(--warning-wash);
+  --color-error: var(--error);
+  --color-error-wash: var(--error-wash);
+  --color-info: var(--info);
+  --color-info-wash: var(--info-wash);
+  --radius-DEFAULT: var(--radius);
 }
 
 body {

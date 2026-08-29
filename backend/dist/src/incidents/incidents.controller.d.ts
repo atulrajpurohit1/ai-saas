@@ -1,3 +1,4 @@
+import { Response } from 'express';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { ReviewIncidentDto } from './dto/review-incident.dto';
 import { IncidentsService } from './incidents.service';
@@ -191,5 +192,29 @@ export declare class IncidentsController {
             startTime: Date;
             endTime: Date;
         };
+    }>;
+    listEvidence(user: ActiveUser, id: string): Promise<{
+        id: string;
+        incidentId: string;
+        mediaType: string;
+        mimeType: string;
+        fileName: string;
+        fileSizeBytes: number;
+        uploadedById: string | null;
+        createdAt: Date;
+    }[]>;
+    uploadEvidence(user: ActiveUser, id: string, file: Express.Multer.File): Promise<{
+        id: string;
+        incidentId: string;
+        mediaType: string;
+        mimeType: string;
+        fileName: string;
+        fileSizeBytes: number;
+        uploadedById: string | null;
+        createdAt: Date;
+    }>;
+    downloadEvidence(user: ActiveUser, id: string, evidenceId: string, res: Response): Promise<void>;
+    deleteEvidence(user: ActiveUser, id: string, evidenceId: string): Promise<{
+        success: boolean;
     }>;
 }

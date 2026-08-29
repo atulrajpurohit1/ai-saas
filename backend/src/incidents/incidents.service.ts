@@ -5,11 +5,20 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { createReadStream, existsSync, unlinkSync } from 'fs';
+import { join } from 'path';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import {
+  INCIDENT_EVIDENCE_UPLOAD_DIR,
+  classifyIncidentEvidence,
+  incidentEvidenceImageMaxMb,
+  incidentEvidenceMaxBytesFor,
+  incidentEvidenceVideoMaxMb,
+} from '../common/file-storage.util';
 import {
   CreateIncidentDto,
   INCIDENT_SEVERITIES,
@@ -648,5 +657,259 @@ export class IncidentsService {
     });
 
     return this.mapClientIncident(incident);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 3F: incident evidence (photo/video) attachments
+  // ---------------------------------------------------------------------------
+
+  private serializeEvidence(evidence: {
+    id: string;
+    incidentId: string;
+    mediaType: string;
+    mimeType: string;
+    fileName: string;
+    fileSizeBytes: number;
+    uploadedById: string | null;
+    createdAt: Date;
+  }) {
+    // storedFileName is deliberately never included - it is an internal
+    // on-disk path fragment and exposing it would enable enumeration.
+    return {
+      id: evidence.id,
+      incidentId: evidence.incidentId,
+      mediaType: evidence.mediaType,
+      mimeType: evidence.mimeType,
+      fileName: evidence.fileName,
+      fileSizeBytes: evidence.fileSizeBytes,
+      uploadedById: evidence.uploadedById,
+      createdAt: evidence.createdAt,
+    };
+  }
+
+  private unlinkQuietly(storedFileName: string) {
+    try {
+      const filePath = join(INCIDENT_EVIDENCE_UPLOAD_DIR, storedFileName);
+      if (existsSync(filePath)) {
+        unlinkSync(filePath);
+      }
+    } catch {
+      // Best-effort cleanup - a missing file must not block the DB operation.
+    }
+  }
+
+  // Resolves an incident the admin caller is actually allowed to see, using
+  // the exact same tenant + branch scoping as every other admin incident
+  // read. A cross-tenant or out-of-branch id simply does not match.
+  private async findAdminIncidentForEvidence(
+    user: ActiveUser,
+    incidentId: string,
+  ) {
+    const rows = await this.prisma.$queryRaw<{ id: string; title: string }[]>(
+      Prisma.sql`
+        SELECT i."id", i."title"
+        FROM "Incident" i
+        WHERE i."tenant_id" = ${user.tenantId}
+          ${this.adminBranchSql(user)}
+          AND i."id" = ${incidentId}
+        LIMIT 1
+      `,
+    );
+    const incident = rows[0];
+    if (!incident) {
+      throw new NotFoundException('Incident not found');
+    }
+    return incident;
+  }
+
+  // Client callers can only ever reach evidence for an incident that is both
+  // APPROVED and attached to one of their own sites - the identical gate used
+  // by findApprovedDetailForClient.
+  private async findClientIncidentForEvidence(
+    tenantId: string,
+    clientId: string,
+    incidentId: string,
+  ) {
+    const rows = await this.prisma.$queryRaw<{ id: string; title: string }[]>(
+      Prisma.sql`
+        SELECT i."id", i."title"
+        FROM "Incident" i
+        INNER JOIN "Site" s ON s."id" = i."site_id"
+        WHERE i."tenant_id" = ${tenantId}
+          AND i."id" = ${incidentId}
+          AND i."status" = 'approved'
+          AND s."client_id" = ${clientId}
+        LIMIT 1
+      `,
+    );
+    const incident = rows[0];
+    if (!incident) {
+      throw new NotFoundException('Incident not found');
+    }
+    return incident;
+  }
+
+  async addEvidenceForAdmin(
+    user: ActiveUser,
+    incidentId: string,
+    file: Express.Multer.File,
+  ) {
+    const incident = await this.findAdminIncidentForEvidence(user, incidentId);
+
+    const mediaType = classifyIncidentEvidence(
+      file.originalname,
+      file.mimetype,
+    );
+    if (!mediaType) {
+      this.unlinkQuietly(file.filename);
+      throw new BadRequestException(
+        'Unsupported file. Only image (JPG, PNG, WEBP, GIF, HEIC) and video (MP4, MOV, M4V, WEBM) evidence is allowed.',
+      );
+    }
+
+    const maxBytes = incidentEvidenceMaxBytesFor(mediaType);
+    if (file.size > maxBytes) {
+      this.unlinkQuietly(file.filename);
+      const limitMb =
+        mediaType === 'image'
+          ? incidentEvidenceImageMaxMb()
+          : incidentEvidenceVideoMaxMb();
+      throw new BadRequestException(
+        `${mediaType === 'image' ? 'Image' : 'Video'} evidence must be ${limitMb} MB or smaller.`,
+      );
+    }
+
+    const created = await this.prisma.incidentEvidence.create({
+      data: {
+        tenantId: user.tenantId,
+        incidentId: incident.id,
+        mediaType,
+        mimeType: file.mimetype.toLowerCase().split(';')[0].trim(),
+        fileName: file.originalname,
+        storedFileName: file.filename,
+        fileSizeBytes: file.size,
+        uploadedById: user.sub,
+      },
+    });
+
+    await this.auditService.log({
+      tenantId: user.tenantId,
+      userId: user.sub,
+      action: 'INCIDENT_EVIDENCE_UPLOADED',
+      entityType: 'IncidentEvidence',
+      entityId: created.id,
+      details: `Attached ${mediaType} evidence to incident "${incident.title}"`,
+    });
+
+    return this.serializeEvidence(created);
+  }
+
+  async listEvidenceForAdmin(user: ActiveUser, incidentId: string) {
+    await this.findAdminIncidentForEvidence(user, incidentId);
+    const items = await this.prisma.incidentEvidence.findMany({
+      where: { tenantId: user.tenantId, incidentId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return items.map((item) => this.serializeEvidence(item));
+  }
+
+  async getEvidenceFileForAdmin(
+    user: ActiveUser,
+    incidentId: string,
+    evidenceId: string,
+  ) {
+    await this.findAdminIncidentForEvidence(user, incidentId);
+    return this.resolveEvidenceFile(user.tenantId, incidentId, evidenceId);
+  }
+
+  async deleteEvidenceForAdmin(
+    user: ActiveUser,
+    incidentId: string,
+    evidenceId: string,
+  ) {
+    const incident = await this.findAdminIncidentForEvidence(user, incidentId);
+    const evidence = await this.prisma.incidentEvidence.findFirst({
+      where: { id: evidenceId, tenantId: user.tenantId, incidentId },
+    });
+    if (!evidence) {
+      throw new NotFoundException('Evidence not found');
+    }
+
+    await this.prisma.incidentEvidence.delete({ where: { id: evidence.id } });
+    this.unlinkQuietly(evidence.storedFileName);
+
+    await this.auditService.log({
+      tenantId: user.tenantId,
+      userId: user.sub,
+      action: 'INCIDENT_EVIDENCE_DELETED',
+      entityType: 'IncidentEvidence',
+      entityId: evidence.id,
+      details: `Removed ${evidence.mediaType} evidence from incident "${incident.title}"`,
+    });
+
+    return { success: true };
+  }
+
+  async listEvidenceForClient(
+    tenantId: string,
+    clientId: string,
+    userId: string,
+    incidentId: string,
+  ) {
+    await this.findClientIncidentForEvidence(tenantId, clientId, incidentId);
+    const items = await this.prisma.incidentEvidence.findMany({
+      where: { tenantId, incidentId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'CLIENT_INCIDENT_EVIDENCE_VIEWED',
+      entityType: 'Incident',
+      entityId: incidentId,
+      details: 'Client viewed incident evidence list',
+    });
+
+    return items.map((item) => this.serializeEvidence(item));
+  }
+
+  async getEvidenceFileForClient(
+    tenantId: string,
+    clientId: string,
+    incidentId: string,
+    evidenceId: string,
+  ) {
+    await this.findClientIncidentForEvidence(tenantId, clientId, incidentId);
+    return this.resolveEvidenceFile(tenantId, incidentId, evidenceId);
+  }
+
+  private async resolveEvidenceFile(
+    tenantId: string,
+    incidentId: string,
+    evidenceId: string,
+  ) {
+    const evidence = await this.prisma.incidentEvidence.findFirst({
+      where: { id: evidenceId, tenantId, incidentId },
+    });
+    if (!evidence) {
+      throw new NotFoundException('Evidence not found');
+    }
+
+    const filePath = join(
+      INCIDENT_EVIDENCE_UPLOAD_DIR,
+      evidence.storedFileName,
+    );
+    if (!existsSync(filePath)) {
+      throw new NotFoundException('Evidence file not found on server');
+    }
+
+    return {
+      stream: createReadStream(filePath),
+      mimeType: evidence.mimeType,
+      fileName: evidence.fileName,
+      fileSizeBytes: evidence.fileSizeBytes,
+      mediaType: evidence.mediaType,
+    };
   }
 }

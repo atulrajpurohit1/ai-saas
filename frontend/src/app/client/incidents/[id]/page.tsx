@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import ClientLayout from '@/components/ClientLayout';
+import IncidentEvidencePanel from '@/components/IncidentEvidencePanel';
 import api from '@/lib/api';
 import {
   AlertTriangle,
@@ -156,6 +157,8 @@ export default function ClientIncidentDetailPage() {
               </a>
             </section>
           )}
+
+          <IncidentEvidencePanel incidentId={incident.id} apiBase="client/incidents" />
         </div>
       )}
     </ClientLayout>

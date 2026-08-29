@@ -250,7 +250,7 @@ export default function IntegrationsPage() {
     setError('');
     try {
       const result = await getCrmConnectUrl(providerId);
-      window.location.href = result.url;
+      window.location.assign(result.url);
     } catch (err) {
       setError(getApiErrorMessage(err, `Could not start ${label} connection.`));
       setSaving(false);

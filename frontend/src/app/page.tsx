@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
@@ -18,6 +19,13 @@ import {
   TrendingUp,
   GitBranch,
   Loader2,
+  UserPlus,
+  Radar,
+  FilePlus2,
+  Upload,
+  PhoneCall,
+  ArrowUpRight,
+  ArrowDownRight,
 } from 'lucide-react';
 
 interface DashboardEntity {
@@ -34,6 +42,7 @@ interface DashboardEntity {
 
 interface ActivityItem {
   id: string;
+  kind: 'lead' | 'deal' | 'proposal';
   title: string;
   subject: string;
   timestamp: number;
@@ -76,18 +85,21 @@ const buildRecentActivities = (
   const activities: ActivityItem[] = [
     ...leads.map((lead) => ({
       id: `lead-${lead.id}`,
+      kind: 'lead' as const,
       title: 'New Lead Created',
       subject: lead.company || lead.name || 'Lead',
       timestamp: getTimestamp(lead.createdAt),
     })),
     ...deals.map((deal) => ({
       id: `deal-${deal.id}`,
+      kind: 'deal' as const,
       title: 'Deal Started',
       subject: deal.name || deal.lead?.company || 'Deal',
       timestamp: getTimestamp(deal.createdAt),
     })),
     ...proposals.map((proposal) => ({
       id: `proposal-${proposal.id}`,
+      kind: 'proposal' as const,
       title: 'Proposal Created',
       subject: proposal.title || proposal.lead?.company || 'Proposal',
       timestamp: getTimestamp(proposal.createdAt),
@@ -97,8 +109,55 @@ const buildRecentActivities = (
   return activities
     .filter((activity) => activity.timestamp > 0)
     .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, 3);
+    .slice(0, 5);
 };
+
+const ACTIVITY_ICON: Record<ActivityItem['kind'], React.ComponentType<{ size?: number; className?: string }>> = {
+  lead: UserPlus,
+  deal: Briefcase,
+  proposal: FileText,
+};
+
+const QUICK_ACTIONS = [
+  { href: '/leads', label: 'Add Lead', icon: UserPlus },
+  { href: '/prospect-search', label: 'Find Prospects', icon: Radar },
+  { href: '/proposals', label: 'Create Proposal', icon: FilePlus2 },
+  { href: '/integrations', label: 'Import Leads', icon: Upload },
+  { href: '/sales-calls', label: 'Schedule Call', icon: PhoneCall },
+];
+
+// Real-data insight copy, derived entirely from the same deltaPct/count
+// figures the KPI cards already show - not an AI-generated sentence, so
+// this is labeled "Insights" rather than "AI Insights". Only speaks up when
+// there's an honest, real signal worth surfacing (a real move up/down, or a
+// real 0-lead week) - stays silent rather than inventing filler otherwise.
+function buildInsights(summary: DashboardSummary | null) {
+  if (!summary) return [];
+  const insights: { icon: 'up' | 'down'; text: string }[] = [];
+
+  if (summary.leads.deltaPct !== null && Math.abs(summary.leads.deltaPct) >= 1) {
+    const up = summary.leads.deltaPct > 0;
+    insights.push({
+      icon: up ? 'up' : 'down',
+      text: `Leads are trending ${up ? 'up' : 'down'} ${Math.abs(summary.leads.deltaPct)}% vs. the prior 7 days.`,
+    });
+  }
+  if (summary.deals.deltaPct !== null && Math.abs(summary.deals.deltaPct) >= 1) {
+    const up = summary.deals.deltaPct > 0;
+    insights.push({
+      icon: up ? 'up' : 'down',
+      text: `Active deals are ${up ? 'up' : 'down'} ${Math.abs(summary.deals.deltaPct)}% week over week.`,
+    });
+  }
+  if (summary.proposals.deltaPct !== null && Math.abs(summary.proposals.deltaPct) >= 1) {
+    const up = summary.proposals.deltaPct > 0;
+    insights.push({
+      icon: up ? 'up' : 'down',
+      text: `Proposal activity is ${up ? 'up' : 'down'} ${Math.abs(summary.proposals.deltaPct)}% vs. last week.`,
+    });
+  }
+  return insights.slice(0, 2);
+}
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -106,6 +165,7 @@ export default function DashboardPage() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [trendRange, setTrendRange] = useState<4 | 8>(8);
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -148,7 +208,6 @@ export default function DashboardPage() {
           label: 'Total Leads',
           value: summary.leads.total,
           icon: Users,
-          color: 'indigo',
           deltaPct: summary.leads.deltaPct,
           hasActivity: summary.leads.last7Days > 0,
         },
@@ -156,7 +215,6 @@ export default function DashboardPage() {
           label: 'Active Deals',
           value: summary.deals.active,
           icon: Briefcase,
-          color: 'purple',
           deltaPct: summary.deals.deltaPct,
           hasActivity: summary.deals.last7Days > 0,
         },
@@ -164,7 +222,6 @@ export default function DashboardPage() {
           label: 'Proposals Sent',
           value: summary.proposals.sent,
           icon: FileText,
-          color: 'blue',
           deltaPct: summary.proposals.deltaPct,
           hasActivity: summary.proposals.last7Days > 0,
         },
@@ -178,77 +235,140 @@ export default function DashboardPage() {
       key: s.stage,
       label: formatEnumLabel(s.stage),
       value: s.count,
-      color: DEAL_STAGE_COLORS[s.stage] || '#818cf8',
+      color: DEAL_STAGE_COLORS[s.stage] || '#4f46e5',
     }));
+
+  const weeklyTrend = useMemo(() => summary?.leads.weeklyTrend || [], [summary]);
+  const trendPoints = useMemo(
+    () =>
+      weeklyTrend
+        .slice(trendRange === 4 ? -4 : 0)
+        .map((w) => ({ label: formatWeekLabel(w.weekStart), value: w.count })),
+    [weeklyTrend, trendRange],
+  );
+
+  const insights = useMemo(() => buildInsights(summary), [summary]);
 
   return (
     <DashboardLayout>
-      <div className="mb-8">
-        <h2 className="mb-2 text-2xl font-bold sm:text-3xl">Welcome back, <span className="gradient-text">{user?.name}</span></h2>
-        <p className="text-muted-foreground">Here&apos;s what&apos;s happening in your company today.</p>
+      <div className="mb-5 lg:hidden">
+        <h2 className="text-xl font-semibold text-foreground">
+          Welcome back, {user?.name?.split(' ')[0] || 'there'}
+        </h2>
+        <p className="text-sm text-muted-foreground">Here&apos;s what&apos;s happening in your pipeline today.</p>
       </div>
 
       {error && (
-        <div className="mb-6 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-5 py-4 text-sm font-medium text-rose-300">
+        <div className="mb-6 rounded-xl border border-error/20 bg-error-wash px-5 py-4 text-sm font-medium text-error">
           {error}
         </div>
       )}
 
+      {/* KPI cards */}
       {loading ? (
-        <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="glass-card animate-pulse rounded-3xl p-5 sm:p-6">
-              <div className="mb-4 h-10 w-10 rounded-2xl bg-white/5" />
-              <div className="mb-2 h-4 w-24 rounded bg-white/5" />
-              <div className="h-8 w-16 rounded bg-white/5" />
+            <div key={i} className="animate-pulse rounded-2xl border border-border bg-card p-5">
+              <div className="mb-3 h-9 w-9 rounded-lg bg-muted" />
+              <div className="mb-2 h-3 w-20 rounded bg-muted" />
+              <div className="h-7 w-14 rounded bg-muted" />
             </div>
           ))}
         </div>
       ) : (
-        <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
           {statCards.map((stat) => {
             const Icon = stat.icon;
             return (
-              <div key={stat.label} className="glass-card group cursor-default rounded-3xl p-5 transition-all hover:border-primary/50 sm:p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className={`p-3 rounded-2xl bg-${stat.color}-500/10 text-${stat.color}-400 group-hover:scale-110 transition-transform`}>
-                    <Icon size={24} />
+              <div key={stat.label} className="rounded-2xl border border-border bg-card p-5 shadow-sm transition-shadow hover:shadow-md">
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/8 text-primary">
+                    <Icon size={18} />
                   </div>
                   <StatDelta deltaPct={stat.deltaPct} hasActivity={stat.hasActivity} />
                 </div>
-                <p className="text-muted-foreground font-medium mb-1">{stat.label}</p>
-                <h3 className="text-3xl font-bold sm:text-4xl">{stat.value}</h3>
-                <p className="mt-1 text-xs text-muted-foreground">vs. previous 7 days</p>
+                <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
+                <h3 className="mt-0.5 text-3xl font-semibold tracking-tight text-foreground">{stat.value}</h3>
+                <p className="mt-1 text-[11px] text-muted-foreground">vs. previous 7 days</p>
               </div>
             );
           })}
         </div>
       )}
 
-      <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-5">
-        <div className="glass-card rounded-3xl p-5 sm:p-6 xl:col-span-3">
-          <div className="mb-6 flex items-center gap-2">
-            <TrendingUp className="text-indigo-400" size={20} />
-            <h3 className="text-xl font-bold">Lead Trend</h3>
-            <span className="ml-auto text-xs font-bold uppercase tracking-widest text-muted-foreground">Last 8 weeks</span>
+      {/* Insights strip - real deltaPct-derived copy only, never shown empty-handed */}
+      {!loading && insights.length > 0 && (
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {insights.map((insight, i) => (
+            <div key={i} className="flex items-start gap-3 rounded-2xl border border-primary/15 bg-primary/[0.04] p-4">
+              <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                {insight.icon === 'up' ? <ArrowUpRight size={15} /> : <ArrowDownRight size={15} />}
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">Insight</p>
+                <p className="text-sm text-foreground">{insight.text}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Quick actions */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        {QUICK_ACTIONS.map((action) => {
+          const Icon = action.icon;
+          return (
+            <Link
+              key={action.href}
+              href={action.href}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3.5 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:border-primary/30 hover:text-primary"
+            >
+              <Icon size={15} className="text-muted-foreground" />
+              {action.label}
+            </Link>
+          );
+        })}
+      </div>
+
+      <div className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-5">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm xl:col-span-3">
+          <div className="mb-4 flex items-center gap-2">
+            <TrendingUp className="text-primary" size={17} />
+            <h3 className="text-base font-semibold text-foreground">Lead Trend</h3>
+            {weeklyTrend.length > 4 && (
+              <div className="ml-auto flex items-center gap-1 rounded-lg bg-muted p-0.5">
+                {([4, 8] as const).map((range) => (
+                  <button
+                    key={range}
+                    type="button"
+                    onClick={() => setTrendRange(range)}
+                    className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+                      trendRange === range ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {range}W
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           {loading ? (
-            <div className="flex h-[200px] items-center justify-center text-muted-foreground">
+            <div className="flex h-[220px] items-center justify-center text-muted-foreground">
               <Loader2 className="animate-spin" size={20} />
             </div>
           ) : (
             <TrendAreaChart
-              points={(summary?.leads.weeklyTrend || []).map((w) => ({ label: formatWeekLabel(w.weekStart), value: w.count }))}
-              emptyMessage="No leads created in the last 8 weeks."
-              seriesColor="#818cf8"
+              points={trendPoints}
+              emptyMessage="No leads created in this period."
+              seriesColor="#4f46e5"
             />
           )}
         </div>
 
-        <div className="glass-card rounded-3xl p-5 sm:p-6 xl:col-span-2">
-          <div className="mb-6 flex items-center gap-2">
-            <GitBranch className="text-indigo-400" size={20} />
-            <h3 className="text-xl font-bold">Deals by Stage</h3>
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm xl:col-span-2">
+          <div className="mb-4 flex items-center gap-2">
+            <GitBranch className="text-primary" size={17} />
+            <h3 className="text-base font-semibold text-foreground">Deals by Stage</h3>
           </div>
           {loading ? (
             <div className="flex h-32 items-center justify-center text-muted-foreground">
@@ -260,36 +380,36 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="glass-card rounded-3xl p-5 sm:p-6">
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-xl font-bold flex items-center gap-2">
-              <Clock className="text-indigo-400" size={20} />
-              Recent Activity
-            </h3>
-            <span className="rounded-full border border-indigo-400/20 bg-indigo-400/10 px-3 py-1 text-xs font-bold text-indigo-300">
-              Latest 3
-            </span>
-          </div>
-          <div className="space-y-4">
-            {activities.length === 0 ? (
-              <div className="rounded-2xl border border-white/5 bg-white/5 p-5 text-sm text-muted-foreground">
-                No recent activity yet.
-              </div>
-            ) : (
-              activities.map((activity, index) => (
-              <div key={activity.id} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 hover:bg-white/10 transition-colors border border-transparent hover:border-white/5">
-                <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold">
-                  {index + 1}
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-base font-semibold text-foreground">
+            <Clock className="text-primary" size={17} />
+            Recent Activity
+          </h3>
+        </div>
+        <div className="space-y-1">
+          {activities.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
+              No recent activity yet.
+            </div>
+          ) : (
+            activities.map((activity) => {
+              const Icon = ACTIVITY_ICON[activity.kind];
+              return (
+                <div key={activity.id} className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-muted">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary">
+                    <Icon size={15} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{activity.title}</p>
+                    <p className="truncate text-xs text-muted-foreground">{activity.subject}</p>
+                  </div>
+                  <span className="shrink-0 text-xs text-muted-foreground">{formatRelativeTime(activity.timestamp)}</span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{activity.title}</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {activity.subject} - {formatRelativeTime(activity.timestamp)}
-                  </p>
-                </div>
-              </div>
-            )))}
-          </div>
+              );
+            })
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );

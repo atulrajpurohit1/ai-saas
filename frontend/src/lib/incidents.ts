@@ -89,3 +89,80 @@ export async function reviewIncident(id: string, input: ReviewIncidentInput) {
   const response = await api.post<Incident>(`incidents/${id}/review`, input);
   return response.data;
 }
+
+// --- Phase 3F: incident evidence (photo/video) attachments -----------------
+
+export type IncidentEvidenceMediaType = 'image' | 'video';
+
+export interface IncidentEvidence {
+  id: string;
+  incidentId: string;
+  mediaType: IncidentEvidenceMediaType;
+  mimeType: string;
+  fileName: string;
+  fileSizeBytes: number;
+  uploadedById: string | null;
+  createdAt: string;
+}
+
+// `apiBase` is 'incidents' for the admin portal or 'client/incidents' for the
+// client portal - the axios instance attaches the correct portal token based
+// on the current path, so the same helpers serve both.
+export type IncidentEvidenceScope = 'incidents' | 'client/incidents';
+
+export async function getIncidentEvidence(
+  apiBase: IncidentEvidenceScope,
+  incidentId: string,
+): Promise<IncidentEvidence[]> {
+  const response = await api.get<IncidentEvidence[]>(
+    `${apiBase}/${incidentId}/evidence`,
+  );
+  return response.data;
+}
+
+export async function uploadIncidentEvidence(
+  incidentId: string,
+  file: File,
+): Promise<IncidentEvidence> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post<IncidentEvidence>(
+    `incidents/${incidentId}/evidence`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return response.data;
+}
+
+export async function deleteIncidentEvidence(
+  incidentId: string,
+  evidenceId: string,
+): Promise<void> {
+  await api.delete(`incidents/${incidentId}/evidence/${evidenceId}`);
+}
+
+// Streams the binary through the authenticated axios instance and hands back
+// an object URL for use as an <img>/<video> src. Callers must revokeObjectURL
+// when done.
+export async function fetchIncidentEvidenceObjectUrl(
+  apiBase: IncidentEvidenceScope,
+  incidentId: string,
+  evidenceId: string,
+): Promise<string> {
+  const response = await api.get(
+    `${apiBase}/${incidentId}/evidence/${evidenceId}/file`,
+    { responseType: 'blob' },
+  );
+  return URL.createObjectURL(response.data as Blob);
+}
+
+export function formatFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const exponent = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1,
+  );
+  const value = bytes / 1024 ** exponent;
+  return `${value.toFixed(value >= 10 || exponent === 0 ? 0 : 1)} ${units[exponent]}`;
+}

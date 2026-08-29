@@ -14,14 +14,14 @@ export default function StatDelta({ deltaPct, hasActivity }: StatDeltaProps) {
   if (deltaPct === null) {
     if (!hasActivity) {
       return (
-        <div className="flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1 text-sm font-bold text-slate-500">
-          <Minus size={14} />
+        <div className="flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-semibold text-muted-foreground">
+          <Minus size={12} />
           <span>--</span>
         </div>
       );
     }
     return (
-      <div className="flex items-center gap-1 rounded-lg bg-indigo-500/10 px-2 py-1 text-sm font-bold text-indigo-300">
+      <div className="flex items-center gap-1 rounded-md bg-primary/8 px-2 py-1 text-xs font-semibold text-primary">
         <span>New</span>
       </div>
     );
@@ -29,8 +29,8 @@ export default function StatDelta({ deltaPct, hasActivity }: StatDeltaProps) {
 
   if (deltaPct === 0) {
     return (
-      <div className="flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1 text-sm font-bold text-slate-400">
-        <Minus size={14} />
+      <div className="flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-semibold text-muted-foreground">
+        <Minus size={12} />
         <span>0%</span>
       </div>
     );
@@ -39,11 +39,11 @@ export default function StatDelta({ deltaPct, hasActivity }: StatDeltaProps) {
   const isUp = deltaPct > 0;
   return (
     <div
-      className={`flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-bold ${
-        isUp ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
+      className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold ${
+        isUp ? 'bg-success-wash text-success' : 'bg-error-wash text-error'
       }`}
     >
-      {isUp ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+      {isUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
       <span>{isUp ? '+' : ''}{deltaPct}%</span>
     </div>
   );
