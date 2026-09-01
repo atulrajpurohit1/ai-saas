@@ -56,6 +56,9 @@ let PatrolsController = class PatrolsController {
     findAllPatrolRuns(user, status) {
         return this.patrolsService.findAllPatrolRuns(user, status);
     }
+    getPatrolOverview(user) {
+        return this.patrolsService.getPatrolOverview(user);
+    }
     findPatrolRun(user, id) {
         return this.patrolsService.findPatrolRun(user, id);
     }
@@ -145,6 +148,14 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], PatrolsController.prototype, "findAllPatrolRuns", null);
+__decorate([
+    (0, common_1.Get)('patrol-runs/overview'),
+    (0, permissions_decorator_1.RequireAnyPermission)('patrols.view', 'patrols.manage'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], PatrolsController.prototype, "getPatrolOverview", null);
 __decorate([
     (0, common_1.Get)('patrol-runs/:id'),
     (0, permissions_decorator_1.RequireAnyPermission)('patrols.view', 'patrols.manage'),

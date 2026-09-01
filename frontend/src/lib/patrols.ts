@@ -232,6 +232,47 @@ export async function getPatrolRun(id: string) {
   return response.data;
 }
 
+// Admin-side aggregate patrol-monitoring overview.
+export interface PatrolOverviewRun {
+  id: string;
+  status: string;
+  active: boolean;
+  startedAt: string | null;
+  completedAt: string | null;
+  guard: { id: string; name: string } | null;
+  route: { id: string; name: string } | null;
+  site: { id: string; name: string } | null;
+  shift: { id: string; startTime: string; endTime: string } | null;
+  checkpoints: { scanned: number; total: number; missed: number };
+  geofenceFailures: number;
+  lastScanAt: string | null;
+  location: {
+    latitude: number | null;
+    longitude: number | null;
+    accuracyMeters: number | null;
+    at: string | null;
+  } | null;
+}
+
+export interface PatrolOverview {
+  generatedAt: string;
+  summary: {
+    activeRuns: number;
+    guardsOnPatrol: number;
+    completedToday: number;
+    checkpointsScannedToday: number;
+    missedCheckpointsToday: number;
+    geofenceFailuresToday: number;
+  };
+  activeRuns: PatrolOverviewRun[];
+  completedToday: PatrolOverviewRun[];
+}
+
+export async function getPatrolOverview() {
+  const response = await api.get<PatrolOverview>('patrol-runs/overview');
+  return response.data;
+}
+
 // API Calls - Guard
 export async function getShiftPatrolRoutes(shiftId: string) {
   const response = await api.get<PatrolRoute[]>(`guard/shifts/${shiftId}/patrol-routes`);

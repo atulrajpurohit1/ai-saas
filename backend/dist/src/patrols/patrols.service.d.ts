@@ -292,6 +292,91 @@ export declare class PatrolsService {
         lastAccuracyMeters: number | null;
         lastLocationAt: Date | null;
     }>;
+    getPatrolOverview(user: ActiveUser): Promise<{
+        generatedAt: Date;
+        summary: {
+            activeRuns: number;
+            guardsOnPatrol: number;
+            completedToday: number;
+            checkpointsScannedToday: number;
+            missedCheckpointsToday: number;
+            geofenceFailuresToday: number;
+        };
+        activeRuns: {
+            id: string;
+            status: string;
+            active: boolean;
+            startedAt: Date | null;
+            completedAt: Date | null;
+            guard: {
+                id: string;
+                name: string;
+            };
+            route: {
+                id: string;
+                name: string;
+            } | null;
+            site: {
+                id: string;
+                name: string;
+            };
+            shift: {
+                id: string;
+                startTime: Date;
+                endTime: Date;
+            } | null;
+            checkpoints: {
+                scanned: number;
+                total: number;
+                missed: number;
+            };
+            geofenceFailures: number;
+            lastScanAt: Date | null;
+            location: {
+                latitude: number | null;
+                longitude: number | null;
+                accuracyMeters: number | null;
+                at: Date | null;
+            } | null;
+        }[];
+        completedToday: {
+            id: string;
+            status: string;
+            active: boolean;
+            startedAt: Date | null;
+            completedAt: Date | null;
+            guard: {
+                id: string;
+                name: string;
+            };
+            route: {
+                id: string;
+                name: string;
+            } | null;
+            site: {
+                id: string;
+                name: string;
+            };
+            shift: {
+                id: string;
+                startTime: Date;
+                endTime: Date;
+            } | null;
+            checkpoints: {
+                scanned: number;
+                total: number;
+                missed: number;
+            };
+            geofenceFailures: number;
+            lastScanAt: Date | null;
+            location: {
+                latitude: number | null;
+                longitude: number | null;
+                accuracyMeters: number | null;
+                at: Date | null;
+            } | null;
+        }[];
+    }>;
     getShiftPatrolRoutes(tenantId: string, guardId: string, shiftId: string): Promise<({
         checkpoints: ({
             checkpoint: {

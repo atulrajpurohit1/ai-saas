@@ -363,6 +363,99 @@ let PatrolsService = class PatrolsService {
         }
         return run;
     }
+    async getPatrolOverview(user) {
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+        const runs = await this.prisma.patrolRun.findMany({
+            where: {
+                tenantId: user.tenantId,
+                shift: { ...(0, branch_scope_1.branchWhere)(user) },
+                OR: [
+                    { status: 'in_progress' },
+                    { status: 'active' },
+                    { completedAt: { gte: startOfToday } },
+                    { startedAt: { gte: startOfToday } },
+                ],
+            },
+            include: {
+                guard: { select: { id: true, name: true } },
+                patrolRoute: {
+                    select: {
+                        id: true,
+                        name: true,
+                        _count: { select: { checkpoints: true } },
+                    },
+                },
+                shift: {
+                    select: {
+                        id: true,
+                        startTime: true,
+                        endTime: true,
+                        site: { select: { id: true, name: true } },
+                    },
+                },
+                events: {
+                    select: { id: true, status: true, verificationStatus: true, scannedAt: true },
+                },
+            },
+            orderBy: { startedAt: 'desc' },
+        });
+        const isActive = (status) => status === 'in_progress' || status === 'active';
+        const rows = runs.map((run) => {
+            const totalCheckpoints = run.patrolRoute?._count.checkpoints ?? 0;
+            const scanned = run.events.filter((e) => e.status === 'completed').length;
+            const missed = run.events.filter((e) => e.status === 'missed').length;
+            const geofenceFailures = run.events.filter((e) => e.verificationStatus === 'OUTSIDE_GEOFENCE').length;
+            const lastScanAt = run.events.reduce((latest, e) => {
+                if (!e.scannedAt)
+                    return latest;
+                return !latest || e.scannedAt > latest ? e.scannedAt : latest;
+            }, null);
+            return {
+                id: run.id,
+                status: run.status,
+                active: isActive(run.status),
+                startedAt: run.startedAt,
+                completedAt: run.completedAt,
+                guard: run.guard,
+                route: run.patrolRoute
+                    ? { id: run.patrolRoute.id, name: run.patrolRoute.name }
+                    : null,
+                site: run.shift?.site ?? null,
+                shift: run.shift
+                    ? { id: run.shift.id, startTime: run.shift.startTime, endTime: run.shift.endTime }
+                    : null,
+                checkpoints: { scanned, total: totalCheckpoints, missed },
+                geofenceFailures,
+                lastScanAt,
+                location: isActive(run.status)
+                    ? {
+                        latitude: run.lastLatitude,
+                        longitude: run.lastLongitude,
+                        accuracyMeters: run.lastAccuracyMeters,
+                        at: run.lastLocationAt,
+                    }
+                    : null,
+            };
+        });
+        const activeRows = rows.filter((r) => r.active);
+        const completedTodayRows = rows.filter((r) => !r.active && r.completedAt && r.completedAt >= startOfToday);
+        return {
+            generatedAt: new Date(),
+            summary: {
+                activeRuns: activeRows.length,
+                guardsOnPatrol: new Set(activeRows.map((r) => r.guard?.id).filter(Boolean))
+                    .size,
+                completedToday: completedTodayRows.length,
+                checkpointsScannedToday: rows.reduce((sum, r) => sum +
+                    (r.completedAt && r.completedAt >= startOfToday ? r.checkpoints.scanned : 0), 0),
+                missedCheckpointsToday: rows.reduce((sum, r) => sum + r.checkpoints.missed, 0),
+                geofenceFailuresToday: rows.reduce((sum, r) => sum + r.geofenceFailures, 0),
+            },
+            activeRuns: activeRows,
+            completedToday: completedTodayRows,
+        };
+    }
     async getShiftPatrolRoutes(tenantId, guardId, shiftId) {
         const assignment = await this.prisma.assignment.findFirst({
             where: {

@@ -80,6 +80,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/guards/compliance', label: 'Guard Compliance', icon: FileCheck2, permissions: ['guards.view'] },
       { href: '/shifts', label: 'Shifts', icon: CalendarClock, permissions: ['shifts.view'] },
       { href: '/patrol/checkpoints', label: 'Patrols', icon: Navigation, permissions: ['patrols.view'] },
+      { href: '/patrol/monitor', label: 'Patrol Monitor', icon: Radar, permissions: ['patrols.view'] },
       { href: '/incidents', label: 'Incidents', icon: FileWarning, permissions: ['incidents.view'] },
       { href: '/reports', label: 'Reports', icon: ClipboardList, permissions: ['reports.view'] },
       { href: '/timesheets', label: 'Timesheets', icon: ClipboardCheck, permissions: ['timesheets.view'] },

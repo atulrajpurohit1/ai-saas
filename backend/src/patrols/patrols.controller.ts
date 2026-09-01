@@ -109,6 +109,13 @@ export class PatrolsController {
     return this.patrolsService.findAllPatrolRuns(user, status);
   }
 
+  // Must be declared before 'patrol-runs/:id' so ":id" never captures "overview".
+  @Get('patrol-runs/overview')
+  @RequireAnyPermission('patrols.view', 'patrols.manage')
+  getPatrolOverview(@GetUser() user: ActiveUser) {
+    return this.patrolsService.getPatrolOverview(user);
+  }
+
   @Get('patrol-runs/:id')
   @RequireAnyPermission('patrols.view', 'patrols.manage')
   findPatrolRun(@GetUser() user: ActiveUser, @Param('id') id: string) {
