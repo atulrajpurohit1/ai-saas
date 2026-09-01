@@ -173,7 +173,22 @@ export default function DealsPage() {
       ) : view === 'kanban' ? (
         deals.length === 0 ? (
           <div className="rounded-2xl border border-border bg-card shadow-sm">
-            <EmptyState icon={Briefcase} title="No active deals" description="Start by converting a lead into a deal." />
+            <EmptyState
+              icon={Briefcase}
+              title="No active deals"
+              description="A deal tracks one opportunity through your pipeline stages. Create one from a lead or a client."
+              action={
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button onClick={() => setShowModal(true)}>
+                    <Plus size={16} />
+                    New Deal
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href="/leads">View Leads</Link>
+                  </Button>
+                </div>
+              }
+            />
           </div>
         ) : (
           <DealsKanbanBoard deals={deals} onDealsChange={setDeals} canUpdateStage={canUpdateStage} />
@@ -194,7 +209,22 @@ export default function DealsPage() {
           </div>
 
           {deals.length === 0 ? (
-            <EmptyState icon={Briefcase} title="No active deals" description="Start by converting a lead into a deal." />
+            <EmptyState
+              icon={Briefcase}
+              title="No active deals"
+              description="A deal tracks one opportunity through your pipeline stages. Create one from a lead or a client."
+              action={
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button onClick={() => setShowModal(true)}>
+                    <Plus size={16} />
+                    New Deal
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href="/leads">View Leads</Link>
+                  </Button>
+                </div>
+              }
+            />
           ) : filteredDeals.length === 0 ? (
             <EmptyState icon={Search} title="No matching deals" description="Try a different search term." />
           ) : (

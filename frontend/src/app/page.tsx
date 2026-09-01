@@ -11,6 +11,7 @@ import { formatEnumLabel } from '@/lib/format';
 import TrendAreaChart from '@/components/charts/TrendAreaChart';
 import CategoryBarChart from '@/components/charts/CategoryBarChart';
 import StatDelta from '@/components/charts/StatDelta';
+import GettingStartedCard from '@/components/GettingStartedCard';
 import {
   Users,
   Briefcase,
@@ -257,6 +258,8 @@ export default function DashboardPage() {
         </h2>
         <p className="text-sm text-muted-foreground">Here&apos;s what&apos;s happening in your pipeline today.</p>
       </div>
+
+      <GettingStartedCard />
 
       {error && (
         <div className="mb-6 rounded-xl border border-error/20 bg-error-wash px-5 py-4 text-sm font-medium text-error">

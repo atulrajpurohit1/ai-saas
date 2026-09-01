@@ -175,7 +175,25 @@ export default function LeadsPage() {
             <ErrorState message={loadError} onRetry={fetchLeads} />
           </div>
         ) : leads.length === 0 ? (
-          <EmptyState icon={Users} title="No leads yet" description="Leads you add or import will show up here." />
+          <EmptyState
+            icon={Users}
+            title="No leads yet"
+            description="Add a lead by hand, or use AI Prospect Search to find security buyers and import them here."
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button onClick={() => setShowModal(true)}>
+                  <Plus size={16} />
+                  Add New Lead
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href="/prospect-search">
+                    <Search size={16} />
+                    Find Prospects
+                  </Link>
+                </Button>
+              </div>
+            }
+          />
         ) : filteredLeads.length === 0 ? (
           <EmptyState icon={Search} title="No matching leads" description="Try a different search term." />
         ) : (
