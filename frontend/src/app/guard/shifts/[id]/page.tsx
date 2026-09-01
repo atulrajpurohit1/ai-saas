@@ -350,7 +350,7 @@ export default function GuardShiftDetailPage() {
 
       {showIncidentModal && shift && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-4">
-          <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-xl overflow-y-auto rounded-[var(--radius-lg)] border border-white/10 bg-[#0b1718] p-5 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:p-6">
+          <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-xl overflow-y-auto rounded-[var(--radius-lg)] border border-border bg-card p-5 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:p-6">
             <div className="mb-5 flex items-center justify-between gap-4">
               <div>
                 <h2 className="flex items-center gap-2 text-xl font-extrabold text-white sm:text-2xl">
@@ -397,7 +397,7 @@ export default function GuardShiftDetailPage() {
                   <select
                     value={incidentForm.severity}
                     onChange={(event) => setIncidentForm({ ...incidentForm, severity: event.target.value as IncidentSeverity })}
-                    className="w-full rounded-2xl border border-white/10 bg-[#132122] px-4 py-3 text-white outline-none focus:border-amber-300/50 focus:ring-2 focus:ring-amber-300/20"
+                    className="w-full rounded-2xl border border-border bg-muted px-4 py-3 text-foreground outline-none focus:border-amber-300/50 focus:ring-2 focus:ring-amber-300/20"
                   >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>

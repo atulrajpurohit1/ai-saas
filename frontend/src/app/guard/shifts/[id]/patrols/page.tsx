@@ -549,7 +549,7 @@ export default function GuardPatrolPage() {
       {/* SCAN CONFIRMATION MODAL */}
       {scanningCheckpointId && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-[100] p-4 text-left">
-          <div className="w-full max-w-md rounded-[var(--radius-lg)] border-white/10 p-5 shadow-3xl animate-in zoom-in-95 duration-200 sm:p-8">
+          <div className="w-full max-w-md rounded-[var(--radius-lg)] border border-border bg-card p-5 shadow-3xl animate-in zoom-in-95 duration-200 sm:p-8">
             <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
               <QrCode className="text-indigo-400" size={20} />
               <span>Verify Checkpoint Scan</span>
@@ -593,7 +593,7 @@ export default function GuardPatrolPage() {
                 <select
                   value={scanStatus}
                   onChange={(e) => setScanStatus(e.target.value as 'completed' | 'skipped')}
-                  className="w-full rounded-2xl border border-white/10 bg-[#132122] px-4 py-3 text-white outline-none focus:border-indigo-500/50"
+                  className="w-full rounded-2xl border border-border bg-muted px-4 py-3 text-foreground outline-none focus:border-indigo-500/50"
                 >
                   <option value="completed" className="bg-[#0e0e1a]">Completed (Scanned OK)</option>
                   <option value="skipped" className="bg-[#0e0e1a]">Skipped / Obstruction</option>
