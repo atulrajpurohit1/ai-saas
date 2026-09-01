@@ -10,6 +10,7 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import ErrorState from '@/components/ErrorState';
 import StatusBadge from '@/components/StatusBadge';
+import { formatEnumLabel } from '@/lib/format';
 
 interface GuardShift {
   id: string;
@@ -78,7 +79,7 @@ export default function GuardShiftsPage() {
                 <div className="min-w-0">
                   <div className="mb-1.5 flex items-center gap-2 text-eyebrow">
                     <CalendarDays size={14} className="text-primary" />
-                    {shift.assignmentStatus}
+                    My status: {formatEnumLabel(shift.assignmentStatus)}
                   </div>
                   <h2 className="text-section-title">{shift.siteName}</h2>
                   <div className="mt-2 flex items-start gap-2 text-sm text-muted-foreground">
@@ -98,7 +99,10 @@ export default function GuardShiftsPage() {
                 </div>
 
                 <div className="flex shrink-0 flex-col gap-3 sm:items-end">
-                  <StatusBadge status={shift.status} />
+                  <div className="flex flex-col gap-1 sm:items-end">
+                    <span className="text-eyebrow">Schedule</span>
+                    <StatusBadge status={shift.status} />
+                  </div>
                   <Link
                     href={`/guard/shifts/${shift.id}`}
                     className="flex min-h-11 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition hover:bg-primary/90 sm:w-auto"

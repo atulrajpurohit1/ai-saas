@@ -284,6 +284,16 @@ let GuardPortalService = class GuardPortalService {
             throw new common_1.BadRequestException('Guard must check in before checking out');
         }
         const checkInTime = attendance.checkInTime;
+        if (Date.now() <= checkInTime.getTime()) {
+            await this.logInvalidAttendanceAttempt({
+                tenantId,
+                guardId,
+                shiftId,
+                action: 'CHECK_OUT',
+                reason: 'Check-out time is not after the recorded check-in time',
+            });
+            throw new common_1.BadRequestException('Check-out time must be after the recorded check-in time. Please try again.');
+        }
         try {
             const result = await this.prisma.$transaction(async (tx) => {
                 const attendanceEvent = await tx.attendanceEvent.create({

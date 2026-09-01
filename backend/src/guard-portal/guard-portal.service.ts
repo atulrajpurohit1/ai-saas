@@ -360,6 +360,22 @@ export class GuardPortalService {
 
     const checkInTime = attendance.checkInTime;
 
+    // Guard against clock skew / tampering: the check-out moment (now) must be
+    // after the recorded check-in. Without this, a backwards timestamp silently
+    // produces a 0-hour timesheet on a billable record.
+    if (Date.now() <= checkInTime.getTime()) {
+      await this.logInvalidAttendanceAttempt({
+        tenantId,
+        guardId,
+        shiftId,
+        action: 'CHECK_OUT',
+        reason: 'Check-out time is not after the recorded check-in time',
+      });
+      throw new BadRequestException(
+        'Check-out time must be after the recorded check-in time. Please try again.',
+      );
+    }
+
     try {
       const result = await this.prisma.$transaction(async (tx) => {
         const attendanceEvent = await tx.attendanceEvent.create({

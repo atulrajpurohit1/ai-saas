@@ -190,7 +190,7 @@ export default function SalesCallsPage() {
                   <p className="mt-1 text-xs text-muted-foreground">
                     {transcriptionStatus?.configured
                       ? `${transcriptionStatus.provider} ${transcriptionStatus.model}, max ${transcriptionStatus.max_file_mb}MB`
-                      : 'Configure OPENAI_API_KEY to enable audio transcription.'}
+                      : "Audio transcription isn't available in this environment yet. Paste a transcript below to use the live coach and discovery analysis."}
                   </p>
                 </div>
                 <button
