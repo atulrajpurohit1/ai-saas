@@ -9,6 +9,7 @@ export declare class AssignmentsService {
             createdAt: Date;
             documents: string | null;
             email: string | null;
+            refreshToken: string | null;
             tenantId: string;
             branchId: string | null;
             phone: string | null;

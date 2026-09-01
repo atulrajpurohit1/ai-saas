@@ -645,6 +645,9 @@ model Guard {
   phone            String?
   email            String?
   passwordHash     String?           @map("password_hash")
+  // bcrypt hash of the guard portal's current refresh token (Phase 5).
+  // Nullable: null means no active refresh session. Never store the raw token.
+  refreshToken     String?           @map("refresh_token")
   salary           Float?
   bankDetails      String?           @map("bank_details")
   documents        String?

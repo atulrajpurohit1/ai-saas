@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { CalendarDays, FileWarning, LayoutDashboard, LogOut, Navigation } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import api from '@/lib/api';
 import BrandMark from '@/components/BrandMark';
 import { SyncIndicator } from './SyncIndicator';
 import GuardPanicButton from './GuardPanicButton';
@@ -28,8 +29,16 @@ export default function GuardLayout({ children }: { children: React.ReactNode })
   }, [router]);
 
   const handleLogout = () => {
+    const refreshToken = localStorage.getItem('guard_refresh_token');
     localStorage.removeItem('guard_token');
+    localStorage.removeItem('guard_refresh_token');
     localStorage.removeItem('guard_user');
+    // Best-effort server-side revoke of the refresh token; never block logout on it.
+    if (refreshToken) {
+      api
+        .post('guard-auth/logout', {}, { headers: { Authorization: `Bearer ${refreshToken}` } })
+        .catch(() => undefined);
+    }
     router.push('/guard/login');
   };
 

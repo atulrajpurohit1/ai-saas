@@ -22,6 +22,7 @@ export declare class GuardsService {
         createdAt: Date;
         documents: string | null;
         email: string | null;
+        refreshToken: string | null;
         tenantId: string;
         branchId: string | null;
         phone: string | null;
@@ -29,7 +30,7 @@ export declare class GuardsService {
         salary: number | null;
         bankDetails: string | null;
         personalNotes: string | null;
-    }, "passwordHash">>;
+    }, "refreshToken" | "passwordHash">>;
     findAll(user: ActiveUser, requestedBranchId?: string | null): Promise<Omit<{
         branch: {
             id: string;
@@ -53,6 +54,7 @@ export declare class GuardsService {
         createdAt: Date;
         documents: string | null;
         email: string | null;
+        refreshToken: string | null;
         tenantId: string;
         branchId: string | null;
         phone: string | null;
@@ -60,7 +62,7 @@ export declare class GuardsService {
         salary: number | null;
         bankDetails: string | null;
         personalNotes: string | null;
-    }, "passwordHash">[]>;
+    }, "refreshToken" | "passwordHash">[]>;
     findOne(user: ActiveUser, id: string): Promise<Omit<{
         branch: {
             id: string;
@@ -84,6 +86,7 @@ export declare class GuardsService {
         createdAt: Date;
         documents: string | null;
         email: string | null;
+        refreshToken: string | null;
         tenantId: string;
         branchId: string | null;
         phone: string | null;
@@ -91,13 +94,14 @@ export declare class GuardsService {
         salary: number | null;
         bankDetails: string | null;
         personalNotes: string | null;
-    }, "passwordHash">>;
+    }, "refreshToken" | "passwordHash">>;
     update(user: ActiveUser, id: string, dto: UpdateGuardDto): Promise<Omit<{
         id: string;
         name: string;
         createdAt: Date;
         documents: string | null;
         email: string | null;
+        refreshToken: string | null;
         tenantId: string;
         branchId: string | null;
         phone: string | null;
@@ -105,7 +109,7 @@ export declare class GuardsService {
         salary: number | null;
         bankDetails: string | null;
         personalNotes: string | null;
-    }, "passwordHash">>;
+    }, "refreshToken" | "passwordHash">>;
     getAvailability(user: ActiveUser, id: string): Promise<{
         id: string;
         createdAt: Date;

@@ -10,7 +10,6 @@ export declare class GuardAuthService {
     private auditService;
     constructor(prisma: PrismaService, jwtService: JwtService, configService: ConfigService, auditService: AuditService);
     login(dto: GuardLoginDto): Promise<{
-        access_token: string;
         guard: {
             id: string;
             name: string;
@@ -19,5 +18,14 @@ export declare class GuardAuthService {
             tenantId: string;
             tenantName: string;
         };
+        access_token: string;
+        refresh_token: string;
     }>;
+    refreshTokens(guardId: string, rt: string): Promise<{
+        access_token: string;
+        refresh_token: string;
+    }>;
+    logout(guardId: string): Promise<boolean>;
+    private updateRefreshTokenHash;
+    private getTokens;
 }

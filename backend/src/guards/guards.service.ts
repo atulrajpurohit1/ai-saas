@@ -35,10 +35,11 @@ export class GuardsService {
     return { phone, email };
   }
 
-  private withoutPasswordHash<T extends { passwordHash?: string | null }>(
-    guard: T,
-  ) {
-    const { passwordHash, ...safeGuard } = guard;
+  private withoutPasswordHash<
+    T extends { passwordHash?: string | null; refreshToken?: string | null },
+  >(guard: T) {
+    // Strip both credential hashes - neither should ever reach an API response.
+    const { passwordHash, refreshToken, ...safeGuard } = guard;
     return safeGuard;
   }
 

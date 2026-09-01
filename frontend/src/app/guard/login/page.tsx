@@ -33,6 +33,9 @@ export default function GuardLoginPage() {
       });
 
       localStorage.setItem('guard_token', response.data.access_token);
+      if (response.data.refresh_token) {
+        localStorage.setItem('guard_refresh_token', response.data.refresh_token);
+      }
       localStorage.setItem('guard_user', JSON.stringify(response.data.guard));
       router.push('/guard/dashboard');
     } catch (err: unknown) {

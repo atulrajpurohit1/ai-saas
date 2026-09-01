@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -38,24 +42,11 @@ export class GuardAuthService {
       );
       if (!passwordMatches) continue;
 
-      const accessToken = await this.jwtService.signAsync(
-        {
-          sub: guard.id,
-          guard_id: guard.id,
-          guardId: guard.id,
-          tenant_id: guard.tenantId,
-          tenantId: guard.tenantId,
-          role: 'guard',
-          email: guard.email,
-          phone: guard.phone,
-        },
-        {
-          secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
-          expiresIn: this.configService.get<string>(
-            'JWT_ACCESS_EXPIRES_IN',
-          ) as unknown as number,
-        },
-      );
+      const tokens = await this.getTokens(guard.id, guard.tenantId, {
+        email: guard.email,
+        phone: guard.phone,
+      });
+      await this.updateRefreshTokenHash(guard.id, tokens.refresh_token);
 
       await this.auditService.log({
         tenantId: guard.tenantId,
@@ -67,7 +58,7 @@ export class GuardAuthService {
       });
 
       return {
-        access_token: accessToken,
+        ...tokens,
         guard: {
           id: guard.id,
           name: guard.name,
@@ -80,5 +71,76 @@ export class GuardAuthService {
     }
 
     throw new UnauthorizedException('Invalid credentials');
+  }
+
+  async refreshTokens(guardId: string, rt: string) {
+    const guard = await this.prisma.guard.findUnique({ where: { id: guardId } });
+
+    if (!guard || !guard.refreshToken) {
+      throw new ForbiddenException('Access Denied');
+    }
+
+    const rtMatches = await bcrypt.compare(rt, guard.refreshToken);
+    if (!rtMatches) throw new ForbiddenException('Access Denied');
+
+    const tokens = await this.getTokens(guard.id, guard.tenantId, {
+      email: guard.email,
+      phone: guard.phone,
+    });
+    await this.updateRefreshTokenHash(guard.id, tokens.refresh_token);
+    return tokens;
+  }
+
+  async logout(guardId: string) {
+    await this.prisma.guard.updateMany({
+      where: { id: guardId, refreshToken: { not: null } },
+      data: { refreshToken: null },
+    });
+    return true;
+  }
+
+  private async updateRefreshTokenHash(guardId: string, rt: string) {
+    const hash = await bcrypt.hash(rt, 10);
+    await this.prisma.guard.update({
+      where: { id: guardId },
+      data: { refreshToken: hash },
+    });
+  }
+
+  private async getTokens(
+    guardId: string,
+    tenantId: string,
+    extra: { email: string | null; phone: string | null },
+  ) {
+    const payload = {
+      sub: guardId,
+      guard_id: guardId,
+      guardId,
+      tenant_id: tenantId,
+      tenantId,
+      role: 'guard',
+      email: extra.email,
+      phone: extra.phone,
+    };
+
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(payload, {
+        secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
+        expiresIn: this.configService.get<string>(
+          'JWT_ACCESS_EXPIRES_IN',
+        ) as unknown as number,
+      }),
+      this.jwtService.signAsync(payload, {
+        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+        expiresIn: this.configService.get<string>(
+          'JWT_REFRESH_EXPIRES_IN',
+        ) as unknown as number,
+      }),
+    ]);
+
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    };
   }
 }

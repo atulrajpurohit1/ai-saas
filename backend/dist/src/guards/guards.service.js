@@ -67,7 +67,7 @@ let GuardsService = class GuardsService {
         return { phone, email };
     }
     withoutPasswordHash(guard) {
-        const { passwordHash, ...safeGuard } = guard;
+        const { passwordHash, refreshToken, ...safeGuard } = guard;
         return safeGuard;
     }
     optionalText(value) {

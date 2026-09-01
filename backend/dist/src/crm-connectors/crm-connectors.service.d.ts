@@ -32,8 +32,8 @@ export declare class CrmConnectorsService {
         tenantId: string;
         status: string;
         lastError: string | null;
-        provider: string;
         accessToken: string;
+        provider: string;
         tokenExpiresAt: Date | null;
         scopes: string[];
         portalId: string | null;

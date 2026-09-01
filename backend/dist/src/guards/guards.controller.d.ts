@@ -12,6 +12,7 @@ export declare class GuardsController {
         createdAt: Date;
         documents: string | null;
         email: string | null;
+        refreshToken: string | null;
         tenantId: string;
         branchId: string | null;
         phone: string | null;
@@ -19,7 +20,7 @@ export declare class GuardsController {
         salary: number | null;
         bankDetails: string | null;
         personalNotes: string | null;
-    }, "passwordHash">>;
+    }, "refreshToken" | "passwordHash">>;
     findAll(user: ActiveUser, branchId?: string): Promise<Omit<{
         branch: {
             id: string;
@@ -43,6 +44,7 @@ export declare class GuardsController {
         createdAt: Date;
         documents: string | null;
         email: string | null;
+        refreshToken: string | null;
         tenantId: string;
         branchId: string | null;
         phone: string | null;
@@ -50,7 +52,7 @@ export declare class GuardsController {
         salary: number | null;
         bankDetails: string | null;
         personalNotes: string | null;
-    }, "passwordHash">[]>;
+    }, "refreshToken" | "passwordHash">[]>;
     findOne(user: ActiveUser, id: string): Promise<Omit<{
         branch: {
             id: string;
@@ -74,6 +76,7 @@ export declare class GuardsController {
         createdAt: Date;
         documents: string | null;
         email: string | null;
+        refreshToken: string | null;
         tenantId: string;
         branchId: string | null;
         phone: string | null;
@@ -81,13 +84,14 @@ export declare class GuardsController {
         salary: number | null;
         bankDetails: string | null;
         personalNotes: string | null;
-    }, "passwordHash">>;
+    }, "refreshToken" | "passwordHash">>;
     update(user: ActiveUser, id: string, updateGuardDto: UpdateGuardDto): Promise<Omit<{
         id: string;
         name: string;
         createdAt: Date;
         documents: string | null;
         email: string | null;
+        refreshToken: string | null;
         tenantId: string;
         branchId: string | null;
         phone: string | null;
@@ -95,7 +99,7 @@ export declare class GuardsController {
         salary: number | null;
         bankDetails: string | null;
         personalNotes: string | null;
-    }, "passwordHash">>;
+    }, "refreshToken" | "passwordHash">>;
     getAvailability(user: ActiveUser, id: string): Promise<{
         id: string;
         createdAt: Date;
@@ -145,6 +149,7 @@ export declare class GuardsAliasController {
         createdAt: Date;
         documents: string | null;
         email: string | null;
+        refreshToken: string | null;
         tenantId: string;
         branchId: string | null;
         phone: string | null;
@@ -152,7 +157,7 @@ export declare class GuardsAliasController {
         salary: number | null;
         bankDetails: string | null;
         personalNotes: string | null;
-    }, "passwordHash">[]>;
+    }, "refreshToken" | "passwordHash">[]>;
     findOne(user: ActiveUser, id: string): Promise<Omit<{
         branch: {
             id: string;
@@ -176,6 +181,7 @@ export declare class GuardsAliasController {
         createdAt: Date;
         documents: string | null;
         email: string | null;
+        refreshToken: string | null;
         tenantId: string;
         branchId: string | null;
         phone: string | null;
@@ -183,13 +189,14 @@ export declare class GuardsAliasController {
         salary: number | null;
         bankDetails: string | null;
         personalNotes: string | null;
-    }, "passwordHash">>;
+    }, "refreshToken" | "passwordHash">>;
     update(user: ActiveUser, id: string, updateGuardDto: UpdateGuardDto): Promise<Omit<{
         id: string;
         name: string;
         createdAt: Date;
         documents: string | null;
         email: string | null;
+        refreshToken: string | null;
         tenantId: string;
         branchId: string | null;
         phone: string | null;
@@ -197,5 +204,5 @@ export declare class GuardsAliasController {
         salary: number | null;
         bankDetails: string | null;
         personalNotes: string | null;
-    }, "passwordHash">>;
+    }, "refreshToken" | "passwordHash">>;
 }

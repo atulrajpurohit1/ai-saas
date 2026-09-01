@@ -24,13 +24,13 @@ type Portal = 'admin' | 'client' | 'guard';
 const PORTAL_STORAGE_KEYS: Record<Portal, { token: string; refreshToken: string | null; loginPath: string }> = {
   admin: { token: 'token', refreshToken: 'refresh_token', loginPath: '/login' },
   client: { token: 'client_token', refreshToken: 'client_refresh_token', loginPath: '/client/login' },
-  guard: { token: 'guard_token', refreshToken: null, loginPath: '/guard/login' },
+  guard: { token: 'guard_token', refreshToken: 'guard_refresh_token', loginPath: '/guard/login' },
 };
 
 const REFRESH_ENDPOINTS: Record<Portal, string> = {
   admin: 'auth/refresh',
   client: 'client-auth/refresh',
-  guard: '', // No refresh flow exists for the guard portal yet.
+  guard: 'guard-auth/refresh',
 };
 
 const getPortalForPath = (pathname: string): Portal => {
@@ -123,8 +123,10 @@ api.interceptors.response.use(
 
     const portal = getPortalForPath(window.location.pathname);
     const originalRequest = error.config;
+    const refreshEndpoint = REFRESH_ENDPOINTS[portal];
+    const isRefreshCall = Boolean(refreshEndpoint) && originalRequest?.url?.includes(refreshEndpoint);
 
-    if (!originalRequest || originalRequest.url?.includes(REFRESH_ENDPOINTS[portal]) || originalRequest._retried) {
+    if (!originalRequest || isRefreshCall || originalRequest._retried) {
       redirectToLogin(portal);
       return Promise.reject(error);
     }
