@@ -8,7 +8,11 @@ import api from '@/lib/api';
 import { GuardRecommendation } from '@/lib/ai-insights';
 import { branchParams, BranchSummary } from '@/lib/branches';
 import { formatEnumLabel } from '@/lib/format';
-import { Plus, Search, Calendar, Clock, Users, MapPin, Sparkles, AlertTriangle, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import ShiftsCalendar from '@/components/ShiftsCalendar';
+import { Plus, Search, Calendar, Clock, Users, MapPin, Sparkles, AlertTriangle, Loader2, CalendarDays, List } from 'lucide-react';
+
+const VIEW_STORAGE_KEY = 'ai-saas-shifts-view';
 
 interface Site {
   id: string;
@@ -60,6 +64,17 @@ export default function ShiftsPage() {
   const [recommendationsError, setRecommendationsError] = useState('');
   const [selectedBranchId, setSelectedBranchId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [view, setView] = useState<'list' | 'calendar'>('list');
+
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem(VIEW_STORAGE_KEY) : null;
+    if (stored === 'list' || stored === 'calendar') setView(stored);
+  }, []);
+
+  const changeView = (nextView: 'list' | 'calendar') => {
+    setView(nextView);
+    localStorage.setItem(VIEW_STORAGE_KEY, nextView);
+  };
   
   const [newShift, setNewShift] = useState({
     siteId: '',
@@ -191,6 +206,16 @@ export default function ShiftsPage() {
     return 'Not started';
   };
 
+  const matchesSearch = (shift: Shift) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    const siteNameMatch = shift.site?.name?.toLowerCase().includes(query);
+    const guardNameMatch = shift.assignments?.some((a) => a.guard.name.toLowerCase().includes(query));
+    return Boolean(siteNameMatch || guardNameMatch);
+  };
+
+  const filteredShifts = shifts.filter(matchesSearch);
+
   const attendanceBadgeClass = (status?: Shift['attendanceStatus']) => {
     if (status === 'checked_in') return 'bg-sky-500/10 text-sky-400 border-sky-500/20';
     if (status === 'completed') return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
@@ -211,34 +236,70 @@ export default function ShiftsPage() {
           <h2 className="text-2xl font-bold sm:text-3xl">Shift Management</h2>
           <p className="text-muted-foreground">Schedule and manage guard presence at client sites.</p>
         </div>
-        {canCreateShift && (
-          <button 
-            onClick={() => setShowModal(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-indigo-500 sm:w-auto"
-          >
-            <Plus size={20} />
-            <span>Create Shift</span>
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex rounded-xl border border-white/10 bg-white/5 p-1">
+            <button
+              type="button"
+              onClick={() => changeView('list')}
+              className={cn(
+                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors',
+                view === 'list' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <List size={15} />
+              <span className="hidden sm:inline">List</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => changeView('calendar')}
+              className={cn(
+                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors',
+                view === 'calendar' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <CalendarDays size={15} />
+              <span className="hidden sm:inline">Calendar</span>
+            </button>
+          </div>
+          {canCreateShift && (
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-indigo-500"
+            >
+              <Plus size={20} />
+              <span>Create Shift</span>
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="glass-card rounded-3xl overflow-hidden border border-white/5">
-        <div className="border-b border-white/5 bg-white/5 p-4 sm:p-6">
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_240px]">
-            <div className="relative w-full sm:max-w-sm">
-              <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
-              <input 
-                type="text" 
-                placeholder="Search shifts..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-            <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Filter Branch" />
+      <div className="glass-card mb-5 rounded-3xl border border-white/5 p-4 sm:p-6">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_240px]">
+          <div className="relative w-full sm:max-w-sm">
+            <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
+            <input
+              type="text"
+              placeholder="Search shifts..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary"
+            />
           </div>
+          <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Filter Branch" />
         </div>
+      </div>
 
+      {view === 'calendar' ? (
+        <ShiftsCalendar
+          shifts={filteredShifts}
+          onSelectShift={(shiftId) => {
+            const shift = shifts.find((s) => s.id === shiftId);
+            if (!shift) return;
+            if ((shift.assignments?.length ?? 0) === 0) openAssignModal(shiftId);
+          }}
+        />
+      ) : (
+      <div className="glass-card rounded-3xl overflow-hidden border border-white/5">
         <div className="overflow-x-auto">
           <table className="responsive-table w-full text-left">
             <thead>
@@ -259,21 +320,9 @@ export default function ShiftsPage() {
                 <tr><td colSpan={9} className="px-6 py-10 text-center text-muted-foreground">Loading shifts...</td></tr>
               ) : shifts.length === 0 ? (
                 <tr><td colSpan={9} className="px-6 py-10 text-center text-muted-foreground">No shifts scheduled yet.</td></tr>
-              ) : shifts.filter(shift => {
-                if (!searchQuery) return true;
-                const query = searchQuery.toLowerCase();
-                const siteNameMatch = shift.site?.name?.toLowerCase().includes(query);
-                const guardNameMatch = shift.assignments?.some(a => a.guard.name.toLowerCase().includes(query));
-                return siteNameMatch || guardNameMatch;
-              }).length === 0 ? (
+              ) : filteredShifts.length === 0 ? (
                 <tr><td colSpan={9} className="px-6 py-10 text-center text-muted-foreground">No shifts match your search.</td></tr>
-              ) : shifts.filter(shift => {
-                if (!searchQuery) return true;
-                const query = searchQuery.toLowerCase();
-                const siteNameMatch = shift.site?.name?.toLowerCase().includes(query);
-                const guardNameMatch = shift.assignments?.some(a => a.guard.name.toLowerCase().includes(query));
-                return siteNameMatch || guardNameMatch;
-              }).map((shift) => (
+              ) : filteredShifts.map((shift) => (
                 <tr key={shift.id} className="hover:bg-white/5 transition-colors group">
                   <td className="px-6 py-4" data-label="Site">
                     <div className="flex items-center gap-3">
@@ -354,6 +403,7 @@ export default function ShiftsPage() {
           </table>
         </div>
       </div>
+      )}
 
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
