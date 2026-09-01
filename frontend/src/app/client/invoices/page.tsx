@@ -1,42 +1,24 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import ClientLayout from '@/components/ClientLayout';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { getClientInvoices, Invoice } from '@/lib/invoices';
-import {
-  AlertTriangle,
-  ArrowRight,
-  CalendarDays,
-  Download,
-  Loader2,
-  MapPin,
-  Receipt,
-  Search,
-} from 'lucide-react';
-
-const statusClass: Record<string, string> = {
-  issued: 'border-sky-400/20 bg-sky-400/10 text-sky-300',
-  disputed: 'border-orange-400/20 bg-orange-400/10 text-orange-300',
-  resolved: 'border-violet-400/20 bg-violet-400/10 text-violet-300',
-  paid: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
-};
+import { ArrowRight, CalendarDays, Download, Loader2, MapPin, Receipt, Search } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
+import EmptyState from '@/components/EmptyState';
+import LoadingState from '@/components/LoadingState';
+import ErrorState from '@/components/ErrorState';
+import StatusBadge from '@/components/StatusBadge';
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleDateString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return new Date(value).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function formatMoney(value: number) {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'USD',
-  }).format(value);
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(value);
 }
 
 export default function ClientInvoicesPage() {
@@ -46,34 +28,31 @@ export default function ClientInvoicesPage() {
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const fetchInvoices = async () => {
-      try {
-        const data = await getClientInvoices();
-        setInvoices(Array.isArray(data) ? data : []);
-        setError('');
-      } catch (err) {
-        setError(getApiErrorMessage(err, 'Could not load invoices.'));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchInvoices();
+  const fetchInvoices = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getClientInvoices();
+      setInvoices(Array.isArray(data) ? data : []);
+      setError('');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not load invoices.'));
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchInvoices();
+  }, [fetchInvoices]);
 
   const filteredInvoices = useMemo(() => {
     const normalized = search.toLowerCase();
-    return invoices.filter((invoice) => {
-      const invoiceNumber = invoice.invoiceNumber || '';
-      return invoiceNumber.toLowerCase().includes(normalized);
-    });
+    return invoices.filter((invoice) => (invoice.invoiceNumber || '').toLowerCase().includes(normalized));
   }, [invoices, search]);
 
   const handleDownload = async (invoice: Invoice) => {
     setDownloadingId(invoice.id);
     setError('');
-
     try {
       const response = await api.get(`client/invoices/${invoice.id}/download`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -93,24 +72,16 @@ export default function ClientInvoicesPage() {
 
   return (
     <ClientLayout>
-      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h2 className="flex items-center gap-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">
-            <Receipt className="text-indigo-300" size={28} />
-            Invoices
-          </h2>
-          <p className="mt-2 font-medium text-slate-400">Issued billing invoices for your linked sites.</p>
-        </div>
-      </div>
+      <PageHeader title="Invoices" description="Issued billing invoices for your linked sites." />
 
-      <div className="mb-8 overflow-hidden rounded-[2rem] border border-white/5 bg-[#0a0a14]/60">
-        <div className="border-b border-white/5 bg-white/5 p-4 sm:p-6">
+      <div className="surface-card overflow-hidden">
+        <div className="border-b border-border bg-muted/50 p-4 sm:p-5">
           <div className="relative w-full sm:max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
             <input
               type="text"
-              placeholder="Search invoices..."
-              className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-12 pr-4 text-white transition-all placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              placeholder="Search invoices…"
+              className="w-full rounded-[var(--radius)] border border-border bg-card py-2.5 pl-10 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/40 focus:ring-2 focus:ring-ring/50"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -119,65 +90,58 @@ export default function ClientInvoicesPage() {
 
         <div className="p-3 sm:p-4">
           {loading ? (
-            <div className="py-20 text-center text-slate-500">
-              <Loader2 className="mx-auto mb-4 animate-spin" size={32} />
-              <p>Loading invoices...</p>
-            </div>
+            <LoadingState label="Loading invoices…" />
           ) : error ? (
-            <div className="flex items-center justify-center gap-3 rounded-3xl border border-rose-500/20 bg-rose-500/10 px-6 py-16 text-rose-300">
-              <AlertTriangle size={20} />
-              <p className="text-sm font-medium">{error}</p>
-            </div>
+            <ErrorState message={error} onRetry={fetchInvoices} />
           ) : filteredInvoices.length === 0 ? (
-            <div className="py-20 text-center text-slate-500">
-              <Receipt className="mx-auto mb-4 opacity-20" size={48} />
-              <p>{search ? 'No invoices match your search.' : 'No issued invoices are available.'}</p>
-            </div>
+            <EmptyState
+              icon={Receipt}
+              title={search ? 'No matching invoices' : 'No issued invoices'}
+              description={
+                search ? 'Try a different search term.' : 'Issued invoices for your sites will appear here.'
+              }
+            />
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {filteredInvoices.map((invoice) => (
                 <article
                   key={invoice.id}
-                  className="group rounded-3xl border border-white/5 bg-white/5 p-5 transition-all hover:border-indigo-500/30 hover:bg-white/10 sm:p-6"
+                  className="group flex flex-col rounded-[var(--radius)] border border-border bg-card p-5 transition hover:border-primary/30 hover:shadow-md"
                 >
-                  <div className="mb-5 flex items-start justify-between gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-300 transition-transform group-hover:scale-105">
-                      <Receipt size={24} />
-                    </div>
-                    <span className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-widest ${statusClass[invoice.status] || statusClass.issued}`}>
-                      {invoice.status}
+                  <div className="mb-4 flex items-start justify-between gap-4">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius)] bg-primary/10 text-primary">
+                      <Receipt size={22} />
                     </span>
+                    <StatusBadge status={invoice.status} />
                   </div>
 
-                  <h3 className="mb-3 break-words text-lg font-bold text-white">{invoice.invoiceNumber}</h3>
-                  <div className="mb-3 flex items-start gap-2 text-sm text-slate-400">
-                    <MapPin className="mt-0.5 shrink-0 text-indigo-400" size={16} />
+                  <h3 className="mb-3 break-words text-base font-bold text-foreground">{invoice.invoiceNumber}</h3>
+                  <div className="mb-2 flex items-start gap-2 text-sm text-muted-foreground">
+                    <MapPin className="mt-0.5 shrink-0 text-primary" size={16} />
                     <span>{invoice.site?.name || 'Linked site'}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
-                    <CalendarDays size={14} />
-                    <span>{formatDate(invoice.billingStartDate)} - {formatDate(invoice.billingEndDate)}</span>
+                  <div className="flex items-center gap-1.5 text-eyebrow">
+                    <CalendarDays size={13} />
+                    {formatDate(invoice.billingStartDate)} – {formatDate(invoice.billingEndDate)}
                   </div>
 
-                  <div className="mt-5 grid grid-cols-3 gap-3 rounded-2xl border border-white/5 bg-black/10 p-3 text-center">
-                    <div>
-                      <div className="text-lg font-black text-white">{invoice.totalHours}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Hours</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-black text-white">{formatMoney(invoice.subtotal)}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Subtotal</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-black text-white">{formatMoney(invoice.totalAmount)}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Total</div>
-                    </div>
+                  <div className="surface-muted mt-4 grid grid-cols-3 gap-3 p-3 text-center">
+                    {[
+                      ['Hours', invoice.totalHours],
+                      ['Subtotal', formatMoney(invoice.subtotal)],
+                      ['Total', formatMoney(invoice.totalAmount)],
+                    ].map(([label, value]) => (
+                      <div key={label}>
+                        <div className="text-sm font-extrabold text-foreground">{value}</div>
+                        <div className="text-eyebrow">{label}</div>
+                      </div>
+                    ))}
                   </div>
 
-                  <div className="mt-6 flex flex-col gap-3 border-t border-white/5 pt-4 sm:flex-row">
+                  <div className="mt-5 flex flex-col gap-2 border-t border-border pt-4 sm:flex-row">
                     <Link
                       href={`/client/invoices/${invoice.id}`}
-                      className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-white/5 px-4 py-2 text-sm font-bold text-slate-200 transition hover:bg-indigo-600 hover:text-white"
+                      className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-muted px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-primary hover:text-primary-foreground"
                     >
                       View Details <ArrowRight size={16} />
                     </Link>
@@ -185,7 +149,7 @@ export default function ClientInvoicesPage() {
                       type="button"
                       onClick={() => handleDownload(invoice)}
                       disabled={downloadingId === invoice.id}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-white/5 px-4 py-2 text-sm font-bold text-slate-200 transition hover:bg-white/10 disabled:opacity-60"
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-muted disabled:opacity-60"
                     >
                       {downloadingId === invoice.id ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
                       PDF

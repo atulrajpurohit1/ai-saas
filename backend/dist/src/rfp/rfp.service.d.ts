@@ -1,9 +1,12 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
+import { AiGovernanceService } from '../ai-governance/ai-governance.service';
 import { AuditService } from '../audit/audit.service';
 import { BrandingService } from '../branding/branding.service';
 import { EmailService } from '../email/email.service';
+import { ProposalsService } from '../proposals/proposals.service';
 import { GenerateRfpDto } from '../ai/dto/generate-rfp.dto';
+import { GenerateRfpProposalDto } from './dto/generate-rfp-proposal.dto';
 import { CreateRfpDto } from './dto/create-rfp.dto';
 import { UpdateRfpDto } from './dto/update-rfp.dto';
 import { CreatePerformanceReviewDto } from './dto/create-performance-review.dto';
@@ -14,7 +17,9 @@ export declare class RfpService {
     private auditService;
     private brandingService;
     private emailService;
-    constructor(prisma: PrismaService, aiService: AiService, auditService: AuditService, brandingService: BrandingService, emailService: EmailService);
+    private proposalsService;
+    private aiGovernanceService;
+    constructor(prisma: PrismaService, aiService: AiService, auditService: AuditService, brandingService: BrandingService, emailService: EmailService, proposalsService: ProposalsService, aiGovernanceService: AiGovernanceService);
     private parseOptionalDate;
     private normalizeSecurityTypes;
     private normalizePricingItems;
@@ -241,9 +246,9 @@ export declare class RfpService {
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
         address: string | null;
+        services: import("@prisma/client/runtime/library").JsonValue;
         createdBy: string | null;
         contactPerson: string | null;
-        services: import("@prisma/client/runtime/library").JsonValue;
     }[]>;
     assignVendors(tenantId: string, userId: string | undefined, id: string, vendorIds: string[]): Promise<{
         id: string;
@@ -256,9 +261,9 @@ export declare class RfpService {
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
         address: string | null;
+        services: import("@prisma/client/runtime/library").JsonValue;
         createdBy: string | null;
         contactPerson: string | null;
-        services: import("@prisma/client/runtime/library").JsonValue;
     }[]>;
     removeVendor(tenantId: string, userId: string | undefined, id: string, vendorId: string): Promise<{
         success: boolean;
@@ -280,9 +285,9 @@ export declare class RfpService {
             phone: string | null;
             status: import(".prisma/client").$Enums.VendorStatus;
             address: string | null;
+            services: import("@prisma/client/runtime/library").JsonValue;
             createdBy: string | null;
             contactPerson: string | null;
-            services: import("@prisma/client/runtime/library").JsonValue;
         };
         submission: {
             id: string;
@@ -410,5 +415,52 @@ export declare class RfpService {
         slaCompliance: number;
         incidentCount: number;
         responseTime: string;
+    }>;
+    private htmlToPlainText;
+    private buildRfpSourceText;
+    private toStructuredInput;
+    private buildProposalCapabilities;
+    analyzeRequirements(tenantId: string, userId: string | undefined, id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        tenantId: string;
+        requirements: import("@prisma/client/runtime/library").JsonValue;
+        summary: string;
+        missingInformation: import("@prisma/client/runtime/library").JsonValue;
+        fallbackUsed: boolean;
+        createdBy: string | null;
+        modelUsed: string;
+        safetyStatus: string;
+        rfpId: string;
+    }>;
+    getLatestRequirementAnalysis(tenantId: string, id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        tenantId: string;
+        requirements: import("@prisma/client/runtime/library").JsonValue;
+        summary: string;
+        missingInformation: import("@prisma/client/runtime/library").JsonValue;
+        fallbackUsed: boolean;
+        createdBy: string | null;
+        modelUsed: string;
+        safetyStatus: string;
+        rfpId: string;
+    } | null>;
+    generateProposalFromRfp(tenantId: string, userId: string | undefined, id: string, dto: GenerateRfpProposalDto): Promise<{
+        proposal: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            clientId: string | null;
+            status: string;
+            title: string;
+            content: string;
+            dealId: string | null;
+            leadId: string | null;
+        };
+        analysisId: string;
+        unresolvedPlaceholders: string[];
+        safetyStatus: import("../ai-governance/ai-governance.types").AiSafetyStatus;
     }>;
 }

@@ -160,3 +160,57 @@ export function incidentEvidenceMaxBytesFor(
     ? incidentEvidenceImageMaxBytes()
     : incidentEvidenceVideoMaxBytes();
 }
+
+// Client / site insurance & COI documents (Phase 3G) - same local-disk pattern
+// as the guard-compliance / incident-evidence / vendor-submission uploads
+// above. Same PaaS-redeploy caveat applies (no persistent volume => files do
+// not survive a redeploy), documented as a known limitation consistent with
+// the other upload modules. Insurance certificates are almost always PDFs;
+// scanned-image formats are also accepted.
+export const CLIENT_INSURANCE_UPLOAD_DIR = join(
+  process.cwd(),
+  'uploads',
+  'client-insurance',
+);
+
+export function ensureClientInsuranceUploadDir(): string {
+  if (!existsSync(CLIENT_INSURANCE_UPLOAD_DIR)) {
+    mkdirSync(CLIENT_INSURANCE_UPLOAD_DIR, { recursive: true });
+  }
+  return CLIENT_INSURANCE_UPLOAD_DIR;
+}
+
+export const CLIENT_INSURANCE_UPLOAD_ALLOWED_EXTENSIONS =
+  /\.(pdf|jpe?g|png|webp)$/i;
+
+// Both the browser-supplied MIME type AND the file extension must be allowed,
+// so a renamed executable/document (shell.exe -> shell.pdf) is rejected on
+// the MIME check and a spoofed MIME is rejected on the extension check.
+export const CLIENT_INSURANCE_ALLOWED_MIME_TYPES: Record<string, true> = {
+  'application/pdf': true,
+  'image/jpeg': true,
+  'image/png': true,
+  'image/webp': true,
+};
+
+/** True only when the extension and the declared MIME type both pass the
+ * allow-list. Caller rejects with a 400 otherwise. */
+export function isAllowedClientInsuranceDocument(
+  originalName: string,
+  mimeType: string,
+): boolean {
+  if (!CLIENT_INSURANCE_UPLOAD_ALLOWED_EXTENSIONS.test(originalName)) {
+    return false;
+  }
+  const normalized = (mimeType || '').toLowerCase().split(';')[0].trim();
+  return Boolean(CLIENT_INSURANCE_ALLOWED_MIME_TYPES[normalized]);
+}
+
+export function clientInsuranceUploadMaxMb(): number {
+  const parsed = Number(process.env.CLIENT_INSURANCE_UPLOAD_MAX_MB || 15);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 15;
+}
+
+export function clientInsuranceUploadMaxBytes(): number {
+  return clientInsuranceUploadMaxMb() * 1024 * 1024;
+}

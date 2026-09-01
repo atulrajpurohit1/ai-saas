@@ -88,7 +88,7 @@ export default function ContractAwardPanel({ rfpId, rfp, onChanged }: ContractAw
   const submittedVendors = submissions.filter((item) => item.submission);
 
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+    <section className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5 sm:p-6">
       <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-indigo-400">
         <Award size={14} />
         Contract Award
@@ -125,7 +125,7 @@ export default function ContractAwardPanel({ rfpId, rfp, onChanged }: ContractAw
           </dl>
         </div>
       ) : !hasEvaluation ? (
-        <div className="rounded-2xl border border-dashed border-white/10 bg-black/10 py-8 text-center text-sm text-slate-500">
+        <div className="rounded-2xl border border-dashed border-white/10 bg-muted py-8 text-center text-sm text-slate-500">
           Generate an AI evaluation above before a contract can be awarded.
         </div>
       ) : loading ? (
@@ -133,7 +133,7 @@ export default function ContractAwardPanel({ rfpId, rfp, onChanged }: ContractAw
           <Loader2 className="mx-auto animate-spin text-indigo-300" size={20} />
         </div>
       ) : submittedVendors.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-white/10 bg-black/10 py-8 text-center text-sm text-slate-500">
+        <div className="rounded-2xl border border-dashed border-white/10 bg-muted py-8 text-center text-sm text-slate-500">
           No submitted proposals available to award or reject.
         </div>
       ) : (
@@ -187,7 +187,7 @@ export default function ContractAwardPanel({ rfpId, rfp, onChanged }: ContractAw
 
       {awardTarget && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 p-3 text-left backdrop-blur-md sm:items-center sm:p-4">
-          <div className="glass-card w-full max-w-md rounded-3xl border-white/10 bg-[#0e0e1a] p-5 shadow-3xl sm:p-8">
+          <div className="w-full max-w-md rounded-[var(--radius-lg)] border-white/10 bg-[#0e0e1a] p-5 shadow-3xl sm:p-8">
             <div className="mb-4 flex items-start justify-between gap-4">
               <h3 className="flex items-center gap-2 text-xl font-bold text-white">
                 <Trophy className="text-amber-400" size={22} />
@@ -232,7 +232,7 @@ export default function ContractAwardPanel({ rfpId, rfp, onChanged }: ContractAw
 
       {rejectTarget && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 p-3 text-left backdrop-blur-md sm:items-center sm:p-4">
-          <div className="glass-card w-full max-w-md rounded-3xl border-white/10 bg-[#0e0e1a] p-5 shadow-3xl sm:p-8">
+          <div className="w-full max-w-md rounded-[var(--radius-lg)] border-white/10 bg-[#0e0e1a] p-5 shadow-3xl sm:p-8">
             <div className="mb-4 flex items-start justify-between gap-4">
               <h3 className="flex items-center gap-2 text-xl font-bold text-white">
                 <Ban className="text-rose-400" size={22} />

@@ -119,11 +119,11 @@ export default function GuardPanicButton() {
       <div
         className={`flex items-center gap-3 border-t px-4 py-3 ${
           acknowledged
-            ? 'border-amber-500/30 bg-amber-500/10 text-amber-200'
-            : 'border-rose-500/30 bg-rose-500/10 text-rose-200'
+            ? 'border-warning/25 bg-warning-wash text-warning'
+            : 'border-error/25 bg-error-wash text-error'
         }`}
       >
-        <span className={`h-2 w-2 shrink-0 rounded-full ${acknowledged ? 'bg-amber-400' : 'bg-rose-500 animate-pulse'}`} />
+        <span className={`h-2 w-2 shrink-0 rounded-full ${acknowledged ? 'bg-warning' : 'bg-error animate-pulse'}`} />
         <div className="min-w-0 flex-1 text-sm font-semibold">
           {acknowledged
             ? `Dispatch acknowledged your alert${activeAlert.acknowledgedBy?.name ? ` (${activeAlert.acknowledgedBy.name})` : ''} - help is on the way.`
@@ -135,7 +135,7 @@ export default function GuardPanicButton() {
   }
 
   return (
-    <div className="border-t border-rose-500/20 bg-[#0d0303]/95 px-4 py-3">
+    <div className="border-t border-error/20 bg-error-wash px-4 py-3">
       <button
         type="button"
         aria-label="Hold for two seconds to send an emergency alert"
@@ -144,10 +144,10 @@ export default function GuardPanicButton() {
         onPointerLeave={cancelHold}
         onPointerCancel={cancelHold}
         disabled={buttonState === 'sending'}
-        className="relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl border border-rose-500/40 bg-rose-950/60 py-3 text-sm font-bold text-rose-200 transition-colors active:bg-rose-900/70 disabled:opacity-70"
+        className="relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl border border-error/40 bg-error/10 py-3.5 text-sm font-bold text-error transition-colors active:bg-error/20 disabled:opacity-70"
       >
         <span
-          className="absolute inset-y-0 left-0 bg-rose-600/50 transition-[width] duration-75 ease-linear"
+          className="absolute inset-y-0 left-0 bg-error/30 transition-[width] duration-75 ease-linear"
           style={{ width: `${holdProgress}%` }}
         />
         <span className="relative z-10 flex items-center gap-2">
@@ -175,13 +175,13 @@ export default function GuardPanicButton() {
         </span>
       </button>
       {buttonState === 'error' && (
-        <p className="mt-2 flex items-center gap-1.5 text-xs text-rose-300/80">
+        <p className="mt-2 flex items-center gap-1.5 text-xs text-error/90">
           <AlertTriangle size={12} />
           The alert was not confirmed by the server. It was not sent - try again.
         </p>
       )}
       {activeAlert?.status === 'RESOLVED' && buttonState === 'idle' && (
-        <p className="mt-2 flex items-center gap-1.5 text-xs text-emerald-400/80">
+        <p className="mt-2 flex items-center gap-1.5 text-xs text-success">
           <CheckCircle2 size={12} />
           Your last alert was marked resolved.
         </p>

@@ -167,7 +167,7 @@ export default function ClientProposalView() {
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3 lg:gap-8">
         {/* Main Content */}
         <div className="space-y-6 lg:col-span-2 lg:space-y-8">
-          <div className="glass-card relative overflow-hidden rounded-[2rem] border border-white/5 bg-[#0a0a14]/60 p-5 sm:p-8 lg:rounded-[2.5rem] lg:p-10">
+          <div className="relative overflow-hidden rounded-[var(--radius-lg)] border border-white/5 bg-card p-5 sm:p-8 lg:rounded-[var(--radius-lg)] lg:p-10">
             <div className="absolute top-0 right-0 p-8 opacity-5">
               <FileText size={160} />
             </div>
@@ -175,14 +175,14 @@ export default function ClientProposalView() {
             <h1 className="relative z-10 mb-6 break-words text-2xl font-extrabold text-white sm:text-3xl">{proposal.title}</h1>
             
             <div className="prose prose-invert max-w-none relative z-10">
-              <div className="rounded-3xl border border-white/5 bg-white/5 p-4 font-serif text-base leading-relaxed text-slate-300 sm:p-8 sm:text-lg">
+              <div className="rounded-[var(--radius-lg)] border border-white/5 bg-white/5 p-4 font-serif text-base leading-relaxed text-slate-300 sm:p-8 sm:text-lg">
                 <ReactMarkdown>{proposal.content}</ReactMarkdown>
               </div>
             </div>
           </div>
 
           {/* Comments Section */}
-          <div className="glass-card rounded-3xl border border-white/5 bg-[#0a0a14]/40 p-5 sm:p-8">
+          <div className="rounded-[var(--radius-lg)] border border-white/5 bg-card p-5 sm:p-8">
             <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
               <MessageSquare className="text-indigo-400" size={20} />
               Comments
@@ -218,7 +218,7 @@ export default function ClientProposalView() {
             <form onSubmit={handleAddComment} className="relative group">
               <input 
                 type="text" 
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-6 pr-14 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-6 pr-14 text-white focus:outline-none focus:ring-2 focus:ring-ring/50 transition-all placeholder:text-slate-600"
                 placeholder="Type your message..."
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
@@ -237,7 +237,7 @@ export default function ClientProposalView() {
 
         {/* Sidebar Info */}
         <div className="space-y-6">
-          <div className="glass-card rounded-3xl border border-white/5 bg-[#0a0a14]/60 p-5 sm:p-8 lg:sticky lg:top-8">
+          <div className="rounded-[var(--radius-lg)] border border-white/5 bg-card p-5 sm:p-8 lg:sticky lg:top-8">
             <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
               <ShieldCheck className="text-indigo-400" size={20} />
               Proposal Status
@@ -321,7 +321,7 @@ export default function ClientProposalView() {
             </div>
           </div>
 
-          <div className="p-6 rounded-3xl bg-indigo-500/5 border border-indigo-500/10">
+          <div className="p-6 rounded-[var(--radius-lg)] bg-indigo-500/5 border border-indigo-500/10">
             <div className="flex items-center gap-2 text-indigo-400 mb-3">
               <AlertTriangle size={16} />
               <span className="text-xs font-bold uppercase tracking-wider">Need Help?</span>

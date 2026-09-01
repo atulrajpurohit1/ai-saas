@@ -3,8 +3,14 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
+import LoadingState from '@/components/LoadingState';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { getApiErrorMessage } from '@/lib/api-error';
 import { Branch, getBranch, updateBranch } from '@/lib/branches';
+import { cn } from '@/lib/utils';
 import { ArrowLeft, Building2, GitBranch, Loader2, MapPin, Save } from 'lucide-react';
 
 export default function BranchDetailPage() {
@@ -27,7 +33,7 @@ export default function BranchDetailPage() {
         });
       })
       .catch((err) => {
-        console.error('Failed to load branch:', err);
+        toast.error(getApiErrorMessage(err, 'Could not load this branch.'));
         router.push('/branches');
       })
       .finally(() => setLoading(false));
@@ -45,10 +51,9 @@ export default function BranchDetailPage() {
         status: formData.status,
       });
       setBranch(updated);
-      alert('Branch updated.');
-    } catch (err: any) {
-      console.error('Failed to update branch:', err);
-      alert(err.response?.data?.message || 'Could not update branch.');
+      toast.success('Branch updated.');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Could not update branch.'));
     } finally {
       setSaving(false);
     }
@@ -57,21 +62,24 @@ export default function BranchDetailPage() {
   return (
     <DashboardLayout>
       <div className="mb-6">
-        <Link href="/branches" className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-slate-400 transition hover:text-white">
+        <Link href="/branches" className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground transition hover:text-foreground">
           <ArrowLeft size={16} />
           Back to Branches
         </Link>
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Branch Details</h2>
-            <p className="text-slate-400">Update branch profile and review assigned operational records.</p>
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Branch Details</h2>
+            <p className="text-muted-foreground">Update branch profile and review assigned operational records.</p>
           </div>
           {branch && (
-            <span className={`w-fit rounded-full border px-4 py-2 text-xs font-black uppercase tracking-widest ${
-              branch.status === 'active'
-                ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300'
-                : 'border-slate-400/20 bg-slate-400/10 text-slate-400'
-            }`}>
+            <span
+              className={cn(
+                'w-fit rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-wider',
+                branch.status === 'active'
+                  ? 'border-success/20 bg-success-wash text-success'
+                  : 'border-border bg-muted text-muted-foreground',
+              )}
+            >
               {branch.status}
             </span>
           )}
@@ -79,75 +87,70 @@ export default function BranchDetailPage() {
       </div>
 
       {loading ? (
-        <div className="glass-card rounded-3xl border border-white/5 py-20 text-center text-slate-400">
-          <Loader2 className="mx-auto mb-3 animate-spin text-indigo-300" />
-          Loading branch...
+        <div className="rounded-2xl border border-border bg-card shadow-sm">
+          <LoadingState label="Loading branch..." />
         </div>
       ) : branch ? (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <form onSubmit={handleSubmit} className="glass-card rounded-3xl border border-white/5 p-5 sm:p-6">
+          <form onSubmit={handleSubmit} className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
             <div className="mb-6 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-400/10 text-sky-300">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-info-wash text-info">
                 <GitBranch size={20} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-white">Branch Profile</h3>
-                <p className="text-sm text-slate-400">Name, location, and operating status.</p>
+                <h3 className="text-base font-semibold text-foreground">Branch Profile</h3>
+                <p className="text-sm text-muted-foreground">Name, location, and operating status.</p>
               </div>
             </div>
 
             <div className="space-y-4">
-              <label className="block space-y-1">
-                <span className="text-sm font-medium text-slate-400">Branch Name</span>
-                <input
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-muted-foreground">Branch Name</label>
+                <Input
                   value={formData.name}
                   onChange={(event) => setFormData({ ...formData, name: event.target.value })}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500/40"
                   required
                 />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-sm font-medium text-slate-400">Location</span>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-muted-foreground">Location</label>
                 <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-300" size={16} />
-                  <input
+                  <MapPin className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-primary" size={16} />
+                  <Input
                     value={formData.location}
                     onChange={(event) => setFormData({ ...formData, location: event.target.value })}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/40"
+                    className="pl-9"
                     required
                   />
                 </div>
-              </label>
-              <label className="block space-y-1">
-                <span className="text-sm font-medium text-slate-400">Status</span>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-muted-foreground">Status</label>
                 <select
                   value={formData.status}
                   onChange={(event) => setFormData({ ...formData, status: event.target.value })}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500/40"
+                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 >
-                  <option value="active" className="bg-[#0e0e1a] text-white">Active</option>
-                  <option value="inactive" className="bg-[#0e0e1a] text-white">Inactive</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
                 </select>
-              </label>
+              </div>
             </div>
 
-            <button
-              disabled={saving}
-              className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-bold text-white transition hover:bg-indigo-500 disabled:opacity-60"
-            >
-              {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+            <Button type="submit" disabled={saving} className="mt-6 w-full">
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               Save Changes
-            </button>
+            </Button>
           </form>
 
-          <div className="glass-card rounded-3xl border border-white/5 p-5 sm:p-6">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
             <div className="mb-6 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-400/10 text-indigo-300">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <Building2 size={20} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-white">Assigned Records</h3>
-                <p className="text-sm text-slate-400">Current records linked to this branch.</p>
+                <h3 className="text-base font-semibold text-foreground">Assigned Records</h3>
+                <p className="text-sm text-muted-foreground">Current records linked to this branch.</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -169,9 +172,9 @@ export default function BranchDetailPage() {
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
-      <div className="text-2xl font-black text-white">{value}</div>
-      <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">{label}</div>
+    <div className="rounded-xl border border-border bg-background p-4 text-center">
+      <div className="text-2xl font-semibold text-foreground">{value}</div>
+      <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
     </div>
   );
 }

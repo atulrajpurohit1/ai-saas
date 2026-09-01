@@ -116,7 +116,7 @@ export default function VendorPerformancePanel({ rfpId, rfp }: VendorPerformance
   };
 
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+    <section className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5 sm:p-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-indigo-400">
           <ClipboardList size={14} />
@@ -154,7 +154,7 @@ export default function VendorPerformancePanel({ rfpId, rfp }: VendorPerformance
       )}
 
       {!isAwarded ? (
-        <div className="rounded-2xl border border-dashed border-white/10 bg-black/10 py-8 text-center text-sm text-slate-500">
+        <div className="rounded-2xl border border-dashed border-white/10 bg-muted py-8 text-center text-sm text-slate-500">
           Vendor performance can be tracked once this RFP&apos;s contract has been awarded.
         </div>
       ) : loading ? (
@@ -162,7 +162,7 @@ export default function VendorPerformancePanel({ rfpId, rfp }: VendorPerformance
           <Loader2 className="mx-auto animate-spin text-indigo-300" size={20} />
         </div>
       ) : !latestReview ? (
-        <div className="rounded-2xl border border-dashed border-white/10 bg-black/10 py-8 text-center text-sm text-slate-500">
+        <div className="rounded-2xl border border-dashed border-white/10 bg-muted py-8 text-center text-sm text-slate-500">
           No performance reviews recorded yet.
         </div>
       ) : (
@@ -238,7 +238,7 @@ export default function VendorPerformancePanel({ rfpId, rfp }: VendorPerformance
 
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 p-3 text-left backdrop-blur-md sm:items-center sm:p-4">
-          <div className="glass-card max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl border-white/10 bg-[#0e0e1a] p-5 shadow-3xl sm:max-h-[calc(100dvh-2rem)] sm:p-8">
+          <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-[var(--radius-lg)] border-white/10 bg-[#0e0e1a] p-5 shadow-3xl sm:max-h-[calc(100dvh-2rem)] sm:p-8">
             <div className="mb-6 flex items-start justify-between gap-4">
               <h3 className="text-xl font-bold text-white sm:text-2xl">
                 {editingReview ? 'Edit Review' : 'Add Review'}
@@ -254,7 +254,7 @@ export default function VendorPerformancePanel({ rfpId, rfp }: VendorPerformance
                 <input
                   type="date"
                   required
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-ring/50"
                   value={form.reviewDate}
                   onChange={(e) => setForm({ ...form, reviewDate: e.target.value })}
                 />
@@ -288,7 +288,7 @@ export default function VendorPerformancePanel({ rfpId, rfp }: VendorPerformance
                     min={0}
                     step="0.1"
                     required
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-ring/50"
                     value={form.slaCompliance}
                     onChange={(e) => setForm({ ...form, slaCompliance: Number(e.target.value) })}
                   />
@@ -300,7 +300,7 @@ export default function VendorPerformancePanel({ rfpId, rfp }: VendorPerformance
                     min={0}
                     step="1"
                     required
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-ring/50"
                     value={form.incidentCount}
                     onChange={(e) => setForm({ ...form, incidentCount: Number(e.target.value) })}
                   />
@@ -313,7 +313,7 @@ export default function VendorPerformancePanel({ rfpId, rfp }: VendorPerformance
                   type="text"
                   required
                   placeholder="e.g. Under 2 hours"
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-ring/50"
                   value={form.responseTime}
                   onChange={(e) => setForm({ ...form, responseTime: e.target.value })}
                 />
@@ -323,7 +323,7 @@ export default function VendorPerformancePanel({ rfpId, rfp }: VendorPerformance
                 <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Notes</label>
                 <textarea
                   rows={3}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-ring/50"
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 />

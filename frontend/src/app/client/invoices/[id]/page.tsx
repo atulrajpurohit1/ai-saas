@@ -176,12 +176,12 @@ export default function ClientInvoiceDetailPage() {
       </div>
 
       {loading ? (
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] py-24 text-center text-slate-500">
+        <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] py-24 text-center text-slate-500">
           <Loader2 className="mx-auto mb-3 animate-spin text-indigo-300" size={28} />
           Loading invoice...
         </div>
       ) : error || !invoice ? (
-        <div className="rounded-3xl border border-rose-500/20 bg-rose-500/10 p-6 text-rose-300">
+        <div className="rounded-[var(--radius-lg)] border border-rose-500/20 bg-rose-500/10 p-6 text-rose-300">
           <div className="flex items-center gap-3">
             <AlertTriangle size={20} />
             {error || 'Invoice not found.'}
@@ -189,7 +189,7 @@ export default function ClientInvoiceDetailPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:p-8">
+          <section className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5 sm:p-8">
             <div className="mb-4 flex flex-wrap items-center gap-3">
               <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-widest ${statusClass[invoice.status] || statusClass.issued}`}>
                 {invoice.status}
@@ -259,26 +259,26 @@ export default function ClientInvoiceDetailPage() {
           )}
 
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+            <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5">
               <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Worked Hours</div>
               <div className="mt-2 text-3xl font-black text-white">{invoice.totalHours}</div>
             </div>
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+            <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5">
               <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Subtotal</div>
               <div className="mt-2 text-3xl font-black text-white">{formatMoney(invoice.subtotal)}</div>
             </div>
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+            <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5">
               <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Tax</div>
               <div className="mt-2 text-3xl font-black text-white">{formatMoney(invoice.tax)}</div>
             </div>
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+            <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5">
               <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Total</div>
               <div className="mt-2 text-3xl font-black text-white">{formatMoney(invoice.totalAmount)}</div>
             </div>
           </section>
 
           <section className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+            <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5">
               <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
                 <MapPin size={14} />
                 Site
@@ -286,7 +286,7 @@ export default function ClientInvoiceDetailPage() {
               <div className="text-lg font-bold text-white">{invoice.site?.name || 'Site'}</div>
               <div className="mt-1 text-sm text-slate-400">{invoice.site?.address || 'No address listed'}</div>
             </div>
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+            <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5">
               <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
                 <CalendarDays size={14} />
                 Issued
@@ -297,7 +297,7 @@ export default function ClientInvoiceDetailPage() {
           </section>
 
           {(latestDispute || showDisputeForm) && (
-            <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+            <section className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5 sm:p-6">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <h2 className="flex items-center gap-2 text-xl font-bold text-white">
                   <FileWarning className="text-amber-300" size={20} />
@@ -311,7 +311,7 @@ export default function ClientInvoiceDetailPage() {
               </div>
 
               {latestDispute && (
-                <div className="mb-5 rounded-2xl border border-white/5 bg-black/10 p-4">
+                <div className="mb-5 rounded-2xl border border-white/5 bg-muted p-4">
                   <div className="font-bold text-white">{latestDispute.reason}</div>
                   <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-300">{latestDispute.description}</p>
                   {latestDispute.adminResponse && (
@@ -368,7 +368,7 @@ export default function ClientInvoiceDetailPage() {
             </section>
           )}
 
-          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+          <section className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5 sm:p-6">
             <h2 className="mb-4 text-xl font-bold text-white">Shift Work Summary</h2>
             {invoice.items.length === 0 ? (
               <div className="py-10 text-center text-slate-500">No invoice items recorded.</div>

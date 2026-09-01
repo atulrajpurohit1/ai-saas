@@ -99,6 +99,8 @@ model Tenant {
   vendorPerformances    VendorPerformance[]
   emergencyAlerts       EmergencyAlert[]
   incidentEvidence      IncidentEvidence[]
+  clientInsurancePolicies ClientInsurancePolicy[]
+  rfpRequirementAnalyses RfpRequirementAnalysis[]
 }
 
 model Branch {
@@ -386,6 +388,7 @@ model Rfp {
   vendors                RfpVendor[]
   evaluationReports      EvaluationReport[]
   performanceReviews     VendorPerformance[]
+  requirementAnalyses    RfpRequirementAnalysis[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -473,6 +476,36 @@ model EvaluationReport {
   @@index([tenantId])
   @@index([rfpId])
   @@map("EvaluationReport")
+}
+
+// Phase 3H: AI-extracted, security-industry-specific requirement analysis of
+// an RFP. Parallel to EvaluationReport (AI analysis of an RFP, stored
+// separately, latest row wins, re-runnable). The extracted requirements
+// become grounding context for a NEW draft Proposal generated through the
+// existing proposals workflow - status derivation, placeholder validation
+// (Phase 1), review and send are all unchanged. The RFP text is treated
+// strictly as source data, never as instructions.
+model RfpRequirementAnalysis {
+  id                 String   @id @default(uuid())
+  tenantId           String   @map("tenant_id")
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rfpId              String   @map("rfp_id")
+  rfp                Rfp      @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  // Array of { requirement, category, sourceContext, importance, extractedValue, confidence }.
+  requirements       Json     @default("[]")
+  summary            String
+  // string[] of security requirement areas the RFP did not specify - surfaced
+  // to the reviewer, never guessed at.
+  missingInformation Json     @default("[]") @map("missing_information")
+  modelUsed          String   @map("model_used")
+  fallbackUsed       Boolean  @default(false) @map("fallback_used")
+  safetyStatus       String   @default("passed") @map("safety_status")
+  createdBy          String?  @map("created_by")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([rfpId])
+  @@map("RfpRequirementAnalysis")
 }
 
 model VendorPerformance {
@@ -599,6 +632,7 @@ model Site {
   createdAt           DateTime             @default(now())
   checkpoints         Checkpoint[]
   patrolRoutes        PatrolRoute[]
+  insurancePolicies   ClientInsurancePolicy[]
 
   @@index([tenantId])
   @@index([branchId])
@@ -830,11 +864,55 @@ model Client {
   invoiceDisputes     InvoiceDispute[]
   timesheets          Timesheet[]
   rateCards           RateCard[]
+  insurancePolicies   ClientInsurancePolicy[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 
   @@index([tenantId])
   @@index([branchId])
+}
+
+// Phase 3G: client / site level insurance & Certificate-of-Insurance (COI)
+// compliance tracking. Parallel to GuardCompliance (Phase 3C) but for the
+// agency's CLIENTS rather than its guards. A policy is either client-wide
+// (siteId null) or scoped to one of that client's sites. Status is NEVER
+// stored - always derived server-side from expirationDate at read time via
+// the shared guard-compliance/compliance-status.util, so it can never go
+// stale or be spoofed. storedFileName is the sanitized on-disk name and is
+// NEVER returned to any client (path / enumeration risk); only fileName
+// (the original upload name) is exposed. Files live on local disk under
+// uploads/client-insurance (same pattern as GuardCompliance / IncidentEvidence
+// / vendor-submissions - this project has no object storage).
+model ClientInsurancePolicy {
+  id             String    @id @default(uuid())
+  tenantId       String    @map("tenant_id")
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientId       String    @map("client_id")
+  client         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  // Null = client-wide policy. Set = policy applies to this one site only.
+  // SetNull (not Cascade) on site delete: the coverage record survives as a
+  // client-wide policy rather than silently disappearing.
+  siteId         String?   @map("site_id")
+  site           Site?     @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  type           String
+  policyNumber   String?   @map("policy_number")
+  insurer        String?
+  coverageAmount Float?    @map("coverage_amount")
+  effectiveDate  DateTime? @map("effective_date")
+  expirationDate DateTime? @map("expiration_date")
+  notes          String?
+  fileName       String?   @map("file_name")
+  storedFileName String?   @map("stored_file_name")
+  createdBy      String?   @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([siteId])
+  @@index([type])
+  @@index([expirationDate])
+  @@map("ClientInsurancePolicy")
 }
 
 model DailyServiceReport {

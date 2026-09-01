@@ -20,6 +20,7 @@ import { RejectVendorDto } from './dto/reject-vendor.dto';
 import { CreatePerformanceReviewDto } from './dto/create-performance-review.dto';
 import { UpdatePerformanceReviewDto } from './dto/update-performance-review.dto';
 import { GenerateRfpDto } from '../ai/dto/generate-rfp.dto';
+import { GenerateRfpProposalDto } from './dto/generate-rfp-proposal.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
@@ -164,6 +165,37 @@ export class RfpController {
   @RequirePermission('rfp.evaluate')
   generateEvaluation(@GetUser() user: ActiveUser, @Param('id') id: string) {
     return this.rfpService.generateEvaluation(user.tenantId, user.sub, id);
+  }
+
+  // --- Phase 3H: security RFP requirement analysis -> grounded proposal ---
+
+  @Get(':id/requirement-analysis')
+  getRequirementAnalysis(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+  ) {
+    return this.rfpService.getLatestRequirementAnalysis(user.tenantId, id);
+  }
+
+  @Post(':id/analyze-requirements')
+  @RequirePermission('rfp.evaluate')
+  analyzeRequirements(@GetUser() user: ActiveUser, @Param('id') id: string) {
+    return this.rfpService.analyzeRequirements(user.tenantId, user.sub, id);
+  }
+
+  @Post(':id/generate-proposal')
+  @RequirePermission('proposals.create')
+  generateProposalFromRfp(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Body() dto: GenerateRfpProposalDto,
+  ) {
+    return this.rfpService.generateProposalFromRfp(
+      user.tenantId,
+      user.sub,
+      id,
+      dto,
+    );
   }
 
   @Post(':id/award')

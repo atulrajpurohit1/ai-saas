@@ -82,6 +82,43 @@ export interface AiEvaluationReportDraft {
     overallAnalysis: string;
     fullReportMarkdown: string;
 }
+export declare const SECURITY_RFP_CATEGORIES: readonly ["services", "staffing", "shifts", "site", "patrol", "access_control", "reporting", "technology", "compliance", "licensing", "insurance", "contract", "pricing", "submission", "special", "other"];
+export type SecurityRfpCategory = (typeof SECURITY_RFP_CATEGORIES)[number];
+export declare const SECURITY_RFP_IMPORTANCE: readonly ["mandatory", "preferred", "informational"];
+export type SecurityRfpImportance = (typeof SECURITY_RFP_IMPORTANCE)[number];
+export interface SecurityRfpRequirement {
+    requirement: string;
+    category: SecurityRfpCategory;
+    sourceContext: string | null;
+    importance: SecurityRfpImportance;
+    extractedValue: string | null;
+    confidence: number;
+}
+export interface SecurityRfpAnalysisDraft {
+    summary: string;
+    requirements: SecurityRfpRequirement[];
+    missingInformation: string[];
+    fallbackUsed: boolean;
+}
+export interface SecurityRfpStructuredInput {
+    title: string;
+    clientName: string;
+    companyName?: string | null;
+    industry?: string | null;
+    securityTypes: string[];
+    numberOfLocations?: number | null;
+    address?: string | null;
+    operatingHours?: string | null;
+    guardsRequired?: number | null;
+    startDate?: string | null;
+    endDate?: string | null;
+    dueDate?: string | null;
+    estimatedBudget?: number | null;
+    pricingModel?: string | null;
+    requiredPricingItems: string[];
+    paymentTerms?: string | null;
+    additionalRequirements?: string | null;
+}
 export interface ProspectCompanySummary {
     name: string;
     industry?: string;
@@ -149,6 +186,19 @@ export declare class AiService {
     generateEvaluationReport(dto: GenerateEvaluationDto): Promise<AiEvaluationReportDraft>;
     private sanitizeRecommendedVendorSection;
     private fallbackEvaluationReport;
+    analyzeSecurityRfp(input: {
+        sourceText: string;
+        structured: SecurityRfpStructuredInput;
+    }): Promise<SecurityRfpAnalysisDraft>;
+    generateProposalFromRfp(input: {
+        structured: SecurityRfpStructuredInput;
+        analysis: SecurityRfpAnalysisDraft;
+        capabilities: string;
+    }): Promise<string>;
+    private securityRfpStructuredBlock;
+    private normalizeSecurityRfpAnalysis;
+    private fallbackSecurityRfpAnalysis;
+    private fallbackRfpProposal;
     generateForLead(lead: Lead & {
         notes?: any[];
         deals?: any[];

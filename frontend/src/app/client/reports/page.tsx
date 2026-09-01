@@ -1,28 +1,20 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import ClientLayout from '@/components/ClientLayout';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { DailyServiceReport, getClientReports, isDailyReportSummary } from '@/lib/reports';
-import {
-  AlertTriangle,
-  ArrowRight,
-  CalendarDays,
-  Download,
-  FileText,
-  Loader2,
-  MapPin,
-  Search,
-} from 'lucide-react';
+import { ArrowRight, CalendarDays, Download, FileText, Loader2, MapPin, Search } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
+import EmptyState from '@/components/EmptyState';
+import LoadingState from '@/components/LoadingState';
+import ErrorState from '@/components/ErrorState';
+import StatusBadge from '@/components/StatusBadge';
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleDateString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return new Date(value).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export default function ClientReportsPage() {
@@ -32,34 +24,33 @@ export default function ClientReportsPage() {
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const fetchReports = async () => {
-      try {
-        const data = await getClientReports();
-        setReports(Array.isArray(data) ? data : []);
-        setError('');
-      } catch (err) {
-        setError(getApiErrorMessage(err, 'Could not load daily reports.'));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchReports();
+  const fetchReports = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await getClientReports();
+      setReports(Array.isArray(data) ? data : []);
+      setError('');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not load daily reports.'));
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchReports();
+  }, [fetchReports]);
 
   const filteredReports = useMemo(() => {
     const normalized = search.toLowerCase();
-    return reports.filter((report) => {
-      const siteName = report.site?.name || 'Daily service report';
-      return siteName.toLowerCase().includes(normalized);
-    });
+    return reports.filter((report) =>
+      (report.site?.name || 'Daily service report').toLowerCase().includes(normalized),
+    );
   }, [reports, search]);
 
   const handleDownload = async (id: string) => {
     setDownloadingId(id);
     setError('');
-
     try {
       const response = await api.get(`client/reports/${id}/download`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -79,24 +70,19 @@ export default function ClientReportsPage() {
 
   return (
     <ClientLayout>
-      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h2 className="flex items-center gap-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">
-            <FileText className="text-indigo-300" size={28} />
-            Daily Reports
-          </h2>
-          <p className="mt-2 font-medium text-slate-400">Published service reports for your linked sites.</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Daily Reports"
+        description="Published service reports for your linked sites."
+      />
 
-      <div className="mb-8 overflow-hidden rounded-[2rem] border border-white/5 bg-[#0a0a14]/60">
-        <div className="border-b border-white/5 bg-white/5 p-4 sm:p-6">
+      <div className="surface-card overflow-hidden">
+        <div className="border-b border-border bg-muted/50 p-4 sm:p-5">
           <div className="relative w-full sm:max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
             <input
               type="text"
-              placeholder="Search reports..."
-              className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-12 pr-4 text-white transition-all placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              placeholder="Search reports…"
+              className="w-full rounded-[var(--radius)] border border-border bg-card py-2.5 pl-10 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/40 focus:ring-2 focus:ring-ring/50"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -105,73 +91,66 @@ export default function ClientReportsPage() {
 
         <div className="p-3 sm:p-4">
           {loading ? (
-            <div className="py-20 text-center text-slate-500">
-              <Loader2 className="mx-auto mb-4 animate-spin" size={32} />
-              <p>Loading daily reports...</p>
-            </div>
+            <LoadingState label="Loading daily reports…" />
           ) : error ? (
-            <div className="flex items-center justify-center gap-3 rounded-3xl border border-rose-500/20 bg-rose-500/10 px-6 py-16 text-rose-300">
-              <AlertTriangle size={20} />
-              <p className="text-sm font-medium">{error}</p>
-            </div>
+            <ErrorState message={error} onRetry={fetchReports} />
           ) : filteredReports.length === 0 ? (
-            <div className="py-20 text-center text-slate-500">
-              <FileText className="mx-auto mb-4 opacity-20" size={48} />
-              <p>{search ? 'No reports match your search.' : 'No published daily reports are available.'}</p>
-            </div>
+            <EmptyState
+              icon={FileText}
+              title={search ? 'No matching reports' : 'No published daily reports'}
+              description={
+                search
+                  ? 'Try a different search term.'
+                  : 'Published daily service reports for your sites will appear here.'
+              }
+            />
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {filteredReports.map((report) => {
-                const summary = report.summary;
-                const structuredSummary = isDailyReportSummary(summary) ? summary : null;
-
+                const structuredSummary = isDailyReportSummary(report.summary) ? report.summary : null;
                 return (
                   <article
                     key={report.id}
-                    className="group rounded-3xl border border-white/5 bg-white/5 p-5 transition-all hover:border-indigo-500/30 hover:bg-white/10 sm:p-6"
+                    className="group flex flex-col rounded-[var(--radius)] border border-border bg-card p-5 transition hover:border-primary/30 hover:shadow-md"
                   >
-                    <div className="mb-5 flex items-start justify-between gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-300 transition-transform group-hover:scale-105">
-                        <FileText size={24} />
-                      </div>
-                      <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-emerald-300">
-                        Published
+                    <div className="mb-4 flex items-start justify-between gap-4">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius)] bg-primary/10 text-primary">
+                        <FileText size={22} />
                       </span>
+                      <StatusBadge status="published" />
                     </div>
 
-                    <h3 className="mb-3 break-words text-lg font-bold text-white">
+                    <h3 className="mb-3 break-words text-base font-bold text-foreground">
                       {report.site?.name || 'Daily service report'}
                     </h3>
-                    <div className="mb-3 flex items-start gap-2 text-sm text-slate-400">
-                      <MapPin className="mt-0.5 shrink-0 text-indigo-400" size={16} />
+                    <div className="mb-2 flex items-start gap-2 text-sm text-muted-foreground">
+                      <MapPin className="mt-0.5 shrink-0 text-primary" size={16} />
                       <span>{report.site?.address || 'Linked site'}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
-                      <CalendarDays size={14} />
-                      <span>{formatDate(report.reportDate)}</span>
+                    <div className="flex items-center gap-1.5 text-eyebrow">
+                      <CalendarDays size={13} />
+                      {formatDate(report.reportDate)}
                     </div>
 
                     {structuredSummary && (
-                      <div className="mt-5 grid grid-cols-3 gap-3 rounded-2xl border border-white/5 bg-black/10 p-3 text-center">
-                        <div>
-                          <div className="text-lg font-black text-white">{structuredSummary.totals.shifts}</div>
-                          <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Shifts</div>
-                        </div>
-                        <div>
-                          <div className="text-lg font-black text-white">{structuredSummary.totals.totalWorkedHours}</div>
-                          <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Hours</div>
-                        </div>
-                        <div>
-                          <div className="text-lg font-black text-white">{structuredSummary.totals.approvedIncidents}</div>
-                          <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Incidents</div>
-                        </div>
+                      <div className="surface-muted mt-4 grid grid-cols-3 gap-3 p-3 text-center">
+                        {[
+                          ['Shifts', structuredSummary.totals.shifts],
+                          ['Hours', structuredSummary.totals.totalWorkedHours],
+                          ['Incidents', structuredSummary.totals.approvedIncidents],
+                        ].map(([label, value]) => (
+                          <div key={label}>
+                            <div className="text-base font-extrabold text-foreground">{value}</div>
+                            <div className="text-eyebrow">{label}</div>
+                          </div>
+                        ))}
                       </div>
                     )}
 
-                    <div className="mt-6 flex flex-col gap-3 border-t border-white/5 pt-4 sm:flex-row">
+                    <div className="mt-5 flex flex-col gap-2 border-t border-border pt-4 sm:flex-row">
                       <Link
                         href={`/client/reports/${report.id}`}
-                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-white/5 px-4 py-2 text-sm font-bold text-slate-200 transition hover:bg-indigo-600 hover:text-white"
+                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-muted px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-primary hover:text-primary-foreground"
                       >
                         View Details <ArrowRight size={16} />
                       </Link>
@@ -179,7 +158,7 @@ export default function ClientReportsPage() {
                         type="button"
                         onClick={() => handleDownload(report.id)}
                         disabled={downloadingId === report.id}
-                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-white/5 px-4 py-2 text-sm font-bold text-slate-200 transition hover:bg-white/10 disabled:opacity-60"
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-muted disabled:opacity-60"
                       >
                         {downloadingId === report.id ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
                         PDF

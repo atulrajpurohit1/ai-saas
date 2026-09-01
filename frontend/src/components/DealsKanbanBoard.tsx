@@ -8,19 +8,20 @@ import { AlertTriangle, GaugeCircle, Target } from 'lucide-react';
 import { Deal, DEAL_STAGES, DEAL_STAGE_COLORS, DealStage, normalizeStage, updateDealStage } from '@/lib/deals';
 import { formatEnumLabel } from '@/lib/format';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { cn } from '@/lib/utils';
 
 const scoreClass = (score?: number | null) => {
-  if (score === null || score === undefined) return 'border-white/10 bg-white/5 text-slate-500';
-  if (score >= 75) return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
-  if (score >= 50) return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
-  return 'border-rose-500/20 bg-rose-500/10 text-rose-300';
+  if (score === null || score === undefined) return 'bg-muted text-muted-foreground';
+  if (score >= 75) return 'bg-success-wash text-success';
+  if (score >= 50) return 'bg-warning-wash text-warning';
+  return 'bg-error-wash text-error';
 };
 
 const riskClass = (risk?: string | null) => {
   const normalized = (risk || '').toLowerCase();
-  if (normalized.includes('high') || normalized.includes('critical')) return 'border-rose-500/20 bg-rose-500/10 text-rose-300';
-  if (normalized.includes('medium') || normalized.includes('moderate')) return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
-  if (normalized.includes('low')) return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
+  if (normalized.includes('high') || normalized.includes('critical')) return 'bg-error-wash text-error';
+  if (normalized.includes('medium') || normalized.includes('moderate')) return 'bg-warning-wash text-warning';
+  if (normalized.includes('low')) return 'bg-success-wash text-success';
   return null;
 };
 
@@ -30,14 +31,15 @@ function DealCard({ deal, isDragging }: { deal: Deal; isDragging?: boolean }) {
 
   return (
     <div
-      className={`rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition-all ${
-        isDragging ? 'rotate-2 opacity-90 shadow-2xl' : 'hover:border-indigo-500/40'
-      }`}
+      className={cn(
+        'rounded-xl border border-border bg-card p-3.5 shadow-sm transition-all',
+        isDragging ? 'rotate-2 opacity-90 shadow-md' : 'hover:border-primary/30',
+      )}
     >
       <Link
         href={`/deals/${deal.id}`}
         onClick={(e) => isDragging && e.preventDefault()}
-        className="block truncate text-sm font-bold text-white hover:text-indigo-300"
+        className="block truncate text-sm font-semibold text-foreground hover:text-primary"
       >
         {deal.name}
       </Link>
@@ -47,24 +49,24 @@ function DealCard({ deal, isDragging }: { deal: Deal; isDragging?: boolean }) {
         {deal.lead?.name && ` · ${deal.lead.name}`}
       </p>
       {deal.client && (
-        <p className="mt-1 truncate text-xs font-medium text-emerald-400">Client: {deal.client.name}</p>
+        <p className="mt-1 truncate text-xs font-medium text-success">Client: {deal.client.name}</p>
       )}
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
+      <div className="mt-2.5 flex flex-wrap gap-1.5">
         {typeof assessment?.leadScore === 'number' && (
-          <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold ${scoreClass(assessment.leadScore)}`}>
+          <span className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold', scoreClass(assessment.leadScore))}>
             <GaugeCircle size={11} /> {assessment.leadScore} score
           </span>
         )}
         {risk && assessment?.riskProfile && (
-          <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold ${risk}`}>
+          <span className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold', risk)}>
             <AlertTriangle size={11} /> {formatEnumLabel(assessment.riskProfile)}
           </span>
         )}
       </div>
 
       {assessment?.recommendedNextAction && (
-        <p className="mt-3 line-clamp-2 rounded-lg border border-white/5 bg-black/20 px-2.5 py-2 text-[11px] leading-4 text-slate-400">
+        <p className="mt-2.5 line-clamp-2 rounded-lg bg-muted px-2.5 py-2 text-[11px] leading-4 text-muted-foreground">
           {assessment.recommendedNextAction}
         </p>
       )}
@@ -94,21 +96,22 @@ function KanbanColumn({ stage, deals }: { stage: DealStage; deals: Deal[] }) {
   return (
     <div
       ref={setNodeRef}
-      className={`flex w-72 shrink-0 flex-col rounded-2xl border p-3 transition-colors sm:w-80 ${
-        isOver ? 'border-indigo-400/50 bg-indigo-500/5' : 'border-white/5 bg-white/[0.02]'
-      }`}
+      className={cn(
+        'flex w-72 shrink-0 flex-col rounded-xl border p-3 transition-colors sm:w-80',
+        isOver ? 'border-primary/40 bg-primary/[0.03]' : 'border-border bg-muted/40',
+      )}
     >
       <div className="mb-3 flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: DEAL_STAGE_COLORS[stage.toLowerCase()] }} />
-          <h4 className="text-sm font-bold text-white">{stage}</h4>
+          <h4 className="text-sm font-semibold text-foreground">{stage}</h4>
         </div>
-        <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-bold text-muted-foreground">{totalValueLabel}</span>
+        <span className="rounded-full bg-card px-2 py-0.5 text-[10px] font-bold text-muted-foreground shadow-sm">{totalValueLabel}</span>
       </div>
 
       <div className="flex-1 space-y-2.5 overflow-y-auto pb-2" style={{ maxHeight: '65vh' }}>
         {deals.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-white/10 py-8 text-center text-xs text-muted-foreground">
+          <div className="rounded-lg border border-dashed border-border py-8 text-center text-xs text-muted-foreground">
             Drop deals here
           </div>
         ) : (

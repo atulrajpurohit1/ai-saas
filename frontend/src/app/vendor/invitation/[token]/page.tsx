@@ -24,7 +24,7 @@ import {
 const ALLOWED_EXTENSIONS = /\.(pdf|docx|xlsx|zip)$/i;
 
 const inputClass =
-  'min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-500 file:px-4 file:py-2 file:text-sm file:font-bold file:text-white';
+  'min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-foreground outline-none focus:ring-2 focus:ring-indigo-500/50 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-500 file:px-4 file:py-2 file:text-sm file:font-bold file:text-primary-foreground';
 
 interface FileFields {
   proposalFile: File | null;
@@ -117,7 +117,7 @@ export default function VendorInvitationPage() {
 
       <div className="relative z-10 w-full max-w-2xl">
         <div className="mb-8 text-center sm:mb-10">
-          <h1 className="mb-2 text-3xl font-black italic tracking-tighter text-white sm:text-4xl">Vendor Proposal Submission</h1>
+          <h1 className="mb-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">Vendor Proposal Submission</h1>
           <p className="font-medium tracking-wide text-slate-500">Secure invitation-based request for proposal</p>
         </div>
 
@@ -130,7 +130,7 @@ export default function VendorInvitationPage() {
           ) : error ? (
             <div className="flex flex-col items-center gap-3 py-10 text-center">
               <AlertTriangle className="text-rose-400" size={40} />
-              <p className="text-lg font-bold text-white">Unable to Load Invitation</p>
+              <p className="text-lg font-bold text-foreground">Unable to Load Invitation</p>
               <p className="max-w-sm text-sm text-slate-400">{error}</p>
             </div>
           ) : invitation ? (
@@ -140,10 +140,10 @@ export default function VendorInvitationPage() {
                   <Building2 size={16} />
                   {invitation.companyName}
                 </div>
-                <h2 className="text-2xl font-bold text-white">{invitation.rfpTitle}</h2>
+                <h2 className="text-2xl font-bold text-foreground">{invitation.rfpTitle}</h2>
                 <div className="flex flex-wrap items-center gap-2 text-sm text-slate-400">
                   <CalendarDays size={14} className="text-indigo-300" />
-                  Submission deadline: <span className="font-semibold text-white">{formatDate(invitation.dueDate)}</span>
+                  Submission deadline: <span className="font-semibold text-foreground">{formatDate(invitation.dueDate)}</span>
                 </div>
               </div>
 
@@ -167,7 +167,7 @@ export default function VendorInvitationPage() {
               {invitation.alreadySubmitted || submitted ? (
                 <div className="flex flex-col items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 py-10 text-center">
                   <CheckCircle2 className="text-emerald-400" size={40} />
-                  <p className="text-lg font-bold text-white">Proposal Submitted</p>
+                  <p className="text-lg font-bold text-foreground">Proposal Submitted</p>
                   <p className="max-w-sm text-sm text-emerald-200/80">
                     Thank you. Your proposal has been received. No further action is required.
                   </p>
@@ -223,7 +223,7 @@ export default function VendorInvitationPage() {
                     <label className="text-sm font-semibold text-slate-300">Notes (optional)</label>
                     <textarea
                       rows={3}
-                      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-foreground outline-none focus:ring-2 focus:ring-indigo-500/50"
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                       placeholder="Any additional context for your submission..."
@@ -245,7 +245,7 @@ export default function VendorInvitationPage() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 font-bold text-white shadow-lg transition-all hover:bg-indigo-500 disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 font-bold text-primary-foreground shadow-lg transition-all hover:bg-indigo-500 disabled:opacity-50"
                   >
                     {submitting ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />}
                     {submitting ? 'Submitting...' : 'Submit Proposal'}

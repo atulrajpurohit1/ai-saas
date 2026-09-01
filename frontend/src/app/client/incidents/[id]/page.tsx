@@ -85,12 +85,12 @@ export default function ClientIncidentDetailPage() {
       </div>
 
       {loading ? (
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] py-24 text-center text-slate-500">
+        <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] py-24 text-center text-slate-500">
           <Loader2 className="mx-auto mb-3 animate-spin text-indigo-300" size={28} />
           Loading incident report...
         </div>
       ) : error || !incident ? (
-        <div className="rounded-3xl border border-rose-500/20 bg-rose-500/10 p-6 text-rose-300">
+        <div className="rounded-[var(--radius-lg)] border border-rose-500/20 bg-rose-500/10 p-6 text-rose-300">
           <div className="flex items-center gap-3">
             <AlertTriangle size={20} />
             {error || 'Incident report not found.'}
@@ -98,7 +98,7 @@ export default function ClientIncidentDetailPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 sm:p-8">
+          <section className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5 sm:p-8">
             <div className="mb-4 flex flex-wrap items-center gap-3">
               <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-widest ${severityClass[incident.severity] || severityClass.low}`}>
                 {incident.severity}
@@ -116,7 +116,7 @@ export default function ClientIncidentDetailPage() {
           </section>
 
           <section className="grid gap-4 md:grid-cols-2">
-            <div className="min-w-0 rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+            <div className="min-w-0 rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5">
               <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
                 <MapPin size={14} />
                 Site
@@ -125,7 +125,7 @@ export default function ClientIncidentDetailPage() {
               <div className="mt-1 text-sm text-slate-400">{incident.site.address}</div>
             </div>
 
-            <div className="min-w-0 rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+            <div className="min-w-0 rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5">
               <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
                 <CalendarDays size={14} />
                 Occurred
@@ -133,7 +133,7 @@ export default function ClientIncidentDetailPage() {
               <div className="text-lg font-bold text-white">{formatDate(incident.occurredAt)}</div>
             </div>
 
-            <div className="min-w-0 rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+            <div className="min-w-0 rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5">
               <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
                 <CalendarDays size={14} />
                 Approved
@@ -145,7 +145,7 @@ export default function ClientIncidentDetailPage() {
           </section>
 
           {incident.attachmentUrl && (
-            <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+            <section className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-6">
               <h2 className="mb-3 text-lg font-bold text-white">Attachment</h2>
               <a
                 href={incident.attachmentUrl}

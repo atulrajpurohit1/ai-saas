@@ -364,14 +364,14 @@ export default function GuardPatrolPage() {
       {loading ? (
         <div className="py-20 text-center text-slate-500">Loading patrol panel...</div>
       ) : error ? (
-        <div className="rounded-3xl border border-rose-500/20 bg-rose-500/10 p-5 text-rose-300">
+        <div className="rounded-[var(--radius-lg)] border border-rose-500/20 bg-rose-500/10 p-5 text-rose-300">
           <div className="flex items-center gap-3">
             <AlertTriangle size={20} />
             <span className="text-sm font-medium">{error}</span>
           </div>
         </div>
       ) : shift && shift.attendanceStatus !== 'checked_in' ? (
-        <div className="rounded-3xl border border-amber-500/20 bg-amber-500/10 p-6 text-center text-amber-200">
+        <div className="rounded-[var(--radius-lg)] border border-amber-500/20 bg-amber-500/10 p-6 text-center text-amber-200">
           <AlertTriangle size={36} className="mx-auto mb-3 text-amber-300" />
           <h3 className="text-lg font-bold">Check-in Required</h3>
           <p className="text-sm text-slate-400 mt-1 max-w-md mx-auto">
@@ -389,14 +389,14 @@ export default function GuardPatrolPage() {
         <div className="space-y-4">
           <h2 className="text-lg font-bold text-white mb-2">Available Routes</h2>
           {routes.length === 0 ? (
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-10 text-center text-slate-500">
+            <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-10 text-center text-slate-500">
               No patrol routes configured for this site.
             </div>
           ) : (
             routes.map((route) => (
               <div
                 key={route.id}
-                className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-white/[0.06] transition-all"
+                className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-white/[0.06] transition-all"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
@@ -424,7 +424,7 @@ export default function GuardPatrolPage() {
       ) : (
         /* ACTIVE PATROL RUN CHECKLIST */
         <div className="space-y-6">
-          <div className="rounded-3xl border border-indigo-500/30 bg-indigo-500/5 p-6">
+          <div className="rounded-[var(--radius-lg)] border border-indigo-500/30 bg-indigo-500/5 p-6">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest text-indigo-400">
                 <Clock className="animate-pulse" size={14} />
@@ -549,7 +549,7 @@ export default function GuardPatrolPage() {
       {/* SCAN CONFIRMATION MODAL */}
       {scanningCheckpointId && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-[100] p-4 text-left">
-          <div className="glass-card w-full max-w-md rounded-3xl border-white/10 p-5 shadow-3xl animate-in zoom-in-95 duration-200 sm:p-8">
+          <div className="w-full max-w-md rounded-[var(--radius-lg)] border-white/10 p-5 shadow-3xl animate-in zoom-in-95 duration-200 sm:p-8">
             <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
               <QrCode className="text-indigo-400" size={20} />
               <span>Verify Checkpoint Scan</span>

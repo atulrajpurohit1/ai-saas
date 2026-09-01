@@ -384,57 +384,57 @@ const formFromDiscovery = (discovery?: DiscoverySession | null): DiscoveryForm =
 };
 
 const scoreColor = (score?: number | null) => {
-  if ((score || 0) >= 75) return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
-  if ((score || 0) >= 50) return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
-  return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
+  if ((score || 0) >= 75) return 'text-success bg-success-wash';
+  if ((score || 0) >= 50) return 'text-warning bg-warning-wash';
+  return 'text-error bg-error-wash';
 };
 
 const momentumColor = (status?: DealMomentum['status']) => {
-  if (status === 'healthy') return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
-  if (status === 'watch') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
-  if (status === 'stalled') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
-  if (status === 'urgent') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
-  return 'text-slate-300 border-white/10 bg-white/5';
+  if (status === 'healthy') return 'text-success bg-success-wash';
+  if (status === 'watch') return 'text-info bg-info-wash';
+  if (status === 'stalled') return 'text-warning bg-warning-wash';
+  if (status === 'urgent') return 'text-error bg-error-wash';
+  return 'text-muted-foreground bg-muted';
 };
 
 const forecastColor = (status?: DealForecast['status']) => {
-  if (status === 'commit' || status === 'closed_won') return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
-  if (status === 'likely') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
-  if (status === 'watch') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
-  if (status === 'at_risk' || status === 'closed_lost') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
-  return 'text-slate-300 border-white/10 bg-white/5';
+  if (status === 'commit' || status === 'closed_won') return 'text-success bg-success-wash';
+  if (status === 'likely') return 'text-info bg-info-wash';
+  if (status === 'watch') return 'text-warning bg-warning-wash';
+  if (status === 'at_risk' || status === 'closed_lost') return 'text-error bg-error-wash';
+  return 'text-muted-foreground bg-muted';
 };
 
 const postCloseColor = (status?: PostCloseFeedback['status']) => {
-  if (status === 'healthy') return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
-  if (status === 'watch') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
-  if (status === 'risk') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
-  if (status === 'oversold') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
-  return 'text-slate-300 border-white/10 bg-white/5';
+  if (status === 'healthy') return 'text-success bg-success-wash';
+  if (status === 'watch') return 'text-info bg-info-wash';
+  if (status === 'risk') return 'text-warning bg-warning-wash';
+  if (status === 'oversold') return 'text-error bg-error-wash';
+  return 'text-muted-foreground bg-muted';
 };
 
 const pricingGuardrailColor = (status?: PricingGuardrails['status']) => {
-  if (status === 'ready') return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
-  if (status === 'review') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
-  if (status === 'protect_margin') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
-  if (status === 'blocked') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
-  return 'text-slate-300 border-white/10 bg-white/5';
+  if (status === 'ready') return 'text-success bg-success-wash';
+  if (status === 'review') return 'text-info bg-info-wash';
+  if (status === 'protect_margin') return 'text-warning bg-warning-wash';
+  if (status === 'blocked') return 'text-error bg-error-wash';
+  return 'text-muted-foreground bg-muted';
 };
 
 const rateCardPricingColor = (status?: RateCardPricingInsight['status']) => {
-  if (status === 'ready') return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
-  if (status === 'review') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
-  if (status === 'needs_scope') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
-  if (status === 'missing_rate_card') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
-  return 'text-slate-300 border-white/10 bg-white/5';
+  if (status === 'ready') return 'text-success bg-success-wash';
+  if (status === 'review') return 'text-info bg-info-wash';
+  if (status === 'needs_scope') return 'text-warning bg-warning-wash';
+  if (status === 'missing_rate_card') return 'text-error bg-error-wash';
+  return 'text-muted-foreground bg-muted';
 };
 
 const proposalEngagementColor = (status?: ProposalEngagement['status']) => {
-  if (status === 'approved' || status === 'engaged') return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
-  if (status === 'sent' || status === 'draft') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
-  if (status === 'stale') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
-  if (status === 'rejected') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
-  return 'text-slate-300 border-white/10 bg-white/5';
+  if (status === 'approved' || status === 'engaged') return 'text-success bg-success-wash';
+  if (status === 'sent' || status === 'draft') return 'text-info bg-info-wash';
+  if (status === 'stale') return 'text-warning bg-warning-wash';
+  if (status === 'rejected') return 'text-error bg-error-wash';
+  return 'text-muted-foreground bg-muted';
 };
 
 const formatMoney = (value?: number | null) =>
@@ -447,36 +447,36 @@ const formatMoney = (value?: number | null) =>
     : '--';
 
 const valueJustificationColor = (status?: ValueJustification['status']) => {
-  if (status === 'proposal_ready') return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
-  if (status === 'needs_quantification') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
-  if (status === 'weak_value_case') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
-  if (status === 'blocked') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
-  return 'text-slate-300 border-white/10 bg-white/5';
+  if (status === 'proposal_ready') return 'text-success bg-success-wash';
+  if (status === 'needs_quantification') return 'text-info bg-info-wash';
+  if (status === 'weak_value_case') return 'text-warning bg-warning-wash';
+  if (status === 'blocked') return 'text-error bg-error-wash';
+  return 'text-muted-foreground bg-muted';
 };
 
 const followUpSequenceColor = (status?: FollowUpSequence['status']) => {
-  if (status === 'ready') return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
-  if (status === 'watch') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
-  if (status === 'nurture') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
-  if (status === 'blocked') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
-  return 'text-slate-300 border-white/10 bg-white/5';
+  if (status === 'ready') return 'text-success bg-success-wash';
+  if (status === 'watch') return 'text-warning bg-warning-wash';
+  if (status === 'nurture') return 'text-info bg-info-wash';
+  if (status === 'blocked') return 'text-error bg-error-wash';
+  return 'text-muted-foreground bg-muted';
 };
 
 const followUpProgressColor = (status?: FollowUpSequenceProgress['status']) => {
-  if (status === 'completed') return 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10';
-  if (status === 'active') return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
-  if (status === 'overdue' || status === 'stalled') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
-  return 'text-slate-300 border-white/10 bg-white/5';
+  if (status === 'completed') return 'text-success bg-success-wash';
+  if (status === 'active') return 'text-info bg-info-wash';
+  if (status === 'overdue' || status === 'stalled') return 'text-error bg-error-wash';
+  return 'text-muted-foreground bg-muted';
 };
 
 const severityColor = (severity?: ObjectionPattern['severity']) => {
-  if (severity === 'high') return 'text-rose-300 border-rose-400/20 bg-rose-400/10';
-  if (severity === 'medium') return 'text-amber-300 border-amber-400/20 bg-amber-400/10';
-  return 'text-cyan-300 border-cyan-400/20 bg-cyan-400/10';
+  if (severity === 'high') return 'text-error bg-error-wash';
+  if (severity === 'medium') return 'text-warning bg-warning-wash';
+  return 'text-info bg-info-wash';
 };
 
 const fieldClass =
-  'w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none transition focus:border-indigo-400/60 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-600';
+  'w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-foreground outline-none transition focus:border-indigo-400/60 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-600';
 
 export default function SalesAcceleratorPanel({
   entityType,
@@ -849,14 +849,14 @@ export default function SalesAcceleratorPanel({
     : [];
 
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-8">
+    <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-8">
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-cyan-300">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-info-wash px-3 py-1 text-xs font-bold uppercase tracking-widest text-info">
             <BrainCircuit size={14} />
             Sales Accelerator
           </div>
-          <h2 className="text-xl font-extrabold text-white sm:text-2xl">Discovery and Deal Intelligence</h2>
+          <h2 className="text-xl font-extrabold text-foreground sm:text-2xl">Discovery and Deal Intelligence</h2>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -873,7 +873,7 @@ export default function SalesAcceleratorPanel({
             type="button"
             onClick={generateGuide}
             disabled={!!busy || loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-indigo-400/20 bg-indigo-400/10 px-3 py-2 text-xs font-bold text-indigo-200 transition hover:bg-indigo-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-xl border bg-primary/8 px-3 py-2 text-xs font-bold text-primary transition hover:bg-indigo-400/20 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy === 'guide' ? <Loader2 className="animate-spin" size={15} /> : <Sparkles size={15} />}
             Guide
@@ -882,7 +882,7 @@ export default function SalesAcceleratorPanel({
             type="button"
             onClick={analyzeCall}
             disabled={!!busy || loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs font-bold text-cyan-200 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-xl border bg-info-wash px-3 py-2 text-xs font-bold text-info transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy === 'call' ? <Loader2 className="animate-spin" size={15} /> : <ClipboardList size={15} />}
             Analyze Call
@@ -891,7 +891,7 @@ export default function SalesAcceleratorPanel({
             type="button"
             onClick={coachCall}
             disabled={!!busy || loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-fuchsia-400/20 bg-fuchsia-400/10 px-3 py-2 text-xs font-bold text-fuchsia-200 transition hover:bg-fuchsia-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-xl border bg-primary/8 px-3 py-2 text-xs font-bold text-primary transition hover:bg-fuchsia-400/20 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy === 'coach' ? <Loader2 className="animate-spin" size={15} /> : <BrainCircuit size={15} />}
             Live Coach
@@ -900,7 +900,7 @@ export default function SalesAcceleratorPanel({
             type="button"
             onClick={generateOutreach}
             disabled={!!busy || loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs font-bold text-amber-200 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-xl border bg-warning-wash px-3 py-2 text-xs font-bold text-warning transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy === 'outreach' ? <Loader2 className="animate-spin" size={15} /> : <PhoneCall size={15} />}
             Outreach
@@ -909,7 +909,7 @@ export default function SalesAcceleratorPanel({
             type="button"
             onClick={score}
             disabled={!!busy || loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-200 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-xl border bg-success-wash px-3 py-2 text-xs font-bold text-success transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy === 'score' ? <Loader2 className="animate-spin" size={15} /> : <Target size={15} />}
             Score
@@ -919,7 +919,7 @@ export default function SalesAcceleratorPanel({
               type="button"
               onClick={generateProposal}
               disabled={!!busy || loading}
-              className="inline-flex items-center gap-2 rounded-xl border border-purple-400/20 bg-purple-400/10 px-3 py-2 text-xs font-bold text-purple-200 transition hover:bg-purple-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-xl border bg-primary/8 px-3 py-2 text-xs font-bold text-primary transition hover:bg-purple-400/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {busy === 'proposal' ? <Loader2 className="animate-spin" size={15} /> : <FileText size={15} />}
               Proposal
@@ -930,7 +930,7 @@ export default function SalesAcceleratorPanel({
               type="button"
               onClick={createFollowUp}
               disabled={!!busy || loading || !assessment}
-              className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs font-bold text-cyan-200 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-xl border bg-info-wash px-3 py-2 text-xs font-bold text-info transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {busy === 'follow-up' ? <Loader2 className="animate-spin" size={15} /> : <CalendarPlus size={15} />}
               Follow-Up
@@ -941,7 +941,7 @@ export default function SalesAcceleratorPanel({
               type="button"
               onClick={createFollowUpSequence}
               disabled={!!busy || loading || !followUpSequence}
-              className="inline-flex items-center gap-2 rounded-xl border border-teal-400/20 bg-teal-400/10 px-3 py-2 text-xs font-bold text-teal-200 transition hover:bg-teal-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-xl border bg-info-wash px-3 py-2 text-xs font-bold text-info transition hover:bg-teal-400/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {busy === 'sequence' ? <Loader2 className="animate-spin" size={15} /> : <CalendarPlus size={15} />}
               Sequence
@@ -952,22 +952,20 @@ export default function SalesAcceleratorPanel({
 
       {loading ? (
         <div className="rounded-2xl border border-white/10 bg-black/20 py-12 text-center text-slate-500">
-          <Loader2 className="mx-auto mb-3 animate-spin text-cyan-300" size={24} />
+          <Loader2 className="mx-auto mb-3 animate-spin text-primary" size={24} />
           Loading sales intelligence...
         </div>
       ) : (
         <div className="space-y-6">
           {(error || message || generatedProposalId) && (
             <div
-              className={`rounded-2xl border px-4 py-3 text-sm ${
-                error
-                  ? 'border-rose-500/20 bg-rose-500/10 text-rose-300'
-                  : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
+              className={`rounded-xl px-4 py-3 text-sm ${
+                error ? 'bg-error-wash text-error' : 'bg-success-wash text-success'
               }`}
             >
               {error || message}
               {generatedProposalId && (
-                <Link href="/proposals" className="ml-2 font-bold text-white underline-offset-4 hover:underline">
+                <Link href="/proposals" className="ml-2 font-bold text-foreground underline-offset-4 hover:underline">
                   Open proposals
                 </Link>
               )}
@@ -989,7 +987,7 @@ export default function SalesAcceleratorPanel({
             ))}
             <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
               <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Priority</div>
-              <div className="mt-3 text-lg font-extrabold uppercase text-white">{assessment?.priorityTier || '--'}</div>
+              <div className="mt-3 text-lg font-extrabold uppercase text-foreground">{assessment?.priorityTier || '--'}</div>
             </div>
           </div>
 
@@ -1011,7 +1009,7 @@ export default function SalesAcceleratorPanel({
               <div className="grid gap-3 sm:grid-cols-4">
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Segment</div>
-                  <div className="mt-2 text-sm font-bold text-white">
+                  <div className="mt-2 text-sm font-bold text-foreground">
                     {isUnknownValue(marketSignalProfile.segment) ? (
                       <span className="font-normal text-slate-500">Not available</span>
                     ) : (
@@ -1021,7 +1019,7 @@ export default function SalesAcceleratorPanel({
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Security</div>
-                  <div className="mt-2 text-sm font-bold text-white">
+                  <div className="mt-2 text-sm font-bold text-foreground">
                     {isUnknownValue(marketSignalProfile.existingSecurityLikelihood) ? (
                       <span className="font-normal text-slate-500">Not available</span>
                     ) : (
@@ -1031,7 +1029,7 @@ export default function SalesAcceleratorPanel({
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Renewal</div>
-                  <div className="mt-2 text-sm font-bold text-white">
+                  <div className="mt-2 text-sm font-bold text-foreground">
                     {isUnknownValue(marketSignalProfile.renewalTimingSignal) ? (
                       <span className="font-normal text-slate-500">Not available</span>
                     ) : (
@@ -1041,7 +1039,7 @@ export default function SalesAcceleratorPanel({
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Authority</div>
-                  <div className="mt-2 text-sm font-bold text-white">
+                  <div className="mt-2 text-sm font-bold text-foreground">
                     {isUnknownValue(marketSignalProfile.decisionAuthoritySignal) ? (
                       <span className="font-normal text-slate-500">Not available</span>
                     ) : (
@@ -1082,19 +1080,19 @@ export default function SalesAcceleratorPanel({
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Monthly Hours</div>
-                  <div className="mt-2 text-sm font-bold text-white">
+                  <div className="mt-2 text-sm font-bold text-foreground">
                     {valueJustification.estimatedMonthlyGuardHours ?? '--'}
                   </div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Scope</div>
-                  <div className="mt-2 text-sm font-bold capitalize text-white">
+                  <div className="mt-2 text-sm font-bold capitalize text-foreground">
                     {valueJustification.scopeComplexity}
                   </div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Status</div>
-                  <div className="mt-2 text-sm font-bold capitalize text-white">
+                  <div className="mt-2 text-sm font-bold capitalize text-foreground">
                     {formatEnumLabel(valueJustification.status)}
                   </div>
                 </div>
@@ -1150,21 +1148,21 @@ export default function SalesAcceleratorPanel({
               <div className="grid gap-3 sm:grid-cols-4">
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Monthly Revenue</div>
-                  <div className="mt-2 text-sm font-bold text-white">{formatMoney(rateCardPricing.estimatedMonthlyRevenue)}</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{formatMoney(rateCardPricing.estimatedMonthlyRevenue)}</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Avg Rate</div>
-                  <div className="mt-2 text-sm font-bold text-white">{formatMoney(rateCardPricing.averageHourlyRate)}/hr</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{formatMoney(rateCardPricing.averageHourlyRate)}/hr</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Range</div>
-                  <div className="mt-2 text-sm font-bold text-white">
+                  <div className="mt-2 text-sm font-bold text-foreground">
                     {formatMoney(rateCardPricing.lowMonthlyRevenue)} - {formatMoney(rateCardPricing.highMonthlyRevenue)}
                   </div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Source</div>
-                  <div className="mt-2 text-sm font-bold capitalize text-white">
+                  <div className="mt-2 text-sm font-bold capitalize text-foreground">
                     {formatEnumLabel(rateCardPricing.benchmarkSource)}
                   </div>
                 </div>
@@ -1184,15 +1182,15 @@ export default function SalesAcceleratorPanel({
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Rate Cards</div>
-                  <div className="mt-2 text-sm font-bold text-white">{rateCardPricing.rateCardCount}</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{rateCardPricing.rateCardCount}</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Overtime</div>
-                  <div className="mt-2 text-sm font-bold text-white">{formatMoney(rateCardPricing.averageOvertimeRate)}/hr</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{formatMoney(rateCardPricing.averageOvertimeRate)}/hr</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Margin Data</div>
-                  <div className="mt-2 text-sm font-bold text-white">
+                  <div className="mt-2 text-sm font-bold text-foreground">
                     {rateCardPricing.marginDataAvailable ? 'Available' : 'Not captured'}
                   </div>
                 </div>
@@ -1218,21 +1216,21 @@ export default function SalesAcceleratorPanel({
               <div className="grid gap-3 sm:grid-cols-4">
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Proposals</div>
-                  <div className="mt-2 text-sm font-bold text-white">{proposalEngagement.proposalCount}</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{proposalEngagement.proposalCount}</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Latest Age</div>
-                  <div className="mt-2 text-sm font-bold text-white">
+                  <div className="mt-2 text-sm font-bold text-foreground">
                     {proposalEngagement.daysSinceLatestProposal === null ? '--' : `${proposalEngagement.daysSinceLatestProposal}d`}
                   </div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Comments</div>
-                  <div className="mt-2 text-sm font-bold text-white">{proposalEngagement.totalCommentCount}</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{proposalEngagement.totalCommentCount}</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Latest Status</div>
-                  <div className="mt-2 text-sm font-bold capitalize text-white">
+                  <div className="mt-2 text-sm font-bold capitalize text-foreground">
                     {proposalEngagement.latestProposal?.status || '--'}
                   </div>
                 </div>
@@ -1241,7 +1239,7 @@ export default function SalesAcceleratorPanel({
               {proposalEngagement.latestProposal && (
                 <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Latest Proposal</div>
-                  <div className="mt-2 text-sm font-bold text-white">{proposalEngagement.latestProposal.title}</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{proposalEngagement.latestProposal.title}</div>
                   <div className="mt-1 text-xs text-slate-500">
                     Updated {new Date(proposalEngagement.latestProposal.updatedAt).toLocaleString()}
                   </div>
@@ -1279,7 +1277,7 @@ export default function SalesAcceleratorPanel({
                     type="button"
                     onClick={createFollowUpSequence}
                     disabled={!!busy || loading}
-                    className="inline-flex w-fit items-center gap-2 rounded-xl border border-teal-400/20 bg-teal-400/10 px-3 py-2 text-xs font-bold text-teal-200 transition hover:bg-teal-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex w-fit items-center gap-2 rounded-xl border bg-info-wash px-3 py-2 text-xs font-bold text-info transition hover:bg-teal-400/20 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {busy === 'sequence' ? <Loader2 className="animate-spin" size={15} /> : <CalendarPlus size={15} />}
                     Create Sequence
@@ -1290,15 +1288,15 @@ export default function SalesAcceleratorPanel({
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Cadence</div>
-                  <div className="mt-2 text-sm font-bold capitalize text-white">{followUpSequence.cadence}</div>
+                  <div className="mt-2 text-sm font-bold capitalize text-foreground">{followUpSequence.cadence}</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Steps</div>
-                  <div className="mt-2 text-sm font-bold text-white">{followUpSequence.steps.length}</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{followUpSequence.steps.length}</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Status</div>
-                  <div className="mt-2 text-sm font-bold capitalize text-white">{followUpSequence.status}</div>
+                  <div className="mt-2 text-sm font-bold capitalize text-foreground">{followUpSequence.status}</div>
                 </div>
               </div>
 
@@ -1315,7 +1313,7 @@ export default function SalesAcceleratorPanel({
                   >
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <div className="text-sm font-bold text-white">{step.subject}</div>
+                        <div className="text-sm font-bold text-foreground">{step.subject}</div>
                         <div className="mt-1 text-xs capitalize text-slate-500">
                           {step.channel} - day {step.dayOffset} - {new Date(step.dueDate).toLocaleString()}
                         </div>
@@ -1361,23 +1359,23 @@ export default function SalesAcceleratorPanel({
               <div className="grid gap-3 sm:grid-cols-5">
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Total</div>
-                  <div className="mt-2 text-sm font-bold text-white">{followUpSequenceProgress.totalSteps}</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{followUpSequenceProgress.totalSteps}</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Completed</div>
-                  <div className="mt-2 text-sm font-bold text-white">{followUpSequenceProgress.completedSteps}</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{followUpSequenceProgress.completedSteps}</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Pending</div>
-                  <div className="mt-2 text-sm font-bold text-white">{followUpSequenceProgress.pendingSteps}</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{followUpSequenceProgress.pendingSteps}</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Overdue</div>
-                  <div className="mt-2 text-sm font-bold text-white">{followUpSequenceProgress.overdueSteps}</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{followUpSequenceProgress.overdueSteps}</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Last Activity</div>
-                  <div className="mt-2 text-sm font-bold text-white">
+                  <div className="mt-2 text-sm font-bold text-foreground">
                     {followUpSequenceProgress.daysSinceLastSequenceActivity === null
                       ? '--'
                       : `${followUpSequenceProgress.daysSinceLastSequenceActivity}d`}
@@ -1388,7 +1386,7 @@ export default function SalesAcceleratorPanel({
               {followUpSequenceProgress.nextStep && (
                 <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Next Sequence Step</div>
-                  <div className="mt-2 text-sm font-bold text-white">
+                  <div className="mt-2 text-sm font-bold text-foreground">
                     {followUpSequenceProgress.nextStep.subject.replace('[Sales Sequence] ', '')}
                   </div>
                   <div className="mt-1 text-xs text-slate-500">
@@ -1447,15 +1445,15 @@ export default function SalesAcceleratorPanel({
               <div className="grid gap-3 sm:grid-cols-4">
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Probability</div>
-                  <div className="mt-2 text-sm font-bold text-white">{forecast.probability}%</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{forecast.probability}%</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Current</div>
-                  <div className="mt-2 text-sm font-bold text-white">{forecast.currentReadiness ?? '--'}</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{forecast.currentReadiness ?? '--'}</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Change</div>
-                  <div className="mt-2 text-sm font-bold text-white">
+                  <div className="mt-2 text-sm font-bold text-foreground">
                     {forecast.readinessChange === null
                       ? '--'
                       : `${forecast.readinessChange > 0 ? '+' : ''}${forecast.readinessChange}`}
@@ -1463,7 +1461,7 @@ export default function SalesAcceleratorPanel({
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Trend</div>
-                  <div className="mt-2 text-sm font-bold capitalize text-white">{forecast.trend}</div>
+                  <div className="mt-2 text-sm font-bold capitalize text-foreground">{forecast.trend}</div>
                 </div>
               </div>
 
@@ -1555,17 +1553,17 @@ export default function SalesAcceleratorPanel({
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Last Touch</div>
-                  <div className="mt-2 text-sm font-bold text-white">
+                  <div className="mt-2 text-sm font-bold text-foreground">
                     {momentum.daysSinceActivity === null ? 'None' : `${momentum.daysSinceActivity}d ago`}
                   </div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Pending</div>
-                  <div className="mt-2 text-sm font-bold text-white">{momentum.pendingActivityCount}</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{momentum.pendingActivityCount}</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Overdue</div>
-                  <div className="mt-2 text-sm font-bold text-white">{momentum.overdueActivityCount}</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{momentum.overdueActivityCount}</div>
                 </div>
               </div>
 
@@ -1578,7 +1576,7 @@ export default function SalesAcceleratorPanel({
                   <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Next Scheduled Step</div>
                   {momentum.nextActivity ? (
                     <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-slate-300">
-                      <div className="font-bold text-white">{momentum.nextActivity.subject}</div>
+                      <div className="font-bold text-foreground">{momentum.nextActivity.subject}</div>
                       <div className="mt-1 text-xs text-slate-500">
                         {momentum.nextActivity.dueDate
                           ? new Date(momentum.nextActivity.dueDate).toLocaleString()
@@ -1611,19 +1609,19 @@ export default function SalesAcceleratorPanel({
               <div className="grid gap-3 sm:grid-cols-4">
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Incidents</div>
-                  <div className="mt-2 text-sm font-bold text-white">{postCloseFeedback.incidentCount}</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{postCloseFeedback.incidentCount}</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Understaffed</div>
-                  <div className="mt-2 text-sm font-bold text-white">{postCloseFeedback.understaffedShiftCount}</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{postCloseFeedback.understaffedShiftCount}</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Disputes</div>
-                  <div className="mt-2 text-sm font-bold text-white">{postCloseFeedback.disputedInvoiceCount}</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{postCloseFeedback.disputedInvoiceCount}</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Reports</div>
-                  <div className="mt-2 text-sm font-bold text-white">{postCloseFeedback.reportCount}</div>
+                  <div className="mt-2 text-sm font-bold text-foreground">{postCloseFeedback.reportCount}</div>
                 </div>
               </div>
 
@@ -1651,7 +1649,7 @@ export default function SalesAcceleratorPanel({
                   type="button"
                   onClick={coachCall}
                   disabled={!!busy || loading}
-                  className="inline-flex w-fit items-center gap-2 rounded-xl border border-fuchsia-400/20 bg-fuchsia-400/10 px-3 py-2 text-xs font-bold text-fuchsia-200 transition hover:bg-fuchsia-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex w-fit items-center gap-2 rounded-xl border bg-primary/8 px-3 py-2 text-xs font-bold text-primary transition hover:bg-fuchsia-400/20 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {busy === 'coach' ? <Loader2 className="animate-spin" size={15} /> : <BrainCircuit size={15} />}
                   Coach
@@ -1660,7 +1658,7 @@ export default function SalesAcceleratorPanel({
                   type="button"
                   onClick={analyzeCall}
                   disabled={!!busy || loading}
-                  className="inline-flex w-fit items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs font-bold text-cyan-200 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex w-fit items-center gap-2 rounded-xl border bg-info-wash px-3 py-2 text-xs font-bold text-info transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {busy === 'call' ? <Loader2 className="animate-spin" size={15} /> : <ClipboardList size={15} />}
                   Analyze
@@ -1681,14 +1679,14 @@ export default function SalesAcceleratorPanel({
                   <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Next Best Question</div>
-                      <p className="mt-2 text-sm leading-6 text-white">{liveCoach.nextBestQuestion}</p>
+                      <p className="mt-2 text-sm leading-6 text-foreground">{liveCoach.nextBestQuestion}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${scoreColor(liveCoach.completenessScore)}`}>
                         {liveCoach.completenessScore}% complete
                       </span>
                       {liveCoach.shouldPauseProposal && (
-                        <span className="inline-flex w-fit shrink-0 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs font-bold text-amber-300">
+                        <span className="inline-flex w-fit shrink-0 rounded-full bg-warning-wash px-3 py-1 text-xs font-bold text-warning">
                           pause proposal
                         </span>
                       )}
@@ -1739,7 +1737,7 @@ export default function SalesAcceleratorPanel({
                   <button
                     type="button"
                     onClick={applyCallDiscovery}
-                    className="mt-3 inline-flex items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-200 transition hover:bg-emerald-400/20"
+                    className="mt-3 inline-flex items-center gap-2 rounded-xl border bg-success-wash px-3 py-2 text-xs font-bold text-success transition hover:bg-emerald-400/20"
                   >
                     <Save size={15} />
                     Apply to Form
@@ -1751,7 +1749,7 @@ export default function SalesAcceleratorPanel({
                     {callDiscoveryHighlights.map((item) => (
                       <div key={item.label} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                         <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{item.label}</div>
-                        <div className="mt-2 text-sm font-bold text-white">{item.value}</div>
+                        <div className="mt-2 text-sm font-bold text-foreground">{item.value}</div>
                       </div>
                     ))}
                   </div>
@@ -1835,7 +1833,7 @@ export default function SalesAcceleratorPanel({
                       <div key={pattern.key} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                         <div className="mb-2 flex items-start justify-between gap-3">
                           <div>
-                            <div className="font-bold text-white">{pattern.label}</div>
+                            <div className="font-bold text-foreground">{pattern.label}</div>
                             <div className="mt-1 text-xs text-slate-500">{pattern.count} historical mentions</div>
                           </div>
                           <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold uppercase ${severityColor(pattern.severity)}`}>
@@ -1885,7 +1883,7 @@ export default function SalesAcceleratorPanel({
                     </div>
                     <div>
                       <div className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">Email</div>
-                      <p className="font-bold text-white">{outreach.emailSubject}</p>
+                      <p className="font-bold text-foreground">{outreach.emailSubject}</p>
                       <p className="mt-2 whitespace-pre-line">{outreach.emailBody}</p>
                     </div>
                     <div>

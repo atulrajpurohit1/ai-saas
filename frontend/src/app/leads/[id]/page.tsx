@@ -6,12 +6,14 @@ import { useParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import NotesPanel from '@/components/NotesPanel';
 import SalesAcceleratorPanel from '@/components/SalesAcceleratorPanel';
+import LoadingState from '@/components/LoadingState';
+import ErrorState from '@/components/ErrorState';
+import StatusBadge from '@/components/StatusBadge';
 import api from '@/lib/api';
 import {
   ArrowLeft,
   Building2,
   CalendarDays,
-  Loader2,
   Mail,
   User,
 } from 'lucide-react';
@@ -66,7 +68,7 @@ export default function LeadDetailsPage() {
       <div className="mb-6">
         <Link
           href="/leads"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 transition hover:text-white"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground transition hover:text-foreground"
         >
           <ArrowLeft size={16} />
           Back to leads
@@ -74,55 +76,50 @@ export default function LeadDetailsPage() {
       </div>
 
       {loading ? (
-        <div className="rounded-3xl border border-white/10 bg-white/[0.04] py-24 text-center text-slate-500">
-          <Loader2 className="mx-auto mb-3 animate-spin text-indigo-300" size={28} />
-          Loading lead details...
+        <div className="rounded-2xl border border-border bg-card shadow-sm">
+          <LoadingState label="Loading lead details..." />
         </div>
       ) : error || !lead ? (
-        <div className="rounded-3xl border border-rose-500/20 bg-rose-500/10 p-6 text-rose-300">
-          {error || 'Lead not found.'}
-        </div>
+        <ErrorState message={error || 'Lead not found.'} />
       ) : (
         <div className="space-y-6">
-          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-8">
+          <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-8">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
-                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-indigo-400/20 bg-indigo-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-indigo-300">
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/8 px-3 py-1 text-xs font-bold uppercase tracking-widest text-primary">
                   Lead Details
                 </div>
-                <h1 className="break-words text-2xl font-extrabold text-white sm:text-3xl">{lead.name}</h1>
-                <p className="mt-2 flex items-center gap-2 text-slate-400">
-                  <Building2 size={16} className="text-indigo-300" />
+                <h1 className="break-words text-2xl font-semibold text-foreground sm:text-3xl">{lead.name}</h1>
+                <p className="mt-2 flex items-center gap-2 text-muted-foreground">
+                  <Building2 size={16} className="text-primary" />
                   {lead.company}
                 </p>
               </div>
 
-              <span className="w-fit rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-xs font-bold uppercase tracking-widest text-emerald-300">
-                {lead.status}
-              </span>
+              <StatusBadge label={lead.status} tone="success" className="w-fit px-4 py-2 text-xs" />
             </div>
 
             <div className="mt-8 grid gap-4 md:grid-cols-3">
-              <div className="min-w-0 rounded-2xl border border-white/10 bg-black/20 p-4">
-                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+              <div className="min-w-0 rounded-xl bg-muted p-4">
+                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                   <Mail size={14} />
                   Email
                 </div>
-                <div className="break-all text-sm font-semibold text-white">{lead.email || 'No email provided'}</div>
+                <div className="break-all text-sm font-semibold text-foreground">{lead.email || 'No email provided'}</div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+              <div className="rounded-xl bg-muted p-4">
+                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                   <CalendarDays size={14} />
                   Created
                 </div>
-                <div className="text-sm font-semibold text-white">{formatDate(lead.createdAt)}</div>
+                <div className="text-sm font-semibold text-foreground">{formatDate(lead.createdAt)}</div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+              <div className="rounded-xl bg-muted p-4">
+                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                   <User size={14} />
                   Contact
                 </div>
-                <div className="text-sm font-semibold text-white">{lead.name}</div>
+                <div className="text-sm font-semibold text-foreground">{lead.name}</div>
               </div>
             </div>
           </section>

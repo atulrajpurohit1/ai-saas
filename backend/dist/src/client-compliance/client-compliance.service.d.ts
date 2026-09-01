@@ -1,0 +1,144 @@
+import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { ComplianceStatus } from '../guard-compliance/compliance-status.util';
+import { CreateClientInsurancePolicyDto } from './dto/create-client-insurance-policy.dto';
+import { UpdateClientInsurancePolicyDto } from './dto/update-client-insurance-policy.dto';
+export interface ClientComplianceFilters {
+    clientId?: string;
+    siteId?: string;
+    status?: string;
+    type?: string;
+}
+export declare class ClientComplianceService {
+    private prisma;
+    private auditService;
+    constructor(prisma: PrismaService, auditService: AuditService);
+    private findClientInScopeOrThrow;
+    private assertSiteBelongsToClient;
+    private findRecordInScopeOrThrow;
+    private statusOf;
+    private assertDateOrder;
+    private serialize;
+    private unlinkQuietly;
+    create(user: ActiveUser, dto: CreateClientInsurancePolicyDto): Promise<{
+        id: string;
+        clientId: string;
+        clientName: string;
+        siteId: string | null;
+        siteName: string | null;
+        scope: "site" | "client_wide";
+        type: string;
+        status: ComplianceStatus;
+        policyNumber: string | null;
+        insurer: string | null;
+        coverageAmount: number | null;
+        effectiveDate: Date | null;
+        expirationDate: Date | null;
+        notes: string | null;
+        hasDocument: boolean;
+        fileName: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+    }>;
+    update(user: ActiveUser, id: string, dto: UpdateClientInsurancePolicyDto): Promise<{
+        id: string;
+        clientId: string;
+        clientName: string;
+        siteId: string | null;
+        siteName: string | null;
+        scope: "site" | "client_wide";
+        type: string;
+        status: ComplianceStatus;
+        policyNumber: string | null;
+        insurer: string | null;
+        coverageAmount: number | null;
+        effectiveDate: Date | null;
+        expirationDate: Date | null;
+        notes: string | null;
+        hasDocument: boolean;
+        fileName: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+    }>;
+    remove(user: ActiveUser, id: string): Promise<{
+        success: boolean;
+    }>;
+    attachDocument(user: ActiveUser, id: string, file: Express.Multer.File): Promise<{
+        id: string;
+        clientId: string;
+        clientName: string;
+        siteId: string | null;
+        siteName: string | null;
+        scope: "site" | "client_wide";
+        type: string;
+        status: ComplianceStatus;
+        policyNumber: string | null;
+        insurer: string | null;
+        coverageAmount: number | null;
+        effectiveDate: Date | null;
+        expirationDate: Date | null;
+        notes: string | null;
+        hasDocument: boolean;
+        fileName: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+    }>;
+    findAll(user: ActiveUser, filters?: ClientComplianceFilters): Promise<{
+        id: string;
+        clientId: string;
+        clientName: string;
+        siteId: string | null;
+        siteName: string | null;
+        scope: "site" | "client_wide";
+        type: string;
+        status: ComplianceStatus;
+        policyNumber: string | null;
+        insurer: string | null;
+        coverageAmount: number | null;
+        effectiveDate: Date | null;
+        expirationDate: Date | null;
+        notes: string | null;
+        hasDocument: boolean;
+        fileName: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+    }[]>;
+    getSummary(user: ActiveUser, clientId?: string): Promise<{
+        total: number;
+        valid: number;
+        expiringSoon: number;
+        expired: number;
+        missing: number;
+    }>;
+    getDocumentForDownload(user: ActiveUser, id: string): Promise<{
+        stream: import("fs").ReadStream;
+        filename: string;
+    }>;
+    findAllForClient(tenantId: string, clientId: string, userId: string): Promise<{
+        id: string;
+        clientId: string;
+        clientName: string;
+        siteId: string | null;
+        siteName: string | null;
+        scope: "site" | "client_wide";
+        type: string;
+        status: ComplianceStatus;
+        policyNumber: string | null;
+        insurer: string | null;
+        coverageAmount: number | null;
+        effectiveDate: Date | null;
+        expirationDate: Date | null;
+        notes: string | null;
+        hasDocument: boolean;
+        fileName: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+    }[]>;
+    getDocumentForClient(tenantId: string, clientId: string, policyId: string): Promise<{
+        stream: import("fs").ReadStream;
+        filename: string;
+    }>;
+    private resolveDocumentFile;
+    static readonly TYPES: readonly ["general_liability", "workers_comp", "professional_liability", "umbrella", "certificate_of_insurance", "other"];
+}

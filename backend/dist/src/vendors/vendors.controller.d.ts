@@ -16,9 +16,9 @@ export declare class VendorsController {
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
         address: string | null;
+        services: import("@prisma/client/runtime/library").JsonValue;
         createdBy: string | null;
         contactPerson: string | null;
-        services: import("@prisma/client/runtime/library").JsonValue;
     }>;
     findAll(user: ActiveUser, search?: string): Promise<{
         id: string;
@@ -31,9 +31,9 @@ export declare class VendorsController {
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
         address: string | null;
+        services: import("@prisma/client/runtime/library").JsonValue;
         createdBy: string | null;
         contactPerson: string | null;
-        services: import("@prisma/client/runtime/library").JsonValue;
     }[]>;
     findOne(user: ActiveUser, id: string): Promise<{
         id: string;
@@ -46,9 +46,9 @@ export declare class VendorsController {
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
         address: string | null;
+        services: import("@prisma/client/runtime/library").JsonValue;
         createdBy: string | null;
         contactPerson: string | null;
-        services: import("@prisma/client/runtime/library").JsonValue;
     }>;
     update(user: ActiveUser, id: string, dto: UpdateVendorDto): Promise<{
         id: string;
@@ -61,9 +61,9 @@ export declare class VendorsController {
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
         address: string | null;
+        services: import("@prisma/client/runtime/library").JsonValue;
         createdBy: string | null;
         contactPerson: string | null;
-        services: import("@prisma/client/runtime/library").JsonValue;
     }>;
     remove(user: ActiveUser, id: string): Promise<{
         success: boolean;

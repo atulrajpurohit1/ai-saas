@@ -5,6 +5,7 @@ import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import FinanceFiltersBar from '@/components/FinanceFilters';
 import CategoryBarChart from '@/components/charts/CategoryBarChart';
+import InsuranceAdvisoryBanner from '@/components/InsuranceAdvisoryBanner';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { downloadBlobFile } from '@/lib/csv';
@@ -163,6 +164,8 @@ export default function FinancePage() {
           {error}
         </div>
       )}
+
+      <InsuranceAdvisoryBanner />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => {

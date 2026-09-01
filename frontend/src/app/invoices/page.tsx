@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
+import InsuranceAdvisoryBanner from '@/components/InsuranceAdvisoryBanner';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -331,6 +332,10 @@ export default function InvoicesPage() {
           <p className="mt-2 text-muted-foreground">Generate and issue client invoices from approved timesheets.</p>
         </div>
       </div>
+
+      {canGenerateInvoice && formData.client_id && (
+        <InsuranceAdvisoryBanner clientId={formData.client_id} />
+      )}
 
       {canGenerateInvoice && (
         <form

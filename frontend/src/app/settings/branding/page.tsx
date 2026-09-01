@@ -1,7 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
+import PageHeader from '@/components/PageHeader';
+import LoadingState from '@/components/LoadingState';
+import ErrorState from '@/components/ErrorState';
+import EmptyState from '@/components/EmptyState';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
   BrandingSnapshot,
@@ -15,7 +22,8 @@ import {
 } from '@/lib/branding';
 import { formatPhoneNumber, isValidPhoneNumber } from '@/lib/format';
 import { useAuth } from '@/context/AuthContext';
-import { Check, Copy, Globe2, Loader2, Palette, Plus, Save, ShieldCheck } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Check, Copy, Globe2, Loader2, Plus, Save, ShieldCheck } from 'lucide-react';
 
 const defaultBranding: BrandingSnapshot = {
   company_name: '',
@@ -50,6 +58,9 @@ function normalizePayload(form: BrandingSnapshot): BrandingUpdatePayload {
   };
 }
 
+const fieldLabelClass = 'space-y-2 text-sm font-medium text-muted-foreground';
+const fieldInputClass = 'min-h-11 w-full';
+
 export default function BrandingSettingsPage() {
   const { can } = useAuth();
   const canManage = can('branding.manage');
@@ -59,7 +70,6 @@ export default function BrandingSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [domainSaving, setDomainSaving] = useState(false);
-  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [logoUploadError, setLogoUploadError] = useState('');
 
@@ -123,12 +133,10 @@ export default function BrandingSettingsPage() {
 
   const save = async () => {
     if (!isValidPhoneNumber(form.support_phone || '')) {
-      setError('Enter a valid support phone number before saving.');
+      toast.error('Enter a valid support phone number before saving.');
       return;
     }
     setSaving(true);
-    setError('');
-    setMessage('');
     try {
       const saved = await updateBranding(normalizePayload(form));
       setForm({
@@ -141,9 +149,9 @@ export default function BrandingSettingsPage() {
         support_email: saved.support_email || '',
         support_phone: saved.support_phone || '',
       });
-      setMessage('Branding updated.');
+      toast.success('Branding updated.');
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Could not save branding.'));
+      toast.error(getApiErrorMessage(err, 'Could not save branding.'));
     } finally {
       setSaving(false);
     }
@@ -151,15 +159,13 @@ export default function BrandingSettingsPage() {
 
   const addDomain = async () => {
     setDomainSaving(true);
-    setError('');
-    setMessage('');
     try {
       await addCustomDomain(domainInput.trim());
       setDomainInput('');
       setDomains(await getCustomDomains());
-      setMessage('Domain added.');
+      toast.success('Domain added.');
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Could not add domain.'));
+      toast.error(getApiErrorMessage(err, 'Could not add domain.'));
     } finally {
       setDomainSaving(false);
     }
@@ -167,14 +173,12 @@ export default function BrandingSettingsPage() {
 
   const verifyDomain = async (domain: CustomDomain) => {
     setDomainSaving(true);
-    setError('');
-    setMessage('');
     try {
       const result = await verifyCustomDomain(domain.id);
       setDomains((current) => current.map((item) => (item.id === result.id ? result : item)));
-      setMessage(result.verification_error || 'Domain verified.');
+      toast.success(result.verification_error || 'Domain verified.');
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Could not verify domain.'));
+      toast.error(getApiErrorMessage(err, 'Could not verify domain.'));
     } finally {
       setDomainSaving(false);
     }
@@ -182,55 +186,59 @@ export default function BrandingSettingsPage() {
 
   const copy = async (value: string) => {
     await navigator.clipboard.writeText(value);
-    setMessage('Copied.');
+    toast.success('Copied.');
   };
 
   return (
     <DashboardLayout requiredPermissions="branding.view">
-      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h2 className="flex items-center gap-3 text-2xl font-bold sm:text-3xl">
-            <Palette className="text-indigo-300" size={28} />
-            Branding
-          </h2>
-          <p className="mt-2 text-muted-foreground">Tenant identity, email/PDF styling, and custom domains</p>
-        </div>
-        {canManage && (
-          <button
-            type="button"
-            onClick={save}
-            disabled={saving}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:opacity-60"
-          >
-            {saving ? <Loader2 className="animate-spin" size={17} /> : <Save size={18} />}
-            Save
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Branding"
+        description="Tenant identity, email/PDF styling, and custom domains."
+        actions={
+          canManage && (
+            <Button onClick={save} disabled={saving}>
+              {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+              Save
+            </Button>
+          )
+        }
+      />
 
-      {error && <div className="mb-6 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-300">{error}</div>}
-      {message && <div className="mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-300">{message}</div>}
+      {error && (
+        <div className="mb-6">
+          <ErrorState message={error} onRetry={load} />
+        </div>
+      )}
 
       {loading ? (
-        <div className="py-24 text-center text-muted-foreground">
-          <Loader2 className="mx-auto mb-3 animate-spin text-indigo-300" size={28} />
-          Loading branding...
+        <div className="rounded-2xl border border-border bg-card shadow-sm">
+          <LoadingState label="Loading branding..." />
         </div>
       ) : (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-          <section className="rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
+          <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6">
             <div className="grid gap-4 lg:grid-cols-2">
-              <label className="space-y-2 text-sm font-semibold text-slate-300">
+              <label className={fieldLabelClass}>
                 Company Name
-                <input value={form.company_name} onChange={(event) => setForm({ ...form, company_name: event.target.value })} disabled={!canManage} className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60" />
+                <Input
+                  value={form.company_name}
+                  onChange={(event) => setForm({ ...form, company_name: event.target.value })}
+                  disabled={!canManage}
+                  className={fieldInputClass}
+                />
               </label>
-              <label className="space-y-2 text-sm font-semibold text-slate-300">
+              <label className={fieldLabelClass}>
                 Support Email
-                <input value={form.support_email || ''} onChange={(event) => setForm({ ...form, support_email: event.target.value })} disabled={!canManage} className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60" />
+                <Input
+                  value={form.support_email || ''}
+                  onChange={(event) => setForm({ ...form, support_email: event.target.value })}
+                  disabled={!canManage}
+                  className={fieldInputClass}
+                />
               </label>
-              <label className="space-y-2 text-sm font-semibold text-slate-300">
+              <label className={fieldLabelClass}>
                 Support Phone
-                <input
+                <Input
                   type="tel"
                   value={form.support_phone || ''}
                   onChange={(event) => setForm({ ...form, support_phone: event.target.value })}
@@ -241,18 +249,23 @@ export default function BrandingSettingsPage() {
                   }}
                   disabled={!canManage}
                   placeholder="(555) 555-5555"
-                  className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60"
+                  className={fieldInputClass}
                 />
                 {!isValidPhoneNumber(form.support_phone || '') && (
-                  <span className="block text-xs font-medium text-rose-400">Enter a valid phone number (7-15 digits).</span>
+                  <span className="block text-xs font-medium text-error">Enter a valid phone number (7-15 digits).</span>
                 )}
               </label>
-              <label className="space-y-2 text-sm font-semibold text-slate-300">
+              <label className={fieldLabelClass}>
                 Logo URL
-                <input value={form.logo_url || ''} onChange={(event) => setForm({ ...form, logo_url: event.target.value })} disabled={!canManage} className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60" />
-                <span className="flex items-center gap-2 text-xs font-medium text-slate-400">
+                <Input
+                  value={form.logo_url || ''}
+                  onChange={(event) => setForm({ ...form, logo_url: event.target.value })}
+                  disabled={!canManage}
+                  className={fieldInputClass}
+                />
+                <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                   or
-                  <label className={`cursor-pointer font-bold text-indigo-300 hover:text-indigo-200 ${!canManage ? 'pointer-events-none opacity-60' : ''}`}>
+                  <label className={cn('cursor-pointer font-semibold text-primary hover:text-primary-hover', !canManage && 'pointer-events-none opacity-60')}>
                     upload an image
                     <input
                       type="file"
@@ -264,105 +277,172 @@ export default function BrandingSettingsPage() {
                   </label>
                   (under 300KB)
                 </span>
-                {logoUploadError && <span className="block text-xs font-medium text-rose-400">{logoUploadError}</span>}
+                {logoUploadError && <span className="block text-xs font-medium text-error">{logoUploadError}</span>}
               </label>
-              <label className="space-y-2 text-sm font-semibold text-slate-300">
+              <label className={fieldLabelClass}>
                 Favicon URL
-                <input value={form.favicon_url || ''} onChange={(event) => setForm({ ...form, favicon_url: event.target.value })} disabled={!canManage} className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60" />
+                <Input
+                  value={form.favicon_url || ''}
+                  onChange={(event) => setForm({ ...form, favicon_url: event.target.value })}
+                  disabled={!canManage}
+                  className={fieldInputClass}
+                />
               </label>
-              <label className="space-y-2 text-sm font-semibold text-slate-300">
+              <label className={fieldLabelClass}>
                 Login Background URL
-                <input value={form.login_background || ''} onChange={(event) => setForm({ ...form, login_background: event.target.value })} disabled={!canManage} className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60" />
+                <Input
+                  value={form.login_background || ''}
+                  onChange={(event) => setForm({ ...form, login_background: event.target.value })}
+                  disabled={!canManage}
+                  className={fieldInputClass}
+                />
               </label>
-              <label className="space-y-2 text-sm font-semibold text-slate-300">
+              <label className={fieldLabelClass}>
                 Primary Color
-                <input type="color" value={form.primary_color} onChange={(event) => setForm({ ...form, primary_color: event.target.value })} disabled={!canManage} className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-2 disabled:opacity-60" />
+                <input
+                  type="color"
+                  value={form.primary_color}
+                  onChange={(event) => setForm({ ...form, primary_color: event.target.value })}
+                  disabled={!canManage}
+                  className="h-11 w-full rounded-lg border border-border bg-card px-2 disabled:opacity-60"
+                />
               </label>
-              <label className="space-y-2 text-sm font-semibold text-slate-300">
+              <label className={fieldLabelClass}>
                 Secondary Color
-                <input type="color" value={form.secondary_color} onChange={(event) => setForm({ ...form, secondary_color: event.target.value })} disabled={!canManage} className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-2 disabled:opacity-60" />
+                <input
+                  type="color"
+                  value={form.secondary_color}
+                  onChange={(event) => setForm({ ...form, secondary_color: event.target.value })}
+                  disabled={!canManage}
+                  className="h-11 w-full rounded-lg border border-border bg-card px-2 disabled:opacity-60"
+                />
               </label>
-              <label className="space-y-2 text-sm font-semibold text-slate-300">
+              <label className={fieldLabelClass}>
                 Accent Color
-                <input type="color" value={form.accent_color} onChange={(event) => setForm({ ...form, accent_color: event.target.value })} disabled={!canManage} className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-2 disabled:opacity-60" />
+                <input
+                  type="color"
+                  value={form.accent_color}
+                  onChange={(event) => setForm({ ...form, accent_color: event.target.value })}
+                  disabled={!canManage}
+                  className="h-11 w-full rounded-lg border border-border bg-card px-2 disabled:opacity-60"
+                />
               </label>
-              <label className="space-y-2 text-sm font-semibold text-slate-300 lg:col-span-2">
+              <label className={cn(fieldLabelClass, 'lg:col-span-2')}>
                 Welcome Message
-                <textarea value={form.welcome_message || ''} onChange={(event) => setForm({ ...form, welcome_message: event.target.value })} disabled={!canManage} rows={3} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60" />
+                <textarea
+                  value={form.welcome_message || ''}
+                  onChange={(event) => setForm({ ...form, welcome_message: event.target.value })}
+                  disabled={!canManage}
+                  rows={3}
+                  className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60"
+                />
               </label>
             </div>
           </section>
 
           <aside className="space-y-6">
-            <section className="overflow-hidden rounded-xl border bg-slate-950/60" style={previewStyle}>
+            <section className="overflow-hidden rounded-2xl border" style={previewStyle}>
               <div className="p-6">
                 <div className="mb-10 flex items-center gap-3">
                   {form.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={form.logo_url} alt="" className="h-12 max-w-40 rounded-lg object-contain" />
                   ) : (
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15 text-lg font-black text-white">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15 text-lg font-bold" style={{ color: '#fff' }}>
                       {(form.company_name || 'A').charAt(0)}
                     </div>
                   )}
                   <div className="min-w-0">
-                    <div className="truncate text-lg font-black text-white">{form.company_name || 'Ai Saas'}</div>
-                    <div className="truncate text-sm text-white/70">{form.support_email || 'support@example.com'}</div>
+                    <div className="truncate text-lg font-bold" style={{ color: '#fff' }}>
+                      {form.company_name || 'AegisLead'}
+                    </div>
+                    <div className="truncate text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                      {form.support_email || 'support@example.com'}
+                    </div>
                   </div>
                 </div>
-                <h3 className="max-w-xs text-3xl font-black text-white">{form.welcome_message || 'Welcome back.'}</h3>
-                <button type="button" className="mt-6 min-h-11 rounded-xl px-5 text-sm font-bold text-white" style={{ backgroundColor: form.accent_color }}>
+                <h3 className="max-w-xs text-3xl font-bold" style={{ color: '#fff' }}>
+                  {form.welcome_message || 'Welcome back.'}
+                </h3>
+                <button type="button" className="mt-6 min-h-11 rounded-lg px-5 text-sm font-semibold" style={{ backgroundColor: form.accent_color, color: '#fff' }}>
                   Continue
                 </button>
               </div>
             </section>
 
-            <section className="rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
+            <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6">
               <div className="mb-5 flex items-center gap-3">
-                <Globe2 className="text-sky-300" size={22} />
-                <h3 className="text-xl font-bold">Custom Domains</h3>
+                <Globe2 className="text-primary" size={20} />
+                <h3 className="text-base font-semibold text-foreground">Custom Domains</h3>
               </div>
               {canManage && (
                 <div className="mb-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                  <input value={domainInput} onChange={(event) => setDomainInput(event.target.value)} placeholder="portal.example.com" className="min-h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50" />
-                  <button type="button" onClick={addDomain} disabled={domainSaving || !domainInput.trim()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:opacity-60">
-                    {domainSaving ? <Loader2 className="animate-spin" size={17} /> : <Plus size={17} />}
+                  <Input
+                    value={domainInput}
+                    onChange={(event) => setDomainInput(event.target.value)}
+                    placeholder="portal.example.com"
+                    className="min-h-11"
+                  />
+                  <Button onClick={addDomain} disabled={domainSaving || !domainInput.trim()}>
+                    {domainSaving ? <Loader2 className="animate-spin" size={16} /> : <Plus size={16} />}
                     Add
-                  </button>
+                  </Button>
                 </div>
               )}
               <div className="space-y-3">
                 {domains.map((domain) => (
-                  <div key={domain.id} className="rounded-xl border border-white/10 bg-slate-950/20 p-4">
+                  <div key={domain.id} className="rounded-xl border border-border bg-background p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="truncate font-bold text-white">{domain.domain}</div>
-                        <div className="mt-1 text-xs text-slate-500">{formatDate(domain.verified_at)}</div>
+                        <div className="truncate font-semibold text-foreground">{domain.domain}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">{formatDate(domain.verified_at)}</div>
                       </div>
-                      <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-widest ${domain.verification_status === 'verified' ? 'bg-emerald-400/10 text-emerald-300' : 'bg-amber-400/10 text-amber-300'}`}>
+                      <span
+                        className={cn(
+                          'rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wider',
+                          domain.verification_status === 'verified' ? 'bg-success-wash text-success' : 'bg-warning-wash text-warning',
+                        )}
+                      >
                         {domain.verification_status}
                       </span>
                     </div>
-                    <div className="mt-3 rounded-lg bg-black/20 p-3 text-xs text-slate-300">
+                    <div className="mt-3 rounded-lg bg-muted p-3 text-xs text-foreground">
                       <div className="font-mono">{domain.verification_record}</div>
-                      <div className="mt-1 break-all font-mono text-slate-400">{domain.verification_token}</div>
+                      <div className="mt-1 break-all font-mono text-muted-foreground">{domain.verification_token}</div>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <button type="button" onClick={() => copy(`${domain.verification_record} TXT ${domain.verification_token}`)} className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-bold text-white transition hover:bg-white/10">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copy(`${domain.verification_record} TXT ${domain.verification_token}`)}
+                      >
                         <Copy size={14} />
                         Copy TXT
-                      </button>
+                      </Button>
                       {canManage && (
-                        <button type="button" onClick={() => verifyDomain(domain)} disabled={domainSaving} className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 text-xs font-bold text-emerald-300 transition hover:bg-emerald-400/20 disabled:opacity-60">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => verifyDomain(domain)}
+                          disabled={domainSaving}
+                          className="border-success/20 bg-success-wash text-success hover:bg-success-wash hover:text-success"
+                        >
                           <ShieldCheck size={14} />
                           Verify
-                        </button>
+                        </Button>
                       )}
-                      {domain.verification_status === 'verified' && <span className="inline-flex min-h-9 items-center gap-2 text-xs font-bold text-emerald-300"><Check size={14} /> Ready</span>}
+                      {domain.verification_status === 'verified' && (
+                        <span className="inline-flex min-h-9 items-center gap-2 text-xs font-semibold text-success">
+                          <Check size={14} /> Ready
+                        </span>
+                      )}
                     </div>
-                    {domain.verification_error && <div className="mt-3 text-xs font-semibold text-amber-300">{domain.verification_error}</div>}
+                    {domain.verification_error && <div className="mt-3 text-xs font-medium text-warning">{domain.verification_error}</div>}
                   </div>
                 ))}
-                {domains.length === 0 && <div className="rounded-xl border border-white/10 bg-slate-950/20 p-4 text-sm text-slate-400">No custom domains.</div>}
+                {domains.length === 0 && <EmptyState icon={Globe2} title="No custom domains" description="Add a domain above to serve the portal from your own hostname." />}
               </div>
             </section>
           </aside>

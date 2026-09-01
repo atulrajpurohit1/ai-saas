@@ -310,11 +310,11 @@ export default function ProposalsPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'draft': return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20';
-      case 'sent': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-      case 'approved': return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
-      case 'rejected': return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
-      default: return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
+      case 'draft': return 'bg-warning-wash text-warning';
+      case 'sent': return 'bg-success-wash text-success';
+      case 'approved': return 'bg-info-wash text-info';
+      case 'rejected': return 'bg-error-wash text-error';
+      default: return 'bg-primary/8 text-primary';
     }
   };
 
@@ -322,7 +322,7 @@ export default function ProposalsPage() {
     <DashboardLayout>
       {toast && (
         <div className={`fixed left-4 right-4 top-4 z-[200] flex items-center gap-3 rounded-2xl border px-4 py-3 shadow-2xl transition-all animate-in slide-in-from-right sm:left-auto sm:right-6 sm:top-6 sm:max-w-md sm:px-5 sm:py-4 ${
-          toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'
+          toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-success' : 'bg-red-500/10 border-red-500/20 text-error'
         }`}>
           {toast.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
           <span className="text-sm font-medium max-w-sm">{toast.message}</span>
@@ -354,17 +354,17 @@ export default function ProposalsPage() {
         {loading ? (
           <div className="col-span-full py-20 text-center text-muted-foreground animate-pulse leading-10">Formatting documents...</div>
         ) : proposals.length === 0 ? (
-          <div className="col-span-full py-20 text-center text-muted-foreground border-2 border-dashed border-white/5 rounded-3xl">
-            <Sparkles className="mx-auto mb-4 text-indigo-400" size={48} />
+          <div className="col-span-full py-20 text-center text-muted-foreground border-2 border-dashed border-white/5 rounded-2xl">
+            <Sparkles className="mx-auto mb-4 text-primary" size={48} />
             <p className="text-lg font-semibold mb-2">No proposals yet</p>
             <p className="text-sm">Use the &quot;Generate for Lead&quot; button or &quot;Bulk Generate AI&quot; to get started!</p>
           </div>
         ) : proposals.map((p) => {
           const lead = getLeadInfo(p);
           return (
-            <div key={p.id} className="glass-card rounded-3xl p-6 flex flex-col group hover:border-indigo-500/20 transition-all">
+            <div key={p.id} className="glass-card rounded-2xl p-6 flex flex-col group hover:border-indigo-500/20 transition-all">
               <div className="flex items-center justify-between mb-4">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-info flex items-center justify-center">
                   <FileText size={20} />
                 </div>
                 <div className="flex flex-col items-end gap-1">
@@ -380,13 +380,13 @@ export default function ProposalsPage() {
 
               {lead && (
                 <div className="flex items-center gap-2 mb-1">
-                  <Users size={14} className="text-indigo-400" />
+                  <Users size={14} className="text-primary" />
                   <span className="text-xs text-muted-foreground">{lead.name} · {lead.company}</span>
                 </div>
               )}
               {p.client && (
                 <div className="flex items-center gap-2 mb-3">
-                  <Building2 size={14} className="text-emerald-400" />
+                  <Building2 size={14} className="text-success" />
                   <span className="text-xs text-muted-foreground">Client: {p.client.name}</span>
                 </div>
               )}
@@ -395,13 +395,13 @@ export default function ProposalsPage() {
               </p>
               <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between">
                 <div className="flex gap-2">
-                  <button title="View Full Proposal" onClick={() => { setSelectedProposal(p); setShowViewModal(true); }} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-muted-foreground hover:text-white">
+                  <button title="View Full Proposal" onClick={() => { setSelectedProposal(p); setShowViewModal(true); }} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-muted-foreground hover:text-foreground">
                     <Eye size={18} />
                   </button>
-                  <button title="Share with Client" onClick={() => openShareModal(p.id)} className="p-2 hover:bg-indigo-500/10 rounded-lg transition-colors text-indigo-400 hover:text-indigo-300">
+                  <button title="Share with Client" onClick={() => openShareModal(p.id)} className="p-2 hover:bg-indigo-500/10 rounded-lg transition-colors text-primary hover:text-primary">
                     <Send size={18} />
                   </button>
-                  <button title="Download PDF" onClick={() => handleDownload(p.id)} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-muted-foreground hover:text-white">
+                  <button title="Download PDF" onClick={() => handleDownload(p.id)} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-muted-foreground hover:text-foreground">
                     <Download size={18} />
                   </button>
                 </div>
@@ -414,7 +414,7 @@ export default function ProposalsPage() {
 
       {showShareModal && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 p-3 text-left backdrop-blur-md sm:items-center sm:p-4">
-          <div className="glass-card max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-3xl border-white/10 bg-[#0e0e1a] p-5 shadow-3xl sm:max-h-[calc(100dvh-2rem)] sm:p-8">
+          <div className="glass-card max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-2xl border-white/10 bg-[#0e0e1a] p-5 shadow-3xl sm:max-h-[calc(100dvh-2rem)] sm:p-8">
             <h3 className="text-2xl font-bold mb-6 text-white">Share with Client</h3>
             <div className="space-y-4">
               <select
@@ -439,14 +439,14 @@ export default function ProposalsPage() {
 
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 p-3 text-left backdrop-blur-md sm:items-center sm:p-4">
-          <div className="glass-card max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-3xl border-white/10 bg-[#0e0e1a] p-5 shadow-3xl sm:max-h-[calc(100dvh-2rem)] sm:p-8">
+          <div className="glass-card max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-2xl border-white/10 bg-[#0e0e1a] p-5 shadow-3xl sm:max-h-[calc(100dvh-2rem)] sm:p-8">
             <div className="mb-6 flex items-start justify-between gap-4">
               <h3 className="flex items-center gap-3 text-xl font-bold text-white sm:text-2xl">
-                <Sparkles className="text-indigo-400" size={24} />
+                <Sparkles className="text-primary" size={24} />
                 Generate AI Proposal
               </h3>
               <button onClick={() => setShowModal(false)} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
-                <X size={20} className="text-muted-foreground hover:text-white" />
+                <X size={20} className="text-muted-foreground hover:text-foreground" />
               </button>
             </div>
 
@@ -525,7 +525,7 @@ export default function ProposalsPage() {
 
       {showViewModal && selectedProposal && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 p-3 text-left backdrop-blur-md sm:items-center sm:p-4">
-          <div className="glass-card flex max-h-[calc(100dvh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border-white/10 bg-[#0e0e1a] shadow-3xl sm:max-h-[90vh]">
+          <div className="glass-card flex max-h-[calc(100dvh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border-white/10 bg-[#0e0e1a] shadow-3xl sm:max-h-[90vh]">
             <div className="flex items-start justify-between gap-4 border-b border-white/5 p-5 sm:p-8">
               <div>
                 <h3 className="text-xl font-bold text-white sm:text-2xl">{selectedProposal.title}</h3>
@@ -536,21 +536,21 @@ export default function ProposalsPage() {
                   <Download size={20} />
                 </button>
                 <button onClick={() => setShowViewModal(false)} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
-                  <X size={20} className="text-muted-foreground hover:text-white" />
+                  <X size={20} className="text-muted-foreground hover:text-foreground" />
                 </button>
               </div>
             </div>
             
             <div className="grid flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-3 lg:overflow-hidden">
               <div className="overflow-y-visible border-r border-white/5 p-5 sm:p-8 lg:col-span-2 lg:overflow-y-auto">
-                <div className="prose prose-invert max-w-none rounded-3xl border border-white/5 bg-white/5 p-4 text-sm leading-relaxed text-slate-300 sm:p-8">
+                <div className="prose prose-invert max-w-none rounded-2xl border border-white/5 bg-white/5 p-4 text-sm leading-relaxed text-slate-300 sm:p-8">
                   <ReactMarkdown>{selectedProposal.content}</ReactMarkdown>
                 </div>
               </div>
               
               <div className="flex flex-col h-full bg-black/20">
                 <div className="border-b border-white/5 bg-white/5 p-5 sm:p-6">
-                  <h4 className="text-sm font-bold uppercase tracking-widest text-indigo-400">Communication</h4>
+                  <h4 className="text-sm font-bold uppercase tracking-widest text-primary">Communication</h4>
                 </div>
                 
                 <div className="max-h-80 flex-1 space-y-4 overflow-y-auto p-5 custom-scrollbar sm:p-6 lg:max-h-none">
@@ -559,7 +559,7 @@ export default function ProposalsPage() {
                   ) : comments.map((c) => (
                     <div key={c.id} className={`p-4 rounded-2xl border ${c.userId ? 'bg-indigo-500/5 border-indigo-500/10' : 'bg-emerald-500/5 border-emerald-500/10 ml-4'}`}>
                       <div className="flex justify-between mb-1">
-                        <span className="text-[10px] font-bold text-indigo-400">{c.userId ? 'Admin' : 'Client'}</span>
+                        <span className="text-[10px] font-bold text-primary">{c.userId ? 'Admin' : 'Client'}</span>
                         <span className="text-[10px] text-muted-foreground">{new Date(c.createdAt).toLocaleDateString()}</span>
                       </div>
                       <p className="text-xs text-slate-300">{c.content}</p>

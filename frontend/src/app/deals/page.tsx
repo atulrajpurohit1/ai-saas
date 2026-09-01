@@ -4,9 +4,21 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import DealsKanbanBoard from '@/components/DealsKanbanBoard';
+import PageHeader from '@/components/PageHeader';
+import EmptyState from '@/components/EmptyState';
+import LoadingState from '@/components/LoadingState';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { Deal, getDeals } from '@/lib/deals';
+import { cn } from '@/lib/utils';
 import { Plus, Search, DollarSign, Target, Briefcase, LayoutGrid, List } from 'lucide-react';
 
 const VIEW_STORAGE_KEY = 'ai-saas-deals-view';
@@ -24,10 +36,10 @@ interface ClientOption {
 }
 
 const scoreClass = (score?: number | null) => {
-  if ((score || 0) >= 75) return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
-  if ((score || 0) >= 50) return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
-  if (typeof score === 'number') return 'border-rose-500/20 bg-rose-500/10 text-rose-300';
-  return 'border-white/10 bg-white/5 text-slate-500';
+  if ((score || 0) >= 75) return 'bg-success-wash text-success';
+  if ((score || 0) >= 50) return 'bg-warning-wash text-warning';
+  if (typeof score === 'number') return 'bg-error-wash text-error';
+  return 'bg-muted text-muted-foreground';
 };
 
 export default function DealsPage() {
@@ -99,7 +111,7 @@ export default function DealsPage() {
     try {
       const payload = {
         ...newDeal,
-        clientId: newDeal.clientId || null
+        clientId: newDeal.clientId || null,
       };
       await api.post('deals', payload);
       setShowModal(false);
@@ -110,197 +122,185 @@ export default function DealsPage() {
     }
   };
 
+  const filteredDeals = deals.filter((deal) => {
+    if (!searchQuery) return true;
+    return deal.name.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
   return (
     <DashboardLayout>
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-        <div>
-          <h2 className="text-2xl font-bold sm:text-3xl">Sales Pipeline</h2>
-          <p className="text-muted-foreground">Track your active deals and conversion progress.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex rounded-2xl border border-white/10 bg-white/5 p-1">
-            <button
-              type="button"
-              onClick={() => changeView('kanban')}
-              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold transition-all ${view === 'kanban' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-white'}`}
-            >
-              <LayoutGrid size={16} />
-              <span className="hidden sm:inline">Kanban</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => changeView('list')}
-              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold transition-all ${view === 'list' ? 'bg-primary text-white' : 'text-muted-foreground hover:text-white'}`}
-            >
-              <List size={16} />
-              <span className="hidden sm:inline">List</span>
-            </button>
-          </div>
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-indigo-500 sm:flex-none"
-          >
-            <Plus size={20} />
-            <span>New Deal</span>
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Sales Pipeline"
+        description="Track your active deals and conversion progress."
+        actions={
+          <>
+            <div className="flex rounded-lg border border-border bg-card p-1 shadow-sm">
+              <button
+                type="button"
+                onClick={() => changeView('kanban')}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors',
+                  view === 'kanban' ? 'bg-primary/8 text-primary' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <LayoutGrid size={15} />
+                <span className="hidden sm:inline">Kanban</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => changeView('list')}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors',
+                  view === 'list' ? 'bg-primary/8 text-primary' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <List size={15} />
+                <span className="hidden sm:inline">List</span>
+              </button>
+            </div>
+            <Button onClick={() => setShowModal(true)}>
+              <Plus size={16} />
+              New Deal
+            </Button>
+          </>
+        }
+      />
 
       {loading ? (
-        <div className="glass-card rounded-3xl p-20 text-center text-muted-foreground italic">Syncing with pipeline...</div>
+        <div className="rounded-2xl border border-border bg-card shadow-sm">
+          <LoadingState label="Syncing with pipeline..." />
+        </div>
       ) : view === 'kanban' ? (
         deals.length === 0 ? (
-          <div className="glass-card rounded-3xl p-20 text-center text-muted-foreground">No active deals. Start by converting a lead!</div>
+          <div className="rounded-2xl border border-border bg-card shadow-sm">
+            <EmptyState icon={Briefcase} title="No active deals" description="Start by converting a lead into a deal." />
+          </div>
         ) : (
           <DealsKanbanBoard deals={deals} onDealsChange={setDeals} canUpdateStage={canUpdateStage} />
         )
       ) : (
-      <div className="glass-card rounded-3xl overflow-hidden">
-        <div className="border-b border-white/5 bg-white/5 p-4 sm:p-6">
-          <div className="relative w-full sm:max-w-sm">
-            <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
-            <input
-              type="text"
-              placeholder="Filter deals..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary"
-            />
+        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+          <div className="border-b border-border p-4">
+            <div className="relative w-full sm:max-w-sm">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+              <Input
+                type="text"
+                placeholder="Filter deals..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 gap-4 p-4 sm:p-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-          {loading ? (
-            <div className="col-span-full py-20 text-center text-muted-foreground italic">Syncing with pipeline...</div>
-          ) : deals.length === 0 ? (
-            <div className="col-span-full py-20 text-center text-muted-foreground">No active deals. Start by converting a lead!</div>
-          ) : deals.filter(deal => {
-              if (!searchQuery) return true;
-              const query = searchQuery.toLowerCase();
-              return deal.name.toLowerCase().includes(query);
-            }).length === 0 ? (
-              <div className="col-span-full py-20 text-center text-muted-foreground">No active deals match your search.</div>
-          ) : deals.filter(deal => {
-              if (!searchQuery) return true;
-              const query = searchQuery.toLowerCase();
-              return deal.name.toLowerCase().includes(query);
-            }).map((deal) => (
-            <div key={deal.id} className="glass-card p-6 rounded-2xl border-white/5 hover:border-indigo-500/50 transition-all group">
-              {(() => {
+          {deals.length === 0 ? (
+            <EmptyState icon={Briefcase} title="No active deals" description="Start by converting a lead into a deal." />
+          ) : filteredDeals.length === 0 ? (
+            <EmptyState icon={Search} title="No matching deals" description="Try a different search term." />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 p-4 sm:p-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+              {filteredDeals.map((deal) => {
                 const assessment = deal.salesAssessments?.[0];
                 return (
-                  <>
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
-                  <Briefcase size={20} />
-                </div>
-                <div className="flex flex-wrap justify-end gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 bg-indigo-400/10 px-2 py-1 rounded-md">
-                    {deal.stage}
-                  </span>
-                  <span className={`rounded-md border px-2 py-1 text-xs font-bold uppercase tracking-wider ${scoreClass(assessment?.closeReadinessScore)}`}>
-                    {assessment?.closeReadinessScore ?? '--'} ready
-                  </span>
-                </div>
-              </div>
-              <Link href={`/deals/${deal.id}`} className="block text-xl font-bold mb-1 truncate transition hover:text-indigo-300">
-                {deal.name}
-              </Link>
-              <p className="text-sm text-muted-foreground mb-4 flex items-center gap-1">
-                <Target size={14} />
-                {deal.lead.company}
-              </p>
-              {deal.client && (
-                <p className="text-xs text-emerald-400 font-medium mb-4">
-                  Client: {deal.client.name}
-                </p>
-              )}
-              <div className="min-h-10 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs leading-5 text-slate-400">
-                {assessment?.recommendedNextAction || 'Run Sales Accelerator scoring from deal details.'}
-              </div>
-              
-              <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-4">
-                <div className="flex items-center gap-1 text-emerald-400 font-bold">
-                  <DollarSign size={16} />
-                  <span>Proposed</span>
-                </div>
-                <Link href={`/deals/${deal.id}`} className="text-xs font-bold text-muted-foreground hover:text-white transition-colors">
-                  VIEW DETAILS
-                </Link>
-              </div>
-                  </>
+                  <div key={deal.id} className="rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:border-primary/30 hover:shadow-md">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="rounded-lg bg-primary/8 p-2 text-primary">
+                        <Briefcase size={18} />
+                      </div>
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        <span className="rounded-md bg-primary/8 px-2 py-1 text-xs font-bold uppercase tracking-wider text-primary">
+                          {deal.stage}
+                        </span>
+                        <span className={cn('rounded-md px-2 py-1 text-xs font-bold uppercase tracking-wider', scoreClass(assessment?.closeReadinessScore))}>
+                          {assessment?.closeReadinessScore ?? '--'} ready
+                        </span>
+                      </div>
+                    </div>
+                    <Link href={`/deals/${deal.id}`} className="mb-1 block truncate text-lg font-semibold text-foreground transition hover:text-primary">
+                      {deal.name}
+                    </Link>
+                    <p className="mb-3 flex items-center gap-1 text-sm text-muted-foreground">
+                      <Target size={14} />
+                      {deal.lead.company}
+                    </p>
+                    {deal.client && (
+                      <p className="mb-3 text-xs font-medium text-success">Client: {deal.client.name}</p>
+                    )}
+                    <div className="min-h-10 rounded-lg bg-muted px-3 py-2 text-xs leading-5 text-muted-foreground">
+                      {assessment?.recommendedNextAction || 'Run Sales Accelerator scoring from deal details.'}
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+                      <div className="flex items-center gap-1 font-bold text-success">
+                        <DollarSign size={16} />
+                        <span className="text-sm">Proposed</span>
+                      </div>
+                      <Link href={`/deals/${deal.id}`} className="text-xs font-bold text-muted-foreground transition-colors hover:text-foreground">
+                        VIEW DETAILS
+                      </Link>
+                    </div>
+                  </div>
                 );
-              })()}
+              })}
             </div>
-          ))}
+          )}
         </div>
-      </div>
       )}
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="glass-card max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl border-white/10 p-5 shadow-3xl sm:p-8">
-            <h3 className="text-2xl font-bold mb-6">Start a New Deal</h3>
-            <form onSubmit={handleAddDeal} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-muted-foreground">Deal Title</label>
-                <input 
-                  type="text" 
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  placeholder="Security Contract Q3"
-                  value={newDeal.name}
-                  onChange={(e) => setNewDeal({...newDeal, name: e.target.value})}
-                  required
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-muted-foreground">Select Lead</label>
-                <select 
-                  className="w-full bg-[#1e293b] border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
-                  value={newDeal.leadId}
-                  onChange={(e) => setNewDeal({...newDeal, leadId: e.target.value})}
-                  required
-                >
-                  <option value="">Choose a lead...</option>
-                  {leads.length === 0 && <option value="" disabled>No leads available</option>}
-                  {leads.map(lead => (
-                    <option key={lead.id} value={lead.id}>{lead.company} ({lead.name})</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-muted-foreground">Link to Client (Optional)</label>
-                <select 
-                  className="w-full bg-[#1e293b] border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
-                  value={newDeal.clientId}
-                  onChange={(e) => setNewDeal({...newDeal, clientId: e.target.value})}
-                >
-                  <option value="">Choose a client...</option>
-                  {clients.length === 0 && <option value="" disabled>No clients available</option>}
-                  {clients.map(client => (
-                    <option key={client.id} value={client.id}>{getClientLabel(client)}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:gap-4">
-                <button 
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-3 rounded-2xl transition-all border border-white/10"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 bg-primary hover:bg-indigo-500 text-white font-bold py-3 rounded-2xl transition-all shadow-lg"
-                >
-                  Initialize Deal
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Start a New Deal</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddDeal} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-muted-foreground">Deal Title</label>
+              <Input
+                type="text"
+                placeholder="Security Contract Q3"
+                value={newDeal.name}
+                onChange={(e) => setNewDeal({ ...newDeal, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-muted-foreground">Select Lead</label>
+              <select
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                value={newDeal.leadId}
+                onChange={(e) => setNewDeal({ ...newDeal, leadId: e.target.value })}
+                required
+              >
+                <option value="">Choose a lead...</option>
+                {leads.length === 0 && <option value="" disabled>No leads available</option>}
+                {leads.map((lead) => (
+                  <option key={lead.id} value={lead.id}>{lead.company} ({lead.name})</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-muted-foreground">Link to Client (Optional)</label>
+              <select
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                value={newDeal.clientId}
+                onChange={(e) => setNewDeal({ ...newDeal, clientId: e.target.value })}
+              >
+                <option value="">Choose a client...</option>
+                {clients.length === 0 && <option value="" disabled>No clients available</option>}
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>{getClientLabel(client)}</option>
+                ))}
+              </select>
+            </div>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">Initialize Deal</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

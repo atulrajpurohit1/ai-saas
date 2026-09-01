@@ -37,9 +37,9 @@ type GhlSyncPhase = 'idle' | 'syncing' | 'success' | 'error';
 
 function readinessLevelClass(level: string) {
   const normalized = level.toLowerCase();
-  if (normalized.includes('hot')) return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
-  if (normalized.includes('warm')) return 'border-amber-500/30 bg-amber-500/10 text-amber-300';
-  if (normalized.includes('flag')) return 'border-rose-500/30 bg-rose-500/10 text-rose-300';
+  if (normalized.includes('hot')) return 'border-emerald-500/30 bg-emerald-500/10 text-success';
+  if (normalized.includes('warm')) return 'border-amber-500/30 bg-amber-500/10 text-warning';
+  if (normalized.includes('flag')) return 'border-rose-500/30 bg-rose-500/10 text-error';
   return 'border-white/10 bg-white/5 text-slate-300';
 }
 
@@ -208,20 +208,20 @@ export default function ProspectDetailsDrawer({
     >
       <div className="absolute inset-0 bg-black/60" onClick={onClose} aria-hidden="true" />
 
-      <div className="relative flex h-dvh w-full flex-col overflow-y-auto border-l border-white/10 bg-[#0f172a] shadow-2xl sm:w-[480px]">
+      <div className="relative flex h-dvh w-full flex-col overflow-y-auto border-l border-white/10 bg-[#0f172a] shadow-lg sm:w-[480px]">
         <div className="flex items-start justify-between gap-4 border-b border-white/10 p-5">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
               <Building2 size={14} aria-hidden="true" />
               Company Details
             </div>
-            <h2 className="mt-1 truncate text-xl font-bold text-white">{company.name}</h2>
+            <h2 className="mt-1 truncate text-xl font-bold text-foreground">{company.name}</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
             autoFocus
-            className="shrink-0 rounded-xl p-2 text-slate-400 transition hover:bg-white/10 hover:text-white"
+            className="shrink-0 rounded-xl p-2 text-slate-400 transition hover:bg-white/10 hover:text-foreground"
             aria-label="Close company details"
           >
             <X size={20} />
@@ -236,7 +236,7 @@ export default function ProspectDetailsDrawer({
                   href={insight.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-indigo-300 transition hover:text-indigo-200"
+                  className="flex items-center gap-2 text-primary transition hover:text-primary"
                 >
                   <Globe size={14} className="shrink-0" aria-hidden="true" />
                   <span className="truncate">{insight.domain || insight.website}</span>
@@ -254,8 +254,8 @@ export default function ProspectDetailsDrawer({
 
           <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-white">
-                <Sparkles size={16} className="text-indigo-300" aria-hidden="true" />
+              <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+                <Sparkles size={16} className="text-primary" aria-hidden="true" />
                 AI Playbook
               </h3>
               {insight?.readinessLevel && (
@@ -269,7 +269,7 @@ export default function ProspectDetailsDrawer({
 
             {insightLoading && (
               <div className="flex items-center gap-3 py-4 text-sm text-slate-400">
-                <Loader2 className="animate-spin text-indigo-300" size={18} aria-hidden="true" />
+                <Loader2 className="animate-spin text-primary" size={18} aria-hidden="true" />
                 Generating insight...
               </div>
             )}
@@ -277,7 +277,7 @@ export default function ProspectDetailsDrawer({
             {!insightLoading && insightError && (
               <div
                 role="alert"
-                className="flex items-center gap-2 text-sm font-semibold text-rose-300"
+                className="flex items-center gap-2 text-sm font-semibold text-error"
               >
                 <AlertTriangle size={16} aria-hidden="true" />
                 {insightError}
@@ -337,7 +337,7 @@ export default function ProspectDetailsDrawer({
                     <div className="space-y-3">
                       {insight.keyPersonas.map((persona, index) => (
                         <div key={index} className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
-                          <p className="font-bold text-white">
+                          <p className="font-bold text-foreground">
                             {persona.name}
                             {persona.title && (
                               <span className="ml-1 font-normal text-slate-400">— {persona.title}</span>
@@ -361,7 +361,7 @@ export default function ProspectDetailsDrawer({
                     <div className="space-y-3">
                       {insight.potentialObjections.map((item, index) => (
                         <div key={index} className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
-                          <p className="font-bold text-white">&ldquo;{item.objection}&rdquo;</p>
+                          <p className="font-bold text-foreground">&ldquo;{item.objection}&rdquo;</p>
                           <p className="mt-1 text-slate-400">{item.response}</p>
                         </div>
                       ))}
@@ -396,7 +396,7 @@ export default function ProspectDetailsDrawer({
                     href={insight.documentUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-indigo-300 transition hover:text-indigo-200"
+                    className="flex items-center gap-2 text-primary transition hover:text-primary"
                   >
                     <FileText size={14} className="shrink-0" aria-hidden="true" />
                     View full playbook
@@ -411,9 +411,9 @@ export default function ProspectDetailsDrawer({
             <section
               role="alertdialog"
               aria-label="Lead already exists"
-              className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4"
+              className="rounded-2xl border bg-warning-wash p-4"
             >
-              <p className="mb-4 text-sm font-bold text-amber-200">Lead already exists.</p>
+              <p className="mb-4 text-sm font-bold text-warning">Lead already exists.</p>
               <div className="flex flex-col gap-2">
                 <button
                   type="button"
@@ -425,14 +425,14 @@ export default function ProspectDetailsDrawer({
                 <button
                   type="button"
                   onClick={() => void handleImport(true)}
-                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-white/10"
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-foreground transition hover:bg-white/10"
                 >
                   Import Anyway
                 </button>
                 <button
                   type="button"
                   onClick={() => setImportPhase('idle')}
-                  className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-400 transition hover:text-white"
+                  className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-400 transition hover:text-foreground"
                 >
                   Cancel
                 </button>
@@ -441,8 +441,8 @@ export default function ProspectDetailsDrawer({
           )}
 
           {importPhase === 'success' && importedLead && (
-            <section className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-              <p className="mb-4 flex items-center gap-2 text-sm font-bold text-emerald-200">
+            <section className="rounded-2xl border bg-success-wash p-4">
+              <p className="mb-4 flex items-center gap-2 text-sm font-bold text-success">
                 <CheckCircle2 size={18} aria-hidden="true" />
                 Lead imported successfully
               </p>
@@ -457,7 +457,7 @@ export default function ProspectDetailsDrawer({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-white/10"
+                  className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-foreground transition hover:bg-white/10"
                 >
                   Continue Searching
                 </button>
@@ -468,7 +468,7 @@ export default function ProspectDetailsDrawer({
           {importError && (
             <div
               role="alert"
-              className="flex items-center gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-300"
+              className="flex items-center gap-3 rounded-2xl border bg-error-wash px-4 py-3 text-sm font-semibold text-error"
             >
               <AlertTriangle size={16} aria-hidden="true" />
               {importError}
@@ -476,7 +476,7 @@ export default function ProspectDetailsDrawer({
           )}
 
           {ghlPhase === 'success' && (
-            <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-bold text-emerald-200">
+            <div className="flex items-center gap-3 rounded-2xl border bg-success-wash px-4 py-3 text-sm font-bold text-success">
               <CheckCircle2 size={16} aria-hidden="true" />
               Synced to GHL
             </div>
@@ -485,7 +485,7 @@ export default function ProspectDetailsDrawer({
           {ghlPhase === 'error' && ghlError && (
             <div
               role="alert"
-              className="flex items-center gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-300"
+              className="flex items-center gap-3 rounded-2xl border bg-error-wash px-4 py-3 text-sm font-semibold text-error"
             >
               <AlertTriangle size={16} aria-hidden="true" />
               {ghlError}
@@ -521,7 +521,7 @@ export default function ProspectDetailsDrawer({
                       ? 'GHL sync requires an email address to avoid creating duplicate contacts - this prospect has none available'
                       : undefined
                 }
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-foreground transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {ghlPhase === 'syncing' ? (
                   <Loader2 className="animate-spin" size={18} aria-hidden="true" />

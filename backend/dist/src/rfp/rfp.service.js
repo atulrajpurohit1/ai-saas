@@ -17,9 +17,12 @@ const path_1 = require("path");
 const crypto_1 = require("crypto");
 const prisma_service_1 = require("../prisma/prisma.service");
 const ai_service_1 = require("../ai/ai.service");
+const ai_governance_service_1 = require("../ai-governance/ai-governance.service");
 const audit_service_1 = require("../audit/audit.service");
 const branding_service_1 = require("../branding/branding.service");
 const email_service_1 = require("../email/email.service");
+const proposals_service_1 = require("../proposals/proposals.service");
+const proposal_content_util_1 = require("../proposals/proposal-content.util");
 const file_storage_util_1 = require("../common/file-storage.util");
 const SUBMISSION_DOCUMENT_LABELS = {
     proposalFile: 'Proposal PDF',
@@ -40,12 +43,16 @@ let RfpService = class RfpService {
     auditService;
     brandingService;
     emailService;
-    constructor(prisma, aiService, auditService, brandingService, emailService) {
+    proposalsService;
+    aiGovernanceService;
+    constructor(prisma, aiService, auditService, brandingService, emailService, proposalsService, aiGovernanceService) {
         this.prisma = prisma;
         this.aiService = aiService;
         this.auditService = auditService;
         this.brandingService = brandingService;
         this.emailService = emailService;
+        this.proposalsService = proposalsService;
+        this.aiGovernanceService = aiGovernanceService;
     }
     parseOptionalDate(value, fieldName) {
         if (!value)
@@ -839,6 +846,178 @@ let RfpService = class RfpService {
         });
         return updated;
     }
+    htmlToPlainText(html) {
+        if (!html)
+            return '';
+        return html
+            .replace(/<\s*br\s*\/?>/gi, '\n')
+            .replace(/<\/\s*(p|div|li|h[1-6]|tr|section|article)\s*>/gi, '\n')
+            .replace(/<\s*li[^>]*>/gi, '- ')
+            .replace(/<[^>]+>/g, '')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&nbsp;/g, ' ')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+    }
+    buildRfpSourceText(rfp) {
+        const parts = [
+            this.htmlToPlainText(rfp.generatedContent),
+            rfp.additionalRequirements
+                ? `Additional requirements:\n${rfp.additionalRequirements}`
+                : '',
+            rfp.pricingNotes ? `Pricing notes:\n${rfp.pricingNotes}` : '',
+        ].filter(Boolean);
+        return parts.join('\n\n').trim();
+    }
+    toStructuredInput(rfp) {
+        const iso = (d) => (d ? d.toISOString().slice(0, 10) : null);
+        return {
+            title: rfp.title,
+            clientName: rfp.clientName,
+            companyName: rfp.companyName,
+            industry: rfp.industry,
+            securityTypes: Array.isArray(rfp.securityTypes)
+                ? rfp.securityTypes.filter((t) => typeof t === 'string')
+                : [],
+            numberOfLocations: rfp.numberOfLocations,
+            address: rfp.address,
+            operatingHours: rfp.operatingHours,
+            guardsRequired: rfp.guardsRequired,
+            startDate: iso(rfp.startDate),
+            endDate: iso(rfp.endDate),
+            dueDate: iso(rfp.dueDate),
+            estimatedBudget: rfp.estimatedBudget,
+            pricingModel: rfp.pricingModel,
+            requiredPricingItems: Array.isArray(rfp.requiredPricingItems)
+                ? rfp.requiredPricingItems.filter((t) => typeof t === 'string')
+                : [],
+            paymentTerms: rfp.paymentTerms,
+            additionalRequirements: rfp.additionalRequirements,
+        };
+    }
+    async buildProposalCapabilities(tenantId, structured) {
+        const branding = await this.brandingService.brandingSnapshot(tenantId);
+        const companyName = branding?.company_name?.trim() || 'our security services company';
+        const services = structured.securityTypes.length
+            ? structured.securityTypes.join(', ')
+            : 'contract security guard services';
+        return [
+            `Bidding company display name: ${companyName}.`,
+            `The company provides contract security guard services and can staff, supervise, and manage the service types requested in this RFP (${services}).`,
+            `The company operates a guard workforce, scheduling, patrol, incident-reporting and client-portal system (this AegisLead platform).`,
+            `NOTHING else about the company is known here. Do not state license numbers, insurance limits, exact officer counts, bill rates, years in business, or named past clients - use [placeholders] for all of those.`,
+        ].join('\n');
+    }
+    async analyzeRequirements(tenantId, userId, id) {
+        const rfp = await this.findRfpOrThrow(tenantId, id);
+        const structured = this.toStructuredInput(rfp);
+        const sourceText = this.buildRfpSourceText(rfp);
+        const draft = await this.aiService.analyzeSecurityRfp({
+            sourceText,
+            structured,
+        });
+        const safety = this.aiGovernanceService.evaluateSafety({
+            generatedOutput: {
+                summary: draft.summary,
+                requirements: draft.requirements,
+                missingInformation: draft.missingInformation,
+            },
+            inputSource: { tenantId, rfpId: id },
+            clientVisible: false,
+        });
+        const analysis = await this.prisma.rfpRequirementAnalysis.create({
+            data: {
+                tenantId,
+                rfpId: id,
+                requirements: draft.requirements,
+                summary: draft.summary,
+                missingInformation: draft.missingInformation,
+                modelUsed: draft.fallbackUsed
+                    ? 'structured-fallback'
+                    : this.aiService.getModelName(),
+                fallbackUsed: draft.fallbackUsed,
+                safetyStatus: safety.status,
+                createdBy: userId,
+            },
+        });
+        await this.auditService.log({
+            tenantId,
+            userId,
+            action: 'GENERATE',
+            entityType: 'RfpRequirementAnalysis',
+            entityId: analysis.id,
+            details: `Analyzed security requirements for RFP: ${rfp.title} (${draft.requirements.length} requirement(s)${draft.fallbackUsed ? ', structured fallback' : ''})`,
+        });
+        return analysis;
+    }
+    async getLatestRequirementAnalysis(tenantId, id) {
+        await this.findRfpOrThrow(tenantId, id);
+        return this.prisma.rfpRequirementAnalysis.findFirst({
+            where: { tenantId, rfpId: id },
+            orderBy: { createdAt: 'desc' },
+        });
+    }
+    async generateProposalFromRfp(tenantId, userId, id, dto) {
+        const rfp = await this.findRfpOrThrow(tenantId, id);
+        let analysisRecord = await this.prisma.rfpRequirementAnalysis.findFirst({
+            where: { tenantId, rfpId: id },
+            orderBy: { createdAt: 'desc' },
+        });
+        if (!analysisRecord) {
+            analysisRecord = await this.analyzeRequirements(tenantId, userId, id);
+        }
+        const structured = this.toStructuredInput(rfp);
+        const analysis = {
+            summary: analysisRecord.summary,
+            requirements: Array.isArray(analysisRecord.requirements)
+                ? analysisRecord.requirements
+                : [],
+            missingInformation: Array.isArray(analysisRecord.missingInformation)
+                ? analysisRecord.missingInformation
+                : [],
+            fallbackUsed: analysisRecord.fallbackUsed,
+        };
+        const capabilities = await this.buildProposalCapabilities(tenantId, structured);
+        const content = await this.aiService.generateProposalFromRfp({
+            structured,
+            analysis,
+            capabilities,
+        });
+        const safety = this.aiGovernanceService.evaluateSafety({
+            generatedOutput: { content },
+            inputSource: {
+                tenantId,
+                rfpId: id,
+                ...(dto.clientId ? { clientId: dto.clientId } : {}),
+            },
+            clientVisible: true,
+        });
+        const proposal = await this.proposalsService.create(tenantId, {
+            title: `Proposal - ${rfp.title}`,
+            content,
+            status: 'draft',
+            clientId: dto.clientId?.trim() || undefined,
+        }, userId);
+        const unresolvedPlaceholders = (0, proposal_content_util_1.findUnresolvedPlaceholders)(content);
+        await this.auditService.log({
+            tenantId,
+            userId,
+            action: 'GENERATE',
+            entityType: 'Proposal',
+            entityId: proposal.id,
+            details: `Generated draft proposal from RFP "${rfp.title}" (${unresolvedPlaceholders.length} placeholder(s) need review; safety: ${safety.status})`,
+        });
+        return {
+            proposal,
+            analysisId: analysisRecord.id,
+            unresolvedPlaceholders,
+            safetyStatus: safety.status,
+        };
+    }
 };
 exports.RfpService = RfpService;
 exports.RfpService = RfpService = __decorate([
@@ -847,6 +1026,8 @@ exports.RfpService = RfpService = __decorate([
         ai_service_1.AiService,
         audit_service_1.AuditService,
         branding_service_1.BrandingService,
-        email_service_1.EmailService])
+        email_service_1.EmailService,
+        proposals_service_1.ProposalsService,
+        ai_governance_service_1.AiGovernanceService])
 ], RfpService);
 //# sourceMappingURL=rfp.service.js.map

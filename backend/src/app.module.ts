@@ -55,6 +55,7 @@ import { ProspectSearchModule } from './prospect-search/prospect-search.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { GuardComplianceModule } from './guard-compliance/guard-compliance.module';
 import { EmergencyAlertsModule } from './emergency-alerts/emergency-alerts.module';
+import { ClientComplianceModule } from './client-compliance/client-compliance.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { EmergencyAlertsModule } from './emergency-alerts/emergency-alerts.modul
     DashboardModule,
     GuardComplianceModule,
     EmergencyAlertsModule,
+    ClientComplianceModule,
     FieldPermissionsModule,
     ApiKeysModule,
     WebhooksModule,

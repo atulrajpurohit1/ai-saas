@@ -8,8 +8,8 @@ export declare class AiFeedbackController {
         aiGeneration: {
             id: string;
             status: string;
-            sourceModule: string;
             fallbackUsed: boolean;
+            sourceModule: string;
         };
     } & {
         id: string;
@@ -30,9 +30,9 @@ export declare class AiFeedbackController {
             createdAt: Date;
             status: string;
             promptVersion: string;
+            fallbackUsed: boolean;
             modelUsed: string;
             sourceModule: string;
-            fallbackUsed: boolean;
         };
     } & {
         id: string;

@@ -7,6 +7,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import ProspectDetailsDrawer from '@/components/ProspectDetailsDrawer';
 import ProspectDiscoveryResultCard from '@/components/ProspectDiscoveryResultCard';
 import ProspectSearchFilterChip from '@/components/ProspectSearchFilterChip';
+import EmptyState from '@/components/EmptyState';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { getCrmConnectorStatus } from '@/lib/integrations';
@@ -88,20 +89,6 @@ function parseList(value: string): string[] | undefined {
     .map((item) => item.trim())
     .filter(Boolean);
   return items.length > 0 ? items : undefined;
-}
-
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 px-6 py-16 text-center">
-      <Radar className="mb-4 text-slate-600" size={48} aria-hidden="true" />
-      <p className="max-w-sm text-sm font-semibold text-slate-400">
-        Describe who you&apos;re looking for to discover real, matching companies and contacts.
-      </p>
-      <p className="mt-2 max-w-sm text-xs text-slate-500">
-        e.g. &ldquo;Marketing agencies in India&rdquo; or &ldquo;SaaS companies in California with 50-500 employees&rdquo;
-      </p>
-    </div>
-  );
 }
 
 export default function ProspectSearchPage() {
@@ -576,7 +563,7 @@ export default function ProspectSearchPage() {
     <DashboardLayout requiredPermissions="prospect_search.view">
       <div className="mb-6 sm:mb-8">
         <h2 className="flex items-center gap-3 text-2xl font-bold sm:text-3xl">
-          <Radar className="text-indigo-300" size={30} aria-hidden="true" />
+          <Radar className="text-primary" size={30} aria-hidden="true" />
           AI Prospect Search
         </h2>
         <p className="mt-2 text-slate-400">
@@ -621,7 +608,7 @@ export default function ProspectSearchPage() {
                     type="button"
                     onClick={() => handleRunAgain(entry.prompt)}
                     title={entry.prompt}
-                    className="flex max-w-[160px] items-center gap-1 truncate transition hover:text-white"
+                    className="flex max-w-[160px] items-center gap-1 truncate transition hover:text-foreground"
                   >
                     <RotateCcw size={11} aria-hidden="true" />
                     <span className="truncate">{entry.name}</span>
@@ -630,7 +617,7 @@ export default function ProspectSearchPage() {
                     type="button"
                     onClick={() => void handleRenameSaved(entry)}
                     aria-label={`Rename saved search "${entry.name}"`}
-                    className="text-slate-500 transition hover:text-white"
+                    className="text-slate-500 transition hover:text-foreground"
                   >
                     <Pencil size={11} aria-hidden="true" />
                   </button>
@@ -638,7 +625,7 @@ export default function ProspectSearchPage() {
                     type="button"
                     onClick={() => void handleDeleteSaved(entry)}
                     aria-label={`Delete saved search "${entry.name}"`}
-                    className="text-slate-500 transition hover:text-rose-300"
+                    className="text-slate-500 transition hover:text-error"
                   >
                     <Trash2 size={11} aria-hidden="true" />
                   </button>
@@ -674,7 +661,7 @@ export default function ProspectSearchPage() {
               value={companyNamesText}
               onChange={(event) => setCompanyNamesText(event.target.value)}
               placeholder="Acme Corp, Globex"
-              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-indigo-400"
+              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-foreground outline-none focus:border-indigo-400"
             />
           </ProspectSearchFilterChip>
 
@@ -698,7 +685,7 @@ export default function ProspectSearchPage() {
               value={locationsText}
               onChange={(event) => setLocationsText(event.target.value)}
               placeholder="India, Texas"
-              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-indigo-400"
+              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-foreground outline-none focus:border-indigo-400"
             />
           </ProspectSearchFilterChip>
 
@@ -722,7 +709,7 @@ export default function ProspectSearchPage() {
               value={industriesText}
               onChange={(event) => setIndustriesText(event.target.value)}
               placeholder="Marketing, SaaS"
-              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-indigo-400"
+              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-foreground outline-none focus:border-indigo-400"
             />
           </ProspectSearchFilterChip>
 
@@ -746,7 +733,7 @@ export default function ProspectSearchPage() {
               value={jobTitlesText}
               onChange={(event) => setJobTitlesText(event.target.value)}
               placeholder="Founder, CEO"
-              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-indigo-400"
+              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-foreground outline-none focus:border-indigo-400"
             />
           </ProspectSearchFilterChip>
 
@@ -769,7 +756,7 @@ export default function ProspectSearchPage() {
                 value={headcountMin}
                 onChange={(event) => setHeadcountMin(event.target.value)}
                 placeholder="Min"
-                className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-indigo-400"
+                className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-foreground outline-none focus:border-indigo-400"
               />
               <span className="text-slate-600">-</span>
               <input
@@ -778,7 +765,7 @@ export default function ProspectSearchPage() {
                 value={headcountMax}
                 onChange={(event) => setHeadcountMax(event.target.value)}
                 placeholder="Max"
-                className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-indigo-400"
+                className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-foreground outline-none focus:border-indigo-400"
               />
             </div>
           </ProspectSearchFilterChip>
@@ -803,7 +790,7 @@ export default function ProspectSearchPage() {
               value={keywordsText}
               onChange={(event) => setKeywordsText(event.target.value)}
               placeholder="hiring, expanding"
-              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-indigo-400"
+              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-foreground outline-none focus:border-indigo-400"
             />
           </ProspectSearchFilterChip>
         </div>
@@ -818,7 +805,7 @@ export default function ProspectSearchPage() {
           onChange={(event) => setObjective(event.target.value)}
           disabled={loading}
           placeholder={"Describe what you're looking for... e.g. \"Marketing agencies in India\""}
-          className="w-full resize-none rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-indigo-400 disabled:opacity-60"
+          className="w-full resize-none rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-foreground outline-none transition placeholder:text-slate-500 focus:border-indigo-400 disabled:opacity-60"
         />
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -838,7 +825,7 @@ export default function ProspectSearchPage() {
                   className={`rounded-full px-3 py-1.5 capitalize transition disabled:cursor-not-allowed ${
                     searchMode === mode
                       ? 'bg-indigo-500 text-white'
-                      : 'text-slate-400 hover:text-white'
+                      : 'text-slate-400 hover:text-foreground'
                   }`}
                 >
                   {mode}
@@ -855,7 +842,7 @@ export default function ProspectSearchPage() {
               <button
                 type="button"
                 onClick={() => void handleSaveSearch()}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-bold text-white transition hover:bg-white/10"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 text-sm font-bold text-foreground transition hover:bg-white/10"
               >
                 <Bookmark size={16} aria-hidden="true" />
                 Save
@@ -880,7 +867,7 @@ export default function ProspectSearchPage() {
       {error && (
         <div
           role="alert"
-          className="mb-6 flex items-center gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-5 py-4 text-sm font-semibold text-rose-300"
+          className="mb-6 flex items-center gap-3 rounded-2xl border bg-error-wash px-5 py-4 text-sm font-semibold text-error"
         >
           <AlertTriangle size={18} aria-hidden="true" />
           {error}
@@ -889,13 +876,19 @@ export default function ProspectSearchPage() {
 
       {loading && (
         <div className="mb-6 flex items-center gap-3 text-sm font-semibold text-slate-300">
-          <Loader2 className="animate-spin text-indigo-300" size={18} aria-hidden="true" />
+          <Loader2 className="animate-spin text-primary" size={18} aria-hidden="true" />
           {stageLabel ?? 'Searching...'}
           {progress !== null && ` (${progress}%)`}
         </div>
       )}
 
-      {!loading && !result && <EmptyState />}
+      {!loading && !result && (
+        <EmptyState
+          icon={Radar}
+          title="Describe who you're looking for"
+          description='e.g. "Marketing agencies in India" or "SaaS companies in California with 50-500 employees"'
+        />
+      )}
 
       {!loading && result && (
         <div>
@@ -910,9 +903,9 @@ export default function ProspectSearchPage() {
               <button
                 type="button"
                 onClick={toggleSelectAllOnPage}
-                className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-xs font-bold text-slate-300 transition hover:bg-white/5 hover:text-white"
+                className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-xs font-bold text-slate-300 transition hover:bg-white/5 hover:text-foreground"
               >
-                {allOnPageSelected ? <CheckSquare size={16} className="text-indigo-400" /> : <Square size={16} />}
+                {allOnPageSelected ? <CheckSquare size={16} className="text-primary" /> : <Square size={16} />}
                 {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all on page'}
               </button>
 
@@ -930,7 +923,7 @@ export default function ProspectSearchPage() {
               <button
                 type="button"
                 onClick={handleExportCsv}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-white/10"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-foreground transition hover:bg-white/10"
               >
                 <Download size={13} />
                 Export CSV
@@ -944,14 +937,14 @@ export default function ProspectSearchPage() {
                 <button
                   type="button"
                   onClick={() => setSortBy('match')}
-                  className={`rounded-lg px-2.5 py-1 font-bold transition ${sortBy === 'match' ? 'bg-indigo-500/20 text-indigo-200' : 'text-slate-400 hover:text-white'}`}
+                  className={`rounded-lg px-2.5 py-1 font-bold transition ${sortBy === 'match' ? 'bg-indigo-500/20 text-primary' : 'text-slate-400 hover:text-foreground'}`}
                 >
                   Best match
                 </button>
                 <button
                   type="button"
                   onClick={() => setSortBy('name')}
-                  className={`flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition ${sortBy === 'name' ? 'bg-indigo-500/20 text-indigo-200' : 'text-slate-400 hover:text-white'}`}
+                  className={`flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition ${sortBy === 'name' ? 'bg-indigo-500/20 text-primary' : 'text-slate-400 hover:text-foreground'}`}
                 >
                   <ArrowDownAZ size={12} />
                   Name
@@ -982,7 +975,7 @@ export default function ProspectSearchPage() {
                 type="button"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-foreground transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Previous
               </button>
@@ -993,7 +986,7 @@ export default function ProspectSearchPage() {
                 type="button"
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-foreground transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Next
               </button>
@@ -1003,8 +996,8 @@ export default function ProspectSearchPage() {
       )}
 
       {deepResearchPendingName && (
-        <div className="fixed inset-x-0 bottom-4 z-50 mx-auto flex w-fit max-w-[calc(100vw-2rem)] items-center gap-3 rounded-2xl border border-white/10 bg-[#0f172a] px-5 py-3 text-sm font-semibold text-slate-300 shadow-2xl">
-          <Loader2 className="animate-spin text-indigo-300" size={18} aria-hidden="true" />
+        <div className="fixed inset-x-0 bottom-4 z-50 mx-auto flex w-fit max-w-[calc(100vw-2rem)] items-center gap-3 rounded-2xl border border-white/10 bg-[#0f172a] px-5 py-3 text-sm font-semibold text-slate-300 shadow-lg">
+          <Loader2 className="animate-spin text-primary" size={18} aria-hidden="true" />
           Generating full playbook for {deepResearchPendingName}
           {deepResearchProgress !== null ? ` (${deepResearchProgress}%)` : ''} - typically
           10-15 minutes...
@@ -1014,14 +1007,14 @@ export default function ProspectSearchPage() {
       {deepResearchError && !deepResearchPendingName && (
         <div
           role="alert"
-          className="fixed inset-x-0 bottom-4 z-50 mx-auto flex w-fit max-w-[calc(100vw-2rem)] items-center gap-3 rounded-2xl border border-rose-500/20 bg-[#0f172a] px-5 py-3 text-sm font-semibold text-rose-300 shadow-2xl"
+          className="fixed inset-x-0 bottom-4 z-50 mx-auto flex w-fit max-w-[calc(100vw-2rem)] items-center gap-3 rounded-2xl border border-rose-500/20 bg-[#0f172a] px-5 py-3 text-sm font-semibold text-error shadow-lg"
         >
           <AlertTriangle size={18} aria-hidden="true" />
           {deepResearchError}
           <button
             type="button"
             onClick={() => setDeepResearchError('')}
-            className="text-slate-500 hover:text-white"
+            className="text-slate-500 hover:text-foreground"
           >
             Dismiss
           </button>

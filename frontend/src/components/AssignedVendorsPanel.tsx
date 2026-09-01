@@ -121,7 +121,7 @@ export default function AssignedVendorsPanel({ rfpId }: AssignedVendorsPanelProp
   const selectableResults = searchResults.filter((vendor) => !assignedIds.has(vendor.id));
 
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+    <section className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5 sm:p-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-indigo-400">
           <Building2 size={14} />
@@ -152,7 +152,7 @@ export default function AssignedVendorsPanel({ rfpId }: AssignedVendorsPanelProp
           Loading vendors...
         </div>
       ) : assigned.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-white/10 bg-black/10 py-8 text-center text-sm text-slate-500">
+        <div className="rounded-2xl border border-dashed border-white/10 bg-muted py-8 text-center text-sm text-slate-500">
           No vendors assigned to this RFP yet.
         </div>
       ) : (
@@ -219,7 +219,7 @@ export default function AssignedVendorsPanel({ rfpId }: AssignedVendorsPanelProp
 
       {showAssignModal && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 p-3 text-left backdrop-blur-md sm:items-center sm:p-4">
-          <div className="glass-card flex max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border-white/10 bg-[#0e0e1a] shadow-3xl sm:max-h-[85vh]">
+          <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-[var(--radius-lg)] border-white/10 bg-[#0e0e1a] shadow-3xl sm:max-h-[85vh]">
             <div className="flex items-center justify-between gap-4 border-b border-white/5 p-5 sm:p-6">
               <h3 className="text-lg font-bold text-white sm:text-xl">Assign Vendors</h3>
               <button onClick={() => setShowAssignModal(false)} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
@@ -232,7 +232,7 @@ export default function AssignedVendorsPanel({ rfpId }: AssignedVendorsPanelProp
                 <div className="relative flex-1">
                   <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
                   <input
-                    className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 pl-11 pr-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 pl-11 pr-4 text-white outline-none focus:ring-2 focus:ring-ring/50"
                     placeholder="Search vendors by company, contact, or email..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}

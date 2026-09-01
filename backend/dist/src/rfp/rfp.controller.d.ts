@@ -9,6 +9,7 @@ import { RejectVendorDto } from './dto/reject-vendor.dto';
 import { CreatePerformanceReviewDto } from './dto/create-performance-review.dto';
 import { UpdatePerformanceReviewDto } from './dto/update-performance-review.dto';
 import { GenerateRfpDto } from '../ai/dto/generate-rfp.dto';
+import { GenerateRfpProposalDto } from './dto/generate-rfp-proposal.dto';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 export declare class RfpController {
     private readonly rfpService;
@@ -198,9 +199,9 @@ export declare class RfpController {
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
         address: string | null;
+        services: import("@prisma/client/runtime/library").JsonValue;
         createdBy: string | null;
         contactPerson: string | null;
-        services: import("@prisma/client/runtime/library").JsonValue;
     }[]>;
     assignVendors(user: ActiveUser, id: string, dto: AssignVendorsDto): Promise<{
         id: string;
@@ -213,9 +214,9 @@ export declare class RfpController {
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
         address: string | null;
+        services: import("@prisma/client/runtime/library").JsonValue;
         createdBy: string | null;
         contactPerson: string | null;
-        services: import("@prisma/client/runtime/library").JsonValue;
     }[]>;
     removeVendor(user: ActiveUser, id: string, vendorId: string): Promise<{
         success: boolean;
@@ -237,9 +238,9 @@ export declare class RfpController {
             phone: string | null;
             status: import(".prisma/client").$Enums.VendorStatus;
             address: string | null;
+            services: import("@prisma/client/runtime/library").JsonValue;
             createdBy: string | null;
             contactPerson: string | null;
-            services: import("@prisma/client/runtime/library").JsonValue;
         };
         submission: {
             id: string;
@@ -274,6 +275,49 @@ export declare class RfpController {
         overallAnalysis: string;
         rfpId: string;
         generatedReport: string;
+    }>;
+    getRequirementAnalysis(user: ActiveUser, id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        tenantId: string;
+        requirements: import("@prisma/client/runtime/library").JsonValue;
+        summary: string;
+        missingInformation: import("@prisma/client/runtime/library").JsonValue;
+        fallbackUsed: boolean;
+        createdBy: string | null;
+        modelUsed: string;
+        safetyStatus: string;
+        rfpId: string;
+    } | null>;
+    analyzeRequirements(user: ActiveUser, id: string): Promise<{
+        id: string;
+        createdAt: Date;
+        tenantId: string;
+        requirements: import("@prisma/client/runtime/library").JsonValue;
+        summary: string;
+        missingInformation: import("@prisma/client/runtime/library").JsonValue;
+        fallbackUsed: boolean;
+        createdBy: string | null;
+        modelUsed: string;
+        safetyStatus: string;
+        rfpId: string;
+    }>;
+    generateProposalFromRfp(user: ActiveUser, id: string, dto: GenerateRfpProposalDto): Promise<{
+        proposal: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            clientId: string | null;
+            status: string;
+            title: string;
+            content: string;
+            dealId: string | null;
+            leadId: string | null;
+        };
+        analysisId: string;
+        unresolvedPlaceholders: string[];
+        safetyStatus: import("../ai-governance/ai-governance.types").AiSafetyStatus;
     }>;
     awardContract(user: ActiveUser, id: string, dto: AwardContractDto): Promise<{
         id: string;

@@ -72,7 +72,7 @@ export default function AiEvaluationPanel({ rfpId, initialEvaluation }: AiEvalua
     );
 
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+    <section className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5 sm:p-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-indigo-400">
           <Sparkles size={14} />
@@ -157,7 +157,7 @@ export default function AiEvaluationPanel({ rfpId, initialEvaluation }: AiEvalua
       </div>
 
       {!evaluation ? (
-        <div className="rounded-2xl border border-dashed border-white/10 bg-black/10 py-10 text-center text-sm text-slate-500">
+        <div className="rounded-2xl border border-dashed border-white/10 bg-muted py-10 text-center text-sm text-slate-500">
           No AI evaluation has been generated for this RFP yet.
         </div>
       ) : (
@@ -179,7 +179,7 @@ export default function AiEvaluationPanel({ rfpId, initialEvaluation }: AiEvalua
           </div>
 
           <div
-            className="rfp-document rounded-2xl border border-white/5 bg-black/20"
+            className="rfp-document rounded-2xl border border-white/5 bg-muted"
             dangerouslySetInnerHTML={{ __html: markdownToHtml(evaluation.generatedReport) }}
           />
         </div>

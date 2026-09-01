@@ -222,47 +222,47 @@ interface SalesDashboard {
 type FocusMode = 'priority' | 'risk' | 'momentum' | 'forecast' | 'feedback' | 'missing';
 
 const scoreClass = (score?: number | null) => {
-  if ((score || 0) >= 75) return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
-  if ((score || 0) >= 50) return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
-  if (typeof score === 'number') return 'border-rose-500/20 bg-rose-500/10 text-rose-300';
+  if ((score || 0) >= 75) return 'bg-success-wash text-success';
+  if ((score || 0) >= 50) return 'bg-warning-wash text-warning';
+  if (typeof score === 'number') return 'bg-error-wash text-error';
   return 'border-white/10 bg-white/5 text-slate-500';
 };
 
 const momentumClass = (status?: DealMomentum['status']) => {
-  if (status === 'healthy') return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
-  if (status === 'watch') return 'border-cyan-500/20 bg-cyan-500/10 text-cyan-300';
-  if (status === 'stalled') return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
-  if (status === 'urgent') return 'border-rose-500/20 bg-rose-500/10 text-rose-300';
+  if (status === 'healthy') return 'bg-success-wash text-success';
+  if (status === 'watch') return 'bg-info-wash text-info';
+  if (status === 'stalled') return 'bg-warning-wash text-warning';
+  if (status === 'urgent') return 'bg-error-wash text-error';
   return 'border-white/10 bg-white/5 text-slate-500';
 };
 
 const forecastClass = (status?: DealForecast['status']) => {
-  if (status === 'commit' || status === 'closed_won') return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
-  if (status === 'likely') return 'border-cyan-500/20 bg-cyan-500/10 text-cyan-300';
-  if (status === 'watch') return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
-  if (status === 'at_risk' || status === 'closed_lost') return 'border-rose-500/20 bg-rose-500/10 text-rose-300';
+  if (status === 'commit' || status === 'closed_won') return 'bg-success-wash text-success';
+  if (status === 'likely') return 'bg-info-wash text-info';
+  if (status === 'watch') return 'bg-warning-wash text-warning';
+  if (status === 'at_risk' || status === 'closed_lost') return 'bg-error-wash text-error';
   return 'border-white/10 bg-white/5 text-slate-500';
 };
 
 const postCloseClass = (status?: PostCloseFeedback['status']) => {
-  if (status === 'healthy') return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
-  if (status === 'watch') return 'border-cyan-500/20 bg-cyan-500/10 text-cyan-300';
-  if (status === 'risk') return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
-  if (status === 'oversold') return 'border-rose-500/20 bg-rose-500/10 text-rose-300';
+  if (status === 'healthy') return 'bg-success-wash text-success';
+  if (status === 'watch') return 'bg-info-wash text-info';
+  if (status === 'risk') return 'bg-warning-wash text-warning';
+  if (status === 'oversold') return 'bg-error-wash text-error';
   return 'border-white/10 bg-white/5 text-slate-500';
 };
 
 const coachClass = (status?: SalesCoachSummary['status']) => {
-  if (status === 'strong') return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
-  if (status === 'watch') return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
-  if (status === 'at_risk') return 'border-rose-500/20 bg-rose-500/10 text-rose-300';
+  if (status === 'strong') return 'bg-success-wash text-success';
+  if (status === 'watch') return 'bg-warning-wash text-warning';
+  if (status === 'at_risk') return 'bg-error-wash text-error';
   return 'border-white/10 bg-white/5 text-slate-500';
 };
 
 const severityClass = (severity?: ObjectionPattern['severity']) => {
-  if (severity === 'high') return 'border-rose-500/20 bg-rose-500/10 text-rose-300';
-  if (severity === 'medium') return 'border-amber-500/20 bg-amber-500/10 text-amber-300';
-  return 'border-cyan-500/20 bg-cyan-500/10 text-cyan-300';
+  if (severity === 'high') return 'bg-error-wash text-error';
+  if (severity === 'medium') return 'bg-warning-wash text-warning';
+  return 'bg-info-wash text-info';
 };
 
 const formatScore = (score?: number | null) => typeof score === 'number' ? score : '--';
@@ -377,7 +377,7 @@ export default function SalesAcceleratorDashboardPage() {
     <DashboardLayout>
       <div className="mb-6 flex flex-col gap-4 sm:mb-8 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-cyan-300">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-info-wash px-3 py-1 text-xs font-bold uppercase tracking-widest text-info">
             <BrainCircuit size={14} />
             Security Sales Execution
           </div>
@@ -394,12 +394,12 @@ export default function SalesAcceleratorDashboardPage() {
       </div>
 
       {loading ? (
-        <div className="rounded-3xl border border-white/10 bg-white/[0.04] py-24 text-center text-slate-500">
-          <Loader2 className="mx-auto mb-3 animate-spin text-cyan-300" size={28} />
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] py-24 text-center text-slate-500">
+          <Loader2 className="mx-auto mb-3 animate-spin text-info" size={28} />
           Loading sales intelligence...
         </div>
       ) : error || !dashboard || !metrics ? (
-        <div className="rounded-3xl border border-rose-500/20 bg-rose-500/10 p-6 text-rose-300">
+        <div className="rounded-2xl border bg-error-wash p-6 text-error">
           {error || 'Sales Accelerator data is unavailable.'}
         </div>
       ) : (
@@ -423,7 +423,7 @@ export default function SalesAcceleratorDashboardPage() {
                 <div key={item.label} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <div className="text-xs font-bold uppercase tracking-widest text-slate-500">{item.label}</div>
-                    <Icon size={18} className="text-cyan-300" />
+                    <Icon size={18} className="text-info" />
                   </div>
                   <div className="text-3xl font-extrabold text-white">{item.value}</div>
                 </div>
@@ -431,11 +431,11 @@ export default function SalesAcceleratorDashboardPage() {
             })}
           </div>
 
-          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+          <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
             <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <h3 className="flex items-center gap-2 text-lg font-bold">
-                  <BrainCircuit size={18} className="text-cyan-300" />
+                  <BrainCircuit size={18} className="text-info" />
                   Sales Coach
                 </h3>
                 <p className="mt-2 text-sm leading-6 text-slate-400">{dashboard.salesCoachSummary.headline}</p>
@@ -481,7 +481,7 @@ export default function SalesAcceleratorDashboardPage() {
             </div>
           </section>
 
-          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+          <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
             <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h3 className="text-lg font-bold">Focus Queue</h3>
@@ -562,10 +562,10 @@ export default function SalesAcceleratorDashboardPage() {
           </section>
 
           <div className="grid gap-6 xl:grid-cols-4">
-            <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+            <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
               <div className="mb-5 flex items-center justify-between gap-4">
                 <h3 className="flex items-center gap-2 text-lg font-bold">
-                  <Users size={18} className="text-emerald-300" />
+                  <Users size={18} className="text-success" />
                   Top Leads
                 </h3>
                 <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
@@ -618,10 +618,10 @@ export default function SalesAcceleratorDashboardPage() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+            <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
               <div className="mb-5 flex items-center justify-between gap-4">
                 <h3 className="flex items-center gap-2 text-lg font-bold">
-                  <Briefcase size={18} className="text-amber-300" />
+                  <Briefcase size={18} className="text-warning" />
                   At-Risk Deals
                 </h3>
                 <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
@@ -674,10 +674,10 @@ export default function SalesAcceleratorDashboardPage() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+            <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
               <div className="mb-5 flex items-center justify-between gap-4">
                 <h3 className="flex items-center gap-2 text-lg font-bold">
-                  <Clock3 size={18} className="text-cyan-300" />
+                  <Clock3 size={18} className="text-info" />
                   Stalled Deals
                 </h3>
                 <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
@@ -716,10 +716,10 @@ export default function SalesAcceleratorDashboardPage() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+            <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
               <div className="mb-5 flex items-center justify-between gap-4">
                 <h3 className="flex items-center gap-2 text-lg font-bold">
-                  <TrendingUp size={18} className="text-rose-300" />
+                  <TrendingUp size={18} className="text-error" />
                   Forecast Risk
                 </h3>
                 <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
@@ -759,10 +759,10 @@ export default function SalesAcceleratorDashboardPage() {
             </section>
           </div>
 
-          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+          <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
             <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="flex items-center gap-2 text-lg font-bold">
-                <Briefcase size={18} className="text-cyan-300" />
+                <Briefcase size={18} className="text-info" />
                 Post-Close Feedback
               </h3>
               <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
@@ -811,10 +811,10 @@ export default function SalesAcceleratorDashboardPage() {
             )}
           </section>
 
-          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+          <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
             <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="flex items-center gap-2 text-lg font-bold">
-                <AlertTriangle size={18} className="text-rose-300" />
+                <AlertTriangle size={18} className="text-error" />
                 Objection Patterns
               </h3>
               <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
@@ -877,7 +877,7 @@ export default function SalesAcceleratorDashboardPage() {
             )}
           </section>
 
-          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+          <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
             <div className="mb-5 flex items-center justify-between gap-4">
               <h3 className="text-lg font-bold">Recent AI Assessments</h3>
               <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
@@ -905,7 +905,7 @@ export default function SalesAcceleratorDashboardPage() {
                     return (
                       <tr key={assessment.id} className="transition hover:bg-white/5">
                         <td className="px-4 py-4" data-label="Record">
-                          <Link href={href} className="font-semibold text-white transition hover:text-indigo-300">
+                          <Link href={href} className="font-semibold text-white transition hover:text-primary">
                             {title}
                           </Link>
                         </td>

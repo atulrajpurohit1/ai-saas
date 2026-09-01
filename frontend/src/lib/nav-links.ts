@@ -25,6 +25,7 @@ import {
   Radar,
   Building2,
   FileCheck2,
+  Umbrella,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -91,6 +92,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/invoices', label: 'Invoices', icon: Receipt, permissions: ['invoices.view'] },
       { href: '/invoice-disputes', label: 'Disputes', icon: FileWarning, permissions: ['invoice_disputes.view'] },
       { href: '/finance', label: 'Finance', icon: DollarSign, permissions: ['finance.view'] },
+      { href: '/clients/insurance', label: 'Client Insurance', icon: Umbrella, permissions: ['clients.view'] },
     ],
   },
   {

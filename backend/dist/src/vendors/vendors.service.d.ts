@@ -19,9 +19,9 @@ export declare class VendorsService {
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
         address: string | null;
+        services: import("@prisma/client/runtime/library").JsonValue;
         createdBy: string | null;
         contactPerson: string | null;
-        services: import("@prisma/client/runtime/library").JsonValue;
     }>;
     findAll(tenantId: string, search?: string): Promise<{
         id: string;
@@ -34,9 +34,9 @@ export declare class VendorsService {
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
         address: string | null;
+        services: import("@prisma/client/runtime/library").JsonValue;
         createdBy: string | null;
         contactPerson: string | null;
-        services: import("@prisma/client/runtime/library").JsonValue;
     }[]>;
     findOne(tenantId: string, id: string): Promise<{
         id: string;
@@ -49,9 +49,9 @@ export declare class VendorsService {
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
         address: string | null;
+        services: import("@prisma/client/runtime/library").JsonValue;
         createdBy: string | null;
         contactPerson: string | null;
-        services: import("@prisma/client/runtime/library").JsonValue;
     }>;
     update(tenantId: string, userId: string | undefined, id: string, dto: UpdateVendorDto): Promise<{
         id: string;
@@ -64,9 +64,9 @@ export declare class VendorsService {
         phone: string | null;
         status: import(".prisma/client").$Enums.VendorStatus;
         address: string | null;
+        services: import("@prisma/client/runtime/library").JsonValue;
         createdBy: string | null;
         contactPerson: string | null;
-        services: import("@prisma/client/runtime/library").JsonValue;
     }>;
     remove(tenantId: string, userId: string | undefined, id: string): Promise<{
         success: boolean;

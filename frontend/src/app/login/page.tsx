@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { Lock, Mail, Building2, User, Shield, Briefcase, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import BrandMark from '@/components/BrandMark';
 
 interface ApiError {
   response?: {
@@ -114,152 +115,134 @@ export default function LoginPage() {
     }
   };
 
-  return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#05050a] px-4 pb-28 pt-8 sm:pb-8">
-       {/* Background decoration */}
-       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full"></div>
-       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full"></div>
+  const inputClass =
+    'w-full rounded-[var(--radius)] border border-border bg-card py-3 pl-11 pr-4 text-sm text-foreground outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-ring/50';
+  const iconClass =
+    'pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground';
 
-      <div className="relative z-10 w-full max-w-md">
-        <div className="mb-8 text-center sm:mb-10">
-          <h1 className="mb-2 text-4xl font-black italic tracking-tighter text-white sm:text-5xl">Ai Saas</h1>
-          <p className="text-slate-500 font-medium tracking-wide">
-            Next Generation Security CRM
-          </p>
+  return (
+    <div className="flex min-h-dvh items-center justify-center bg-background px-4 pb-28 pt-10 sm:pb-10">
+      <div className="w-full max-w-md">
+        <div className="mb-8 flex flex-col items-center gap-3 text-center">
+          <BrandMark size="lg" showWordmark={false} />
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+              Aegis<span className="text-primary">Lead</span>
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">Security operations &amp; sales platform</p>
+          </div>
         </div>
 
-        <div className="glass-card rounded-[2rem] border-white/5 bg-[#0a0a14]/80 p-5 shadow-2xl backdrop-blur-xl sm:rounded-[2.5rem] sm:p-10">
-          
+        <div className="surface-card p-5 shadow-md sm:p-8">
           {/* Role Switcher */}
-          <div className="flex bg-white/5 p-1 rounded-2xl mb-8 border border-white/5">
-            <button 
+          <div className="mb-7 flex gap-1 rounded-[var(--radius)] border border-border bg-muted p-1">
+            <button
+              type="button"
               onClick={() => { setRole('admin'); setError(''); }}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${role === 'admin' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-sm)] py-2.5 text-xs font-bold uppercase tracking-wide transition ${role === 'admin' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <Shield size={14} />
-              ADMIN
+              Admin
             </button>
-            <button 
+            <button
+              type="button"
               onClick={() => { setRole('client'); setError(''); }}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${role === 'client' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-sm)] py-2.5 text-xs font-bold uppercase tracking-wide transition ${role === 'client' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <User size={14} />
-              CLIENT
+              Client
             </button>
           </div>
 
-          <h2 className="mb-2 text-2xl font-extrabold text-white sm:text-3xl">{isRegister ? 'Create Account' : 'Welcome Back'}</h2>
-          <p className="text-slate-500 text-sm mb-8">
-            {isRegister 
-              ? `Signing up as a ${role === 'admin' ? 'Company Administrator' : 'Client'}` 
-              : `Sign in to your ${role === 'admin' ? 'Admin' : 'Client'} dashboard`}
+          <h2 className="text-xl font-bold text-foreground sm:text-2xl">
+            {isRegister ? 'Create account' : 'Welcome back'}
+          </h2>
+          <p className="mb-6 mt-1 text-sm text-muted-foreground">
+            {isRegister
+              ? `Signing up as a ${role === 'admin' ? 'company administrator' : 'client'}`
+              : `Sign in to your ${role === 'admin' ? 'admin' : 'client'} dashboard`}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {isRegister && (
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Full Name</label>
-                <div className="relative group">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-indigo-400 transition-colors" size={18} />
-                  <input
-                    type="text"
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
-                    placeholder="John Doe"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                  />
+              <div className="space-y-1.5">
+                <label className="text-eyebrow">Full Name</label>
+                <div className="relative">
+                  <User className={iconClass} size={17} />
+                  <input type="text" className={inputClass} placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} required />
                 </div>
               </div>
             )}
 
             {isRegister && role === 'admin' && (
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Company Name</label>
-                <div className="relative group">
-                  <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-indigo-400 transition-colors" size={18} />
-                  <input
-                    type="text"
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
-                    placeholder="Acme Security"
-                    value={tenantName}
-                    onChange={(e) => setTenantName(e.target.value)}
-                    required
-                  />
+              <div className="space-y-1.5">
+                <label className="text-eyebrow">Company Name</label>
+                <div className="relative">
+                  <Building2 className={iconClass} size={17} />
+                  <input type="text" className={inputClass} placeholder="Acme Security" value={tenantName} onChange={(e) => setTenantName(e.target.value)} required />
                 </div>
               </div>
             )}
 
             {isRegister && (
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">{slugLabel}</label>
-                <div className="relative group">
-                  <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-indigo-400 transition-colors" size={18} />
-                  <input
-                    type="text"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
-                    placeholder={slugPlaceholder}
-                    value={tenantSlug}
-                    onChange={(e) => setTenantSlug(e.target.value)}
-                    required
-                  />
+              <div className="space-y-1.5">
+                <label className="text-eyebrow">{slugLabel}</label>
+                <div className="relative">
+                  <Briefcase className={iconClass} size={17} />
+                  <input type="text" autoCapitalize="none" spellCheck={false} className={inputClass} placeholder={slugPlaceholder} value={tenantSlug} onChange={(e) => setTenantSlug(e.target.value)} required />
                 </div>
               </div>
             )}
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Email Address</label>
-              <div className="relative group">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-indigo-400 transition-colors" size={18} />
-                <input
-                  type="email"
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
-                  placeholder="name@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
+            <div className="space-y-1.5">
+              <label className="text-eyebrow">Email Address</label>
+              <div className="relative">
+                <Mail className={iconClass} size={17} />
+                <input type="email" className={inputClass} placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Password</label>
-              <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-indigo-400 transition-colors" size={18} />
-                <input
-                  type="password"
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+            <div className="space-y-1.5">
+              <label className="text-eyebrow">Password</label>
+              <div className="relative">
+                <Lock className={iconClass} size={17} />
+                <input type="password" className={inputClass} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
               </div>
             </div>
 
-            {error && <p className="text-red-400 text-xs font-bold bg-red-500/5 p-3 rounded-xl border border-red-500/10">{error}</p>}
+            {error && (
+              <p className="rounded-[var(--radius-sm)] border border-error/20 bg-error-wash p-3 text-xs font-semibold text-error" role="alert">
+                {error}
+              </p>
+            )}
 
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-indigo-600/20 mt-6 disabled:cursor-not-allowed disabled:opacity-70"
+              className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--radius)] bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {loading && <Loader2 className="animate-spin" size={18} />}
               {isRegister ? 'Create Account' : 'Sign In'}
             </button>
           </form>
 
-          <div className="mt-8 text-center">
-            <button 
+          <div className="mt-6 text-center">
+            <button
+              type="button"
               onClick={() => setIsRegister(!isRegister)}
-              className="text-sm text-slate-500 hover:text-indigo-400 font-bold transition-colors"
+              className="text-sm font-semibold text-muted-foreground transition hover:text-primary"
             >
-              {isRegister ? 'ALREADY HAVE AN ACCOUNT? SIGN IN' : "DON'T HAVE AN ACCOUNT? REGISTER"}
+              {isRegister ? 'Already have an account? Sign in' : "Don't have an account? Register"}
             </button>
           </div>
         </div>
+
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          Are you a security officer?{' '}
+          <a href="/guard/login" className="font-semibold text-primary hover:underline">
+            Guard sign in
+          </a>
+        </p>
       </div>
     </div>
   );

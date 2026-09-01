@@ -23,25 +23,25 @@ export function SyncIndicator() {
   }
 
   return (
-    <div className="fixed bottom-4 left-3 right-3 z-50 flex max-w-sm flex-col gap-3 rounded-lg bg-gray-900 px-4 py-3 text-sm text-white shadow-xl sm:left-auto sm:right-4 sm:flex-row sm:items-center sm:gap-4">
-      <div className="min-w-0 flex flex-col gap-1">
+    <div className="surface-card fixed bottom-4 left-3 right-3 z-50 flex max-w-sm flex-col gap-3 px-4 py-3 text-sm shadow-lg sm:left-auto sm:right-4 sm:flex-row sm:items-center sm:gap-4">
+      <div className="flex min-w-0 flex-col gap-1">
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
-          <span className="font-semibold">{isOnline ? 'Online' : 'Offline'}</span>
+          <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-success' : 'bg-error'}`} />
+          <span className="font-semibold text-foreground">{isOnline ? 'Online' : 'Offline'}</span>
         </div>
         {pendingCount > 0 && (
-          <span className="text-gray-300">
+          <span className="text-muted-foreground">
             {pendingCount} action{pendingCount !== 1 ? 's' : ''} saved offline
           </span>
         )}
-        {syncError && <span className="text-red-400">{syncError}</span>}
-        {syncPending && <span className="text-blue-400">Syncing...</span>}
+        {syncError && <span className="text-error">{syncError}</span>}
+        {syncPending && <span className="text-info">Syncing…</span>}
       </div>
-      
+
       {isOnline && pendingCount > 0 && !syncPending && (
         <button
           onClick={triggerSync}
-          className="min-h-9 rounded bg-blue-600 px-3 py-1.5 text-xs text-white transition-colors hover:bg-blue-700"
+          className="min-h-9 rounded-[var(--radius-sm)] bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90"
         >
           Retry Sync
         </button>

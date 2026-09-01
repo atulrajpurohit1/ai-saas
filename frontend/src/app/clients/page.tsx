@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
+import InsuranceAdvisoryBanner from '@/components/InsuranceAdvisoryBanner';
 import api from '@/lib/api';
 import { branchParams, BranchSummary } from '@/lib/branches';
 import { FieldAccessMap, getEffectiveFieldPermissions } from '@/lib/field-permissions';
@@ -222,6 +223,8 @@ export default function ClientsPage() {
         </button>
       </div>
 
+      <InsuranceAdvisoryBanner />
+
       <div className="glass-card rounded-[2rem] overflow-hidden border border-white/5 bg-[#0a0a14]/60">
         <div className="border-b border-white/5 bg-white/5 p-4 sm:p-6">
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_240px]">
@@ -250,7 +253,7 @@ export default function ClientsPage() {
                 <th className="px-8 py-5 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5 text-white">
+            <tbody className="divide-y divide-white/5 text-foreground">
               {loading ? (
                 <tr><td colSpan={5} className="px-8 py-20 text-center text-slate-500 animate-pulse">Loading clients...</td></tr>
               ) : clients.length === 0 ? (

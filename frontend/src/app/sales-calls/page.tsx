@@ -137,7 +137,7 @@ export default function SalesCallsPage() {
                 setCoach(null);
               }}
               className={`rounded-md px-4 py-2 text-sm font-bold capitalize transition ${
-                entityType === item ? 'bg-primary text-white' : 'text-muted-foreground hover:text-white'
+                entityType === item ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {item}
@@ -147,7 +147,7 @@ export default function SalesCallsPage() {
       </div>
 
       {error && (
-        <div className="mb-6 flex items-start gap-3 rounded-lg border border-rose-500/20 bg-rose-500/10 p-4 text-rose-100">
+        <div className="mb-6 flex items-start gap-3 rounded-lg border bg-error-wash p-4 text-rose-100">
           <AlertTriangle size={20} className="mt-0.5 shrink-0" />
           <span className="text-sm font-medium">{error}</span>
         </div>
@@ -156,7 +156,7 @@ export default function SalesCallsPage() {
       <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,520px)_minmax(0,1fr)] xl:gap-6">
         <section className="glass-card min-w-0 rounded-lg border border-white/10 p-4 sm:p-6">
           <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-indigo-500/20 bg-indigo-500/10 text-indigo-300">
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg border bg-primary/8 text-primary">
               <Mic size={22} />
             </div>
             <div>
@@ -170,7 +170,7 @@ export default function SalesCallsPage() {
               value={entityId}
               onChange={(event) => setEntityId(event.target.value)}
               disabled={loading === 'data'}
-              className="min-h-11 w-full rounded-lg border border-white/10 bg-[#111827] px-3 text-white outline-none focus:border-indigo-400 disabled:opacity-50"
+              className="min-h-11 w-full rounded-lg border border-border bg-muted px-3 text-foreground outline-none focus:border-primary disabled:opacity-50"
             >
               {options.length === 0 && <option value="">No records available</option>}
               {options.map((option) => (
@@ -184,7 +184,7 @@ export default function SalesCallsPage() {
               <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="flex items-center gap-2 font-bold text-white">
-                    <FileAudio size={18} className="text-indigo-300" />
+                    <FileAudio size={18} className="text-primary" />
                     Audio Transcription
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -220,7 +220,7 @@ export default function SalesCallsPage() {
               </label>
 
               {transcriptionResult && (
-                <div className="mt-3 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-100">
+                <div className="mt-3 rounded-lg border bg-success-wash p-3 text-xs text-emerald-100">
                   Transcribed {Math.round(transcriptionResult.size_bytes / 1024)}KB in {Math.round(transcriptionResult.elapsed_ms / 1000)}s.
                 </div>
               )}
@@ -289,7 +289,7 @@ function ResultPanel({
   return (
     <div className="glass-card rounded-lg border border-white/10 p-5 sm:p-6">
       <div className="mb-4 flex items-center gap-2">
-        <CheckCircle2 size={18} className="text-emerald-300" />
+        <CheckCircle2 size={18} className="text-success" />
         <h3 className="text-lg font-bold">{title}</h3>
       </div>
       {!data ? (

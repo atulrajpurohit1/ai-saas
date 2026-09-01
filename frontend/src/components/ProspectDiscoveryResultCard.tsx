@@ -33,8 +33,8 @@ type ImportPhase = 'idle' | 'importing' | 'duplicate' | 'success';
 type GhlSyncPhase = 'idle' | 'syncing' | 'success' | 'error';
 
 function qualificationClass(score: number) {
-  if (score >= 0.85) return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
-  if (score >= 0.6) return 'border-amber-500/30 bg-amber-500/10 text-amber-300';
+  if (score >= 0.85) return 'border-emerald-500/30 bg-emerald-500/10 text-success';
+  if (score >= 0.6) return 'border-amber-500/30 bg-amber-500/10 text-warning';
   return 'border-white/10 bg-white/5 text-slate-300';
 }
 
@@ -158,8 +158,8 @@ export default function ProspectDiscoveryResultCard({
           )}
           <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <Building2 size={16} className="shrink-0 text-indigo-300" aria-hidden="true" />
-            <h3 className="truncate text-base font-bold text-white">{companyName}</h3>
+            <Building2 size={16} className="shrink-0 text-primary" aria-hidden="true" />
+            <h3 className="truncate text-base font-bold text-foreground">{companyName}</h3>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
             {prospect.companyIndustry && <span>{prospect.companyIndustry}</span>}
@@ -184,7 +184,7 @@ export default function ProspectDiscoveryResultCard({
                 }
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 text-indigo-300 hover:text-indigo-200"
+                className="flex items-center gap-1 text-primary hover:text-primary"
               >
                 {prospect.companyDomain}
                 <ExternalLink size={11} aria-hidden="true" />
@@ -205,7 +205,7 @@ export default function ProspectDiscoveryResultCard({
       {(prospect.contact.fullName || prospect.contact.jobTitle) && (
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm">
           {prospect.contact.fullName && (
-            <span className="font-semibold text-white">{prospect.contact.fullName}</span>
+            <span className="font-semibold text-foreground">{prospect.contact.fullName}</span>
           )}
           {prospect.contact.jobTitle && (
             <span className="flex items-center gap-1 text-slate-400">
@@ -216,7 +216,7 @@ export default function ProspectDiscoveryResultCard({
           {prospect.contact.email && (
             <a
               href={`mailto:${prospect.contact.email}`}
-              className="flex items-center gap-1 text-indigo-300 hover:text-indigo-200"
+              className="flex items-center gap-1 text-primary hover:text-primary"
             >
               <Mail size={13} aria-hidden="true" />
               {prospect.contact.email}
@@ -227,7 +227,7 @@ export default function ProspectDiscoveryResultCard({
               href={prospect.contact.profileUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 text-slate-400 hover:text-white"
+              className="flex items-center gap-1 text-slate-400 hover:text-foreground"
             >
               Profile
               <ExternalLink size={11} aria-hidden="true" />
@@ -238,7 +238,7 @@ export default function ProspectDiscoveryResultCard({
 
       {prospect.qualificationReason && (
         <p className="mt-3 flex items-start gap-2 text-sm leading-6 text-slate-300">
-          <Sparkles size={14} className="mt-1 shrink-0 text-indigo-300" aria-hidden="true" />
+          <Sparkles size={14} className="mt-1 shrink-0 text-primary" aria-hidden="true" />
           {prospect.qualificationReason}
         </p>
       )}
@@ -261,9 +261,9 @@ export default function ProspectDiscoveryResultCard({
         <div
           role="alertdialog"
           aria-label="Lead already exists"
-          className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3"
+          className="mt-3 rounded-xl border bg-warning-wash p-3"
         >
-          <p className="mb-2 text-xs font-bold text-amber-200">Lead already exists.</p>
+          <p className="mb-2 text-xs font-bold text-warning">Lead already exists.</p>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -275,14 +275,14 @@ export default function ProspectDiscoveryResultCard({
             <button
               type="button"
               onClick={() => void handleImport(true)}
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-white/10"
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-foreground transition hover:bg-white/10"
             >
               Import Anyway
             </button>
             <button
               type="button"
               onClick={() => setImportPhase('idle')}
-              className="rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-400 transition hover:text-white"
+              className="rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-400 transition hover:text-foreground"
             >
               Cancel
             </button>
@@ -291,8 +291,8 @@ export default function ProspectDiscoveryResultCard({
       )}
 
       {importPhase === 'success' && importedLead && (
-        <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3">
-          <p className="flex items-center gap-2 text-xs font-bold text-emerald-200">
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border bg-success-wash p-3">
+          <p className="flex items-center gap-2 text-xs font-bold text-success">
             <CheckCircle2 size={15} aria-hidden="true" />
             Lead imported
           </p>
@@ -309,7 +309,7 @@ export default function ProspectDiscoveryResultCard({
       {importError && (
         <div
           role="alert"
-          className="mt-3 flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-300"
+          className="mt-3 flex items-center gap-2 rounded-xl border bg-error-wash px-3 py-2 text-xs font-semibold text-error"
         >
           <AlertTriangle size={14} aria-hidden="true" />
           {importError}
@@ -317,7 +317,7 @@ export default function ProspectDiscoveryResultCard({
       )}
 
       {ghlPhase === 'success' && (
-        <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-200">
+        <div className="mt-3 flex items-center gap-2 rounded-xl border bg-success-wash px-3 py-2 text-xs font-bold text-success">
           <CheckCircle2 size={15} aria-hidden="true" />
           Synced to GHL
         </div>
@@ -326,7 +326,7 @@ export default function ProspectDiscoveryResultCard({
       {ghlPhase === 'error' && ghlError && (
         <div
           role="alert"
-          className="mt-3 flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-300"
+          className="mt-3 flex items-center gap-2 rounded-xl border bg-error-wash px-3 py-2 text-xs font-semibold text-error"
         >
           <AlertTriangle size={14} aria-hidden="true" />
           {ghlError}
@@ -361,7 +361,7 @@ export default function ProspectDiscoveryResultCard({
                     ? 'GHL sync requires an email address to avoid creating duplicate contacts - this prospect has none available'
                     : undefined
               }
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold text-foreground transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {ghlPhase === 'syncing' ? (
                 <Loader2 className="animate-spin" size={14} aria-hidden="true" />
@@ -374,7 +374,7 @@ export default function ProspectDiscoveryResultCard({
           <button
             type="button"
             onClick={() => onOpenDeepResearch(asProspectCompany())}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold text-white transition hover:bg-white/10"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold text-foreground transition hover:bg-white/10"
           >
             <Sparkles size={14} aria-hidden="true" />
             Generate Full AI Playbook

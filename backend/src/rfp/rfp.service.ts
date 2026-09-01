@@ -8,11 +8,19 @@ import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { AiService } from '../ai/ai.service';
+import {
+  AiService,
+  SecurityRfpAnalysisDraft,
+  SecurityRfpStructuredInput,
+} from '../ai/ai.service';
+import { AiGovernanceService } from '../ai-governance/ai-governance.service';
 import { AuditService } from '../audit/audit.service';
 import { BrandingService } from '../branding/branding.service';
 import { EmailService } from '../email/email.service';
+import { ProposalsService } from '../proposals/proposals.service';
+import { findUnresolvedPlaceholders } from '../proposals/proposal-content.util';
 import { GenerateRfpDto } from '../ai/dto/generate-rfp.dto';
+import { GenerateRfpProposalDto } from './dto/generate-rfp-proposal.dto';
 import {
   GenerateEvaluationDto,
   VendorSubmissionSummaryDto,
@@ -47,6 +55,8 @@ export class RfpService {
     private auditService: AuditService,
     private brandingService: BrandingService,
     private emailService: EmailService,
+    private proposalsService: ProposalsService,
+    private aiGovernanceService: AiGovernanceService,
   ) {}
 
   private parseOptionalDate(value: string | undefined, fieldName: string) {
@@ -1089,5 +1099,256 @@ export class RfpService {
     });
 
     return updated;
+  }
+
+  // -------------------------------------------------------------------------
+  // Phase 3H: security RFP requirement analysis -> grounded draft proposal
+  // -------------------------------------------------------------------------
+
+  private htmlToPlainText(html: string | null | undefined): string {
+    if (!html) return '';
+    return html
+      .replace(/<\s*br\s*\/?>/gi, '\n')
+      .replace(/<\/\s*(p|div|li|h[1-6]|tr|section|article)\s*>/gi, '\n')
+      .replace(/<\s*li[^>]*>/gi, '- ')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  private buildRfpSourceText(rfp: {
+    generatedContent: string | null;
+    additionalRequirements: string | null;
+    pricingNotes: string | null;
+  }): string {
+    const parts = [
+      this.htmlToPlainText(rfp.generatedContent),
+      rfp.additionalRequirements
+        ? `Additional requirements:\n${rfp.additionalRequirements}`
+        : '',
+      rfp.pricingNotes ? `Pricing notes:\n${rfp.pricingNotes}` : '',
+    ].filter(Boolean);
+    return parts.join('\n\n').trim();
+  }
+
+  private toStructuredInput(rfp: {
+    title: string;
+    clientName: string;
+    companyName: string | null;
+    industry: string | null;
+    securityTypes: unknown;
+    numberOfLocations: number | null;
+    address: string | null;
+    operatingHours: string | null;
+    guardsRequired: number | null;
+    startDate: Date | null;
+    endDate: Date | null;
+    dueDate: Date | null;
+    estimatedBudget: number | null;
+    pricingModel: string | null;
+    requiredPricingItems: unknown;
+    paymentTerms: string | null;
+    additionalRequirements: string | null;
+  }): SecurityRfpStructuredInput {
+    const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+    return {
+      title: rfp.title,
+      clientName: rfp.clientName,
+      companyName: rfp.companyName,
+      industry: rfp.industry,
+      securityTypes: Array.isArray(rfp.securityTypes)
+        ? (rfp.securityTypes as string[]).filter(
+            (t): t is string => typeof t === 'string',
+          )
+        : [],
+      numberOfLocations: rfp.numberOfLocations,
+      address: rfp.address,
+      operatingHours: rfp.operatingHours,
+      guardsRequired: rfp.guardsRequired,
+      startDate: iso(rfp.startDate),
+      endDate: iso(rfp.endDate),
+      dueDate: iso(rfp.dueDate),
+      estimatedBudget: rfp.estimatedBudget,
+      pricingModel: rfp.pricingModel,
+      requiredPricingItems: Array.isArray(rfp.requiredPricingItems)
+        ? (rfp.requiredPricingItems as string[]).filter(
+            (t): t is string => typeof t === 'string',
+          )
+        : [],
+      paymentTerms: rfp.paymentTerms,
+      additionalRequirements: rfp.additionalRequirements,
+    };
+  }
+
+  // The only facts the proposal generator is allowed to state about the
+  // bidding company. Deliberately conservative: the tenant's own display name
+  // and the service types THIS RFP asked for. Everything else (licenses,
+  // insurance, headcount, pricing, client history) is left for the human
+  // reviewer via [placeholders].
+  private async buildProposalCapabilities(
+    tenantId: string,
+    structured: SecurityRfpStructuredInput,
+  ): Promise<string> {
+    const branding = await this.brandingService.brandingSnapshot(tenantId);
+    const companyName =
+      branding?.company_name?.trim() || 'our security services company';
+    const services = structured.securityTypes.length
+      ? structured.securityTypes.join(', ')
+      : 'contract security guard services';
+    return [
+      `Bidding company display name: ${companyName}.`,
+      `The company provides contract security guard services and can staff, supervise, and manage the service types requested in this RFP (${services}).`,
+      `The company operates a guard workforce, scheduling, patrol, incident-reporting and client-portal system (this AegisLead platform).`,
+      `NOTHING else about the company is known here. Do not state license numbers, insurance limits, exact officer counts, bill rates, years in business, or named past clients - use [placeholders] for all of those.`,
+    ].join('\n');
+  }
+
+  async analyzeRequirements(
+    tenantId: string,
+    userId: string | undefined,
+    id: string,
+  ) {
+    const rfp = await this.findRfpOrThrow(tenantId, id);
+
+    const structured = this.toStructuredInput(rfp);
+    const sourceText = this.buildRfpSourceText(rfp);
+
+    const draft = await this.aiService.analyzeSecurityRfp({
+      sourceText,
+      structured,
+    });
+
+    const safety = this.aiGovernanceService.evaluateSafety({
+      generatedOutput: {
+        summary: draft.summary,
+        requirements: draft.requirements,
+        missingInformation: draft.missingInformation,
+      },
+      inputSource: { tenantId, rfpId: id },
+      clientVisible: false,
+    });
+
+    const analysis = await this.prisma.rfpRequirementAnalysis.create({
+      data: {
+        tenantId,
+        rfpId: id,
+        requirements: draft.requirements as unknown as object,
+        summary: draft.summary,
+        missingInformation: draft.missingInformation as unknown as object,
+        modelUsed: draft.fallbackUsed
+          ? 'structured-fallback'
+          : this.aiService.getModelName(),
+        fallbackUsed: draft.fallbackUsed,
+        safetyStatus: safety.status,
+        createdBy: userId,
+      },
+    });
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'GENERATE',
+      entityType: 'RfpRequirementAnalysis',
+      entityId: analysis.id,
+      details: `Analyzed security requirements for RFP: ${rfp.title} (${draft.requirements.length} requirement(s)${draft.fallbackUsed ? ', structured fallback' : ''})`,
+    });
+
+    return analysis;
+  }
+
+  async getLatestRequirementAnalysis(tenantId: string, id: string) {
+    await this.findRfpOrThrow(tenantId, id);
+    return this.prisma.rfpRequirementAnalysis.findFirst({
+      where: { tenantId, rfpId: id },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async generateProposalFromRfp(
+    tenantId: string,
+    userId: string | undefined,
+    id: string,
+    dto: GenerateRfpProposalDto,
+  ) {
+    const rfp = await this.findRfpOrThrow(tenantId, id);
+
+    // Use the latest analysis, or run one now so this is a single action.
+    let analysisRecord = await this.prisma.rfpRequirementAnalysis.findFirst({
+      where: { tenantId, rfpId: id },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!analysisRecord) {
+      analysisRecord = await this.analyzeRequirements(tenantId, userId, id);
+    }
+
+    const structured = this.toStructuredInput(rfp);
+    const analysis: SecurityRfpAnalysisDraft = {
+      summary: analysisRecord.summary,
+      requirements: Array.isArray(analysisRecord.requirements)
+        ? (analysisRecord.requirements as unknown as SecurityRfpAnalysisDraft['requirements'])
+        : [],
+      missingInformation: Array.isArray(analysisRecord.missingInformation)
+        ? (analysisRecord.missingInformation as unknown as string[])
+        : [],
+      fallbackUsed: analysisRecord.fallbackUsed,
+    };
+
+    const capabilities = await this.buildProposalCapabilities(
+      tenantId,
+      structured,
+    );
+
+    const content = await this.aiService.generateProposalFromRfp({
+      structured,
+      analysis,
+      capabilities,
+    });
+
+    const safety = this.aiGovernanceService.evaluateSafety({
+      generatedOutput: { content },
+      inputSource: {
+        tenantId,
+        rfpId: id,
+        ...(dto.clientId ? { clientId: dto.clientId } : {}),
+      },
+      clientVisible: true,
+    });
+
+    // Always a DRAFT - the existing proposal workflow (placeholder validation
+    // on send, review, share, approve) is untouched.
+    const proposal = await this.proposalsService.create(
+      tenantId,
+      {
+        title: `Proposal - ${rfp.title}`,
+        content,
+        status: 'draft',
+        clientId: dto.clientId?.trim() || undefined,
+      },
+      userId,
+    );
+
+    const unresolvedPlaceholders = findUnresolvedPlaceholders(content);
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'GENERATE',
+      entityType: 'Proposal',
+      entityId: proposal.id,
+      details: `Generated draft proposal from RFP "${rfp.title}" (${unresolvedPlaceholders.length} placeholder(s) need review; safety: ${safety.status})`,
+    });
+
+    return {
+      proposal,
+      analysisId: analysisRecord.id,
+      unresolvedPlaceholders,
+      safetyStatus: safety.status,
+    };
   }
 }

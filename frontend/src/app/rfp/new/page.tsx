@@ -181,7 +181,7 @@ export default function NewRfpPage() {
   return (
     <DashboardLayout requiredPermissions="rfp.create">
       <div className="mb-6">
-        <Link href="/rfp" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 transition hover:text-white">
+        <Link href="/rfp" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 transition hover:text-foreground">
           <ArrowLeft size={16} />
           Back to RFPs
         </Link>
@@ -193,14 +193,14 @@ export default function NewRfpPage() {
       </div>
 
       {error && (
-        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-5 py-4 text-sm font-semibold text-rose-300">
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border bg-error-wash px-5 py-4 text-sm font-semibold text-error">
           <AlertTriangle size={18} />
           {error}
         </div>
       )}
 
       <div className="space-y-6">
-        <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
+        <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
           <h3 className="mb-4 text-lg font-bold text-white">Basic Information</h3>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <div className="space-y-2 xl:col-span-2">
@@ -249,7 +249,7 @@ export default function NewRfpPage() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
+        <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
           <h3 className="mb-4 text-lg font-bold text-white">Branding</h3>
           <p className="mb-4 text-xs text-muted-foreground">
             Logos shown on the generated RFP PDF. The issuer logo falls back to your tenant branding logo if left blank.
@@ -268,7 +268,7 @@ export default function NewRfpPage() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
+        <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
           <h3 className="mb-4 text-lg font-bold text-white">Security Requirements</h3>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {SECURITY_TYPE_OPTIONS.map((type) => {
@@ -291,7 +291,7 @@ export default function NewRfpPage() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
+        <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
           <h3 className="mb-4 text-lg font-bold text-white">Site Information</h3>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <div className="space-y-2">
@@ -330,7 +330,7 @@ export default function NewRfpPage() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
+        <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
           <h3 className="mb-4 text-lg font-bold text-white">Pricing Requirements</h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
@@ -403,7 +403,7 @@ export default function NewRfpPage() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
+        <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
           <h3 className="mb-4 text-lg font-bold text-white">Additional Requirements</h3>
           <textarea
             rows={5}
@@ -436,7 +436,7 @@ export default function NewRfpPage() {
         </div>
 
         {hasGenerated && (
-          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
+          <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="text-lg font-bold text-white">Generated RFP Document</h3>
               <p className="text-xs text-muted-foreground">Review and edit the AI-generated draft below before saving.</p>

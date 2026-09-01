@@ -24,6 +24,7 @@ const reject_vendor_dto_1 = require("./dto/reject-vendor.dto");
 const create_performance_review_dto_1 = require("./dto/create-performance-review.dto");
 const update_performance_review_dto_1 = require("./dto/update-performance-review.dto");
 const generate_rfp_dto_1 = require("../ai/dto/generate-rfp.dto");
+const generate_rfp_proposal_dto_1 = require("./dto/generate-rfp-proposal.dto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const permission_guard_1 = require("../auth/guards/permission.guard");
 const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
@@ -85,6 +86,15 @@ let RfpController = class RfpController {
     }
     generateEvaluation(user, id) {
         return this.rfpService.generateEvaluation(user.tenantId, user.sub, id);
+    }
+    getRequirementAnalysis(user, id) {
+        return this.rfpService.getLatestRequirementAnalysis(user.tenantId, id);
+    }
+    analyzeRequirements(user, id) {
+        return this.rfpService.analyzeRequirements(user.tenantId, user.sub, id);
+    }
+    generateProposalFromRfp(user, id, dto) {
+        return this.rfpService.generateProposalFromRfp(user.tenantId, user.sub, id, dto);
     }
     awardContract(user, id, dto) {
         return this.rfpService.awardContract(user.tenantId, user.sub, id, dto.vendorId, dto.awardNotes);
@@ -229,6 +239,33 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], RfpController.prototype, "generateEvaluation", null);
+__decorate([
+    (0, common_1.Get)(':id/requirement-analysis'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], RfpController.prototype, "getRequirementAnalysis", null);
+__decorate([
+    (0, common_1.Post)(':id/analyze-requirements'),
+    (0, permissions_decorator_1.RequirePermission)('rfp.evaluate'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], RfpController.prototype, "analyzeRequirements", null);
+__decorate([
+    (0, common_1.Post)(':id/generate-proposal'),
+    (0, permissions_decorator_1.RequirePermission)('proposals.create'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, generate_rfp_proposal_dto_1.GenerateRfpProposalDto]),
+    __metadata("design:returntype", void 0)
+], RfpController.prototype, "generateProposalFromRfp", null);
 __decorate([
     (0, common_1.Post)(':id/award'),
     (0, permissions_decorator_1.RequirePermission)('rfp.award'),

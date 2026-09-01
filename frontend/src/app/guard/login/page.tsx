@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import { ArrowRight, KeyRound, Loader2, Phone, ShieldCheck } from 'lucide-react';
+import { ArrowRight, KeyRound, Loader2, Phone } from 'lucide-react';
+import BrandMark from '@/components/BrandMark';
 
 interface ApiError {
   response?: {
@@ -41,43 +42,49 @@ export default function GuardLoginPage() {
     }
   };
 
+  const inputClass =
+    'w-full rounded-[var(--radius)] border border-border bg-card py-3.5 pl-11 pr-4 text-base text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/40 focus:ring-2 focus:ring-ring/50';
+  const iconClass =
+    'pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground';
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#071013] px-4 pb-28 pt-8 text-slate-100 sm:pb-8">
+    <div className="flex min-h-dvh items-center justify-center bg-background px-4 pb-28 pt-10 sm:pb-10">
       <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-xl shadow-emerald-500/20">
-            <ShieldCheck size={34} />
+        <div className="mb-8 flex flex-col items-center gap-3 text-center">
+          <BrandMark size="lg" showWordmark={false} />
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">Guard Sign In</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Access your assigned field shifts and patrols.</p>
           </div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Guard Login</h1>
-          <p className="mt-2 text-sm text-slate-400">Access assigned field shifts.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl sm:p-8">
-          <div className="space-y-5">
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-300">Phone or email</label>
+        <form onSubmit={handleSubmit} className="surface-card p-5 shadow-md sm:p-8">
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-eyebrow">Phone or email</label>
               <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                <Phone className={iconClass} size={18} />
                 <input
                   type="text"
                   value={identifier}
                   onChange={(event) => setIdentifier(event.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 py-4 pl-12 pr-4 text-white outline-none transition focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20"
+                  className={inputClass}
                   placeholder="phone or email"
+                  autoCapitalize="none"
                   required
                 />
               </div>
             </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-300">Password</label>
+            <div className="space-y-1.5">
+              <label className="text-eyebrow">Password</label>
               <div className="relative">
-                <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                <KeyRound className={iconClass} size={18} />
                 <input
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 py-4 pl-12 pr-4 text-white outline-none transition focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20"
+                  className={inputClass}
                   placeholder="password"
                   required
                 />
@@ -86,15 +93,15 @@ export default function GuardLoginPage() {
           </div>
 
           {error && (
-            <div className="mt-5 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-medium text-rose-300">
+            <p className="mt-4 rounded-[var(--radius-sm)] border border-error/20 bg-error-wash px-4 py-3 text-sm font-medium text-error" role="alert">
               {error}
-            </div>
+            </p>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-4 font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400 disabled:opacity-60"
+            className="mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--radius)] bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-60"
           >
             {loading ? <Loader2 className="animate-spin" size={20} /> : <ArrowRight size={20} />}
             Sign in

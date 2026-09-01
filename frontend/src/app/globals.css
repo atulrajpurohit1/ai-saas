@@ -29,9 +29,23 @@
   --info: #2563eb;
   --info-wash: #eff6ff;
 
+  /* shadcn/radix primitives (Button, Badge, Input, Dialog, Select) expect
+     these exact names - without them their destructive variant, focus
+     rings, and popover surfaces silently fall back to unstyled/invisible. */
+  --destructive: var(--error);
+  --destructive-foreground: #ffffff;
+  --input: var(--border);
+  --ring: #a5a6f6;
+  --popover: var(--card);
+  --popover-foreground: var(--card-foreground);
+
   --radius: 14px;
+  --radius-sm: 10px;
+  --radius-lg: 20px;
+  --radius-pill: 9999px;
   --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.04);
   --shadow-md: 0 4px 12px rgba(17, 24, 39, 0.06);
+  --shadow-lg: 0 12px 32px rgba(17, 24, 39, 0.10);
 }
 
 /*
@@ -67,7 +81,18 @@
   --color-error-wash: var(--error-wash);
   --color-info: var(--info);
   --color-info-wash: var(--info-wash);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --radius-DEFAULT: var(--radius);
+  --radius-sm: var(--radius-sm);
+  --radius-lg: var(--radius-lg);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
 }
 
 body {
@@ -191,7 +216,8 @@ code {
 .bg-slate-950\/20,
 .bg-slate-950\/40,
 .bg-slate-950\/60,
-.bg-slate-950\/70 {
+.bg-slate-950\/70,
+.bg-black\/20 {
   background-color: var(--muted) !important;
 }
 
@@ -201,8 +227,68 @@ code {
 }
 
 .text-slate-400,
-.text-slate-500 {
+.text-slate-500,
+.text-slate-600 {
   color: var(--muted-foreground) !important;
+}
+
+/* Headings carrying the old dark-theme `text-white` (page titles, card titles,
+ * section titles) - safe to darken because a heading is never rendered on a
+ * solid colored fill in this app (verified: zero `<h1-6 class="...bg-*
+ * text-white">`). Button / badge labels keep `text-white` and are unaffected
+ * because this only targets heading elements. */
+h1.text-white,
+h2.text-white,
+h3.text-white,
+h4.text-white,
+h5.text-white,
+h6.text-white {
+  color: var(--foreground) !important;
+}
+
+/* Data/content text still carrying the old dark-theme `text-white` on
+ * non-interactive elements (stat values like `text-lg font-black text-white`,
+ * card field values, dropdown options). Excluded: any element that sets its
+ * own `bg-*` fill (colored pills / gradient icon tiles) and anything inside a
+ * button or link (CTA labels), so solid-fill labels stay white. */
+:where(div, span, p, td, dt, dd, li, strong, small, a).text-white:not([class*='bg-']):not(:where(button, [role='button']) *) {
+  color: var(--foreground) !important;
+}
+option.text-white {
+  color: var(--foreground) !important;
+}
+
+/* `hover:text-white` on "back" links and neutral-hover buttons (very common on
+ * detail-page headers) would turn text white-on-white on hover. Darken it -
+ * unless the element also gains a colored fill on hover (then white is
+ * intended). */
+.hover\:text-white:not([class*='bg-primary']):not([class*='bg-indigo']):not([class*='bg-emerald']):not([class*='bg-rose']):not([class*='bg-red']):not([class*='bg-blue']):not([class*='bg-purple']):not([class*='bg-violet']):not([class*='bg-sky']):not([class*='bg-green']):not([class*='bg-gradient']):hover {
+  color: var(--foreground) !important;
+}
+
+/* Form fields (input/select/textarea) never legitimately keep white text in
+ * this app - they're either on the old dark surface (now overridden light)
+ * or accidentally still `text-white`; there's no "colored-fill field needs
+ * white text" case to protect, unlike buttons. */
+input.text-white,
+textarea.text-white,
+select.text-white {
+  color: var(--foreground) !important;
+}
+
+/* Buttons/controls that combine a now-overridden-light background
+ * (bg-white/5, bg-white/10, bg-white/[0.0x] -> var(--card) above) with
+ * `text-white` - this exact combo is always the old "secondary/outline
+ * button" idiom (dark translucent fill + white label), never a colored
+ * primary button (those use bg-indigo-500/bg-primary/gradients, which this
+ * selector doesn't match). Compound class selector - both classes must be
+ * present on the same element. */
+.bg-white\/5.text-white,
+.bg-white\/10.text-white,
+.bg-white\/\[0\.02\].text-white,
+.bg-white\/\[0\.03\].text-white,
+.bg-white\/\[0\.04\].text-white {
+  color: var(--foreground) !important;
 }
 
 .bg-\[\#0f172a\],
@@ -395,3 +481,110 @@ div[data-chat-widget] {
     right: 8px !important;
   }
 }
+
+/* ==========================================================================
+ * AegisLead design-system consolidation (cross-portal UI unification phase).
+ * Extends the light-theme override layer above so the Client and Guard
+ * portal shells + auth screens land on the same visual system as Admin,
+ * without rewriting every page. Same technique already used above: redefine
+ * the copy-pasted dark utility classes once, centrally.
+ * ========================================================================== */
+
+/* 1. Remaining hard-coded dark surface hexes (Client/Guard shells, auth
+ *    screens, misc client pages). #05050a / #071013 = page ground,
+ *    #0a0a14 = raised surface, #0d0303 = danger surface. */
+.bg-\[\#05050a\],
+.bg-\[\#05050a\]\/95,
+.bg-\[\#05050a\]\/90,
+.bg-\[\#071013\],
+.bg-\[\#071013\]\/95 {
+  background-color: var(--background) !important;
+}
+
+.bg-\[\#0a0a14\],
+.bg-\[\#0a0a14\]\/80,
+.bg-\[\#0a0a14\]\/60,
+.bg-\[\#0a0a14\]\/95 {
+  background-color: var(--card) !important;
+}
+
+.bg-\[\#0d0303\]\/95 {
+  background-color: var(--error-wash) !important;
+}
+
+/* Native <option> elements still carrying a dark fill from the old theme -
+ * their parent <select> is now light. Scoped to option so the same class on a
+ * floating widget/div is untouched. */
+option.bg-gray-900,
+option.bg-slate-900,
+option.bg-\[\#0e0e1a\],
+option.bg-\[\#0f172a\] {
+  background-color: var(--card) !important;
+  color: var(--foreground) !important;
+}
+
+/* 2. Accessible, consistent keyboard focus across every interactive element
+ *    (previously ad hoc / missing on many hand-rolled buttons and links). */
+:where(a, button, input, select, textarea, summary, [role='button'], [tabindex]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* 3. Typography scale - opt-in utility classes so pages stop hand-tuning
+ *    font-size/weight per header. Matches the sizes DashboardLayout already
+ *    uses. */
+.text-page-title {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+}
+@media (min-width: 640px) {
+  .text-page-title {
+    font-size: 1.75rem;
+  }
+}
+.text-section-title {
+  font-size: 1.05rem;
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--foreground);
+}
+.text-card-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.text-eyebrow {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.text-caption {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+
+/* 4. Shared surface + elevation helpers used by the new UI primitives. */
+.surface-card {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.surface-muted {
+  background-color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+/* 5. NOTE on the Guard portal's emerald usage: the previous green *shell chrome*
+ * (portal header, nav tabs, brand shield) is unified onto the shared primary
+ * in GuardLayout.tsx directly. The remaining `bg-emerald-500` buttons in guard
+ * pages ("Check In", "Start Patrol") deliberately keep the same emerald that
+ * the Admin portal already uses app-wide for positive/confirm actions
+ * ("Approve", "Export CSV", "Resolve") - that is a shared semantic accent, not
+ * a per-portal inconsistency, so it is intentionally left untouched. */

@@ -7,6 +7,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import AssignedVendorsPanel from '@/components/AssignedVendorsPanel';
 import VendorSubmissionsPanel from '@/components/VendorSubmissionsPanel';
 import AiEvaluationPanel from '@/components/AiEvaluationPanel';
+import SecurityRfpAnalysisPanel from '@/components/SecurityRfpAnalysisPanel';
 import ContractAwardPanel from '@/components/ContractAwardPanel';
 import VendorPerformancePanel from '@/components/VendorPerformancePanel';
 import { useAuth } from '@/context/AuthContext';
@@ -27,11 +28,11 @@ import {
 } from 'lucide-react';
 
 const statusClass: Record<Rfp['status'], string> = {
-  DRAFT: 'border-yellow-500/20 bg-yellow-500/10 text-yellow-400',
-  GENERATED: 'border-indigo-500/20 bg-indigo-500/10 text-indigo-300',
-  FINALIZED: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
-  EVALUATED: 'border-purple-500/20 bg-purple-500/10 text-purple-300',
-  AWARDED: 'border-amber-500/20 bg-amber-500/10 text-amber-300',
+  DRAFT: 'bg-warning-wash text-warning',
+  GENERATED: 'bg-primary/8 text-primary',
+  FINALIZED: 'bg-success-wash text-success',
+  EVALUATED: 'bg-primary/8 text-primary',
+  AWARDED: 'bg-warning-wash text-warning',
 };
 
 function formatDate(value: string | null) {
@@ -106,25 +107,25 @@ export default function RfpViewPage() {
   return (
     <DashboardLayout requiredPermissions="rfp.view">
       <div className="mb-6">
-        <Link href="/rfp" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 transition hover:text-white">
+        <Link href="/rfp" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 transition hover:text-foreground">
           <ArrowLeft size={16} />
           Back to RFPs
         </Link>
       </div>
 
       {loading ? (
-        <div className="rounded-3xl border border-white/10 bg-white/[0.04] py-24 text-center text-slate-500">
-          <Loader2 className="mx-auto mb-3 animate-spin text-indigo-300" size={28} />
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] py-24 text-center text-slate-500">
+          <Loader2 className="mx-auto mb-3 animate-spin text-primary" size={28} />
           Loading RFP...
         </div>
       ) : error && !rfp ? (
-        <div className="flex items-center gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-5 py-4 text-sm font-semibold text-rose-300">
+        <div className="flex items-center gap-3 rounded-2xl border bg-error-wash px-5 py-4 text-sm font-semibold text-error">
           <AlertTriangle size={18} />
           {error}
         </div>
       ) : rfp ? (
         <div className="space-y-6">
-          <div className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:flex-row sm:items-start sm:justify-between sm:p-6">
+          <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:flex-row sm:items-start sm:justify-between sm:p-6">
             <div className="min-w-0">
               {(rfp.issuerLogoUrl || rfp.recipientLogoUrl) && (
                 <div className="mb-3 flex items-center gap-3">
@@ -181,7 +182,7 @@ export default function RfpViewPage() {
                   type="button"
                   onClick={handleDelete}
                   disabled={deleting}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-rose-500/10 px-4 py-2.5 text-sm font-bold text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-50"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-rose-500/10 px-4 py-2.5 text-sm font-bold text-error transition hover:bg-rose-500/20 disabled:opacity-50"
                 >
                   {deleting ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
                   Delete
@@ -191,7 +192,7 @@ export default function RfpViewPage() {
           </div>
 
           {error && (
-            <div className="flex items-center gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-5 py-4 text-sm font-semibold text-rose-300">
+            <div className="flex items-center gap-3 rounded-2xl border bg-error-wash px-5 py-4 text-sm font-semibold text-error">
               <AlertTriangle size={18} />
               {error}
             </div>
@@ -199,19 +200,19 @@ export default function RfpViewPage() {
 
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="space-y-6 lg:col-span-1">
-              <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-                <h3 className="mb-4 text-sm font-bold uppercase tracking-widest text-indigo-400">Basic Information</h3>
+              <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <h3 className="mb-4 text-sm font-bold uppercase tracking-widest text-primary">Basic Information</h3>
                 <dl className="space-y-3 text-sm">
                   <div className="flex items-center gap-2 text-slate-300">
-                    <Building2 size={14} className="text-indigo-300" />
+                    <Building2 size={14} className="text-primary" />
                     <span className="text-slate-500">Industry:</span> {rfp.industry || 'Not set'}
                   </div>
                   <div className="flex items-center gap-2 text-slate-300">
-                    <CalendarDays size={14} className="text-indigo-300" />
+                    <CalendarDays size={14} className="text-primary" />
                     <span className="text-slate-500">Due:</span> {formatDate(rfp.dueDate)}
                   </div>
                   <div className="flex items-center gap-2 text-slate-300">
-                    <CalendarDays size={14} className="text-indigo-300" />
+                    <CalendarDays size={14} className="text-primary" />
                     <span className="text-slate-500">Start → End:</span> {formatDate(rfp.startDate)} → {formatDate(rfp.endDate)}
                   </div>
                   <div className="flex items-center gap-2 text-slate-300">
@@ -225,8 +226,8 @@ export default function RfpViewPage() {
                 </dl>
               </section>
 
-              <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-                <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-indigo-400">
+              <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-primary">
                   <Shield size={14} />
                   Security Requirements
                 </h3>
@@ -243,8 +244,8 @@ export default function RfpViewPage() {
                 )}
               </section>
 
-              <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-                <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-indigo-400">
+              <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-primary">
                   <MapPin size={14} />
                   Site Information
                 </h3>
@@ -259,21 +260,21 @@ export default function RfpViewPage() {
                     <span className="text-slate-500">Operating Hours:</span> {rfp.operatingHours || 'Not set'}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Users size={14} className="text-indigo-300" />
+                    <Users size={14} className="text-primary" />
                     <span className="text-slate-500">Guards Required:</span> {rfp.guardsRequired ?? 'Not set'}
                   </div>
                 </dl>
               </section>
 
               {rfp.additionalRequirements && (
-                <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-                  <h3 className="mb-3 text-sm font-bold uppercase tracking-widest text-indigo-400">Additional Requirements</h3>
+                <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                  <h3 className="mb-3 text-sm font-bold uppercase tracking-widest text-primary">Additional Requirements</h3>
                   <p className="whitespace-pre-wrap text-sm text-slate-300">{rfp.additionalRequirements}</p>
                 </section>
               )}
 
-              <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-                <h3 className="mb-3 text-sm font-bold uppercase tracking-widest text-indigo-400">History</h3>
+              <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <h3 className="mb-3 text-sm font-bold uppercase tracking-widest text-primary">History</h3>
                 <dl className="space-y-3 text-sm text-slate-300">
                   <div>
                     <span className="text-slate-500">Created by:</span> {rfp.createdByUser?.name || rfp.createdByUser?.email || 'Unknown'}
@@ -289,8 +290,8 @@ export default function RfpViewPage() {
             </div>
 
             <div className="lg:col-span-2">
-              <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
-                <h3 className="mb-4 text-sm font-bold uppercase tracking-widest text-indigo-400">Generated Document</h3>
+              <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+                <h3 className="mb-4 text-sm font-bold uppercase tracking-widest text-primary">Generated Document</h3>
                 {rfp.generatedContent ? (
                   <div className="rfp-document rounded-2xl border border-white/5 bg-black/20" dangerouslySetInnerHTML={{ __html: rfp.generatedContent }} />
                 ) : (
@@ -299,6 +300,10 @@ export default function RfpViewPage() {
                   </div>
                 )}
               </section>
+
+              <div className="mt-6">
+                <SecurityRfpAnalysisPanel rfpId={rfp.id} />
+              </div>
 
               <div className="mt-6">
                 <AssignedVendorsPanel rfpId={rfp.id} />

@@ -147,7 +147,7 @@ export default function IncidentEvidencePanel({
     });
 
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+    <section className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5 sm:p-6">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-bold text-white">
@@ -210,7 +210,7 @@ export default function IncidentEvidencePanel({
             return (
               <article
                 key={evidence.id}
-                className={`overflow-hidden rounded-2xl border border-white/10 bg-black/30 transition ${
+                className={`overflow-hidden rounded-2xl border border-white/10 bg-muted transition ${
                   isDeleting ? 'opacity-50' : 'hover:border-indigo-400/30'
                 }`}
               >

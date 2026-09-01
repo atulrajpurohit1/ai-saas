@@ -53,7 +53,7 @@ export default function ProspectSearchFilterChip({
       <span
         className={`inline-flex items-center gap-1.5 rounded-full border pl-3 pr-1.5 py-1.5 text-xs font-semibold transition ${
           isActive
-            ? 'border-indigo-400/60 bg-indigo-500/15 text-indigo-200'
+            ? 'border-indigo-400/60 bg-indigo-500/15 text-primary'
             : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
         }`}
       >
@@ -75,7 +75,7 @@ export default function ProspectSearchFilterChip({
               onClear();
             }}
             aria-label={`Clear ${label} filter`}
-            className="ml-1 rounded-full p-0.5 text-indigo-300/70 transition hover:bg-white/10 hover:text-white"
+            className="ml-1 rounded-full p-0.5 text-primary/70 transition hover:bg-white/10 hover:text-foreground"
           >
             <X size={12} aria-hidden="true" />
           </button>

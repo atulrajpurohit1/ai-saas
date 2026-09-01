@@ -150,6 +150,86 @@ export async function generateEvaluation(id: string) {
   return response.data;
 }
 
+// --- Phase 3H: security RFP requirement analysis -> grounded proposal -------
+
+export const SECURITY_RFP_CATEGORY_LABELS: Record<string, string> = {
+  services: 'Services Requested',
+  staffing: 'Staffing',
+  shifts: 'Shifts & Coverage',
+  site: 'Site & Location',
+  patrol: 'Patrol',
+  access_control: 'Access Control',
+  reporting: 'Reporting & SLA',
+  technology: 'Technology',
+  compliance: 'Compliance',
+  licensing: 'Licensing & Certification',
+  insurance: 'Insurance & COI',
+  contract: 'Contract Terms',
+  pricing: 'Pricing',
+  submission: 'Proposal Submission',
+  special: 'Special Requirements',
+  other: 'Other',
+};
+
+export type SecurityRfpImportance = 'mandatory' | 'preferred' | 'informational';
+
+export interface SecurityRfpRequirement {
+  requirement: string;
+  category: string;
+  sourceContext: string | null;
+  importance: SecurityRfpImportance;
+  extractedValue: string | null;
+  confidence: number;
+}
+
+export interface RfpRequirementAnalysis {
+  id: string;
+  rfpId: string;
+  requirements: SecurityRfpRequirement[];
+  summary: string;
+  missingInformation: string[];
+  modelUsed: string;
+  fallbackUsed: boolean;
+  safetyStatus: string;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export interface GeneratedRfpProposal {
+  proposal: {
+    id: string;
+    title: string;
+    status: string;
+    content: string;
+    clientId: string | null;
+  };
+  analysisId: string;
+  unresolvedPlaceholders: string[];
+  safetyStatus: string;
+}
+
+export async function getRfpRequirementAnalysis(id: string) {
+  const response = await api.get<RfpRequirementAnalysis | null>(
+    `rfp/${id}/requirement-analysis`,
+  );
+  return response.data;
+}
+
+export async function analyzeRfpRequirements(id: string) {
+  const response = await api.post<RfpRequirementAnalysis>(
+    `rfp/${id}/analyze-requirements`,
+  );
+  return response.data;
+}
+
+export async function generateProposalFromRfp(id: string, clientId?: string) {
+  const response = await api.post<GeneratedRfpProposal>(
+    `rfp/${id}/generate-proposal`,
+    clientId ? { clientId } : {},
+  );
+  return response.data;
+}
+
 export async function awardContract(id: string, vendorId: string, awardNotes?: string) {
   const response = await api.post<Rfp>(`rfp/${id}/award`, { vendorId, awardNotes });
   return response.data;

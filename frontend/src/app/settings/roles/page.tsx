@@ -1,11 +1,19 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
+import PageHeader from '@/components/PageHeader';
+import LoadingState from '@/components/LoadingState';
+import ErrorState from '@/components/ErrorState';
 import BranchSelect from '@/components/BranchSelect';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { formatEnumLabel } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import {
   Permission,
   Role,
@@ -25,7 +33,6 @@ import {
   Lock,
   Plus,
   Save,
-  ShieldCheck,
   Trash2,
   UserPlus,
 } from 'lucide-react';
@@ -109,6 +116,7 @@ export default function RolesSettingsPage() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canViewUsers]);
 
   const selectRole = (role: Role) => {
@@ -118,13 +126,11 @@ export default function RolesSettingsPage() {
       description: role.description || '',
       permissionKeys: role.permissions.map((permission) => permission.key),
     });
-    setError('');
   };
 
   const startCreate = () => {
     setSelectedRoleId('');
     setForm(emptyForm);
-    setError('');
   };
 
   const togglePermission = (permissionKey: string) => {
@@ -141,7 +147,6 @@ export default function RolesSettingsPage() {
 
   const saveRole = async () => {
     setSaving(true);
-    setError('');
     try {
       const payload = {
         name: form.name.trim(),
@@ -154,8 +159,9 @@ export default function RolesSettingsPage() {
       await loadData();
       setSelectedRoleId(saved.id);
       selectRole(saved);
+      toast.success('Role saved.');
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Could not save role.'));
+      toast.error(getApiErrorMessage(err, 'Could not save role.'));
     } finally {
       setSaving(false);
     }
@@ -166,14 +172,14 @@ export default function RolesSettingsPage() {
     if (!confirm(`Deactivate ${selectedRole.name}?`)) return;
 
     setSaving(true);
-    setError('');
     try {
       await deactivateRole(selectedRole.id);
       setSelectedRoleId('');
       setForm(emptyForm);
       await loadData();
+      toast.success('Role deactivated.');
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Could not deactivate role.'));
+      toast.error(getApiErrorMessage(err, 'Could not deactivate role.'));
     } finally {
       setSaving(false);
     }
@@ -182,7 +188,6 @@ export default function RolesSettingsPage() {
   const assignRole = async () => {
     if (!assignment.userId || !assignment.roleId) return;
     setSaving(true);
-    setError('');
     try {
       await assignUserRole({
         user_id: assignment.userId,
@@ -190,8 +195,9 @@ export default function RolesSettingsPage() {
         branch_id: assignment.branchId || null,
       });
       await loadData();
+      toast.success('Role assigned.');
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Could not assign role.'));
+      toast.error(getApiErrorMessage(err, 'Could not assign role.'));
     } finally {
       setSaving(false);
     }
@@ -199,12 +205,12 @@ export default function RolesSettingsPage() {
 
   const revokeAssignment = async (assignmentId: string) => {
     setSaving(true);
-    setError('');
     try {
       await revokeUserRole(assignmentId);
       await loadData();
+      toast.success('Role revoked.');
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Could not revoke role.'));
+      toast.error(getApiErrorMessage(err, 'Could not revoke role.'));
     } finally {
       setSaving(false);
     }
@@ -212,36 +218,28 @@ export default function RolesSettingsPage() {
 
   return (
     <DashboardLayout requiredPermissions="roles.view">
-      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h2 className="flex items-center gap-3 text-2xl font-bold sm:text-3xl">
-            <ShieldCheck className="text-indigo-300" size={28} />
-            Roles
-          </h2>
-          <p className="mt-2 text-muted-foreground">Advanced access control</p>
-        </div>
-        {canManageRoles && (
-          <button
-            type="button"
-            onClick={startCreate}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-400"
-          >
-            <Plus size={18} />
-            New Role
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Roles"
+        description="Advanced access control."
+        actions={
+          canManageRoles && (
+            <Button onClick={startCreate}>
+              <Plus size={16} />
+              New Role
+            </Button>
+          )
+        }
+      />
 
       {error && (
-        <div className="mb-6 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-300">
-          {error}
+        <div className="mb-6">
+          <ErrorState message={error} onRetry={loadData} />
         </div>
       )}
 
       {loading ? (
-        <div className="py-24 text-center text-muted-foreground">
-          <Loader2 className="mx-auto mb-3 animate-spin text-indigo-300" size={28} />
-          Loading roles...
+        <div className="rounded-2xl border border-border bg-card shadow-sm">
+          <LoadingState label="Loading roles..." />
         </div>
       ) : (
         <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
@@ -251,78 +249,76 @@ export default function RolesSettingsPage() {
                 key={role.id}
                 type="button"
                 onClick={() => selectRole(role)}
-                className={`w-full rounded-xl border p-4 text-left transition ${
-                  selectedRoleId === role.id
-                    ? 'border-indigo-400/60 bg-indigo-500/10'
-                    : 'border-white/10 bg-white/[0.04] hover:bg-white/[0.07]'
-                }`}
+                className={cn(
+                  'w-full rounded-xl border p-4 text-left transition',
+                  selectedRoleId === role.id ? 'border-primary/40 bg-primary/5' : 'border-border bg-card hover:bg-muted',
+                )}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="truncate font-bold text-white">{role.name}</div>
-                    <div className="mt-1 line-clamp-2 text-sm text-slate-400">
+                    <div className="truncate font-semibold text-foreground">{role.name}</div>
+                    <div className="mt-1 line-clamp-2 text-sm text-muted-foreground">
                       {role.description || 'Custom tenant role'}
                     </div>
                   </div>
                   {role.isSystemRole ? (
-                    <Lock className="shrink-0 text-slate-500" size={17} />
+                    <Lock className="shrink-0 text-muted-foreground" size={16} />
                   ) : (
-                    <span className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-emerald-300">
+                    <span className="shrink-0 rounded-full border border-success/20 bg-success-wash px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-success">
                       Custom
                     </span>
                   )}
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-400">
+                <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-medium text-muted-foreground">
                   <span>{role.permissions.length} permissions</span>
                   <span>{role.assignmentCount} assignments</span>
-                  {!role.isActive && <span className="text-rose-300">Inactive</span>}
+                  {!role.isActive && <span className="text-error">Inactive</span>}
                 </div>
               </button>
             ))}
           </div>
 
           <div className="space-y-6">
-            <section className="rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
+            <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6">
               <div className="mb-5 grid gap-4 lg:grid-cols-[1fr_1fr_auto]">
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-300">Name</label>
-                  <input
+                  <label className="text-sm font-medium text-muted-foreground">Name</label>
+                  <Input
                     value={form.name}
                     onChange={(event) => setForm({ ...form, name: event.target.value })}
                     disabled={!editable && Boolean(selectedRole)}
-                    className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60"
+                    className="min-h-11"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-300">Description</label>
-                  <input
+                  <label className="text-sm font-medium text-muted-foreground">Description</label>
+                  <Input
                     value={form.description}
                     onChange={(event) => setForm({ ...form, description: event.target.value })}
                     disabled={!editable && Boolean(selectedRole)}
-                    className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60"
+                    className="min-h-11"
                   />
                 </div>
                 {canManageRoles && (
                   <div className="flex items-end gap-2">
-                    <button
-                      type="button"
+                    <Button
                       onClick={saveRole}
                       disabled={saving || (!editable && Boolean(selectedRole)) || !form.name.trim() || form.permissionKeys.length === 0}
-                      className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-indigo-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {saving ? <Loader2 className="animate-spin" size={17} /> : <Save size={17} />}
+                      {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
                       Save
-                    </button>
+                    </Button>
                     {selectedRole && !selectedRole.isSystemRole && (
-                      <button
-                        type="button"
+                      <Button
+                        variant="outline"
+                        size="icon"
                         onClick={removeRole}
                         disabled={saving}
-                        className="inline-flex min-h-11 items-center justify-center rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-60"
                         aria-label="Deactivate role"
+                        className="border-error/20 bg-error-wash text-error hover:bg-error-wash hover:text-error"
                       >
-                        <Trash2 size={17} />
-                      </button>
+                        <Trash2 size={16} />
+                      </Button>
                     )}
                   </div>
                 )}
@@ -330,8 +326,8 @@ export default function RolesSettingsPage() {
 
               <div className="space-y-5">
                 {Object.entries(permissionsByModule).map(([moduleName, modulePermissions]) => (
-                  <div key={moduleName} className="rounded-xl border border-white/10 bg-slate-950/20 p-4">
-                    <div className="mb-3 text-sm font-black uppercase tracking-widest text-slate-400">
+                  <div key={moduleName} className="rounded-xl border border-border bg-background p-4">
+                    <div className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                       {formatEnumLabel(moduleName)}
                     </div>
                     <div className="grid gap-2 md:grid-cols-2">
@@ -345,20 +341,22 @@ export default function RolesSettingsPage() {
                             type="button"
                             onClick={() => !disabled && togglePermission(permission.key)}
                             disabled={disabled}
-                            className={`flex min-h-14 items-center gap-3 rounded-lg border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-70 ${
-                              checked
-                                ? 'border-indigo-400/40 bg-indigo-500/10'
-                                : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'
-                            }`}
+                            className={cn(
+                              'flex min-h-14 items-center gap-3 rounded-lg border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-70',
+                              checked ? 'border-primary/40 bg-primary/5' : 'border-border bg-card hover:bg-muted',
+                            )}
                           >
-                            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
-                              checked ? 'border-indigo-300 bg-indigo-400 text-slate-950' : 'border-white/20'
-                            }`}>
+                            <span
+                              className={cn(
+                                'flex h-5 w-5 shrink-0 items-center justify-center rounded border',
+                                checked ? 'border-primary bg-primary text-white' : 'border-border',
+                              )}
+                            >
                               {checked && <Check size={14} />}
                             </span>
                             <span className="min-w-0">
-                              <span className="block text-sm font-semibold text-white">{permission.name}</span>
-                              <span className="block truncate text-xs text-slate-500">{permission.key}</span>
+                              <span className="block text-sm font-semibold text-foreground">{permission.name}</span>
+                              <span className="block truncate text-xs text-muted-foreground">{permission.key}</span>
                             </span>
                           </button>
                         );
@@ -370,20 +368,20 @@ export default function RolesSettingsPage() {
             </section>
 
             {canAssignRoles && (
-              <section className="rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
+              <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6">
                 <div className="mb-5 flex items-center gap-3">
-                  <UserPlus className="text-sky-300" size={22} />
-                  <h3 className="text-xl font-bold">User Assignments</h3>
+                  <UserPlus className="text-primary" size={20} />
+                  <h3 className="text-base font-semibold text-foreground">User Assignments</h3>
                 </div>
 
                 <div className="mb-6 grid gap-4 lg:grid-cols-[1fr_1fr_220px_auto]">
                   <select
                     value={assignment.userId}
                     onChange={(event) => setAssignment({ ...assignment, userId: event.target.value })}
-                    className="min-h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    className="h-11 rounded-lg border border-input bg-transparent px-3 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                   >
                     {users.map((item) => (
-                      <option key={item.id} value={item.id} className="bg-[#0e0e1a]">
+                      <option key={item.id} value={item.id}>
                         {item.name || item.email}
                       </option>
                     ))}
@@ -391,10 +389,10 @@ export default function RolesSettingsPage() {
                   <select
                     value={assignment.roleId}
                     onChange={(event) => setAssignment({ ...assignment, roleId: event.target.value })}
-                    className="min-h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    className="h-11 rounded-lg border border-input bg-transparent px-3 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                   >
                     {roles.filter((role) => role.isActive && !['Client', 'Guard'].includes(role.name)).map((role) => (
-                      <option key={role.id} value={role.id} className="bg-[#0e0e1a]">
+                      <option key={role.id} value={role.id}>
                         {role.name}
                       </option>
                     ))}
@@ -405,49 +403,48 @@ export default function RolesSettingsPage() {
                     includeAll={false}
                     label="Branch Scope"
                   />
-                  <button
-                    type="button"
+                  <Button
                     onClick={assignRole}
                     disabled={saving || !assignment.userId || !assignment.roleId}
-                    className="inline-flex min-h-11 items-center justify-center gap-2 self-end rounded-xl bg-sky-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-sky-400 disabled:opacity-60"
+                    className="self-end"
                   >
-                    {saving ? <Loader2 className="animate-spin" size={17} /> : <UserPlus size={17} />}
+                    {saving ? <Loader2 className="animate-spin" size={16} /> : <UserPlus size={16} />}
                     Assign
-                  </button>
+                  </Button>
                 </div>
 
-                <div className="overflow-x-auto rounded-xl border border-white/10">
-                  <table className="responsive-table w-full text-left">
-                    <thead>
-                      <tr className="border-b border-white/10 text-xs uppercase tracking-widest text-slate-500">
-                        <th className="px-4 py-3">User</th>
-                        <th className="px-4 py-3">Branch</th>
-                        <th className="px-4 py-3">Roles</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/10">
+                <div className="overflow-x-auto rounded-xl border border-border">
+                  <Table className="responsive-table">
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="px-4 py-3 text-xs uppercase tracking-wider text-muted-foreground">User</TableHead>
+                        <TableHead className="px-4 py-3 text-xs uppercase tracking-wider text-muted-foreground">Branch</TableHead>
+                        <TableHead className="px-4 py-3 text-xs uppercase tracking-wider text-muted-foreground">Roles</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {users.map((item) => (
-                        <tr key={item.id}>
-                          <td className="px-4 py-4" data-label="User">
-                            <div className="font-semibold text-white">{item.name || item.email}</div>
-                            <div className="text-xs text-slate-500">{item.email}</div>
-                          </td>
-                          <td className="px-4 py-4 text-sm text-slate-400" data-label="Branch">
+                        <TableRow key={item.id}>
+                          <TableCell className="px-4 py-4 whitespace-normal" data-label="User">
+                            <div className="font-semibold text-foreground">{item.name || item.email}</div>
+                            <div className="text-xs text-muted-foreground">{item.email}</div>
+                          </TableCell>
+                          <TableCell className="px-4 py-4 text-sm whitespace-normal text-muted-foreground" data-label="Branch">
                             {item.branch?.name || 'Unassigned'}
-                          </td>
-                          <td className="px-4 py-4" data-label="Roles">
+                          </TableCell>
+                          <TableCell className="px-4 py-4 whitespace-normal" data-label="Roles">
                             <div className="flex flex-wrap gap-2">
                               {item.roleAssignments.map((roleAssignment) => (
                                 <span
                                   key={roleAssignment.id}
-                                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-slate-200"
+                                  className="inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-foreground"
                                 >
                                   {roleAssignment.role.name}
-                                  {roleAssignment.branch?.name && <span className="text-slate-500">{roleAssignment.branch.name}</span>}
+                                  {roleAssignment.branch?.name && <span className="text-muted-foreground">{roleAssignment.branch.name}</span>}
                                   <button
                                     type="button"
                                     onClick={() => revokeAssignment(roleAssignment.id)}
-                                    className="text-slate-500 transition hover:text-rose-300"
+                                    className="text-muted-foreground transition hover:text-error"
                                     aria-label="Revoke role"
                                   >
                                     <Trash2 size={13} />
@@ -455,14 +452,14 @@ export default function RolesSettingsPage() {
                                 </span>
                               ))}
                               {item.roleAssignments.length === 0 && (
-                                <span className="text-sm text-slate-500">No active roles</span>
+                                <span className="text-sm text-muted-foreground">No active roles</span>
                               )}
                             </div>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               </section>
             )}

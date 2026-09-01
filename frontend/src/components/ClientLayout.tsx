@@ -3,7 +3,30 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LogOut, LayoutDashboard, User, Folder, Shield, Menu, X, FileWarning, FileText, Receipt } from 'lucide-react';
+import {
+  LogOut,
+  LayoutDashboard,
+  User,
+  Folder,
+  Menu,
+  X,
+  FileWarning,
+  FileText,
+  Receipt,
+  Umbrella,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import BrandMark from '@/components/BrandMark';
+
+const menuItems = [
+  { name: 'Dashboard', icon: LayoutDashboard, href: '/client/dashboard' },
+  { name: 'Documents', icon: Folder, href: '/client/documents' },
+  { name: 'Incidents', icon: FileWarning, href: '/client/incidents' },
+  { name: 'Reports', icon: FileText, href: '/client/reports' },
+  { name: 'Invoices', icon: Receipt, href: '/client/invoices' },
+  { name: 'Insurance', icon: Umbrella, href: '/client/insurance' },
+  { name: 'Profile', icon: User, href: '/client/profile' },
+];
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -16,69 +39,72 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     router.push('/client/login');
   };
 
-  const menuItems = [
-    { name: 'Dashboard', icon: LayoutDashboard, href: '/client/dashboard' },
-    { name: 'Documents', icon: Folder, href: '/client/documents' },
-    { name: 'Incidents', icon: FileWarning, href: '/client/incidents' },
-    { name: 'Reports', icon: FileText, href: '/client/reports' },
-    { name: 'Invoices', icon: Receipt, href: '/client/invoices' },
-    { name: 'Profile', icon: User, href: '/client/profile' },
-  ];
+  const isActive = (href: string) =>
+    pathname === href || pathname.startsWith(`${href}/`);
+
+  const navLink = (item: (typeof menuItems)[number], onClick?: () => void) => {
+    const active = isActive(item.href);
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={onClick}
+        className={cn(
+          'group relative flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+          active
+            ? 'bg-primary/8 font-semibold text-primary'
+            : 'font-medium text-muted-foreground hover:bg-black/[0.03] hover:text-foreground',
+        )}
+      >
+        {active && (
+          <span
+            className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-primary"
+            aria-hidden="true"
+          />
+        )}
+        <item.icon
+          size={18}
+          className={cn('shrink-0', active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')}
+        />
+        <span className="truncate">{item.name}</span>
+      </Link>
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-[#05050a] text-slate-200 font-sans selection:bg-indigo-500/30">
-      <aside className="fixed left-0 top-0 h-full w-64 bg-[#0a0a14] border-r border-white/5 z-50 hidden lg:block">
-        <div className="p-8">
-          <Link href="/client/dashboard" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-600/20 group-hover:scale-110 transition-transform">
-              <Shield className="text-white" size={22} />
-            </div>
-            <span className="text-xl font-bold tracking-tight text-white">ClientPortal</span>
+    <div className="min-h-dvh bg-background text-foreground">
+      {/* Desktop sidebar */}
+      <aside className="fixed left-0 top-0 z-40 hidden h-dvh w-64 flex-col border-r border-border bg-card lg:flex">
+        <div className="p-4 sm:p-5">
+          <Link href="/client/dashboard">
+            <BrandMark subtitle="Client Portal" />
           </Link>
         </div>
-
-        <nav className="px-4 mt-4 space-y-2">
-          {menuItems.map((item) => (
-            <Link 
-              key={item.href}
-              href={item.href} 
-              className={`flex items-center gap-3 rounded-2xl border px-4 py-3 font-medium transition-all ${
-                pathname === item.href || pathname.startsWith(`${item.href}/`)
-                  ? 'border-indigo-500/20 bg-indigo-600/15 text-white'
-                  : 'border-transparent text-slate-400 hover:border-white/5 hover:bg-white/5 hover:text-white'
-              }`}
-            >
-              <item.icon size={20} className="text-indigo-400/70" />
-              <span>{item.name}</span>
-            </Link>
-          ))}
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-2">
+          {menuItems.map((item) => navLink(item))}
         </nav>
-
-        <div className="absolute bottom-8 left-0 w-full px-8">
-          <button 
+        <div className="border-t border-border p-3">
+          <button
+            type="button"
             onClick={handleLogout}
-            className="flex items-center gap-3 text-muted-foreground hover:text-white transition-colors w-full group"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-error transition-colors hover:bg-error-wash"
           >
-            <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-red-500/10 group-hover:text-red-400 transition-all">
-              <LogOut size={18} />
-            </div>
-            <span className="font-medium">Sign Out</span>
+            <LogOut size={18} />
+            Sign Out
           </button>
         </div>
       </aside>
 
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#05050a]/95 px-4 py-3 backdrop-blur lg:hidden">
+      {/* Mobile header */}
+      <header className="sticky top-0 z-30 border-b border-border bg-card/95 px-3 py-3 backdrop-blur sm:px-4 lg:hidden">
         <div className="flex items-center justify-between gap-4">
-          <Link href="/client/dashboard" className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/20">
-              <Shield size={22} />
-            </div>
-            <span className="truncate text-lg font-bold tracking-tight text-white">ClientPortal</span>
+          <Link href="/client/dashboard">
+            <BrandMark subtitle="Client Portal" size="sm" />
           </Link>
           <button
             type="button"
             onClick={() => setMenuOpen(true)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-card text-foreground"
             aria-label="Open client navigation"
           >
             <Menu size={22} />
@@ -86,83 +112,63 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </div>
       </header>
 
+      {/* Mobile drawer */}
       {menuOpen && (
-        <div className="fixed inset-0 z-[100] lg:hidden">
+        <div className="fixed inset-0 z-50 lg:hidden">
           <button
             type="button"
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             aria-label="Close navigation overlay"
             onClick={() => setMenuOpen(false)}
           />
-          <aside className="absolute right-0 top-0 flex h-dvh w-72 max-w-[85vw] flex-col border-l border-white/10 bg-[#0a0a14] p-4 shadow-2xl">
+          <aside className="absolute right-0 top-0 flex h-dvh w-72 max-w-[85vw] flex-col border-l border-border bg-card p-4 shadow-lg">
             <div className="mb-4 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white">
-                  <Shield size={22} />
-                </div>
-                <span className="font-bold text-white">ClientPortal</span>
-              </div>
+              <BrandMark subtitle="Client Portal" size="sm" />
               <button
                 type="button"
                 onClick={() => setMenuOpen(false)}
-                className="rounded-xl p-2 text-slate-400 transition hover:bg-white/10 hover:text-white"
+                className="rounded-lg p-2 text-muted-foreground transition hover:bg-black/[0.04] hover:text-foreground"
                 aria-label="Close navigation"
               >
                 <X size={20} />
               </button>
             </div>
-
-            <nav className="space-y-2">
-              {menuItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMenuOpen(false)}
-                  className={`flex min-h-12 items-center gap-3 rounded-2xl border px-4 py-3 font-semibold transition ${
-                    pathname === item.href || pathname.startsWith(`${item.href}/`)
-                      ? 'border-indigo-500/20 bg-indigo-600/15 text-white'
-                      : 'border-transparent text-slate-400 hover:border-white/5 hover:bg-white/5 hover:text-white'
-                  }`}
-                >
-                  <item.icon size={20} className="text-indigo-400/70" />
-                  <span>{item.name}</span>
-                </Link>
-              ))}
+            <nav className="space-y-0.5">
+              {menuItems.map((item) => navLink(item, () => setMenuOpen(false)))}
             </nav>
-
             <button
               onClick={handleLogout}
-              className="mt-auto flex min-h-12 items-center gap-3 rounded-2xl px-4 py-3 text-slate-400 transition hover:bg-red-500/10 hover:text-red-300"
+              className="mt-auto flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-error transition hover:bg-error-wash"
             >
-              <LogOut size={20} />
-              <span className="font-semibold">Sign Out</span>
+              <LogOut size={18} />
+              Sign Out
             </button>
           </aside>
         </div>
       )}
 
-      <nav className="fixed bottom-0 left-0 right-0 z-40 grid grid-cols-6 border-t border-white/10 bg-[#05050a]/95 px-2 pb-[env(safe-area-inset-bottom)] pt-2 backdrop-blur lg:hidden">
+      {/* Mobile bottom nav */}
+      <nav className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-7 border-t border-border bg-card/95 px-1 pb-[env(safe-area-inset-bottom)] pt-1.5 backdrop-blur lg:hidden">
         {menuItems.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const active = isActive(item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-bold transition ${
-                active ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-white/5 hover:text-white'
-              }`}
+              className={cn(
+                'flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-semibold transition-colors',
+                active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+              )}
             >
               <item.icon size={18} />
-              <span>{item.name}</span>
+              <span className="truncate">{item.name}</span>
             </Link>
           );
         })}
       </nav>
 
-      <main className="px-4 pb-28 pt-5 sm:px-6 md:px-8 md:py-8 lg:ml-64 lg:p-12">
-        <div className="mx-auto w-full max-w-6xl">
-          {children}
-        </div>
+      <main className="px-3 pb-28 pt-4 sm:px-6 sm:pb-16 sm:pt-7 lg:ml-64 lg:px-8 lg:py-8">
+        <div className="mx-auto w-full max-w-6xl">{children}</div>
       </main>
     </div>
   );

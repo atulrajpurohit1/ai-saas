@@ -139,13 +139,11 @@ export default function NotesPanel({
   };
 
   return (
-    <section className="relative rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+    <section className="relative rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
       {toast && (
         <div
-          className={`absolute left-4 right-4 top-4 z-10 flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-medium shadow-xl backdrop-blur sm:left-auto sm:right-4 ${
-            toast.type === 'success'
-              ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
-              : 'border-rose-500/20 bg-rose-500/10 text-rose-300'
+          className={`absolute left-4 right-4 top-4 z-10 flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium shadow-md backdrop-blur sm:left-auto sm:right-4 ${
+            toast.type === 'success' ? 'bg-success-wash text-success' : 'bg-error-wash text-error'
           }`}
         >
           {toast.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
@@ -155,7 +153,7 @@ export default function NotesPanel({
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div>
-          <h3 className="flex items-center gap-2 text-xl font-bold text-white">
+          <h3 className="flex items-center gap-2 text-xl font-bold text-foreground">
             <MessageSquareText className="text-indigo-300" size={20} />
             {title}
           </h3>
@@ -174,7 +172,7 @@ export default function NotesPanel({
           onChange={(event) => setContent(event.target.value)}
           placeholder="Add a note..."
           rows={4}
-          className="w-full resize-none rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-500/20"
+          className="w-full resize-none rounded-xl border border-border bg-muted px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus-visible:ring-2 focus-visible:ring-ring"
         />
         <div className="flex justify-end">
           <button
@@ -220,7 +218,7 @@ export default function NotesPanel({
                     type="button"
                     onClick={() => handleDeleteNote(note.id)}
                     disabled={isDeleting}
-                    className="rounded-lg p-2 text-slate-500 transition hover:bg-rose-500/10 hover:text-rose-300 disabled:cursor-wait"
+                    className="rounded-lg p-2 text-muted-foreground transition hover:bg-error-wash hover:text-error disabled:cursor-wait"
                     title="Delete note"
                   >
                     {isDeleting ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}

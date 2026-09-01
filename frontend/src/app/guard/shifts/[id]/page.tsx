@@ -195,7 +195,7 @@ export default function GuardShiftDetailPage() {
       {loading ? (
         <div className="py-20 text-center text-slate-500">Opening shift...</div>
       ) : error ? (
-        <div className="rounded-3xl border border-rose-500/20 bg-rose-500/10 p-5 text-rose-300">
+        <div className="rounded-[var(--radius-lg)] border border-rose-500/20 bg-rose-500/10 p-5 text-rose-300">
           <div className="flex items-center gap-3">
             <AlertTriangle size={20} />
             <span className="text-sm font-medium">{error}</span>
@@ -203,7 +203,7 @@ export default function GuardShiftDetailPage() {
         </div>
       ) : shift ? (
         <div className="space-y-6">
-          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8">
+          <section className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-6 sm:p-8">
             <div className="mb-4 flex flex-wrap items-center gap-3">
               <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-emerald-300">
                 Schedule: {formatEnumLabel(shift.status)}
@@ -220,7 +220,7 @@ export default function GuardShiftDetailPage() {
             </div>
           </section>
 
-          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+          <section className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-6">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
@@ -313,7 +313,7 @@ export default function GuardShiftDetailPage() {
           </section>
 
           <section className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+            <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5">
               <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
                 <CalendarDays size={14} />
                 Start
@@ -321,7 +321,7 @@ export default function GuardShiftDetailPage() {
               <div className="text-lg font-bold text-white">{formatTime(shift.startTime)}</div>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+            <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-5">
               <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
                 <Clock size={14} />
                 End
@@ -330,14 +330,14 @@ export default function GuardShiftDetailPage() {
             </div>
           </section>
 
-          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+          <section className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-6">
             <h2 className="mb-3 text-lg font-bold text-white">Site Instructions</h2>
             <p className="whitespace-pre-wrap text-sm leading-6 text-slate-300">
               {shift.site.instructions || 'No special instructions have been added for this site.'}
             </p>
           </section>
 
-          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+          <section className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-6">
             <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-white">
               <ShieldCheck className="text-emerald-300" size={18} />
               Assigned Guard
@@ -350,7 +350,7 @@ export default function GuardShiftDetailPage() {
 
       {showIncidentModal && shift && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-4">
-          <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-xl overflow-y-auto rounded-3xl border border-white/10 bg-[#0b1718] p-5 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:p-6">
+          <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-xl overflow-y-auto rounded-[var(--radius-lg)] border border-white/10 bg-[#0b1718] p-5 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:p-6">
             <div className="mb-5 flex items-center justify-between gap-4">
               <div>
                 <h2 className="flex items-center gap-2 text-xl font-extrabold text-white sm:text-2xl">

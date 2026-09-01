@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import { Shield, Loader2, Mail, Lock, ArrowRight, User, Briefcase } from 'lucide-react';
+import { Loader2, Mail, Lock, ArrowRight, User, Briefcase } from 'lucide-react';
+import BrandMark from '@/components/BrandMark';
 
 interface ApiError {
   response?: {
@@ -35,7 +36,7 @@ export default function ClientLoginPage() {
     if (loading) return;
     setLoading(true);
     setError('');
-    
+
     try {
       localStorage.removeItem('token');
       localStorage.removeItem('refresh_token');
@@ -64,143 +65,104 @@ export default function ClientLoginPage() {
     }
   };
 
-  return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#05050a] px-4 pb-28 pt-8 sm:pb-8">
-      {/* Background decoration */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full"></div>
+  const inputClass =
+    'w-full rounded-[var(--radius)] border border-border bg-card py-3 pl-11 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/40 focus:ring-2 focus:ring-ring/50';
+  const iconClass =
+    'pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground';
 
-      <div className="relative z-10 w-full max-w-md">
-        <div className="mb-8 text-center sm:mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-600 shadow-2xl shadow-indigo-600/40 mb-6">
-            <Shield className="text-white" size={32} />
+  return (
+    <div className="flex min-h-dvh items-center justify-center bg-background px-4 pb-28 pt-10 sm:pb-10">
+      <div className="w-full max-w-md">
+        <div className="mb-8 flex flex-col items-center gap-3 text-center">
+          <BrandMark size="lg" showWordmark={false} />
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+              {isRegister ? 'Create client account' : 'Client Portal'}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {isRegister
+                ? 'Register your client portal account.'
+                : 'Access your proposals, reports, and secure service details.'}
+            </p>
           </div>
-          <h1 className="mb-2 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-            {isRegister ? 'Create Client Account' : 'Client Portal'}
-          </h1>
-          <p className="text-slate-400 font-medium">
-            {isRegister ? 'Register your client portal account.' : 'Access your proposals and secure service details.'}
-          </p>
         </div>
 
-        <div className="glass-card rounded-[2rem] border border-white/5 bg-[#0a0a14]/80 p-5 shadow-2xl backdrop-blur-xl sm:rounded-[2.5rem] sm:p-10">
-          <form onSubmit={handleLogin} className="space-y-6">
-            {isRegister && (
-              <>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-300 ml-1">Full Name</label>
-                  <div className="relative group">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
-                      <User size={18} />
-                    </div>
-                    <input
-                      type="text"
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600"
-                      placeholder="John Doe"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required
-                    />
-                  </div>
+        <form onSubmit={handleLogin} className="surface-card space-y-4 p-5 shadow-md sm:p-8">
+          {isRegister && (
+            <>
+              <div className="space-y-1.5">
+                <label className="text-eyebrow">Full Name</label>
+                <div className="relative">
+                  <User className={iconClass} size={17} />
+                  <input type="text" className={inputClass} placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} required />
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-eyebrow">Company Name</label>
+                <div className="relative">
+                  <Briefcase className={iconClass} size={17} />
+                  <input type="text" autoCapitalize="none" spellCheck={false} className={inputClass} placeholder="Acme Security" value={tenantSlug} onChange={(e) => setTenantSlug(e.target.value)} required />
+                </div>
+              </div>
+            </>
+          )}
 
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-300 ml-1">Company Name</label>
-                  <div className="relative group">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
-                      <Briefcase size={18} />
-                    </div>
-                    <input
-                      type="text"
-                      autoCapitalize="none"
-                      spellCheck={false}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600"
-                      placeholder="Acme Security"
-                      value={tenantSlug}
-                      onChange={(e) => setTenantSlug(e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
+          <div className="space-y-1.5">
+            <label className="text-eyebrow">Email Address</label>
+            <div className="relative">
+              <Mail className={iconClass} size={17} />
+              <input type="email" className={inputClass} placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-eyebrow">Password</label>
+            <div className="relative">
+              <Lock className={iconClass} size={17} />
+              <input type="password" className={inputClass} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            </div>
+          </div>
+
+          {error && (
+            <p className="rounded-[var(--radius-sm)] border border-error/20 bg-error-wash p-3 text-xs font-semibold text-error" role="alert">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="group mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--radius)] bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {loading ? (
+              <Loader2 className="animate-spin" size={18} />
+            ) : (
+              <>
+                <span>{isRegister ? 'Create Account' : 'Sign In to Portal'}</span>
+                <ArrowRight size={17} className="transition-transform group-hover:translate-x-0.5" />
               </>
             )}
+          </button>
 
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-300 ml-1">Email Address</label>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
-                  <Mail size={18} />
-                </div>
-                <input 
-                  type="email" 
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600"
-                  placeholder="name@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between items-center ml-1">
-                <label className="text-sm font-semibold text-slate-300">Password</label>
-                <a href="#" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">Forgot password?</a>
-              </div>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
-                  <Lock size={18} />
-                </div>
-                <input 
-                  type="password" 
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            {error && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm py-3 px-4 rounded-xl flex items-center gap-2">
-                <Shield size={14} className="shrink-0" />
-                {error}
-              </div>
-            )}
-
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-2 disabled:opacity-70 group"
-            >
-              {loading ? (
-                <Loader2 className="animate-spin" size={20} />
-              ) : (
-                <>
-                  <span>{isRegister ? 'Create Account' : 'Sign In to Portal'}</span>
-                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="mt-8 text-center">
+          <div className="pt-1 text-center">
             <button
               type="button"
               onClick={() => {
                 setIsRegister((current) => !current);
                 setError('');
               }}
-              className="text-sm font-bold text-slate-500 transition-colors hover:text-indigo-400"
+              className="text-sm font-semibold text-muted-foreground transition hover:text-primary"
             >
-              {isRegister ? 'ALREADY HAVE AN ACCOUNT? SIGN IN' : "DON'T HAVE AN ACCOUNT? REGISTER"}
+              {isRegister ? 'Already have an account? Sign in' : "Don't have an account? Register"}
             </button>
           </div>
-        </div>
+        </form>
 
-        <p className="text-center mt-8 text-slate-500 text-sm">
-          Protected by Antigravity AI Security. &copy; 2026
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          Not a client?{' '}
+          <a href="/login" className="font-semibold text-primary hover:underline">
+            Admin sign in
+          </a>
         </p>
       </div>
     </div>

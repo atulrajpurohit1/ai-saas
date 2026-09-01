@@ -6,13 +6,15 @@ import { useParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import NotesPanel from '@/components/NotesPanel';
 import SalesAcceleratorPanel from '@/components/SalesAcceleratorPanel';
+import LoadingState from '@/components/LoadingState';
+import ErrorState from '@/components/ErrorState';
+import StatusBadge from '@/components/StatusBadge';
 import api from '@/lib/api';
 import {
   ArrowLeft,
   Briefcase,
   Building2,
   CalendarDays,
-  Loader2,
   Target,
   User,
 } from 'lucide-react';
@@ -76,7 +78,7 @@ export default function DealDetailsPage() {
       <div className="mb-6">
         <Link
           href="/deals"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 transition hover:text-white"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground transition hover:text-foreground"
         >
           <ArrowLeft size={16} />
           Back to deals
@@ -84,58 +86,53 @@ export default function DealDetailsPage() {
       </div>
 
       {loading ? (
-        <div className="rounded-3xl border border-white/10 bg-white/[0.04] py-24 text-center text-slate-500">
-          <Loader2 className="mx-auto mb-3 animate-spin text-indigo-300" size={28} />
-          Loading deal details...
+        <div className="rounded-2xl border border-border bg-card shadow-sm">
+          <LoadingState label="Loading deal details..." />
         </div>
       ) : error || !deal ? (
-        <div className="rounded-3xl border border-rose-500/20 bg-rose-500/10 p-6 text-rose-300">
-          {error || 'Deal not found.'}
-        </div>
+        <ErrorState message={error || 'Deal not found.'} />
       ) : (
         <div className="space-y-6">
-          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 sm:p-8">
+          <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-8">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
-                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-purple-400/20 bg-purple-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-purple-300">
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/8 px-3 py-1 text-xs font-bold uppercase tracking-widest text-primary">
                   <Briefcase size={14} />
                   Deal Details
                 </div>
-                <h1 className="break-words text-2xl font-extrabold text-white sm:text-3xl">{deal.name}</h1>
-                <p className="mt-2 flex items-center gap-2 text-slate-400">
-                  <Target size={16} className="text-purple-300" />
+                <h1 className="break-words text-2xl font-semibold text-foreground sm:text-3xl">{deal.name}</h1>
+                <p className="mt-2 flex items-center gap-2 text-muted-foreground">
+                  <Target size={16} className="text-primary" />
                   {deal.lead.company}
                 </p>
               </div>
 
-              <span className="w-fit rounded-full border border-indigo-400/20 bg-indigo-400/10 px-4 py-2 text-xs font-bold uppercase tracking-widest text-indigo-300">
-                {deal.stage}
-              </span>
+              <StatusBadge label={deal.stage} tone="primary" className="w-fit px-4 py-2 text-xs" />
             </div>
 
             <div className="mt-8 grid gap-4 md:grid-cols-3">
-              <div className="min-w-0 rounded-2xl border border-white/10 bg-black/20 p-4">
-                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+              <div className="min-w-0 rounded-xl bg-muted p-4">
+                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                   <User size={14} />
                   Lead
                 </div>
-                <div className="text-sm font-semibold text-white">{deal.lead.name}</div>
+                <div className="text-sm font-semibold text-foreground">{deal.lead.name}</div>
               </div>
-              <div className="min-w-0 rounded-2xl border border-white/10 bg-black/20 p-4">
-                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+              <div className="min-w-0 rounded-xl bg-muted p-4">
+                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                   <Building2 size={14} />
                   Client
                 </div>
-                <div className="text-sm font-semibold text-white">
+                <div className="text-sm font-semibold text-foreground">
                   {deal.client ? deal.client.name : 'No client linked'}
                 </div>
               </div>
-              <div className="min-w-0 rounded-2xl border border-white/10 bg-black/20 p-4">
-                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+              <div className="min-w-0 rounded-xl bg-muted p-4">
+                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                   <CalendarDays size={14} />
                   Created
                 </div>
-                <div className="text-sm font-semibold text-white">{formatDate(deal.createdAt)}</div>
+                <div className="text-sm font-semibold text-foreground">{formatDate(deal.createdAt)}</div>
               </div>
             </div>
           </section>

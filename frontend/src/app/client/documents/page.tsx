@@ -1,9 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import ClientLayout from '@/components/ClientLayout';
 import api from '@/lib/api';
-import { Folder, FileText, Download, Clock, Search, Loader2 } from 'lucide-react';
+import { Folder, FileText, Download, Clock, Search } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
+import EmptyState from '@/components/EmptyState';
+import LoadingState from '@/components/LoadingState';
+import ErrorState from '@/components/ErrorState';
 
 interface SharedDocument {
   id: string;
@@ -19,43 +23,43 @@ export default function ClientDocumentsPage() {
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const fetchDocuments = async () => {
-      try {
-        const res = await api.get('client-portal/documents');
-        setDocuments(Array.isArray(res.data) ? res.data : []);
-        setError('');
-      } catch (err) {
-        console.error('Failed to fetch documents', err);
-        setError('Could not load shared documents. Please refresh or sign in again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchDocuments();
+  const fetchDocuments = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('client-portal/documents');
+      setDocuments(Array.isArray(res.data) ? res.data : []);
+      setError('');
+    } catch (err) {
+      console.error('Failed to fetch documents', err);
+      setError('Could not load shared documents. Please refresh or sign in again.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const filteredDocs = documents.filter(doc => 
-    doc.name.toLowerCase().includes(search.toLowerCase())
+  useEffect(() => {
+    fetchDocuments();
+  }, [fetchDocuments]);
+
+  const filteredDocs = documents.filter((doc) =>
+    doc.name.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
     <ClientLayout>
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Shared Documents</h2>
-          <p className="text-slate-400 font-medium">Access files and resources shared by your account manager.</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Shared Documents"
+        description="Files and resources shared by your account manager."
+      />
 
-      <div className="glass-card bg-[#0a0a14]/60 border border-white/5 rounded-[2rem] overflow-hidden mb-8">
-        <div className="border-b border-white/5 bg-white/5 p-4 sm:p-6">
+      <div className="surface-card overflow-hidden">
+        <div className="border-b border-border bg-muted/50 p-4 sm:p-5">
           <div className="relative w-full sm:max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search documents..." 
-              className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600"
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+            <input
+              type="text"
+              placeholder="Search documents…"
+              className="w-full rounded-[var(--radius)] border border-border bg-card py-2.5 pl-10 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary/40 focus:ring-2 focus:ring-ring/50"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -64,46 +68,49 @@ export default function ClientDocumentsPage() {
 
         <div className="p-3 sm:p-4">
           {loading ? (
-            <div className="py-20 text-center text-slate-500">
-              <Loader2 className="animate-spin mx-auto mb-4" size={32} />
-              <p>Loading your documents...</p>
-            </div>
+            <LoadingState label="Loading your documents…" />
           ) : error ? (
-            <div className="py-16 px-6 text-center text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-3xl">
-              <p className="text-sm font-medium">{error}</p>
-            </div>
+            <ErrorState message={error} onRetry={fetchDocuments} />
           ) : filteredDocs.length === 0 ? (
-            <div className="py-20 text-center text-slate-500">
-              <Folder className="mx-auto mb-4 opacity-20" size={48} />
-              <p>{search ? 'No documents match your search.' : 'No documents have been shared with you yet.'}</p>
-            </div>
+            <EmptyState
+              icon={Folder}
+              title={search ? 'No matching documents' : 'No documents shared yet'}
+              description={
+                search
+                  ? 'Try a different search term.'
+                  : 'Files your account manager shares with you will appear here.'
+              }
+            />
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {filteredDocs.map((doc) => (
-                <div 
-                  key={doc.id} 
-                  className="group rounded-3xl border border-white/5 bg-white/5 p-5 transition-all hover:border-indigo-500/30 hover:bg-white/10 sm:p-6"
+                <div
+                  key={doc.id}
+                  className="group flex flex-col rounded-[var(--radius)] border border-border bg-card p-5 transition hover:border-primary/30 hover:shadow-md"
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-600/10 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
-                      <FileText size={24} />
-                    </div>
-                    <a 
-                      href={doc.url} 
-                      target="_blank" 
+                  <div className="mb-4 flex items-start justify-between">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-[var(--radius)] bg-primary/10 text-primary">
+                      <FileText size={22} />
+                    </span>
+                    <a
+                      href={doc.url}
+                      target="_blank"
                       rel="noopener noreferrer"
-                      className="p-3 rounded-xl bg-white/5 text-slate-400 hover:text-white hover:bg-indigo-600 transition-all shadow-xl"
+                      className="flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-sm)] bg-muted text-muted-foreground transition hover:bg-primary hover:text-primary-foreground"
+                      aria-label={`Download ${doc.name}`}
                     >
-                      <Download size={20} />
+                      <Download size={18} />
                     </a>
                   </div>
-                  
-                  <h3 className="text-lg font-bold text-white mb-1">{doc.name}</h3>
-                  {doc.description && <p className="text-sm text-slate-400 mb-4 line-clamp-2">{doc.description}</p>}
-                  
-                  <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-auto">
+
+                  <h3 className="mb-1 text-base font-bold text-foreground">{doc.name}</h3>
+                  {doc.description && (
+                    <p className="mb-4 line-clamp-2 text-sm text-muted-foreground">{doc.description}</p>
+                  )}
+
+                  <div className="mt-auto flex items-center gap-1.5 text-eyebrow">
                     <Clock size={12} />
-                    <span>Shared on {new Date(doc.createdAt).toLocaleDateString()}</span>
+                    Shared {new Date(doc.createdAt).toLocaleDateString()}
                   </div>
                 </div>
               ))}

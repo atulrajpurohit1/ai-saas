@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.INCIDENT_EVIDENCE_ALLOWED_EXTENSIONS = exports.INCIDENT_EVIDENCE_VIDEO_MIME_TYPES = exports.INCIDENT_EVIDENCE_IMAGE_MIME_TYPES = exports.INCIDENT_EVIDENCE_UPLOAD_DIR = exports.GUARD_COMPLIANCE_UPLOAD_ALLOWED_EXTENSIONS = exports.GUARD_COMPLIANCE_UPLOAD_DIR = exports.VENDOR_UPLOAD_ALLOWED_EXTENSIONS = exports.VENDOR_UPLOAD_DIR = void 0;
+exports.CLIENT_INSURANCE_ALLOWED_MIME_TYPES = exports.CLIENT_INSURANCE_UPLOAD_ALLOWED_EXTENSIONS = exports.CLIENT_INSURANCE_UPLOAD_DIR = exports.INCIDENT_EVIDENCE_ALLOWED_EXTENSIONS = exports.INCIDENT_EVIDENCE_VIDEO_MIME_TYPES = exports.INCIDENT_EVIDENCE_IMAGE_MIME_TYPES = exports.INCIDENT_EVIDENCE_UPLOAD_DIR = exports.GUARD_COMPLIANCE_UPLOAD_ALLOWED_EXTENSIONS = exports.GUARD_COMPLIANCE_UPLOAD_DIR = exports.VENDOR_UPLOAD_ALLOWED_EXTENSIONS = exports.VENDOR_UPLOAD_DIR = void 0;
 exports.ensureVendorUploadDir = ensureVendorUploadDir;
 exports.sanitizeFilename = sanitizeFilename;
 exports.vendorUploadMaxMb = vendorUploadMaxMb;
@@ -16,6 +16,10 @@ exports.incidentEvidenceImageMaxBytes = incidentEvidenceImageMaxBytes;
 exports.incidentEvidenceVideoMaxBytes = incidentEvidenceVideoMaxBytes;
 exports.incidentEvidenceUploadMaxBytes = incidentEvidenceUploadMaxBytes;
 exports.incidentEvidenceMaxBytesFor = incidentEvidenceMaxBytesFor;
+exports.ensureClientInsuranceUploadDir = ensureClientInsuranceUploadDir;
+exports.isAllowedClientInsuranceDocument = isAllowedClientInsuranceDocument;
+exports.clientInsuranceUploadMaxMb = clientInsuranceUploadMaxMb;
+exports.clientInsuranceUploadMaxBytes = clientInsuranceUploadMaxBytes;
 const fs_1 = require("fs");
 const path_1 = require("path");
 exports.VENDOR_UPLOAD_DIR = (0, path_1.join)(process.cwd(), 'uploads', 'vendor-submissions');
@@ -109,5 +113,33 @@ function incidentEvidenceMaxBytesFor(mediaType) {
     return mediaType === 'image'
         ? incidentEvidenceImageMaxBytes()
         : incidentEvidenceVideoMaxBytes();
+}
+exports.CLIENT_INSURANCE_UPLOAD_DIR = (0, path_1.join)(process.cwd(), 'uploads', 'client-insurance');
+function ensureClientInsuranceUploadDir() {
+    if (!(0, fs_1.existsSync)(exports.CLIENT_INSURANCE_UPLOAD_DIR)) {
+        (0, fs_1.mkdirSync)(exports.CLIENT_INSURANCE_UPLOAD_DIR, { recursive: true });
+    }
+    return exports.CLIENT_INSURANCE_UPLOAD_DIR;
+}
+exports.CLIENT_INSURANCE_UPLOAD_ALLOWED_EXTENSIONS = /\.(pdf|jpe?g|png|webp)$/i;
+exports.CLIENT_INSURANCE_ALLOWED_MIME_TYPES = {
+    'application/pdf': true,
+    'image/jpeg': true,
+    'image/png': true,
+    'image/webp': true,
+};
+function isAllowedClientInsuranceDocument(originalName, mimeType) {
+    if (!exports.CLIENT_INSURANCE_UPLOAD_ALLOWED_EXTENSIONS.test(originalName)) {
+        return false;
+    }
+    const normalized = (mimeType || '').toLowerCase().split(';')[0].trim();
+    return Boolean(exports.CLIENT_INSURANCE_ALLOWED_MIME_TYPES[normalized]);
+}
+function clientInsuranceUploadMaxMb() {
+    const parsed = Number(process.env.CLIENT_INSURANCE_UPLOAD_MAX_MB || 15);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 15;
+}
+function clientInsuranceUploadMaxBytes() {
+    return clientInsuranceUploadMaxMb() * 1024 * 1024;
 }
 //# sourceMappingURL=file-storage.util.js.map
