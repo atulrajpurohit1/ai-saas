@@ -3,11 +3,20 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
+import PageHeader from '@/components/PageHeader';
+import LoadingState from '@/components/LoadingState';
+import EmptyState from '@/components/EmptyState';
+import ErrorState from '@/components/ErrorState';
 import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import api from '@/lib/api';
+import { cn } from '@/lib/utils';
 import { branchParams, BranchSummary } from '@/lib/branches';
 import { FieldAccessMap, getEffectiveFieldPermissions } from '@/lib/field-permissions';
-import { Plus, Search, ShieldCheck, Edit2, Phone, AlertTriangle, RefreshCw, Mail, KeyRound, FileCheck2 } from 'lucide-react';
+import { Plus, Search, ShieldCheck, Edit2, Phone, Mail, KeyRound, FileCheck2 } from 'lucide-react';
 
 interface Guard {
   id: string;
@@ -35,6 +44,9 @@ interface ApiError {
   };
 }
 
+const fieldInputClass =
+  'min-h-24 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60';
+
 export default function GuardsPage() {
   const [guards, setGuards] = useState<Guard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +67,7 @@ export default function GuardsPage() {
     documents: '',
     personal_notes: '',
   });
-  
+
   const fetchGuards = async () => {
     setError(null);
     setLoading(true);
@@ -81,6 +93,7 @@ export default function GuardsPage() {
 
   useEffect(() => {
     fetchGuards();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBranchId]);
 
   useEffect(() => {
@@ -92,7 +105,6 @@ export default function GuardsPage() {
   const canViewField = (field: string) => fieldAccess[field]?.canView !== false;
   const canEditField = (field: string) => fieldAccess[field]?.canEdit !== false;
   const showSalary = canViewField('salary');
-  const tableColumnCount = showSalary ? 7 : 6;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -173,298 +185,303 @@ export default function GuardsPage() {
     }
   };
 
+  const filteredGuards = guards.filter(
+    (guard) => !searchQuery || guard.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
   return (
     <DashboardLayout>
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-        <div>
-          <h2 className="text-2xl font-bold sm:text-3xl">Guards</h2>
-          <p className="text-muted-foreground">Manage your security personnel and assignments.</p>
-        </div>
-        <button 
-          onClick={() => { resetForm(); setShowModal(true); }}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-indigo-500 sm:w-auto"
-        >
-          <Plus size={20} />
-          <span>Add New Guard</span>
-        </button>
-      </div>
+      <PageHeader
+        title="Guards"
+        description="Manage your security personnel and assignments."
+        actions={
+          <Button
+            onClick={() => {
+              resetForm();
+              setShowModal(true);
+            }}
+          >
+            <Plus size={16} />
+            Add New Guard
+          </Button>
+        }
+      />
 
-      <div className="glass-card rounded-3xl overflow-hidden border border-white/5">
-        <div className="border-b border-white/5 bg-white/5 p-4 sm:p-6">
+      <div className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card shadow-sm">
+        <div className="border-b border-border p-4">
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_240px]">
             <div className="relative w-full sm:max-w-sm">
-              <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
-              <input 
-                type="text" 
-                placeholder="Search guards..." 
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                size={16}
+              />
+              <Input
+                type="text"
+                placeholder="Search guards..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary"
+                className="pl-9"
               />
             </div>
             <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Filter Branch" />
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="responsive-table w-full text-left">
-            <thead>
-              <tr className="text-muted-foreground text-sm uppercase tracking-wider">
-                <th className="px-6 py-4 font-semibold">Guard Detail</th>
-                <th className="px-6 py-4 font-semibold">Contact Info</th>
-                {showSalary && <th className="px-6 py-4 font-semibold">Salary</th>}
-                <th className="px-6 py-4 font-semibold">Branch</th>
-                <th className="px-6 py-4 font-semibold">Availability</th>
-                <th className="px-6 py-4 font-semibold">Date Added</th>
-                <th className="px-6 py-4 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {loading ? (
-                <tr><td colSpan={tableColumnCount} className="px-6 py-10 text-center text-muted-foreground">Loading guards...</td></tr>
-              ) : error ? (
-                <tr><td colSpan={tableColumnCount} className="px-6 py-10 text-center">
-                  <div className="flex flex-col items-center gap-3">
-                    <AlertTriangle size={32} className="text-amber-400" />
-                    <p className="text-amber-400 font-medium">{error}</p>
-                    <button
-                      onClick={fetchGuards}
-                      className="mt-2 flex items-center gap-2 bg-white/10 hover:bg-white/15 text-white px-4 py-2 rounded-xl transition-all text-sm"
-                    >
-                      <RefreshCw size={14} />
-                      Retry
-                    </button>
-                  </div>
-                </td></tr>
-              ) : guards.length === 0 ? (
-                <tr><td colSpan={tableColumnCount} className="px-6 py-10 text-center text-muted-foreground">No guards found. Administrators can add new personnel above.</td></tr>
-              ) : guards.filter(guard => !searchQuery || guard.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 ? (
-                <tr><td colSpan={tableColumnCount} className="px-6 py-10 text-center text-muted-foreground">No guards match your search.</td></tr>
-              ) : guards.filter(guard => !searchQuery || guard.name.toLowerCase().includes(searchQuery.toLowerCase())).map((guard) => (
-                <tr key={guard.id} className="hover:bg-white/5 transition-colors group">
-                  <td className="px-6 py-4" data-label="Guard">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
-                        <ShieldCheck size={18} />
-                      </div>
-                      <span className="font-semibold">{guard.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 align-middle" data-label="Contact">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                       <Phone size={14} className="text-indigo-400" />
-                       <span className="text-sm">{guard.phone || 'No phone'}</span>
-                    </div>
-                    {guard.email && (
-                      <div className="flex items-center gap-2 text-muted-foreground mt-1">
-                        <Mail size={14} className="text-indigo-400" />
-                        <span className="text-sm">{guard.email}</span>
-                      </div>
-                    )}
-                  </td>
+        {loading ? (
+          <LoadingState label="Loading guards..." />
+        ) : error ? (
+          <div className="p-4">
+            <ErrorState message={error} onRetry={fetchGuards} />
+          </div>
+        ) : guards.length === 0 ? (
+          <EmptyState
+            icon={ShieldCheck}
+            title="No guards yet"
+            description="Add your security personnel so you can assign them to sites and shifts."
+            action={
+              <Button
+                onClick={() => {
+                  resetForm();
+                  setShowModal(true);
+                }}
+              >
+                <Plus size={16} />
+                Add New Guard
+              </Button>
+            }
+          />
+        ) : filteredGuards.length === 0 ? (
+          <EmptyState icon={Search} title="No matching guards" description="Try a different search term." />
+        ) : (
+          <div className="overflow-x-auto">
+            <Table className="responsive-table">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Guard</TableHead>
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Contact</TableHead>
                   {showSalary && (
-                    <td className="px-6 py-4 align-middle" data-label="Salary">
-                      <span className="text-sm font-semibold text-slate-300">
-                        {guard.salary === null || guard.salary === undefined
-                          ? 'Not set'
-                          : new Intl.NumberFormat(undefined, {
-                              style: 'currency',
-                              currency: 'USD',
-                              maximumFractionDigits: 0,
-                            }).format(guard.salary)}
-                      </span>
-                    </td>
+                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Salary</TableHead>
                   )}
-                  <td className="px-6 py-4 align-middle" data-label="Branch">
-                    <BranchBadge branch={guard.branch} />
-                  </td>
-                  <td className="px-6 py-4 align-middle" data-label="Availability">
-                    <button
-                      onClick={() => toggleAvailability(guard.id, guard.availability?.status || 'available')}
-                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
-                        (guard.availability?.status || 'available') === 'available'
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20'
-                          : 'bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20'
-                      }`}
-                    >
-                      {(guard.availability?.status || 'available').toUpperCase()}
-                    </button>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-muted-foreground align-middle" data-label="Date Added">
-                    {new Date(guard.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 text-right align-middle" data-label="Actions">
-                    <Link
-                      href={`/guards/compliance?search=${encodeURIComponent(guard.name)}`}
-                      className="inline-flex p-2 hover:bg-white/10 rounded-lg transition-colors text-emerald-400 hover:text-emerald-300"
-                      title="View compliance records"
-                    >
-                      <FileCheck2 size={18} />
-                    </Link>
-                    <button
-                      onClick={() => handleEdit(guard)}
-                      className="p-2 hover:bg-white/10 rounded-lg transition-colors text-indigo-400 hover:text-indigo-300"
-                    >
-                      <Edit2 size={18} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Branch</TableHead>
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Availability</TableHead>
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Date Added</TableHead>
+                  <TableHead className="px-6 py-3" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredGuards.map((guard) => {
+                  const availability = guard.availability?.status || 'available';
+                  return (
+                    <TableRow key={guard.id}>
+                      <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Guard">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary">
+                            <ShieldCheck size={16} />
+                          </div>
+                          <span className="font-semibold text-foreground">{guard.name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Contact">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Phone size={14} aria-hidden="true" />
+                          <span>{guard.phone || 'No phone'}</span>
+                        </div>
+                        {guard.email && (
+                          <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                            <Mail size={14} aria-hidden="true" />
+                            <span>{guard.email}</span>
+                          </div>
+                        )}
+                      </TableCell>
+                      {showSalary && (
+                        <TableCell className="px-6 py-3.5 text-sm font-semibold text-foreground whitespace-normal" data-label="Salary">
+                          {guard.salary === null || guard.salary === undefined
+                            ? 'Not set'
+                            : new Intl.NumberFormat(undefined, {
+                                style: 'currency',
+                                currency: 'USD',
+                                maximumFractionDigits: 0,
+                              }).format(guard.salary)}
+                        </TableCell>
+                      )}
+                      <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Branch">
+                        <BranchBadge branch={guard.branch} />
+                      </TableCell>
+                      <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Availability">
+                        <button
+                          type="button"
+                          onClick={() => toggleAvailability(guard.id, availability)}
+                          className={cn(
+                            'inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring',
+                            availability === 'available'
+                              ? 'bg-success-wash text-success'
+                              : 'bg-error-wash text-error',
+                          )}
+                        >
+                          {availability === 'available' ? 'Available' : 'Unavailable'}
+                        </button>
+                      </TableCell>
+                      <TableCell className="px-6 py-3.5 text-sm text-muted-foreground whitespace-normal" data-label="Date Added">
+                        {new Date(guard.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="px-6 py-3.5 text-right whitespace-normal" data-label="Actions">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button asChild variant="outline" size="sm">
+                            <Link
+                              href={`/guards/compliance?search=${encodeURIComponent(guard.name)}`}
+                              title="View compliance records"
+                            >
+                              <FileCheck2 size={14} />
+                              Compliance
+                            </Link>
+                          </Button>
+                          <Button variant="outline" size="icon-sm" onClick={() => handleEdit(guard)} aria-label={`Edit ${guard.name}`}>
+                            <Edit2 size={14} />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 text-left">
-          <div className="glass-card max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-3xl border-white/10 p-5 shadow-3xl animate-in zoom-in-95 duration-200 sm:p-8">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold">{isEditing ? 'Edit Guard' : 'Add New Guard'}</h3>
-              <button onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-white transition-colors">
-                <Plus size={24} className="rotate-45" />
-              </button>
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{isEditing ? 'Edit Guard' : 'Add New Guard'}</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-muted-foreground">Full Name</label>
+              <Input
+                type="text"
+                placeholder="e.g. Michael Smith"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-muted-foreground">Full Name</label>
-                <input 
-                  type="text" 
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  placeholder="e.g. Michael Smith"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  required
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-muted-foreground">Phone Number</label>
-                <input 
-                  type="tel" 
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  placeholder="e.g. +1 (555) 000-0000"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-muted-foreground">Email Address</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 text-muted-foreground" size={16} />
-                  <input
-                    type="email"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    placeholder="guard@example.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-muted-foreground">Portal Password</label>
-                <div className="relative">
-                  <KeyRound className="absolute left-3 top-3 text-muted-foreground" size={16} />
-                  <input
-                    type="password"
-                    minLength={6}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    placeholder={isEditing ? 'Leave blank to keep current password' : 'Set guard portal password'}
-                    value={formData.password}
-                    onChange={(e) => setFormData({...formData, password: e.target.value})}
-                  />
-                </div>
-              </div>
-
-              <BranchSelect
-                value={formData.branch_id}
-                onChange={(branchId) => setFormData({ ...formData, branch_id: branchId })}
-                includeAll={false}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-muted-foreground">Phone Number</label>
+              <Input
+                type="tel"
+                placeholder="e.g. +1 (555) 000-0000"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               />
+            </div>
 
-              {(canViewField('salary') ||
-                canViewField('bank_details') ||
-                canViewField('documents') ||
-                canViewField('personal_notes')) && (
-                <div className="grid gap-4 border-t border-white/10 pt-4 sm:grid-cols-2">
-                  {canViewField('salary') && (
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium text-muted-foreground">Salary</label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        disabled={!canEditField('salary')}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60"
-                        placeholder="e.g. 52000"
-                        value={formData.salary}
-                        onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
-                      />
-                    </div>
-                  )}
-
-                  {canViewField('bank_details') && (
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium text-muted-foreground">Bank Details</label>
-                      <textarea
-                        disabled={!canEditField('bank_details')}
-                        className="min-h-24 w-full resize-y bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60"
-                        placeholder="Payroll bank details"
-                        value={formData.bank_details}
-                        onChange={(e) => setFormData({ ...formData, bank_details: e.target.value })}
-                      />
-                    </div>
-                  )}
-
-                  {canViewField('documents') && (
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium text-muted-foreground">Documents</label>
-                      <textarea
-                        disabled={!canEditField('documents')}
-                        className="min-h-24 w-full resize-y bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60"
-                        placeholder="Private document notes or links"
-                        value={formData.documents}
-                        onChange={(e) => setFormData({ ...formData, documents: e.target.value })}
-                      />
-                    </div>
-                  )}
-
-                  {canViewField('personal_notes') && (
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium text-muted-foreground">Personal Notes</label>
-                      <textarea
-                        disabled={!canEditField('personal_notes')}
-                        className="min-h-24 w-full resize-y bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60"
-                        placeholder="Internal personal notes"
-                        value={formData.personal_notes}
-                        onChange={(e) => setFormData({ ...formData, personal_notes: e.target.value })}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="mt-8 flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:gap-4">
-                <button 
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-3 rounded-2xl transition-all border border-white/10"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 bg-primary hover:bg-indigo-500 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-indigo-500/20"
-                >
-                  {isEditing ? 'Save Changes' : 'Add Guard'}
-                </button>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-muted-foreground">Email Address</label>
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                <Input
+                  type="email"
+                  className="pl-9"
+                  placeholder="guard@example.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-muted-foreground">Portal Password</label>
+              <div className="relative">
+                <KeyRound className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                <Input
+                  type="password"
+                  minLength={6}
+                  className="pl-9"
+                  placeholder={isEditing ? 'Leave blank to keep current password' : 'Set guard portal password'}
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <BranchSelect
+              value={formData.branch_id}
+              onChange={(branchId) => setFormData({ ...formData, branch_id: branchId })}
+              includeAll={false}
+            />
+
+            {(canViewField('salary') ||
+              canViewField('bank_details') ||
+              canViewField('documents') ||
+              canViewField('personal_notes')) && (
+              <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
+                {canViewField('salary') && (
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-muted-foreground">Salary</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      disabled={!canEditField('salary')}
+                      placeholder="e.g. 52000"
+                      value={formData.salary}
+                      onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
+                    />
+                  </div>
+                )}
+
+                {canViewField('bank_details') && (
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-muted-foreground">Bank Details</label>
+                    <textarea
+                      disabled={!canEditField('bank_details')}
+                      className={fieldInputClass}
+                      placeholder="Payroll bank details"
+                      value={formData.bank_details}
+                      onChange={(e) => setFormData({ ...formData, bank_details: e.target.value })}
+                    />
+                  </div>
+                )}
+
+                {canViewField('documents') && (
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-muted-foreground">Documents</label>
+                    <textarea
+                      disabled={!canEditField('documents')}
+                      className={fieldInputClass}
+                      placeholder="Private document notes or links"
+                      value={formData.documents}
+                      onChange={(e) => setFormData({ ...formData, documents: e.target.value })}
+                    />
+                  </div>
+                )}
+
+                {canViewField('personal_notes') && (
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-muted-foreground">Personal Notes</label>
+                    <textarea
+                      disabled={!canEditField('personal_notes')}
+                      className={fieldInputClass}
+                      placeholder="Internal personal notes"
+                      value={formData.personal_notes}
+                      onChange={(e) => setFormData({ ...formData, personal_notes: e.target.value })}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">{isEditing ? 'Save Changes' : 'Add Guard'}</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

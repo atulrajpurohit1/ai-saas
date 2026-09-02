@@ -3,23 +3,24 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
+import PageHeader from '@/components/PageHeader';
+import LoadingState from '@/components/LoadingState';
+import EmptyState from '@/components/EmptyState';
+import ErrorState from '@/components/ErrorState';
+import StatusBadge from '@/components/StatusBadge';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { formatEnumLabel } from '@/lib/format';
 import { getAdminIncidents, Incident } from '@/lib/incidents';
-import { AlertTriangle, ArrowRight, CalendarDays, ClipboardCheck, FileWarning, Loader2, MapPin, ShieldCheck } from 'lucide-react';
+import { ArrowRight, CalendarDays, ClipboardCheck, FileWarning, MapPin, ShieldCheck } from 'lucide-react';
 
-const severityClass: Record<string, string> = {
-  low: 'border-slate-400/20 bg-slate-400/10 text-slate-300',
-  medium: 'border-amber-400/20 bg-amber-400/10 text-amber-300',
-  high: 'border-orange-400/20 bg-orange-400/10 text-orange-300',
-  critical: 'border-rose-400/20 bg-rose-400/10 text-rose-300',
-};
-
-const statusClass: Record<string, string> = {
-  submitted: 'border-sky-400/20 bg-sky-400/10 text-sky-300',
-  under_review: 'border-violet-400/20 bg-violet-400/10 text-violet-300',
-  approved: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300',
-  rejected: 'border-rose-400/20 bg-rose-400/10 text-rose-300',
+const severityTone: Record<string, 'neutral' | 'warning' | 'error'> = {
+  low: 'neutral',
+  medium: 'warning',
+  high: 'error',
+  critical: 'error',
 };
 
 export default function IncidentsPage() {
@@ -28,130 +29,123 @@ export default function IncidentsPage() {
   const [error, setError] = useState('');
   const [selectedBranchId, setSelectedBranchId] = useState('');
 
-  useEffect(() => {
-    const fetchIncidents = async () => {
-      setLoading(true);
-      try {
-        const data = await getAdminIncidents(selectedBranchId);
-        setIncidents(Array.isArray(data) ? data : []);
-        setError('');
-      } catch (err) {
-        setError(getApiErrorMessage(err, 'Could not load incidents.'));
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchIncidents = async () => {
+    setLoading(true);
+    try {
+      const data = await getAdminIncidents(selectedBranchId);
+      setIncidents(Array.isArray(data) ? data : []);
+      setError('');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not load incidents.'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchIncidents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBranchId]);
 
-  const formatDate = (value: string) => new Date(value).toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const formatDate = (value: string) =>
+    new Date(value).toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
   return (
     <DashboardLayout>
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex flex-col gap-2">
-          <h2 className="flex items-center gap-3 text-2xl font-bold sm:text-3xl">
-            <FileWarning className="text-amber-300" size={28} />
-            Incidents
-          </h2>
-          <p className="text-muted-foreground">Track incident reports submitted by guards.</p>
-        </div>
-        <Link
-          href="/incidents/review"
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-indigo-400"
-        >
-          <ClipboardCheck size={17} />
-          Review Queue
-        </Link>
-      </div>
+      <PageHeader
+        title="Incidents"
+        description="Track incident reports submitted by guards."
+        actions={
+          <Button asChild variant="outline">
+            <Link href="/incidents/review">
+              <ClipboardCheck size={16} />
+              Review Queue
+            </Link>
+          </Button>
+        }
+      />
 
-      <div className="glass-card overflow-hidden rounded-3xl border border-white/5">
-        <div className="border-b border-white/5 bg-white/5 p-4 sm:max-w-xs sm:p-6">
+      <div className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card shadow-sm">
+        <div className="border-b border-border p-4 sm:max-w-xs">
           <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Filter Branch" />
         </div>
         {loading ? (
-          <div className="py-20 text-center text-muted-foreground">
-            <Loader2 className="mx-auto mb-3 animate-spin text-indigo-300" size={26} />
-            Loading incidents...
-          </div>
+          <LoadingState label="Loading incidents..." />
         ) : error ? (
-          <div className="p-8 text-center text-rose-300">
-            <AlertTriangle className="mx-auto mb-3" size={28} />
-            {error}
+          <div className="p-4">
+            <ErrorState message={error} onRetry={fetchIncidents} />
           </div>
         ) : incidents.length === 0 ? (
-          <div className="py-20 text-center text-muted-foreground">No incidents reported yet.</div>
+          <EmptyState
+            icon={FileWarning}
+            title="No incidents reported"
+            description="Incident reports submitted by guards in the field will appear here."
+          />
         ) : (
           <div className="overflow-x-auto">
-            <table className="responsive-table w-full text-left">
-              <thead>
-                <tr className="border-b border-white/5 text-sm uppercase tracking-wider text-muted-foreground">
-                  <th className="px-6 py-4 font-semibold">Title</th>
-                  <th className="px-6 py-4 font-semibold">Site</th>
-                  <th className="px-6 py-4 font-semibold">Branch</th>
-                  <th className="px-6 py-4 font-semibold">Guard</th>
-                  <th className="px-6 py-4 font-semibold">Severity</th>
-                  <th className="px-6 py-4 font-semibold">Status</th>
-                  <th className="px-6 py-4 font-semibold">Occurred</th>
-                  <th className="px-6 py-4 font-semibold text-right">Details</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
+            <Table className="responsive-table">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Title</TableHead>
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Site</TableHead>
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Branch</TableHead>
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Guard</TableHead>
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Severity</TableHead>
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Status</TableHead>
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Occurred</TableHead>
+                  <TableHead className="px-6 py-3" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {incidents.map((incident) => (
-                  <tr key={incident.id} className="transition hover:bg-white/5">
-                    <td className="px-6 py-4" data-label="Title">
-                      <div className="font-semibold text-white">{incident.title}</div>
-                    </td>
-                    <td className="px-6 py-4" data-label="Site">
-                      <div className="flex items-center gap-2 text-sm text-slate-300">
-                        <MapPin size={14} className="text-indigo-300" />
+                  <TableRow key={incident.id}>
+                    <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Title">
+                      <div className="font-semibold text-foreground">{incident.title}</div>
+                    </TableCell>
+                    <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Site">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <MapPin size={14} aria-hidden="true" />
                         {incident.site.name}
                       </div>
-                    </td>
-                    <td className="px-6 py-4" data-label="Branch">
+                    </TableCell>
+                    <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Branch">
                       <BranchBadge branch={incident.branch} />
-                    </td>
-                    <td className="px-6 py-4" data-label="Guard">
-                      <div className="flex items-center gap-2 text-sm text-slate-300">
-                        <ShieldCheck size={14} className="text-emerald-300" />
+                    </TableCell>
+                    <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Guard">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <ShieldCheck size={14} aria-hidden="true" />
                         {incident.guard.name}
                       </div>
-                    </td>
-                    <td className="px-6 py-4" data-label="Severity">
-                      <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-widest ${severityClass[incident.severity] || severityClass.low}`}>
-                        {incident.severity}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4" data-label="Status">
-                      <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-widest ${statusClass[incident.status] || statusClass.submitted}`}>
-                        {incident.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-muted-foreground" data-label="Occurred">
+                    </TableCell>
+                    <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Severity">
+                      <StatusBadge label={formatEnumLabel(incident.severity)} tone={severityTone[incident.severity] ?? 'neutral'} />
+                    </TableCell>
+                    <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Status">
+                      <StatusBadge status={incident.status} />
+                    </TableCell>
+                    <TableCell className="px-6 py-3.5 text-sm text-muted-foreground whitespace-normal" data-label="Occurred">
                       <div className="flex items-center gap-2">
-                        <CalendarDays size={14} className="text-indigo-300" />
+                        <CalendarDays size={14} aria-hidden="true" />
                         {formatDate(incident.occurredAt)}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 text-right" data-label="Actions">
-                      <Link
-                        href={`/incidents/${incident.id}`}
-                        className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-white/10"
-                      >
-                        View <ArrowRight size={14} />
-                      </Link>
-                    </td>
-                  </tr>
+                    </TableCell>
+                    <TableCell className="px-6 py-3.5 text-right whitespace-normal" data-label="Actions">
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/incidents/${incident.id}`}>
+                          View <ArrowRight size={14} />
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>

@@ -3,30 +3,23 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
+import PageHeader from '@/components/PageHeader';
+import LoadingState from '@/components/LoadingState';
+import EmptyState from '@/components/EmptyState';
+import ErrorState from '@/components/ErrorState';
+import StatusBadge from '@/components/StatusBadge';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { formatEnumLabel } from '@/lib/format';
 import { getIncidentReviewQueue, Incident } from '@/lib/incidents';
-import {
-  AlertTriangle,
-  ArrowLeft,
-  ArrowRight,
-  CalendarDays,
-  ClipboardCheck,
-  FileWarning,
-  Loader2,
-  MapPin,
-  ShieldCheck,
-} from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, ClipboardCheck, FileWarning, MapPin, ShieldCheck } from 'lucide-react';
 
-const severityClass: Record<string, string> = {
-  low: 'border-slate-400/20 bg-slate-400/10 text-slate-300',
-  medium: 'border-amber-400/20 bg-amber-400/10 text-amber-300',
-  high: 'border-orange-400/20 bg-orange-400/10 text-orange-300',
-  critical: 'border-rose-400/20 bg-rose-400/10 text-rose-300',
-};
-
-const statusClass: Record<string, string> = {
-  submitted: 'border-sky-400/20 bg-sky-400/10 text-sky-300',
-  under_review: 'border-violet-400/20 bg-violet-400/10 text-violet-300',
+const severityTone: Record<string, 'neutral' | 'warning' | 'error'> = {
+  low: 'neutral',
+  medium: 'warning',
+  high: 'error',
+  critical: 'error',
 };
 
 export default function IncidentReviewQueuePage() {
@@ -34,123 +27,120 @@ export default function IncidentReviewQueuePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const fetchQueue = async () => {
-      try {
-        const data = await getIncidentReviewQueue();
-        setIncidents(Array.isArray(data) ? data : []);
-        setError('');
-      } catch (err) {
-        setError(getApiErrorMessage(err, 'Could not load the review queue.'));
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchQueue = async () => {
+    setLoading(true);
+    try {
+      const data = await getIncidentReviewQueue();
+      setIncidents(Array.isArray(data) ? data : []);
+      setError('');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not load the review queue.'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchQueue();
   }, []);
 
-  const formatDate = (value: string) => new Date(value).toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const formatDate = (value: string) =>
+    new Date(value).toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
   return (
     <DashboardLayout>
       <div className="mb-6">
-        <Link href="/incidents" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 transition hover:text-white">
-          <ArrowLeft size={16} />
+        <Link
+          href="/incidents"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground transition hover:text-foreground"
+        >
+          <ArrowLeft size={16} aria-hidden="true" />
           Back to incidents
         </Link>
       </div>
 
-      <div className="mb-8 flex flex-col gap-2">
-        <h2 className="flex items-center gap-3 text-2xl font-bold sm:text-3xl">
-          <ClipboardCheck className="text-indigo-300" size={28} />
-          Incident Review Queue
-        </h2>
-        <p className="text-muted-foreground">Submitted and in-progress incident reports awaiting a decision.</p>
-      </div>
+      <PageHeader
+        title="Incident Review Queue"
+        description="Submitted and in-progress incident reports awaiting a decision."
+      />
 
-      <div className="glass-card overflow-hidden rounded-3xl border border-white/5">
+      <div className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card shadow-sm">
         {loading ? (
-          <div className="py-20 text-center text-muted-foreground">
-            <Loader2 className="mx-auto mb-3 animate-spin text-indigo-300" size={26} />
-            Loading review queue...
-          </div>
+          <LoadingState label="Loading review queue..." />
         ) : error ? (
-          <div className="p-8 text-center text-rose-300">
-            <AlertTriangle className="mx-auto mb-3" size={28} />
-            {error}
+          <div className="p-4">
+            <ErrorState message={error} onRetry={fetchQueue} />
           </div>
         ) : incidents.length === 0 ? (
-          <div className="py-20 text-center text-muted-foreground">No incidents are waiting for review.</div>
+          <EmptyState
+            icon={ClipboardCheck}
+            title="Nothing to review"
+            description="Incident reports awaiting a decision will appear here."
+          />
         ) : (
           <div className="overflow-x-auto">
-            <table className="responsive-table w-full text-left">
-              <thead>
-                <tr className="border-b border-white/5 text-sm uppercase tracking-wider text-muted-foreground">
-                  <th className="px-6 py-4 font-semibold">Title</th>
-                  <th className="px-6 py-4 font-semibold">Site</th>
-                  <th className="px-6 py-4 font-semibold">Guard</th>
-                  <th className="px-6 py-4 font-semibold">Severity</th>
-                  <th className="px-6 py-4 font-semibold">Submitted</th>
-                  <th className="px-6 py-4 font-semibold">Status</th>
-                  <th className="px-6 py-4 font-semibold text-right">Review</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
+            <Table className="responsive-table">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Title</TableHead>
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Site</TableHead>
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Guard</TableHead>
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Severity</TableHead>
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Submitted</TableHead>
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Status</TableHead>
+                  <TableHead className="px-6 py-3" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {incidents.map((incident) => (
-                  <tr key={incident.id} className="transition hover:bg-white/5">
-                    <td className="px-6 py-4" data-label="Title">
-                      <div className="flex items-center gap-2 font-semibold text-white">
-                        <FileWarning size={15} className="text-amber-300" />
+                  <TableRow key={incident.id}>
+                    <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Title">
+                      <div className="flex items-center gap-2 font-semibold text-foreground">
+                        <FileWarning size={15} aria-hidden="true" />
                         {incident.title}
                       </div>
-                    </td>
-                    <td className="px-6 py-4" data-label="Site">
-                      <div className="flex items-center gap-2 text-sm text-slate-300">
-                        <MapPin size={14} className="text-indigo-300" />
+                    </TableCell>
+                    <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Site">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <MapPin size={14} aria-hidden="true" />
                         {incident.site.name}
                       </div>
-                    </td>
-                    <td className="px-6 py-4" data-label="Guard">
-                      <div className="flex items-center gap-2 text-sm text-slate-300">
-                        <ShieldCheck size={14} className="text-emerald-300" />
+                    </TableCell>
+                    <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Guard">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <ShieldCheck size={14} aria-hidden="true" />
                         {incident.guard.name}
                       </div>
-                    </td>
-                    <td className="px-6 py-4" data-label="Severity">
-                      <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-widest ${severityClass[incident.severity] || severityClass.low}`}>
-                        {incident.severity}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-muted-foreground" data-label="Submitted">
+                    </TableCell>
+                    <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Severity">
+                      <StatusBadge label={formatEnumLabel(incident.severity)} tone={severityTone[incident.severity] ?? 'neutral'} />
+                    </TableCell>
+                    <TableCell className="px-6 py-3.5 text-sm text-muted-foreground whitespace-normal" data-label="Submitted">
                       <div className="flex items-center gap-2">
-                        <CalendarDays size={14} className="text-indigo-300" />
+                        <CalendarDays size={14} aria-hidden="true" />
                         {formatDate(incident.submittedAt || incident.createdAt)}
                       </div>
-                    </td>
-                    <td className="px-6 py-4" data-label="Status">
-                      <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-widest ${statusClass[incident.status] || statusClass.submitted}`}>
-                        {incident.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right" data-label="Actions">
-                      <Link
-                        href={`/incidents/review/${incident.id}`}
-                        className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-white/10"
-                      >
-                        View / Review <ArrowRight size={14} />
-                      </Link>
-                    </td>
-                  </tr>
+                    </TableCell>
+                    <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Status">
+                      <StatusBadge status={incident.status} />
+                    </TableCell>
+                    <TableCell className="px-6 py-3.5 text-right whitespace-normal" data-label="Actions">
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/incidents/review/${incident.id}`}>
+                          Review <ArrowRight size={14} />
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>

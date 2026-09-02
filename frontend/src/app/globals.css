@@ -149,10 +149,17 @@ code {
   }
 }
 
+/*
+ * `glass-card` was the old dark-theme translucent surface. On the light theme
+ * the remaining admin list pages that still use it should read as the same
+ * solid `.surface-card` every Phase 2 page uses - opaque card fill, hairline
+ * border, subtle elevation, no blur. Redefined here (rather than rewriting
+ * ~16 files) for one consistent surface treatment app-wide.
+ */
 .glass-card {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(20, 22, 26, 0.08);
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
 }
 
 .gradient-text {
@@ -581,7 +588,22 @@ option.bg-\[\#0f172a\] {
   border-radius: var(--radius);
 }
 
-/* 5. NOTE on the Guard portal's emerald usage: the previous green *shell chrome*
+/* 5. Border-radius normalization. The pre-Phase-2 admin pages hand-picked
+ *    Tailwind's rounded-2xl (1rem) / rounded-3xl (1.5rem) for card shells and
+ *    modals, which reads slightly larger/softer than the design-system
+ *    --radius-lg (20px) used everywhere else. Pull them onto the token so
+ *    every card, panel and dialog shares one corner radius. rounded-xl and
+ *    smaller are left alone (they match --radius / --radius-sm closely enough
+ *    and are used for inner controls). */
+.rounded-2xl,
+.rounded-3xl,
+.rounded-\[2rem\],
+.rounded-\[2\.5rem\],
+.rounded-\[1\.75rem\] {
+  border-radius: var(--radius-lg);
+}
+
+/* 6. NOTE on the Guard portal's emerald usage: the previous green *shell chrome*
  * (portal header, nav tabs, brand shield) is unified onto the shared primary
  * in GuardLayout.tsx directly. The remaining `bg-emerald-500` buttons in guard
  * pages ("Check In", "Start Patrol") deliberately keep the same emerald that
