@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, CornerDownLeft } from 'lucide-react';
+import { Search, CornerDownLeft, Clock, Zap } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/context/AuthContext';
 import { DASHBOARD_LINK, NAV_GROUPS, type NavLink } from '@/lib/nav-links';
+import { QUICK_ACTIONS } from '@/lib/quick-actions';
+import { useRecentPages } from '@/hooks/useRecentPages';
 import { cn } from '@/lib/utils';
 
 interface CommandPaletteProps {
@@ -13,47 +15,105 @@ interface CommandPaletteProps {
   onOpenChange: (open: boolean) => void;
 }
 
-// Client-side quick-nav over the app's own real navigation - not a new
-// backend search. Every entry here is a route the user can already reach
-// from the Sidebar; this just makes reaching it a keystroke instead of a
-// scroll-and-click.
+interface PaletteItem {
+  key: string;
+  label: string;
+  href: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+}
+
+interface PaletteGroup {
+  label: string;
+  items: PaletteItem[];
+}
+
+// Highlights the matched substring of a label without dangerouslySetInnerHTML.
+function Highlight({ text, query }: { text: string; query: string }) {
+  const q = query.trim();
+  if (!q) return <>{text}</>;
+  const idx = text.toLowerCase().indexOf(q.toLowerCase());
+  if (idx === -1) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="bg-transparent font-bold text-primary">{text.slice(idx, idx + q.length)}</mark>
+      {text.slice(idx + q.length)}
+    </>
+  );
+}
+
+/**
+ * Client-side quick-nav + quick-actions over the app's own real navigation.
+ * Not a new backend search. Every entry is a route the user can already reach;
+ * this just makes reaching it a keystroke. Quick actions route to existing
+ * create flows (see lib/quick-actions.ts).
+ */
 export default function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const router = useRouter();
   const { canAny } = useAuth();
+  const { recent, record } = useRecentPages();
   const [query, setQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!open) setQuery('');
   }, [open]);
 
-  const results = useMemo(() => {
-    const visibleDashboard = canAny(DASHBOARD_LINK.permissions) ? [DASHBOARD_LINK] : [];
-    const visibleGroups = NAV_GROUPS.map((group) => ({
-      ...group,
-      links: group.links.filter((link) => canAny(link.permissions)),
-    })).filter((group) => group.links.length > 0);
-
+  const navGroups = useMemo<PaletteGroup[]>(() => {
     const q = query.trim().toLowerCase();
-    const matches = (link: NavLink) => !q || link.label.toLowerCase().includes(q);
+    const matches = (label: string) => !q || label.toLowerCase().includes(q);
 
-    const groups: { label: string; links: NavLink[] }[] = [];
-    const dashboardMatches = visibleDashboard.filter(matches);
-    if (dashboardMatches.length > 0) groups.push({ label: 'Workspace', links: dashboardMatches });
-    for (const group of visibleGroups) {
-      const links = group.links.filter(matches);
-      if (links.length === 0) continue;
-      const existing = groups.find((g) => g.label === group.label);
-      if (existing) existing.links.push(...links);
-      else groups.push({ label: group.label, links });
+    const groups: PaletteGroup[] = [];
+
+    // Quick actions first (only meaningful when not deep in a filtered search,
+    // but still filterable).
+    const actions = QUICK_ACTIONS.filter((a) => canAny(a.permissions) && matches(a.label)).map((a) => ({
+      key: `action:${a.href}`,
+      label: a.label,
+      href: a.href,
+      icon: a.icon,
+    }));
+    if (actions.length > 0) groups.push({ label: 'Quick actions', items: actions });
+
+    // Recent pages (skip while actively searching to keep the list tight).
+    if (!q && recent.length > 0) {
+      groups.push({
+        label: 'Recent',
+        items: recent.map((r) => ({ key: `recent:${r.href}`, label: r.label, href: r.href, icon: Clock })),
+      });
     }
+
+    // Full navigation.
+    const dashboard = canAny(DASHBOARD_LINK.permissions) && matches(DASHBOARD_LINK.label)
+      ? [{ key: DASHBOARD_LINK.href, label: DASHBOARD_LINK.label, href: DASHBOARD_LINK.href, icon: DASHBOARD_LINK.icon }]
+      : [];
+    if (dashboard.length > 0) groups.push({ label: 'Workspace', items: dashboard });
+
+    for (const group of NAV_GROUPS) {
+      const items = group.links
+        .filter((link: NavLink) => canAny(link.permissions) && matches(link.label))
+        .map((link) => ({ key: link.href, label: link.label, href: link.href, icon: link.icon }));
+      if (items.length === 0) continue;
+      const existing = groups.find((g) => g.label === group.label);
+      if (existing) existing.items.push(...items);
+      else groups.push({ label: group.label, items });
+    }
+
     return groups;
-  }, [query, canAny]);
+  }, [query, canAny, recent]);
 
-  const flatCount = results.reduce((sum, g) => sum + g.links.length, 0);
+  const flatItems = useMemo(() => navGroups.flatMap((g) => g.items), [navGroups]);
 
-  const go = (href: string) => {
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [query, open]);
+
+  const go = (item: PaletteItem) => {
     onOpenChange(false);
-    router.push(href);
+    // Only nav destinations (not ?new= action routes) are worth "recent"-ing.
+    if (!item.href.includes('?')) record(item.href, item.label);
+    router.push(item.href);
   };
 
   useEffect(() => {
@@ -70,22 +130,38 @@ export default function CommandPalette({ open, onOpenChange }: CommandPalettePro
     return () => window.removeEventListener('keydown', handler);
   }, [open, onOpenChange]);
 
+  // Keep the active row scrolled into view.
+  useEffect(() => {
+    const node = listRef.current?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`);
+    node?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex]);
+
+  let runningIndex = -1;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent showCloseButton={false} className="gap-0 overflow-hidden p-0 sm:max-w-lg">
-        <DialogTitle className="sr-only">Quick navigation</DialogTitle>
+        <DialogTitle className="sr-only">Command palette</DialogTitle>
         <div className="flex items-center gap-3 border-b border-border px-4 py-3.5">
-          <Search size={17} className="shrink-0 text-muted-foreground" />
+          <Search size={17} className="shrink-0 text-muted-foreground" aria-hidden="true" />
           <input
             autoFocus
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && flatCount > 0) {
-                go(results[0].links[0].href);
+              if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                setActiveIndex((i) => Math.min(i + 1, flatItems.length - 1));
+              } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                setActiveIndex((i) => Math.max(i - 1, 0));
+              } else if (event.key === 'Enter' && flatItems[activeIndex]) {
+                event.preventDefault();
+                go(flatItems[activeIndex]);
               }
             }}
-            placeholder="Jump to a page..."
+            placeholder="Search pages and actions..."
+            aria-label="Search pages and actions"
             className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
           />
           <kbd className="hidden shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground sm:inline">
@@ -93,29 +169,44 @@ export default function CommandPalette({ open, onOpenChange }: CommandPalettePro
           </kbd>
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto p-2">
-          {flatCount === 0 ? (
-            <p className="px-3 py-6 text-center text-sm text-muted-foreground">No matching pages.</p>
+        <div ref={listRef} className="max-h-[60vh] overflow-y-auto p-2">
+          {flatItems.length === 0 ? (
+            <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+              No pages or actions match &ldquo;{query}&rdquo;.
+            </p>
           ) : (
-            results.map((group) => (
+            navGroups.map((group) => (
               <div key={group.label} className="mb-1">
-                <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+                <p className="flex items-center gap-1.5 px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+                  {group.label === 'Quick actions' && <Zap size={11} aria-hidden="true" />}
                   {group.label}
                 </p>
-                {group.links.map((link) => {
-                  const Icon = link.icon;
+                {group.items.map((item) => {
+                  runningIndex += 1;
+                  const index = runningIndex;
+                  const Icon = item.icon;
+                  const isActive = index === activeIndex;
                   return (
                     <button
-                      key={link.href}
+                      key={item.key}
                       type="button"
-                      onClick={() => go(link.href)}
+                      data-index={index}
+                      onClick={() => go(item)}
+                      onMouseMove={() => setActiveIndex(index)}
                       className={cn(
-                        'group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium text-foreground transition-colors hover:bg-primary/8 hover:text-primary',
+                        'group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors',
+                        isActive ? 'bg-primary/8 text-primary' : 'text-foreground',
                       )}
                     >
-                      <Icon size={16} className="shrink-0 text-muted-foreground group-hover:text-primary" />
-                      <span className="flex-1 truncate">{link.label}</span>
-                      <CornerDownLeft size={13} className="shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                      <Icon size={16} className={cn('shrink-0', isActive ? 'text-primary' : 'text-muted-foreground')} />
+                      <span className="flex-1 truncate">
+                        <Highlight text={item.label} query={query} />
+                      </span>
+                      <CornerDownLeft
+                        size={13}
+                        className={cn('shrink-0 text-muted-foreground', isActive ? 'opacity-100' : 'opacity-0')}
+                        aria-hidden="true"
+                      />
                     </button>
                   );
                 })}

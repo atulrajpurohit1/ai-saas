@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import api from '@/lib/api';
 import { branchParams, BranchSummary } from '@/lib/branches';
+import { useNewIntent } from '@/hooks/useNewIntent';
 import { Plus, Search, MapPin, Edit2 } from 'lucide-react';
 
 interface Site {
@@ -66,11 +67,21 @@ export default function SitesPage() {
     }
   };
 
+  const resetForm = () => {
+    setFormData({ name: '', address: '', instructions: '', client_id: '', branch_id: selectedBranchId });
+    setIsEditing(null);
+  };
+
   useEffect(() => {
     fetchSites();
     fetchClients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBranchId]);
+
+  useNewIntent(() => {
+    resetForm();
+    setShowModal(true);
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,11 +115,6 @@ export default function SitesPage() {
     });
     setIsEditing(site.id);
     setShowModal(true);
-  };
-
-  const resetForm = () => {
-    setFormData({ name: '', address: '', instructions: '', client_id: '', branch_id: selectedBranchId });
-    setIsEditing(null);
   };
 
   const filteredSites = sites.filter(

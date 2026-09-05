@@ -9,6 +9,7 @@ import SalesAcceleratorPanel from '@/components/SalesAcceleratorPanel';
 import LoadingState from '@/components/LoadingState';
 import ErrorState from '@/components/ErrorState';
 import StatusBadge from '@/components/StatusBadge';
+import Breadcrumbs from '@/components/Breadcrumbs';
 import api from '@/lib/api';
 import {
   ArrowLeft,
@@ -65,7 +66,7 @@ export default function LeadDetailsPage() {
 
   return (
     <DashboardLayout>
-      <div className="mb-6">
+      <div className="mb-6 flex items-center justify-between gap-4">
         <Link
           href="/leads"
           className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground transition hover:text-foreground"
@@ -73,6 +74,13 @@ export default function LeadDetailsPage() {
           <ArrowLeft size={16} />
           Back to leads
         </Link>
+        <Breadcrumbs
+          className="hidden sm:block"
+          items={[
+            { label: 'Leads', href: '/leads' },
+            { label: lead?.name || 'Lead' },
+          ]}
+        />
       </div>
 
       {loading ? (

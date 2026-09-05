@@ -18,6 +18,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useNewIntent } from '@/hooks/useNewIntent';
 import { Plus, Search, User, Upload, Loader2, Users } from 'lucide-react';
 
 interface Lead {
@@ -118,6 +119,8 @@ export default function LeadsPage() {
   useEffect(() => {
     fetchLeads();
   }, []);
+
+  useNewIntent(() => setShowModal(true));
 
   const handleAddLead = async (e: React.FormEvent) => {
     e.preventDefault();

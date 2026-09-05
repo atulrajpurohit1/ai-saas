@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { getBranding } from '@/lib/branding';
 import { cn } from '@/lib/utils';
 import { DASHBOARD_LINK, NAV_GROUPS, type NavLink } from '@/lib/nav-links';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const SIDEBAR_SCROLL_KEY = 'ai-saas-sidebar-scroll-top';
 
@@ -157,15 +158,31 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
       </nav>
 
       <div className="hidden border-t border-border p-2 lg:block">
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          className="flex w-full items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold text-muted-foreground transition hover:bg-black/[0.03] hover:text-foreground"
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          {collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
-          {!collapsed && <span>Collapse</span>}
-        </button>
+        {collapsed ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                className="flex w-full items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold text-muted-foreground transition hover:bg-black/[0.03] hover:text-foreground"
+                aria-label="Expand sidebar"
+              >
+                <PanelLeftOpen size={17} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Expand sidebar</TooltipContent>
+          </Tooltip>
+        ) : (
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            className="flex w-full items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold text-muted-foreground transition hover:bg-black/[0.03] hover:text-foreground"
+            aria-label="Collapse sidebar"
+          >
+            <PanelLeftClose size={17} />
+            <span>Collapse</span>
+          </button>
+        )}
       </div>
 
       <div className="mt-auto border-t border-border p-3">

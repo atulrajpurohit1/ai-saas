@@ -16,6 +16,7 @@ import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { branchParams, BranchSummary } from '@/lib/branches';
 import { FieldAccessMap, getEffectiveFieldPermissions } from '@/lib/field-permissions';
+import { useNewIntent } from '@/hooks/useNewIntent';
 import { Plus, Search, ShieldCheck, Edit2, Phone, Mail, KeyRound, FileCheck2 } from 'lucide-react';
 
 interface Guard {
@@ -102,6 +103,26 @@ export default function GuardsPage() {
       .catch((err) => console.error('Failed to load guard field permissions', err));
   }, []);
 
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      phone: '',
+      email: '',
+      password: '',
+      branch_id: selectedBranchId,
+      salary: '',
+      bank_details: '',
+      documents: '',
+      personal_notes: '',
+    });
+    setIsEditing(null);
+  };
+
+  useNewIntent(() => {
+    resetForm();
+    setShowModal(true);
+  });
+
   const canViewField = (field: string) => fieldAccess[field]?.canView !== false;
   const canEditField = (field: string) => fieldAccess[field]?.canEdit !== false;
   const showSalary = canViewField('salary');
@@ -157,21 +178,6 @@ export default function GuardsPage() {
     });
     setIsEditing(guard.id);
     setShowModal(true);
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      phone: '',
-      email: '',
-      password: '',
-      branch_id: selectedBranchId,
-      salary: '',
-      bank_details: '',
-      documents: '',
-      personal_notes: '',
-    });
-    setIsEditing(null);
   };
 
   const toggleAvailability = async (guardId: string, currentStatus: string) => {
@@ -335,7 +341,13 @@ export default function GuardsPage() {
                               Compliance
                             </Link>
                           </Button>
-                          <Button variant="outline" size="icon-sm" onClick={() => handleEdit(guard)} aria-label={`Edit ${guard.name}`}>
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            onClick={() => handleEdit(guard)}
+                            aria-label={`Edit ${guard.name}`}
+                            title="Edit guard"
+                          >
                             <Edit2 size={14} />
                           </Button>
                         </div>

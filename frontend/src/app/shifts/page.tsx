@@ -1,18 +1,33 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
+import PageHeader from '@/components/PageHeader';
+import LoadingState from '@/components/LoadingState';
+import EmptyState from '@/components/EmptyState';
+import ErrorState from '@/components/ErrorState';
+import StatusBadge from '@/components/StatusBadge';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
+import ShiftsCalendar from '@/components/ShiftsCalendar';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/context/AuthContext';
+import { useNewIntent } from '@/hooks/useNewIntent';
 import api from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/api-error';
 import { GuardRecommendation } from '@/lib/ai-insights';
 import { branchParams, BranchSummary } from '@/lib/branches';
-import { formatEnumLabel } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import ShiftsCalendar from '@/components/ShiftsCalendar';
-import { Plus, Search, Calendar, Clock, Users, MapPin, Sparkles, AlertTriangle, Loader2, CalendarDays, List } from 'lucide-react';
+import { Plus, Search, Calendar, CalendarClock, Clock, Users, MapPin, Sparkles, Loader2, CalendarDays, List } from 'lucide-react';
 
 const VIEW_STORAGE_KEY = 'ai-saas-shifts-view';
+
+const selectClass =
+  'h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none transition focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50';
 
 interface Site {
   id: string;
@@ -65,6 +80,8 @@ export default function ShiftsPage() {
   const [selectedBranchId, setSelectedBranchId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [view, setView] = useState<'list' | 'calendar'>('list');
+  const [unassignTarget, setUnassignTarget] = useState<string | null>(null);
+  const [unassigning, setUnassigning] = useState(false);
 
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? localStorage.getItem(VIEW_STORAGE_KEY) : null;
@@ -75,12 +92,12 @@ export default function ShiftsPage() {
     setView(nextView);
     localStorage.setItem(VIEW_STORAGE_KEY, nextView);
   };
-  
+
   const [newShift, setNewShift] = useState({
     siteId: '',
     startTime: '',
     endTime: '',
-    requiredGuards: 1
+    requiredGuards: 1,
   });
 
   const fetchShifts = async () => {
@@ -116,7 +133,12 @@ export default function ShiftsPage() {
     fetchShifts();
     if (canCreateShift) fetchSites();
     if (canAssignShift) fetchGuards();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBranchId, canCreateShift, canAssignShift]);
+
+  useNewIntent(() => {
+    if (canCreateShift) setShowModal(true);
+  });
 
   const resetAssignModal = () => {
     setShowAssignModal(false);
@@ -133,9 +155,9 @@ export default function ShiftsPage() {
     try {
       const res = await api.get<GuardRecommendation[]>(`v2/shifts/${shiftId}/recommend-guards`);
       setRecommendations(Array.isArray(res.data) ? res.data : []);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to fetch guard recommendations:', err);
-      setRecommendationsError(err.response?.data?.message || 'Could not load recommended guards.');
+      setRecommendationsError(getApiErrorMessage(err, 'Could not load recommended guards.'));
       setRecommendations([]);
     } finally {
       setRecommendationsLoading(false);
@@ -158,22 +180,26 @@ export default function ShiftsPage() {
       await api.put(`v2/shifts/${selectedShift}/assign`, { guardId: selectedGuard });
       resetAssignModal();
       fetchShifts();
-    } catch (err: any) {
+      toast.success('Guard assigned to shift.');
+    } catch (err) {
       console.error('Failed to assign guard:', err);
-      const message = err.response?.data?.message || 'Failed to assign guard.';
-      alert(message);
+      toast.error(getApiErrorMessage(err, 'Failed to assign guard.'));
     }
   };
 
-  const handleUnassign = async (shiftId: string) => {
-    if (!confirm('Are you sure you want to unassign the guard from this shift?')) return;
-
+  const handleUnassign = async () => {
+    if (!unassignTarget) return;
+    setUnassigning(true);
     try {
-      await api.delete(`v2/shifts/${shiftId}/unassign`);
+      await api.delete(`v2/shifts/${unassignTarget}/unassign`);
       fetchShifts();
+      toast.success('Guard unassigned.');
     } catch (err) {
       console.error('Failed to unassign guard:', err);
-      alert('Failed to unassign guard.');
+      toast.error('Failed to unassign guard.');
+    } finally {
+      setUnassigning(false);
+      setUnassignTarget(null);
     }
   };
 
@@ -185,25 +211,31 @@ export default function ShiftsPage() {
       setShowModal(false);
       setNewShift({ siteId: '', startTime: '', endTime: '', requiredGuards: 1 });
       fetchShifts();
+      toast.success('Shift created.');
     } catch (err) {
       console.error('Failed to create shift:', err);
-      alert('Failed to create shift. Please check your inputs.');
+      toast.error(getApiErrorMessage(err, 'Failed to create shift. Please check your inputs.'));
     }
   };
 
-  const formatDateTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString([], {
+  const formatDateTime = (dateStr: string) =>
+    new Date(dateStr).toLocaleString([], {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
-  };
 
   const formatAttendanceStatus = (status?: Shift['attendanceStatus']) => {
     if (status === 'checked_in') return 'Checked in';
     if (status === 'completed') return 'Completed';
     return 'Not started';
+  };
+
+  const attendanceTone = (status?: Shift['attendanceStatus']): 'info' | 'success' | 'neutral' => {
+    if (status === 'checked_in') return 'info';
+    if (status === 'completed') return 'success';
+    return 'neutral';
   };
 
   const matchesSearch = (shift: Shift) => {
@@ -216,73 +248,66 @@ export default function ShiftsPage() {
 
   const filteredShifts = shifts.filter(matchesSearch);
 
-  const attendanceBadgeClass = (status?: Shift['attendanceStatus']) => {
-    if (status === 'checked_in') return 'bg-sky-500/10 text-sky-400 border-sky-500/20';
-    if (status === 'completed') return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-    return 'bg-slate-500/10 text-slate-400 border-slate-500/20';
-  };
-
-  const scoreBadgeClass = (score: number) => {
-    if (score >= 80) return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20';
-    if (score >= 60) return 'bg-sky-500/10 text-sky-300 border-sky-500/20';
-    if (score >= 40) return 'bg-amber-500/10 text-amber-300 border-amber-500/20';
-    return 'bg-rose-500/10 text-rose-300 border-rose-500/20';
+  const scoreTone = (score: number): 'success' | 'info' | 'warning' | 'error' => {
+    if (score >= 80) return 'success';
+    if (score >= 60) return 'info';
+    if (score >= 40) return 'warning';
+    return 'error';
   };
 
   return (
     <DashboardLayout requiredPermissions="shifts.view">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-        <div>
-          <h2 className="text-2xl font-bold sm:text-3xl">Shift Management</h2>
-          <p className="text-muted-foreground">Schedule and manage guard presence at client sites.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex rounded-xl border border-white/10 bg-white/5 p-1">
-            <button
-              type="button"
-              onClick={() => changeView('list')}
-              className={cn(
-                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors',
-                view === 'list' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <List size={15} />
-              <span className="hidden sm:inline">List</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => changeView('calendar')}
-              className={cn(
-                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors',
-                view === 'calendar' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <CalendarDays size={15} />
-              <span className="hidden sm:inline">Calendar</span>
-            </button>
-          </div>
-          {canCreateShift && (
-            <button
-              onClick={() => setShowModal(true)}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-indigo-500"
-            >
-              <Plus size={20} />
-              <span>Create Shift</span>
-            </button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Shift Management"
+        description="Schedule and manage guard presence at client sites."
+        actions={
+          <>
+            <div className="flex rounded-lg border border-border bg-muted p-1" role="group" aria-label="View mode">
+              <button
+                type="button"
+                onClick={() => changeView('list')}
+                aria-pressed={view === 'list'}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors',
+                  view === 'list' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <List size={15} />
+                <span className="hidden sm:inline">List</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => changeView('calendar')}
+                aria-pressed={view === 'calendar'}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors',
+                  view === 'calendar' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <CalendarDays size={15} />
+                <span className="hidden sm:inline">Calendar</span>
+              </button>
+            </div>
+            {canCreateShift && (
+              <Button onClick={() => setShowModal(true)}>
+                <Plus size={16} />
+                Create Shift
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      <div className="glass-card mb-5 rounded-3xl border border-white/5 p-4 sm:p-6">
+      <div className="mb-5 rounded-[var(--radius-lg)] border border-border bg-card p-4 shadow-sm">
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_240px]">
           <div className="relative w-full sm:max-w-sm">
-            <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
-            <input
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+            <Input
               type="text"
-              placeholder="Search shifts..."
+              placeholder="Search by site or guard..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary"
+              className="pl-9"
             />
           </div>
           <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Filter Branch" />
@@ -299,323 +324,310 @@ export default function ShiftsPage() {
           }}
         />
       ) : (
-      <div className="glass-card rounded-3xl overflow-hidden border border-white/5">
-        <div className="overflow-x-auto">
-          <table className="responsive-table w-full text-left">
-            <thead>
-              <tr className="text-muted-foreground text-sm uppercase tracking-wider">
-                <th className="px-6 py-4 font-semibold">Site</th>
-                <th className="px-6 py-4 font-semibold">Branch</th>
-                <th className="px-6 py-4 font-semibold">Start Time</th>
-                <th className="px-6 py-4 font-semibold">End Time</th>
-                <th className="px-6 py-4 font-semibold">Guards</th>
-                <th className="px-6 py-4 font-semibold">Assigned Guard</th>
-                <th className="px-6 py-4 font-semibold">Status</th>
-                <th className="px-6 py-4 font-semibold">Attendance</th>
-                <th className="px-6 py-4 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {loading ? (
-                <tr><td colSpan={9} className="px-6 py-10 text-center text-muted-foreground">Loading shifts...</td></tr>
-              ) : shifts.length === 0 ? (
-                <tr><td colSpan={9} className="px-6 py-10 text-center text-muted-foreground">No shifts scheduled yet.</td></tr>
-              ) : filteredShifts.length === 0 ? (
-                <tr><td colSpan={9} className="px-6 py-10 text-center text-muted-foreground">No shifts match your search.</td></tr>
-              ) : filteredShifts.map((shift) => (
-                <tr key={shift.id} className="hover:bg-white/5 transition-colors group">
-                  <td className="px-6 py-4" data-label="Site">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
-                        <MapPin size={18} />
-                      </div>
-                      <span className="font-semibold">{shift.site?.name || 'N/A'}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4" data-label="Branch">
-                    <BranchBadge branch={shift.branch} />
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap" data-label="Start">
-                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                      <Calendar size={14} className="text-indigo-400 shrink-0" />
-                      <span>{formatDateTime(shift.startTime)}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap" data-label="End">
-                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                      <Clock size={14} className="text-indigo-400 shrink-0" />
-                      <span>{formatDateTime(shift.endTime)}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4" data-label="Guards">
-                    <div className="flex items-center gap-2">
-                       <Users size={16} className="text-muted-foreground" />
-                       <span className="font-medium">{shift.requiredGuards}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap" data-label="Assigned">
-                    <span className={`font-medium ${shift.assignments && shift.assignments.length > 0 ? 'text-indigo-300' : 'text-muted-foreground'}`}>
-                      {shift.assignments && shift.assignments.length > 0 
-                        ? shift.assignments[0].guard.name 
-                        : 'Unassigned'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4" data-label="Status">
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${shift.status === 'assigned' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
-                      Schedule: {formatEnumLabel(shift.status)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap" data-label="Attendance">
-                    <div className="space-y-1.5">
-                      <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border ${attendanceBadgeClass(shift.attendanceStatus)}`}>
-                        Attendance: {formatAttendanceStatus(shift.attendanceStatus)}
-                      </span>
-                      <div className="text-xs text-muted-foreground">
-                        In: {shift.checkInTime ? formatDateTime(shift.checkInTime) : 'Not recorded'}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Out: {shift.checkOutTime ? formatDateTime(shift.checkOutTime) : 'Not recorded'}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right whitespace-nowrap" data-label="Actions">
-                    {!canAssignShift ? (
-                      <span className="text-xs font-semibold text-slate-500">No actions</span>
-                    ) : shift.assignments && shift.assignments.length > 0 ? (
-                       <button 
-                         onClick={() => handleUnassign(shift.id)}
-                         className="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-500 px-3 py-1.5 rounded-lg font-medium transition-colors whitespace-nowrap"
-                       >
-                         Unassign
-                       </button>
-                    ) : (
-                       <button 
-                         onClick={() => openAssignModal(shift.id)}
-                         className="text-xs bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-3 py-1.5 rounded-lg font-medium transition-colors whitespace-nowrap"
-                       >
-                         Assign Guard
-                       </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card shadow-sm">
+          {loading ? (
+            <LoadingState label="Loading shifts..." />
+          ) : shifts.length === 0 ? (
+            <EmptyState
+              icon={CalendarClock}
+              title="No shifts scheduled"
+              description="Create a shift to put a guard on a site for a time window. Switch to the calendar view to see coverage at a glance."
+              action={
+                canCreateShift ? (
+                  <Button onClick={() => setShowModal(true)}>
+                    <Plus size={16} />
+                    Create Shift
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : filteredShifts.length === 0 ? (
+            <EmptyState icon={Search} title="No matching shifts" description="Try a different site or guard name." />
+          ) : (
+            <div className="overflow-x-auto">
+              <Table className="responsive-table">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Site</TableHead>
+                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Branch</TableHead>
+                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Start</TableHead>
+                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">End</TableHead>
+                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Guards</TableHead>
+                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Assigned</TableHead>
+                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Schedule</TableHead>
+                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Attendance</TableHead>
+                    <TableHead className="px-6 py-3" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredShifts.map((shift) => {
+                    const assigned = shift.assignments && shift.assignments.length > 0;
+                    return (
+                      <TableRow key={shift.id}>
+                        <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Site">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary">
+                              <MapPin size={16} />
+                            </div>
+                            <span className="font-semibold text-foreground">{shift.site?.name || 'N/A'}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Branch">
+                          <BranchBadge branch={shift.branch} />
+                        </TableCell>
+                        <TableCell className="px-6 py-3.5 text-sm text-muted-foreground whitespace-nowrap" data-label="Start">
+                          <div className="flex items-center gap-2">
+                            <Calendar size={14} className="shrink-0" aria-hidden="true" />
+                            {formatDateTime(shift.startTime)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-6 py-3.5 text-sm text-muted-foreground whitespace-nowrap" data-label="End">
+                          <div className="flex items-center gap-2">
+                            <Clock size={14} className="shrink-0" aria-hidden="true" />
+                            {formatDateTime(shift.endTime)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Guards">
+                          <div className="flex items-center gap-2">
+                            <Users size={15} className="text-muted-foreground" aria-hidden="true" />
+                            <span className="font-medium text-foreground">{shift.requiredGuards}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-6 py-3.5 whitespace-nowrap" data-label="Assigned">
+                          <span className={assigned ? 'font-medium text-foreground' : 'text-muted-foreground'}>
+                            {assigned ? shift.assignments[0].guard.name : 'Unassigned'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Schedule">
+                          <StatusBadge status={shift.status} />
+                        </TableCell>
+                        <TableCell className="px-6 py-3.5 whitespace-nowrap" data-label="Attendance">
+                          <div className="space-y-1.5">
+                            <StatusBadge
+                              label={formatAttendanceStatus(shift.attendanceStatus)}
+                              tone={attendanceTone(shift.attendanceStatus)}
+                            />
+                            <div className="text-xs text-muted-foreground">
+                              In: {shift.checkInTime ? formatDateTime(shift.checkInTime) : 'Not recorded'}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Out: {shift.checkOutTime ? formatDateTime(shift.checkOutTime) : 'Not recorded'}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-6 py-3.5 text-right whitespace-nowrap" data-label="Actions">
+                          {!canAssignShift ? (
+                            <span className="text-xs text-muted-foreground">No actions</span>
+                          ) : assigned ? (
+                            <Button variant="outline" size="sm" onClick={() => setUnassignTarget(shift.id)}>
+                              Unassign
+                            </Button>
+                          ) : (
+                            <Button variant="outline" size="sm" onClick={() => openAssignModal(shift.id)}>
+                              Assign Guard
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </div>
-      </div>
       )}
 
-      {showModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="glass-card max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-3xl border-white/10 p-5 shadow-3xl animate-in zoom-in-95 duration-200 sm:p-8">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold">Create New Shift</h3>
-              <button onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-white transition-colors">
-                <Plus size={24} className="rotate-45" />
-              </button>
+      {/* Create shift */}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create new shift</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateShift} className="space-y-4">
+            <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Branch" />
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-muted-foreground">Select site</label>
+              <select
+                className={selectClass}
+                value={newShift.siteId}
+                onChange={(e) => setNewShift({ ...newShift, siteId: e.target.value })}
+                required
+              >
+                <option value="">Choose a site...</option>
+                {sites.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <form onSubmit={handleCreateShift} className="space-y-4">
-              <BranchSelect
-                value={selectedBranchId}
-                onChange={setSelectedBranchId}
-                label="Branch"
-              />
-
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-muted-foreground">Select Site</label>
-                <select 
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
-                  value={newShift.siteId}
-                  onChange={(e) => setNewShift({...newShift, siteId: e.target.value})}
-                  required
-                >
-                  <option value="" className="bg-[#0e0e1a]">Choose a site...</option>
-                  {sites.map(site => (
-                    <option key={site.id} value={site.id} className="bg-[#0e0e1a]">{site.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-muted-foreground">Start Time</label>
-                  <input 
-                    type="datetime-local" 
-                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
-                    value={newShift.startTime}
-                    onChange={(e) => setNewShift({...newShift, startTime: e.target.value})}
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-muted-foreground">End Time</label>
-                  <input 
-                    type="datetime-local" 
-                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
-                    value={newShift.endTime}
-                    onChange={(e) => setNewShift({...newShift, endTime: e.target.value})}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-muted-foreground">Required Guards</label>
-                <input 
-                  type="number" 
-                  min="1"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
-                  value={isNaN(newShift.requiredGuards) ? '' : newShift.requiredGuards}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    setNewShift({...newShift, requiredGuards: isNaN(val) ? 1 : val});
-                  }}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-muted-foreground">Start time</label>
+                <Input
+                  type="datetime-local"
+                  value={newShift.startTime}
+                  onChange={(e) => setNewShift({ ...newShift, startTime: e.target.value })}
                   required
                 />
               </div>
-
-              <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:gap-4">
-                <button 
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-3 rounded-2xl transition-all border border-white/10"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 bg-primary hover:bg-indigo-500 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-indigo-500/20"
-                >
-                  Create Shift
-                </button>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-muted-foreground">End time</label>
+                <Input
+                  type="datetime-local"
+                  value={newShift.endTime}
+                  onChange={(e) => setNewShift({ ...newShift, endTime: e.target.value })}
+                  required
+                />
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {showAssignModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-          <div className="glass-card max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-3xl border-white/10 p-5 shadow-3xl animate-in zoom-in-95 duration-200 sm:p-8">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold">Assign Guard to Shift</h3>
-              <button 
-                onClick={resetAssignModal} 
-                className="text-muted-foreground hover:text-white transition-colors"
-              >
-                <Plus size={24} className="rotate-45" />
-              </button>
             </div>
 
-            <form onSubmit={handleAssign} className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <h4 className="flex items-center gap-2 text-sm font-bold text-white">
-                    <Sparkles size={16} className="text-sky-300" />
-                    Recommended Guards
-                  </h4>
-                  {selectedShift && (
-                    <button
-                      type="button"
-                      onClick={() => fetchRecommendations(selectedShift)}
-                      disabled={recommendationsLoading}
-                      className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-slate-300 transition hover:bg-white/10 disabled:opacity-60"
-                    >
-                      Refresh
-                    </button>
-                  )}
-                </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-muted-foreground">Required guards</label>
+              <Input
+                type="number"
+                min="1"
+                value={Number.isNaN(newShift.requiredGuards) ? '' : newShift.requiredGuards}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  setNewShift({ ...newShift, requiredGuards: Number.isNaN(val) ? 1 : val });
+                }}
+                required
+              />
+            </div>
 
-                {recommendationsLoading ? (
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-5 text-center text-sm text-muted-foreground">
-                    <Loader2 className="mx-auto mb-2 animate-spin text-sky-300" size={20} />
-                    Ranking available guards...
-                  </div>
-                ) : recommendationsError ? (
-                  <div className="flex items-center gap-2 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
-                    <AlertTriangle size={16} />
-                    {recommendationsError}
-                  </div>
-                ) : recommendations.length === 0 ? (
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-5 text-center text-sm text-muted-foreground">
-                    No recommended guards found. Use manual selection below.
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {recommendations.slice(0, 5).map((recommendation) => (
-                      <button
-                        key={recommendation.guard_id}
-                        type="button"
-                        onClick={() => setSelectedGuard(recommendation.guard_id)}
-                        className={`w-full rounded-2xl border p-4 text-left transition ${
-                          selectedGuard === recommendation.guard_id
-                            ? 'border-sky-400/50 bg-sky-400/10'
-                            : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'
-                        }`}
-                      >
-                        <div className="mb-3 flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="truncate font-bold text-white">{recommendation.guard_name}</div>
-                            <p className="mt-1 text-sm leading-5 text-slate-400">{recommendation.explanation}</p>
-                          </div>
-                          <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-black ${scoreBadgeClass(recommendation.score)}`}>
-                            {recommendation.score}
-                          </span>
-                        </div>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">Create Shift</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-                        <div className="flex flex-wrap gap-2">
-                          {recommendation.reasons.slice(0, 3).map((reason) => (
-                            <span key={reason} className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200">
-                              {reason}
-                            </span>
-                          ))}
-                          {recommendation.warnings.slice(0, 2).map((warning) => (
-                            <span key={warning} className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
-                              {warning}
-                            </span>
-                          ))}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+      {/* Assign guard */}
+      <Dialog open={showAssignModal} onOpenChange={(o) => (o ? setShowAssignModal(true) : resetAssignModal())}>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Assign guard to shift</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAssign} className="space-y-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <h4 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Sparkles size={16} className="text-primary" aria-hidden="true" />
+                  Recommended guards
+                </h4>
+                {selectedShift && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchRecommendations(selectedShift)}
+                    disabled={recommendationsLoading}
+                  >
+                    Refresh
+                  </Button>
                 )}
               </div>
 
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-muted-foreground">Select Guard</label>
-                <select 
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
-                  value={selectedGuard}
-                  onChange={(e) => setSelectedGuard(e.target.value)}
-                  required
-                >
-                  <option value="" className="bg-[#0e0e1a]">Choose a guard...</option>
-                  {guards.map(guard => (
-                    <option key={guard.id} value={guard.id} className="bg-[#0e0e1a]">{guard.name}</option>
+              {recommendationsLoading ? (
+                <div className="rounded-lg border border-border bg-muted px-4 py-5 text-center text-sm text-muted-foreground">
+                  <Loader2 className="mx-auto mb-2 animate-spin text-primary" size={20} />
+                  Ranking available guards...
+                </div>
+              ) : recommendationsError ? (
+                <ErrorState message={recommendationsError} onRetry={selectedShift ? () => fetchRecommendations(selectedShift) : undefined} />
+              ) : recommendations.length === 0 ? (
+                <div className="rounded-lg border border-border bg-muted px-4 py-5 text-center text-sm text-muted-foreground">
+                  No recommended guards. Use manual selection below.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {recommendations.slice(0, 5).map((recommendation) => (
+                    <button
+                      key={recommendation.guard_id}
+                      type="button"
+                      onClick={() => setSelectedGuard(recommendation.guard_id)}
+                      className={cn(
+                        'w-full rounded-lg border p-4 text-left transition',
+                        selectedGuard === recommendation.guard_id
+                          ? 'border-primary/50 bg-primary/[0.06]'
+                          : 'border-border bg-card hover:bg-muted',
+                      )}
+                    >
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="truncate font-semibold text-foreground">{recommendation.guard_name}</div>
+                          <p className="mt-1 text-sm leading-5 text-muted-foreground">{recommendation.explanation}</p>
+                        </div>
+                        <StatusBadge label={String(recommendation.score)} tone={scoreTone(recommendation.score)} />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {recommendation.reasons.slice(0, 3).map((reason) => (
+                          <span
+                            key={reason}
+                            className="rounded-full bg-success-wash px-2.5 py-0.5 text-[11px] font-semibold text-success"
+                          >
+                            {reason}
+                          </span>
+                        ))}
+                        {recommendation.warnings.slice(0, 2).map((warning) => (
+                          <span
+                            key={warning}
+                            className="rounded-full bg-warning-wash px-2.5 py-0.5 text-[11px] font-semibold text-warning"
+                          >
+                            {warning}
+                          </span>
+                        ))}
+                      </div>
+                    </button>
                   ))}
-                </select>
-              </div>
+                </div>
+              )}
+            </div>
 
-              <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:gap-4">
-                <button 
-                  type="button"
-                  onClick={resetAssignModal}
-                  className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-3 rounded-2xl transition-all border border-white/10"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 bg-primary hover:bg-indigo-500 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-indigo-500/20"
-                >
-                  Confirm Assignment
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-muted-foreground">Select guard</label>
+              <select
+                className={selectClass}
+                value={selectedGuard}
+                onChange={(e) => setSelectedGuard(e.target.value)}
+                required
+              >
+                <option value="">Choose a guard...</option>
+                {guards.map((guard) => (
+                  <option key={guard.id} value={guard.id}>
+                    {guard.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" onClick={resetAssignModal}>
+                Cancel
+              </Button>
+              <Button type="submit">Confirm Assignment</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={unassignTarget !== null}
+        onOpenChange={(o) => !o && setUnassignTarget(null)}
+        title="Unassign guard?"
+        description="The guard will be removed from this shift and it will return to unassigned."
+        confirmLabel="Unassign"
+        destructive
+        loading={unassigning}
+        onConfirm={handleUnassign}
+      />
     </DashboardLayout>
   );
 }

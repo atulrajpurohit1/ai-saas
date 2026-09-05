@@ -1,25 +1,32 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import DashboardLayout from '@/components/DashboardLayout';
-import api from '@/lib/api';
+import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
+import DashboardLayout from '@/components/DashboardLayout';
+import PageHeader from '@/components/PageHeader';
+import LoadingState from '@/components/LoadingState';
+import EmptyState from '@/components/EmptyState';
+import StatusBadge from '@/components/StatusBadge';
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { getApiErrorMessage } from '@/lib/api-error';
+import api from '@/lib/api';
 import {
-  Plus, 
-  Sparkles, 
-  Send, 
-  Eye, 
+  Plus,
+  Sparkles,
+  Send,
+  Eye,
   Mail,
   FileText,
   Loader2,
   Zap,
   Users,
-  X,
-  CheckCircle2,
-  AlertCircle,
   Building2,
   Download,
-  UserPlus
+  UserPlus,
 } from 'lucide-react';
 
 interface Lead {
@@ -50,6 +57,16 @@ interface Client {
   email: string;
 }
 
+interface ProposalComment {
+  id: string;
+  content: string;
+  userId: string | null;
+  createdAt: string;
+}
+
+const selectClass =
+  'h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none transition focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50';
+
 export default function ProposalsPage() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -57,8 +74,7 @@ export default function ProposalsPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isBulkGenerating, setIsBulkGenerating] = useState(false);
   const [isSendingBulk, setIsSendingBulk] = useState(false);
-  const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
-  
+
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
@@ -67,30 +83,25 @@ export default function ProposalsPage() {
   const [clientsLoading, setClientsLoading] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState('');
   const [isCreatingClient, setIsCreatingClient] = useState(false);
-  
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  
-  const [comments, setComments] = useState<any[]>([]);
+
+  const [comments, setComments] = useState<ProposalComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [commentLoading, setCommentLoading] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareProposalId, setShareProposalId] = useState<string | null>(null);
 
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
-  };
+  const [confirmState, setConfirmState] = useState<null | 'bulk-generate' | 'bulk-email'>(null);
 
   const fetchClients = async () => {
     setClientsLoading(true);
     try {
       const res = await api.get('clients');
-      const nextClients = Array.isArray(res.data) ? res.data : [];
+      const nextClients: Client[] = Array.isArray(res.data) ? res.data : [];
       setClients(nextClients);
       return nextClients;
     } catch (err) {
       console.error('Failed to fetch clients', err);
-      showToast('Could not load clients. Please refresh or login again.', 'error');
+      toast.error('Could not load clients. Please refresh or log in again.');
       setClients([]);
       return [];
     } finally {
@@ -103,7 +114,7 @@ export default function ProposalsPage() {
       const [pRes, lRes, cRes] = await Promise.allSettled([
         api.get('proposals'),
         api.get('leads'),
-        fetchClients()
+        fetchClients(),
       ]);
       if (pRes.status === 'fulfilled') setProposals(pRes.value.data);
       if (lRes.status === 'fulfilled') setLeads(lRes.value.data);
@@ -157,7 +168,6 @@ export default function ProposalsPage() {
     const matchingClient = clients.find((client) => {
       const clientEmail = client.email?.trim().toLowerCase();
       const clientCompany = client.companyName?.trim().toLowerCase();
-
       return (leadEmail && clientEmail === leadEmail) || (leadCompany && clientCompany === leadCompany);
     });
 
@@ -168,12 +178,11 @@ export default function ProposalsPage() {
 
   const handleCreateClientFromLead = async () => {
     if (!selectedLead) {
-      showToast('Please select a lead first.', 'error');
+      toast.error('Please select a lead first.');
       return;
     }
-
     if (!selectedLead.email) {
-      showToast('This lead needs an email before it can become a client.', 'error');
+      toast.error('This lead needs an email before it can become a client.');
       return;
     }
 
@@ -186,10 +195,10 @@ export default function ProposalsPage() {
       });
       const nextClients = await fetchClients();
       setSelectedClientId(res.data?.id || nextClients[0]?.id || '');
-      showToast('Client created for this workspace.', 'success');
-    } catch (err: any) {
+      toast.success('Client created for this workspace.');
+    } catch (err) {
       console.error(err);
-      showToast(err.response?.data?.message || 'Could not create client from this lead.', 'error');
+      toast.error(getApiErrorMessage(err, 'Could not create client from this lead.'));
     } finally {
       setIsCreatingClient(false);
     }
@@ -197,65 +206,50 @@ export default function ProposalsPage() {
 
   const handleGenerateForLead = async () => {
     if (!selectedLeadId) {
-      showToast('Please select a lead first.', 'error');
+      toast.error('Please select a lead first.');
       return;
     }
     setIsGenerating(true);
     try {
-      await api.post('proposals/generate', { 
+      await api.post('proposals/generate', {
         leadId: selectedLeadId,
-        clientId: selectedClientId || undefined
+        clientId: selectedClientId || undefined,
       });
-      showToast('AI Proposal generated successfully!', 'success');
+      toast.success('AI proposal generated successfully.');
       setShowModal(false);
       setSelectedLeadId('');
       setSelectedClientId('');
       fetchData();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      showToast(err.response?.data?.message || 'Generation failed. Check your Gemini API key.', 'error');
+      toast.error(getApiErrorMessage(err, 'Generation failed. Check your Gemini API key.'));
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleBulkGenerate = async () => {
-    if (!confirm('This will generate AI proposals for all leads that don\'t have one yet. Continue?')) return;
     setIsBulkGenerating(true);
     try {
       const res = await api.post('proposals/generate-bulk');
-      showToast(`Generated ${res.data.generatedCount} proposals out of ${res.data.totalProcessed} leads.`, 'success');
+      toast.success(`Generated ${res.data.generatedCount} proposals out of ${res.data.totalProcessed} leads.`);
       fetchData();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      showToast(err.response?.data?.message || 'Bulk generation failed.', 'error');
+      toast.error(getApiErrorMessage(err, 'Bulk generation failed.'));
     } finally {
       setIsBulkGenerating(false);
     }
   };
 
-  const handleSendEmail = async (leadId: string) => {
-    setSendingEmailId(leadId);
-    try {
-      const res = await api.post('email/send', { leadId });
-      showToast(`Email sent! ${res.data.previewUrl ? 'Preview: ' + res.data.previewUrl : ''}`, 'success');
-    } catch (err: any) {
-      console.error(err);
-      showToast(err.response?.data?.message || 'Failed to send email.', 'error');
-    } finally {
-      setSendingEmailId(null);
-    }
-  };
-
   const handleBulkSendEmails = async () => {
-    if (!confirm('This will send proposal emails to ALL leads with email addresses and proposals. Are you sure?')) return;
     setIsSendingBulk(true);
     try {
       const res = await api.post('email/send-bulk');
-      showToast(`Sent ${res.data.sentCount} emails out of ${res.data.totalProcessed} eligible leads.`, 'success');
-    } catch (err: any) {
+      toast.success(`Sent ${res.data.sentCount} emails out of ${res.data.totalProcessed} eligible leads.`);
+    } catch (err) {
       console.error(err);
-      showToast(err.response?.data?.message || 'Bulk email failed.', 'error');
+      toast.error(getApiErrorMessage(err, 'Bulk email failed.'));
     } finally {
       setIsSendingBulk(false);
     }
@@ -270,20 +264,22 @@ export default function ProposalsPage() {
       fetchComments(proposalId);
     } catch (err) {
       console.error(err);
+      toast.error('Failed to add comment.');
     } finally {
       setCommentLoading(false);
     }
   };
 
   const handleShare = async (proposalId: string, clientId: string) => {
+    if (!clientId) return;
     try {
       await api.post(`proposals/${proposalId}/share`, { clientId });
-      showToast('Proposal shared with client portal!', 'success');
+      toast.success('Proposal shared with the client portal.');
       setShowShareModal(false);
       fetchData();
     } catch (err) {
       console.error(err);
-      showToast('Failed to share proposal.', 'error');
+      toast.error('Failed to share proposal.');
     }
   };
 
@@ -299,293 +295,357 @@ export default function ProposalsPage() {
       link.remove();
     } catch (err) {
       console.error(err);
-      showToast('Failed to download PDF.', 'error');
+      toast.error('Failed to download PDF.');
     }
   };
 
-  const getLeadInfo = (proposal: Proposal) => {
-    if (proposal.lead) return proposal.lead;
-    return leads.find(l => l.id === proposal.leadId);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'draft': return 'bg-warning-wash text-warning';
-      case 'sent': return 'bg-success-wash text-success';
-      case 'approved': return 'bg-info-wash text-info';
-      case 'rejected': return 'bg-error-wash text-error';
-      default: return 'bg-primary/8 text-primary';
-    }
-  };
+  const getLeadInfo = (proposal: Proposal) => proposal.lead ?? leads.find((l) => l.id === proposal.leadId);
 
   return (
     <DashboardLayout>
-      {toast && (
-        <div className={`fixed left-4 right-4 top-4 z-[200] flex items-center gap-3 rounded-2xl border px-4 py-3 shadow-2xl transition-all animate-in slide-in-from-right sm:left-auto sm:right-6 sm:top-6 sm:max-w-md sm:px-5 sm:py-4 ${
-          toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-success' : 'bg-red-500/10 border-red-500/20 text-error'
-        }`}>
-          {toast.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
-          <span className="text-sm font-medium max-w-sm">{toast.message}</span>
+      <PageHeader
+        title="Proposals"
+        description="AI-powered proposal generation and email delivery."
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setConfirmState('bulk-generate')} disabled={isBulkGenerating}>
+              {isBulkGenerating ? <Loader2 className="animate-spin" size={16} /> : <Zap size={16} />}
+              Bulk Generate
+            </Button>
+            <Button variant="outline" onClick={() => setConfirmState('bulk-email')} disabled={isSendingBulk}>
+              {isSendingBulk ? <Loader2 className="animate-spin" size={16} /> : <Mail size={16} />}
+              Send Bulk Emails
+            </Button>
+            <Button onClick={openGenerateModal}>
+              <Plus size={16} />
+              Generate for Lead
+            </Button>
+          </>
+        }
+      />
+
+      {loading ? (
+        <div className="rounded-[var(--radius-lg)] border border-border bg-card shadow-sm">
+          <LoadingState label="Loading proposals..." />
         </div>
-      )}
-
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-        <div>
-          <h2 className="text-2xl font-bold sm:text-3xl">Proposals</h2>
-          <p className="text-muted-foreground">AI-powered proposal generation and email delivery.</p>
-        </div>
-        <div className="grid w-full gap-3 sm:w-auto sm:grid-cols-2 xl:flex xl:flex-wrap">
-          <button onClick={handleBulkGenerate} disabled={isBulkGenerating} className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-3 font-bold text-white shadow-lg transition-all hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50">
-            {isBulkGenerating ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} />}
-            <span>Bulk Generate AI</span>
-          </button>
-          <button onClick={handleBulkSendEmails} disabled={isSendingBulk} className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 px-5 py-3 font-bold text-white shadow-lg transition-all hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50">
-            {isSendingBulk ? <Loader2 className="animate-spin" size={18} /> : <Mail size={18} />}
-            <span>Send Bulk Emails</span>
-          </button>
-          <button onClick={openGenerateModal} className="flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-indigo-500 sm:col-span-2 xl:col-span-1">
-            <Plus size={20} />
-            <span>Generate for Lead</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {loading ? (
-          <div className="col-span-full py-20 text-center text-muted-foreground animate-pulse leading-10">Formatting documents...</div>
-        ) : proposals.length === 0 ? (
-          <div className="col-span-full py-20 text-center text-muted-foreground border-2 border-dashed border-white/5 rounded-2xl">
-            <Sparkles className="mx-auto mb-4 text-primary" size={48} />
-            <p className="text-lg font-semibold mb-2">No proposals yet</p>
-            <p className="text-sm">Use the &quot;Generate for Lead&quot; button or &quot;Bulk Generate AI&quot; to get started!</p>
-          </div>
-        ) : proposals.map((p) => {
-          const lead = getLeadInfo(p);
-          return (
-            <div key={p.id} className="glass-card rounded-2xl p-6 flex flex-col group hover:border-indigo-500/20 transition-all">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-info flex items-center justify-center">
-                  <FileText size={20} />
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest border ${getStatusColor(p.status)}`}>
-                    {p.status}
-                  </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest border bg-white/5 text-muted-foreground border-white/10">
-                    v{p._count?.versions || 1}
-                  </span>
-                </div>
-              </div>
-              <h4 className="text-xl font-bold mb-1 truncate">{p.title}</h4>
-
-              {lead && (
-                <div className="flex items-center gap-2 mb-1">
-                  <Users size={14} className="text-primary" />
-                  <span className="text-xs text-muted-foreground">{lead.name} · {lead.company}</span>
-                </div>
-              )}
-              {p.client && (
-                <div className="flex items-center gap-2 mb-3">
-                  <Building2 size={14} className="text-success" />
-                  <span className="text-xs text-muted-foreground">Client: {p.client.name}</span>
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground line-clamp-3 mb-6 bg-white/5 p-3 rounded-xl border border-white/5">
-                {p.content}
-              </p>
-              <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between">
-                <div className="flex gap-2">
-                  <button title="View Full Proposal" onClick={() => { setSelectedProposal(p); setShowViewModal(true); }} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                    <Eye size={18} />
-                  </button>
-                  <button title="Share with Client" onClick={() => openShareModal(p.id)} className="p-2 hover:bg-indigo-500/10 rounded-lg transition-colors text-primary hover:text-primary">
-                    <Send size={18} />
-                  </button>
-                  <button title="Download PDF" onClick={() => handleDownload(p.id)} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-muted-foreground hover:text-foreground">
-                    <Download size={18} />
-                  </button>
-                </div>
-                <span className="text-[10px] text-muted-foreground">{new Date(p.createdAt).toLocaleDateString()}</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {showShareModal && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 p-3 text-left backdrop-blur-md sm:items-center sm:p-4">
-          <div className="glass-card max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-2xl border-white/10 bg-[#0e0e1a] p-5 shadow-3xl sm:max-h-[calc(100dvh-2rem)] sm:p-8">
-            <h3 className="text-2xl font-bold mb-6 text-white">Share with Client</h3>
-            <div className="space-y-4">
-              <select
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 text-white"
-                onChange={(e) => handleShare(shareProposalId!, e.target.value)}
-                disabled={clientsLoading || clients.length === 0}
+      ) : proposals.length === 0 ? (
+        <EmptyState
+          icon={Sparkles}
+          title="No proposals yet"
+          description='Use "Generate for Lead" for one AI proposal, or "Bulk Generate" to create them for every lead that lacks one.'
+          action={
+            <Button onClick={openGenerateModal}>
+              <Plus size={16} />
+              Generate for Lead
+            </Button>
+          }
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {proposals.map((p) => {
+            const lead = getLeadInfo(p);
+            return (
+              <div
+                key={p.id}
+                className="flex flex-col rounded-[var(--radius-lg)] border border-border bg-card p-5 shadow-sm transition hover:border-primary/30"
               >
-                <option value="" className="bg-gray-900">
-                  {clientsLoading ? 'Loading clients...' : clients.length === 0 ? 'No clients in this workspace' : '-- Select Client --'}
-                </option>
-                {clients.map(c => (
-                  <option key={c.id} value={c.id} className="bg-gray-900">{c.name} ({c.companyName})</option>
-                ))}
-              </select>
-              <button onClick={() => setShowShareModal(false)} className="w-full bg-white/5 hover:bg-white/10 text-white font-bold py-3 rounded-2xl transition-all border border-white/10">
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/8 text-primary">
+                    <FileText size={18} />
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <StatusBadge status={p.status} />
+                    <span className="text-[10px] font-semibold text-muted-foreground">v{p._count?.versions || 1}</span>
+                  </div>
+                </div>
 
-      {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 p-3 text-left backdrop-blur-md sm:items-center sm:p-4">
-          <div className="glass-card max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-2xl border-white/10 bg-[#0e0e1a] p-5 shadow-3xl sm:max-h-[calc(100dvh-2rem)] sm:p-8">
-            <div className="mb-6 flex items-start justify-between gap-4">
-              <h3 className="flex items-center gap-3 text-xl font-bold text-white sm:text-2xl">
-                <Sparkles className="text-primary" size={24} />
-                Generate AI Proposal
-              </h3>
-              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
-                <X size={20} className="text-muted-foreground hover:text-foreground" />
-              </button>
-            </div>
+                <h3 className="mb-1 truncate text-base font-semibold text-foreground">{p.title}</h3>
 
-            <p className="text-sm text-muted-foreground mb-6">
-              Select a lead below. Our AI will analyze their company and generate a personalized, professional security proposal automatically.
-            </p>
-
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Select Lead</label>
-                <select
-                  value={selectedLeadId}
-                  onChange={(e) => {
-                    setSelectedLeadId(e.target.value);
-                    setSelectedClientId('');
-                  }}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none text-white"
-                >
-                  <option value="" className="bg-gray-900">-- Choose a Lead --</option>
-                  {leads.map(lead => (
-                    <option key={lead.id} value={lead.id} className="bg-gray-900">
-                      {lead.name} — {lead.company}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Link to Client (Optional)</label>
-                <select
-                  value={selectedClientId}
-                  onChange={(e) => setSelectedClientId(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none text-white"
-                  disabled={clientsLoading || clients.length === 0}
-                >
-                  <option value="" className="bg-gray-900">
-                    {clientsLoading ? 'Loading clients...' : clients.length === 0 ? 'No clients in this workspace' : '-- Choose a Client --'}
-                  </option>
-                  {clients.map(client => (
-                    <option key={client.id} value={client.id} className="bg-gray-900">
-                      {client.name} — {client.companyName || 'No company'}
-                    </option>
-                  ))}
-                </select>
-                {clients.length === 0 && !clientsLoading && (
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <p className="mb-3 text-xs font-medium leading-relaxed text-slate-400">
-                      Clients are workspace-specific. Create one from the selected lead to link this proposal.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleCreateClientFromLead}
-                      disabled={!selectedLeadId || isCreatingClient}
-                      className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {isCreatingClient ? <Loader2 className="animate-spin" size={14} /> : <UserPlus size={14} />}
-                      <span>{isCreatingClient ? 'Creating...' : 'Create Client From Lead'}</span>
-                    </button>
+                {lead && (
+                  <div className="mb-1 flex items-center gap-2">
+                    <Users size={13} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <span className="truncate text-xs text-muted-foreground">
+                      {lead.name} &middot; {lead.company}
+                    </span>
                   </div>
                 )}
-              </div>
-            </div>
+                {p.client && (
+                  <div className="mb-3 flex items-center gap-2">
+                    <Building2 size={13} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <span className="truncate text-xs text-muted-foreground">Client: {p.client.name}</span>
+                  </div>
+                )}
 
-            <div className="mt-6 flex flex-col-reverse gap-3 border-t border-white/5 pt-6 sm:flex-row sm:gap-4">
-              <button type="button" onClick={() => setShowModal(false)} className="flex-1 bg-white/5 hover:bg-white/10 text-white font-bold py-3 rounded-2xl transition-all border border-white/10">
-                Cancel
-              </button>
-              <button onClick={handleGenerateForLead} disabled={isGenerating || !selectedLeadId} className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white font-bold py-3 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50">
-                {isGenerating ? <Loader2 className="animate-spin" size={20} /> : <Sparkles size={20} />}
-                <span>{isGenerating ? 'Generating...' : 'Generate Proposal'}</span>
-              </button>
-            </div>
-          </div>
+                <p className="mb-5 line-clamp-3 rounded-lg bg-muted p-3 text-xs text-muted-foreground">{p.content}</p>
+
+                <div className="mt-auto flex items-center justify-between border-t border-border pt-4">
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => {
+                        setSelectedProposal(p);
+                        setShowViewModal(true);
+                      }}
+                      aria-label="View full proposal"
+                      title="View full proposal"
+                    >
+                      <Eye size={16} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => openShareModal(p.id)}
+                      aria-label="Share with client"
+                      title="Share with client"
+                    >
+                      <Send size={16} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => handleDownload(p.id)}
+                      aria-label="Download PDF"
+                      title="Download PDF"
+                    >
+                      <Download size={16} />
+                    </Button>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">{new Date(p.createdAt).toLocaleDateString()}</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {showViewModal && selectedProposal && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 p-3 text-left backdrop-blur-md sm:items-center sm:p-4">
-          <div className="glass-card flex max-h-[calc(100dvh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border-white/10 bg-[#0e0e1a] shadow-3xl sm:max-h-[90vh]">
-            <div className="flex items-start justify-between gap-4 border-b border-white/5 p-5 sm:p-8">
-              <div>
-                <h3 className="text-xl font-bold text-white sm:text-2xl">{selectedProposal.title}</h3>
-                <p className="text-sm text-muted-foreground">Version History & Communication</p>
-              </div>
-              <div className="flex gap-3">
-                <button onClick={() => handleDownload(selectedProposal.id)} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-white">
-                  <Download size={20} />
-                </button>
-                <button onClick={() => setShowViewModal(false)} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
-                  <X size={20} className="text-muted-foreground hover:text-foreground" />
-                </button>
-              </div>
+      {/* Share dialog */}
+      <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share with client</DialogTitle>
+            <DialogDescription>The proposal becomes visible in the selected client&apos;s portal.</DialogDescription>
+          </DialogHeader>
+          <select
+            className={selectClass}
+            defaultValue=""
+            onChange={(e) => shareProposalId && handleShare(shareProposalId, e.target.value)}
+            disabled={clientsLoading || clients.length === 0}
+          >
+            <option value="">
+              {clientsLoading ? 'Loading clients...' : clients.length === 0 ? 'No clients in this workspace' : 'Select a client'}
+            </option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} ({c.companyName})
+              </option>
+            ))}
+          </select>
+          <div className="mt-2 flex justify-end">
+            <Button variant="outline" onClick={() => setShowShareModal(false)}>
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Generate dialog */}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles size={18} className="text-primary" aria-hidden="true" />
+              Generate AI proposal
+            </DialogTitle>
+            <DialogDescription>
+              Select a lead. The AI analyzes their company and drafts a personalized security proposal.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-muted-foreground">Select lead</label>
+              <select
+                value={selectedLeadId}
+                onChange={(e) => {
+                  setSelectedLeadId(e.target.value);
+                  setSelectedClientId('');
+                }}
+                className={selectClass}
+              >
+                <option value="">Choose a lead</option>
+                {leads.map((lead) => (
+                  <option key={lead.id} value={lead.id}>
+                    {lead.name} — {lead.company}
+                  </option>
+                ))}
+              </select>
             </div>
-            
-            <div className="grid flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-3 lg:overflow-hidden">
-              <div className="overflow-y-visible border-r border-white/5 p-5 sm:p-8 lg:col-span-2 lg:overflow-y-auto">
-                <div className="prose prose-invert max-w-none rounded-2xl border border-white/5 bg-white/5 p-4 text-sm leading-relaxed text-slate-300 sm:p-8">
-                  <ReactMarkdown>{selectedProposal.content}</ReactMarkdown>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-muted-foreground">Link to client (optional)</label>
+              <select
+                value={selectedClientId}
+                onChange={(e) => setSelectedClientId(e.target.value)}
+                className={selectClass}
+                disabled={clientsLoading || clients.length === 0}
+              >
+                <option value="">
+                  {clientsLoading
+                    ? 'Loading clients...'
+                    : clients.length === 0
+                      ? 'No clients in this workspace'
+                      : 'Choose a client'}
+                </option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name} — {client.companyName || 'No company'}
+                  </option>
+                ))}
+              </select>
+              {clients.length === 0 && !clientsLoading && (
+                <div className="rounded-lg border border-border bg-muted p-4">
+                  <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
+                    Clients are workspace-specific. Create one from the selected lead to link this proposal.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCreateClientFromLead}
+                    disabled={!selectedLeadId || isCreatingClient}
+                  >
+                    {isCreatingClient ? <Loader2 className="animate-spin" size={14} /> : <UserPlus size={14} />}
+                    {isCreatingClient ? 'Creating...' : 'Create client from lead'}
+                  </Button>
                 </div>
-              </div>
-              
-              <div className="flex flex-col h-full bg-black/20">
-                <div className="border-b border-white/5 bg-white/5 p-5 sm:p-6">
-                  <h4 className="text-sm font-bold uppercase tracking-widest text-primary">Communication</h4>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-col-reverse gap-3 border-t border-border pt-6 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleGenerateForLead} disabled={isGenerating || !selectedLeadId}>
+              {isGenerating ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
+              {isGenerating ? 'Generating...' : 'Generate proposal'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View dialog */}
+      <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
+        <DialogContent className="flex max-h-[90vh] w-full flex-col overflow-hidden p-0 sm:max-w-5xl">
+          {selectedProposal && (
+            <>
+              <DialogHeader className="border-b border-border p-5 text-left sm:p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <DialogTitle className="truncate">{selectedProposal.title}</DialogTitle>
+                    <DialogDescription>Document and client communication</DialogDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    className="mr-8 shrink-0"
+                    onClick={() => handleDownload(selectedProposal.id)}
+                    aria-label="Download PDF"
+                  >
+                    <Download size={16} />
+                  </Button>
                 </div>
-                
-                <div className="max-h-80 flex-1 space-y-4 overflow-y-auto p-5 custom-scrollbar sm:p-6 lg:max-h-none">
-                  {comments.length === 0 ? (
-                    <div className="text-center py-10 text-muted-foreground italic text-xs">No comments yet.</div>
-                  ) : comments.map((c) => (
-                    <div key={c.id} className={`p-4 rounded-2xl border ${c.userId ? 'bg-indigo-500/5 border-indigo-500/10' : 'bg-emerald-500/5 border-emerald-500/10 ml-4'}`}>
-                      <div className="flex justify-between mb-1">
-                        <span className="text-[10px] font-bold text-primary">{c.userId ? 'Admin' : 'Client'}</span>
-                        <span className="text-[10px] text-muted-foreground">{new Date(c.createdAt).toLocaleDateString()}</span>
-                      </div>
-                      <p className="text-xs text-slate-300">{c.content}</p>
-                    </div>
-                  ))}
+              </DialogHeader>
+
+              <div className="grid flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-3 lg:overflow-hidden">
+                <div className="border-b border-border p-5 sm:p-6 lg:col-span-2 lg:border-b-0 lg:border-r lg:overflow-y-auto">
+                  <div className="rfp-document rounded-lg border border-border bg-muted">
+                    <ReactMarkdown>{selectedProposal.content}</ReactMarkdown>
+                  </div>
                 </div>
-                
-                <div className="border-t border-white/5 p-5 sm:p-6">
-                  <div className="relative">
-                    <input 
-                      type="text" 
-                      placeholder="Add a comment..."
-                      className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-4 pr-12 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-white"
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                    />
-                    <button onClick={() => handleAddComment(selectedProposal.id)} disabled={commentLoading} className="absolute right-2 top-1.5 p-1.5 bg-primary rounded-lg text-white disabled:opacity-50">
-                      {commentLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                    </button>
+
+                <div className="flex h-full flex-col bg-background">
+                  <div className="border-b border-border p-4">
+                    <h4 className="text-eyebrow">Communication</h4>
+                  </div>
+                  <div className="max-h-80 flex-1 space-y-3 overflow-y-auto p-4 lg:max-h-none">
+                    {comments.length === 0 ? (
+                      <p className="py-10 text-center text-xs text-muted-foreground">No comments yet.</p>
+                    ) : (
+                      comments.map((c) => (
+                        <div
+                          key={c.id}
+                          className={`rounded-lg border border-border p-3 ${c.userId ? 'bg-primary/[0.04]' : 'ml-4 bg-success-wash'}`}
+                        >
+                          <div className="mb-1 flex justify-between">
+                            <span className="text-[10px] font-bold text-primary">{c.userId ? 'Admin' : 'Client'}</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {new Date(c.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p className="text-xs text-foreground">{c.content}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="border-t border-border p-4">
+                    <form
+                      className="relative"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        handleAddComment(selectedProposal.id);
+                      }}
+                    >
+                      <Input
+                        type="text"
+                        placeholder="Add a comment..."
+                        className="pr-11"
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                      />
+                      <Button
+                        type="submit"
+                        size="icon-sm"
+                        className="absolute right-1 top-1"
+                        disabled={commentLoading || !newComment.trim()}
+                        aria-label="Post comment"
+                      >
+                        {commentLoading ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                      </Button>
+                    </form>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={confirmState === 'bulk-generate'}
+        onOpenChange={(o) => !o && setConfirmState(null)}
+        title="Bulk generate proposals?"
+        description="This generates an AI proposal for every lead that doesn't have one yet. It may take a while and uses AI credits."
+        confirmLabel="Generate all"
+        loading={isBulkGenerating}
+        onConfirm={async () => {
+          await handleBulkGenerate();
+          setConfirmState(null);
+        }}
+      />
+      <ConfirmDialog
+        open={confirmState === 'bulk-email'}
+        onOpenChange={(o) => !o && setConfirmState(null)}
+        title="Send bulk proposal emails?"
+        description="This emails a proposal to every lead that has both an email address and a proposal."
+        confirmLabel="Send emails"
+        loading={isSendingBulk}
+        onConfirm={async () => {
+          await handleBulkSendEmails();
+          setConfirmState(null);
+        }}
+      />
     </DashboardLayout>
   );
 }

@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { Branch, createBranch, getBranches, updateBranch } from '@/lib/branches';
+import { useNewIntent } from '@/hooks/useNewIntent';
 import { cn } from '@/lib/utils';
 import { ArrowRight, GitBranch, Loader2, MapPin, Plus, Power, Search } from 'lucide-react';
 
@@ -50,6 +51,8 @@ export default function BranchesPage() {
   useEffect(() => {
     fetchBranches();
   }, []);
+
+  useNewIntent(() => setShowModal(true));
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
