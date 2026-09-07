@@ -5,11 +5,19 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Checkpoint } from '@prisma/client';
+import { createReadStream, existsSync, unlinkSync } from 'fs';
+import { join } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { branchWhere } from '../branches/branch-scope';
 import { haversineDistanceMeters, isValidCoordinate } from '../common/geo.util';
+import {
+  PATROL_EVIDENCE_UPLOAD_DIR,
+  isAllowedPatrolEvidencePhoto,
+  patrolEvidenceImageMaxBytes,
+  patrolEvidenceImageMaxMb,
+} from '../common/file-storage.util';
 import { CreateCheckpointDto } from './dto/create-checkpoint.dto';
 import { UpdateCheckpointDto } from './dto/update-checkpoint.dto';
 import { CreatePatrolRouteDto } from './dto/create-patrol-route.dto';
@@ -434,6 +442,21 @@ export class PatrolsService {
           orderBy: { scannedAt: 'asc' },
           include: {
             checkpoint: true,
+            // Phase 3H: id-only so the admin UI can show a photo count /
+            // "view evidence" affordance per scan without a second round
+            // trip. The bytes themselves are still streamed on demand
+            // through the authenticated evidence-file endpoint.
+            evidence: {
+              orderBy: { createdAt: 'desc' },
+              select: {
+                id: true,
+                mediaType: true,
+                mimeType: true,
+                fileName: true,
+                fileSizeBytes: true,
+                createdAt: true,
+              },
+            },
           },
         },
       },
@@ -925,6 +948,251 @@ export class PatrolsService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  // ==========================================
+  // PATROL EVIDENCE (Phase 3H) - photo attachments on a checkpoint scan
+  // ==========================================
+  //
+  // Modelled on IncidentsService's Phase 3F evidence methods. Every
+  // tenant / patrol / checkpoint decision is made server-side from data
+  // that is already trusted (the JWT-derived guardId/tenantId, or the
+  // branch-scoped admin read) - the request body / file never carries
+  // authority.
+
+  private serializePatrolEvidence(evidence: {
+    id: string;
+    patrolEventId: string;
+    patrolRunId: string;
+    guardId: string;
+    mediaType: string;
+    mimeType: string;
+    fileName: string;
+    fileSizeBytes: number;
+    uploadedById: string | null;
+    createdAt: Date;
+  }) {
+    // storedFileName is deliberately never included - it is an internal
+    // on-disk path fragment and exposing it would enable enumeration.
+    return {
+      id: evidence.id,
+      patrolEventId: evidence.patrolEventId,
+      patrolRunId: evidence.patrolRunId,
+      guardId: evidence.guardId,
+      mediaType: evidence.mediaType,
+      mimeType: evidence.mimeType,
+      fileName: evidence.fileName,
+      fileSizeBytes: evidence.fileSizeBytes,
+      uploadedById: evidence.uploadedById,
+      createdAt: evidence.createdAt,
+    };
+  }
+
+  private unlinkPatrolEvidenceQuietly(storedFileName: string) {
+    try {
+      const filePath = join(PATROL_EVIDENCE_UPLOAD_DIR, storedFileName);
+      if (existsSync(filePath)) {
+        unlinkSync(filePath);
+      }
+    } catch {
+      // Best-effort cleanup - a missing file must not block the DB operation.
+    }
+  }
+
+  // Resolves the patrol event a guard is allowed to attach evidence to: it
+  // must belong to this guard (from the JWT, never client-supplied), this
+  // tenant, and sit on a patrol run that is still in_progress. A
+  // cross-tenant / cross-guard / cross-run event id simply does not match -
+  // this is the same authorization shape as scanCheckpoint.
+  private async findGuardPatrolEventForEvidence(
+    tenantId: string,
+    guardId: string,
+    runId: string,
+    eventId: string,
+  ) {
+    const event = await this.prisma.patrolEvent.findFirst({
+      where: {
+        id: eventId,
+        tenantId,
+        guardId,
+        patrolRunId: runId,
+        patrolRun: { tenantId, guardId, status: 'in_progress' },
+      },
+      include: { checkpoint: { select: { name: true } } },
+    });
+    if (!event) {
+      throw new NotFoundException('Checkpoint scan not found for this patrol');
+    }
+    return event;
+  }
+
+  // Resolves a patrol event an admin caller may see, using the exact same
+  // tenant + branch scoping as every other admin patrol-run read.
+  private async findAdminPatrolEventForEvidence(
+    user: ActiveUser,
+    runId: string,
+    eventId: string,
+  ) {
+    const event = await this.prisma.patrolEvent.findFirst({
+      where: {
+        id: eventId,
+        tenantId: user.tenantId,
+        patrolRunId: runId,
+        patrolRun: {
+          tenantId: user.tenantId,
+          shift: { ...branchWhere(user) },
+        },
+      },
+      include: { checkpoint: { select: { name: true } } },
+    });
+    if (!event) {
+      throw new NotFoundException('Checkpoint scan not found');
+    }
+    return event;
+  }
+
+  async addCheckpointEvidenceForGuard(
+    tenantId: string,
+    guardId: string,
+    runId: string,
+    eventId: string,
+    file: Express.Multer.File,
+  ) {
+    const event = await this.findGuardPatrolEventForEvidence(
+      tenantId,
+      guardId,
+      runId,
+      eventId,
+    );
+
+    if (!isAllowedPatrolEvidencePhoto(file.originalname, file.mimetype)) {
+      this.unlinkPatrolEvidenceQuietly(file.filename);
+      throw new BadRequestException(
+        'Unsupported file. Only photo evidence (JPG, PNG, WEBP, GIF, HEIC) is allowed.',
+      );
+    }
+
+    if (file.size > patrolEvidenceImageMaxBytes()) {
+      this.unlinkPatrolEvidenceQuietly(file.filename);
+      throw new BadRequestException(
+        `Photo evidence must be ${patrolEvidenceImageMaxMb()} MB or smaller.`,
+      );
+    }
+
+    const created = await this.prisma.patrolEvidence.create({
+      data: {
+        tenantId,
+        patrolEventId: event.id,
+        patrolRunId: event.patrolRunId,
+        guardId,
+        mediaType: 'image',
+        mimeType: file.mimetype.toLowerCase().split(';')[0].trim(),
+        fileName: file.originalname,
+        storedFileName: file.filename,
+        fileSizeBytes: file.size,
+        uploadedById: guardId,
+      },
+    });
+
+    await this.auditService.log({
+      tenantId,
+      userId: guardId,
+      action: 'PATROL_EVIDENCE_UPLOADED',
+      entityType: 'PatrolEvidence',
+      entityId: created.id,
+      details: `Guard attached photo evidence to checkpoint "${event.checkpoint?.name ?? 'checkpoint'}" scan`,
+    });
+
+    return this.serializePatrolEvidence(created);
+  }
+
+  async listCheckpointEvidenceForGuard(
+    tenantId: string,
+    guardId: string,
+    runId: string,
+    eventId: string,
+  ) {
+    // A guard may only read evidence on their own patrol event. The run does
+    // not need to still be in_progress to review what was already attached,
+    // so this uses a looser check than the upload path.
+    const event = await this.prisma.patrolEvent.findFirst({
+      where: { id: eventId, tenantId, guardId, patrolRunId: runId },
+      select: { id: true },
+    });
+    if (!event) {
+      throw new NotFoundException('Checkpoint scan not found for this patrol');
+    }
+    const items = await this.prisma.patrolEvidence.findMany({
+      where: { tenantId, patrolEventId: eventId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return items.map((item) => this.serializePatrolEvidence(item));
+  }
+
+  async listCheckpointEvidenceForAdmin(
+    user: ActiveUser,
+    runId: string,
+    eventId: string,
+  ) {
+    await this.findAdminPatrolEventForEvidence(user, runId, eventId);
+    const items = await this.prisma.patrolEvidence.findMany({
+      where: { tenantId: user.tenantId, patrolEventId: eventId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return items.map((item) => this.serializePatrolEvidence(item));
+  }
+
+  async getCheckpointEvidenceFileForAdmin(
+    user: ActiveUser,
+    runId: string,
+    eventId: string,
+    evidenceId: string,
+  ) {
+    await this.findAdminPatrolEventForEvidence(user, runId, eventId);
+    return this.resolvePatrolEvidenceFile(user.tenantId, eventId, evidenceId);
+  }
+
+  async getCheckpointEvidenceFileForGuard(
+    tenantId: string,
+    guardId: string,
+    runId: string,
+    eventId: string,
+    evidenceId: string,
+  ) {
+    const event = await this.prisma.patrolEvent.findFirst({
+      where: { id: eventId, tenantId, guardId, patrolRunId: runId },
+      select: { id: true },
+    });
+    if (!event) {
+      throw new NotFoundException('Checkpoint scan not found for this patrol');
+    }
+    return this.resolvePatrolEvidenceFile(tenantId, eventId, evidenceId);
+  }
+
+  private async resolvePatrolEvidenceFile(
+    tenantId: string,
+    patrolEventId: string,
+    evidenceId: string,
+  ) {
+    const evidence = await this.prisma.patrolEvidence.findFirst({
+      where: { id: evidenceId, tenantId, patrolEventId },
+    });
+    if (!evidence) {
+      throw new NotFoundException('Evidence not found');
+    }
+
+    const filePath = join(PATROL_EVIDENCE_UPLOAD_DIR, evidence.storedFileName);
+    if (!existsSync(filePath)) {
+      throw new NotFoundException('Evidence file not found on server');
+    }
+
+    return {
+      stream: createReadStream(filePath),
+      mimeType: evidence.mimeType,
+      fileName: evidence.fileName,
+      fileSizeBytes: evidence.fileSizeBytes,
+      mediaType: evidence.mediaType,
+    };
   }
 
   // ==========================================

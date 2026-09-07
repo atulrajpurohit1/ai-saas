@@ -10,6 +10,7 @@ import { formatEnumLabel } from '@/lib/format';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { ADMIN_LOCATION_POLL_INTERVAL_MS, LOCATION_STALE_THRESHOLD_MS, EMERGENCY_ALERT_POLL_INTERVAL_MS } from '@/lib/guard-tracking.constants';
 import { EmergencyAlert, getEmergencyAlerts, acknowledgeEmergencyAlert, resolveEmergencyAlert } from '@/lib/emergency-alerts';
+import CheckpointEvidenceViewer from '@/components/CheckpointEvidenceViewer';
 
 function isLocationStale(lastLocationAt: string | null): boolean {
   if (!lastLocationAt) return true;
@@ -610,6 +611,13 @@ export default function PatrolRunsPage() {
                                 <div className="mt-1.5 p-2 bg-white/5 border border-white/10 rounded-lg text-xs italic text-muted-foreground max-w-md">
                                   &ldquo;{event.notes}&rdquo;
                                 </div>
+                              )}
+                              {event.evidence && event.evidence.length > 0 && selectedRunId && (
+                                <CheckpointEvidenceViewer
+                                  runId={selectedRunId}
+                                  eventId={event.id}
+                                  evidence={event.evidence}
+                                />
                               )}
                               <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                 <span className={`inline-block text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.25 rounded-md ${

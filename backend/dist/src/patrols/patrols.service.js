@@ -11,10 +11,13 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PatrolsService = void 0;
 const common_1 = require("@nestjs/common");
+const fs_1 = require("fs");
+const path_1 = require("path");
 const prisma_service_1 = require("../prisma/prisma.service");
 const audit_service_1 = require("../audit/audit.service");
 const branch_scope_1 = require("../branches/branch-scope");
 const geo_util_1 = require("../common/geo.util");
+const file_storage_util_1 = require("../common/file-storage.util");
 const checkpoint_verification_constants_1 = require("./checkpoint-verification.constants");
 let PatrolsService = class PatrolsService {
     prisma;
@@ -354,6 +357,17 @@ let PatrolsService = class PatrolsService {
                     orderBy: { scannedAt: 'asc' },
                     include: {
                         checkpoint: true,
+                        evidence: {
+                            orderBy: { createdAt: 'desc' },
+                            select: {
+                                id: true,
+                                mediaType: true,
+                                mimeType: true,
+                                fileName: true,
+                                fileSizeBytes: true,
+                                createdAt: true,
+                            },
+                        },
                     },
                 },
             },
@@ -736,6 +750,153 @@ let PatrolsService = class PatrolsService {
             },
             orderBy: { createdAt: 'desc' },
         });
+    }
+    serializePatrolEvidence(evidence) {
+        return {
+            id: evidence.id,
+            patrolEventId: evidence.patrolEventId,
+            patrolRunId: evidence.patrolRunId,
+            guardId: evidence.guardId,
+            mediaType: evidence.mediaType,
+            mimeType: evidence.mimeType,
+            fileName: evidence.fileName,
+            fileSizeBytes: evidence.fileSizeBytes,
+            uploadedById: evidence.uploadedById,
+            createdAt: evidence.createdAt,
+        };
+    }
+    unlinkPatrolEvidenceQuietly(storedFileName) {
+        try {
+            const filePath = (0, path_1.join)(file_storage_util_1.PATROL_EVIDENCE_UPLOAD_DIR, storedFileName);
+            if ((0, fs_1.existsSync)(filePath)) {
+                (0, fs_1.unlinkSync)(filePath);
+            }
+        }
+        catch {
+        }
+    }
+    async findGuardPatrolEventForEvidence(tenantId, guardId, runId, eventId) {
+        const event = await this.prisma.patrolEvent.findFirst({
+            where: {
+                id: eventId,
+                tenantId,
+                guardId,
+                patrolRunId: runId,
+                patrolRun: { tenantId, guardId, status: 'in_progress' },
+            },
+            include: { checkpoint: { select: { name: true } } },
+        });
+        if (!event) {
+            throw new common_1.NotFoundException('Checkpoint scan not found for this patrol');
+        }
+        return event;
+    }
+    async findAdminPatrolEventForEvidence(user, runId, eventId) {
+        const event = await this.prisma.patrolEvent.findFirst({
+            where: {
+                id: eventId,
+                tenantId: user.tenantId,
+                patrolRunId: runId,
+                patrolRun: {
+                    tenantId: user.tenantId,
+                    shift: { ...(0, branch_scope_1.branchWhere)(user) },
+                },
+            },
+            include: { checkpoint: { select: { name: true } } },
+        });
+        if (!event) {
+            throw new common_1.NotFoundException('Checkpoint scan not found');
+        }
+        return event;
+    }
+    async addCheckpointEvidenceForGuard(tenantId, guardId, runId, eventId, file) {
+        const event = await this.findGuardPatrolEventForEvidence(tenantId, guardId, runId, eventId);
+        if (!(0, file_storage_util_1.isAllowedPatrolEvidencePhoto)(file.originalname, file.mimetype)) {
+            this.unlinkPatrolEvidenceQuietly(file.filename);
+            throw new common_1.BadRequestException('Unsupported file. Only photo evidence (JPG, PNG, WEBP, GIF, HEIC) is allowed.');
+        }
+        if (file.size > (0, file_storage_util_1.patrolEvidenceImageMaxBytes)()) {
+            this.unlinkPatrolEvidenceQuietly(file.filename);
+            throw new common_1.BadRequestException(`Photo evidence must be ${(0, file_storage_util_1.patrolEvidenceImageMaxMb)()} MB or smaller.`);
+        }
+        const created = await this.prisma.patrolEvidence.create({
+            data: {
+                tenantId,
+                patrolEventId: event.id,
+                patrolRunId: event.patrolRunId,
+                guardId,
+                mediaType: 'image',
+                mimeType: file.mimetype.toLowerCase().split(';')[0].trim(),
+                fileName: file.originalname,
+                storedFileName: file.filename,
+                fileSizeBytes: file.size,
+                uploadedById: guardId,
+            },
+        });
+        await this.auditService.log({
+            tenantId,
+            userId: guardId,
+            action: 'PATROL_EVIDENCE_UPLOADED',
+            entityType: 'PatrolEvidence',
+            entityId: created.id,
+            details: `Guard attached photo evidence to checkpoint "${event.checkpoint?.name ?? 'checkpoint'}" scan`,
+        });
+        return this.serializePatrolEvidence(created);
+    }
+    async listCheckpointEvidenceForGuard(tenantId, guardId, runId, eventId) {
+        const event = await this.prisma.patrolEvent.findFirst({
+            where: { id: eventId, tenantId, guardId, patrolRunId: runId },
+            select: { id: true },
+        });
+        if (!event) {
+            throw new common_1.NotFoundException('Checkpoint scan not found for this patrol');
+        }
+        const items = await this.prisma.patrolEvidence.findMany({
+            where: { tenantId, patrolEventId: eventId },
+            orderBy: { createdAt: 'desc' },
+        });
+        return items.map((item) => this.serializePatrolEvidence(item));
+    }
+    async listCheckpointEvidenceForAdmin(user, runId, eventId) {
+        await this.findAdminPatrolEventForEvidence(user, runId, eventId);
+        const items = await this.prisma.patrolEvidence.findMany({
+            where: { tenantId: user.tenantId, patrolEventId: eventId },
+            orderBy: { createdAt: 'desc' },
+        });
+        return items.map((item) => this.serializePatrolEvidence(item));
+    }
+    async getCheckpointEvidenceFileForAdmin(user, runId, eventId, evidenceId) {
+        await this.findAdminPatrolEventForEvidence(user, runId, eventId);
+        return this.resolvePatrolEvidenceFile(user.tenantId, eventId, evidenceId);
+    }
+    async getCheckpointEvidenceFileForGuard(tenantId, guardId, runId, eventId, evidenceId) {
+        const event = await this.prisma.patrolEvent.findFirst({
+            where: { id: eventId, tenantId, guardId, patrolRunId: runId },
+            select: { id: true },
+        });
+        if (!event) {
+            throw new common_1.NotFoundException('Checkpoint scan not found for this patrol');
+        }
+        return this.resolvePatrolEvidenceFile(tenantId, eventId, evidenceId);
+    }
+    async resolvePatrolEvidenceFile(tenantId, patrolEventId, evidenceId) {
+        const evidence = await this.prisma.patrolEvidence.findFirst({
+            where: { id: evidenceId, tenantId, patrolEventId },
+        });
+        if (!evidence) {
+            throw new common_1.NotFoundException('Evidence not found');
+        }
+        const filePath = (0, path_1.join)(file_storage_util_1.PATROL_EVIDENCE_UPLOAD_DIR, evidence.storedFileName);
+        if (!(0, fs_1.existsSync)(filePath)) {
+            throw new common_1.NotFoundException('Evidence file not found on server');
+        }
+        return {
+            stream: (0, fs_1.createReadStream)(filePath),
+            mimeType: evidence.mimeType,
+            fileName: evidence.fileName,
+            fileSizeBytes: evidence.fileSizeBytes,
+            mediaType: evidence.mediaType,
+        };
     }
     async getLiveSiteStatusForClient(tenantId, clientId) {
         const sites = await this.prisma.site.findMany({

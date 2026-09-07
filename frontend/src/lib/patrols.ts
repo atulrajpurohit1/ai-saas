@@ -108,6 +108,27 @@ export interface PatrolEvent {
   submittedLatitude: number | null;
   submittedLongitude: number | null;
   checkpoint?: Checkpoint;
+  // Phase 3H: photo evidence the guard attached to this checkpoint scan.
+  // Metadata only - the image bytes are streamed on demand through the
+  // authenticated evidence-file endpoint (see fetchCheckpointEvidenceObjectUrl).
+  evidence?: PatrolEvidenceSummary[];
+}
+
+// Phase 3H: checkpoint photo evidence.
+export interface PatrolEvidenceSummary {
+  id: string;
+  mediaType: 'image';
+  mimeType: string;
+  fileName: string;
+  fileSizeBytes: number;
+  createdAt: string;
+}
+
+export interface PatrolEvidence extends PatrolEvidenceSummary {
+  patrolEventId: string;
+  patrolRunId: string;
+  guardId: string;
+  uploadedById: string | null;
 }
 
 // Input Types
@@ -305,4 +326,58 @@ export async function completePatrolRun(runId: string) {
 export async function getGuardPatrolRuns() {
   const response = await api.get<PatrolRun[]>('guard/patrol-runs');
   return response.data;
+}
+
+// --- Phase 3H: checkpoint photo evidence ----------------------------------
+// `scope` is 'guard' for the guard portal (upload + read) or 'patrol-runs'
+// for the admin portal (read only). The axios instance attaches the correct
+// portal token based on the current path.
+
+export async function uploadCheckpointEvidence(
+  runId: string,
+  eventId: string,
+  file: File,
+): Promise<PatrolEvidence> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post<PatrolEvidence>(
+    `guard/patrol-runs/${runId}/events/${eventId}/evidence`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return response.data;
+}
+
+export async function getCheckpointEvidence(
+  scope: 'guard' | 'patrol-runs',
+  runId: string,
+  eventId: string,
+): Promise<PatrolEvidence[]> {
+  const base =
+    scope === 'guard'
+      ? `guard/patrol-runs/${runId}`
+      : `patrol-runs/${runId}`;
+  const response = await api.get<PatrolEvidence[]>(
+    `${base}/events/${eventId}/evidence`,
+  );
+  return response.data;
+}
+
+// Streams the binary through the authenticated axios instance and hands back
+// an object URL for use as an <img> src. Callers must revokeObjectURL when done.
+export async function fetchCheckpointEvidenceObjectUrl(
+  scope: 'guard' | 'patrol-runs',
+  runId: string,
+  eventId: string,
+  evidenceId: string,
+): Promise<string> {
+  const base =
+    scope === 'guard'
+      ? `guard/patrol-runs/${runId}`
+      : `patrol-runs/${runId}`;
+  const response = await api.get(
+    `${base}/events/${eventId}/evidence/${evidenceId}/file`,
+    { responseType: 'blob' },
+  );
+  return URL.createObjectURL(response.data as Blob);
 }

@@ -330,6 +330,34 @@ export declare class IncidentsService {
     private unlinkQuietly;
     private findAdminIncidentForEvidence;
     private findClientIncidentForEvidence;
+    private findGuardIncidentForEvidence;
+    addEvidenceForGuard(tenantId: string, guardId: string, incidentId: string, file: Express.Multer.File): Promise<{
+        id: string;
+        incidentId: string;
+        mediaType: string;
+        mimeType: string;
+        fileName: string;
+        fileSizeBytes: number;
+        uploadedById: string | null;
+        createdAt: Date;
+    }>;
+    listEvidenceForGuard(tenantId: string, guardId: string, incidentId: string): Promise<{
+        id: string;
+        incidentId: string;
+        mediaType: string;
+        mimeType: string;
+        fileName: string;
+        fileSizeBytes: number;
+        uploadedById: string | null;
+        createdAt: Date;
+    }[]>;
+    getEvidenceFileForGuard(tenantId: string, guardId: string, incidentId: string, evidenceId: string): Promise<{
+        stream: import("fs").ReadStream;
+        mimeType: string;
+        fileName: string;
+        fileSizeBytes: number;
+        mediaType: string;
+    }>;
     addEvidenceForAdmin(user: ActiveUser, incidentId: string, file: Express.Multer.File): Promise<{
         id: string;
         incidentId: string;

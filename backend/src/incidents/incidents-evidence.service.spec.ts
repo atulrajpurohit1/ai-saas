@@ -120,7 +120,10 @@ describe('IncidentsService - evidence (Phase 3F)', () => {
         service.addEvidenceForAdmin(
           adminA,
           'inc-1',
-          imageFile({ originalname: 'shell.png', mimetype: 'application/x-msdownload' }),
+          imageFile({
+            originalname: 'shell.png',
+            mimetype: 'application/x-msdownload',
+          }),
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.incidentEvidence.create).not.toHaveBeenCalled();
@@ -215,6 +218,72 @@ describe('IncidentsService - evidence (Phase 3F)', () => {
     });
   });
 
+  describe('addEvidenceForGuard (Phase 3H)', () => {
+    const guardInScope = (status = 'submitted') =>
+      prisma.$queryRaw.mockResolvedValue([
+        { id: 'inc-1', title: 'Break-in', status },
+      ]);
+
+    it('lets the reporting guard attach evidence to their own open incident', async () => {
+      guardInScope('submitted');
+      prisma.incidentEvidence.create.mockImplementation(({ data }) => ({
+        id: 'ev-1',
+        createdAt: new Date(),
+        ...data,
+      }));
+
+      const result = await service.addEvidenceForGuard(
+        TENANT_A,
+        'guard-1',
+        'inc-1',
+        imageFile(),
+      );
+
+      expect(prisma.incidentEvidence.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tenantId: TENANT_A,
+            incidentId: 'inc-1',
+            mediaType: 'image',
+            uploadedById: 'guard-1',
+          }),
+        }),
+      );
+      expect(result).not.toHaveProperty('storedFileName');
+    });
+
+    it("rejects a guard attaching to an incident that is not theirs / not this tenant's", async () => {
+      prisma.$queryRaw.mockResolvedValue([]); // guard_id + tenant_id gate fails
+      await expect(
+        service.addEvidenceForGuard(TENANT_A, 'guard-1', 'inc-x', imageFile()),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.incidentEvidence.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects adding evidence once the incident has been reviewed', async () => {
+      guardInScope('approved');
+      await expect(
+        service.addEvidenceForGuard(TENANT_A, 'guard-1', 'inc-1', imageFile()),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.incidentEvidence.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a disallowed file type from a guard', async () => {
+      guardInScope('submitted');
+      await expect(
+        service.addEvidenceForGuard(
+          TENANT_A,
+          'guard-1',
+          'inc-1',
+          imageFile({
+            originalname: 'x.exe',
+            mimetype: 'application/x-msdownload',
+          }),
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
   describe('client access', () => {
     it("rejects listing evidence for an incident that is not the client's approved incident", async () => {
       prisma.$queryRaw.mockResolvedValue([]); // approved + client_id gate fails
@@ -229,7 +298,12 @@ describe('IncidentsService - evidence (Phase 3F)', () => {
       prisma.$queryRaw.mockResolvedValue([{ id: 'inc-1', title: 'ok' }]);
       prisma.incidentEvidence.findMany.mockResolvedValue([]);
 
-      await service.listEvidenceForClient(TENANT_A, 'client-1', 'cu-1', 'inc-1');
+      await service.listEvidenceForClient(
+        TENANT_A,
+        'client-1',
+        'cu-1',
+        'inc-1',
+      );
 
       expect(prisma.incidentEvidence.findMany).toHaveBeenCalledWith(
         expect.objectContaining({

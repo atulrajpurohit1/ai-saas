@@ -51,7 +51,8 @@ export function ensureGuardComplianceUploadDir(): string {
   return GUARD_COMPLIANCE_UPLOAD_DIR;
 }
 
-export const GUARD_COMPLIANCE_UPLOAD_ALLOWED_EXTENSIONS = /\.(pdf|jpg|jpeg|png)$/i;
+export const GUARD_COMPLIANCE_UPLOAD_ALLOWED_EXTENSIONS =
+  /\.(pdf|jpg|jpeg|png)$/i;
 
 export function guardComplianceUploadMaxMb(): number {
   const parsed = Number(process.env.GUARD_COMPLIANCE_UPLOAD_MAX_MB || 10);
@@ -159,6 +160,60 @@ export function incidentEvidenceMaxBytesFor(
   return mediaType === 'image'
     ? incidentEvidenceImageMaxBytes()
     : incidentEvidenceVideoMaxBytes();
+}
+
+// Patrol evidence photos (Phase 3H) - a guard attaching a photo while
+// performing a Guard Tour checkpoint scan. Same local-disk pattern as the
+// incident-evidence / guard-compliance / vendor-submission uploads above
+// (this project has no object storage). Same PaaS-redeploy caveat applies
+// (no persistent volume => files do not survive a redeploy), documented as a
+// known limitation consistent with the other upload modules. Photos only
+// (no video): a patrol photo is a quick point-in-time capture at a
+// checkpoint, and keeping it image-only keeps captures small enough to be
+// practical on a guard's phone on a weak connection. storedFileName is the
+// sanitized on-disk name and is NEVER returned to a client.
+export const PATROL_EVIDENCE_UPLOAD_DIR = join(
+  process.cwd(),
+  'uploads',
+  'patrol-evidence',
+);
+
+export function ensurePatrolEvidenceUploadDir(): string {
+  if (!existsSync(PATROL_EVIDENCE_UPLOAD_DIR)) {
+    mkdirSync(PATROL_EVIDENCE_UPLOAD_DIR, { recursive: true });
+  }
+  return PATROL_EVIDENCE_UPLOAD_DIR;
+}
+
+// Reuses the incident-evidence IMAGE allow-list exactly - both the
+// browser-supplied MIME type AND the file extension must map to an image, so
+// a renamed executable (shell.exe -> shell.png) is rejected on the MIME
+// check and a spoofed MIME is rejected on the extension check.
+export const PATROL_EVIDENCE_ALLOWED_EXTENSIONS =
+  /\.(jpe?g|png|webp|gif|heic|heif)$/i;
+
+/**
+ * True only when the file is a genuine image (extension + declared MIME type
+ * both pass the image allow-list). The caller rejects with a 400 otherwise.
+ */
+export function isAllowedPatrolEvidencePhoto(
+  originalName: string,
+  mimeType: string,
+): boolean {
+  if (!PATROL_EVIDENCE_ALLOWED_EXTENSIONS.test(originalName)) {
+    return false;
+  }
+  const normalized = (mimeType || '').toLowerCase().split(';')[0].trim();
+  return Boolean(INCIDENT_EVIDENCE_IMAGE_MIME_TYPES[normalized]);
+}
+
+export function patrolEvidenceImageMaxMb(): number {
+  const parsed = Number(process.env.PATROL_EVIDENCE_IMAGE_MAX_MB || 15);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 15;
+}
+
+export function patrolEvidenceImageMaxBytes(): number {
+  return patrolEvidenceImageMaxMb() * 1024 * 1024;
 }
 
 // Client / site insurance & COI documents (Phase 3G) - same local-disk pattern

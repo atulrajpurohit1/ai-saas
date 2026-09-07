@@ -1,3 +1,4 @@
+import { Response } from 'express';
 import { PatrolsService } from './patrols.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { StartPatrolRunDto } from './dto/start-patrol-run.dto';
@@ -206,4 +207,29 @@ export declare class GuardPatrolsController {
         lastAccuracyMeters: number | null;
         lastLocationAt: Date | null;
     })[]>;
+    uploadCheckpointEvidence(user: ActiveUser, runId: string, eventId: string, file: Express.Multer.File): Promise<{
+        id: string;
+        patrolEventId: string;
+        patrolRunId: string;
+        guardId: string;
+        mediaType: string;
+        mimeType: string;
+        fileName: string;
+        fileSizeBytes: number;
+        uploadedById: string | null;
+        createdAt: Date;
+    }>;
+    listCheckpointEvidence(user: ActiveUser, runId: string, eventId: string): Promise<{
+        id: string;
+        patrolEventId: string;
+        patrolRunId: string;
+        guardId: string;
+        mediaType: string;
+        mimeType: string;
+        fileName: string;
+        fileSizeBytes: number;
+        uploadedById: string | null;
+        createdAt: Date;
+    }[]>;
+    downloadCheckpointEvidence(user: ActiveUser, runId: string, eventId: string, evidenceId: string, res: Response): Promise<void>;
 }

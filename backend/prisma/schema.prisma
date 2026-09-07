@@ -99,6 +99,7 @@ model Tenant {
   vendorPerformances    VendorPerformance[]
   emergencyAlerts       EmergencyAlert[]
   incidentEvidence      IncidentEvidence[]
+  patrolEvidence        PatrolEvidence[]
   clientInsurancePolicies ClientInsurancePolicy[]
   rfpRequirementAnalyses RfpRequirementAnalysis[]
 }
@@ -1570,11 +1571,50 @@ model PatrolEvent {
   submittedLongitude  Float?   @map("submitted_longitude")
   createdAt    DateTime   @default(now()) @map("created_at")
 
+  evidence     PatrolEvidence[]
+
   @@index([tenantId])
   @@index([patrolRunId])
   @@index([checkpointId])
   @@index([guardId])
   @@map("PatrolEvent")
+}
+
+// Phase 3H: photo evidence a guard captures while performing a Guard Tour
+// checkpoint scan. Modelled exactly like IncidentEvidence (Phase 3F) - a
+// dedicated table rather than a column on PatrolEvent, so a single
+// checkpoint scan can carry more than one photo, each with its own media
+// metadata. The row is anchored to the PatrolEvent, which already carries
+// the tenant, patrol run, checkpoint, guard and timestamp, so evidence is
+// unambiguously tied to the correct patrol/checkpoint/event. patrolRunId and
+// guardId are also denormalised here so evidence can be tenant/run-scoped
+// without a join and so the uploader identity is preserved even if the
+// event row is later touched. Files live on local disk under
+// uploads/patrol-evidence (this project has no object storage). Cascade on
+// PatrolEvent delete: evidence never outlives the scan it documents, and a
+// deleted scan must not leave an orphaned/exposed file row. storedFileName
+// is the sanitized on-disk name and is NEVER returned to a client (path /
+// enumeration risk); only fileName (the original upload name) is exposed.
+model PatrolEvidence {
+  id             String      @id @default(uuid())
+  tenantId       String      @map("tenant_id")
+  tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patrolEventId  String      @map("patrol_event_id")
+  patrolEvent    PatrolEvent @relation(fields: [patrolEventId], references: [id], onDelete: Cascade)
+  patrolRunId    String      @map("patrol_run_id")
+  guardId        String      @map("guard_id")
+  mediaType      String      @map("media_type") // always 'image' - derived server-side from the validated MIME type
+  mimeType       String      @map("mime_type")
+  fileName       String      @map("file_name")
+  storedFileName String      @map("stored_file_name")
+  fileSizeBytes  Int         @map("file_size_bytes")
+  uploadedById   String?     @map("uploaded_by")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([patrolEventId])
+  @@index([patrolRunId])
+  @@map("PatrolEvidence")
 }
 
 // Phase 3D: guard panic/duress alerts. A dedicated model rather than reusing

@@ -1,3 +1,4 @@
+import { Response } from 'express';
 import { PatrolsService } from './patrols.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CreateCheckpointDto } from './dto/create-checkpoint.dto';
@@ -339,6 +340,14 @@ export declare class PatrolsController {
                 geofenceRadiusMeters: number | null;
                 status: string;
             };
+            evidence: {
+                id: string;
+                createdAt: Date;
+                mediaType: string;
+                mimeType: string;
+                fileName: string;
+                fileSizeBytes: number;
+            }[];
         } & {
             id: string;
             createdAt: Date;
@@ -370,4 +379,17 @@ export declare class PatrolsController {
         lastAccuracyMeters: number | null;
         lastLocationAt: Date | null;
     }>;
+    listCheckpointEvidence(user: ActiveUser, runId: string, eventId: string): Promise<{
+        id: string;
+        patrolEventId: string;
+        patrolRunId: string;
+        guardId: string;
+        mediaType: string;
+        mimeType: string;
+        fileName: string;
+        fileSizeBytes: number;
+        uploadedById: string | null;
+        createdAt: Date;
+    }[]>;
+    downloadCheckpointEvidence(user: ActiveUser, runId: string, eventId: string, evidenceId: string, res: Response): Promise<void>;
 }

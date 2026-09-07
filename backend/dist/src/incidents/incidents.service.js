@@ -526,6 +526,91 @@ let IncidentsService = class IncidentsService {
         }
         return incident;
     }
+    async findGuardIncidentForEvidence(tenantId, guardId, incidentId) {
+        const rows = await this.prisma.$queryRaw(client_1.Prisma.sql `
+      SELECT i."id", i."title", i."status"
+      FROM "Incident" i
+      WHERE i."tenant_id" = ${tenantId}
+        AND i."id" = ${incidentId}
+        AND i."guard_id" = ${guardId}
+      LIMIT 1
+    `);
+        const incident = rows[0];
+        if (!incident) {
+            throw new common_1.NotFoundException('Incident not found');
+        }
+        if (incident.status !== 'submitted' && incident.status !== 'under_review') {
+            throw new common_1.BadRequestException('Evidence can no longer be added to a reviewed incident');
+        }
+        return incident;
+    }
+    async addEvidenceForGuard(tenantId, guardId, incidentId, file) {
+        const incident = await this.findGuardIncidentForEvidence(tenantId, guardId, incidentId);
+        const mediaType = (0, file_storage_util_1.classifyIncidentEvidence)(file.originalname, file.mimetype);
+        if (!mediaType) {
+            this.unlinkQuietly(file.filename);
+            throw new common_1.BadRequestException('Unsupported file. Only image (JPG, PNG, WEBP, GIF, HEIC) and video (MP4, MOV, M4V, WEBM) evidence is allowed.');
+        }
+        const maxBytes = (0, file_storage_util_1.incidentEvidenceMaxBytesFor)(mediaType);
+        if (file.size > maxBytes) {
+            this.unlinkQuietly(file.filename);
+            const limitMb = mediaType === 'image'
+                ? (0, file_storage_util_1.incidentEvidenceImageMaxMb)()
+                : (0, file_storage_util_1.incidentEvidenceVideoMaxMb)();
+            throw new common_1.BadRequestException(`${mediaType === 'image' ? 'Image' : 'Video'} evidence must be ${limitMb} MB or smaller.`);
+        }
+        const created = await this.prisma.incidentEvidence.create({
+            data: {
+                tenantId,
+                incidentId: incident.id,
+                mediaType,
+                mimeType: file.mimetype.toLowerCase().split(';')[0].trim(),
+                fileName: file.originalname,
+                storedFileName: file.filename,
+                fileSizeBytes: file.size,
+                uploadedById: guardId,
+            },
+        });
+        await this.auditService.log({
+            tenantId,
+            userId: guardId,
+            action: 'INCIDENT_EVIDENCE_UPLOADED',
+            entityType: 'IncidentEvidence',
+            entityId: created.id,
+            details: `Guard attached ${mediaType} evidence to incident "${incident.title}"`,
+        });
+        return this.serializeEvidence(created);
+    }
+    async listEvidenceForGuard(tenantId, guardId, incidentId) {
+        const rows = await this.prisma.$queryRaw(client_1.Prisma.sql `
+      SELECT i."id" FROM "Incident" i
+      WHERE i."tenant_id" = ${tenantId}
+        AND i."id" = ${incidentId}
+        AND i."guard_id" = ${guardId}
+      LIMIT 1
+    `);
+        if (!rows[0]) {
+            throw new common_1.NotFoundException('Incident not found');
+        }
+        const items = await this.prisma.incidentEvidence.findMany({
+            where: { tenantId, incidentId },
+            orderBy: { createdAt: 'desc' },
+        });
+        return items.map((item) => this.serializeEvidence(item));
+    }
+    async getEvidenceFileForGuard(tenantId, guardId, incidentId, evidenceId) {
+        const rows = await this.prisma.$queryRaw(client_1.Prisma.sql `
+      SELECT i."id" FROM "Incident" i
+      WHERE i."tenant_id" = ${tenantId}
+        AND i."id" = ${incidentId}
+        AND i."guard_id" = ${guardId}
+      LIMIT 1
+    `);
+        if (!rows[0]) {
+            throw new common_1.NotFoundException('Incident not found');
+        }
+        return this.resolveEvidenceFile(tenantId, incidentId, evidenceId);
+    }
     async addEvidenceForAdmin(user, incidentId, file) {
         const incident = await this.findAdminIncidentForEvidence(user, incidentId);
         const mediaType = (0, file_storage_util_1.classifyIncidentEvidence)(file.originalname, file.mimetype);

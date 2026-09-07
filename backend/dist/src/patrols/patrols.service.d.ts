@@ -261,6 +261,14 @@ export declare class PatrolsService {
                 geofenceRadiusMeters: number | null;
                 status: string;
             };
+            evidence: {
+                id: string;
+                createdAt: Date;
+                mediaType: string;
+                mimeType: string;
+                fileName: string;
+                fileSizeBytes: number;
+            }[];
         } & {
             id: string;
             createdAt: Date;
@@ -577,6 +585,61 @@ export declare class PatrolsService {
         lastAccuracyMeters: number | null;
         lastLocationAt: Date | null;
     })[]>;
+    private serializePatrolEvidence;
+    private unlinkPatrolEvidenceQuietly;
+    private findGuardPatrolEventForEvidence;
+    private findAdminPatrolEventForEvidence;
+    addCheckpointEvidenceForGuard(tenantId: string, guardId: string, runId: string, eventId: string, file: Express.Multer.File): Promise<{
+        id: string;
+        patrolEventId: string;
+        patrolRunId: string;
+        guardId: string;
+        mediaType: string;
+        mimeType: string;
+        fileName: string;
+        fileSizeBytes: number;
+        uploadedById: string | null;
+        createdAt: Date;
+    }>;
+    listCheckpointEvidenceForGuard(tenantId: string, guardId: string, runId: string, eventId: string): Promise<{
+        id: string;
+        patrolEventId: string;
+        patrolRunId: string;
+        guardId: string;
+        mediaType: string;
+        mimeType: string;
+        fileName: string;
+        fileSizeBytes: number;
+        uploadedById: string | null;
+        createdAt: Date;
+    }[]>;
+    listCheckpointEvidenceForAdmin(user: ActiveUser, runId: string, eventId: string): Promise<{
+        id: string;
+        patrolEventId: string;
+        patrolRunId: string;
+        guardId: string;
+        mediaType: string;
+        mimeType: string;
+        fileName: string;
+        fileSizeBytes: number;
+        uploadedById: string | null;
+        createdAt: Date;
+    }[]>;
+    getCheckpointEvidenceFileForAdmin(user: ActiveUser, runId: string, eventId: string, evidenceId: string): Promise<{
+        stream: import("fs").ReadStream;
+        mimeType: string;
+        fileName: string;
+        fileSizeBytes: number;
+        mediaType: string;
+    }>;
+    getCheckpointEvidenceFileForGuard(tenantId: string, guardId: string, runId: string, eventId: string, evidenceId: string): Promise<{
+        stream: import("fs").ReadStream;
+        mimeType: string;
+        fileName: string;
+        fileSizeBytes: number;
+        mediaType: string;
+    }>;
+    private resolvePatrolEvidenceFile;
     getLiveSiteStatusForClient(tenantId: string, clientId: string): Promise<{
         site: {
             id: string;

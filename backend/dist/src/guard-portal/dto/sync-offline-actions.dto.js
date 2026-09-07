@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SyncOfflineActionsDto = exports.OfflineActionDto = void 0;
 const class_validator_1 = require("class-validator");
+const class_transformer_1 = require("class-transformer");
 class OfflineActionDto {
     id;
     actionType;
@@ -44,6 +45,9 @@ class SyncOfflineActionsDto {
 exports.SyncOfflineActionsDto = SyncOfflineActionsDto;
 __decorate([
     (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayMaxSize)(500),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => OfflineActionDto),
     __metadata("design:type", Array)
 ], SyncOfflineActionsDto.prototype, "actions", void 0);
 //# sourceMappingURL=sync-offline-actions.dto.js.map

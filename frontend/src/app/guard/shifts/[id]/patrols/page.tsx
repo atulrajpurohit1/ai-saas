@@ -20,6 +20,7 @@ import {
 import { GeolocationResult, geolocationErrorMessage, requestCurrentLocation } from '@/lib/geolocation';
 import { LOCATION_UPDATE_INTERVAL_MS } from '@/lib/guard-tracking.constants';
 import { OfflineSync } from '@/lib/offline-sync';
+import CheckpointPhotoCapture from '@/components/CheckpointPhotoCapture';
 import {
   ArrowLeft,
   Navigation,
@@ -459,10 +460,18 @@ export default function GuardPatrolPage() {
               const isScanned = !!scannedEvent;
               const isSkipped = scannedEvent?.status === 'skipped';
 
+              // Offline optimistic scans get a synthetic `offline-…` id and
+              // have no server-side PatrolEvent yet, so photos can't be
+              // attached until they sync. A real scan carries a uuid.
+              const scannedEventId =
+                scannedEvent && !scannedEvent.id.startsWith('offline-')
+                  ? scannedEvent.id
+                  : null;
+
               return (
                 <div
                   key={rcp.id}
-                  className={`rounded-2xl border p-4 flex justify-between items-center gap-4 transition-all ${
+                  className={`rounded-2xl border p-4 transition-all ${
                     isScanned
                       ? isSkipped
                         ? 'border-amber-500/20 bg-amber-500/5'
@@ -470,6 +479,7 @@ export default function GuardPatrolPage() {
                       : 'border-white/10 bg-white/[0.04]'
                   }`}
                 >
+                 <div className="flex justify-between items-center gap-4">
                   <div className="flex items-center gap-3 min-w-0">
                     <div
                       className={`font-mono text-xs font-bold w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
@@ -528,6 +538,24 @@ export default function GuardPatrolPage() {
                       </button>
                     )}
                   </div>
+                 </div>
+
+                  {/* Phase 3H: photo evidence for a completed checkpoint scan. */}
+                  {isScanned && !isSkipped && (
+                    <div className="mt-3 border-t border-white/5 pt-3">
+                      {scannedEventId ? (
+                        <CheckpointPhotoCapture
+                          runId={activeRun.id}
+                          eventId={scannedEventId}
+                          variant="block"
+                        />
+                      ) : (
+                        <span className="text-[11px] text-slate-500">
+                          Photos can be added once this checkpoint syncs.
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -556,6 +584,7 @@ export default function GuardPatrolPage() {
             </h3>
             <p className="text-sm text-slate-400 mb-4">
               Enter any notes or observations about this checkpoint location.
+              You can attach a photo once the scan is recorded.
             </p>
 
             <div

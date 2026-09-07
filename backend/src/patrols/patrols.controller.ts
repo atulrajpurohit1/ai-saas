@@ -5,9 +5,11 @@ import {
   Put,
   Body,
   Param,
+  Res,
   UseGuards,
   Query,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { PatrolsService } from './patrols.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
@@ -120,5 +122,51 @@ export class PatrolsController {
   @RequireAnyPermission('patrols.view', 'patrols.manage')
   findPatrolRun(@GetUser() user: ActiveUser, @Param('id') id: string) {
     return this.patrolsService.findPatrolRun(user, id);
+  }
+
+  // --- Phase 3H: checkpoint photo evidence (read-only for admin/dispatcher) ---
+  // Authorized patrol viewers may list and stream the photos a guard
+  // attached to a checkpoint scan. Tenant + branch scoping is identical to
+  // every other admin patrol-run read; there is no admin write surface -
+  // evidence is created only by the guard who performed the scan.
+
+  @Get('patrol-runs/:id/events/:eventId/evidence')
+  @RequireAnyPermission('patrols.view', 'patrols.manage')
+  listCheckpointEvidence(
+    @GetUser() user: ActiveUser,
+    @Param('id') runId: string,
+    @Param('eventId') eventId: string,
+  ) {
+    return this.patrolsService.listCheckpointEvidenceForAdmin(
+      user,
+      runId,
+      eventId,
+    );
+  }
+
+  @Get('patrol-runs/:id/events/:eventId/evidence/:evidenceId/file')
+  @RequireAnyPermission('patrols.view', 'patrols.manage')
+  async downloadCheckpointEvidence(
+    @GetUser() user: ActiveUser,
+    @Param('id') runId: string,
+    @Param('eventId') eventId: string,
+    @Param('evidenceId') evidenceId: string,
+    @Res() res: Response,
+  ) {
+    const { stream, mimeType, fileName, fileSizeBytes } =
+      await this.patrolsService.getCheckpointEvidenceFileForAdmin(
+        user,
+        runId,
+        eventId,
+        evidenceId,
+      );
+
+    res.set({
+      'Content-Type': mimeType || 'application/octet-stream',
+      'Content-Length': String(fileSizeBytes),
+      'Content-Disposition': `inline; filename="${encodeURIComponent(fileName)}"`,
+      'Cache-Control': 'private, no-store',
+    });
+    stream.pipe(res);
   }
 }

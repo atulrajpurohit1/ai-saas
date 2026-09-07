@@ -14,14 +14,34 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GuardPatrolsController = void 0;
 const common_1 = require("@nestjs/common");
+const platform_express_1 = require("@nestjs/platform-express");
+const multer_1 = require("multer");
+const crypto_1 = require("crypto");
 const patrols_service_1 = require("./patrols.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const roles_guard_1 = require("../auth/guards/roles.guard");
 const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
+const file_storage_util_1 = require("../common/file-storage.util");
 const start_patrol_run_dto_1 = require("./dto/start-patrol-run.dto");
 const scan_checkpoint_dto_1 = require("./dto/scan-checkpoint.dto");
 const update_location_dto_1 = require("./dto/update-location.dto");
+const patrolEvidenceFileStorage = (0, multer_1.diskStorage)({
+    destination: (_req, _file, callback) => {
+        callback(null, (0, file_storage_util_1.ensurePatrolEvidenceUploadDir)());
+    },
+    filename: (_req, file, callback) => {
+        const unique = `${Date.now()}-${(0, crypto_1.randomBytes)(6).toString('hex')}`;
+        callback(null, `${unique}-${(0, file_storage_util_1.sanitizeFilename)(file.originalname)}`);
+    },
+});
+function patrolEvidenceFileFilter(_req, file, callback) {
+    if (!file_storage_util_1.PATROL_EVIDENCE_ALLOWED_EXTENSIONS.test(file.originalname)) {
+        callback(new common_1.BadRequestException(`Unsupported file type for "${file.originalname}". Allowed: JPG, PNG, WEBP, GIF, HEIC.`), false);
+        return;
+    }
+    callback(null, true);
+}
 let GuardPatrolsController = class GuardPatrolsController {
     patrolsService;
     constructor(patrolsService) {
@@ -59,6 +79,27 @@ let GuardPatrolsController = class GuardPatrolsController {
     getGuardPatrolRuns(user) {
         const { tenantId, guardId } = this.getGuardContext(user);
         return this.patrolsService.getGuardPatrolRuns(tenantId, guardId);
+    }
+    uploadCheckpointEvidence(user, runId, eventId, file) {
+        const { tenantId, guardId } = this.getGuardContext(user);
+        if (!file)
+            throw new common_1.BadRequestException('No file uploaded');
+        return this.patrolsService.addCheckpointEvidenceForGuard(tenantId, guardId, runId, eventId, file);
+    }
+    listCheckpointEvidence(user, runId, eventId) {
+        const { tenantId, guardId } = this.getGuardContext(user);
+        return this.patrolsService.listCheckpointEvidenceForGuard(tenantId, guardId, runId, eventId);
+    }
+    async downloadCheckpointEvidence(user, runId, eventId, evidenceId, res) {
+        const { tenantId, guardId } = this.getGuardContext(user);
+        const { stream, mimeType, fileName, fileSizeBytes } = await this.patrolsService.getCheckpointEvidenceFileForGuard(tenantId, guardId, runId, eventId, evidenceId);
+        res.set({
+            'Content-Type': mimeType || 'application/octet-stream',
+            'Content-Length': String(fileSizeBytes),
+            'Content-Disposition': `inline; filename="${encodeURIComponent(fileName)}"`,
+            'Cache-Control': 'private, no-store',
+        });
+        stream.pipe(res);
     }
 };
 exports.GuardPatrolsController = GuardPatrolsController;
@@ -113,6 +154,41 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], GuardPatrolsController.prototype, "getGuardPatrolRuns", null);
+__decorate([
+    (0, common_1.Post)('patrol-runs/:id/events/:eventId/evidence'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', {
+        storage: patrolEvidenceFileStorage,
+        fileFilter: patrolEvidenceFileFilter,
+        limits: { fileSize: (0, file_storage_util_1.patrolEvidenceImageMaxBytes)() },
+    })),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Param)('eventId')),
+    __param(3, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String, Object]),
+    __metadata("design:returntype", void 0)
+], GuardPatrolsController.prototype, "uploadCheckpointEvidence", null);
+__decorate([
+    (0, common_1.Get)('patrol-runs/:id/events/:eventId/evidence'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Param)('eventId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", void 0)
+], GuardPatrolsController.prototype, "listCheckpointEvidence", null);
+__decorate([
+    (0, common_1.Get)('patrol-runs/:id/events/:eventId/evidence/:evidenceId/file'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Param)('eventId')),
+    __param(3, (0, common_1.Param)('evidenceId')),
+    __param(4, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String, String, Object]),
+    __metadata("design:returntype", Promise)
+], GuardPatrolsController.prototype, "downloadCheckpointEvidence", null);
 exports.GuardPatrolsController = GuardPatrolsController = __decorate([
     (0, common_1.Controller)('guard'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),

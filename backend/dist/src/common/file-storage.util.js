@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CLIENT_INSURANCE_ALLOWED_MIME_TYPES = exports.CLIENT_INSURANCE_UPLOAD_ALLOWED_EXTENSIONS = exports.CLIENT_INSURANCE_UPLOAD_DIR = exports.INCIDENT_EVIDENCE_ALLOWED_EXTENSIONS = exports.INCIDENT_EVIDENCE_VIDEO_MIME_TYPES = exports.INCIDENT_EVIDENCE_IMAGE_MIME_TYPES = exports.INCIDENT_EVIDENCE_UPLOAD_DIR = exports.GUARD_COMPLIANCE_UPLOAD_ALLOWED_EXTENSIONS = exports.GUARD_COMPLIANCE_UPLOAD_DIR = exports.VENDOR_UPLOAD_ALLOWED_EXTENSIONS = exports.VENDOR_UPLOAD_DIR = void 0;
+exports.CLIENT_INSURANCE_ALLOWED_MIME_TYPES = exports.CLIENT_INSURANCE_UPLOAD_ALLOWED_EXTENSIONS = exports.CLIENT_INSURANCE_UPLOAD_DIR = exports.PATROL_EVIDENCE_ALLOWED_EXTENSIONS = exports.PATROL_EVIDENCE_UPLOAD_DIR = exports.INCIDENT_EVIDENCE_ALLOWED_EXTENSIONS = exports.INCIDENT_EVIDENCE_VIDEO_MIME_TYPES = exports.INCIDENT_EVIDENCE_IMAGE_MIME_TYPES = exports.INCIDENT_EVIDENCE_UPLOAD_DIR = exports.GUARD_COMPLIANCE_UPLOAD_ALLOWED_EXTENSIONS = exports.GUARD_COMPLIANCE_UPLOAD_DIR = exports.VENDOR_UPLOAD_ALLOWED_EXTENSIONS = exports.VENDOR_UPLOAD_DIR = void 0;
 exports.ensureVendorUploadDir = ensureVendorUploadDir;
 exports.sanitizeFilename = sanitizeFilename;
 exports.vendorUploadMaxMb = vendorUploadMaxMb;
@@ -16,6 +16,10 @@ exports.incidentEvidenceImageMaxBytes = incidentEvidenceImageMaxBytes;
 exports.incidentEvidenceVideoMaxBytes = incidentEvidenceVideoMaxBytes;
 exports.incidentEvidenceUploadMaxBytes = incidentEvidenceUploadMaxBytes;
 exports.incidentEvidenceMaxBytesFor = incidentEvidenceMaxBytesFor;
+exports.ensurePatrolEvidenceUploadDir = ensurePatrolEvidenceUploadDir;
+exports.isAllowedPatrolEvidencePhoto = isAllowedPatrolEvidencePhoto;
+exports.patrolEvidenceImageMaxMb = patrolEvidenceImageMaxMb;
+exports.patrolEvidenceImageMaxBytes = patrolEvidenceImageMaxBytes;
 exports.ensureClientInsuranceUploadDir = ensureClientInsuranceUploadDir;
 exports.isAllowedClientInsuranceDocument = isAllowedClientInsuranceDocument;
 exports.clientInsuranceUploadMaxMb = clientInsuranceUploadMaxMb;
@@ -113,6 +117,28 @@ function incidentEvidenceMaxBytesFor(mediaType) {
     return mediaType === 'image'
         ? incidentEvidenceImageMaxBytes()
         : incidentEvidenceVideoMaxBytes();
+}
+exports.PATROL_EVIDENCE_UPLOAD_DIR = (0, path_1.join)(process.cwd(), 'uploads', 'patrol-evidence');
+function ensurePatrolEvidenceUploadDir() {
+    if (!(0, fs_1.existsSync)(exports.PATROL_EVIDENCE_UPLOAD_DIR)) {
+        (0, fs_1.mkdirSync)(exports.PATROL_EVIDENCE_UPLOAD_DIR, { recursive: true });
+    }
+    return exports.PATROL_EVIDENCE_UPLOAD_DIR;
+}
+exports.PATROL_EVIDENCE_ALLOWED_EXTENSIONS = /\.(jpe?g|png|webp|gif|heic|heif)$/i;
+function isAllowedPatrolEvidencePhoto(originalName, mimeType) {
+    if (!exports.PATROL_EVIDENCE_ALLOWED_EXTENSIONS.test(originalName)) {
+        return false;
+    }
+    const normalized = (mimeType || '').toLowerCase().split(';')[0].trim();
+    return Boolean(exports.INCIDENT_EVIDENCE_IMAGE_MIME_TYPES[normalized]);
+}
+function patrolEvidenceImageMaxMb() {
+    const parsed = Number(process.env.PATROL_EVIDENCE_IMAGE_MAX_MB || 15);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 15;
+}
+function patrolEvidenceImageMaxBytes() {
+    return patrolEvidenceImageMaxMb() * 1024 * 1024;
 }
 exports.CLIENT_INSURANCE_UPLOAD_DIR = (0, path_1.join)(process.cwd(), 'uploads', 'client-insurance');
 function ensureClientInsuranceUploadDir() {

@@ -156,6 +156,45 @@ export async function fetchIncidentEvidenceObjectUrl(
   return URL.createObjectURL(response.data as Blob);
 }
 
+// --- Phase 3H: guard-side incident evidence -------------------------------
+// A guard may attach photo/video evidence to an incident THEY reported,
+// while it is still 'submitted' / 'under_review'. Routes are under `guard/`
+// and scoped server-side to the reporting guard + tenant from the JWT.
+
+export async function uploadGuardIncidentEvidence(
+  incidentId: string,
+  file: File,
+): Promise<IncidentEvidence> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post<IncidentEvidence>(
+    `guard/incidents/${incidentId}/evidence`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return response.data;
+}
+
+export async function getGuardIncidentEvidence(
+  incidentId: string,
+): Promise<IncidentEvidence[]> {
+  const response = await api.get<IncidentEvidence[]>(
+    `guard/incidents/${incidentId}/evidence`,
+  );
+  return response.data;
+}
+
+export async function fetchGuardIncidentEvidenceObjectUrl(
+  incidentId: string,
+  evidenceId: string,
+): Promise<string> {
+  const response = await api.get(
+    `guard/incidents/${incidentId}/evidence/${evidenceId}/file`,
+    { responseType: 'blob' },
+  );
+  return URL.createObjectURL(response.data as Blob);
+}
+
 export function formatFileSize(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB'];

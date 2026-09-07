@@ -749,6 +749,139 @@ export class IncidentsService {
     return incident;
   }
 
+  // Phase 3H: a guard attaching photo/video evidence to an incident THEY
+  // reported. Scoped to the reporting guard + tenant (both from the JWT) and
+  // only while the incident is still in an editable state ('submitted' /
+  // 'under_review') - once an admin has approved/rejected it the evidence
+  // set is frozen. Same file validation + storage as addEvidenceForAdmin.
+  private async findGuardIncidentForEvidence(
+    tenantId: string,
+    guardId: string,
+    incidentId: string,
+  ) {
+    const rows = await this.prisma.$queryRaw<
+      { id: string; title: string; status: string }[]
+    >(Prisma.sql`
+      SELECT i."id", i."title", i."status"
+      FROM "Incident" i
+      WHERE i."tenant_id" = ${tenantId}
+        AND i."id" = ${incidentId}
+        AND i."guard_id" = ${guardId}
+      LIMIT 1
+    `);
+    const incident = rows[0];
+    if (!incident) {
+      throw new NotFoundException('Incident not found');
+    }
+    if (incident.status !== 'submitted' && incident.status !== 'under_review') {
+      throw new BadRequestException(
+        'Evidence can no longer be added to a reviewed incident',
+      );
+    }
+    return incident;
+  }
+
+  async addEvidenceForGuard(
+    tenantId: string,
+    guardId: string,
+    incidentId: string,
+    file: Express.Multer.File,
+  ) {
+    const incident = await this.findGuardIncidentForEvidence(
+      tenantId,
+      guardId,
+      incidentId,
+    );
+
+    const mediaType = classifyIncidentEvidence(
+      file.originalname,
+      file.mimetype,
+    );
+    if (!mediaType) {
+      this.unlinkQuietly(file.filename);
+      throw new BadRequestException(
+        'Unsupported file. Only image (JPG, PNG, WEBP, GIF, HEIC) and video (MP4, MOV, M4V, WEBM) evidence is allowed.',
+      );
+    }
+
+    const maxBytes = incidentEvidenceMaxBytesFor(mediaType);
+    if (file.size > maxBytes) {
+      this.unlinkQuietly(file.filename);
+      const limitMb =
+        mediaType === 'image'
+          ? incidentEvidenceImageMaxMb()
+          : incidentEvidenceVideoMaxMb();
+      throw new BadRequestException(
+        `${mediaType === 'image' ? 'Image' : 'Video'} evidence must be ${limitMb} MB or smaller.`,
+      );
+    }
+
+    const created = await this.prisma.incidentEvidence.create({
+      data: {
+        tenantId,
+        incidentId: incident.id,
+        mediaType,
+        mimeType: file.mimetype.toLowerCase().split(';')[0].trim(),
+        fileName: file.originalname,
+        storedFileName: file.filename,
+        fileSizeBytes: file.size,
+        uploadedById: guardId,
+      },
+    });
+
+    await this.auditService.log({
+      tenantId,
+      userId: guardId,
+      action: 'INCIDENT_EVIDENCE_UPLOADED',
+      entityType: 'IncidentEvidence',
+      entityId: created.id,
+      details: `Guard attached ${mediaType} evidence to incident "${incident.title}"`,
+    });
+
+    return this.serializeEvidence(created);
+  }
+
+  async listEvidenceForGuard(
+    tenantId: string,
+    guardId: string,
+    incidentId: string,
+  ) {
+    const rows = await this.prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
+      SELECT i."id" FROM "Incident" i
+      WHERE i."tenant_id" = ${tenantId}
+        AND i."id" = ${incidentId}
+        AND i."guard_id" = ${guardId}
+      LIMIT 1
+    `);
+    if (!rows[0]) {
+      throw new NotFoundException('Incident not found');
+    }
+    const items = await this.prisma.incidentEvidence.findMany({
+      where: { tenantId, incidentId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return items.map((item) => this.serializeEvidence(item));
+  }
+
+  async getEvidenceFileForGuard(
+    tenantId: string,
+    guardId: string,
+    incidentId: string,
+    evidenceId: string,
+  ) {
+    const rows = await this.prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
+      SELECT i."id" FROM "Incident" i
+      WHERE i."tenant_id" = ${tenantId}
+        AND i."id" = ${incidentId}
+        AND i."guard_id" = ${guardId}
+      LIMIT 1
+    `);
+    if (!rows[0]) {
+      throw new NotFoundException('Incident not found');
+    }
+    return this.resolveEvidenceFile(tenantId, incidentId, evidenceId);
+  }
+
   async addEvidenceForAdmin(
     user: ActiveUser,
     incidentId: string,

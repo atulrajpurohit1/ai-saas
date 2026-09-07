@@ -6,10 +6,16 @@ import { useParams } from 'next/navigation';
 import GuardLayout from '@/components/GuardLayout';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { createGuardIncident, IncidentSeverity } from '@/lib/incidents';
+import { toast } from 'sonner';
+import {
+  createGuardIncident,
+  IncidentEvidence,
+  IncidentSeverity,
+  uploadGuardIncidentEvidence,
+} from '@/lib/incidents';
 import { OfflineSync } from '@/lib/offline-sync';
 import { formatEnumLabel } from '@/lib/format';
-import { AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, Clock, FileWarning, Loader2, LogIn, LogOut, MapPin, Navigation, Send, ShieldCheck, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CalendarDays, Camera, CheckCircle2, Clock, FileWarning, ImagePlus, Loader2, LogIn, LogOut, MapPin, Navigation, Send, ShieldCheck, X } from 'lucide-react';
 
 interface GuardShiftDetail {
   id: string;
@@ -54,6 +60,12 @@ export default function GuardShiftDetailPage() {
     occurredAt: '',
     attachmentUrl: '',
   });
+  // Phase 3H: after a successful online submit the modal switches to an
+  // optional "add photos" step against the just-created incident.
+  const [submittedIncidentId, setSubmittedIncidentId] = useState<string | null>(null);
+  const [incidentPhotos, setIncidentPhotos] = useState<IncidentEvidence[]>([]);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const incidentPhotoInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const fetchShift = useCallback(async (showFullLoader = true) => {
     if (!id) {
@@ -149,7 +161,27 @@ export default function GuardShiftDetailPage() {
     });
     setIncidentError('');
     setIncidentMessage('');
+    setSubmittedIncidentId(null);
+    setIncidentPhotos([]);
     setShowIncidentModal(true);
+  };
+
+  const handleIncidentPhotoPick = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !submittedIncidentId) return;
+    setPhotoUploading(true);
+    try {
+      const created = await uploadGuardIncidentEvidence(submittedIncidentId, file);
+      setIncidentPhotos((current) => [created, ...current]);
+      toast.success('Photo attached to incident.');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Could not attach photo.'));
+    } finally {
+      setPhotoUploading(false);
+    }
   };
 
   const handleSubmitIncident = async (event: React.FormEvent) => {
@@ -174,9 +206,11 @@ export default function GuardShiftDetailPage() {
         setIncidentMessage('Saved offline, will sync later. (Incident)');
         setShowIncidentModal(false);
       } else {
-        await createGuardIncident(id, dto);
+        const created = await createGuardIncident(id, dto);
         setIncidentMessage('Incident submitted successfully.');
-        setShowIncidentModal(false);
+        // Keep the modal open on an optional photo step rather than closing.
+        setSubmittedIncidentId(created.id);
+        setIncidentPhotos([]);
       }
     } catch (err) {
       setIncidentError(getApiErrorMessage(err, 'Could not submit incident.'));
@@ -368,6 +402,72 @@ export default function GuardShiftDetailPage() {
               </button>
             </div>
 
+            {submittedIncidentId ? (
+              <div className="space-y-4">
+                <div className="flex items-start gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm text-emerald-200">
+                  <CheckCircle2 className="mt-0.5 shrink-0" size={18} />
+                  <span>
+                    Incident submitted. Add one or more photos now, or finish -
+                    you can also add photos later from your incident list while
+                    it is under review.
+                  </span>
+                </div>
+
+                <input
+                  ref={incidentPhotoInputRef}
+                  type="file"
+                  accept="image/*,video/*"
+                  capture="environment"
+                  onChange={handleIncidentPhotoPick}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => incidentPhotoInputRef.current?.click()}
+                  disabled={photoUploading}
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-slate-200 transition hover:bg-white/10 disabled:opacity-60"
+                >
+                  {photoUploading ? (
+                    <Loader2 className="animate-spin" size={16} />
+                  ) : incidentPhotos.length > 0 ? (
+                    <ImagePlus size={16} />
+                  ) : (
+                    <Camera size={16} />
+                  )}
+                  {photoUploading
+                    ? 'Uploading…'
+                    : incidentPhotos.length > 0
+                      ? 'Add another photo'
+                      : 'Add photo'}
+                </button>
+
+                {incidentPhotos.length > 0 && (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                    <div className="mb-2 flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+                      <CheckCircle2 size={13} />
+                      {incidentPhotos.length} attached
+                    </div>
+                    <ul className="space-y-1 text-xs text-slate-400">
+                      {incidentPhotos.map((photo) => (
+                        <li key={photo.id} className="truncate">
+                          {photo.fileName}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowIncidentModal(false)}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-amber-400"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
             <form onSubmit={handleSubmitIncident} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-slate-300">Title</label>
@@ -447,6 +547,7 @@ export default function GuardShiftDetailPage() {
                 </button>
               </div>
             </form>
+            )}
           </div>
         </div>
       )}

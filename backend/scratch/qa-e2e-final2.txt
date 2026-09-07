@@ -1,0 +1,176 @@
+
+[1m=== SETUP / TEARDOWN of prior QA data ===[0m
+  [32mPASS[0m pre-clean removed any stale qae2e tenants
+  [32mPASS[0m fixture: tenants A+B and super-admin users created via Prisma
+
+[1m=== AUTHENTICATION ===[0m
+  [32mPASS[0m POST /auth/register happy path returns 201 + tokens
+  [32mPASS[0m duplicate tenant slug / email rejected (409)
+  [32mPASS[0m register with invalid payload rejected (400)
+  [32mPASS[0m login with correct credentials returns tokens
+  [32mPASS[0m login with wrong password rejected (401)
+  [32mPASS[0m login with unknown user rejected (401)
+  [32mPASS[0m GET /users/me with valid token returns 200
+  [32mPASS[0m protected route without token rejected (401)
+  [32mPASS[0m protected route with malformed token rejected (401)
+  [32mPASS[0m protected route with expired/invalid-sig token rejected (401)
+  [32mPASS[0m refresh with valid refresh token returns new tokens
+  [32mPASS[0m refresh with an access token (not refresh) rejected
+  [32mPASS[0m logout returns 200
+  [32mPASS[0m provisioned non-super Branch-Admin user + logged in
+
+[1m=== DASHBOARD ===[0m
+  [32mPASS[0m GET /dashboard/summary returns 200 for admin
+  [32mPASS[0m GET /dashboard/summary without token rejected (401)
+
+[1m=== LEADS / CRM ===[0m
+  [32mPASS[0m create lead returns 201
+  [32mPASS[0m created lead appears in GET /leads
+  [32mPASS[0m GET /leads/:id returns the lead
+  [32mPASS[0m PUT /leads/:id updates
+  [32mPASS[0m PATCH /leads/:id/status updates status
+  [32mPASS[0m DB: lead persisted with updated name + status
+  [32mPASS[0m DB: lead is scoped to tenant A
+  [32mPASS[0m create lead without token rejected (401)
+  [32mPASS[0m GET /leads/:id with non-existent id returns 404
+
+[1m=== TENANT ISOLATION ===[0m
+  [32mPASS[0m tenant B cannot GET tenant A lead (404/403)
+  [32mPASS[0m tenant B cannot UPDATE tenant A lead (404/403)
+  [32mPASS[0m DB: tenant A lead unchanged after cross-tenant update attempt
+  [32mPASS[0m tenant B cannot DELETE tenant A lead (404/403)
+  [32mPASS[0m DB: tenant A lead still exists after cross-tenant delete attempt
+  [32mPASS[0m tenant B lead list does not contain tenant A lead
+
+[1m=== CLIENTS ===[0m
+  [32mPASS[0m create client returns 201
+  [32mPASS[0m create client portal user returns temp password
+  [32mPASS[0m tenant B cannot create user on tenant A client (404/403)
+
+[1m=== FIELD OPS: sites / guards / shifts ===[0m
+  [32mPASS[0m create site returns 201
+  [32mPASS[0m create guard (with password) returns 201
+  [32mPASS[0m create shift (v2) returns 201
+  [32mPASS[0m assign guard to shift returns 200
+  [32mPASS[0m DB: assignment row created
+
+[1m=== GUARD AUTH + PORTAL ===[0m
+  [32mPASS[0m guard login returns tokens
+  [32mPASS[0m guard login wrong password rejected (401)
+  [32mPASS[0m GET /guard/me returns guard profile
+  [32mPASS[0m guard sees their assigned shift in GET /guard/shifts
+  [32mPASS[0m guard token rejected on admin /leads (401/403)
+  [32mPASS[0m guard token rejected on /dashboard/summary (401/403)
+  [32mPASS[0m guard check-in returns 200/201
+  [32mPASS[0m DB: CHECK_IN attendance event recorded
+  [32mPASS[0m cross-tenant guard cannot check-in to shift (403/404)
+  [32mPASS[0m unassigned same-tenant guard cannot check-in (403/404)
+
+[1m=== GUARD TOUR: routes / checkpoints / run / scan / evidence / complete ===[0m
+  [32mPASS[0m Super-Admin owner CAN create checkpoint via admin API (201)
+  [32mPASS[0m BUG#1: non-super Branch-Admin BLOCKED from POST /checkpoints (403) — patrols.manage not in RBAC catalog
+  [32mPASS[0m BUG#1: non-super Branch-Admin BLOCKED from GET /patrol-routes (403) — patrols.view not in RBAC catalog
+  [32mPASS[0m control: non-super Branch-Admin CAN GET /leads (200) — proves token/role valid
+  [32mPASS[0m seeded patrol route + 2 checkpoints via DB
+  [32mPASS[0m guard sees patrol route for their shift site
+  [32mPASS[0m unassigned guard cannot list patrol routes for shift (403)
+  [32mPASS[0m guard starts patrol run (in_progress)
+  [32mPASS[0m start run with invalid route id returns 404
+  [32mPASS[0m non-assigned guard cannot start run on this shift (403)
+  [32mPASS[0m scan checkpoint 1 (no geofence) returns event
+  [32mPASS[0m scan 1 verificationStatus = no_geofence_configured
+  [32mPASS[0m scan checkpoint 2 within geofence => SUCCESS
+  [32mPASS[0m re-scan checkpoint 2 outside geofence => OUTSIDE_GEOFENCE
+  [32mPASS[0m scanning checkpoint not on route rejected (400)
+  [32mPASS[0m another guard cannot scan someone else's run (404)
+  [32mPASS[0m guard posts live location for run (200/201)
+  [32mPASS[0m live location with invalid latitude rejected (400)
+
+[1m=== GUARD TOUR: photo evidence (upload / retrieve / security) ===[0m
+  [32mPASS[0m guard uploads checkpoint photo evidence (png) => 201
+  [32mPASS[0m evidence response does NOT leak storedFileName
+  [32mPASS[0m DB: PatrolEvidence row linked to correct patrolEvent + run + guard
+  [32mPASS[0m guard lists evidence for their event
+  [32mPASS[0m guard downloads evidence file (200, image content-type)
+  [32mPASS[0m another guard cannot list evidence on this event (404)
+  [32mPASS[0m another guard cannot download evidence file (404)
+  [32mPASS[0m cross-tenant guard cannot download evidence file (404)
+  [32mPASS[0m unauthenticated evidence file request rejected (401)
+  [32mPASS[0m evidence upload rejects .exe (400)
+  [32mPASS[0m evidence upload rejects spoofed MIME (png ext, octet-stream mime) (400)
+  [32mPASS[0m evidence upload rejects PDF (photos only) (400)
+  [32mPASS[0m evidence upload rejects oversized file (>15MB) (400/413)
+  [32mPASS[0m guard uploads a SECOND photo to same event (multi-photo)
+  [32mPASS[0m event now has 2 evidence items
+  [32mPASS[0m guard completes patrol run (status completed)
+  [32mPASS[0m completing an already-completed run rejected (404)
+  [32mPASS[0m evidence still listable after run completion
+  [32mPASS[0m location ping after run completion rejected (404)
+  [32mPASS[0m guard patrol history includes completed run
+
+[1m=== GUARD TOUR: missed-checkpoint auto-marking ===[0m
+  [32mPASS[0m unscanned checkpoint auto-marked "missed" on completion
+
+[1m=== INCIDENTS + evidence + review workflow ===[0m
+  [32mPASS[0m guard files incident for shift (201)
+  [32mPASS[0m incident with invalid severity rejected (400)
+  [32mPASS[0m guard attaches incident evidence (image) (201)
+  [32mPASS[0m admin review queue includes the incident
+  [32mPASS[0m admin approves incident (200)
+  [32mPASS[0m DB: incident reviewStatus = approved
+  [32mPASS[0m tenant B admin cannot review tenant A incident (403/404)
+
+[1m=== PANIC / EMERGENCY ALERTS ===[0m
+  [32mPASS[0m guard triggers panic alert (201)
+  [32mPASS[0m guard sees own active alert
+  [32mPASS[0m admin/dispatcher sees the alert in /emergency-alerts
+  [32mPASS[0m tenant B admin does NOT see tenant A alert
+  [32mPASS[0m guard cannot hit admin /emergency-alerts (401/403)
+  [32mPASS[0m admin acknowledges alert (200)
+  [32mPASS[0m tenant B admin cannot resolve tenant A alert (403/404)
+  [32mPASS[0m admin resolves alert (200)
+  [32mPASS[0m DB: alert status is resolved with acknowledgedAt + resolvedAt
+  [32mPASS[0m audit log has EmergencyAlert entries
+
+[1m=== CLIENT PORTAL + isolation ===[0m
+  [32mPASS[0m client portal login returns tokens
+  [32mPASS[0m client portal proposals endpoint returns 200
+  [32mPASS[0m client portal profile returns 200
+  [32mPASS[0m client token rejected on admin /leads (401/403)
+  [32mPASS[0m client token rejected on /guard/shifts (401/403)
+  [32mPASS[0m client incidents endpoint returns 200
+  [32mPASS[0m client live-status endpoint returns 200 (array)
+
+[1m=== OFFLINE SYNC (guard sync queue) ===[0m
+  [32mPASS[0m GET /guard/sync/status returns 200
+  [32mPASS[0m POST /guard/sync accepts an empty batch (200/201)
+  [32mPASS[0m POST /guard/sync processes a queued patrol_checkpoint_scan (200/201)
+  [32mPASS[0m DB: offline-synced checkpoint scan created a PatrolEvent
+  [32mPASS[0m DB: GuardSyncQueue row persisted for the action
+  [32mPASS[0m replaying the same sync batch is idempotent (no 5xx)
+  [32mPASS[0m DB: no duplicate PatrolEvent after replay (exactly 1)
+  [32mPASS[0m POST /guard/sync without token rejected (401)
+  [32mPASS[0m POST /guard/sync with malformed action rejected (400)
+
+[1m=== RBAC / roles catalog ===[0m
+  [32mPASS[0m GET /roles/permissions returns catalog
+  [32mPASS[0m BUG-CHECK: RBAC catalog is MISSING patrols.view / patrols.manage (referenced by patrols.controller)
+  [32mPASS[0m GET /roles returns system roles
+
+[1m=== PUBLIC API auth ===[0m
+  [32mPASS[0m GET /public/clients without API key rejected (401)
+  [32mPASS[0m GET /public/clients with bad API key rejected (401)
+
+[1m=== VENDOR PORTAL token gating ===[0m
+  [32mPASS[0m vendor invitation with bogus token rejected (401/404)
+
+[1m=== RELIABILITY: repeated + concurrent calls ===[0m
+  [32mPASS[0m 15 concurrent /dashboard/summary calls all 200
+  [32mPASS[0m duplicate lead submissions both handled (no 500)
+
+[1m=== RESULT ===[0m
+
+TOTAL: 131   PASS: 131   FAIL: 0
+
+[1m=== TEARDOWN ===[0m
+qae2e tenants removed.

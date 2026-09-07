@@ -62,6 +62,19 @@ let PatrolsController = class PatrolsController {
     findPatrolRun(user, id) {
         return this.patrolsService.findPatrolRun(user, id);
     }
+    listCheckpointEvidence(user, runId, eventId) {
+        return this.patrolsService.listCheckpointEvidenceForAdmin(user, runId, eventId);
+    }
+    async downloadCheckpointEvidence(user, runId, eventId, evidenceId, res) {
+        const { stream, mimeType, fileName, fileSizeBytes } = await this.patrolsService.getCheckpointEvidenceFileForAdmin(user, runId, eventId, evidenceId);
+        res.set({
+            'Content-Type': mimeType || 'application/octet-stream',
+            'Content-Length': String(fileSizeBytes),
+            'Content-Disposition': `inline; filename="${encodeURIComponent(fileName)}"`,
+            'Cache-Control': 'private, no-store',
+        });
+        stream.pipe(res);
+    }
 };
 exports.PatrolsController = PatrolsController;
 __decorate([
@@ -165,6 +178,28 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], PatrolsController.prototype, "findPatrolRun", null);
+__decorate([
+    (0, common_1.Get)('patrol-runs/:id/events/:eventId/evidence'),
+    (0, permissions_decorator_1.RequireAnyPermission)('patrols.view', 'patrols.manage'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Param)('eventId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", void 0)
+], PatrolsController.prototype, "listCheckpointEvidence", null);
+__decorate([
+    (0, common_1.Get)('patrol-runs/:id/events/:eventId/evidence/:evidenceId/file'),
+    (0, permissions_decorator_1.RequireAnyPermission)('patrols.view', 'patrols.manage'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Param)('eventId')),
+    __param(3, (0, common_1.Param)('evidenceId')),
+    __param(4, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String, String, Object]),
+    __metadata("design:returntype", Promise)
+], PatrolsController.prototype, "downloadCheckpointEvidence", null);
 exports.PatrolsController = PatrolsController = __decorate([
     (0, common_1.Controller)(''),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
