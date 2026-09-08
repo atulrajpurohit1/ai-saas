@@ -78,24 +78,24 @@ export declare class GuardPortalService {
     }>;
     getSyncStatus(tenantId: string, guardId: string): Promise<{
         id: string;
+        status: string;
         createdAt: Date;
         tenantId: string;
-        status: string;
         guardId: string;
+        actionType: string;
         payload: Prisma.JsonValue;
         errorMessage: string | null;
-        actionType: string;
         syncedAt: Date | null;
     }[]>;
     processSyncQueue(tenantId: string, guardId: string, dto: SyncOfflineActionsDto): Promise<{
         id: string;
+        status: string;
         createdAt: Date;
         tenantId: string;
-        status: string;
         guardId: string;
+        actionType: string;
         payload: Prisma.JsonValue;
         errorMessage: string | null;
-        actionType: string;
         syncedAt: Date | null;
     }[]>;
 }

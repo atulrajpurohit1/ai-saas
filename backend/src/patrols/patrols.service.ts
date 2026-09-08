@@ -950,6 +950,65 @@ export class PatrolsService {
     });
   }
 
+  // Guard-scoped single-run detail. Mirrors the admin findPatrolRun include
+  // shape (route + checkpoints + events + evidence) so the guard patrol page
+  // can render the checklist and refresh it after each scan, but authorizes
+  // on the JWT-derived guardId instead of a branch scope - a guard may only
+  // ever read their own run.
+  async getGuardPatrolRun(tenantId: string, guardId: string, id: string) {
+    const run = await this.prisma.patrolRun.findFirst({
+      where: {
+        id,
+        tenantId,
+        guardId,
+      },
+      include: {
+        patrolRoute: {
+          select: {
+            id: true,
+            name: true,
+            checkpoints: {
+              orderBy: { sequenceOrder: 'asc' },
+              include: { checkpoint: true },
+            },
+          },
+        },
+        guard: {
+          select: { id: true, name: true },
+        },
+        shift: {
+          select: {
+            id: true,
+            startTime: true,
+            endTime: true,
+            site: { select: { id: true, name: true } },
+          },
+        },
+        events: {
+          orderBy: { scannedAt: 'asc' },
+          include: {
+            checkpoint: true,
+            evidence: {
+              orderBy: { createdAt: 'desc' },
+              select: {
+                id: true,
+                mediaType: true,
+                mimeType: true,
+                fileName: true,
+                fileSizeBytes: true,
+                createdAt: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!run) {
+      throw new NotFoundException('Patrol run not found');
+    }
+    return run;
+  }
+
   // ==========================================
   // PATROL EVIDENCE (Phase 3H) - photo attachments on a checkpoint scan
   // ==========================================

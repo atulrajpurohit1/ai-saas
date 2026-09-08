@@ -80,6 +80,10 @@ let GuardPatrolsController = class GuardPatrolsController {
         const { tenantId, guardId } = this.getGuardContext(user);
         return this.patrolsService.getGuardPatrolRuns(tenantId, guardId);
     }
+    getGuardPatrolRun(user, runId) {
+        const { tenantId, guardId } = this.getGuardContext(user);
+        return this.patrolsService.getGuardPatrolRun(tenantId, guardId, runId);
+    }
     uploadCheckpointEvidence(user, runId, eventId, file) {
         const { tenantId, guardId } = this.getGuardContext(user);
         if (!file)
@@ -154,6 +158,14 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], GuardPatrolsController.prototype, "getGuardPatrolRuns", null);
+__decorate([
+    (0, common_1.Get)('patrol-runs/:id'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], GuardPatrolsController.prototype, "getGuardPatrolRun", null);
 __decorate([
     (0, common_1.Post)('patrol-runs/:id/events/:eventId/evidence'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', {

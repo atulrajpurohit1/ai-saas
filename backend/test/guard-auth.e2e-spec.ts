@@ -34,7 +34,9 @@ describe('GuardAuth (e2e) — refresh_token column regression', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
 
     prisma = app.get(PrismaService);
@@ -59,7 +61,9 @@ describe('GuardAuth (e2e) — refresh_token column regression', () => {
     if (tenantId) {
       await prisma.guard.deleteMany({ where: { tenantId } });
       await prisma.auditLog.deleteMany({ where: { tenantId } });
-      await prisma.tenant.delete({ where: { id: tenantId } }).catch(() => undefined);
+      await prisma.tenant
+        .delete({ where: { id: tenantId } })
+        .catch(() => undefined);
     }
     await app.close();
   });
@@ -74,7 +78,10 @@ describe('GuardAuth (e2e) — refresh_token column regression', () => {
   it('rejects an unknown identifier with 401 (never 500)', async () => {
     const res = await request(app.getHttpServer())
       .post('/guard-auth/login')
-      .send({ identifier: `nobody-${TAG}@guard.test`, password: 'whatever123' });
+      .send({
+        identifier: `nobody-${TAG}@guard.test`,
+        password: 'whatever123',
+      });
     expect(res.status).toBe(401);
   });
 
@@ -83,12 +90,15 @@ describe('GuardAuth (e2e) — refresh_token column regression', () => {
       .post('/guard-auth/login')
       .send({ identifier: guardEmail, password: guardPassword });
     expect(res.status).toBe(200);
-    expect(res.body.access_token).toBeTruthy();
-    expect(res.body.refresh_token).toBeTruthy();
+    const body = res.body as { access_token?: string; refresh_token?: string };
+    expect(body.access_token).toBeTruthy();
+    expect(body.refresh_token).toBeTruthy();
 
     // The refresh token hash must have been persisted to the (previously
     // missing) column.
-    const guard = await prisma.guard.findFirst({ where: { email: guardEmail } });
+    const guard = await prisma.guard.findFirst({
+      where: { email: guardEmail },
+    });
     expect(guard?.refreshToken).toBeTruthy();
   });
 });

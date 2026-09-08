@@ -49,7 +49,12 @@ describe('SyncOfflineActionsDto', () => {
   it('rejects an action with a non-object payload', () => {
     const errors = validate({
       actions: [
-        { id: 'a1', actionType: 'check_in', payload: 'not-an-object', createdAt: 'now' },
+        {
+          id: 'a1',
+          actionType: 'check_in',
+          payload: 'not-an-object',
+          createdAt: 'now',
+        },
       ],
     });
     expect(errors.length).toBeGreaterThan(0);

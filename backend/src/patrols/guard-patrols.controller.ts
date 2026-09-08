@@ -136,6 +136,12 @@ export class GuardPatrolsController {
     return this.patrolsService.getGuardPatrolRuns(tenantId, guardId);
   }
 
+  @Get('patrol-runs/:id')
+  getGuardPatrolRun(@GetUser() user: ActiveUser, @Param('id') runId: string) {
+    const { tenantId, guardId } = this.getGuardContext(user);
+    return this.patrolsService.getGuardPatrolRun(tenantId, guardId, runId);
+  }
+
   // --- Phase 3H: checkpoint photo evidence --------------------------------
   // The guard attaches a photo to a checkpoint scan they just performed
   // (identified by the PatrolEvent id returned from the scan call). The

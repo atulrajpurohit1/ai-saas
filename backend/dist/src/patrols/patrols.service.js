@@ -751,6 +751,59 @@ let PatrolsService = class PatrolsService {
             orderBy: { createdAt: 'desc' },
         });
     }
+    async getGuardPatrolRun(tenantId, guardId, id) {
+        const run = await this.prisma.patrolRun.findFirst({
+            where: {
+                id,
+                tenantId,
+                guardId,
+            },
+            include: {
+                patrolRoute: {
+                    select: {
+                        id: true,
+                        name: true,
+                        checkpoints: {
+                            orderBy: { sequenceOrder: 'asc' },
+                            include: { checkpoint: true },
+                        },
+                    },
+                },
+                guard: {
+                    select: { id: true, name: true },
+                },
+                shift: {
+                    select: {
+                        id: true,
+                        startTime: true,
+                        endTime: true,
+                        site: { select: { id: true, name: true } },
+                    },
+                },
+                events: {
+                    orderBy: { scannedAt: 'asc' },
+                    include: {
+                        checkpoint: true,
+                        evidence: {
+                            orderBy: { createdAt: 'desc' },
+                            select: {
+                                id: true,
+                                mediaType: true,
+                                mimeType: true,
+                                fileName: true,
+                                fileSizeBytes: true,
+                                createdAt: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+        if (!run) {
+            throw new common_1.NotFoundException('Patrol run not found');
+        }
+        return run;
+    }
     serializePatrolEvidence(evidence) {
         return {
             id: evidence.id,
