@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck } from 'lucide-react';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 interface BrandMarkProps {
@@ -11,12 +11,7 @@ interface BrandMarkProps {
   className?: string;
 }
 
-const iconSize = { sm: 18, md: 22, lg: 30 } as const;
-const boxClass = {
-  sm: 'h-8 w-8 rounded-lg',
-  md: 'h-10 w-10 rounded-xl',
-  lg: 'h-14 w-14 rounded-2xl',
-} as const;
+const iconPx = { sm: 32, md: 40, lg: 56 } as const;
 const wordClass = {
   sm: 'text-base',
   md: 'text-lg',
@@ -29,6 +24,11 @@ const wordClass = {
  * tenant-configurable logo via <Sidebar>; this is the static fallback lockup
  * used everywhere the tenant branding API is not available (Client / Guard /
  * pre-auth).
+ *
+ * Renders the official AegisLead mark (red triangular icon on a transparent
+ * background) so it drops cleanly onto the light `bg-card`/`bg-background`
+ * surfaces every portal shell uses - never stretched or cropped, since the
+ * source SVG is intrinsically square and only ever scaled uniformly.
  */
 export function BrandMark({
   subtitle,
@@ -36,16 +36,17 @@ export function BrandMark({
   showWordmark = true,
   className,
 }: BrandMarkProps) {
+  const px = iconPx[size];
   return (
     <span className={cn('flex min-w-0 items-center gap-3', className)}>
-      <span
-        className={cn(
-          'flex shrink-0 items-center justify-center bg-primary text-primary-foreground shadow-sm',
-          boxClass[size],
-        )}
-      >
-        <ShieldCheck size={iconSize[size]} />
-      </span>
+      <Image
+        src="/brand/aegislead-mark.svg"
+        alt="AegisLead"
+        width={px}
+        height={px}
+        className="shrink-0"
+        priority
+      />
       {showWordmark && (
         <span className="min-w-0">
           <span className={cn('block font-extrabold tracking-tight text-foreground', wordClass[size])}>

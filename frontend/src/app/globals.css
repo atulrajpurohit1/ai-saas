@@ -5,14 +5,14 @@
   --foreground: #111827;
   --card: #ffffff;
   --card-foreground: #111827;
-  --primary: #4f46e5;
-  --primary-hover: #4338ca;
+  --primary: #e0221f;
+  --primary-hover: #b91c1a;
   --primary-foreground: #ffffff;
   --secondary: #ecedf1;
   --secondary-foreground: #111827;
   --muted: #f1f2f6;
   --muted-foreground: #6b7280;
-  --accent: #4338ca;
+  --accent: #111111;
   --accent-foreground: #ffffff;
   --border: #e5e7eb;
 
@@ -35,7 +35,7 @@
   --destructive: var(--error);
   --destructive-foreground: #ffffff;
   --input: var(--border);
-  --ring: #a5a6f6;
+  --ring: #f19c9a;
   --popover: var(--card);
   --popover-foreground: var(--card-foreground);
 
