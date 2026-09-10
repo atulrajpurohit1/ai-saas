@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import { Lock, Mail, Building2, User, Shield, Briefcase, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import BrandMark from '@/components/BrandMark';
+import PasswordInput from '@/components/PasswordInput';
 
 interface ApiError {
   response?: {
@@ -204,10 +205,16 @@ export default function LoginPage() {
 
             <div className="space-y-1.5">
               <label className="text-eyebrow">Password</label>
-              <div className="relative">
-                <Lock className={iconClass} size={17} />
-                <input type="password" className={inputClass} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
-              </div>
+              <PasswordInput
+                icon={Lock}
+                iconClassName={iconClass}
+                className={inputClass}
+                placeholder="••••••••"
+                value={password}
+                onChange={setPassword}
+                autoComplete={isRegister ? 'new-password' : 'current-password'}
+                required
+              />
             </div>
 
             {error && (

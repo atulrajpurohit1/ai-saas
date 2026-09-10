@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { ArrowRight, KeyRound, Loader2, Phone } from 'lucide-react';
 import BrandMark from '@/components/BrandMark';
+import PasswordInput from '@/components/PasswordInput';
 
 interface ApiError {
   response?: {
@@ -81,17 +82,17 @@ export default function GuardLoginPage() {
 
             <div className="space-y-1.5">
               <label className="text-eyebrow">Password</label>
-              <div className="relative">
-                <KeyRound className={iconClass} size={18} />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  className={inputClass}
-                  placeholder="password"
-                  required
-                />
-              </div>
+              <PasswordInput
+                icon={KeyRound}
+                iconSize={18}
+                iconClassName={iconClass}
+                className={inputClass}
+                placeholder="password"
+                value={password}
+                onChange={setPassword}
+                autoComplete="current-password"
+                required
+              />
             </div>
           </div>
 
