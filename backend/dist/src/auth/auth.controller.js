@@ -19,6 +19,10 @@ const register_dto_1 = require("./dto/register.dto");
 const login_dto_1 = require("./dto/login.dto");
 const jwt_auth_guard_1 = require("./guards/jwt-auth.guard");
 const jwt_refresh_guard_1 = require("./guards/jwt-refresh.guard");
+const verify_otp_dto_1 = require("../email-verification/dto/verify-otp.dto");
+const resend_otp_dto_1 = require("../email-verification/dto/resend-otp.dto");
+const forgot_password_dto_1 = require("./dto/forgot-password.dto");
+const reset_password_dto_1 = require("./dto/reset-password.dto");
 let AuthController = class AuthController {
     authService;
     constructor(authService) {
@@ -27,8 +31,23 @@ let AuthController = class AuthController {
     register(dto, req) {
         return this.authService.register(dto, this.requestContext(req));
     }
+    verifyEmail(dto, req) {
+        return this.authService.verifyEmail(dto, this.requestContext(req));
+    }
+    resendOtp(dto) {
+        return this.authService.resendOtp(dto);
+    }
     login(dto, req) {
         return this.authService.login(dto, this.requestContext(req));
+    }
+    forgotPassword(dto) {
+        return this.authService.forgotPassword(dto);
+    }
+    verifyResetOtp(dto) {
+        return this.authService.verifyResetOtp(dto);
+    }
+    resetPassword(dto) {
+        return this.authService.resetPassword(dto);
     }
     logout(req) {
         const user = req.user;
@@ -58,6 +77,23 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "register", null);
 __decorate([
+    (0, common_1.Post)('verify-email'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [verify_otp_dto_1.VerifyOtpDto, Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "verifyEmail", null);
+__decorate([
+    (0, common_1.Post)('resend-otp'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [resend_otp_dto_1.ResendOtpDto]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "resendOtp", null);
+__decorate([
     (0, common_1.Post)('login'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __param(0, (0, common_1.Body)()),
@@ -66,6 +102,30 @@ __decorate([
     __metadata("design:paramtypes", [login_dto_1.LoginDto, Object]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "login", null);
+__decorate([
+    (0, common_1.Post)('forgot-password'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [forgot_password_dto_1.ForgotPasswordDto]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "forgotPassword", null);
+__decorate([
+    (0, common_1.Post)('verify-reset-otp'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [verify_otp_dto_1.VerifyOtpDto]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "verifyResetOtp", null);
+__decorate([
+    (0, common_1.Post)('reset-password'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [reset_password_dto_1.ResetPasswordDto]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "resetPassword", null);
 __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Post)('logout'),

@@ -116,7 +116,8 @@ Three distinct user populations are served by three separate authenticated exper
 | AI provider (general) | Google Gemini (`@google/generative-ai`) — proposals, sales assessment/discovery/coaching, RFP drafting/evaluation, guard-shift recommendation explanations |
 | Sales-intelligence provider | BlackPearl — live, external, paid B2B company-playbook API, powering AI Prospect Search |
 | Audio transcription | OpenAI Whisper-family API (`gpt-4o-mini-transcribe`) — transcription only, not chat |
-| Email | Nodemailer (SMTP, or Ethereal for local development) |
+| Email | Nodemailer (SMTP, or Ethereal for local development) — proposal/RFP emails and signup OTP verification codes |
+| Disposable-email detection | `disposable-email-domains` (static list, no network calls) |
 | PDF generation | PDFKit |
 | CSV parsing/generation | `csv-parser`, `fast-csv` |
 | File/document links | URL-reference model for Shared Documents; disk storage with sanitized filenames for RFP vendor-submitted files |
@@ -137,10 +138,11 @@ Every row below links to its full write-up in [Section 5](#5-detailed-feature-do
 | 1 | Admin Authentication (JWT) | ✅ Fully Implemented |
 | 2 | Client Portal Authentication | 🟡 Partially Implemented |
 | 3 | Guard Portal Authentication | 🟡 Partially Implemented |
-| 4 | Role-Based Access Control (RBAC) | ✅ Fully Implemented |
-| 5 | Field-Level Permissions | 🟡 Partially Implemented (enforcement works; admin config screen removed) |
-| 6 | Session Management | 🟡 Partially Implemented (backend only, no frontend UI) |
-| 7 | Audit Logging | ✅ Fully Implemented (basic) |
+| 4 | Email Validation & OTP Verification | ✅ Fully Implemented (Admin + Client Portal signup) |
+| 5 | Role-Based Access Control (RBAC) | ✅ Fully Implemented |
+| 6 | Field-Level Permissions | 🟡 Partially Implemented (enforcement works; admin config screen removed) |
+| 7 | Session Management | 🟡 Partially Implemented (backend only, no frontend UI) |
+| 8 | Audit Logging | ✅ Fully Implemented (basic) |
 
 ### 4.2 Core CRM
 *(full detail: [`docs/features/02-crm-core.md`](features/02-crm-core.md))*
@@ -296,6 +298,7 @@ RFP & Vendor Management
 | Proposal Management | `Proposal`, `ProposalVersion`, `ProposalComment` |
 | Notes / Activities | `Note`, `Activity` |
 | Client Management | `Client`, `ClientUser` |
+| Email Validation & OTP Verification | `EmailOtp`, plus `emailVerified`/`emailVerifiedAt` on `User` and `ClientUser` |
 | Sales Accelerator | `DiscoverySession`, `SalesAssessment` |
 | AI Prospect Search | `ProspectSearchHistory`, `SavedProspectSearch` (imports write `Lead`/`Note`) |
 | AI generation logging | `PromptVersion`, `AiGeneration`, `AiFeedback` |
@@ -560,7 +563,8 @@ These are real, verified gaps — not guesses — documented here so expectation
 | **Patrol "QR scanning"** | There is no actual QR code decoding, NFC, or GPS verification — checkpoint "scans" are a manual tap-to-confirm checklist action by the guard. |
 | **Patrol admin permissions** | The admin patrol endpoints (checkpoints, patrol routes, patrol runs) require `patrols.manage`/`patrols.view` permission keys that do not exist in the RBAC permission catalog — no system or custom role can be granted them. In practice only Super Admins (who bypass permission checks entirely) can use the patrol admin screens today. |
 | **Custom Domains** | Domain *ownership* verification (DNS TXT record) is real; actual SSL certificate provisioning and traffic routing to the custom domain are not implemented. |
-| **Email Notifications** | Limited to proposal-delivery and RFP vendor-notification emails (both sharing the same `EmailService`), and defaults to a non-production test mailbox (Ethereal) unless SMTP credentials are configured. |
+| **Email Notifications** | Proposal-delivery, RFP vendor-notification, and signup OTP verification emails all share the same `EmailService`, and default to a non-production test mailbox (Ethereal) unless SMTP credentials are configured. |
+| **Email domain validation** | Confirms syntax, a resolvable domain, and known disposable-email providers — it does not (and cannot reliably) confirm a specific mailbox exists. Mailbox ownership is proven by the OTP step, not the domain check. |
 | **Public API rate limiting & Prospect Search cache/rate-limit** | Implemented in-memory, per server process — correct for a single-instance deployment, but would need a shared store (e.g. Redis) to behave correctly across multiple horizontally-scaled backend instances. |
 | **Guard authentication** | Guards share the same JWT signing infrastructure as admin users (differentiated only by a role claim), not a structurally separate identity system. |
 | **Audit log read UI** | No filtering, search, date-range, or pagination controls — shows only the latest 100 entries. |

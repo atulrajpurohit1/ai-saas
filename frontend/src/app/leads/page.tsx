@@ -19,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useNewIntent } from '@/hooks/useNewIntent';
-import { Plus, Search, User, Upload, Loader2, Users } from 'lucide-react';
+import { Plus, Search, User, Upload, Loader2, Users, Trash2 } from 'lucide-react';
 
 interface Lead {
   id: string;
@@ -65,6 +65,7 @@ export default function LeadsPage() {
   const [showModal, setShowModal] = useState(false);
   const [newLead, setNewLead] = useState({ name: '', email: '', company: '' });
   const [searchQuery, setSearchQuery] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -99,6 +100,21 @@ export default function LeadsPage() {
       fetchLeads();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleDeleteLead = async (leadId: string, leadName: string) => {
+    if (!confirm(`Delete lead "${leadName}"? This can't be undone.`)) return;
+
+    setDeletingId(leadId);
+    try {
+      await api.delete(`leads/${leadId}`);
+      setLeads((prev) => prev.filter((lead) => lead.id !== leadId));
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete lead');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -297,6 +313,20 @@ export default function LeadsPage() {
                             }}
                           >
                             Convert
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-error/20 bg-error-wash text-error hover:bg-error-wash hover:text-error"
+                            disabled={deletingId === lead.id}
+                            onClick={() => handleDeleteLead(lead.id, lead.name)}
+                            aria-label={`Delete ${lead.name}`}
+                          >
+                            {deletingId === lead.id ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <Trash2 size={14} />
+                            )}
                           </Button>
                         </div>
                       </TableCell>

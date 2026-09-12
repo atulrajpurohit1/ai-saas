@@ -17,11 +17,4 @@ export class EmailController {
     const user = req.user as unknown as ActiveUser;
     return this.emailService.sendProposalEmail(user.tenantId, leadId);
   }
-
-  @Post('send-bulk')
-  @RequirePermission('proposals.update')
-  sendBulkEmails(@Req() req: Request) {
-    const user = req.user as unknown as ActiveUser;
-    return this.emailService.sendBulkProposalEmails(user.tenantId);
-  }
 }

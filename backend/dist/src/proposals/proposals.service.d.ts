@@ -19,30 +19,17 @@ export declare class ProposalsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         status: string;
         title: string;
         content: string;
         dealId: string | null;
         leadId: string | null;
+        clientId: string | null;
     }>;
     findAll(tenantId: string): Promise<({
         _count: {
             versions: number;
         };
-        client: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            email: string;
-            tenantId: string;
-            branchId: string | null;
-            companyName: string | null;
-            phone: string | null;
-            billingNotes: string | null;
-            internalNotes: string | null;
-        } | null;
         lead: {
             id: string;
             name: string;
@@ -59,36 +46,36 @@ export declare class ProposalsService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            clientId: string | null;
             leadId: string;
+            clientId: string | null;
             stage: string;
+        } | null;
+        client: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            email: string;
+            tenantId: string;
+            branchId: string | null;
+            companyName: string | null;
+            phone: string | null;
+            billingNotes: string | null;
+            internalNotes: string | null;
         } | null;
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         status: string;
         title: string;
         content: string;
         dealId: string | null;
         leadId: string | null;
+        clientId: string | null;
     })[]>;
     findOne(tenantId: string, id: string, clientId?: string): Promise<{
-        client: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            email: string;
-            tenantId: string;
-            branchId: string | null;
-            companyName: string | null;
-            phone: string | null;
-            billingNotes: string | null;
-            internalNotes: string | null;
-        } | null;
         lead: {
             id: string;
             name: string;
@@ -105,8 +92,8 @@ export declare class ProposalsService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            clientId: string | null;
             leadId: string;
+            clientId: string | null;
             stage: string;
         } | null;
         versions: {
@@ -116,41 +103,54 @@ export declare class ProposalsService {
             proposalId: string;
             versionNumber: number;
         }[];
+        client: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            email: string;
+            tenantId: string;
+            branchId: string | null;
+            companyName: string | null;
+            phone: string | null;
+            billingNotes: string | null;
+            internalNotes: string | null;
+        } | null;
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         status: string;
         title: string;
         content: string;
         dealId: string | null;
         leadId: string | null;
+        clientId: string | null;
     }>;
     update(tenantId: string, id: string, updateProposalDto: UpdateProposalDto, userId?: string): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         status: string;
         title: string;
         content: string;
         dealId: string | null;
         leadId: string | null;
+        clientId: string | null;
     }>;
     duplicate(tenantId: string, id: string, userId?: string): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         status: string;
         title: string;
         content: string;
         dealId: string | null;
         leadId: string | null;
+        clientId: string | null;
     }>;
     export(tenantId: string, id: string, userId?: string, clientId?: string): Promise<Buffer>;
     generateForLead(tenantId: string, leadId: string, userId?: string, clientId?: string): Promise<{
@@ -158,16 +158,12 @@ export declare class ProposalsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         status: string;
         title: string;
         content: string;
         dealId: string | null;
         leadId: string | null;
-    }>;
-    generateBulkProposals(tenantId: string, userId?: string): Promise<{
-        generatedCount: number;
-        totalProcessed: number;
+        clientId: string | null;
     }>;
     getComments(tenantId: string, id: string): Promise<{
         id: string;
@@ -186,6 +182,9 @@ export declare class ProposalsService {
         proposalId: string;
         userId: string | null;
         clientUserId: string | null;
+    }>;
+    remove(tenantId: string, id: string, userId?: string): Promise<{
+        success: boolean;
     }>;
     logAction(tenantId: string, userId: string, entityId: string, action: string, details?: string): Promise<void>;
 }

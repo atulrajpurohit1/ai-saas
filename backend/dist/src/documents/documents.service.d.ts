@@ -10,8 +10,8 @@ export declare class DocumentsService {
         name: string;
         createdAt: Date;
         tenantId: string;
-        clientId: string;
         description: string | null;
+        clientId: string;
         url: string;
         uploadedBy: string;
     }>;
@@ -20,8 +20,8 @@ export declare class DocumentsService {
         name: string;
         createdAt: Date;
         tenantId: string;
-        clientId: string;
         description: string | null;
+        clientId: string;
         url: string;
         uploadedBy: string;
     }[]>;
@@ -30,8 +30,8 @@ export declare class DocumentsService {
         name: string;
         createdAt: Date;
         tenantId: string;
-        clientId: string;
         description: string | null;
+        clientId: string;
         url: string;
         uploadedBy: string;
     }>;
@@ -40,8 +40,8 @@ export declare class DocumentsService {
         name: string;
         createdAt: Date;
         tenantId: string;
-        clientId: string;
         description: string | null;
+        clientId: string;
         url: string;
         uploadedBy: string;
     }>;

@@ -31,13 +31,13 @@ export declare class PublicApiController {
         name: string;
         createdAt: Date;
         branchId: string | null;
+        clientId: string | null;
         client: {
             id: string;
             name: string;
             email: string;
             companyName: string | null;
         } | null;
-        clientId: string | null;
         address: string;
         instructions: string | null;
     }[]>;
@@ -190,16 +190,16 @@ export declare class PublicApiController {
         reviewNote: string | null;
     }>;
     listInvoices(request: PublicApiRequest, query: Record<string, string | undefined>): Promise<({
+        site: {
+            id: string;
+            name: string;
+            address: string;
+        };
         client: {
             id: string;
             name: string;
             email: string;
             companyName: string | null;
-        };
-        site: {
-            id: string;
-            name: string;
-            address: string;
         };
         items: {
             id: string;
@@ -217,9 +217,9 @@ export declare class PublicApiController {
         createdAt: Date;
         tenantId: string;
         branchId: string | null;
-        clientId: string;
         siteId: string;
         status: string;
+        clientId: string;
         hourlyRate: number;
         dueDate: Date | null;
         internalAdjustments: string | null;
@@ -236,25 +236,25 @@ export declare class PublicApiController {
         rateSource: string;
     })[]>;
     listReports(request: PublicApiRequest, query: Record<string, string | undefined>): Promise<({
+        site: {
+            id: string;
+            name: string;
+            address: string;
+        };
         client: {
             id: string;
             name: string;
             email: string;
             companyName: string | null;
         };
-        site: {
-            id: string;
-            name: string;
-            address: string;
-        };
     } & {
         id: string;
         createdAt: Date;
         tenantId: string;
         branchId: string | null;
-        clientId: string;
         siteId: string;
         status: string;
+        clientId: string;
         summary: string;
         reportDate: Date;
         publishedAt: Date | null;

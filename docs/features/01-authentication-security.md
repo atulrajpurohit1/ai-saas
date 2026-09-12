@@ -149,7 +149,73 @@ Guard is taken to their shift dashboard
 
 ---
 
-# 4. Role-Based Access Control (RBAC)
+# 4. Email Validation & OTP Verification
+
+## Purpose
+Ensures that anyone who signs up for an Admin or Client Portal account actually owns the email address they registered with, and blocks obviously fake or throwaway addresses before an account is ever created around them.
+
+## Overview
+When someone registers (Admin signup or Client Portal signup), the email address is checked for valid syntax, a resolvable domain, and known disposable/throwaway providers before anything else happens. If it passes, a 6-digit one-time code (OTP) is emailed to that address and the new account is held in an "unverified" state — it exists, but cannot log in — until the correct code is entered. Only then does the account become fully active.
+
+## What User Can Do
+- Sign up with an email address (Admin or Client Portal)
+- Receive a 6-digit verification code by email
+- Enter the code to verify and activate the account
+- Resend the code if it didn't arrive (after a short cooldown)
+- See clear, specific errors for an invalid email, wrong code, or expired code
+
+## Workflow
+```
+User submits signup form (name, email, password, ...)
+        ↓
+Email is checked: valid syntax, real/resolvable domain,
+not a known disposable-email provider
+        ↓ (invalid → "Please enter a valid email address.", no code sent)
+Account is created in the database as unverified
+        ↓
+A secure 6-digit code is generated, hashed, and emailed
+        ↓
+User enters the code on the "Verify your email" screen
+        ↓ (wrong → "Invalid verification code."; expired → "This
+        ↓  verification code has expired. Please request a new code.")
+Code matches → account marked verified → session tokens issued
+        ↓
+User is logged in and lands in the app
+```
+
+Logging in with a correct password before verifying returns "Please verify your email before logging in." instead of a session — there is no way to reach the app with an unverified email.
+
+## Business Value
+- Reduces fake signups, typo'd emails, and support tickets from clients/admins who can never receive password resets or important notifications because their email was wrong from day one.
+- Confirms real ownership of the address (not just that it's shaped like an email) before it becomes the account's primary contact channel.
+- Retrying a signup with the same unverified email reuses the pending account instead of creating duplicates, so someone who mistypes a code or closes the tab mid-signup isn't stuck.
+
+## Technical Summary
+- **Modules:** `email-verification` (validation + OTP service, shared by both signup flows), `auth` (Admin), `client-auth` (Client Portal), `email` (delivery)
+- **Key logic:**
+  - **Validation** (`EmailValidationService`): syntax check, disposable-domain check against the `disposable-email-domains` list, and a DNS MX/A/AAAA lookup. A DNS lookup that only fails because the resolver is unreachable (not because the domain doesn't exist) is treated as inconclusive and does **not** block signup — only a definitive "no such domain" result does. This is domain-level validation, not proof a specific mailbox exists; the OTP step is what actually proves the user can access the address.
+  - **OTP** (`EmailVerificationService`): a cryptographically random 6-digit code (`crypto.randomInt`), stored only as a SHA-256 hash with a 10-minute expiry, up to 5 incorrect attempts, and a 60-second resend cooldown (capped at 10 sends per pending signup). Requesting a new code invalidates the previous one immediately. A successfully verified code cannot be reused.
+  - Neither the code itself nor password/API-key values are ever written to logs or returned in any API response.
+  - **Delivery** (`EmailService`): every email — OTP included — goes out through one shared nodemailer SMTP transport (`SMTP_HOST`/`PORT`/`USER`/`PASS`), so any standard SMTP provider works, including Resend's SMTP relay, with no code change — only environment variables differ between local (Ethereal) and production. The SMTP envelope "From" address is a separate `EMAIL_FROM` variable, not a tenant's own (unverified, admin-editable) support email — the tenant's support email is used only as the email's Reply-To, since a provider like Resend requires the From domain to be verified.
+- **Database tables:** `EmailOtp` (new; one row per pending verification, referencing either a `User` or `ClientUser`), plus new `emailVerified` / `emailVerifiedAt` columns on `User` and `ClientUser`. Accounts that existed before this feature shipped were backfilled as already verified, so no existing user was locked out.
+- **Frontend:** The existing combined `/login` signup form now adds a Confirm Password field and, after a successful signup submission, switches to a "Verify your email" screen (masked email, 6-digit code entry, Resend Code with a live cooldown countdown) before handing the user into the app.
+
+## Key Capabilities
+- Syntax, domain-resolvability, and disposable-domain checks before any OTP is sent
+- Secure, single-use, expiring, hashed OTP codes
+- Attempt limiting and resend cooldown/rate-limiting
+- Consistent, non-revealing error messages (never confirms whether an email already has an account)
+- Login blocked for any unverified Admin or Client Portal account
+- Duplicate-signup-safe: retrying with the same unverified email updates and re-sends rather than creating a second account
+
+## Current Status
+**Fully Implemented** for Admin (`auth/register`) and Client Portal (`client-auth/register`) signup. Guard accounts are created by admins (not self-registered) and are unaffected. Real email delivery depends on the `SMTP_*`/`EMAIL_FROM` environment variables being configured for a real provider (e.g. Resend) — see `backend/.env.example`; without them the app falls back to Ethereal, a fake-SMTP testing inbox that never delivers real mail.
+
+**[Insert Screenshot Here]**
+
+---
+
+# 5. Role-Based Access Control (RBAC)
 
 ## Purpose
 Controls exactly what each staff member is allowed to see and do in the application, so sensitive actions (like issuing invoices or changing roles) are restricted to the right people.
@@ -203,7 +269,7 @@ Every API request checks the required permission before allowing the action
 
 ---
 
-# 5. Field-Level Permissions
+# 6. Field-Level Permissions
 
 ## Purpose
 Goes one level deeper than RBAC: restricts access to specific *sensitive fields* on a record (like a guard's salary or a client's private billing notes), even when a role can otherwise see the record itself.
@@ -247,7 +313,7 @@ Any user with that role has those fields automatically hidden
 
 ---
 
-# 6. Session Management
+# 7. Session Management
 
 ## Purpose
 Gives admins visibility into who is currently logged into the admin application, and the ability to immediately force a suspicious or unwanted session to log out.
@@ -295,7 +361,7 @@ this data is currently only reachable via the /sessions API)
 
 ---
 
-# 7. Audit Logging
+# 8. Audit Logging
 
 ## Purpose
 Keeps a record of security- and business-sensitive actions for traceability and compliance purposes.

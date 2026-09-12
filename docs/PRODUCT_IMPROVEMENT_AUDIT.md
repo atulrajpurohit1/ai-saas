@@ -151,7 +151,7 @@ Each entry below reflects only what was directly observed in the live product.
 
 ### Admin — Proposals (list + detail, cross-referenced with Client view)
 - **Current purpose:** Generate, send, and track client-facing security-services proposals.
-- **Current implementation:** AI-generated proposal documents ("Bulk Generate AI," "Generate for Lead"), status tracking (Draft/Approved/etc.), timeline of proposal events.
+- **Current implementation:** AI-generated proposal documents ("Bulk Generate AI," "Generate for Lead"), status tracking (Draft/Approved/etc.), timeline of proposal events. *(Update 2026-09-11: "Bulk Generate AI" and the bulk-send-emails action were removed — see [docs/features/02-crm-core.md](features/02-crm-core.md). This audit entry is kept as-is for historical accuracy.)*
 - **UX problems:** None additional beyond below.
 - **UI problems:** **Severe** — an already-approved, client-visible proposal ("Security Services Proposal - Acme") contains the literal unresolved AI template token **"[Your Company Name]"** in its body text, and the entire document renders raw Markdown syntax (`# Security Services Proposal`, `## 1. Executive Introduction`) instead of formatted headings/paragraphs.
 - **Missing functionality:** Markdown rendering; a pre-send validation/lint step that flags unresolved template variables before a proposal can be marked "sent" or "approved."

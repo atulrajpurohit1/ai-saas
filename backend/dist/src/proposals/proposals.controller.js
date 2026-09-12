@@ -38,10 +38,6 @@ let ProposalsController = class ProposalsController {
         const user = req.user;
         return this.proposalsService.generateForLead(user.tenantId, leadId, user.sub, clientId);
     }
-    generateBulkProposals(req) {
-        const user = req.user;
-        return this.proposalsService.generateBulkProposals(user.tenantId, user.sub);
-    }
     findOne(req, id) {
         const user = req.user;
         return this.proposalsService.findOne(user.tenantId, id);
@@ -49,6 +45,10 @@ let ProposalsController = class ProposalsController {
     update(req, id, updateProposalDto) {
         const user = req.user;
         return this.proposalsService.update(user.tenantId, id, updateProposalDto, user.sub);
+    }
+    remove(req, id) {
+        const user = req.user;
+        return this.proposalsService.remove(user.tenantId, id, user.sub);
     }
     async export(req, id, res) {
         const user = req.user;
@@ -112,14 +112,6 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], ProposalsController.prototype, "generateProposal", null);
 __decorate([
-    (0, common_1.Post)('generate-bulk'),
-    (0, permissions_decorator_1.RequirePermission)('proposals.create'),
-    __param(0, (0, common_1.Req)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
-], ProposalsController.prototype, "generateBulkProposals", null);
-__decorate([
     (0, common_1.Get)(':id'),
     (0, permissions_decorator_1.RequirePermission)('proposals.view'),
     __param(0, (0, common_1.Req)()),
@@ -138,6 +130,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, update_proposal_dto_1.UpdateProposalDto]),
     __metadata("design:returntype", void 0)
 ], ProposalsController.prototype, "update", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    (0, permissions_decorator_1.RequirePermission)('proposals.delete'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], ProposalsController.prototype, "remove", null);
 __decorate([
     (0, common_1.Get)(':id/export'),
     (0, permissions_decorator_1.RequirePermission)('proposals.view'),

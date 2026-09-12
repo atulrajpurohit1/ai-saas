@@ -38,70 +38,70 @@ enum InvitationStatus {
 }
 
 model Tenant {
-  id                    String                  @id @default(uuid())
-  name                  String
-  slug                  String                  @unique
-  createdAt             DateTime                @default(now())
-  updatedAt             DateTime                @updatedAt
-  branches              Branch[]
-  deals                 Deal[]
-  leads                 Lead[]
-  proposals             Proposal[]
-  users                 User[]
-  activities            Activity[]
-  notes                 Note[]
-  auditLogs             AuditLog[]
-  sites                 Site[]
-  guards                Guard[]
-  guardComplianceRecords GuardCompliance[]
-  shifts                Shift[]
-  availabilities        Availability[]
-  clients               Client[]
-  clientUsers           ClientUser[]
-  comments              ProposalComment[]
-  documents             SharedDocument[]
-  attendanceEvents      AttendanceEvent[]
-  incidents             Incident[]
-  dailyServiceReports   DailyServiceReport[]
-  invoices              Invoice[]
-  invoiceDisputes       InvoiceDispute[]
-  timesheets            Timesheet[]
-  rateCards             RateCard[]
-  recommendationActions RecommendationAction[]
-  aiGenerations         AiGeneration[]
-  aiFeedback            AiFeedback[]
-  promptVersions        PromptVersion[]
-  aiConversations       AiConversation[]
-  discoverySessions     DiscoverySession[]
-  salesAssessments      SalesAssessment[]
-  roles                 Role[]
-  userRoleAssignments   UserRoleAssignment[]
-  fieldPermissions      FieldPermission[]
-  apiKeys               ApiKey[]
-  webhooks              Webhook[]
-  apiRequestLogs        ApiRequestLog[]
-  crmConnections        CrmConnection[]
-  userSessions          UserSession[]
-  branding              TenantBranding?
-  customDomains         CustomDomain[]
-  checkpoints           Checkpoint[]
-  patrolRoutes          PatrolRoute[]
-  patrolRuns            PatrolRun[]
-  patrolEvents          PatrolEvent[]
-  guardSyncQueues       GuardSyncQueue[]
-  prospectSearchHistory ProspectSearchHistory[]
-  savedProspectSearches SavedProspectSearch[]
-  rfps                  Rfp[]
-  vendors               Vendor[]
-  rfpVendors            RfpVendor[]
-  proposalSubmissions   ProposalSubmission[]
-  evaluationReports     EvaluationReport[]
-  vendorPerformances    VendorPerformance[]
-  emergencyAlerts       EmergencyAlert[]
-  incidentEvidence      IncidentEvidence[]
-  patrolEvidence        PatrolEvidence[]
+  id                      String                   @id @default(uuid())
+  name                    String
+  slug                    String                   @unique
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  branches                Branch[]
+  deals                   Deal[]
+  leads                   Lead[]
+  proposals               Proposal[]
+  users                   User[]
+  activities              Activity[]
+  notes                   Note[]
+  auditLogs               AuditLog[]
+  sites                   Site[]
+  guards                  Guard[]
+  guardComplianceRecords  GuardCompliance[]
+  shifts                  Shift[]
+  availabilities          Availability[]
+  clients                 Client[]
+  clientUsers             ClientUser[]
+  comments                ProposalComment[]
+  documents               SharedDocument[]
+  attendanceEvents        AttendanceEvent[]
+  incidents               Incident[]
+  dailyServiceReports     DailyServiceReport[]
+  invoices                Invoice[]
+  invoiceDisputes         InvoiceDispute[]
+  timesheets              Timesheet[]
+  rateCards               RateCard[]
+  recommendationActions   RecommendationAction[]
+  aiGenerations           AiGeneration[]
+  aiFeedback              AiFeedback[]
+  promptVersions          PromptVersion[]
+  aiConversations         AiConversation[]
+  discoverySessions       DiscoverySession[]
+  salesAssessments        SalesAssessment[]
+  roles                   Role[]
+  userRoleAssignments     UserRoleAssignment[]
+  fieldPermissions        FieldPermission[]
+  apiKeys                 ApiKey[]
+  webhooks                Webhook[]
+  apiRequestLogs          ApiRequestLog[]
+  crmConnections          CrmConnection[]
+  userSessions            UserSession[]
+  branding                TenantBranding?
+  customDomains           CustomDomain[]
+  checkpoints             Checkpoint[]
+  patrolRoutes            PatrolRoute[]
+  patrolRuns              PatrolRun[]
+  patrolEvents            PatrolEvent[]
+  guardSyncQueues         GuardSyncQueue[]
+  prospectSearchHistory   ProspectSearchHistory[]
+  savedProspectSearches   SavedProspectSearch[]
+  rfps                    Rfp[]
+  vendors                 Vendor[]
+  rfpVendors              RfpVendor[]
+  proposalSubmissions     ProposalSubmission[]
+  evaluationReports       EvaluationReport[]
+  vendorPerformances      VendorPerformance[]
+  emergencyAlerts         EmergencyAlert[]
+  incidentEvidence        IncidentEvidence[]
+  patrolEvidence          PatrolEvidence[]
   clientInsurancePolicies ClientInsurancePolicy[]
-  rfpRequirementAnalyses RfpRequirementAnalysis[]
+  rfpRequirementAnalyses  RfpRequirementAnalysis[]
 }
 
 model Branch {
@@ -132,28 +132,84 @@ model Branch {
 }
 
 model User {
-  id                String               @id @default(uuid())
-  email             String               @unique
-  password          String
-  name              String?
-  refreshToken      String?
-  role              UserRole             @default(ADMIN)
-  tenantId          String
-  branchId          String?              @map("branch_id")
-  branch            Branch?              @relation("UserBranch", fields: [branchId], references: [id], onDelete: SetNull)
-  managedBranches   Branch[]             @relation("BranchManager")
-  isSuperAdmin      Boolean              @default(true) @map("is_super_admin")
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
-  tenant            Tenant               @relation(fields: [tenantId], references: [id])
-  reviewedIncidents Incident[]           @relation("IncidentReviewer")
-  roleAssignments   UserRoleAssignment[]
-  sessions          UserSession[]
-  acknowledgedEmergencyAlerts EmergencyAlert[] @relation("EmergencyAlertAcknowledgedBy")
-  resolvedEmergencyAlerts     EmergencyAlert[] @relation("EmergencyAlertResolvedBy")
+  id                          String               @id @default(uuid())
+  email                       String               @unique
+  password                    String
+  name                        String?
+  refreshToken                String?
+  role                        UserRole             @default(ADMIN)
+  tenantId                    String
+  branchId                    String?              @map("branch_id")
+  branch                      Branch?              @relation("UserBranch", fields: [branchId], references: [id], onDelete: SetNull)
+  managedBranches             Branch[]             @relation("BranchManager")
+  isSuperAdmin                Boolean              @default(true) @map("is_super_admin")
+  emailVerified               Boolean              @default(false) @map("email_verified")
+  emailVerifiedAt             DateTime?            @map("email_verified_at")
+  createdAt                   DateTime             @default(now())
+  updatedAt                   DateTime             @updatedAt
+  tenant                      Tenant               @relation(fields: [tenantId], references: [id])
+  reviewedIncidents           Incident[]           @relation("IncidentReviewer")
+  roleAssignments             UserRoleAssignment[]
+  sessions                    UserSession[]
+  acknowledgedEmergencyAlerts EmergencyAlert[]     @relation("EmergencyAlertAcknowledgedBy")
+  resolvedEmergencyAlerts     EmergencyAlert[]     @relation("EmergencyAlertResolvedBy")
 
   @@index([tenantId])
   @@index([branchId])
+}
+
+enum EmailOtpAccountType {
+  USER
+  CLIENT_USER
+}
+
+// Dedicated OTP store for signup email verification (and future OTP-based
+// flows). Deliberately not folded into User/ClientUser: only a hash of the
+// code is ever persisted, one row per pending code (a fresh send replaces the
+// previous row), and attempt/resend bookkeeping lives here instead of
+// polluting the account models.
+model EmailOtp {
+  id          String              @id @default(uuid())
+  accountType EmailOtpAccountType @map("account_type")
+  accountId   String              @map("account_id")
+  email       String
+  codeHash    String              @map("code_hash")
+  purpose     String              @default("SIGNUP_VERIFICATION")
+  expiresAt   DateTime            @map("expires_at")
+  attempts    Int                 @default(0)
+  maxAttempts Int                 @default(5) @map("max_attempts")
+  consumedAt  DateTime?           @map("consumed_at")
+  lastSentAt  DateTime            @default(now()) @map("last_sent_at")
+  sendCount   Int                 @default(1) @map("send_count")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  @@unique([accountType, accountId, purpose], map: "EmailOtp_account_purpose_key")
+  @@index([email])
+  @@map("EmailOtp")
+}
+
+// Short-lived, single-use, single-purpose credential that proves a caller
+// already completed OTP verification for a password reset (see
+// AuthService.verifyResetOtp / resetPassword). Issued only after EmailOtp
+// verification succeeds for purpose "PASSWORD_RESET" — never usable as a
+// login/session token, and never accepted a second time. Only a hash of the
+// token is persisted (same convention as EmailOtp.codeHash), and it carries
+// its own accountId/tenantId so a token minted for one account can never be
+// replayed against another tenant's user.
+model PasswordResetToken {
+  id         String    @id @default(uuid())
+  accountId  String    @map("account_id")
+  tenantId   String    @map("tenant_id")
+  email      String
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([accountId])
+  @@index([expiresAt])
+  @@map("PasswordResetToken")
 }
 
 model Permission {
@@ -351,41 +407,41 @@ model ProposalVersion {
 }
 
 model Rfp {
-  id                     String              @id @default(uuid())
-  tenantId               String              @map("tenant_id")
-  tenant                 Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                     String                   @id @default(uuid())
+  tenantId               String                   @map("tenant_id")
+  tenant                 Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   title                  String
-  clientName             String              @map("client_name")
-  companyName            String?             @map("company_name")
+  clientName             String                   @map("client_name")
+  companyName            String?                  @map("company_name")
   industry               String?
-  projectName            String?             @map("project_name")
-  dueDate                DateTime?           @map("due_date")
-  startDate              DateTime?           @map("start_date")
-  endDate                DateTime?           @map("end_date")
-  estimatedBudget        Float?              @map("estimated_budget")
-  securityTypes          Json                @default("[]") @map("security_types")
-  numberOfLocations      Int?                @map("number_of_locations")
+  projectName            String?                  @map("project_name")
+  dueDate                DateTime?                @map("due_date")
+  startDate              DateTime?                @map("start_date")
+  endDate                DateTime?                @map("end_date")
+  estimatedBudget        Float?                   @map("estimated_budget")
+  securityTypes          Json                     @default("[]") @map("security_types")
+  numberOfLocations      Int?                     @map("number_of_locations")
   address                String?
-  operatingHours         String?             @map("operating_hours")
-  guardsRequired         Int?                @map("guards_required")
-  pricingModel           String?             @map("pricing_model")
-  requiredPricingItems   Json                @default("[]") @map("required_pricing_items")
-  paymentTerms           String?             @map("payment_terms")
-  pricingValidity        String?             @map("pricing_validity")
-  pricingNotes           String?             @map("pricing_notes")
-  additionalRequirements String?             @map("additional_requirements")
-  generatedContent       String?             @map("generated_content")
-  issuerLogoUrl          String?             @map("issuer_logo_url")
-  recipientLogoUrl       String?             @map("recipient_logo_url")
-  status                 RfpStatus           @default(DRAFT)
-  awardedVendorId        String?             @map("awarded_vendor_id")
-  awardedVendor          Vendor?             @relation("AwardedVendor", fields: [awardedVendorId], references: [id], onDelete: SetNull)
-  awardDate              DateTime?           @map("award_date")
-  awardNotes             String?             @map("award_notes")
-  rejectedVendorIds      Json                @default("[]") @map("rejected_vendor_ids")
-  createdBy              String?             @map("created_by")
-  createdAt              DateTime            @default(now()) @map("created_at")
-  updatedAt              DateTime            @updatedAt @map("updated_at")
+  operatingHours         String?                  @map("operating_hours")
+  guardsRequired         Int?                     @map("guards_required")
+  pricingModel           String?                  @map("pricing_model")
+  requiredPricingItems   Json                     @default("[]") @map("required_pricing_items")
+  paymentTerms           String?                  @map("payment_terms")
+  pricingValidity        String?                  @map("pricing_validity")
+  pricingNotes           String?                  @map("pricing_notes")
+  additionalRequirements String?                  @map("additional_requirements")
+  generatedContent       String?                  @map("generated_content")
+  issuerLogoUrl          String?                  @map("issuer_logo_url")
+  recipientLogoUrl       String?                  @map("recipient_logo_url")
+  status                 RfpStatus                @default(DRAFT)
+  awardedVendorId        String?                  @map("awarded_vendor_id")
+  awardedVendor          Vendor?                  @relation("AwardedVendor", fields: [awardedVendorId], references: [id], onDelete: SetNull)
+  awardDate              DateTime?                @map("award_date")
+  awardNotes             String?                  @map("award_notes")
+  rejectedVendorIds      Json                     @default("[]") @map("rejected_vendor_ids")
+  createdBy              String?                  @map("created_by")
+  createdAt              DateTime                 @default(now()) @map("created_at")
+  updatedAt              DateTime                 @updatedAt @map("updated_at")
   vendors                RfpVendor[]
   evaluationReports      EvaluationReport[]
   performanceReviews     VendorPerformance[]
@@ -614,23 +670,23 @@ model AuditLog {
 }
 
 model Site {
-  id                  String               @id @default(uuid())
+  id                  String                  @id @default(uuid())
   name                String
   address             String
   instructions        String?
   tenantId            String
-  tenant              Tenant               @relation(fields: [tenantId], references: [id])
-  branchId            String?              @map("branch_id")
-  branch              Branch?              @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  clientId            String?              @map("client_id")
-  client              Client?              @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  tenant              Tenant                  @relation(fields: [tenantId], references: [id])
+  branchId            String?                 @map("branch_id")
+  branch              Branch?                 @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  clientId            String?                 @map("client_id")
+  client              Client?                 @relation(fields: [clientId], references: [id], onDelete: SetNull)
   shifts              Shift[]
   incidents           Incident[]
   dailyServiceReports DailyServiceReport[]
   invoices            Invoice[]
   timesheets          Timesheet[]
   rateCards           RateCard[]
-  createdAt           DateTime             @default(now())
+  createdAt           DateTime                @default(now())
   checkpoints         Checkpoint[]
   patrolRoutes        PatrolRoute[]
   insurancePolicies   ClientInsurancePolicy[]
@@ -641,34 +697,34 @@ model Site {
 }
 
 model Guard {
-  id               String            @id @default(uuid())
-  name             String
-  phone            String?
-  email            String?
-  passwordHash     String?           @map("password_hash")
+  id                String            @id @default(uuid())
+  name              String
+  phone             String?
+  email             String?
+  passwordHash      String?           @map("password_hash")
   // bcrypt hash of the guard portal's current refresh token (Phase 5).
   // Nullable: null means no active refresh session. Never store the raw token.
-  refreshToken     String?           @map("refresh_token")
-  salary           Float?
-  bankDetails      String?           @map("bank_details")
-  documents        String?
-  personalNotes    String?           @map("personal_notes")
-  tenantId         String
-  tenant           Tenant            @relation(fields: [tenantId], references: [id])
-  branchId         String?           @map("branch_id")
-  branch           Branch?           @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  assignments      Assignment[]
-  availability     Availability?
-  attendanceEvents AttendanceEvent[]
-  incidents        Incident[]
-  invoiceItems     InvoiceItem[]
-  timesheets       Timesheet[]
-  createdAt        DateTime          @default(now())
-  patrolRuns       PatrolRun[]
-  patrolEvents     PatrolEvent[]
-  syncQueues       GuardSyncQueue[]
+  refreshToken      String?           @map("refresh_token")
+  salary            Float?
+  bankDetails       String?           @map("bank_details")
+  documents         String?
+  personalNotes     String?           @map("personal_notes")
+  tenantId          String
+  tenant            Tenant            @relation(fields: [tenantId], references: [id])
+  branchId          String?           @map("branch_id")
+  branch            Branch?           @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  assignments       Assignment[]
+  availability      Availability?
+  attendanceEvents  AttendanceEvent[]
+  incidents         Incident[]
+  invoiceItems      InvoiceItem[]
+  timesheets        Timesheet[]
+  createdAt         DateTime          @default(now())
+  patrolRuns        PatrolRun[]
+  patrolEvents      PatrolEvent[]
+  syncQueues        GuardSyncQueue[]
   complianceRecords GuardCompliance[]
-  emergencyAlerts  EmergencyAlert[]
+  emergencyAlerts   EmergencyAlert[]
 
   @@index([tenantId])
   @@index([branchId])
@@ -783,29 +839,29 @@ model AttendanceEvent {
 }
 
 model Incident {
-  id            String    @id @default(uuid())
-  tenantId      String    @map("tenant_id")
-  tenant        Tenant    @relation(fields: [tenantId], references: [id])
-  branchId      String?   @map("branch_id")
-  branch        Branch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  shiftId       String    @map("shift_id")
-  shift         Shift     @relation(fields: [shiftId], references: [id])
-  siteId        String    @map("site_id")
-  site          Site      @relation(fields: [siteId], references: [id])
-  guardId       String    @map("guard_id")
-  guard         Guard     @relation(fields: [guardId], references: [id])
+  id            String             @id @default(uuid())
+  tenantId      String             @map("tenant_id")
+  tenant        Tenant             @relation(fields: [tenantId], references: [id])
+  branchId      String?            @map("branch_id")
+  branch        Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  shiftId       String             @map("shift_id")
+  shift         Shift              @relation(fields: [shiftId], references: [id])
+  siteId        String             @map("site_id")
+  site          Site               @relation(fields: [siteId], references: [id])
+  guardId       String             @map("guard_id")
+  guard         Guard              @relation(fields: [guardId], references: [id])
   title         String
   description   String
-  severity      String    @default("low")
-  status        String    @default("submitted")
-  occurredAt    DateTime  @map("occurred_at")
-  attachmentUrl String?   @map("attachment_url")
+  severity      String             @default("low")
+  status        String             @default("submitted")
+  occurredAt    DateTime           @map("occurred_at")
+  attachmentUrl String?            @map("attachment_url")
   notes         String?
-  reviewedById  String?   @map("reviewed_by")
-  reviewedBy    User?     @relation("IncidentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-  reviewedAt    DateTime? @map("reviewed_at")
-  reviewNote    String?   @map("review_note")
-  createdAt     DateTime  @default(now()) @map("created_at")
+  reviewedById  String?            @map("reviewed_by")
+  reviewedBy    User?              @relation("IncidentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt    DateTime?          @map("reviewed_at")
+  reviewNote    String?            @map("review_note")
+  createdAt     DateTime           @default(now()) @map("created_at")
   evidence      IncidentEvidence[]
 
   @@index([tenantId])
@@ -847,17 +903,17 @@ model IncidentEvidence {
 }
 
 model Client {
-  id                  String               @id @default(uuid())
+  id                  String                  @id @default(uuid())
   name                String
   companyName         String?
   email               String
   phone               String?
-  billingNotes        String?              @map("billing_notes")
-  internalNotes       String?              @map("internal_notes")
+  billingNotes        String?                 @map("billing_notes")
+  internalNotes       String?                 @map("internal_notes")
   tenantId            String
-  tenant              Tenant               @relation(fields: [tenantId], references: [id])
-  branchId            String?              @map("branch_id")
-  branch              Branch?              @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  tenant              Tenant                  @relation(fields: [tenantId], references: [id])
+  branchId            String?                 @map("branch_id")
+  branch              Branch?                 @relation(fields: [branchId], references: [id], onDelete: SetNull)
   users               ClientUser[]
   deals               Deal[]
   proposals           Proposal[]
@@ -869,8 +925,8 @@ model Client {
   timesheets          Timesheet[]
   rateCards           RateCard[]
   insurancePolicies   ClientInsurancePolicy[]
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
 
   @@index([tenantId])
   @@index([branchId])
@@ -1100,16 +1156,18 @@ model Timesheet {
 }
 
 model ClientUser {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  password     String
-  refreshToken String?
-  clientId     String
-  client       Client   @relation(fields: [clientId], references: [id])
-  tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id])
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String    @id @default(uuid())
+  email           String    @unique
+  password        String
+  refreshToken    String?
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id])
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id])
+  emailVerified   Boolean   @default(false) @map("email_verified")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([clientId])
   @@index([tenantId])
@@ -1451,24 +1509,24 @@ model CustomDomain {
 }
 
 model Checkpoint {
-  id                    String   @id @default(uuid())
-  tenantId              String   @map("tenant_id")
-  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  siteId                String   @map("site_id")
-  site                  Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  name                  String
-  description           String?
-  locationNote          String?  @map("location_note")
-  qrCodeValue           String?  @map("qr_code_value")
+  id                   String   @id @default(uuid())
+  tenantId             String   @map("tenant_id")
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteId               String   @map("site_id")
+  site                 Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  name                 String
+  description          String?
+  locationNote         String?  @map("location_note")
+  qrCodeValue          String?  @map("qr_code_value")
   // GPS geofence (Phase 3A). All nullable - existing checkpoints and any
   // future checkpoint created without GPS data keep working unverified
   // (see NO_GEOFENCE_CONFIGURED in patrols.service.ts).
-  latitude              Float?
-  longitude             Float?
-  geofenceRadiusMeters  Int?     @map("geofence_radius_meters")
-  status                String   @default("active")
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
+  latitude             Float?
+  longitude            Float?
+  geofenceRadiusMeters Int?     @map("geofence_radius_meters")
+  status               String   @default("active")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
   patrolRouteCheckpoints PatrolRouteCheckpoint[]
   patrolEvents           PatrolEvent[]
@@ -1515,30 +1573,30 @@ model PatrolRouteCheckpoint {
 }
 
 model PatrolRun {
-  id            String      @id @default(uuid())
-  tenantId      String      @map("tenant_id")
-  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  shiftId       String      @map("shift_id")
-  shift         Shift       @relation(fields: [shiftId], references: [id], onDelete: Cascade)
-  guardId       String      @map("guard_id")
-  guard         Guard       @relation(fields: [guardId], references: [id], onDelete: Cascade)
-  patrolRouteId String      @map("patrol_route_id")
-  patrolRoute   PatrolRoute @relation(fields: [patrolRouteId], references: [id], onDelete: Cascade)
-  status        String      @default("not_started")
-  startedAt     DateTime?   @map("started_at")
-  completedAt   DateTime?   @map("completed_at")
+  id                 String      @id @default(uuid())
+  tenantId           String      @map("tenant_id")
+  tenant             Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  shiftId            String      @map("shift_id")
+  shift              Shift       @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  guardId            String      @map("guard_id")
+  guard              Guard       @relation(fields: [guardId], references: [id], onDelete: Cascade)
+  patrolRouteId      String      @map("patrol_route_id")
+  patrolRoute        PatrolRoute @relation(fields: [patrolRouteId], references: [id], onDelete: Cascade)
+  status             String      @default("not_started")
+  startedAt          DateTime?   @map("started_at")
+  completedAt        DateTime?   @map("completed_at")
   // Live tracking (Phase 3B) - LATEST known guard location only, overwritten
   // on every update. Deliberately not a history table: tracking exists only
   // for the duration of an in_progress run, and only the current position
   // matters for the admin "where is this guard right now" view.
-  lastLatitude       Float?    @map("last_latitude")
-  lastLongitude      Float?    @map("last_longitude")
-  lastAccuracyMeters Float?    @map("last_accuracy_meters")
-  lastLocationAt     DateTime? @map("last_location_at")
-  createdAt     DateTime    @default(now()) @map("created_at")
-  updatedAt     DateTime    @updatedAt @map("updated_at")
+  lastLatitude       Float?      @map("last_latitude")
+  lastLongitude      Float?      @map("last_longitude")
+  lastAccuracyMeters Float?      @map("last_accuracy_meters")
+  lastLocationAt     DateTime?   @map("last_location_at")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
 
-  events PatrolEvent[]
+  events          PatrolEvent[]
   emergencyAlerts EmergencyAlert[]
 
   @@index([tenantId])
@@ -1550,28 +1608,28 @@ model PatrolRun {
 }
 
 model PatrolEvent {
-  id           String     @id @default(uuid())
-  tenantId     String     @map("tenant_id")
-  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  patrolRunId  String     @map("patrol_run_id")
-  patrolRun    PatrolRun  @relation(fields: [patrolRunId], references: [id], onDelete: Cascade)
-  checkpointId String     @map("checkpoint_id")
-  checkpoint   Checkpoint @relation(fields: [checkpointId], references: [id], onDelete: Cascade)
-  guardId      String     @map("guard_id")
-  guard        Guard      @relation(fields: [guardId], references: [id], onDelete: Cascade)
-  scannedAt    DateTime   @default(now()) @map("scanned_at")
-  status       String     @default("completed")
-  notes        String?
+  id                 String     @id @default(uuid())
+  tenantId           String     @map("tenant_id")
+  tenant             Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patrolRunId        String     @map("patrol_run_id")
+  patrolRun          PatrolRun  @relation(fields: [patrolRunId], references: [id], onDelete: Cascade)
+  checkpointId       String     @map("checkpoint_id")
+  checkpoint         Checkpoint @relation(fields: [checkpointId], references: [id], onDelete: Cascade)
+  guardId            String     @map("guard_id")
+  guard              Guard      @relation(fields: [guardId], references: [id], onDelete: Cascade)
+  scannedAt          DateTime   @default(now()) @map("scanned_at")
+  status             String     @default("completed")
+  notes              String?
   // GPS geofence verification (Phase 3A). Only the location submitted for
   // THIS checkpoint scan is stored - one point tied to one event, never a
   // continuous location trail, per the Phase 3A privacy rule.
-  verificationStatus  String?  @map("verification_status")
-  distanceMeters      Float?   @map("distance_meters")
-  submittedLatitude   Float?   @map("submitted_latitude")
-  submittedLongitude  Float?   @map("submitted_longitude")
-  createdAt    DateTime   @default(now()) @map("created_at")
+  verificationStatus String?    @map("verification_status")
+  distanceMeters     Float?     @map("distance_meters")
+  submittedLatitude  Float?     @map("submitted_latitude")
+  submittedLongitude Float?     @map("submitted_longitude")
+  createdAt          DateTime   @default(now()) @map("created_at")
 
-  evidence     PatrolEvidence[]
+  evidence PatrolEvidence[]
 
   @@index([tenantId])
   @@index([patrolRunId])
@@ -1627,38 +1685,38 @@ model PatrolEvidence {
 // Incident.status/PatrolRun.status convention in this schema), validated at
 // the application layer - see emergency-alerts/emergency-alert-status.util.ts.
 model EmergencyAlert {
-  id            String    @id @default(uuid())
-  tenantId      String    @map("tenant_id")
-  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  guardId       String    @map("guard_id")
-  guard         Guard     @relation(fields: [guardId], references: [id], onDelete: Cascade)
+  id                 String     @id @default(uuid())
+  tenantId           String     @map("tenant_id")
+  tenant             Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  guardId            String     @map("guard_id")
+  guard              Guard      @relation(fields: [guardId], references: [id], onDelete: Cascade)
   // Snapshot of the guard's branch at trigger time, for branch-scoped admin
   // visibility - not a live relation the guard can influence afterward.
-  branchId      String?   @map("branch_id")
-  branch        Branch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  branchId           String?    @map("branch_id")
+  branch             Branch?    @relation(fields: [branchId], references: [id], onDelete: SetNull)
   // Optional - set only if the guard had an in_progress PatrolRun when the
   // alert was triggered. A real emergency must not require an active patrol.
-  patrolRunId   String?   @map("patrol_run_id")
-  patrolRun     PatrolRun? @relation(fields: [patrolRunId], references: [id], onDelete: SetNull)
-  status        String    @default("ACTIVE")
-  triggeredAt   DateTime  @default(now()) @map("triggered_at")
-  acknowledgedAt DateTime? @map("acknowledged_at")
-  resolvedAt    DateTime? @map("resolved_at")
-  acknowledgedById String? @map("acknowledged_by")
-  acknowledgedBy   User?   @relation("EmergencyAlertAcknowledgedBy", fields: [acknowledgedById], references: [id], onDelete: SetNull)
-  resolvedById  String?   @map("resolved_by")
-  resolvedBy    User?     @relation("EmergencyAlertResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
-  notes         String?
+  patrolRunId        String?    @map("patrol_run_id")
+  patrolRun          PatrolRun? @relation(fields: [patrolRunId], references: [id], onDelete: SetNull)
+  status             String     @default("ACTIVE")
+  triggeredAt        DateTime   @default(now()) @map("triggered_at")
+  acknowledgedAt     DateTime?  @map("acknowledged_at")
+  resolvedAt         DateTime?  @map("resolved_at")
+  acknowledgedById   String?    @map("acknowledged_by")
+  acknowledgedBy     User?      @relation("EmergencyAlertAcknowledgedBy", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+  resolvedById       String?    @map("resolved_by")
+  resolvedBy         User?      @relation("EmergencyAlertResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+  notes              String?
   // Location snapshot copied from PatrolRun.last* at trigger time only - not
   // a live/continuously-updated field. locationCapturedAt is when that
   // underlying location reading was taken (PatrolRun.lastLocationAt), which
   // may predate triggeredAt slightly; null on both if no location was known.
-  lastLatitude       Float?    @map("last_latitude")
-  lastLongitude      Float?    @map("last_longitude")
-  lastAccuracyMeters Float?    @map("last_accuracy_meters")
-  locationCapturedAt DateTime? @map("location_captured_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  lastLatitude       Float?     @map("last_latitude")
+  lastLongitude      Float?     @map("last_longitude")
+  lastAccuracyMeters Float?     @map("last_accuracy_meters")
+  locationCapturedAt DateTime?  @map("location_captured_at")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
 
   @@index([tenantId])
   @@index([guardId])

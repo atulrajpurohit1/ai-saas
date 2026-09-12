@@ -50,6 +50,8 @@ const config_1 = require("@nestjs/config");
 const client_1 = require("@prisma/client");
 const bcrypt = __importStar(require("bcrypt"));
 const class_validator_1 = require("class-validator");
+const email_verification_service_1 = require("../email-verification/email-verification.service");
+const INVALID_EMAIL_MESSAGE = 'Please enter a valid email address.';
 class ClientRegisterDto {
     email;
     password;
@@ -58,7 +60,7 @@ class ClientRegisterDto {
 }
 exports.ClientRegisterDto = ClientRegisterDto;
 __decorate([
-    (0, class_validator_1.IsEmail)(),
+    (0, class_validator_1.IsEmail)({}, { message: INVALID_EMAIL_MESSAGE }),
     __metadata("design:type", String)
 ], ClientRegisterDto.prototype, "email", void 0);
 __decorate([
@@ -80,10 +82,12 @@ let ClientAuthService = class ClientAuthService {
     prisma;
     jwtService;
     configService;
-    constructor(prisma, jwtService, configService) {
+    emailVerification;
+    constructor(prisma, jwtService, configService, emailVerification) {
         this.prisma = prisma;
         this.jwtService = jwtService;
         this.configService = configService;
+        this.emailVerification = emailVerification;
     }
     async login(dto) {
         const email = dto.email.trim().toLowerCase();
@@ -96,13 +100,16 @@ let ClientAuthService = class ClientAuthService {
         const passwordMatches = await bcrypt.compare(dto.password, user.password);
         if (!passwordMatches)
             throw new common_1.UnauthorizedException('Invalid credentials');
+        if (!user.emailVerified) {
+            throw new common_1.ForbiddenException('Please verify your email before logging in.');
+        }
         const tokens = await this.getTokens(user.id, user.email, user.tenantId, user.clientId);
         await this.updateRefreshTokenHash(user.id, tokens.refresh_token);
         return tokens;
     }
     async register(dto) {
+        const email = await this.emailVerification.assertValidEmail(dto.email);
         try {
-            const email = dto.email.trim().toLowerCase();
             const name = dto.name.trim();
             const companySlug = this.normalizeSlug(dto.tenantSlug);
             const companyName = this.companyNameFromSlug(companySlug);
@@ -110,6 +117,26 @@ let ClientAuthService = class ClientAuthService {
                 throw new common_1.BadRequestException('Full name is required.');
             }
             const hashedPassword = await bcrypt.hash(dto.password, 10);
+            const existingUser = await this.prisma.clientUser.findUnique({
+                where: { email },
+            });
+            if (existingUser) {
+                if (existingUser.emailVerified) {
+                    throw this.uniqueConflict(undefined, 'email');
+                }
+                await this.prisma.clientUser.update({
+                    where: { id: existingUser.id },
+                    data: { password: hashedPassword },
+                });
+                await this.emailVerification.issueOtp({
+                    accountType: 'CLIENT_USER',
+                    accountId: existingUser.id,
+                    tenantId: existingUser.tenantId,
+                    email,
+                    name,
+                });
+                return { status: 'verification_required', email };
+            }
             const result = await this.prisma.$transaction(async (tx) => {
                 const tenant = await this.resolveSignupTenant(tx);
                 const client = await tx.client.create({
@@ -126,13 +153,19 @@ let ClientAuthService = class ClientAuthService {
                         password: hashedPassword,
                         clientId: client.id,
                         tenantId: tenant.id,
+                        emailVerified: false,
                     },
                 });
                 return { user };
             });
-            const tokens = await this.getTokens(result.user.id, result.user.email, result.user.tenantId, result.user.clientId);
-            await this.updateRefreshTokenHash(result.user.id, tokens.refresh_token);
-            return tokens;
+            await this.emailVerification.issueOtp({
+                accountType: 'CLIENT_USER',
+                accountId: result.user.id,
+                tenantId: result.user.tenantId,
+                email,
+                name,
+            });
+            return { status: 'verification_required', email };
         }
         catch (error) {
             if (error instanceof client_1.Prisma.PrismaClientKnownRequestError &&
@@ -141,6 +174,42 @@ let ClientAuthService = class ClientAuthService {
             }
             throw error;
         }
+    }
+    async verifyEmail(dto) {
+        const email = dto.email.trim().toLowerCase();
+        const user = await this.prisma.clientUser.findUnique({ where: { email } });
+        if (!user) {
+            throw new common_1.UnauthorizedException('Invalid verification code.');
+        }
+        if (!user.emailVerified) {
+            await this.emailVerification.verifyOtp({
+                accountType: 'CLIENT_USER',
+                accountId: user.id,
+                code: dto.code,
+            });
+            await this.prisma.clientUser.update({
+                where: { id: user.id },
+                data: { emailVerified: true, emailVerifiedAt: new Date() },
+            });
+        }
+        const tokens = await this.getTokens(user.id, user.email, user.tenantId, user.clientId);
+        await this.updateRefreshTokenHash(user.id, tokens.refresh_token);
+        return tokens;
+    }
+    async resendOtp(dto) {
+        const email = dto.email.trim().toLowerCase();
+        const user = await this.prisma.clientUser.findUnique({ where: { email } });
+        if (user && !user.emailVerified) {
+            await this.emailVerification.issueOtp({
+                accountType: 'CLIENT_USER',
+                accountId: user.id,
+                tenantId: user.tenantId,
+                email: user.email,
+            });
+        }
+        return {
+            message: 'If an unverified account exists for this email, a new verification code has been sent.',
+        };
     }
     async logout(userId) {
         await this.prisma.clientUser.updateMany({
@@ -258,10 +327,11 @@ let ClientAuthService = class ClientAuthService {
         }
         throw new common_1.InternalServerErrorException('Client signup workspace is not configured.');
     }
-    uniqueConflict(error) {
-        const target = Array.isArray(error.meta?.target)
-            ? error.meta.target.join(',')
-            : String(error.meta?.target || '');
+    uniqueConflict(error, knownTarget) {
+        const target = knownTarget ||
+            (Array.isArray(error?.meta?.target)
+                ? error.meta.target.join(',')
+                : String(error?.meta?.target || ''));
         if (target.includes('slug')) {
             return new common_1.ConflictException('A company with this slug already exists.');
         }
@@ -276,6 +346,7 @@ exports.ClientAuthService = ClientAuthService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         jwt_1.JwtService,
-        config_1.ConfigService])
+        config_1.ConfigService,
+        email_verification_service_1.EmailVerificationService])
 ], ClientAuthService);
 //# sourceMappingURL=client-auth.service.js.map

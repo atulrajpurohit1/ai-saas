@@ -108,8 +108,8 @@ export declare class SalesAcceleratorController {
                 id: string;
                 createdAt: Date;
                 status: string;
-                dueDate: Date | null;
                 subject: string;
+                dueDate: Date | null;
                 type: string;
             }[];
             discoverySessions: {
@@ -141,16 +141,16 @@ export declare class SalesAcceleratorController {
                 objectionRisks: string[];
                 summary: string | null;
             }[];
-            client: {
-                id: string;
-                name: string;
-                companyName: string | null;
-            } | null;
             lead: {
                 id: string;
                 name: string;
                 company: string;
             };
+            client: {
+                id: string;
+                name: string;
+                companyName: string | null;
+            } | null;
             stage: string;
         }[];
         stalledDeals: {
@@ -178,8 +178,8 @@ export declare class SalesAcceleratorController {
                 id: string;
                 createdAt: Date;
                 status: string;
-                dueDate: Date | null;
                 subject: string;
+                dueDate: Date | null;
                 type: string;
             }[];
             discoverySessions: {
@@ -211,16 +211,16 @@ export declare class SalesAcceleratorController {
                 objectionRisks: string[];
                 summary: string | null;
             }[];
-            client: {
-                id: string;
-                name: string;
-                companyName: string | null;
-            } | null;
             lead: {
                 id: string;
                 name: string;
                 company: string;
             };
+            client: {
+                id: string;
+                name: string;
+                companyName: string | null;
+            } | null;
             stage: string;
         }[];
         forecastRiskDeals: {
@@ -248,8 +248,8 @@ export declare class SalesAcceleratorController {
                 id: string;
                 createdAt: Date;
                 status: string;
-                dueDate: Date | null;
                 subject: string;
+                dueDate: Date | null;
                 type: string;
             }[];
             discoverySessions: {
@@ -281,16 +281,16 @@ export declare class SalesAcceleratorController {
                 objectionRisks: string[];
                 summary: string | null;
             }[];
-            client: {
-                id: string;
-                name: string;
-                companyName: string | null;
-            } | null;
             lead: {
                 id: string;
                 name: string;
                 company: string;
             };
+            client: {
+                id: string;
+                name: string;
+                companyName: string | null;
+            } | null;
             stage: string;
         }[];
         postCloseFeedbackDeals: {
@@ -319,8 +319,8 @@ export declare class SalesAcceleratorController {
                 id: string;
                 createdAt: Date;
                 status: string;
-                dueDate: Date | null;
                 subject: string;
+                dueDate: Date | null;
                 type: string;
             }[];
             discoverySessions: {
@@ -352,16 +352,16 @@ export declare class SalesAcceleratorController {
                 objectionRisks: string[];
                 summary: string | null;
             }[];
-            client: {
-                id: string;
-                name: string;
-                companyName: string | null;
-            } | null;
             lead: {
                 id: string;
                 name: string;
                 company: string;
             };
+            client: {
+                id: string;
+                name: string;
+                companyName: string | null;
+            } | null;
             stage: string;
         }[];
         objectionPatterns: import("./sales-accelerator.service").ObjectionPattern[];
@@ -426,8 +426,8 @@ export declare class SalesAcceleratorController {
                 id: string;
                 createdAt: Date;
                 status: string;
-                dueDate: Date | null;
                 subject: string;
+                dueDate: Date | null;
                 type: string;
             }[];
             discoverySessions: {
@@ -459,16 +459,16 @@ export declare class SalesAcceleratorController {
                 objectionRisks: string[];
                 summary: string | null;
             }[];
-            client: {
-                id: string;
-                name: string;
-                companyName: string | null;
-            } | null;
             lead: {
                 id: string;
                 name: string;
                 company: string;
             };
+            client: {
+                id: string;
+                name: string;
+                companyName: string | null;
+            } | null;
             stage: string;
         }[];
         recentAssessments: {
@@ -693,8 +693,8 @@ export declare class SalesAcceleratorController {
                 id: string;
                 createdAt: Date;
                 status: string;
-                dueDate: Date | null;
                 subject: string;
+                dueDate: Date | null;
                 type: string;
             }[];
             notes: {
@@ -705,11 +705,6 @@ export declare class SalesAcceleratorController {
                 dealId: string | null;
                 leadId: string | null;
             }[];
-            client: {
-                id: string;
-                name: string;
-                companyName: string | null;
-            } | null;
             lead: {
                 proposals: {
                     id: string;
@@ -739,14 +734,19 @@ export declare class SalesAcceleratorController {
                 status: string;
                 company: string;
             };
+            client: {
+                id: string;
+                name: string;
+                companyName: string | null;
+            } | null;
         } & {
             id: string;
             name: string;
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            clientId: string | null;
             leadId: string;
+            clientId: string | null;
             stage: string;
         };
         discovery: {
@@ -944,12 +944,12 @@ export declare class SalesAcceleratorController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            clientId: string | null;
             status: string;
             title: string;
             content: string;
             dealId: string | null;
             leadId: string | null;
+            clientId: string | null;
         };
         pricingGuardrails: import("./sales-accelerator.service").PricingGuardrails;
         valueJustification: import("./sales-accelerator.service").ValueJustification;
@@ -966,8 +966,8 @@ export declare class SalesAcceleratorController {
         description: string | null;
         status: string;
         dealId: string | null;
-        dueDate: Date | null;
         subject: string;
+        dueDate: Date | null;
         type: string;
     }>;
     createDealFollowUpSequence(dealId: string, user: ActiveUser): Promise<{

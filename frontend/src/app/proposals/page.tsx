@@ -8,7 +8,6 @@ import PageHeader from '@/components/PageHeader';
 import LoadingState from '@/components/LoadingState';
 import EmptyState from '@/components/EmptyState';
 import StatusBadge from '@/components/StatusBadge';
-import ConfirmDialog from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -19,14 +18,13 @@ import {
   Sparkles,
   Send,
   Eye,
-  Mail,
   FileText,
   Loader2,
-  Zap,
   Users,
   Building2,
   Download,
   UserPlus,
+  Trash2,
 } from 'lucide-react';
 
 interface Lead {
@@ -72,8 +70,6 @@ export default function ProposalsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isBulkGenerating, setIsBulkGenerating] = useState(false);
-  const [isSendingBulk, setIsSendingBulk] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -89,8 +85,8 @@ export default function ProposalsPage() {
   const [commentLoading, setCommentLoading] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareProposalId, setShareProposalId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const [confirmState, setConfirmState] = useState<null | 'bulk-generate' | 'bulk-email'>(null);
 
   const fetchClients = async () => {
     setClientsLoading(true);
@@ -228,33 +224,6 @@ export default function ProposalsPage() {
     }
   };
 
-  const handleBulkGenerate = async () => {
-    setIsBulkGenerating(true);
-    try {
-      const res = await api.post('proposals/generate-bulk');
-      toast.success(`Generated ${res.data.generatedCount} proposals out of ${res.data.totalProcessed} leads.`);
-      fetchData();
-    } catch (err) {
-      console.error(err);
-      toast.error(getApiErrorMessage(err, 'Bulk generation failed.'));
-    } finally {
-      setIsBulkGenerating(false);
-    }
-  };
-
-  const handleBulkSendEmails = async () => {
-    setIsSendingBulk(true);
-    try {
-      const res = await api.post('email/send-bulk');
-      toast.success(`Sent ${res.data.sentCount} emails out of ${res.data.totalProcessed} eligible leads.`);
-    } catch (err) {
-      console.error(err);
-      toast.error(getApiErrorMessage(err, 'Bulk email failed.'));
-    } finally {
-      setIsSendingBulk(false);
-    }
-  };
-
   const handleAddComment = async (proposalId: string) => {
     if (!newComment.trim()) return;
     setCommentLoading(true);
@@ -301,26 +270,36 @@ export default function ProposalsPage() {
 
   const getLeadInfo = (proposal: Proposal) => proposal.lead ?? leads.find((l) => l.id === proposal.leadId);
 
+  const handleDeleteProposal = async (proposalId: string, title: string) => {
+    if (!confirm(`Delete proposal "${title}"? This can't be undone.`)) return;
+
+    setDeletingId(proposalId);
+    try {
+      await api.delete(`proposals/${proposalId}`);
+      setProposals((prev) => prev.filter((p) => p.id !== proposalId));
+      if (selectedProposal?.id === proposalId) {
+        setShowViewModal(false);
+        setSelectedProposal(null);
+      }
+      toast.success('Proposal deleted.');
+    } catch (err) {
+      console.error(err);
+      toast.error(getApiErrorMessage(err, 'Failed to delete proposal.'));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <DashboardLayout>
       <PageHeader
         title="Proposals"
         description="AI-powered proposal generation and email delivery."
         actions={
-          <>
-            <Button variant="outline" onClick={() => setConfirmState('bulk-generate')} disabled={isBulkGenerating}>
-              {isBulkGenerating ? <Loader2 className="animate-spin" size={16} /> : <Zap size={16} />}
-              Bulk Generate
-            </Button>
-            <Button variant="outline" onClick={() => setConfirmState('bulk-email')} disabled={isSendingBulk}>
-              {isSendingBulk ? <Loader2 className="animate-spin" size={16} /> : <Mail size={16} />}
-              Send Bulk Emails
-            </Button>
-            <Button onClick={openGenerateModal}>
-              <Plus size={16} />
-              Generate for Lead
-            </Button>
-          </>
+          <Button onClick={openGenerateModal}>
+            <Plus size={16} />
+            Generate for Lead
+          </Button>
         }
       />
 
@@ -332,7 +311,7 @@ export default function ProposalsPage() {
         <EmptyState
           icon={Sparkles}
           title="No proposals yet"
-          description='Use "Generate for Lead" for one AI proposal, or "Bulk Generate" to create them for every lead that lacks one.'
+          description='Use "Generate for Lead" to create an AI-powered proposal for a lead.'
           action={
             <Button onClick={openGenerateModal}>
               <Plus size={16} />
@@ -409,6 +388,17 @@ export default function ProposalsPage() {
                       title="Download PDF"
                     >
                       <Download size={16} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-error hover:bg-error-wash hover:text-error"
+                      onClick={() => handleDeleteProposal(p.id, p.title)}
+                      disabled={deletingId === p.id}
+                      aria-label="Delete proposal"
+                      title="Delete proposal"
+                    >
+                      {deletingId === p.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                     </Button>
                   </div>
                   <span className="text-[10px] text-muted-foreground">{new Date(p.createdAt).toLocaleDateString()}</span>
@@ -546,15 +536,30 @@ export default function ProposalsPage() {
                     <DialogTitle className="truncate">{selectedProposal.title}</DialogTitle>
                     <DialogDescription>Document and client communication</DialogDescription>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="icon-sm"
-                    className="mr-8 shrink-0"
-                    onClick={() => handleDownload(selectedProposal.id)}
-                    aria-label="Download PDF"
-                  >
-                    <Download size={16} />
-                  </Button>
+                  <div className="mr-8 flex shrink-0 gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      onClick={() => handleDownload(selectedProposal.id)}
+                      aria-label="Download PDF"
+                    >
+                      <Download size={16} />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      className="text-error hover:bg-error-wash hover:text-error"
+                      onClick={() => handleDeleteProposal(selectedProposal.id, selectedProposal.title)}
+                      disabled={deletingId === selectedProposal.id}
+                      aria-label="Delete proposal"
+                    >
+                      {deletingId === selectedProposal.id ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={16} />
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </DialogHeader>
 
@@ -621,31 +626,6 @@ export default function ProposalsPage() {
           )}
         </DialogContent>
       </Dialog>
-
-      <ConfirmDialog
-        open={confirmState === 'bulk-generate'}
-        onOpenChange={(o) => !o && setConfirmState(null)}
-        title="Bulk generate proposals?"
-        description="This generates an AI proposal for every lead that doesn't have one yet. It may take a while and uses AI credits."
-        confirmLabel="Generate all"
-        loading={isBulkGenerating}
-        onConfirm={async () => {
-          await handleBulkGenerate();
-          setConfirmState(null);
-        }}
-      />
-      <ConfirmDialog
-        open={confirmState === 'bulk-email'}
-        onOpenChange={(o) => !o && setConfirmState(null)}
-        title="Send bulk proposal emails?"
-        description="This emails a proposal to every lead that has both an email address and a proposal."
-        confirmLabel="Send emails"
-        loading={isSendingBulk}
-        onConfirm={async () => {
-          await handleBulkSendEmails();
-          setConfirmState(null);
-        }}
-      />
     </DashboardLayout>
   );
 }

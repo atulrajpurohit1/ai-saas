@@ -5,6 +5,7 @@ import {
   Post,
   Body,
   Put,
+  Delete,
   Param,
   UseGuards,
   Req,
@@ -59,13 +60,6 @@ export class ProposalsController {
     );
   }
 
-  @Post('generate-bulk')
-  @RequirePermission('proposals.create')
-  generateBulkProposals(@Req() req: Request) {
-    const user = req.user as unknown as ActiveUser;
-    return this.proposalsService.generateBulkProposals(user.tenantId, user.sub);
-  }
-
   @Get(':id')
   @RequirePermission('proposals.view')
   findOne(@Req() req: Request, @Param('id') id: string) {
@@ -87,6 +81,13 @@ export class ProposalsController {
       updateProposalDto,
       user.sub,
     );
+  }
+
+  @Delete(':id')
+  @RequirePermission('proposals.delete')
+  remove(@Req() req: Request, @Param('id') id: string) {
+    const user = req.user as unknown as ActiveUser;
+    return this.proposalsService.remove(user.tenantId, id, user.sub);
   }
 
   @Get(':id/export')

@@ -8,11 +8,4 @@ export declare class EmailController {
         previewUrl: string | false;
         status: string;
     }>;
-    sendBulkEmails(req: Request): Promise<{
-        sentCount: number;
-        totalLeads: number;
-        skippedMissingEmail: number;
-        skippedMissingProposal: number;
-        results: any[];
-    }>;
 }

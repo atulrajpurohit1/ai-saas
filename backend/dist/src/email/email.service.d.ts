@@ -4,12 +4,36 @@ export declare class EmailService {
     private prisma;
     private brandingService;
     private transporter;
+    private readonly envelopeFrom;
     constructor(prisma: PrismaService, brandingService: BrandingService);
+    private senderFor;
     sendProposalEmail(tenantId: string, leadId: string): Promise<{
         messageId: any;
         previewUrl: string | false;
         status: string;
     }>;
+    sendOtpEmail(tenantId: string | null, params: {
+        email: string;
+        name?: string | null;
+        code: string;
+        expiresInMinutes: number;
+    }): Promise<{
+        messageId: any;
+        previewUrl: string | false;
+    }>;
+    sendPasswordResetOtpEmail(tenantId: string | null, params: {
+        email: string;
+        name?: string | null;
+        code: string;
+        expiresInMinutes: number;
+    }): Promise<{
+        messageId: any;
+        previewUrl: string | false;
+    }>;
+    private passwordResetOtpEmailBody;
+    private plainPasswordResetOtpEmailHtml;
+    private otpEmailBody;
+    private plainOtpEmailHtml;
     sendVendorInvitationEmail(tenantId: string, params: {
         vendorEmail: string;
         vendorCompanyName: string;
@@ -37,12 +61,5 @@ export declare class EmailService {
     }): Promise<{
         messageId: any;
         previewUrl: string | false;
-    }>;
-    sendBulkProposalEmails(tenantId: string): Promise<{
-        sentCount: number;
-        totalLeads: number;
-        skippedMissingEmail: number;
-        skippedMissingProposal: number;
-        results: any[];
     }>;
 }

@@ -126,13 +126,12 @@ A proposal is a titled document (with full version history) that can be linked t
 
 ## What User Can Do
 - Generate an AI-drafted proposal for a specific lead (optionally linking it to a client in the same step, including creating a brand-new client directly from the lead)
-- Bulk-generate AI proposals for every lead that doesn't have one yet
 - View all proposals with status (draft/sent/approved/rejected) and version count
 - View a proposal's full content and comment thread in a detail modal
 - Share a proposal with a client (assigns/links the client and flips status to "sent")
 - Download any proposal as a branded PDF
 - Comment on a proposal (visible to both admin and client sides)
-- Send a proposal email to a lead individually, or bulk-send proposal emails to all eligible leads
+- Send a proposal email to a lead individually
 - (Client Portal side) view a shared proposal, approve/reject it, comment, and see a timeline of activity
 
 ## Workflow
@@ -156,21 +155,20 @@ Admin sees client comments and the decision on the admin side
 - Cuts proposal turnaround time dramatically — a professional first draft is available in seconds instead of being written from scratch.
 - Full version history protects against lost work and supports "what did we actually send" audits.
 - Two-way commenting and a client-visible approval flow move the sales conversation into the platform instead of email threads.
-- Bulk generation and bulk email let a small sales team cover a much larger lead volume.
 
 ## Technical Summary
 - **Modules:** `proposals` (backend), consumes `AiService` (drafting), `BrandingService` (PDF header/branding)
-- **Key logic:** Every content change on update is diffed against the current version and, if different, appended as a new `ProposalVersion`; PDF export is generated on demand with PDFKit using the tenant's branding snapshot; `generateForLead` calls the shared AI service with the lead's notes/deals as context; `generateBulkProposals` iterates every proposal-less lead in the tenant. Client- and lead-membership are verified against the tenant before any linkage is allowed.
+- **Key logic:** Every content change on update is diffed against the current version and, if different, appended as a new `ProposalVersion`; PDF export is generated on demand with PDFKit using the tenant's branding snapshot; `generateForLead` calls the shared AI service with the lead's notes/deals as context. Client- and lead-membership are verified against the tenant before any linkage is allowed.
 - **Database tables:** `Proposal`, `ProposalVersion`, `ProposalComment`
-- **Frontend:** `/proposals` (list, AI-generate modal with inline "create client from this lead" shortcut, bulk-generate, bulk-email, share-to-client modal, full-content view modal with comment thread, PDF download); Client Portal `/client/proposals/[id]` (view, approve/reject, comment, timeline).
+- **Frontend:** `/proposals` (list, AI-generate modal with inline "create client from this lead" shortcut, share-to-client modal, full-content view modal with comment thread, PDF download); Client Portal `/client/proposals/[id]` (view, approve/reject, comment, timeline).
 
 ## Key Capabilities
-- AI-assisted proposal drafting (single and bulk)
+- AI-assisted proposal drafting
 - Full version history on every content edit
 - PDF export with tenant branding
 - Client-portal sharing and two-way commenting
 - Client approve/reject workflow (Client Portal side)
-- Proposal email delivery (single and bulk)
+- Proposal email delivery
 - Full audit trail (create/update/share/comment)
 
 ## Current Status

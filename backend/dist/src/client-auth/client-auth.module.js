@@ -12,12 +12,13 @@ const client_auth_service_1 = require("./client-auth.service");
 const client_auth_controller_1 = require("./client-auth.controller");
 const prisma_module_1 = require("../prisma/prisma.module");
 const jwt_1 = require("@nestjs/jwt");
+const email_verification_module_1 = require("../email-verification/email-verification.module");
 let ClientAuthModule = class ClientAuthModule {
 };
 exports.ClientAuthModule = ClientAuthModule;
 exports.ClientAuthModule = ClientAuthModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, jwt_1.JwtModule.register({})],
+        imports: [prisma_module_1.PrismaModule, jwt_1.JwtModule.register({}), email_verification_module_1.EmailVerificationModule],
         controllers: [client_auth_controller_1.ClientAuthController],
         providers: [client_auth_service_1.ClientAuthService],
     })

@@ -33,6 +33,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "csv-parser": "^3.2.0",
+    "disposable-email-domains": "^1.0.62",
     "fast-csv": "^5.0.5",
     "nodemailer": "^8.0.5",
     "openai": "^6.34.0",

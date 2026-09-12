@@ -11,6 +11,16 @@ import { PrismaService } from '../prisma/prisma.service';
 export class EmailService {
   private transporter: nodemailer.Transporter;
 
+  // The actual SMTP envelope sender. In production this must be an address
+  // on a domain verified with the configured SMTP provider (e.g. Resend) —
+  // it is NOT the same as a tenant's arbitrary, admin-editable
+  // `branding.support_email`, which is never domain-verified and would be
+  // rejected by a provider that enforces sender verification. Falls back to
+  // the same placeholder used throughout this service for local/dev
+  // (Ethereal accepts any From address).
+  private readonly envelopeFrom =
+    process.env.EMAIL_FROM || 'no-reply@aisaascrm.com';
+
   constructor(
     private prisma: PrismaService,
     private brandingService: BrandingService,
@@ -22,7 +32,31 @@ export class EmailService {
         user: process.env.SMTP_USER || 'ethereal.user@ethereal.email',
         pass: process.env.SMTP_PASS || 'ethereal-pass',
       },
+      // nodemailer's defaults (2min connection, 10min socket) let a slow or
+      // unresponsive SMTP provider hang a request for minutes. OTP sends
+      // are on the synchronous request path (register/login-adjacent), so
+      // a failure needs to surface in seconds, not minutes.
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 15_000,
     });
+  }
+
+  /**
+   * Builds the `from`/`replyTo` pair for an outgoing email. The envelope
+   * `from` is always the verified sending address (`EMAIL_FROM`); the
+   * tenant's own support email — free text, never domain-verified — is used
+   * only as `replyTo` so a recipient who hits "Reply" reaches the tenant's
+   * real inbox, without requiring that domain to be verified with the SMTP
+   * provider. `emailShell`'s footer already displays the support email as
+   * plain text, so this is purely about the SMTP envelope, not what the
+   * recipient sees.
+   */
+  private senderFor(companyName: string, supportEmail?: string | null) {
+    return {
+      from: `"${companyName}" <${this.envelopeFrom}>`,
+      ...(supportEmail ? { replyTo: supportEmail } : {}),
+    };
   }
 
   async sendProposalEmail(tenantId: string, leadId: string) {
@@ -54,7 +88,7 @@ export class EmailService {
 
     const branding = await this.brandingService.brandingSnapshot(tenantId);
     const info = await this.transporter.sendMail({
-      from: `"${branding.company_name}" <${branding.support_email || 'no-reply@aisaascrm.com'}>`,
+      ...this.senderFor(branding.company_name, branding.support_email),
       to: lead.email,
       subject: `Proposal: ${proposal.title} - ${lead.company}`,
       text: `Dear ${lead.name},\n\nPlease find your security proposal details below:\n\n${proposal.content}`,
@@ -87,6 +121,169 @@ export class EmailService {
     };
   }
 
+  /**
+   * Signup email-verification OTP. Deliberately takes only the recipient's
+   * email + tenant context (not a user record) so it can be reused for both
+   * the admin (`User`) and client-portal (`ClientUser`) signup flows.
+   */
+  async sendOtpEmail(
+    tenantId: string | null,
+    params: {
+      email: string;
+      name?: string | null;
+      code: string;
+      expiresInMinutes: number;
+    },
+  ) {
+    const branding = tenantId
+      ? await this.brandingService.brandingSnapshot(tenantId)
+      : null;
+    const companyName = branding?.company_name || 'AegisLead';
+    const greetingName = params.name?.trim() || 'there';
+
+    const info = await this.transporter.sendMail({
+      ...this.senderFor(companyName, branding?.support_email),
+      to: params.email,
+      subject: `Your ${companyName} verification code`,
+      text: `Your ${companyName} verification code is: ${params.code}\n\nThis code expires in ${params.expiresInMinutes} minutes.\n\nIf you did not request this verification, you can ignore this email.`,
+      html: branding
+        ? this.brandingService.emailShell(
+            branding,
+            'Verify your email',
+            this.otpEmailBody(
+              companyName,
+              greetingName,
+              params.code,
+              params.expiresInMinutes,
+            ),
+          )
+        : this.plainOtpEmailHtml(
+            companyName,
+            greetingName,
+            params.code,
+            params.expiresInMinutes,
+          ),
+    });
+
+    return {
+      messageId: info.messageId,
+      previewUrl: nodemailer.getTestMessageUrl(info),
+    };
+  }
+
+  /**
+   * Forgot-password OTP. Same delivery mechanics as sendOtpEmail (SMTP,
+   * branding shell, purpose-neutral EmailOtp store upstream) but with
+   * password-reset-specific copy so a user can't mistake it for a signup
+   * verification email.
+   */
+  async sendPasswordResetOtpEmail(
+    tenantId: string | null,
+    params: {
+      email: string;
+      name?: string | null;
+      code: string;
+      expiresInMinutes: number;
+    },
+  ) {
+    const branding = tenantId
+      ? await this.brandingService.brandingSnapshot(tenantId)
+      : null;
+    const companyName = branding?.company_name || 'AegisLead';
+    const greetingName = params.name?.trim() || 'there';
+
+    const info = await this.transporter.sendMail({
+      ...this.senderFor(companyName, branding?.support_email),
+      to: params.email,
+      subject: `Your ${companyName} password reset code`,
+      text: `We received a request to reset your ${companyName} password.\n\nYour verification code is: ${params.code}\n\nThis code expires in ${params.expiresInMinutes} minutes.\n\nIf you did not request a password reset, you can safely ignore this email.`,
+      html: branding
+        ? this.brandingService.emailShell(
+            branding,
+            'Password Reset Request',
+            this.passwordResetOtpEmailBody(
+              companyName,
+              greetingName,
+              params.code,
+              params.expiresInMinutes,
+            ),
+          )
+        : this.plainPasswordResetOtpEmailHtml(
+            companyName,
+            greetingName,
+            params.code,
+            params.expiresInMinutes,
+          ),
+    });
+
+    return {
+      messageId: info.messageId,
+      previewUrl: nodemailer.getTestMessageUrl(info),
+    };
+  }
+
+  private passwordResetOtpEmailBody(
+    companyName: string,
+    greetingName: string,
+    code: string,
+    expiresInMinutes: number,
+  ) {
+    return `
+      <p>Hi ${greetingName},</p>
+      <p>We received a request to reset your <strong>${companyName}</strong> password. Use the verification code below to continue:</p>
+      <div style="background-color: #f9fafb; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb; margin: 20px 0; text-align: center;">
+        <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #111827;">${code}</span>
+      </div>
+      <p style="color: #4b5563;">This code expires in ${expiresInMinutes} minutes.</p>
+      <p style="color: #6b7280; font-size: 13px;">If you did not request a password reset, you can safely ignore this email — your password will not be changed.</p>
+    `;
+  }
+
+  private plainPasswordResetOtpEmailHtml(
+    companyName: string,
+    greetingName: string,
+    code: string,
+    expiresInMinutes: number,
+  ) {
+    return `<!DOCTYPE html><html><body style="font-family: sans-serif; color: #111827;">${this.passwordResetOtpEmailBody(
+      companyName,
+      greetingName,
+      code,
+      expiresInMinutes,
+    )}</body></html>`;
+  }
+
+  private otpEmailBody(
+    companyName: string,
+    greetingName: string,
+    code: string,
+    expiresInMinutes: number,
+  ) {
+    return `
+      <p>Hi ${greetingName},</p>
+      <p>Use the verification code below to confirm your email address for <strong>${companyName}</strong>:</p>
+      <div style="background-color: #f9fafb; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb; margin: 20px 0; text-align: center;">
+        <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #111827;">${code}</span>
+      </div>
+      <p style="color: #4b5563;">This code expires in ${expiresInMinutes} minutes.</p>
+      <p style="color: #6b7280; font-size: 13px;">If you did not request this verification, you can safely ignore this email.</p>
+    `;
+  }
+
+  private plainOtpEmailHtml(
+    companyName: string,
+    greetingName: string,
+    code: string,
+    expiresInMinutes: number,
+  ) {
+    return `<!DOCTYPE html><html><body style="font-family: sans-serif; color: #111827;">${this.otpEmailBody(
+      companyName,
+      greetingName,
+      code,
+      expiresInMinutes,
+    )}</body></html>`;
+  }
+
   async sendVendorInvitationEmail(
     tenantId: string,
     params: {
@@ -107,7 +304,7 @@ export class EmailService {
       : 'Not specified';
 
     const info = await this.transporter.sendMail({
-      from: `"${branding.company_name}" <${branding.support_email || 'no-reply@aisaascrm.com'}>`,
+      ...this.senderFor(branding.company_name, branding.support_email),
       to: params.vendorEmail,
       subject: `Invitation to Submit a Proposal: ${params.rfpTitle}`,
       text: `Dear ${params.vendorCompanyName},\n\nYou have been invited to submit a proposal for "${params.rfpTitle}".\n\nSubmission deadline: ${deadlineText}\n\nUse this secure link to view the request and submit your proposal:\n${params.invitationUrl}`,
@@ -149,7 +346,7 @@ export class EmailService {
     const branding = await this.brandingService.brandingSnapshot(tenantId);
 
     const info = await this.transporter.sendMail({
-      from: `"${branding.company_name}" <${branding.support_email || 'no-reply@aisaascrm.com'}>`,
+      ...this.senderFor(branding.company_name, branding.support_email),
       to: params.vendorEmail,
       subject: 'Congratulations - Contract Award',
       text: `Dear ${params.vendorCompanyName},\n\nCongratulations! Your proposal for "${params.rfpTitle}" has been selected and the contract has been awarded to your company.${params.awardNotes ? `\n\nNotes: ${params.awardNotes}` : ''}\n\nOur team will be in touch shortly with next steps.`,
@@ -186,7 +383,7 @@ export class EmailService {
     const branding = await this.brandingService.brandingSnapshot(tenantId);
 
     const info = await this.transporter.sendMail({
-      from: `"${branding.company_name}" <${branding.support_email || 'no-reply@aisaascrm.com'}>`,
+      ...this.senderFor(branding.company_name, branding.support_email),
       to: params.vendorEmail,
       subject: 'Thank you for participating',
       text: `Dear ${params.vendorCompanyName},\n\nThank you for submitting a proposal for "${params.rfpTitle}". After careful review, we have decided to move forward with another vendor at this time.${params.reason ? `\n\nFeedback: ${params.reason}` : ''}\n\nWe appreciate the time and effort you invested in your submission and hope to have the opportunity to work with you in the future.`,
@@ -208,72 +405,6 @@ export class EmailService {
     return {
       messageId: info.messageId,
       previewUrl: nodemailer.getTestMessageUrl(info),
-    };
-  }
-
-  async sendBulkProposalEmails(tenantId: string) {
-    let sentCount = 0;
-    let skippedMissingEmail = 0;
-    let skippedMissingProposal = 0;
-    const results: any[] = [];
-    const branding = await this.brandingService.brandingSnapshot(tenantId);
-
-    // Fetch all leads for the tenant to diagnose
-    const allLeads = await this.prisma.lead.findMany({
-      where: { tenantId },
-      include: { proposals: true },
-    });
-
-    for (const lead of allLeads) {
-      if (!lead.email) {
-        skippedMissingEmail++;
-        continue;
-      }
-      if (!lead.proposals || lead.proposals.length === 0) {
-        skippedMissingProposal++;
-        continue;
-      }
-
-      try {
-        const proposal = lead.proposals[0];
-        const info = await this.transporter.sendMail({
-          from: `"${branding.company_name}" <${branding.support_email || 'no-reply@aisaascrm.com'}>`,
-          to: lead.email,
-          subject: `Proposal: ${proposal.title} - ${lead.company}`,
-          html: this.brandingService.emailShell(
-            branding,
-            'Your Security Proposal',
-            `
-              <p>Dear ${lead.name},</p>
-              <div style="background-color: #f9fafb; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb; margin: 20px 0;">
-                <h3 style="margin-top: 0; color: #111827;">${proposal.title}</h3>
-                <p>${proposal.content.replace(/\n/g, '<br/>')}</p>
-              </div>
-          `,
-          ),
-        });
-
-        await this.prisma.proposal.update({
-          where: { id: proposal.id },
-          data: { status: 'sent' },
-        });
-
-        sentCount++;
-        results.push({
-          leadId: lead.id,
-          previewUrl: nodemailer.getTestMessageUrl(info),
-        });
-      } catch (error) {
-        console.error(`Failed to send email to lead ${lead.id}`, error);
-      }
-    }
-
-    return {
-      sentCount,
-      totalLeads: allLeads.length,
-      skippedMissingEmail,
-      skippedMissingProposal,
-      results,
     };
   }
 }

@@ -11,17 +11,17 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RegisterDto = void 0;
 const class_validator_1 = require("class-validator");
+const INVALID_EMAIL_MESSAGE = 'Please enter a valid email address.';
 class RegisterDto {
     email;
     password;
     name;
     tenantName;
-    tenantSlug;
 }
 exports.RegisterDto = RegisterDto;
 __decorate([
-    (0, class_validator_1.IsEmail)(),
-    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsEmail)({}, { message: INVALID_EMAIL_MESSAGE }),
+    (0, class_validator_1.IsNotEmpty)({ message: INVALID_EMAIL_MESSAGE }),
     __metadata("design:type", String)
 ], RegisterDto.prototype, "email", void 0);
 __decorate([
@@ -40,9 +40,4 @@ __decorate([
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], RegisterDto.prototype, "tenantName", void 0);
-__decorate([
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
-    __metadata("design:type", String)
-], RegisterDto.prototype, "tenantSlug", void 0);
 //# sourceMappingURL=register.dto.js.map

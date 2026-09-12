@@ -9,6 +9,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { RolesModule } from '../roles/roles.module';
 import { SessionsModule } from '../sessions/sessions.module';
+import { EmailVerificationModule } from '../email-verification/email-verification.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { SessionsModule } from '../sessions/sessions.module';
     JwtModule.register({}),
     RolesModule,
     SessionsModule,
+    EmailVerificationModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, JwtRefreshStrategy],

@@ -3,5 +3,4 @@ export declare class RegisterDto {
     password: string;
     name: string;
     tenantName: string;
-    tenantSlug: string;
 }

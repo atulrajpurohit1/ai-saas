@@ -219,25 +219,6 @@ let ProposalsService = class ProposalsService {
             clientId,
         }, userId);
     }
-    async generateBulkProposals(tenantId, userId) {
-        const leads = await this.prisma.lead.findMany({
-            where: {
-                tenantId,
-                proposals: { none: {} },
-            },
-        });
-        let generatedCount = 0;
-        for (const lead of leads) {
-            try {
-                await this.generateForLead(tenantId, lead.id, userId);
-                generatedCount++;
-            }
-            catch (error) {
-                console.error(`Failed to generate proposal for lead ${lead.id}`, error);
-            }
-        }
-        return { generatedCount, totalProcessed: leads.length };
-    }
     async getComments(tenantId, id) {
         await this.findOne(tenantId, id);
         return this.prisma.proposalComment.findMany({
@@ -268,6 +249,23 @@ let ProposalsService = class ProposalsService {
             details: 'Admin added a comment to proposal',
         });
         return comment;
+    }
+    async remove(tenantId, id, userId) {
+        const proposal = await this.findOne(tenantId, id);
+        await this.prisma.$transaction([
+            this.prisma.proposalComment.deleteMany({ where: { proposalId: id } }),
+            this.prisma.proposalVersion.deleteMany({ where: { proposalId: id } }),
+            this.prisma.proposal.delete({ where: { id } }),
+        ]);
+        await this.auditService.log({
+            tenantId,
+            userId,
+            action: 'DELETE',
+            entityType: 'Proposal',
+            entityId: id,
+            details: `Deleted proposal: ${proposal.title}`,
+        });
+        return { success: true };
     }
     async logAction(tenantId, userId, entityId, action, details) {
         await this.auditService.log({

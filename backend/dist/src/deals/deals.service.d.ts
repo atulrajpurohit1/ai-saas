@@ -23,8 +23,8 @@ export declare class DealsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         leadId: string;
+        clientId: string | null;
         stage: string;
     }>;
     convertLeadToDeal(leadId: string, tenantId: string, userId?: string): Promise<{
@@ -33,8 +33,8 @@ export declare class DealsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         leadId: string;
+        clientId: string | null;
         stage: string;
     }>;
     findAll(tenantId: string): Promise<({
@@ -47,6 +47,16 @@ export declare class DealsService {
             riskProfile: string | null;
             recommendedNextAction: string | null;
         }[];
+        lead: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            email: string | null;
+            tenantId: string;
+            status: string;
+            company: string;
+        };
         client: {
             id: string;
             name: string;
@@ -60,27 +70,27 @@ export declare class DealsService {
             billingNotes: string | null;
             internalNotes: string | null;
         } | null;
-        lead: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            email: string | null;
-            tenantId: string;
-            status: string;
-            company: string;
-        };
     } & {
         id: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         leadId: string;
+        clientId: string | null;
         stage: string;
     })[]>;
     findOne(id: string, tenantId: string): Promise<{
+        lead: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            email: string | null;
+            tenantId: string;
+            status: string;
+            company: string;
+        };
         client: {
             id: string;
             name: string;
@@ -94,24 +104,14 @@ export declare class DealsService {
             billingNotes: string | null;
             internalNotes: string | null;
         } | null;
-        lead: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            email: string | null;
-            tenantId: string;
-            status: string;
-            company: string;
-        };
     } & {
         id: string;
         name: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         leadId: string;
+        clientId: string | null;
         stage: string;
     }>;
     updateStage(id: string, updateDealStageDto: UpdateDealStageDto, tenantId: string, userId?: string): Promise<{
@@ -120,8 +120,8 @@ export declare class DealsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         leadId: string;
+        clientId: string | null;
         stage: string;
     }>;
     remove(id: string, tenantId: string, userId?: string): Promise<{

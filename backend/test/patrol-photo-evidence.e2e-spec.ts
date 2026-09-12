@@ -87,6 +87,9 @@ describe('Guard Tour — checkpoint photo evidence (e2e)', () => {
         tenantId: tA.id,
         isSuperAdmin: true,
         role: 'ADMIN',
+        // This fixture simulates an already-established account, not a new
+        // signup, so it bypasses OTP verification directly.
+        emailVerified: true,
       },
     });
     f.adminAId = adminA.id;
@@ -158,6 +161,7 @@ describe('Guard Tour — checkpoint photo evidence (e2e)', () => {
         tenantId: tB.id,
         isSuperAdmin: true,
         role: 'ADMIN',
+        emailVerified: true,
       },
     });
     const guardB = await prisma.guard.create({

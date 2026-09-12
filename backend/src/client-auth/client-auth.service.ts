@@ -13,9 +13,15 @@ import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { ClientLoginDto } from './dto/client-login.dto';
 import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { EmailVerificationService } from '../email-verification/email-verification.service';
+import { VerifyOtpDto } from '../email-verification/dto/verify-otp.dto';
+import { ResendOtpDto } from '../email-verification/dto/resend-otp.dto';
+
+// Consistent with AuthService.register's email-validation error message.
+const INVALID_EMAIL_MESSAGE = 'Please enter a valid email address.';
 
 export class ClientRegisterDto {
-  @IsEmail()
+  @IsEmail({}, { message: INVALID_EMAIL_MESSAGE })
   email: string;
 
   @IsString()
@@ -37,6 +43,7 @@ export class ClientAuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private emailVerification: EmailVerificationService,
   ) {}
 
   async login(dto: ClientLoginDto) {
@@ -52,6 +59,12 @@ export class ClientAuthService {
     if (!passwordMatches)
       throw new UnauthorizedException('Invalid credentials');
 
+    if (!user.emailVerified) {
+      throw new ForbiddenException(
+        'Please verify your email before logging in.',
+      );
+    }
+
     const tokens = await this.getTokens(
       user.id,
       user.email,
@@ -64,8 +77,9 @@ export class ClientAuthService {
   }
 
   async register(dto: ClientRegisterDto) {
+    const email = await this.emailVerification.assertValidEmail(dto.email);
+
     try {
-      const email = dto.email.trim().toLowerCase();
       const name = dto.name.trim();
       const companySlug = this.normalizeSlug(dto.tenantSlug);
       const companyName = this.companyNameFromSlug(companySlug);
@@ -75,6 +89,33 @@ export class ClientAuthService {
       }
 
       const hashedPassword = await bcrypt.hash(dto.password, 10);
+
+      const existingUser = await this.prisma.clientUser.findUnique({
+        where: { email },
+      });
+
+      // Retrying a signup that never completed OTP verification: reuse the
+      // same pending client/user instead of failing or creating a duplicate.
+      if (existingUser) {
+        if (existingUser.emailVerified) {
+          throw this.uniqueConflict(undefined, 'email');
+        }
+
+        await this.prisma.clientUser.update({
+          where: { id: existingUser.id },
+          data: { password: hashedPassword },
+        });
+
+        await this.emailVerification.issueOtp({
+          accountType: 'CLIENT_USER',
+          accountId: existingUser.id,
+          tenantId: existingUser.tenantId,
+          email,
+          name,
+        });
+
+        return { status: 'verification_required', email };
+      }
 
       const result = await this.prisma.$transaction(async (tx) => {
         const tenant = await this.resolveSignupTenant(tx);
@@ -94,21 +135,22 @@ export class ClientAuthService {
             password: hashedPassword,
             clientId: client.id,
             tenantId: tenant.id,
+            emailVerified: false,
           },
         });
 
         return { user };
       });
 
-      const tokens = await this.getTokens(
-        result.user.id,
-        result.user.email,
-        result.user.tenantId,
-        result.user.clientId,
-      );
+      await this.emailVerification.issueOtp({
+        accountType: 'CLIENT_USER',
+        accountId: result.user.id,
+        tenantId: result.user.tenantId,
+        email,
+        name,
+      });
 
-      await this.updateRefreshTokenHash(result.user.id, tokens.refresh_token);
-      return tokens;
+      return { status: 'verification_required', email };
     } catch (error: unknown) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -119,6 +161,66 @@ export class ClientAuthService {
 
       throw error;
     }
+  }
+
+  /**
+   * Verifies the OTP sent during client-portal registration, marks the
+   * email verified, and only then issues session tokens.
+   */
+  async verifyEmail(dto: VerifyOtpDto) {
+    const email = dto.email.trim().toLowerCase();
+    const user = await this.prisma.clientUser.findUnique({ where: { email } });
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid verification code.');
+    }
+
+    if (!user.emailVerified) {
+      await this.emailVerification.verifyOtp({
+        accountType: 'CLIENT_USER',
+        accountId: user.id,
+        code: dto.code,
+      });
+
+      await this.prisma.clientUser.update({
+        where: { id: user.id },
+        data: { emailVerified: true, emailVerifiedAt: new Date() },
+      });
+    }
+
+    const tokens = await this.getTokens(
+      user.id,
+      user.email,
+      user.tenantId,
+      user.clientId,
+    );
+
+    await this.updateRefreshTokenHash(user.id, tokens.refresh_token);
+    return tokens;
+  }
+
+  /**
+   * Resends a signup OTP. Always returns a generic response regardless of
+   * whether the email belongs to a real pending signup (enumeration
+   * protection).
+   */
+  async resendOtp(dto: ResendOtpDto) {
+    const email = dto.email.trim().toLowerCase();
+    const user = await this.prisma.clientUser.findUnique({ where: { email } });
+
+    if (user && !user.emailVerified) {
+      await this.emailVerification.issueOtp({
+        accountType: 'CLIENT_USER',
+        accountId: user.id,
+        tenantId: user.tenantId,
+        email: user.email,
+      });
+    }
+
+    return {
+      message:
+        'If an unverified account exists for this email, a new verification code has been sent.',
+    };
   }
 
   async logout(userId: string) {
@@ -281,10 +383,15 @@ export class ClientAuthService {
     );
   }
 
-  private uniqueConflict(error: Prisma.PrismaClientKnownRequestError) {
-    const target = Array.isArray(error.meta?.target)
-      ? error.meta.target.join(',')
-      : String(error.meta?.target || '');
+  private uniqueConflict(
+    error?: Prisma.PrismaClientKnownRequestError,
+    knownTarget?: string,
+  ) {
+    const target =
+      knownTarget ||
+      (Array.isArray(error?.meta?.target)
+        ? error.meta.target.join(',')
+        : String(error?.meta?.target || ''));
 
     if (target.includes('slug')) {
       return new ConflictException('A company with this slug already exists.');

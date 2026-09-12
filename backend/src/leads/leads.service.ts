@@ -43,7 +43,10 @@ export class LeadsService {
 
   async findAll(tenantId: string) {
     return this.prisma.lead.findMany({
-      where: { tenantId },
+      // Converted leads live on as the Deal's linked lead record (Deal.leadId
+      // is a required FK), so we don't delete them - we just hide them from
+      // the Leads list once they've moved into the pipeline as a deal.
+      where: { tenantId, status: { not: 'converted' } },
       select: {
         id: true,
         name: true,

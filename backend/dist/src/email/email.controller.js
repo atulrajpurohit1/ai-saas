@@ -27,10 +27,6 @@ let EmailController = class EmailController {
         const user = req.user;
         return this.emailService.sendProposalEmail(user.tenantId, leadId);
     }
-    sendBulkEmails(req) {
-        const user = req.user;
-        return this.emailService.sendBulkProposalEmails(user.tenantId);
-    }
 };
 exports.EmailController = EmailController;
 __decorate([
@@ -42,14 +38,6 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], EmailController.prototype, "sendEmail", null);
-__decorate([
-    (0, common_1.Post)('send-bulk'),
-    (0, permissions_decorator_1.RequirePermission)('proposals.update'),
-    __param(0, (0, common_1.Req)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
-], EmailController.prototype, "sendBulkEmails", null);
 exports.EmailController = EmailController = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     (0, common_1.Controller)('email'),

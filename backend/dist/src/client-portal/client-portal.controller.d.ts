@@ -14,12 +14,12 @@ export declare class ClientPortalController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         status: string;
         title: string;
         content: string;
         dealId: string | null;
         leadId: string | null;
+        clientId: string | null;
     }[]>;
     getProposal(user: ActiveUser, id: string): Promise<{
         versions: {
@@ -34,12 +34,12 @@ export declare class ClientPortalController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         status: string;
         title: string;
         content: string;
         dealId: string | null;
         leadId: string | null;
+        clientId: string | null;
     }>;
     exportProposal(user: ActiveUser, id: string, res: ExpressResponse): Promise<ExpressResponse<any, Record<string, any>>>;
     approveProposal(user: ActiveUser, id: string): Promise<{
@@ -47,24 +47,24 @@ export declare class ClientPortalController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         status: string;
         title: string;
         content: string;
         dealId: string | null;
         leadId: string | null;
+        clientId: string | null;
     }>;
     rejectProposal(user: ActiveUser, id: string): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         status: string;
         title: string;
         content: string;
         dealId: string | null;
         leadId: string | null;
+        clientId: string | null;
     }>;
     getComments(user: ActiveUser, id: string): Promise<{
         id: string;
@@ -99,8 +99,8 @@ export declare class ClientPortalController {
         name: string;
         createdAt: Date;
         tenantId: string;
-        clientId: string;
         description: string | null;
+        clientId: string;
         url: string;
         uploadedBy: string;
     }[]>;

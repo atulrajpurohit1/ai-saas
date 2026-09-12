@@ -3,6 +3,17 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { PrismaExceptionFilter } from './prisma/prisma-exception.filter';
+import { setDefaultResultOrder } from 'dns';
+
+// Prefer IPv4 for all outbound DNS lookups, process-wide. Some
+// hosting/sandboxed networks resolve a hostname (e.g. the SMTP provider) to
+// an IPv6 (or NAT64-synthesized) address that is unreachable or very slow,
+// and Node's default dual-stack connect attempt eats a long IPv6 timeout
+// before falling back to IPv4 — turning what should be a sub-second
+// outbound connection into a 15-20s stall on the request path (e.g. every
+// OTP email send). This only changes lookup preference, never correctness,
+// for any outbound call this process makes.
+setDefaultResultOrder('ipv4first');
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);

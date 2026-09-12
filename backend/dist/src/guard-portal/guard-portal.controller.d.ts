@@ -21,7 +21,7 @@ export declare class GuardPortalController {
         endTime: Date;
         status: string;
         assignmentStatus: string;
-        attendanceStatus: "completed" | "not_started" | "checked_in";
+        attendanceStatus: "not_started" | "checked_in" | "completed";
         checkInTime: Date | null;
         checkOutTime: Date | null;
     }[]>;
@@ -32,7 +32,7 @@ export declare class GuardPortalController {
         endTime: Date;
         status: string;
         assignmentStatus: string;
-        attendanceStatus: "completed" | "not_started" | "checked_in";
+        attendanceStatus: "not_started" | "checked_in" | "completed";
         checkInTime: Date | null;
         checkOutTime: Date | null;
         site: {
@@ -67,24 +67,24 @@ export declare class GuardPortalController {
     }>;
     syncOfflineActions(user: ActiveUser, dto: SyncOfflineActionsDto): Promise<{
         id: string;
-        status: string;
         createdAt: Date;
         tenantId: string;
+        status: string;
         guardId: string;
-        actionType: string;
         payload: import("@prisma/client/runtime/library").JsonValue;
         errorMessage: string | null;
+        actionType: string;
         syncedAt: Date | null;
     }[]>;
     syncStatus(user: ActiveUser): Promise<{
         id: string;
-        status: string;
         createdAt: Date;
         tenantId: string;
+        status: string;
         guardId: string;
-        actionType: string;
         payload: import("@prisma/client/runtime/library").JsonValue;
         errorMessage: string | null;
+        actionType: string;
         syncedAt: Date | null;
     }[]>;
 }

@@ -9,8 +9,8 @@ export declare class DocumentsController {
         name: string;
         createdAt: Date;
         tenantId: string;
-        clientId: string;
         description: string | null;
+        clientId: string;
         url: string;
         uploadedBy: string;
     }>;
@@ -19,8 +19,8 @@ export declare class DocumentsController {
         name: string;
         createdAt: Date;
         tenantId: string;
-        clientId: string;
         description: string | null;
+        clientId: string;
         url: string;
         uploadedBy: string;
     }[]>;
@@ -29,8 +29,8 @@ export declare class DocumentsController {
         name: string;
         createdAt: Date;
         tenantId: string;
-        clientId: string;
         description: string | null;
+        clientId: string;
         url: string;
         uploadedBy: string;
     }>;
@@ -39,8 +39,8 @@ export declare class DocumentsController {
         name: string;
         createdAt: Date;
         tenantId: string;
-        clientId: string;
         description: string | null;
+        clientId: string;
         url: string;
         uploadedBy: string;
     }>;

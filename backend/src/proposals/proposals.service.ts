@@ -291,27 +291,6 @@ export class ProposalsService {
     );
   }
 
-  async generateBulkProposals(tenantId: string, userId?: string) {
-    const leads = await this.prisma.lead.findMany({
-      where: {
-        tenantId,
-        proposals: { none: {} },
-      },
-    });
-
-    let generatedCount = 0;
-    for (const lead of leads) {
-      try {
-        await this.generateForLead(tenantId, lead.id, userId);
-        generatedCount++;
-      } catch (error) {
-        console.error(`Failed to generate proposal for lead ${lead.id}`, error);
-      }
-    }
-
-    return { generatedCount, totalProcessed: leads.length };
-  }
-
   async getComments(tenantId: string, id: string) {
     await this.findOne(tenantId, id);
 
@@ -354,6 +333,27 @@ export class ProposalsService {
     });
 
     return comment;
+  }
+
+  async remove(tenantId: string, id: string, userId?: string) {
+    const proposal = await this.findOne(tenantId, id);
+
+    await this.prisma.$transaction([
+      this.prisma.proposalComment.deleteMany({ where: { proposalId: id } }),
+      this.prisma.proposalVersion.deleteMany({ where: { proposalId: id } }),
+      this.prisma.proposal.delete({ where: { id } }),
+    ]);
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'DELETE',
+      entityType: 'Proposal',
+      entityId: id,
+      details: `Deleted proposal: ${proposal.title}`,
+    });
+
+    return { success: true };
   }
 
   async logAction(

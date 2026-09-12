@@ -48,7 +48,7 @@ let LeadsService = class LeadsService {
     }
     async findAll(tenantId) {
         return this.prisma.lead.findMany({
-            where: { tenantId },
+            where: { tenantId, status: { not: 'converted' } },
             select: {
                 id: true,
                 name: true,

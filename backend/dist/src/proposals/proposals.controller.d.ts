@@ -10,30 +10,17 @@ export declare class ProposalsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         status: string;
         title: string;
         content: string;
         dealId: string | null;
         leadId: string | null;
+        clientId: string | null;
     }>;
     findAll(req: Request): Promise<({
         _count: {
             versions: number;
         };
-        client: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            email: string;
-            tenantId: string;
-            branchId: string | null;
-            companyName: string | null;
-            phone: string | null;
-            billingNotes: string | null;
-            internalNotes: string | null;
-        } | null;
         lead: {
             id: string;
             name: string;
@@ -50,52 +37,48 @@ export declare class ProposalsController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            clientId: string | null;
             leadId: string;
+            clientId: string | null;
             stage: string;
+        } | null;
+        client: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            email: string;
+            tenantId: string;
+            branchId: string | null;
+            companyName: string | null;
+            phone: string | null;
+            billingNotes: string | null;
+            internalNotes: string | null;
         } | null;
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         status: string;
         title: string;
         content: string;
         dealId: string | null;
         leadId: string | null;
+        clientId: string | null;
     })[]>;
     generateProposal(req: Request, leadId: string, clientId?: string): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         status: string;
         title: string;
         content: string;
         dealId: string | null;
         leadId: string | null;
-    }>;
-    generateBulkProposals(req: Request): Promise<{
-        generatedCount: number;
-        totalProcessed: number;
+        clientId: string | null;
     }>;
     findOne(req: Request, id: string): Promise<{
-        client: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            email: string;
-            tenantId: string;
-            branchId: string | null;
-            companyName: string | null;
-            phone: string | null;
-            billingNotes: string | null;
-            internalNotes: string | null;
-        } | null;
         lead: {
             id: string;
             name: string;
@@ -112,8 +95,8 @@ export declare class ProposalsController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            clientId: string | null;
             leadId: string;
+            clientId: string | null;
             stage: string;
         } | null;
         versions: {
@@ -123,29 +106,45 @@ export declare class ProposalsController {
             proposalId: string;
             versionNumber: number;
         }[];
+        client: {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            email: string;
+            tenantId: string;
+            branchId: string | null;
+            companyName: string | null;
+            phone: string | null;
+            billingNotes: string | null;
+            internalNotes: string | null;
+        } | null;
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         status: string;
         title: string;
         content: string;
         dealId: string | null;
         leadId: string | null;
+        clientId: string | null;
     }>;
     update(req: Request, id: string, updateProposalDto: UpdateProposalDto): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         status: string;
         title: string;
         content: string;
         dealId: string | null;
         leadId: string | null;
+        clientId: string | null;
+    }>;
+    remove(req: Request, id: string): Promise<{
+        success: boolean;
     }>;
     export(req: Request, id: string, res: Response): Promise<void>;
     getComments(req: Request, id: string): Promise<{
@@ -171,11 +170,11 @@ export declare class ProposalsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        clientId: string | null;
         status: string;
         title: string;
         content: string;
         dealId: string | null;
         leadId: string | null;
+        clientId: string | null;
     }>;
 }

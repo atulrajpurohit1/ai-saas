@@ -18,6 +18,7 @@ const jwt_strategy_1 = require("./strategies/jwt.strategy");
 const jwt_refresh_strategy_1 = require("./strategies/jwt-refresh.strategy");
 const roles_module_1 = require("../roles/roles.module");
 const sessions_module_1 = require("../sessions/sessions.module");
+const email_verification_module_1 = require("../email-verification/email-verification.module");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -30,6 +31,7 @@ exports.AuthModule = AuthModule = __decorate([
             jwt_1.JwtModule.register({}),
             roles_module_1.RolesModule,
             sessions_module_1.SessionsModule,
+            email_verification_module_1.EmailVerificationModule,
         ],
         controllers: [auth_controller_1.AuthController],
         providers: [auth_service_1.AuthService, jwt_strategy_1.JwtStrategy, jwt_refresh_strategy_1.JwtRefreshStrategy],

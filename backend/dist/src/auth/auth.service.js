@@ -50,30 +50,53 @@ const config_1 = require("@nestjs/config");
 const bcrypt = __importStar(require("bcrypt"));
 const roles_service_1 = require("../roles/roles.service");
 const sessions_service_1 = require("../sessions/sessions.service");
+const email_verification_service_1 = require("../email-verification/email-verification.service");
 let AuthService = class AuthService {
     prisma;
     jwtService;
     configService;
     rolesService;
     sessionsService;
-    constructor(prisma, jwtService, configService, rolesService, sessionsService) {
+    emailVerification;
+    constructor(prisma, jwtService, configService, rolesService, sessionsService, emailVerification) {
         this.prisma = prisma;
         this.jwtService = jwtService;
         this.configService = configService;
         this.rolesService = rolesService;
         this.sessionsService = sessionsService;
+        this.emailVerification = emailVerification;
     }
     mapUserRole(role) {
         return role.toLowerCase() === 'finance' ? 'finance' : 'admin';
     }
     async register(dto, context) {
+        const email = await this.emailVerification.assertValidEmail(dto.email);
         const hashedPassword = await bcrypt.hash(dto.password, 10);
-        const email = dto.email.trim().toLowerCase();
-        const name = dto.name.trim();
-        const tenantName = dto.tenantName.trim();
-        const tenantSlug = dto.tenantSlug.trim().toLowerCase();
+        const name = dto.name?.trim() || '';
+        const tenantName = dto.tenantName?.trim() || '';
         try {
+            const existingUser = await this.prisma.user.findUnique({
+                where: { email },
+            });
+            if (existingUser) {
+                if (existingUser.emailVerified) {
+                    throw new common_1.ConflictException('An account with this email already exists.');
+                }
+                await this.prisma.user.update({
+                    where: { id: existingUser.id },
+                    data: { password: hashedPassword, name },
+                });
+                await this.emailVerification.issueOtp({
+                    accountType: 'USER',
+                    accountId: existingUser.id,
+                    tenantId: existingUser.tenantId,
+                    email,
+                    name,
+                });
+                return { status: 'verification_required', email };
+            }
             const result = await this.prisma.$transaction(async (tx) => {
+                const tenantSlug = await this.generateUniqueTenantSlug(tx, tenantName);
                 const tenant = await tx.tenant.create({
                     data: {
                         name: tenantName,
@@ -86,26 +109,21 @@ let AuthService = class AuthService {
                         password: hashedPassword,
                         name,
                         tenantId: tenant.id,
+                        emailVerified: false,
                     },
                 });
                 return { tenant, user };
             });
             await this.rolesService.ensureTenantSystemRoles(result.tenant.id);
             await this.rolesService.ensureDefaultAssignmentForUser(result.user.id);
-            const profile = await this.rolesService.getUserAccessProfile(result.user.id);
-            const sessionId = this.sessionsService.generateSessionId();
-            const tokens = await this.getTokens(result.user.id, result.user.email, result.tenant.id, profile.role, profile.branchId, profile.isSuperAdmin, sessionId);
-            await this.updateRefreshTokenHash(result.user.id, tokens.refresh_token, profile.role);
-            await this.sessionsService.createSession({
-                id: sessionId,
+            await this.emailVerification.issueOtp({
+                accountType: 'USER',
+                accountId: result.user.id,
                 tenantId: result.tenant.id,
-                userId: result.user.id,
-                refreshToken: tokens.refresh_token,
-                source: 'password',
-                ipAddress: context?.ipAddress,
-                userAgent: context?.userAgent,
+                email,
+                name,
             });
-            return tokens;
+            return { status: 'verification_required', email };
         }
         catch (error) {
             if (typeof error === 'object' &&
@@ -113,10 +131,134 @@ let AuthService = class AuthService {
                 'code' in error &&
                 error.code === 'P2002') {
                 const meta = error.meta;
-                throw new common_1.ConflictException(`Unique constraint failed on the fields: ${meta?.target?.join(', ') || 'unknown'}`);
+                const target = meta?.target?.join(',') || '';
+                if (target.includes('email')) {
+                    throw new common_1.ConflictException('An account with this email already exists.');
+                }
+                throw new common_1.ConflictException('Something went wrong creating your account. Please try again.');
             }
             throw error;
         }
+    }
+    async generateUniqueTenantSlug(tx, tenantName) {
+        const base = tenantName
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'company';
+        let candidate = base;
+        let suffix = 1;
+        while (await tx.tenant.findUnique({ where: { slug: candidate } })) {
+            suffix += 1;
+            candidate = `${base}-${suffix}`;
+        }
+        return candidate;
+    }
+    async verifyEmail(dto, context) {
+        const email = dto.email.trim().toLowerCase();
+        const user = await this.prisma.user.findUnique({ where: { email } });
+        if (!user) {
+            throw new common_1.UnauthorizedException('Invalid verification code.');
+        }
+        if (!user.emailVerified) {
+            await this.emailVerification.verifyOtp({
+                accountType: 'USER',
+                accountId: user.id,
+                code: dto.code,
+            });
+            await this.prisma.user.update({
+                where: { id: user.id },
+                data: { emailVerified: true, emailVerifiedAt: new Date() },
+            });
+        }
+        await this.rolesService.ensureDefaultAssignmentForUser(user.id);
+        const profile = await this.rolesService.getUserAccessProfile(user.id);
+        const sessionId = this.sessionsService.generateSessionId();
+        const tokens = await this.getTokens(user.id, user.email, user.tenantId, profile.role, profile.branchId, profile.isSuperAdmin, sessionId);
+        await this.updateRefreshTokenHash(user.id, tokens.refresh_token, profile.role);
+        await this.sessionsService.createSession({
+            id: sessionId,
+            tenantId: user.tenantId,
+            userId: user.id,
+            refreshToken: tokens.refresh_token,
+            source: 'password',
+            ipAddress: context?.ipAddress,
+            userAgent: context?.userAgent,
+        });
+        return tokens;
+    }
+    async resendOtp(dto) {
+        const email = dto.email.trim().toLowerCase();
+        const user = await this.prisma.user.findUnique({ where: { email } });
+        if (user && !user.emailVerified) {
+            await this.emailVerification.issueOtp({
+                accountType: 'USER',
+                accountId: user.id,
+                tenantId: user.tenantId,
+                email: user.email,
+                name: user.name,
+            });
+        }
+        return {
+            message: 'If an unverified account exists for this email, a new verification code has been sent.',
+        };
+    }
+    forgotPasswordGenericMessage = 'If an account exists for this email, a verification code has been sent.';
+    async forgotPassword(dto) {
+        const email = dto.email.trim().toLowerCase();
+        const user = await this.prisma.user.findUnique({ where: { email } });
+        if (user && user.emailVerified) {
+            await this.emailVerification.issueOtp({
+                accountType: 'USER',
+                accountId: user.id,
+                tenantId: user.tenantId,
+                email: user.email,
+                name: user.name,
+                purpose: email_verification_service_1.PASSWORD_RESET_PURPOSE,
+            });
+        }
+        return { message: this.forgotPasswordGenericMessage };
+    }
+    async verifyResetOtp(dto) {
+        const email = dto.email.trim().toLowerCase();
+        const user = await this.prisma.user.findUnique({ where: { email } });
+        if (!user || !user.emailVerified) {
+            throw new common_1.BadRequestException('Invalid verification code.');
+        }
+        await this.emailVerification.verifyOtp({
+            accountType: 'USER',
+            accountId: user.id,
+            code: dto.code,
+            purpose: email_verification_service_1.PASSWORD_RESET_PURPOSE,
+        });
+        const { token, expiresAt } = await this.emailVerification.issuePasswordResetToken({
+            accountId: user.id,
+            tenantId: user.tenantId,
+            email: user.email,
+        });
+        return { resetToken: token, expiresAt };
+    }
+    async resetPassword(dto) {
+        if (dto.newPassword !== dto.confirmPassword) {
+            throw new common_1.BadRequestException('Passwords do not match.');
+        }
+        const { accountId, tenantId } = await this.emailVerification.consumePasswordResetToken(dto.resetToken);
+        const user = await this.prisma.user.findUnique({
+            where: { id: accountId },
+        });
+        if (!user || user.tenantId !== tenantId) {
+            throw new common_1.BadRequestException('This password reset link is invalid or has expired. Please start the reset process again.');
+        }
+        const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+        await this.prisma.user.update({
+            where: { id: user.id },
+            data: { password: hashedPassword, refreshToken: null },
+        });
+        await this.prisma.userSession.updateMany({
+            where: { userId: user.id, status: 'active' },
+            data: { status: 'revoked', refreshTokenHash: null, revokedAt: new Date() },
+        });
+        return { message: 'Password reset successfully.' };
     }
     async login(dto, context) {
         const email = dto.email.trim().toLowerCase();
@@ -129,6 +271,9 @@ let AuthService = class AuthService {
         const passwordMatches = await bcrypt.compare(dto.password, user.password);
         if (!passwordMatches)
             throw new common_1.UnauthorizedException('Invalid credentials');
+        if (!user.emailVerified) {
+            throw new common_1.ForbiddenException('Please verify your email before logging in.');
+        }
         await this.rolesService.ensureDefaultAssignmentForUser(user.id);
         const profile = await this.rolesService.getUserAccessProfile(user.id);
         const sessionId = this.sessionsService.generateSessionId();
@@ -226,6 +371,7 @@ exports.AuthService = AuthService = __decorate([
         jwt_1.JwtService,
         config_1.ConfigService,
         roles_service_1.RolesService,
-        sessions_service_1.SessionsService])
+        sessions_service_1.SessionsService,
+        email_verification_service_1.EmailVerificationService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

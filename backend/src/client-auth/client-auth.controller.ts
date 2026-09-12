@@ -15,6 +15,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtRefreshGuard } from '../auth/guards/jwt-refresh.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { VerifyOtpDto } from '../email-verification/dto/verify-otp.dto';
+import { ResendOtpDto } from '../email-verification/dto/resend-otp.dto';
 
 @Controller('client-auth')
 export class ClientAuthController {
@@ -24,6 +26,18 @@ export class ClientAuthController {
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: ClientLoginDto) {
     return this.clientAuthService.login(dto);
+  }
+
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  verifyEmail(@Body() dto: VerifyOtpDto) {
+    return this.clientAuthService.verifyEmail(dto);
+  }
+
+  @Post('resend-otp')
+  @HttpCode(HttpStatus.OK)
+  resendOtp(@Body() dto: ResendOtpDto) {
+    return this.clientAuthService.resendOtp(dto);
   }
 
   @UseGuards(JwtRefreshGuard)

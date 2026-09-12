@@ -20,6 +20,8 @@ const client_auth_service_2 = require("./client-auth.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const jwt_refresh_guard_1 = require("../auth/guards/jwt-refresh.guard");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
+const verify_otp_dto_1 = require("../email-verification/dto/verify-otp.dto");
+const resend_otp_dto_1 = require("../email-verification/dto/resend-otp.dto");
 let ClientAuthController = class ClientAuthController {
     clientAuthService;
     constructor(clientAuthService) {
@@ -27,6 +29,12 @@ let ClientAuthController = class ClientAuthController {
     }
     login(dto) {
         return this.clientAuthService.login(dto);
+    }
+    verifyEmail(dto) {
+        return this.clientAuthService.verifyEmail(dto);
+    }
+    resendOtp(dto) {
+        return this.clientAuthService.resendOtp(dto);
     }
     refreshTokens(req) {
         const user = req.user;
@@ -48,6 +56,22 @@ __decorate([
     __metadata("design:paramtypes", [client_login_dto_1.ClientLoginDto]),
     __metadata("design:returntype", void 0)
 ], ClientAuthController.prototype, "login", null);
+__decorate([
+    (0, common_1.Post)('verify-email'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [verify_otp_dto_1.VerifyOtpDto]),
+    __metadata("design:returntype", void 0)
+], ClientAuthController.prototype, "verifyEmail", null);
+__decorate([
+    (0, common_1.Post)('resend-otp'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [resend_otp_dto_1.ResendOtpDto]),
+    __metadata("design:returntype", void 0)
+], ClientAuthController.prototype, "resendOtp", null);
 __decorate([
     (0, common_1.UseGuards)(jwt_refresh_guard_1.JwtRefreshGuard),
     (0, common_1.Post)('refresh'),
