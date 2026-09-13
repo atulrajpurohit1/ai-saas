@@ -177,5 +177,24 @@ describe('EmailValidationService', () => {
       expect(result.valid).toBe(false);
       expect(result.reason).toBe('NO_MX_RECORD');
     });
+
+    it('fails open when both the default and fallback resolver connections are refused (e.g. outbound DNS/UDP blocked in the runtime)', async () => {
+      // Regression test: a host with no outbound DNS path at all (default
+      // resolver AND the public fallback both refuse the connection) must
+      // never be treated as "every domain doesn't exist" -- that previously
+      // rejected real domains like gmail.com whenever the runtime's egress
+      // blocked DNS, breaking every signup.
+      const connRefused = Object.assign(new Error('refused'), {
+        code: 'ECONNREFUSED',
+      });
+      mockedDns.resolveMx.mockRejectedValue(connRefused);
+      mockedDns.resolve.mockRejectedValue(connRefused);
+      mockedDns.resolve6.mockRejectedValue(connRefused);
+      mockCallback(mockedResolver.resolveMx, { error: connRefused });
+      mockCallback(mockedResolver.resolve4, { error: connRefused });
+
+      const result = await service.validate('someone@gmail.com');
+      expect(result.valid).toBe(true);
+    });
   });
 });

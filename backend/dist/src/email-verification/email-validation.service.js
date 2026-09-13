@@ -77,9 +77,7 @@ let EmailValidationService = class EmailValidationService {
                 return 'unknown';
             }
             const code = error?.code;
-            if (code === 'ENOTFOUND' ||
-                code === 'ENODATA' ||
-                ((code === 'ECONNREFUSED' || code === 'ECONNRESET') && useServers)) {
+            if (code === 'ENOTFOUND' || code === 'ENODATA') {
                 return 'unresolvable';
             }
             return 'unknown';
