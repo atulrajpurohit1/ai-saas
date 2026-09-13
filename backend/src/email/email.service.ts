@@ -23,6 +23,84 @@ interface MailTransport {
 }
 
 /**
+ * Splits an RFC 5322 `"Display Name" <addr@example.com>` string (what
+ * senderFor builds, and what SMTP takes directly) into the separate name
+ * and email fields that JSON email APIs expect. A bare address with no
+ * display name is returned with `name` undefined.
+ */
+function parseAddress(address: string): { name?: string; email: string } {
+  const match = /^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/.exec(address);
+  if (!match) {
+    return { email: address.trim() };
+  }
+  const name = match[1].trim();
+  return { ...(name ? { name } : {}), email: match[2].trim() };
+}
+
+/**
+ * Sends via Brevo's HTTPS REST API rather than their SMTP relay.
+ *
+ * Render's free tier blocks outbound SMTP ports: connections to
+ * smtp-relay.brevo.com:587 (and smtp.resend.com:465 before it) time out
+ * after exactly the configured connectionTimeout, while the same host
+ * accepts a connection in ~130ms from an unrestricted network. HTTPS is
+ * not blocked, so the API is the only workable path on this host.
+ *
+ * Brevo also only requires a verified sender ADDRESS rather than a
+ * verified domain, which is why it is preferred over Resend here.
+ */
+class BrevoHttpTransport implements MailTransport {
+  constructor(private readonly apiKey: string) {}
+
+  async sendMail(options: {
+    from: string;
+    to: string;
+    replyTo?: string;
+    subject: string;
+    text: string;
+    html: string;
+  }): Promise<SendMailResult> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+
+    let response: Response;
+    try {
+      response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': this.apiKey,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          sender: parseAddress(options.from),
+          to: [{ email: options.to }],
+          ...(options.replyTo
+            ? { replyTo: parseAddress(options.replyTo) }
+            : {}),
+          subject: options.subject,
+          textContent: options.text,
+          htmlContent: options.html,
+        }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      throw new Error(
+        `Brevo API request failed (${response.status}): ${body || response.statusText}`,
+      );
+    }
+
+    const data = (await response.json()) as { messageId?: string };
+    return { messageId: data.messageId || '' };
+  }
+}
+
+/**
  * Sends via Resend's plain HTTPS REST API instead of their SMTP relay.
  *
  * The practical advantage is diagnosability: the API returns Resend's real
@@ -100,15 +178,21 @@ export class EmailService {
     private prisma: PrismaService,
     private brandingService: BrandingService,
   ) {
-    // Resend's HTTP API is used only when RESEND_API_KEY is set explicitly.
-    // This deliberately does NOT fall back to SMTP_PASS: that variable holds
-    // whatever the configured SMTP provider's password is (a Brevo SMTP key,
-    // for instance), and treating it as a Resend API key would silently
-    // route mail to the wrong provider with credentials that aren't valid
-    // there.
+    // Transport priority: an explicitly-configured HTTP API first, SMTP
+    // last. On hosts that block outbound SMTP ports (Render's free tier,
+    // where this deploys), SMTP cannot work at all and an HTTP API is the
+    // only path -- so a configured API key always wins.
+    //
+    // Each key is read only from its own variable. In particular this does
+    // NOT fall back to SMTP_PASS, which holds the SMTP provider's password
+    // (a Brevo *SMTP* key, distinct from a Brevo *API* key): treating that
+    // as an API key would send the wrong credential to the wrong endpoint.
+    const brevoApiKey = process.env.BREVO_API_KEY;
     const resendApiKey = process.env.RESEND_API_KEY;
 
-    if (resendApiKey) {
+    if (brevoApiKey) {
+      this.transporter = new BrevoHttpTransport(brevoApiKey);
+    } else if (resendApiKey) {
       this.transporter = new ResendHttpTransport(resendApiKey);
     } else {
       const smtpPort = Number(process.env.SMTP_PORT) || 587;

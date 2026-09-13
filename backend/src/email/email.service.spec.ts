@@ -187,15 +187,16 @@ describe('EmailService', () => {
     // when host/port are passed explicitly -- getting `secure` wrong here
     // doesn't throw, it just hangs until connectionTimeout, which is
     // exactly what happened against Resend's smtp.resend.com:465 in
-    // production before this was fixed. This path only runs when no
-    // Resend API key is configured (see the "transport selection" tests
-    // below for that switch), so this suite clears both env vars that
-    // would otherwise route EmailService to the Resend HTTP transport.
+    // production before this was fixed. This path only runs when no HTTP
+    // API key is configured (see the transport-selection tests below), so
+    // this suite clears every env var that would otherwise route
+    // EmailService to one of the HTTP transports.
     const originalHost = process.env.SMTP_HOST;
     const originalPort = process.env.SMTP_PORT;
     const originalUser = process.env.SMTP_USER;
     const originalSmtpPass = process.env.SMTP_PASS;
     const originalResendKey = process.env.RESEND_API_KEY;
+    const originalBrevoKey = process.env.BREVO_API_KEY;
 
     afterEach(() => {
       if (originalHost === undefined) delete process.env.SMTP_HOST;
@@ -208,11 +209,14 @@ describe('EmailService', () => {
       else process.env.SMTP_PASS = originalSmtpPass;
       if (originalResendKey === undefined) delete process.env.RESEND_API_KEY;
       else process.env.RESEND_API_KEY = originalResendKey;
+      if (originalBrevoKey === undefined) delete process.env.BREVO_API_KEY;
+      else process.env.BREVO_API_KEY = originalBrevoKey;
     });
 
     const buildWithPort = async (port: string) => {
       delete process.env.SMTP_PASS;
       delete process.env.RESEND_API_KEY;
+      delete process.env.BREVO_API_KEY;
       process.env.SMTP_HOST = 'smtp.resend.com';
       process.env.SMTP_PORT = port;
       nodemailer.createTransport.mockClear();
@@ -246,10 +250,11 @@ describe('EmailService', () => {
       expect(options.secure).toBe(false);
     });
 
-    it('stays on SMTP when only SMTP_PASS is set, since that is the SMTP provider password (e.g. a Brevo SMTP key) and not a Resend API key', async () => {
+    it('stays on SMTP when only SMTP_PASS is set, since that is the SMTP provider password (a Brevo SMTP key, distinct from a Brevo API key) and not an HTTP API key', async () => {
       nodemailer.createTransport.mockClear();
       nodemailer.createTransport.mockReturnValue({ sendMail: jest.fn() });
       delete process.env.RESEND_API_KEY;
+      delete process.env.BREVO_API_KEY;
       process.env.SMTP_HOST = 'smtp-relay.brevo.com';
       process.env.SMTP_PORT = '587';
       process.env.SMTP_USER = '8a1b2c001@smtp-brevo.com';
@@ -300,6 +305,7 @@ describe('EmailService', () => {
       delete process.env.SMTP_HOST;
       delete process.env.SMTP_PORT;
       delete process.env.SMTP_PASS;
+      delete process.env.BREVO_API_KEY;
       delete process.env.RESEND_API_KEY;
       process.env.RESEND_API_KEY = apiKey;
 
@@ -376,6 +382,129 @@ describe('EmailService', () => {
           expiresInMinutes: 10,
         }),
       ).rejects.toThrow(/422/);
+    });
+  });
+
+  describe('Brevo HTTP transport', () => {
+    // Render's free tier blocks outbound SMTP ports, so SMTP cannot work
+    // there at all -- connections to smtp-relay.brevo.com:587 time out
+    // after exactly connectionTimeout while the same host answers in
+    // ~130ms from an unrestricted network. Brevo's HTTPS API is the
+    // working path, and unlike Resend it needs only a verified sender
+    // ADDRESS rather than a verified domain.
+    const originalEnv = { ...process.env };
+    let originalFetch: typeof fetch;
+
+    beforeEach(() => {
+      originalFetch = global.fetch;
+    });
+
+    afterEach(() => {
+      process.env = { ...originalEnv };
+      global.fetch = originalFetch;
+    });
+
+    const buildWithBrevoKey = async (apiKey: string) => {
+      delete process.env.SMTP_HOST;
+      delete process.env.SMTP_PORT;
+      delete process.env.SMTP_PASS;
+      delete process.env.RESEND_API_KEY;
+      process.env.BREVO_API_KEY = apiKey;
+      process.env.EMAIL_FROM = 'atul@hybridmonks.com';
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          EmailService,
+          { provide: PrismaService, useValue: {} },
+          {
+            provide: BrandingService,
+            useValue: {
+              brandingSnapshot: jest.fn(),
+              emailShell: jest.fn(),
+            },
+          },
+        ],
+      }).compile();
+      return module.get<EmailService>(EmailService);
+    };
+
+    it('posts to the Brevo API with the sender split into name/email, and never touches SMTP', async () => {
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ messageId: '<brevo-id@smtp-relay.brevo.com>' }),
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+      // The file's outer `beforeEach` builds its own throwaway
+      // EmailService before every test; clear the history so only this
+      // test's construction counts.
+      nodemailer.createTransport.mockClear();
+
+      const service = await buildWithBrevoKey('xkeysib-test');
+      const info = await service.sendOtpEmail(null, {
+        email: 'recipient@gmail.com',
+        code: '123456',
+        expiresInMinutes: 10,
+      });
+
+      expect(nodemailer.createTransport).not.toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [url, requestInit] = fetchMock.mock.calls[0];
+      expect(url).toBe('https://api.brevo.com/v3/smtp/email');
+      expect(requestInit.headers['api-key']).toBe('xkeysib-test');
+
+      const body = JSON.parse(requestInit.body);
+      // Brevo needs the sender as a structured object, not the RFC 5322
+      // string SMTP takes.
+      expect(body.sender).toEqual({
+        name: 'AegisLead',
+        email: 'atul@hybridmonks.com',
+      });
+      expect(body.to).toEqual([{ email: 'recipient@gmail.com' }]);
+      expect(body.htmlContent).toContain('123456');
+      expect(body.textContent).toContain('123456');
+      expect(info.messageId).toBe('<brevo-id@smtp-relay.brevo.com>');
+      expect(info.previewUrl).toBe(false);
+    });
+
+    it('takes precedence over RESEND_API_KEY when both are set', async () => {
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ messageId: 'brevo-wins' }),
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const service = await buildWithBrevoKey('xkeysib-test');
+      process.env.RESEND_API_KEY = 're_also_set';
+
+      await service.sendOtpEmail(null, {
+        email: 'recipient@gmail.com',
+        code: '123456',
+        expiresInMinutes: 10,
+      });
+
+      expect(fetchMock.mock.calls[0][0]).toBe(
+        'https://api.brevo.com/v3/smtp/email',
+      );
+    });
+
+    it('throws with the Brevo API error body when the request is rejected', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        text: async () =>
+          '{"code":"invalid_parameter","message":"Sender is not valid"}',
+      }) as unknown as typeof fetch;
+
+      const service = await buildWithBrevoKey('xkeysib-test');
+
+      await expect(
+        service.sendOtpEmail(null, {
+          email: 'recipient@gmail.com',
+          code: '123456',
+          expiresInMinutes: 10,
+        }),
+      ).rejects.toThrow(/Sender is not valid/);
     });
   });
 });
