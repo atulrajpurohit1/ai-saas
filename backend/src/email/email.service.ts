@@ -25,9 +25,20 @@ export class EmailService {
     private prisma: PrismaService,
     private brandingService: BrandingService,
   ) {
+    const smtpPort = Number(process.env.SMTP_PORT) || 587;
+
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-      port: Number(process.env.SMTP_PORT) || 587,
+      port: smtpPort,
+      // Port 465 is implicit TLS (the socket must be TLS from the first
+      // byte); every other port (587, 25, ...) is plaintext-then-STARTTLS.
+      // nodemailer does NOT infer this from the port when host/port are
+      // given explicitly (as here) -- it defaults `secure` to false
+      // regardless of port, so without this, port 465 (e.g. Resend's SMTP
+      // relay) gets a plaintext connection attempt that the server never
+      // completes, which manifests as a silent connection timeout rather
+      // than a clear rejection.
+      secure: smtpPort === 465,
       auth: {
         user: process.env.SMTP_USER || 'ethereal.user@ethereal.email',
         pass: process.env.SMTP_PASS || 'ethereal-pass',
