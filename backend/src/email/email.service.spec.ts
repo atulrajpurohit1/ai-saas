@@ -193,6 +193,7 @@ describe('EmailService', () => {
     // would otherwise route EmailService to the Resend HTTP transport.
     const originalHost = process.env.SMTP_HOST;
     const originalPort = process.env.SMTP_PORT;
+    const originalUser = process.env.SMTP_USER;
     const originalSmtpPass = process.env.SMTP_PASS;
     const originalResendKey = process.env.RESEND_API_KEY;
 
@@ -201,6 +202,8 @@ describe('EmailService', () => {
       else process.env.SMTP_HOST = originalHost;
       if (originalPort === undefined) delete process.env.SMTP_PORT;
       else process.env.SMTP_PORT = originalPort;
+      if (originalUser === undefined) delete process.env.SMTP_USER;
+      else process.env.SMTP_USER = originalUser;
       if (originalSmtpPass === undefined) delete process.env.SMTP_PASS;
       else process.env.SMTP_PASS = originalSmtpPass;
       if (originalResendKey === undefined) delete process.env.RESEND_API_KEY;
@@ -242,15 +245,42 @@ describe('EmailService', () => {
       const options = await buildWithPort('587');
       expect(options.secure).toBe(false);
     });
+
+    it('stays on SMTP when only SMTP_PASS is set, since that is the SMTP provider password (e.g. a Gmail App Password) and not a Resend API key', async () => {
+      nodemailer.createTransport.mockClear();
+      nodemailer.createTransport.mockReturnValue({ sendMail: jest.fn() });
+      delete process.env.RESEND_API_KEY;
+      process.env.SMTP_HOST = 'smtp.gmail.com';
+      process.env.SMTP_PORT = '587';
+      process.env.SMTP_USER = 'sender@gmail.com';
+      process.env.SMTP_PASS = 'gmail-app-password';
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          EmailService,
+          { provide: PrismaService, useValue: {} },
+          {
+            provide: BrandingService,
+            useValue: { brandingSnapshot: jest.fn(), emailShell: jest.fn() },
+          },
+        ],
+      }).compile();
+      module.get<EmailService>(EmailService);
+
+      expect(nodemailer.createTransport).toHaveBeenCalledTimes(1);
+      const options = nodemailer.createTransport.mock.calls[0][0];
+      expect(options.host).toBe('smtp.gmail.com');
+      expect(options.auth.pass).toBe('gmail-app-password');
+    });
   });
 
-  describe('Resend HTTP transport (SMTP-port-blocked PaaS fallback)', () => {
-    // Many PaaS free tiers block outbound SMTP ports (25/465/587) entirely,
-    // which SMTP-based sending cannot distinguish from any other cause of
-    // "Connection timeout" (see the TLS-mode suite above for the fix
-    // attempted first). HTTPS is not blocked the same way, so whenever a
-    // Resend API key is configured, EmailService sends via Resend's REST
-    // API instead of SMTP entirely.
+  describe('Resend HTTP transport', () => {
+    // When RESEND_API_KEY is set, mail goes over Resend's HTTPS REST API
+    // rather than SMTP. Beyond avoiding SMTP entirely, this surfaces
+    // Resend's actual error responses (e.g. a 403 explaining that an
+    // unverified sending domain restricts delivery to the account owner's
+    // own address) instead of the opaque connection timeouts the SMTP
+    // relay produced for the same condition.
     const originalEnv = { ...process.env };
     let originalFetch: typeof fetch;
 

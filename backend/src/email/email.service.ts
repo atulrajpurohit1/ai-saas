@@ -23,14 +23,14 @@ interface MailTransport {
 }
 
 /**
- * Sends via Resend's plain HTTPS REST API instead of SMTP. Many PaaS free
- * tiers (this app is deployed on one) block outbound SMTP ports (25/465/587)
- * entirely as an anti-spam measure -- the TLS/STARTTLS handshake never even
- * gets a chance to matter because the TCP connection itself never
- * establishes, which surfaces indistinguishably from any other cause as a
- * silent "Connection timeout". HTTPS (443) is never blocked the same way,
- * so this sidesteps the issue rather than trying to out-guess the platform's
- * network policy.
+ * Sends via Resend's plain HTTPS REST API instead of their SMTP relay.
+ *
+ * The practical advantage is diagnosability: the API returns Resend's real
+ * error responses, so an account-level restriction (e.g. 403 "You can only
+ * send testing emails to your own email address" when no sending domain is
+ * verified) arrives as an actionable message. The SMTP relay surfaced the
+ * same condition as an opaque "Connection timeout", which is impossible to
+ * tell apart from a network problem.
  */
 class ResendHttpTransport implements MailTransport {
   constructor(private readonly apiKey: string) {}
@@ -100,13 +100,15 @@ export class EmailService {
     private prisma: PrismaService,
     private brandingService: BrandingService,
   ) {
-    // RESEND_API_KEY is the intended config going forward; SMTP_PASS is
-    // read as a fallback because it already holds the Resend API key on
-    // deployments set up before this env var existed (see .env.example),
-    // so no Render env var change is required for this to take effect.
-    const resendApiKey = process.env.RESEND_API_KEY || process.env.SMTP_PASS;
+    // Resend's HTTP API is used only when RESEND_API_KEY is set explicitly.
+    // This deliberately does NOT fall back to SMTP_PASS: that variable holds
+    // whatever the configured SMTP provider's password is (a Gmail App
+    // Password, for instance), and treating it as a Resend API key would
+    // silently route mail to the wrong provider with credentials that
+    // aren't valid there.
+    const resendApiKey = process.env.RESEND_API_KEY;
 
-    if (resendApiKey && resendApiKey !== 'ethereal-pass') {
+    if (resendApiKey) {
       this.transporter = new ResendHttpTransport(resendApiKey);
     } else {
       const smtpPort = Number(process.env.SMTP_PORT) || 587;
