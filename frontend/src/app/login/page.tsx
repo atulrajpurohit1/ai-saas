@@ -11,6 +11,8 @@ import OtpInput from '@/components/OtpInput';
 import { toast } from 'sonner';
 
 interface ApiError {
+  message?: string;
+  request?: unknown;
   response?: {
     data?: {
       message?: string | string[];
@@ -27,9 +29,20 @@ const normalizeSlug = (value: string) =>
     .replace(/^-+|-+$/g, '');
 
 const errorMessageFrom = (err: unknown, fallback: string) => {
-  const message = (err as ApiError).response?.data?.message;
+  const apiError = err as ApiError;
+  const message = apiError.response?.data?.message;
   if (Array.isArray(message)) return message[0] || fallback;
-  return message || fallback;
+  if (message) return message;
+
+  // Axios sets `request` but leaves `response` undefined when the request
+  // never got a response at all (network failure, CORS preflight block,
+  // DNS/timeout, etc). Surface that distinctly instead of the generic
+  // fallback, which otherwise misleadingly reads like a credentials error.
+  if (apiError.request && !apiError.response) {
+    return 'Could not reach the server. This may be a network issue or the server rejecting requests from this site (CORS). Please try again or contact support.';
+  }
+
+  return fallback;
 };
 
 /** Masks an email for display during OTP verification, e.g. "j***@gmail.com". */

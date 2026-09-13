@@ -40,6 +40,8 @@ async function bootstrap() {
     'http://127.0.0.1:3000',
     'https://ai-saas-qd62.vercel.app',
     'https://ai-saas-mxab.vercel.app',
+    'https://www.aegislead.co',
+    'https://aegislead.co',
     ...configuredOrigins,
   ]);
 
