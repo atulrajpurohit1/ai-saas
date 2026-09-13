@@ -180,25 +180,36 @@ describe('EmailService', () => {
     });
   });
 
-  describe('transport TLS mode', () => {
+  describe('transport TLS mode (nodemailer fallback path)', () => {
     // Regression coverage: port 465 is implicit TLS and the socket must be
     // TLS from the first byte, unlike 587/25 which start plaintext and
     // upgrade via STARTTLS. nodemailer does not infer this from the port
     // when host/port are passed explicitly -- getting `secure` wrong here
     // doesn't throw, it just hangs until connectionTimeout, which is
     // exactly what happened against Resend's smtp.resend.com:465 in
-    // production before this was fixed.
+    // production before this was fixed. This path only runs when no
+    // Resend API key is configured (see the "transport selection" tests
+    // below for that switch), so this suite clears both env vars that
+    // would otherwise route EmailService to the Resend HTTP transport.
     const originalHost = process.env.SMTP_HOST;
     const originalPort = process.env.SMTP_PORT;
+    const originalSmtpPass = process.env.SMTP_PASS;
+    const originalResendKey = process.env.RESEND_API_KEY;
 
     afterEach(() => {
       if (originalHost === undefined) delete process.env.SMTP_HOST;
       else process.env.SMTP_HOST = originalHost;
       if (originalPort === undefined) delete process.env.SMTP_PORT;
       else process.env.SMTP_PORT = originalPort;
+      if (originalSmtpPass === undefined) delete process.env.SMTP_PASS;
+      else process.env.SMTP_PASS = originalSmtpPass;
+      if (originalResendKey === undefined) delete process.env.RESEND_API_KEY;
+      else process.env.RESEND_API_KEY = originalResendKey;
     });
 
     const buildWithPort = async (port: string) => {
+      delete process.env.SMTP_PASS;
+      delete process.env.RESEND_API_KEY;
       process.env.SMTP_HOST = 'smtp.resend.com';
       process.env.SMTP_PORT = port;
       nodemailer.createTransport.mockClear();
@@ -230,6 +241,111 @@ describe('EmailService', () => {
     it('uses STARTTLS (secure: false) for port 587', async () => {
       const options = await buildWithPort('587');
       expect(options.secure).toBe(false);
+    });
+  });
+
+  describe('Resend HTTP transport (SMTP-port-blocked PaaS fallback)', () => {
+    // Many PaaS free tiers block outbound SMTP ports (25/465/587) entirely,
+    // which SMTP-based sending cannot distinguish from any other cause of
+    // "Connection timeout" (see the TLS-mode suite above for the fix
+    // attempted first). HTTPS is not blocked the same way, so whenever a
+    // Resend API key is configured, EmailService sends via Resend's REST
+    // API instead of SMTP entirely.
+    const originalEnv = { ...process.env };
+    let originalFetch: typeof fetch;
+
+    beforeEach(() => {
+      originalFetch = global.fetch;
+    });
+
+    afterEach(() => {
+      process.env = { ...originalEnv };
+      global.fetch = originalFetch;
+    });
+
+    const buildWithResendKey = async (apiKey: string) => {
+      // Explicit deletes (rather than relying on describe-level cleanup
+      // ordering from other suites in this file) so this suite is correct
+      // regardless of what ran before it.
+      delete process.env.SMTP_HOST;
+      delete process.env.SMTP_PORT;
+      delete process.env.SMTP_PASS;
+      delete process.env.RESEND_API_KEY;
+      process.env.RESEND_API_KEY = apiKey;
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          EmailService,
+          { provide: PrismaService, useValue: {} },
+          {
+            provide: BrandingService,
+            useValue: {
+              brandingSnapshot: jest.fn(),
+              emailShell: jest.fn(),
+            },
+          },
+        ],
+      }).compile();
+      return module.get<EmailService>(EmailService);
+    };
+
+    it('sends via Resend REST API (not nodemailer/SMTP) when RESEND_API_KEY is set', async () => {
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: 'resend-message-id' }),
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+      // The file's outer `beforeEach` (top of this file) constructs its own
+      // throwaway EmailService before every test, including this one, which
+      // may itself call nodemailer.createTransport depending on ambient env
+      // at that moment -- irrelevant to what THIS test is asserting. Clear
+      // the mock's call history right before building the instance under
+      // test so only calls made during this test's own construction count.
+      const createTransportSpy = jest.spyOn(
+        require('nodemailer'),
+        'createTransport',
+      );
+      createTransportSpy.mockClear();
+
+      const service = await buildWithResendKey('re_test_key');
+      const info = await service.sendOtpEmail(null, {
+        email: 'user@example.com',
+        code: '123456',
+        expiresInMinutes: 10,
+      });
+
+      expect(createTransportSpy).not.toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [url, requestInit] = fetchMock.mock.calls[0];
+      expect(url).toBe('https://api.resend.com/emails');
+      expect(requestInit.method).toBe('POST');
+      expect(requestInit.headers.Authorization).toBe('Bearer re_test_key');
+      const body = JSON.parse(requestInit.body);
+      expect(body.to).toBe('user@example.com');
+      expect(body.html).toContain('123456');
+      expect(info.messageId).toBe('resend-message-id');
+      // Not a nodemailer send, so there is no Ethereal preview link.
+      expect(info.previewUrl).toBe(false);
+      createTransportSpy.mockRestore();
+    });
+
+    it('throws with the Resend API error body when the request is rejected', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 422,
+        statusText: 'Unprocessable Entity',
+        text: async () => '{"message":"invalid `to` field"}',
+      }) as unknown as typeof fetch;
+
+      const service = await buildWithResendKey('re_test_key');
+
+      await expect(
+        service.sendOtpEmail(null, {
+          email: 'user@example.com',
+          code: '123456',
+          expiresInMinutes: 10,
+        }),
+      ).rejects.toThrow(/422/);
     });
   });
 });

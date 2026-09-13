@@ -7,9 +7,84 @@ import * as nodemailer from 'nodemailer';
 import { BrandingService } from '../branding/branding.service';
 import { PrismaService } from '../prisma/prisma.service';
 
+interface SendMailResult {
+  messageId: string;
+}
+
+interface MailTransport {
+  sendMail(options: {
+    from: string;
+    to: string;
+    replyTo?: string;
+    subject: string;
+    text: string;
+    html: string;
+  }): Promise<SendMailResult>;
+}
+
+/**
+ * Sends via Resend's plain HTTPS REST API instead of SMTP. Many PaaS free
+ * tiers (this app is deployed on one) block outbound SMTP ports (25/465/587)
+ * entirely as an anti-spam measure -- the TLS/STARTTLS handshake never even
+ * gets a chance to matter because the TCP connection itself never
+ * establishes, which surfaces indistinguishably from any other cause as a
+ * silent "Connection timeout". HTTPS (443) is never blocked the same way,
+ * so this sidesteps the issue rather than trying to out-guess the platform's
+ * network policy.
+ */
+class ResendHttpTransport implements MailTransport {
+  constructor(private readonly apiKey: string) {}
+
+  async sendMail(options: {
+    from: string;
+    to: string;
+    replyTo?: string;
+    subject: string;
+    text: string;
+    html: string;
+  }): Promise<SendMailResult> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+
+    let response: Response;
+    try {
+      response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: options.from,
+          to: options.to,
+          ...(options.replyTo ? { reply_to: options.replyTo } : {}),
+          subject: options.subject,
+          text: options.text,
+          html: options.html,
+        }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      throw new Error(
+        `Resend API request failed (${response.status}): ${body || response.statusText}`,
+      );
+    }
+
+    const data = (await response.json()) as { id?: string };
+    return { messageId: data.id || '' };
+  }
+}
+
 @Injectable()
 export class EmailService {
-  private transporter: nodemailer.Transporter;
+  private transporter: MailTransport;
+  // Set at construction time alongside `transporter` -- see previewUrlFor().
+  private usingNodemailer = false;
 
   // The actual SMTP envelope sender. In production this must be an address
   // on a domain verified with the configured SMTP provider (e.g. Resend) —
@@ -25,32 +100,41 @@ export class EmailService {
     private prisma: PrismaService,
     private brandingService: BrandingService,
   ) {
-    const smtpPort = Number(process.env.SMTP_PORT) || 587;
+    // RESEND_API_KEY is the intended config going forward; SMTP_PASS is
+    // read as a fallback because it already holds the Resend API key on
+    // deployments set up before this env var existed (see .env.example),
+    // so no Render env var change is required for this to take effect.
+    const resendApiKey = process.env.RESEND_API_KEY || process.env.SMTP_PASS;
 
-    this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-      port: smtpPort,
-      // Port 465 is implicit TLS (the socket must be TLS from the first
-      // byte); every other port (587, 25, ...) is plaintext-then-STARTTLS.
-      // nodemailer does NOT infer this from the port when host/port are
-      // given explicitly (as here) -- it defaults `secure` to false
-      // regardless of port, so without this, port 465 (e.g. Resend's SMTP
-      // relay) gets a plaintext connection attempt that the server never
-      // completes, which manifests as a silent connection timeout rather
-      // than a clear rejection.
-      secure: smtpPort === 465,
-      auth: {
-        user: process.env.SMTP_USER || 'ethereal.user@ethereal.email',
-        pass: process.env.SMTP_PASS || 'ethereal-pass',
-      },
-      // nodemailer's defaults (2min connection, 10min socket) let a slow or
-      // unresponsive SMTP provider hang a request for minutes. OTP sends
-      // are on the synchronous request path (register/login-adjacent), so
-      // a failure needs to surface in seconds, not minutes.
-      connectionTimeout: 10_000,
-      greetingTimeout: 10_000,
-      socketTimeout: 15_000,
-    });
+    if (resendApiKey && resendApiKey !== 'ethereal-pass') {
+      this.transporter = new ResendHttpTransport(resendApiKey);
+    } else {
+      const smtpPort = Number(process.env.SMTP_PORT) || 587;
+
+      this.transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp.ethereal.email',
+        port: smtpPort,
+        // Port 465 is implicit TLS (the socket must be TLS from the first
+        // byte); every other port (587, 25, ...) is plaintext-then-STARTTLS.
+        // nodemailer does NOT infer this from the port when host/port are
+        // given explicitly (as here) -- it defaults `secure` to false
+        // regardless of port, so without this, port 465 gets a plaintext
+        // connection attempt that the server never completes.
+        secure: smtpPort === 465,
+        auth: {
+          user: process.env.SMTP_USER || 'ethereal.user@ethereal.email',
+          pass: process.env.SMTP_PASS || 'ethereal-pass',
+        },
+        // nodemailer's defaults (2min connection, 10min socket) let a slow
+        // or unresponsive SMTP provider hang a request for minutes. OTP
+        // sends are on the synchronous request path (register/login-
+        // adjacent), so a failure needs to surface in seconds, not minutes.
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 15_000,
+      });
+      this.usingNodemailer = true;
+    }
   }
 
   /**
@@ -68,6 +152,22 @@ export class EmailService {
       from: `"${companyName}" <${this.envelopeFrom}>`,
       ...(supportEmail ? { replyTo: supportEmail } : {}),
     };
+  }
+
+  /**
+   * Ethereal (local/dev fallback) preview link, if this send went through
+   * nodemailer's Ethereal transport. `getTestMessageUrl` expects a real
+   * nodemailer SentMessageInfo shape (envelope, response, etc.) -- the
+   * Resend HTTP path's result is a plain `{ messageId }`, so this is only
+   * ever meaningful when `transporter` is the nodemailer instance.
+   */
+  private previewUrlFor(info: SendMailResult): string | false {
+    if (!this.usingNodemailer) {
+      return false;
+    }
+    return nodemailer.getTestMessageUrl(
+      info as Parameters<typeof nodemailer.getTestMessageUrl>[0],
+    );
   }
 
   async sendProposalEmail(tenantId: string, leadId: string) {
@@ -127,7 +227,7 @@ export class EmailService {
 
     return {
       messageId: info.messageId,
-      previewUrl: nodemailer.getTestMessageUrl(info),
+      previewUrl: this.previewUrlFor(info),
       status: 'sent',
     };
   }
@@ -178,7 +278,7 @@ export class EmailService {
 
     return {
       messageId: info.messageId,
-      previewUrl: nodemailer.getTestMessageUrl(info),
+      previewUrl: this.previewUrlFor(info),
     };
   }
 
@@ -229,7 +329,7 @@ export class EmailService {
 
     return {
       messageId: info.messageId,
-      previewUrl: nodemailer.getTestMessageUrl(info),
+      previewUrl: this.previewUrlFor(info),
     };
   }
 
@@ -341,7 +441,7 @@ export class EmailService {
 
     return {
       messageId: info.messageId,
-      previewUrl: nodemailer.getTestMessageUrl(info),
+      previewUrl: this.previewUrlFor(info),
     };
   }
 
@@ -378,7 +478,7 @@ export class EmailService {
 
     return {
       messageId: info.messageId,
-      previewUrl: nodemailer.getTestMessageUrl(info),
+      previewUrl: this.previewUrlFor(info),
     };
   }
 
@@ -415,7 +515,7 @@ export class EmailService {
 
     return {
       messageId: info.messageId,
-      previewUrl: nodemailer.getTestMessageUrl(info),
+      previewUrl: this.previewUrlFor(info),
     };
   }
 }
