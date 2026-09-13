@@ -150,18 +150,21 @@ export class EmailValidationService {
         return 'unknown';
       }
       const code = (error as { code?: string })?.code;
-      if (
-        code === 'ENOTFOUND' ||
-        code === 'ENODATA' ||
-        // A connection-level failure is only treated as a real rejection
-        // when it came from the fallback resolver — at that point we've
-        // already confirmed the default resolver couldn't answer either,
-        // so a second independent resolver refusing/resetting is a strong
-        // signal the domain itself doesn't exist, not that DNS is broken.
-        ((code === 'ECONNREFUSED' || code === 'ECONNRESET') && useServers)
-      ) {
+      if (code === 'ENOTFOUND' || code === 'ENODATA') {
         return 'unresolvable';
       }
+      // ECONNREFUSED/ECONNRESET are transport-level failures (the resolver
+      // itself couldn't be reached), never a DNS answer — they can never
+      // mean "this domain doesn't exist," only "DNS lookups aren't working
+      // right now." Previously the fallback resolver's ECONNREFUSED was
+      // trusted as a real rejection, on the theory that a second
+      // independent resolver refusing was a strong signal. In practice a
+      // host whose outbound UDP/53 is firewalled (e.g. some PaaS sandboxes)
+      // gets ECONNREFUSED from BOTH the default and fallback resolvers for
+      // every domain, including gmail.com — which made hasMailExchanger
+      // return false unconditionally and reject every signup. Always treat
+      // these as inconclusive so a broken DNS path fails open instead of
+      // rejecting everyone.
       return 'unknown';
     }
   }
