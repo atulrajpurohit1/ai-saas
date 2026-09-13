@@ -102,10 +102,10 @@ export class EmailService {
   ) {
     // Resend's HTTP API is used only when RESEND_API_KEY is set explicitly.
     // This deliberately does NOT fall back to SMTP_PASS: that variable holds
-    // whatever the configured SMTP provider's password is (a Gmail App
-    // Password, for instance), and treating it as a Resend API key would
-    // silently route mail to the wrong provider with credentials that
-    // aren't valid there.
+    // whatever the configured SMTP provider's password is (a Brevo SMTP key,
+    // for instance), and treating it as a Resend API key would silently
+    // route mail to the wrong provider with credentials that aren't valid
+    // there.
     const resendApiKey = process.env.RESEND_API_KEY;
 
     if (resendApiKey) {

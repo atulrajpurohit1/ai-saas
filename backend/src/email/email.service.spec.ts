@@ -246,14 +246,14 @@ describe('EmailService', () => {
       expect(options.secure).toBe(false);
     });
 
-    it('stays on SMTP when only SMTP_PASS is set, since that is the SMTP provider password (e.g. a Gmail App Password) and not a Resend API key', async () => {
+    it('stays on SMTP when only SMTP_PASS is set, since that is the SMTP provider password (e.g. a Brevo SMTP key) and not a Resend API key', async () => {
       nodemailer.createTransport.mockClear();
       nodemailer.createTransport.mockReturnValue({ sendMail: jest.fn() });
       delete process.env.RESEND_API_KEY;
-      process.env.SMTP_HOST = 'smtp.gmail.com';
+      process.env.SMTP_HOST = 'smtp-relay.brevo.com';
       process.env.SMTP_PORT = '587';
-      process.env.SMTP_USER = 'sender@gmail.com';
-      process.env.SMTP_PASS = 'gmail-app-password';
+      process.env.SMTP_USER = '8a1b2c001@smtp-brevo.com';
+      process.env.SMTP_PASS = 'brevo-smtp-key';
 
       const module: TestingModule = await Test.createTestingModule({
         providers: [
@@ -269,8 +269,8 @@ describe('EmailService', () => {
 
       expect(nodemailer.createTransport).toHaveBeenCalledTimes(1);
       const options = nodemailer.createTransport.mock.calls[0][0];
-      expect(options.host).toBe('smtp.gmail.com');
-      expect(options.auth.pass).toBe('gmail-app-password');
+      expect(options.host).toBe('smtp-relay.brevo.com');
+      expect(options.auth.pass).toBe('brevo-smtp-key');
     });
   });
 
