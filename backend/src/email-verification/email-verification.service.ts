@@ -171,7 +171,15 @@ export class EmailVerificationService {
         }`,
       );
       if (process.env.NODE_ENV === 'production') {
-        throw new BadRequestException(INVALID_EMAIL_MESSAGE);
+        // This is a delivery/infra failure (SMTP connection timeout,
+        // provider outage, etc.) -- the address itself already passed
+        // syntax + MX validation above, so INVALID_EMAIL_MESSAGE here would
+        // be actively wrong and would mask a real outage as a user input
+        // error. Surface it distinctly so it's diagnosable and the user
+        // knows to retry rather than "fix" a perfectly valid address.
+        throw new BadRequestException(
+          'Could not send the verification email right now. Please try again in a few minutes.',
+        );
       } else {
         this.logger.warn('Development mode: Ignoring email send failure to unblock workflow.');
       }

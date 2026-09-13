@@ -141,31 +141,60 @@ describe('EmailVerificationService', () => {
       expect(emailService.sendOtpEmail).not.toHaveBeenCalled();
     });
 
-    it('converts an email-delivery failure into a generic BadRequestException instead of letting it surface as a 500', async () => {
-      prisma.emailOtp.findUnique.mockResolvedValue(null);
-      prisma.emailOtp.upsert.mockResolvedValue({});
-      emailService.sendOtpEmail.mockRejectedValue(
-        new Error(
-          '550 The example.com domain is not verified. Please, add and verify your domain on https://resend.com/domains',
-        ),
-      );
+    describe('email-delivery failure handling', () => {
+      const originalNodeEnv = process.env.NODE_ENV;
 
-      await expect(
-        service.issueOtp({
-          accountType: 'USER',
-          accountId: 'user-1',
-          tenantId: 'tenant-1',
-          email: 'user@example.com',
-        }),
-      ).rejects.toThrow(BadRequestException);
-      await expect(
-        service.issueOtp({
-          accountType: 'USER',
-          accountId: 'user-1',
-          tenantId: 'tenant-1',
-          email: 'user@example.com',
-        }),
-      ).rejects.toThrow('Please enter a valid email address.');
+      afterEach(() => {
+        process.env.NODE_ENV = originalNodeEnv;
+      });
+
+      it('in production, converts a delivery failure into a distinct, accurate BadRequestException instead of letting it surface as a 500 or misreporting it as an invalid email', async () => {
+        process.env.NODE_ENV = 'production';
+        prisma.emailOtp.findUnique.mockResolvedValue(null);
+        prisma.emailOtp.upsert.mockResolvedValue({});
+        emailService.sendOtpEmail.mockRejectedValue(
+          new Error(
+            '550 The example.com domain is not verified. Please, add and verify your domain on https://resend.com/domains',
+          ),
+        );
+
+        await expect(
+          service.issueOtp({
+            accountType: 'USER',
+            accountId: 'user-1',
+            tenantId: 'tenant-1',
+            email: 'user@example.com',
+          }),
+        ).rejects.toThrow(BadRequestException);
+        await expect(
+          service.issueOtp({
+            accountType: 'USER',
+            accountId: 'user-1',
+            tenantId: 'tenant-1',
+            email: 'user@example.com',
+          }),
+        ).rejects.toThrow(
+          'Could not send the verification email right now. Please try again in a few minutes.',
+        );
+      });
+
+      it('outside production, logs and ignores a delivery failure so local development is never blocked by the mail provider', async () => {
+        process.env.NODE_ENV = 'test';
+        prisma.emailOtp.findUnique.mockResolvedValue(null);
+        prisma.emailOtp.upsert.mockResolvedValue({});
+        emailService.sendOtpEmail.mockRejectedValue(
+          new Error('550 domain not verified'),
+        );
+
+        await expect(
+          service.issueOtp({
+            accountType: 'USER',
+            accountId: 'user-1',
+            tenantId: 'tenant-1',
+            email: 'user@example.com',
+          }),
+        ).resolves.toMatchObject({ cooldownSeconds: expect.any(Number) });
+      });
     });
 
     it('routes PASSWORD_RESET-purpose OTPs through sendPasswordResetOtpEmail, not sendOtpEmail', async () => {

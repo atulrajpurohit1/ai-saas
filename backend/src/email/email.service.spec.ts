@@ -3,6 +3,13 @@ import { BrandingService } from '../branding/branding.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from './email.service';
 
+jest.mock('nodemailer', () => ({
+  createTransport: jest.fn(),
+  getTestMessageUrl: jest.fn(),
+}));
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const nodemailer = require('nodemailer');
+
 describe('EmailService', () => {
   let service: EmailService;
 
@@ -170,6 +177,59 @@ describe('EmailService', () => {
 
       const call = sendMail.mock.calls[0][0];
       expect(call.from).toBe('"AegisLead" <no-reply@aisaascrm.com>');
+    });
+  });
+
+  describe('transport TLS mode', () => {
+    // Regression coverage: port 465 is implicit TLS and the socket must be
+    // TLS from the first byte, unlike 587/25 which start plaintext and
+    // upgrade via STARTTLS. nodemailer does not infer this from the port
+    // when host/port are passed explicitly -- getting `secure` wrong here
+    // doesn't throw, it just hangs until connectionTimeout, which is
+    // exactly what happened against Resend's smtp.resend.com:465 in
+    // production before this was fixed.
+    const originalHost = process.env.SMTP_HOST;
+    const originalPort = process.env.SMTP_PORT;
+
+    afterEach(() => {
+      if (originalHost === undefined) delete process.env.SMTP_HOST;
+      else process.env.SMTP_HOST = originalHost;
+      if (originalPort === undefined) delete process.env.SMTP_PORT;
+      else process.env.SMTP_PORT = originalPort;
+    });
+
+    const buildWithPort = async (port: string) => {
+      process.env.SMTP_HOST = 'smtp.resend.com';
+      process.env.SMTP_PORT = port;
+      nodemailer.createTransport.mockClear();
+      nodemailer.createTransport.mockReturnValue({ sendMail: jest.fn() });
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          EmailService,
+          { provide: PrismaService, useValue: {} },
+          {
+            provide: BrandingService,
+            useValue: { brandingSnapshot: jest.fn(), emailShell: jest.fn() },
+          },
+        ],
+      }).compile();
+      module.get<EmailService>(EmailService);
+
+      const options = nodemailer.createTransport.mock.calls[0][0] as {
+        secure?: boolean;
+      };
+      return options;
+    };
+
+    it('uses implicit TLS (secure: true) for port 465', async () => {
+      const options = await buildWithPort('465');
+      expect(options.secure).toBe(true);
+    });
+
+    it('uses STARTTLS (secure: false) for port 587', async () => {
+      const options = await buildWithPort('587');
+      expect(options.secure).toBe(false);
     });
   });
 });
