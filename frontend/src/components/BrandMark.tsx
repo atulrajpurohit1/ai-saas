@@ -1,6 +1,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { BRAND_LOGO, BRAND_LOGO_RATIO, BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand';
 
 interface BrandMarkProps {
   /** Portal label shown under the wordmark (e.g. "Client Portal", "Guard Portal"). */
@@ -8,6 +9,16 @@ interface BrandMarkProps {
   size?: 'sm' | 'md' | 'lg';
   /** Render the wordmark text next to the icon. */
   showWordmark?: boolean;
+  /**
+   * `icon` pairs the square mark with live text (the default, and what the
+   * portal shells use so `subtitle` can sit under it). `lockup` renders the
+   * full supplied horizontal logo artwork - icon, wordmark and tagline baked
+   * into one SVG - for auth screens and the admin sidebar, where it should
+   * match the brand asset exactly rather than be re-created in HTML.
+   */
+  variant?: 'icon' | 'lockup';
+  /** Rendered width in px for `variant="lockup"`. Height follows the artwork. */
+  lockupWidth?: number;
   className?: string;
 }
 
@@ -28,20 +39,36 @@ const wordClass = {
  * Renders the official AegisLead mark (red triangular icon on a transparent
  * background) so it drops cleanly onto the light `bg-card`/`bg-background`
  * surfaces every portal shell uses - never stretched or cropped, since the
- * source SVG is intrinsically square and only ever scaled uniformly.
+ * source SVG is intrinsically square and only ever scaled uniformly. Asset
+ * paths live in `@/lib/brand` so they are never hardcoded at call sites.
  */
 export function BrandMark({
   subtitle,
   size = 'md',
   showWordmark = true,
+  variant = 'icon',
+  lockupWidth = 240,
   className,
 }: BrandMarkProps) {
+  if (variant === 'lockup') {
+    return (
+      <Image
+        src={BRAND_LOGO.light}
+        alt={`${BRAND_NAME} — ${BRAND_TAGLINE}`}
+        width={lockupWidth}
+        height={Math.round(lockupWidth / BRAND_LOGO_RATIO.lockup)}
+        priority
+        className={cn('h-auto max-w-full object-contain', className)}
+      />
+    );
+  }
+
   const px = iconPx[size];
   return (
     <span className={cn('flex min-w-0 items-center gap-3', className)}>
       <Image
-        src="/brand/aegislead-mark.svg"
-        alt="AegisLead"
+        src={BRAND_LOGO.mark}
+        alt={BRAND_NAME}
         width={px}
         height={px}
         className="shrink-0"

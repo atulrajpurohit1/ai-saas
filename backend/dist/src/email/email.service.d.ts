@@ -4,11 +4,13 @@ export declare class EmailService {
     private prisma;
     private brandingService;
     private transporter;
+    private usingNodemailer;
     private readonly envelopeFrom;
     constructor(prisma: PrismaService, brandingService: BrandingService);
     private senderFor;
+    private previewUrlFor;
     sendProposalEmail(tenantId: string, leadId: string): Promise<{
-        messageId: any;
+        messageId: string;
         previewUrl: string | false;
         status: string;
     }>;
@@ -18,7 +20,7 @@ export declare class EmailService {
         code: string;
         expiresInMinutes: number;
     }): Promise<{
-        messageId: any;
+        messageId: string;
         previewUrl: string | false;
     }>;
     sendPasswordResetOtpEmail(tenantId: string | null, params: {
@@ -27,7 +29,7 @@ export declare class EmailService {
         code: string;
         expiresInMinutes: number;
     }): Promise<{
-        messageId: any;
+        messageId: string;
         previewUrl: string | false;
     }>;
     private passwordResetOtpEmailBody;
@@ -41,7 +43,7 @@ export declare class EmailService {
         dueDate: Date | null;
         invitationUrl: string;
     }): Promise<{
-        messageId: any;
+        messageId: string;
         previewUrl: string | false;
     }>;
     sendContractAwardEmail(tenantId: string, params: {
@@ -50,7 +52,7 @@ export declare class EmailService {
         rfpTitle: string;
         awardNotes?: string | null;
     }): Promise<{
-        messageId: any;
+        messageId: string;
         previewUrl: string | false;
     }>;
     sendVendorRejectionEmail(tenantId: string, params: {
@@ -59,7 +61,7 @@ export declare class EmailService {
         rfpTitle: string;
         reason?: string | null;
     }): Promise<{
-        messageId: any;
+        messageId: string;
         previewUrl: string | false;
     }>;
 }

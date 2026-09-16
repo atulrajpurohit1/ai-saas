@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Guard Tour Comparison</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+
+  :root {
+    --navy: #1e3a5f;
+    --navy-dark: #16293f;
+    --blue: #2c5282;
+    --gold: #c8a04a;
+    --ink: #22262b;
+    --muted: #5c6672;
+    --rule: #d8dde3;
+    --band: #f2f4f7;
+    --ok: #1f7a4d;
+    --gap: #b03030;
+    --part: #9a6b10;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: Calibri, "Segoe UI", Arial, sans-serif;
+    font-size: 10.2pt;
+    line-height: 1.45;
+    color: var(--ink);
+  }
+
+  h1 {
+    font-size: 25pt;
+    color: var(--navy);
+    text-align: center;
+    margin: 0 0 6pt;
+    letter-spacing: -0.2pt;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--blue);
+    font-size: 13pt;
+    margin: 0 0 4pt;
+  }
+
+  .dateline {
+    text-align: center;
+    color: var(--muted);
+    font-size: 9.5pt;
+    margin: 0 0 10pt;
+  }
+
+  .rule-gold {
+    border: 0;
+    border-top: 2.5pt solid var(--gold);
+    margin: 0 0 16pt;
+  }
+
+  h2 {
+    font-size: 16pt;
+    color: var(--navy);
+    margin: 20pt 0 7pt;
+    padding-bottom: 3pt;
+    border-bottom: 0.75pt solid var(--rule);
+    page-break-after: avoid;
+  }
+
+  h3 {
+    font-size: 11.5pt;
+    color: var(--blue);
+    margin: 14pt 0 5pt;
+    page-break-after: avoid;
+  }
+
+  h4 {
+    font-size: 10.4pt;
+    color: var(--navy);
+    margin: 11pt 0 3pt;
+    page-break-after: avoid;
+  }
+
+  p { margin: 0 0 7pt; }
+
+  ul { margin: 0 0 8pt; padding-left: 16pt; }
+  li { margin-bottom: 3.5pt; }
+
+  strong { color: var(--navy-dark); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8pt 0 12pt;
+    font-size: 9.3pt;
+    page-break-inside: avoid;
+  }
+
+  thead th {
+    background: var(--navy);
+    color: #fff;
+    text-align: left;
+    padding: 6pt 7pt;
+    font-size: 9.3pt;
+    font-weight: 600;
+  }
+
+  tbody td {
+    padding: 5.5pt 7pt;
+    border-bottom: 0.5pt solid var(--rule);
+    vertical-align: top;
+  }
+
+  tbody tr:nth-child(even) td { background: #fafbfc; }
+
+  td.dim { font-weight: 600; color: var(--navy); width: 24%; }
+
+  .yes  { color: var(--ok);   font-weight: 600; white-space: nowrap; }
+  .no   { color: var(--gap);  font-weight: 600; white-space: nowrap; }
+  .part { color: var(--part); font-weight: 600; white-space: nowrap; }
+
+  .callout {
+    background: var(--band);
+    border-left: 3pt solid var(--gold);
+    padding: 8pt 11pt;
+    margin: 10pt 0 12pt;
+    font-size: 9.5pt;
+    page-break-inside: avoid;
+  }
+
+  .callout p:last-child { margin-bottom: 0; }
+
+  code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 8.8pt;
+    background: #eef1f4;
+    padding: 0.5pt 3pt;
+    border-radius: 2pt;
+    color: var(--navy-dark);
+  }
+
+  .note {
+    font-size: 9pt;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .pagebreak { page-break-before: always; }
+
+  .gap-title {
+    font-size: 10.8pt;
+    color: var(--navy);
+    font-weight: 700;
+    margin: 13pt 0 3pt;
+    page-break-after: avoid;
+  }
+
+  .sev {
+    display: inline-block;
+    font-size: 7.6pt;
+    font-weight: 700;
+    letter-spacing: 0.4pt;
+    padding: 1pt 5pt;
+    border-radius: 2pt;
+    margin-left: 5pt;
+    vertical-align: 1.5pt;
+    text-transform: uppercase;
+  }
+  .sev-high { background: #fae3e3; color: var(--gap); }
+  .sev-med  { background: #fbf0d8; color: var(--part); }
+  .sev-low  { background: #e6ecf2; color: var(--blue); }
+
+  .footer-note {
+    margin-top: 16pt;
+    padding-top: 7pt;
+    border-top: 0.75pt solid var(--rule);
+    font-size: 8.8pt;
+    color: var(--muted);
+  }
+
+  .legend { font-size: 8.8pt; color: var(--muted); margin: -6pt 0 12pt; }
+</style>
+</head>
+<body>
+
+<h1>Guard Tour Capability Comparison</h1>
+<p class="subtitle">AegisLead Guard Tour vs. Silvertrac and Staffr / TrackTik</p>
+<p class="dateline">Prepared: September 14, 2026</p>
+<hr class="rule-gold">
+
+<h2>Purpose and Method</h2>
+
+<p>This report compares the Guard Tour capability built into our platform against the two commercial
+platforms profiled in the <em>Guard Tour Software Research Report</em> (Silvertrac Software and
+Staffr / TrackTik, both owned by Trackforce).</p>
+
+<p>The two source columns are taken from that research report, which was itself compiled from vendor
+product documentation, help-center articles, and app-store listings. Our column is different in kind:
+it was derived by reading our own source code directly — the Prisma schema, the NestJS controllers and
+services, and the Next.js pages listed below — so it reflects what the system actually does today
+rather than what a feature list claims.</p>
+
+<table>
+  <thead>
+    <tr><th style="width:36%">Area</th><th>Primary source read</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="dim">Data model</td><td><code>backend/prisma/schema.prisma</code> — Checkpoint, PatrolRoute, PatrolRouteCheckpoint, PatrolRun, PatrolEvent, PatrolEvidence, EmergencyAlert</td></tr>
+    <tr><td class="dim">Admin API</td><td><code>backend/src/patrols/patrols.controller.ts</code>, <code>patrols.service.ts</code></td></tr>
+    <tr><td class="dim">Guard API</td><td><code>backend/src/patrols/guard-patrols.controller.ts</code></td></tr>
+    <tr><td class="dim">Client API</td><td><code>backend/src/patrols/client-patrols.controller.ts</code></td></tr>
+    <tr><td class="dim">Offline sync</td><td><code>backend/src/guard-portal/guard-portal.service.ts</code></td></tr>
+    <tr><td class="dim">Field &amp; admin UI</td><td><code>frontend/src/app/guard/shifts/[id]/patrols/</code>, <code>frontend/src/app/patrol/</code></td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <p><strong>Caveat on the comparison.</strong> The vendor columns describe marketed capability, not
+  verified behaviour. Vendor feature lists routinely overstate depth and polish. The gaps identified in
+  this report should therefore be read as <em>positioning</em> gaps — things a buyer comparing datasheets
+  would notice — not as proof that either competitor executes those features well.</p>
+</div>
+
+<h2>Our Guard Tour Architecture</h2>
+
+<p>Our tour model is the same fundamental loop both commercial platforms use, expressed as six related
+entities:</p>
+
+<ul>
+  <li><strong>Checkpoint</strong> — belongs to a Site; carries name, description, location note, an
+      optional QR code value, and an optional GPS geofence (latitude, longitude, radius in metres).</li>
+  <li><strong>PatrolRoute</strong> — a named, ordered tour scoped to a Site.</li>
+  <li><strong>PatrolRouteCheckpoint</strong> — the join table that carries <code>sequenceOrder</code>,
+      making the tour an ordered list.</li>
+  <li><strong>PatrolRun</strong> — one execution of a route by one guard on one shift, with
+      <code>not_started → in_progress → completed</code> status and the guard's latest known position.</li>
+  <li><strong>PatrolEvent</strong> — one checkpoint scan, recording timestamp, status, notes, and the
+      server-computed geofence verdict.</li>
+  <li><strong>PatrolEvidence</strong> — photos captured at a scan; multiple photos per checkpoint,
+      stored on local disk with the on-disk filename never exposed to clients.</li>
+</ul>
+
+<p>Three separate portals sit on top of this, matching the shape of both commercial products: an admin
+monitor, a guard field view, and a client-facing live status endpoint.</p>
+
+<h2>Side-by-Side Capability Matrix</h2>
+
+<p class="legend">Legend: <span class="yes">Yes</span> = implemented and working &nbsp;·&nbsp;
+<span class="part">Partial</span> = present but incomplete &nbsp;·&nbsp;
+<span class="no">No</span> = not implemented</p>
+
+<h3>Core Tour Loop</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:28%">Capability</th>
+      <th style="width:26%">Our Platform</th>
+      <th style="width:23%">Silvertrac</th>
+      <th style="width:23%">Staffr / TrackTik</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="dim">Ordered checkpoint tours</td>
+      <td><span class="yes">Yes</span> — <code>sequenceOrder</code></td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">QR / barcode scanning</td>
+      <td><span class="no">No</span> — value stored, never verified</td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">NFC tag scanning</td>
+      <td><span class="no">No</span></td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">GPS-verified checkpoints</td>
+      <td><span class="yes">Yes</span> — per-checkpoint geofence, verified server-side</td>
+      <td><span class="part">Geofencing</span> at property level</td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Virtual / no-scan checkpoints</td>
+      <td><span class="yes">Yes</span> — effectively the only mode</td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="yes">Yes</span> — manual check-in</td>
+    </tr>
+    <tr>
+      <td class="dim">Notes at checkpoint</td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Photo evidence at checkpoint</td>
+      <td><span class="yes">Yes</span> — multi-photo per scan</td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Audio evidence</td>
+      <td><span class="no">No</span></td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="part">Via report forms</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Per-checkpoint configurable actions</td>
+      <td><span class="no">No</span></td>
+      <td><span class="no">Basic scan only</span></td>
+      <td><span class="yes">Yes</span> — forms, exception questions, alerts</td>
+    </tr>
+    <tr>
+      <td class="dim">Auto-complete when all hit</td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Supervision and Alerting</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:28%">Capability</th>
+      <th style="width:26%">Our Platform</th>
+      <th style="width:23%">Silvertrac</th>
+      <th style="width:23%">Staffr / TrackTik</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="dim">Live supervisor dashboard</td>
+      <td><span class="yes">Yes</span> — 15-second poll</td>
+      <td><span class="yes">Yes</span> — Issue Monitor</td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Live guard location</td>
+      <td><span class="yes">Yes</span> — 30-second device push</td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Live map view</td>
+      <td><span class="no">No</span> — per-guard Google Maps link only</td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Missed-checkpoint detection</td>
+      <td><span class="part">Retrospective</span> — marked at run completion</td>
+      <td><span class="yes">Yes</span> — real-time alert</td>
+      <td><span class="yes">Yes</span> — real-time alert</td>
+    </tr>
+    <tr>
+      <td class="dim">Late / overdue tour alerting</td>
+      <td><span class="no">No</span> — no expected timing field</td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Geofence breach visibility</td>
+      <td><span class="yes">Yes</span> — daily failure count on dashboard</td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Panic / duress alert</td>
+      <td><span class="yes">Yes</span> — full acknowledge/resolve lifecycle</td>
+      <td><span class="no">Not documented</span></td>
+      <td><span class="part">Lone-worker check-ins</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Dispatch tasks mid-shift</td>
+      <td><span class="no">No</span></td>
+      <td><span class="no">No</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Field Reliability and Reach</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:28%">Capability</th>
+      <th style="width:26%">Our Platform</th>
+      <th style="width:23%">Silvertrac</th>
+      <th style="width:23%">Staffr / TrackTik</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="dim">Offline checkpoint scanning</td>
+      <td><span class="yes">Yes</span> — queued and replayed</td>
+      <td><span class="no">Not emphasised</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Offline tour completion</td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="no">Not emphasised</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Offline incident reporting</td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="no">Not emphasised</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Offline photo capture</td>
+      <td><span class="no">No</span> — upload is online-only</td>
+      <td><span class="no">Not documented</span></td>
+      <td><span class="part">Not specified</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Duplicate-safe replay</td>
+      <td><span class="yes">Yes</span> — idempotent by action ID</td>
+      <td><span class="no">Not documented</span></td>
+      <td><span class="no">Not documented</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Native mobile app</td>
+      <td><span class="no">No</span> — responsive web only</td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Back Office and Surrounding Modules</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:28%">Capability</th>
+      <th style="width:26%">Our Platform</th>
+      <th style="width:23%">Silvertrac</th>
+      <th style="width:23%">Staffr / TrackTik</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="dim">Client portal</td>
+      <td><span class="yes">Yes</span> — live site status, incidents, reports</td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Incident reporting + evidence</td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Scheduling / shifts</td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="part">Time clock only</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Timesheets and payroll inputs</td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="no">No</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Invoicing and rate cards</td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="no">No</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Multi-tenant + RBAC</td>
+      <td><span class="yes">Yes</span> — tenant-scoped throughout</td>
+      <td><span class="part">Per-instance</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Audit logging</td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="no">Not documented</span></td>
+      <td><span class="no">Not documented</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Parking management</td>
+      <td><span class="no">No</span></td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="no">No</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Visitor management</td>
+      <td><span class="no">No</span></td>
+      <td><span class="no">No</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Asset tracking</td>
+      <td><span class="no">No</span></td>
+      <td><span class="no">No</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="dim">Post orders / pass-down notes</td>
+      <td><span class="no">No</span></td>
+      <td><span class="yes">Yes</span></td>
+      <td><span class="yes">Yes</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="pagebreak"></div>
+
+<h2>Where We Lead</h2>
+
+<h4>Panic / duress alerting with a managed lifecycle</h4>
+<p>We have a dedicated <code>EmergencyAlert</code> entity with a genuine
+<code>ACTIVE → ACKNOWLEDGED → RESOLVED</code> workflow that records who acknowledged and who resolved
+each alert. It is deliberately independent of both incidents and patrol runs, so a guard can raise an
+alert with no active shift or tour. Neither vendor profile describes an equivalent; TrackTik's nearest
+analogue is scheduled lone-worker check-ins, which is a different and weaker safety mechanism.</p>
+
+<h4>Offline-first field operation</h4>
+<p>Checkpoint scans, tour completion, incident creation, and shift check-in/check-out all queue locally
+and replay on reconnect. Replay is idempotent — each action carries a client-generated ID, already-synced
+actions are skipped, and failures are recorded with an error message rather than silently dropped. This
+puts us clearly ahead of Silvertrac, which does not emphasise offline support at all, and on par with
+TrackTik.</p>
+
+<h4>Server-authoritative geofence verification</h4>
+<p>The guard's device submits raw coordinates only; it never submits a verdict. The server computes the
+outcome and writes one of five explicit states: <code>SUCCESS</code>, <code>OUTSIDE_GEOFENCE</code>,
+<code>LOCATION_UNAVAILABLE</code>, <code>NO_GEOFENCE_CONFIGURED</code>, or <code>INVALID_LOCATION</code>.
+Radius is configurable per checkpoint between 5 m and 2,000 m, defaulting to 50 m. This is a stronger
+anti-tampering posture than a client-reported pass/fail, and the distinction matters in any dispute over
+whether a guard was genuinely on site.</p>
+
+<h4>Privacy-conscious location handling</h4>
+<p>We deliberately store only the guard's <em>latest</em> position on the patrol run, overwritten on each
+update, plus one point per checkpoint scan. There is no continuous location history table. This is a
+defensible design choice in jurisdictions with strict worker-surveillance rules, and it is a point neither
+vendor makes.</p>
+
+<h4>Back office already integrated</h4>
+<p>Shifts, timesheets, invoices, and rate cards are part of the same platform and the same tenant model.
+Against Silvertrac this is a decisive advantage — Silvertrac is reporting-centric and stops at a time
+clock. Against TrackTik it is parity on scope, though TrackTik's modules are more mature.</p>
+
+<h2>Where We Fall Short</h2>
+
+<p class="gap-title">1. Physical scan verification does not exist<span class="sev sev-high">Critical</span></p>
+<p>This is the single most significant gap. A <code>qrCodeValue</code> field exists on the Checkpoint
+model and is editable in the admin UI, but nothing ever reads it back. The scan endpoint accepts only
+notes, status, latitude, and longitude — there is no QR value in the request payload, no comparison in
+the service layer, and no camera scanner, barcode API, or NFC reader anywhere in the frontend. No QR or
+barcode library appears in the frontend dependencies.</p>
+<p>The practical consequence is that <strong>every checkpoint we support is what Silvertrac calls a
+"virtual" checkpoint</strong>. A guard opens the tour, taps a button in a list, and confirms a modal.
+Our GPS geofence is a meaningful substitute — it does verify physical presence within a radius — but it
+is not the same proof as requiring contact with a tag affixed at the location, and GPS accuracy degrades
+badly indoors, in stairwells, and in basements, which is precisely where many checkpoints live. On a
+feature matrix, this is the one row where we lose outright to both competitors.</p>
+
+<p class="gap-title">2. No proactive missed or late tour alerting<span class="sev sev-high">Critical</span></p>
+<p>Missed checkpoints are detected only reactively: when a run is completed, any unscanned checkpoint is
+auto-marked as missed. There is no expected-timing field on the route checkpoint model and no scheduled
+job anywhere in the patrols module. Both competitors alert a supervisor <em>while the tour is running
+late</em>, which is the point at which intervention is still possible. We surface the same information
+after the fact, on a dashboard, where it becomes a reporting statistic rather than an operational signal.</p>
+
+<p class="gap-title">3. No per-checkpoint configurable actions<span class="sev sev-med">Important</span></p>
+<p>TrackTik's clearest differentiator is that each checkpoint can be configured to open a report form,
+pose an exception question, display a message to the officer, or fire an alert. Our Checkpoint model
+carries only descriptive fields — name, description, location note. Every checkpoint behaves identically.
+Silvertrac does not have this either, so this is a gap against the enterprise tier specifically.</p>
+
+<p class="gap-title">4. No live map<span class="sev sev-med">Important</span></p>
+<p>The monitor page lists active runs and links out to Google Maps per guard. Both competitors render all
+guards on a single map with tour progress overlaid. Functionally this is cosmetic — the underlying
+location data is already there and already polling — but it is the screen that dominates every product
+demo, and its absence is immediately visible in a side-by-side evaluation.</p>
+
+<p class="gap-title">5. Offline photo capture is unsupported<span class="sev sev-med">Important</span></p>
+<p>Checkpoint scans queue offline, but evidence upload requires connectivity. A guard patrolling a dead
+zone can record that they visited a checkpoint but cannot attach the photograph that proves what they
+found there — and by the time they regain signal, the moment has passed.</p>
+
+<p class="gap-title">6. No native mobile application<span class="sev sev-med">Important</span></p>
+<p>Our guard experience is responsive web. Both competitors ship native apps with app-store listings and
+public ratings. Native access matters here beyond preference: NFC reading, reliable background location,
+and camera integration are all substantially better supported natively, which means this gap partly
+gates the fixes for gaps 1 and 5.</p>
+
+<p class="gap-title">7. Surrounding modules not in scope<span class="sev sev-low">Minor</span></p>
+<p>We do not have parking management or a time clock with pass-down notes and post orders (Silvertrac),
+nor visitor management, asset tracking, or scheduled lone-worker check-ins (TrackTik). Audio evidence is
+also absent. None of these are core to the tour loop, and each should be treated as a separate product
+decision rather than a gap to close reflexively.</p>
+
+<h2>Recommended Priorities</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:6%">#</th>
+      <th style="width:28%">Action</th>
+      <th style="width:12%">Effort</th>
+      <th>Rationale</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>1</strong></td>
+      <td class="dim">QR scan verification</td>
+      <td><span class="yes">Low</span></td>
+      <td>Highest value per unit of effort. Add the QR value to the scan request, compare it server-side,
+      and add a browser-based camera scanner. The verification-status pattern built for geofencing can be
+      extended directly rather than reinvented. This closes our most visible competitive weakness.</td>
+    </tr>
+    <tr>
+      <td><strong>2</strong></td>
+      <td class="dim">Expected timing + scheduled alerting</td>
+      <td><span class="part">Medium</span></td>
+      <td>Add an expected offset to each route checkpoint, run a scheduled job to detect overdue scans and
+      late runs, and route the notification through the existing emergency-alert delivery path. Converts
+      missed-checkpoint data from a report into an operational signal.</td>
+    </tr>
+    <tr>
+      <td><strong>3</strong></td>
+      <td class="dim">Live map on monitor page</td>
+      <td><span class="yes">Low</span></td>
+      <td>All required data already exists and already polls. Primarily a demo and evaluation concern,
+      but disproportionately visible for the effort involved.</td>
+    </tr>
+    <tr>
+      <td><strong>4</strong></td>
+      <td class="dim">Offline photo queueing</td>
+      <td><span class="part">Medium</span></td>
+      <td>Completes the offline story that is otherwise one of our stronger differentiators. Requires
+      local blob storage and a deferred upload path.</td>
+    </tr>
+    <tr>
+      <td><strong>5</strong></td>
+      <td class="dim">NFC scanning</td>
+      <td><span class="no">High</span></td>
+      <td>Browser NFC support is limited and inconsistent. Realistically depends on a native app, so it
+      should be sequenced behind that decision rather than attempted independently.</td>
+    </tr>
+    <tr>
+      <td><strong>6</strong></td>
+      <td class="dim">Per-checkpoint actions</td>
+      <td><span class="no">High</span></td>
+      <td>Substantial schema and UI work. Worth doing only if we are targeting enterprise accounts where
+      TrackTik is the incumbent being displaced.</td>
+    </tr>
+    <tr>
+      <td><strong>7</strong></td>
+      <td class="dim">Dispatch tasks</td>
+      <td><span class="no">High</span></td>
+      <td>A new entity and a new guard-facing surface. Defer unless customers ask for it specifically.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Summary Assessment</h2>
+
+<p>Our Guard Tour implements the same fundamental loop as both commercial platforms — ordered checkpoints,
+verified scans, real-time supervisor visibility, photo evidence, and a client-facing view. In several
+respects the implementation is stronger than what either vendor documents: server-authoritative geofence
+verification, an idempotent offline queue, a genuine panic-alert lifecycle, tenant-scoped multi-tenancy,
+and audit logging throughout.</p>
+
+<p>Positioned against the two competitors, we sit <strong>ahead of Silvertrac on scope</strong> — we carry
+scheduling, timesheets, and invoicing that Silvertrac does not — and <strong>behind TrackTik on tour
+sophistication</strong>, lacking configurable checkpoint logic and dispatch tasking.</p>
+
+<p>Two gaps, however, cut across that positioning and would be noticed by any evaluator regardless of
+which competitor they are comparing us to: <strong>the absence of physical scan verification</strong>, and
+<strong>the absence of proactive alerting while a tour is still running</strong>. Both are addressable
+with modest effort against the existing architecture, and both are considerably more valuable than any of
+the surrounding modules we currently lack.</p>
+
+<div class="footer-note">
+  Competitor capability data is drawn from the <em>Guard Tour Software Research Report</em> dated
+  September 14, 2026, which was compiled from vendor documentation rather than hands-on evaluation.
+  Our own capability data was derived by direct source-code review on the same date and reflects the
+  state of the <code>fix/cors-aegislead-domain</code> branch.
+</div>
+
+</body>
+</html>

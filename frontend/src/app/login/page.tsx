@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { Lock, Mail, Building2, User, Shield, Briefcase, Loader2, ShieldCheck, KeyRound, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+import BrandMark from '@/components/BrandMark';
 import PasswordInput from '@/components/PasswordInput';
 import OtpInput from '@/components/OtpInput';
 import { toast } from 'sonner';
@@ -380,13 +380,7 @@ export default function LoginPage() {
     <div className="flex min-h-dvh items-center justify-center bg-background px-4 pb-28 pt-10 sm:pb-10">
       <div className="w-full max-w-md">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <Image
-            src="/brand/aegislead-logo-light.svg"
-            alt="AegisLead — Find Leads. Engage. Convert. Grow."
-            width={310}
-            height={95}
-            priority
-          />
+          <BrandMark variant="lockup" lockupWidth={260} className="w-[220px] sm:w-[260px]" />
         </div>
 
         {forgotStep === 'email' ? (

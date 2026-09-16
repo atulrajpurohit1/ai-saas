@@ -101,7 +101,7 @@ let RolesService = class RolesService {
             this.tenantSystemRolesReady.add(tenantId);
             return;
         }
-        for (const definition of rbac_constants_1.SYSTEM_ROLES) {
+        await Promise.all(rbac_constants_1.SYSTEM_ROLES.map(async (definition) => {
             const role = await this.prisma.role.upsert({
                 where: {
                     tenantId_name: {
@@ -124,7 +124,7 @@ let RolesService = class RolesService {
                 },
             });
             await this.syncRolePermissions(role.id, (0, rbac_constants_1.systemRolePermissionKeys)(definition.name));
-        }
+        }));
         this.tenantSystemRolesReady.add(tenantId);
     }
     async ensureDefaultAssignmentForUser(userId) {

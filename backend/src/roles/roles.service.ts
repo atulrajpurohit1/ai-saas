@@ -128,34 +128,42 @@ export class RolesService {
       return;
     }
 
-    for (const definition of SYSTEM_ROLES) {
-      const role = await this.prisma.role.upsert({
-        where: {
-          tenantId_name: {
+    // Each system role's upsert + permission sync is independent of every
+    // other role (distinct roleId, no shared mutable state), so this runs
+    // in parallel rather than one round-trip at a time. Sequentially this
+    // was 7 roles x ~4 queries each against Neon's serverless Postgres -
+    // easily 15-30s of pure network latency on a brand-new tenant (every
+    // signup), which made every new admin signup feel hung.
+    await Promise.all(
+      SYSTEM_ROLES.map(async (definition) => {
+        const role = await this.prisma.role.upsert({
+          where: {
+            tenantId_name: {
+              tenantId,
+              name: definition.name,
+            },
+          },
+          update: {
+            description: definition.description,
+            isSystemRole: true,
+            isActive: true,
+          },
+          create: {
+            id: `${tenantId}:role:${this.slug(definition.name)}`,
             tenantId,
             name: definition.name,
+            description: definition.description,
+            isSystemRole: true,
+            isActive: true,
           },
-        },
-        update: {
-          description: definition.description,
-          isSystemRole: true,
-          isActive: true,
-        },
-        create: {
-          id: `${tenantId}:role:${this.slug(definition.name)}`,
-          tenantId,
-          name: definition.name,
-          description: definition.description,
-          isSystemRole: true,
-          isActive: true,
-        },
-      });
+        });
 
-      await this.syncRolePermissions(
-        role.id,
-        systemRolePermissionKeys(definition.name),
-      );
-    }
+        await this.syncRolePermissions(
+          role.id,
+          systemRolePermissionKeys(definition.name),
+        );
+      }),
+    );
 
     this.tenantSystemRolesReady.add(tenantId);
   }
