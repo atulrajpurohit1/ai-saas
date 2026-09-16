@@ -7,6 +7,8 @@ import { getBranding } from '@/lib/branding';
 import { cn } from '@/lib/utils';
 import { DASHBOARD_LINK, NAV_GROUPS, type NavLink } from '@/lib/nav-links';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import BrandMark from '@/components/BrandMark';
+import { BRAND_NAME } from '@/lib/brand';
 
 const SIDEBAR_SCROLL_KEY = 'ai-saas-sidebar-scroll-top';
 
@@ -109,6 +111,22 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
       )}
     >
       <div className={cn('flex items-start justify-between gap-4 p-4 sm:p-5', collapsed && 'lg:justify-center lg:px-3')}>
+        {/* Collapsed rail has no room for the lockup, so show a square icon:
+            the tenant's own logo where one is set, otherwise the AegisLead mark. */}
+        {collapsed && (
+          <Link href="/" className="hidden lg:block" aria-label={companyName || BRAND_NAME}>
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={logoUrl}
+                alt={companyName || user?.tenantName || 'Company logo'}
+                className="h-8 w-8 object-contain"
+              />
+            ) : (
+              <BrandMark size="sm" showWordmark={false} />
+            )}
+          </Link>
+        )}
         <div className={cn('min-w-0', collapsed && 'lg:hidden')}>
           {logoUrl ? (
             <img
@@ -117,7 +135,7 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
               className="mb-1.5 h-8 max-w-full object-contain object-left"
             />
           ) : (
-            <h1 className="pb-1.5 text-xl font-bold gradient-text">Ai Saas</h1>
+            <BrandMark variant="lockup" lockupWidth={172} className="mb-1.5 w-[172px]" />
           )}
           <p className="truncate text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             {companyName || user?.tenantName || 'Management'}

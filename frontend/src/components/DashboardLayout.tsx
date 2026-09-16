@@ -5,6 +5,8 @@ import Sidebar from '@/components/Sidebar';
 import CommandPalette from '@/components/CommandPalette';
 import { useAuth, type User } from '@/context/AuthContext';
 import { getBranding } from '@/lib/branding';
+import BrandMark from '@/components/BrandMark';
+import { BRAND_NAME } from '@/lib/brand';
 import { useRouter } from 'next/navigation';
 import { Menu, Search, LogOut, ChevronDown } from 'lucide-react';
 
@@ -76,6 +78,7 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -94,7 +97,10 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
 
   useEffect(() => {
     getBranding()
-      .then((branding) => setCompanyName(branding.company_name || null))
+      .then((branding) => {
+        setCompanyName(branding.company_name || null);
+        setLogoUrl(branding.logo_url || null);
+      })
       .catch(() => {
         // Roles without branding.view just keep the tenant-name fallback below.
       });
@@ -162,8 +168,14 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
             >
               <Menu size={22} />
             </button>
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt={companyName || BRAND_NAME} className="h-7 max-w-[120px] shrink-0 object-contain" />
+            ) : (
+              <BrandMark size="sm" showWordmark={false} className="shrink-0" />
+            )}
             <div className="min-w-0 text-right">
-              <div className="truncate text-sm font-bold text-foreground">{companyName || user?.tenantName || 'Ai Saas'}</div>
+              <div className="truncate text-sm font-bold text-foreground">{companyName || user?.tenantName || BRAND_NAME}</div>
               <div className="text-xs text-muted-foreground">{user.role === 'finance' ? 'Finance workspace' : 'Admin workspace'}</div>
             </div>
           </div>
