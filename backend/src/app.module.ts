@@ -35,6 +35,7 @@ import { AiMonitoringModule } from './ai-monitoring/ai-monitoring.module';
 import { AiGovernanceModule } from './ai-governance/ai-governance.module';
 import { BranchesModule } from './branches/branches.module';
 import { RolesModule } from './roles/roles.module';
+import { EntitlementsModule } from './entitlements/entitlements.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { PublicApiModule } from './public-api/public-api.module';
@@ -61,6 +62,7 @@ import { ClientComplianceModule } from './client-compliance/client-compliance.mo
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    EntitlementsModule,
     RolesModule,
     DashboardModule,
     GuardComplianceModule,

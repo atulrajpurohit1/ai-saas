@@ -17,6 +17,8 @@ const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const module_guard_1 = require("../auth/guards/module.guard");
+const module_decorator_1 = require("../auth/decorators/module.decorator");
 const permission_guard_1 = require("../auth/guards/permission.guard");
 const company_insight_dto_1 = require("./dto/company-insight.dto");
 const discover_prospects_dto_1 = require("./dto/discover-prospects.dto");
@@ -83,7 +85,7 @@ let ProspectSearchController = class ProspectSearchController {
 exports.ProspectSearchController = ProspectSearchController;
 __decorate([
     (0, common_1.Post)('search'),
-    (0, common_1.UseGuards)(prospect_search_rate_limit_guard_1.ProspectSearchRateLimitGuard),
+    (0, common_1.UseGuards)(prospect_search_rate_limit_guard_1.ProspectSearchRateLimitGuard, module_guard_1.ModuleGuard),
     (0, permissions_decorator_1.RequirePermission)('prospect_search.view', 'prospect_search.search'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __param(0, (0, common_1.Body)()),
@@ -103,7 +105,7 @@ __decorate([
 ], ProspectSearchController.prototype, "getSearchJobStatus", null);
 __decorate([
     (0, common_1.Post)('discover'),
-    (0, common_1.UseGuards)(prospect_search_rate_limit_guard_1.ProspectSearchRateLimitGuard),
+    (0, common_1.UseGuards)(prospect_search_rate_limit_guard_1.ProspectSearchRateLimitGuard, module_guard_1.ModuleGuard),
     (0, permissions_decorator_1.RequirePermission)('prospect_search.view', 'prospect_search.search'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __param(0, (0, common_1.Body)()),
@@ -135,7 +137,7 @@ __decorate([
 ], ProspectSearchController.prototype, "recordView", null);
 __decorate([
     (0, common_1.Post)('insights'),
-    (0, common_1.UseGuards)(prospect_search_rate_limit_guard_1.ProspectSearchRateLimitGuard),
+    (0, common_1.UseGuards)(prospect_search_rate_limit_guard_1.ProspectSearchRateLimitGuard, module_guard_1.ModuleGuard),
     (0, permissions_decorator_1.RequirePermission)('prospect_search.view', 'prospect_search.search'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __param(0, (0, common_1.Body)()),
@@ -146,7 +148,7 @@ __decorate([
 ], ProspectSearchController.prototype, "getCompanyInsight", null);
 __decorate([
     (0, common_1.Post)('import'),
-    (0, common_1.UseGuards)(prospect_search_rate_limit_guard_1.ProspectSearchRateLimitGuard),
+    (0, common_1.UseGuards)(prospect_search_rate_limit_guard_1.ProspectSearchRateLimitGuard, module_guard_1.ModuleGuard),
     (0, permissions_decorator_1.RequirePermission)('prospect_search.view', 'prospect_search.search', 'leads.create'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __param(0, (0, common_1.Body)()),
@@ -203,7 +205,8 @@ __decorate([
 ], ProspectSearchController.prototype, "removeSavedSearch", null);
 exports.ProspectSearchController = ProspectSearchController = __decorate([
     (0, common_1.Controller)('prospect-search'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard, module_guard_1.ModuleGuard),
+    (0, module_decorator_1.RequireModule)('LEAD_GEN'),
     __metadata("design:paramtypes", [prospect_search_service_1.ProspectSearchService,
         prospect_search_history_service_1.ProspectSearchHistoryService,
         saved_prospect_search_service_1.SavedProspectSearchService])

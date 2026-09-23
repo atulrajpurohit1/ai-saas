@@ -121,7 +121,7 @@ export default function PatrolMonitorPage() {
   }, [load]);
 
   return (
-    <DashboardLayout requiredPermissions="patrols.view">
+    <DashboardLayout requiredModule="GUARD_TOUR" requiredPermissions="patrols.view">
       <PageHeader
         title="Patrol Monitor"
         description="Live cross-guard, cross-site view of every patrol in progress today."

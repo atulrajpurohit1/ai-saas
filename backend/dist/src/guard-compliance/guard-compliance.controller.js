@@ -18,6 +18,8 @@ const platform_express_1 = require("@nestjs/platform-express");
 const multer_1 = require("multer");
 const crypto_1 = require("crypto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const module_guard_1 = require("../auth/guards/module.guard");
+const module_decorator_1 = require("../auth/decorators/module.decorator");
 const permission_guard_1 = require("../auth/guards/permission.guard");
 const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
@@ -135,8 +137,9 @@ __decorate([
 ], GuardComplianceController.prototype, "downloadDocument", null);
 exports.GuardComplianceController = GuardComplianceController = __decorate([
     (0, common_1.Controller)('guard-compliance'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard, module_guard_1.ModuleGuard),
     (0, permissions_decorator_1.RequirePermission)('guards.view'),
+    (0, module_decorator_1.RequireModule)('GUARD_TOUR'),
     __metadata("design:paramtypes", [guard_compliance_service_1.GuardComplianceService])
 ], GuardComplianceController);
 //# sourceMappingURL=guard-compliance.controller.js.map

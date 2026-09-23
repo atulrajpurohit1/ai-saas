@@ -11,6 +11,8 @@ import {
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ModuleGuard } from '../auth/guards/module.guard';
+import { RequireModule } from '../auth/decorators/module.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CorrectTimesheetDto } from './dto/correct-timesheet.dto';
@@ -18,8 +20,9 @@ import { RejectTimesheetDto } from './dto/reject-timesheet.dto';
 import { TimesheetsService } from './timesheets.service';
 
 @Controller('timesheets')
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
 @RequirePermission('timesheets.view')
+@RequireModule('GUARD_TOUR')
 export class TimesheetsController {
   constructor(private readonly timesheetsService: TimesheetsService) {}
 

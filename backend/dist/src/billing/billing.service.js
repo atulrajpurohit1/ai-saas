@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BillingService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const entitlements_service_1 = require("../entitlements/entitlements.service");
 const PLANS = {
     free: {
         name: 'Free',
@@ -60,8 +61,10 @@ const PLANS = {
 };
 let BillingService = class BillingService {
     prisma;
-    constructor(prisma) {
+    entitlements;
+    constructor(prisma, entitlements) {
         this.prisma = prisma;
+        this.entitlements = entitlements;
     }
     async getTenantBilling(tenantId) {
         const tenant = await this.prisma.tenant.findUnique({
@@ -94,6 +97,7 @@ let BillingService = class BillingService {
             },
             limits,
             features: this.featuresForPlan(planKey),
+            entitlements: await this.entitlements.summaryForTenant(tenantId),
             availablePlans: Object.entries(PLANS).map(([key, value]) => ({
                 key,
                 name: value.name,
@@ -166,6 +170,7 @@ let BillingService = class BillingService {
 exports.BillingService = BillingService;
 exports.BillingService = BillingService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        entitlements_service_1.EntitlementsService])
 ], BillingService);
 //# sourceMappingURL=billing.service.js.map

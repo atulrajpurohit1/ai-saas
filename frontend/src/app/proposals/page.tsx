@@ -291,7 +291,7 @@ export default function ProposalsPage() {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout requiredModule="LEAD_GEN">
       <PageHeader
         title="Proposals"
         description="AI-powered proposal generation and email delivery."

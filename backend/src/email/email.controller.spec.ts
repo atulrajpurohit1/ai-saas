@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 import { EmailController } from './email.controller';
 import { EmailService } from './email.service';
 import { RolesService } from '../roles/roles.service';
@@ -11,6 +12,10 @@ describe('EmailController', () => {
       controllers: [EmailController],
       providers: [
         { provide: EmailService, useValue: {} },
+        {
+          provide: EntitlementsService,
+          useValue: { hasAnyModule: jest.fn().mockResolvedValue(true) },
+        },
         {
           provide: RolesService,
           useValue: {

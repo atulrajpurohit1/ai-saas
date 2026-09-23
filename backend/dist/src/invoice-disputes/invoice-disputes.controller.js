@@ -17,6 +17,8 @@ const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const module_guard_1 = require("../auth/guards/module.guard");
+const module_decorator_1 = require("../auth/decorators/module.decorator");
 const permission_guard_1 = require("../auth/guards/permission.guard");
 const respond_invoice_dispute_dto_1 = require("./dto/respond-invoice-dispute.dto");
 const invoice_disputes_service_1 = require("./invoice-disputes.service");
@@ -89,8 +91,9 @@ __decorate([
 ], InvoiceDisputesController.prototype, "reject", null);
 exports.InvoiceDisputesController = InvoiceDisputesController = __decorate([
     (0, common_1.Controller)('invoice-disputes'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard, module_guard_1.ModuleGuard),
     (0, permissions_decorator_1.RequirePermission)('invoice_disputes.view'),
+    (0, module_decorator_1.RequireModule)('FINANCE'),
     __metadata("design:paramtypes", [invoice_disputes_service_1.InvoiceDisputesService])
 ], InvoiceDisputesController);
 //# sourceMappingURL=invoice-disputes.controller.js.map

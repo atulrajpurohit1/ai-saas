@@ -117,7 +117,24 @@ const refreshAccessToken = (portal: Portal): Promise<string | null> => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (typeof window === 'undefined' || error.response?.status !== 401) {
+    if (typeof window === 'undefined') {
+      return Promise.reject(error);
+    }
+
+    // ModuleGuard denies a service the tenant never bought. That is an upsell,
+    // not an auth failure, so it must not trigger a refresh or a logout --
+    // send them somewhere they can actually buy it instead.
+    if (error.response?.status === 403 && error.response?.data?.upgradeRequired) {
+      const modules: string[] = error.response.data.modules || [];
+      const portal = getPortalForPath(window.location.pathname);
+      if (portal === 'admin' && !window.location.pathname.startsWith('/settings/plan')) {
+        const query = modules.length ? `?module=${encodeURIComponent(modules[0])}` : '';
+        window.location.href = `/settings/plan${query}`;
+      }
+      return Promise.reject(error);
+    }
+
+    if (error.response?.status !== 401) {
       return Promise.reject(error);
     }
 

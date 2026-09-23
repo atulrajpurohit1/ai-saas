@@ -322,7 +322,7 @@ export default function InvoicesPage() {
   };
 
   return (
-    <DashboardLayout requiredPermissions="invoices.view">
+    <DashboardLayout requiredModule="FINANCE" requiredPermissions="invoices.view">
       <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="flex items-center gap-3 text-2xl font-bold sm:text-3xl">

@@ -8,6 +8,8 @@ import { UserRole } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { PrismaService } from '../prisma/prisma.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
+import { serviceForPermissionModule } from '../entitlements/entitlements.constants';
 import { AssignUserRoleDto } from './dto/assign-user-role.dto';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
@@ -27,7 +29,28 @@ export class RolesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly entitlements: EntitlementsService,
   ) {}
+
+  /**
+   * Drops permission keys belonging to a service the tenant has not purchased.
+   *
+   * Roles stay intact -- a Super Admin keeps holding guards.view -- but the
+   * session payload never advertises it, so the frontend renders no Guard Tour
+   * nav for a Lead-Gen-only tenant. ModuleGuard enforces the same rule on the
+   * API, so this is presentation, not the security boundary.
+   */
+  private async filterByEntitlement(tenantId: string, keys: string[]) {
+    const granted = await this.entitlements.modulesForTenant(tenantId);
+    const moduleByKey = new Map(
+      PERMISSIONS.map((permission) => [permission.key, permission.module]),
+    );
+
+    return keys.filter((key) => {
+      const service = serviceForPermissionModule(moduleByKey.get(key) ?? '');
+      return service === null || granted.has(service);
+    });
+  }
 
   async ensurePermissions() {
     if (this.permissionsReady) return;
@@ -279,7 +302,10 @@ export class RolesService {
       branchId: user.branchId,
       isSuperAdmin: user.isSuperAdmin,
     };
-    const permissionKeys = await this.getUserPermissionKeys(activeUser);
+    const permissionKeys = await this.filterByEntitlement(
+      user.tenantId,
+      await this.getUserPermissionKeys(activeUser),
+    );
 
     return {
       id: user.id,
@@ -303,6 +329,7 @@ export class RolesService {
           branch: assignment.branch,
         })),
       permissions: permissionKeys,
+      entitlements: await this.entitlements.summaryForTenant(user.tenantId),
     };
   }
 

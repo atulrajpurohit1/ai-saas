@@ -26,6 +26,7 @@ import {
   Building2,
   FileCheck2,
   Umbrella,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -59,6 +60,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/leads', label: 'Leads', icon: Users, permissions: ['leads.view'] },
       { href: '/deals', label: 'Deals', icon: Briefcase, permissions: ['deals.view'] },
       { href: '/prospect-search', label: 'Prospect Search', icon: Radar, permissions: ['prospect_search.view'] },
+      { href: '/clients/insurance', label: 'Client Insurance', icon: Umbrella, permissions: ['clients.view'] },
     ],
   },
   {
@@ -93,7 +95,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/invoices', label: 'Invoices', icon: Receipt, permissions: ['invoices.view'] },
       { href: '/invoice-disputes', label: 'Disputes', icon: FileWarning, permissions: ['invoice_disputes.view'] },
       { href: '/finance', label: 'Finance', icon: DollarSign, permissions: ['finance.view'] },
-      { href: '/clients/insurance', label: 'Client Insurance', icon: Umbrella, permissions: ['clients.view'] },
     ],
   },
   {
@@ -101,6 +102,7 @@ export const NAV_GROUPS: NavGroup[] = [
     links: [
       { href: '/integrations', label: 'Integrations', icon: Plug, permissions: ['integrations.view'] },
       { href: '/settings/branding', label: 'Branding', icon: Palette, permissions: ['branding.view'] },
+      { href: '/settings/plan', label: 'Your Plan', icon: Sparkles, permissions: ['billing.view'] },
       { href: '/settings/billing', label: 'Billing', icon: CreditCard, permissions: ['billing.view'] },
       { href: '/settings/roles', label: 'Roles', icon: Settings, permissions: ['roles.view'] },
       { href: '/audit', label: 'Audit Logs', icon: Activity, permissions: ['audit.view'] },

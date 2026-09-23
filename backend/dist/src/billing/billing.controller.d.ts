@@ -24,6 +24,17 @@ export declare class BillingController {
             customDomains: boolean;
             prioritySupport: boolean;
         };
+        entitlements: {
+            status: import(".prisma/client").$Enums.SubscriptionStatus;
+            trialEndsAt: Date | null;
+            currentPeriodEnd: Date | null;
+            cancelAtPeriodEnd: boolean;
+            modules: {
+                key: import(".prisma/client").$Enums.ServiceModule;
+                name: string;
+                active: boolean;
+            }[];
+        };
         availablePlans: {
             key: string;
             name: string;

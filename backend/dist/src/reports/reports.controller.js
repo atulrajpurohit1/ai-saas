@@ -17,6 +17,8 @@ const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const module_guard_1 = require("../auth/guards/module.guard");
+const module_decorator_1 = require("../auth/decorators/module.decorator");
 const permission_guard_1 = require("../auth/guards/permission.guard");
 const generate_daily_report_dto_1 = require("./dto/generate-daily-report.dto");
 const reports_service_1 = require("./reports.service");
@@ -94,8 +96,9 @@ __decorate([
 ], ReportsController.prototype, "publish", null);
 exports.ReportsController = ReportsController = __decorate([
     (0, common_1.Controller)('reports'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard, module_guard_1.ModuleGuard),
     (0, permissions_decorator_1.RequirePermission)('reports.view'),
+    (0, module_decorator_1.RequireModule)('GUARD_TOUR'),
     __metadata("design:paramtypes", [reports_service_1.ReportsService])
 ], ReportsController);
 //# sourceMappingURL=reports.controller.js.map

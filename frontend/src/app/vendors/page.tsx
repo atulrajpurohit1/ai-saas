@@ -165,7 +165,7 @@ export default function VendorsPage() {
   };
 
   return (
-    <DashboardLayout requiredPermissions="vendors.view">
+    <DashboardLayout requiredModule="LEAD_GEN" requiredPermissions="vendors.view">
       <PageHeader
         title="Vendors"
         description="Manage security service vendors and assign them to RFPs."

@@ -12,14 +12,17 @@ import { Response } from 'express';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ModuleGuard } from '../auth/guards/module.guard';
+import { RequireModule } from '../auth/decorators/module.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { GenerateDailyReportDto } from './dto/generate-daily-report.dto';
 import { ReportsService } from './reports.service';
 
 @Controller('reports')
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
 @RequirePermission('reports.view')
+@RequireModule('GUARD_TOUR')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 

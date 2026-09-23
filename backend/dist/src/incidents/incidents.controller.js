@@ -20,6 +20,8 @@ const crypto_1 = require("crypto");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const module_guard_1 = require("../auth/guards/module.guard");
+const module_decorator_1 = require("../auth/decorators/module.decorator");
 const permission_guard_1 = require("../auth/guards/permission.guard");
 const file_storage_util_1 = require("../common/file-storage.util");
 const review_incident_dto_1 = require("./dto/review-incident.dto");
@@ -159,8 +161,9 @@ __decorate([
 ], IncidentsController.prototype, "deleteEvidence", null);
 exports.IncidentsController = IncidentsController = __decorate([
     (0, common_1.Controller)('incidents'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard, module_guard_1.ModuleGuard),
     (0, permissions_decorator_1.RequirePermission)('incidents.view'),
+    (0, module_decorator_1.RequireModule)('GUARD_TOUR'),
     __metadata("design:paramtypes", [incidents_service_1.IncidentsService])
 ], IncidentsController);
 //# sourceMappingURL=incidents.controller.js.map

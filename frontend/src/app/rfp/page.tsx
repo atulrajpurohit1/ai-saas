@@ -119,7 +119,7 @@ export default function RfpListPage() {
   };
 
   return (
-    <DashboardLayout requiredPermissions="rfp.view">
+    <DashboardLayout requiredModule="LEAD_GEN" requiredPermissions="rfp.view">
       <PageHeader
         title="RFP Management"
         description="Create, generate, and manage Requests for Proposal."

@@ -11,8 +11,8 @@ export declare class RolesController {
         name: string;
         createdAt: Date;
         description: string | null;
-        key: string;
         module: string;
+        key: string;
     }[]>;
     listRoles(user: ActiveUser): Promise<{
         id: any;
@@ -81,8 +81,8 @@ export declare class RolesController {
                 updatedAt: Date;
                 tenantId: string;
                 description: string | null;
-                isSystemRole: boolean;
                 isActive: boolean;
+                isSystemRole: boolean;
             };
             branch: {
                 id: string;
@@ -108,8 +108,8 @@ export declare class RolesController {
             updatedAt: Date;
             tenantId: string;
             description: string | null;
-            isSystemRole: boolean;
             isActive: boolean;
+            isSystemRole: boolean;
         };
         branch: {
             id: string;

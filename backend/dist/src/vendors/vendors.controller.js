@@ -17,6 +17,8 @@ const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const module_guard_1 = require("../auth/guards/module.guard");
+const module_decorator_1 = require("../auth/decorators/module.decorator");
 const permission_guard_1 = require("../auth/guards/permission.guard");
 const create_vendor_dto_1 = require("./dto/create-vendor.dto");
 const update_vendor_dto_1 = require("./dto/update-vendor.dto");
@@ -89,8 +91,9 @@ __decorate([
 ], VendorsController.prototype, "remove", null);
 exports.VendorsController = VendorsController = __decorate([
     (0, common_1.Controller)('vendors'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard, module_guard_1.ModuleGuard),
     (0, permissions_decorator_1.RequirePermission)('vendors.view'),
+    (0, module_decorator_1.RequireModule)('LEAD_GEN'),
     __metadata("design:paramtypes", [vendors_service_1.VendorsService])
 ], VendorsController);
 //# sourceMappingURL=vendors.controller.js.map

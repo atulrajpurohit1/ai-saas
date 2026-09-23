@@ -57,7 +57,7 @@ export default function IncidentsPage() {
     });
 
   return (
-    <DashboardLayout>
+    <DashboardLayout requiredModule="GUARD_TOUR">
       <PageHeader
         title="Incidents"
         description="Track incident reports submitted by guards."

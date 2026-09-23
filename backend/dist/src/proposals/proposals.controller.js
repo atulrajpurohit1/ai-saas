@@ -18,6 +18,8 @@ const proposals_service_1 = require("./proposals.service");
 const create_proposal_dto_1 = require("./dto/create-proposal.dto");
 const update_proposal_dto_1 = require("./dto/update-proposal.dto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const module_guard_1 = require("../auth/guards/module.guard");
+const module_decorator_1 = require("../auth/decorators/module.decorator");
 const permission_guard_1 = require("../auth/guards/permission.guard");
 const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const proposal_content_util_1 = require("./proposal-content.util");
@@ -179,8 +181,9 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ProposalsController.prototype, "share", null);
 exports.ProposalsController = ProposalsController = __decorate([
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard, module_guard_1.ModuleGuard),
     (0, common_1.Controller)('proposals'),
+    (0, module_decorator_1.RequireModule)('LEAD_GEN'),
     __metadata("design:paramtypes", [proposals_service_1.ProposalsService])
 ], ProposalsController);
 //# sourceMappingURL=proposals.controller.js.map

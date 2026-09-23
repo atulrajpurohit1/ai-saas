@@ -9,11 +9,19 @@ import BrandMark from '@/components/BrandMark';
 import { BRAND_NAME } from '@/lib/brand';
 import { useRouter } from 'next/navigation';
 import { Menu, Search, LogOut, ChevronDown } from 'lucide-react';
+import ModuleLockedState from '@/components/ModuleLockedState';
+import { ServiceModuleKey } from '@/lib/entitlements';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
   allowedRoles?: User['role'][];
   requiredPermissions?: string | string[];
+  /**
+   * The service this page belongs to. When the tenant has not bought it the
+   * page renders an explanation instead of redirecting, so a stale bookmark
+   * or shared link does not bounce silently to the dashboard.
+   */
+  requiredModule?: ServiceModuleKey;
 }
 
 function greeting() {
@@ -71,8 +79,8 @@ function UserMenu() {
 
 const SIDEBAR_COLLAPSED_KEY = 'ai-saas-sidebar-collapsed';
 
-export default function DashboardLayout({ children, allowedRoles, requiredPermissions }: DashboardLayoutProps) {
-  const { user, loading, can } = useAuth();
+export default function DashboardLayout({ children, allowedRoles, requiredPermissions, requiredModule }: DashboardLayoutProps) {
+  const { user, loading, can, hasModule } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -105,9 +113,11 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
         // Roles without branding.view just keep the tenant-name fallback below.
       });
   }, []);
+  const moduleLocked = Boolean(user && requiredModule && !hasModule(requiredModule));
   const permissionsBlocked = Boolean(user && requiredPermissions && !can(requiredPermissions));
   const isBlocked = Boolean(
     user &&
+      !moduleLocked &&
       ((allowedRoles && !allowedRoles.includes(user.role)) || permissionsBlocked),
   );
 
@@ -219,7 +229,11 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
 
         <main className="min-w-0 px-3 py-4 pb-24 sm:px-6 sm:py-7 sm:pb-16 lg:px-8 lg:py-8">
           <div className="mx-auto w-full max-w-7xl">
-            {children}
+            {moduleLocked && requiredModule ? (
+              <ModuleLockedState module={requiredModule} />
+            ) : (
+              children
+            )}
           </div>
         </main>
       </div>

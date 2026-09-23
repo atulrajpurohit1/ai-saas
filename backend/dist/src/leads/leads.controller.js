@@ -20,6 +20,8 @@ const create_lead_dto_1 = require("./dto/create-lead.dto");
 const update_lead_dto_1 = require("./dto/update-lead.dto");
 const update_lead_status_dto_1 = require("./dto/update-lead-status.dto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const module_guard_1 = require("../auth/guards/module.guard");
+const module_decorator_1 = require("../auth/decorators/module.decorator");
 const permission_guard_1 = require("../auth/guards/permission.guard");
 const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 let LeadsController = class LeadsController {
@@ -169,8 +171,9 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], LeadsController.prototype, "remove", null);
 exports.LeadsController = LeadsController = __decorate([
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard, module_guard_1.ModuleGuard),
     (0, common_1.Controller)('leads'),
+    (0, module_decorator_1.RequireModule)('LEAD_GEN'),
     __metadata("design:paramtypes", [leads_service_1.LeadsService])
 ], LeadsController);
 //# sourceMappingURL=leads.controller.js.map
