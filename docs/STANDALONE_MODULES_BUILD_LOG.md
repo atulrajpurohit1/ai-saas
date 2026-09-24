@@ -10,7 +10,7 @@ Branch: `feat/aegislead-branding`
 |---|---|---|
 | 0 — Permission catalog fix | **Done** | 2026-09-23 |
 | 1 — Entitlement model + enforcement | **Done** | 2026-09-23 |
-| 2 — Checkout + provisioning (Stripe) | Not started (blocked on pricing decisions) | |
+| 2 — Checkout + provisioning (Stripe) | **Code done**, awaiting keys + pricing | 2026-09-24 |
 | 3 — Standalone UX | **Done** | 2026-09-23 |
 | 4 — Hardening / e2e | **Done** | 2026-09-24 |
 
@@ -378,6 +378,81 @@ Cleanup verified: the DB returned to exactly its 38 tenants / 38 subscriptions
 **New:** `backend/test/entitlements.e2e-spec.ts` (44 tests)
 **Changed:** `guards.controller.ts` (the leak), `entitlements-coverage.spec.ts`
 (per-class check)
+
+---
+
+## Phase 2 — Stripe checkout (code complete, unconfigured)
+
+Built while waiting on Stripe keys and pricing. **Prices live in Stripe, not in
+the code** — the config only records which price id sells which service, so
+setting the numbers later is env vars, not a deploy.
+
+**The app runs normally with no Stripe config at all.** `STRIPE_SECRET_KEY`
+unset means checkout is simply off: `/settings/plan` shows "Contact us" instead
+of a buy button, and the checkout endpoints answer 503 with a clear message.
+Verified by booting with an empty config — all routes register, nothing throws.
+
+### What was built
+
+| Piece | Purpose |
+|---|---|
+| `billing.config.ts` | Price-id ↔ service mapping, all from env |
+| `stripe.service.ts` | Checkout sessions, billing portal, signature verification. Lazily constructed so a missing key never breaks boot |
+| `stripe-webhook.service.ts` | Translates Stripe events into entitlement changes |
+| `stripe-webhook.controller.ts` | `POST /billing/webhook/stripe`, unauthenticated by necessity — the signature *is* the auth |
+| `subscription-provisioning.service.ts` | Turns "paid for these services" into rows. Knows nothing about Stripe |
+| `BillingController` additions | `checkout/availability`, `checkout/session`, `portal/session` |
+
+`rawBody: true` added in `main.ts` — Stripe signs the exact bytes it sent, so
+verification needs the unparsed body alongside the normal parsed one.
+
+### Decisions worth recording
+
+**Provisioning is provider-agnostic.** The webhook translates Stripe events
+into a `ProvisionInput` and calls the same service an admin would. That matters
+now: manual provisioning is how the first customers get onboarded, and it runs
+through the same code payments will, rather than a shortcut that rots.
+
+**Services are resolved from what was billed, not from metadata.** A webhook is
+untrusted input and metadata is editable in the Stripe Dashboard; the price ids
+actually charged are not.
+
+**An unrecognised price id provisions nothing and logs an error.** Provisioning
+an empty module list would silently strip a paying customer of everything, so
+it refuses instead.
+
+**`PAST_DUE` keeps access**, consistent with Phase 1. `invoice.payment_failed`
+sets the status but revokes nothing.
+
+**Idempotent by construction.** Every handler computes the full desired state
+rather than applying a delta, so replayed or out-of-order events converge.
+Stripe retries freely and that is fine.
+
+**A tenant keeps one Stripe customer** across purchases, so adding a second
+service produces one billing relationship, not two unrelated invoices.
+
+**Unhandled event types return 200 without throwing.** A 500 makes Stripe retry
+forever and eventually disable the endpoint.
+
+### Not done (needs the client)
+
+- No products or prices exist in Stripe yet — pricing is not agreed
+- No keys configured
+- Nothing tested against real Stripe traffic. The webhook logic is unit tested
+  against realistic event payloads, but no live event has been through it
+
+`docs/STRIPE_SETUP.md` has the full setup runbook: products, prices, webhook
+endpoint, env vars, test cards and the go-live steps.
+
+### Files
+
+**New:** `billing.config.ts`, `stripe.service.ts`, `stripe-webhook.service.ts`,
+`stripe-webhook.controller.ts`, `subscription-provisioning.service.ts`,
+`dto/create-checkout-session.dto.ts`, 2 spec files (32 tests),
+`docs/STRIPE_SETUP.md`
+
+**Changed:** `main.ts` (rawBody), `billing.controller.ts`, `billing.module.ts`,
+`frontend/src/lib/billing.ts`, `frontend/src/app/settings/plan/page.tsx`
 
 ---
 

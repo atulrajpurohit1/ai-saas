@@ -7,7 +7,9 @@ const prisma_exception_filter_1 = require("./prisma/prisma-exception.filter");
 const dns_1 = require("dns");
 (0, dns_1.setDefaultResultOrder)('ipv4first');
 async function bootstrap() {
-    const app = await core_1.NestFactory.create(app_module_1.AppModule);
+    const app = await core_1.NestFactory.create(app_module_1.AppModule, {
+        rawBody: true,
+    });
     app.useBodyParser('json', { limit: '10mb' });
     app.useBodyParser('urlencoded', { limit: '10mb', extended: true });
     app.useGlobalFilters(new prisma_exception_filter_1.PrismaExceptionFilter());

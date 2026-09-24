@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useMemo } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -12,6 +12,12 @@ import {
   moduleSummary,
 } from '@/lib/entitlements';
 import { cn } from '@/lib/utils';
+import {
+  getCheckoutAvailability,
+  startCheckout,
+  type CheckoutAvailability,
+} from '@/lib/billing';
+import { getApiErrorMessage } from '@/lib/api-error';
 import { BrainCircuit, Check, DollarSign, Lock, ShieldCheck } from 'lucide-react';
 
 const MODULE_ICONS: Record<ServiceModuleKey, typeof BrainCircuit> = {
@@ -42,6 +48,38 @@ function PlanContent() {
   const { entitlements } = useAuth();
   const searchParams = useSearchParams();
   const requested = searchParams.get('module') as ServiceModuleKey | null;
+  const checkoutState = searchParams.get('checkout');
+
+  const [availability, setAvailability] = useState<CheckoutAvailability | null>(null);
+  const [pending, setPending] = useState<ServiceModuleKey | null>(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    getCheckoutAvailability()
+      .then(setAvailability)
+      .catch(() => {
+        // Availability is an enhancement: if it cannot be read, fall back to
+        // the contact route rather than blocking the page.
+        setAvailability({ configured: false, monthly: [], annual: [] });
+      });
+  }, []);
+
+  const buy = async (module: ServiceModuleKey) => {
+    setError('');
+    setPending(module);
+    try {
+      const { url } = await startCheckout([module]);
+      if (url) {
+        window.location.href = url;
+        return;
+      }
+      setError('Stripe did not return a checkout link. Please try again.');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Unable to start checkout.'));
+    } finally {
+      setPending(null);
+    }
+  };
 
   const modules = useMemo(() => moduleSummary(entitlements), [entitlements]);
   const requestedName =
@@ -55,6 +93,32 @@ function PlanContent() {
         title="Your plan"
         description="The AegisLead services active on this account."
       />
+
+      {checkoutState === 'success' && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+          <Check className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+          <div>
+            <p className="font-semibold text-foreground">Payment received</p>
+            <p className="text-sm text-muted-foreground">
+              Your new services are being activated. Sign out and back in if
+              they are not visible within a minute.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {checkoutState === 'cancelled' && (
+        <div className="mb-6 rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+          Checkout was cancelled. Nothing has been charged and your plan is
+          unchanged.
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-6 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-foreground">
+          {error}
+        </div>
+      )}
 
       {requestedName && (
         <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
@@ -130,16 +194,31 @@ function PlanContent() {
                 ))}
               </ul>
 
-              {!module.active && (
-                <a
-                  href={`mailto:sales@aegislead.com?subject=${encodeURIComponent(
-                    `Add ${module.name} to our AegisLead plan`,
-                  )}`}
-                  className="mt-5 inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-                >
-                  Add {module.name}
-                </a>
-              )}
+              {!module.active &&
+                (availability?.configured &&
+                availability.monthly.includes(module.key) ? (
+                  <button
+                    type="button"
+                    onClick={() => void buy(module.key)}
+                    disabled={pending !== null}
+                    className="mt-5 inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
+                  >
+                    {pending === module.key
+                      ? 'Redirecting…'
+                      : `Add ${module.name}`}
+                  </button>
+                ) : (
+                  // No price configured yet, so there is nothing to sell.
+                  // Offer a real route rather than a button that would 503.
+                  <a
+                    href={`mailto:sales@aegislead.com?subject=${encodeURIComponent(
+                      `Add ${module.name} to our AegisLead plan`,
+                    )}`}
+                    className="mt-5 inline-flex w-full items-center justify-center rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+                  >
+                    Contact us about {module.name}
+                  </a>
+                ))}
             </div>
           );
         })}
