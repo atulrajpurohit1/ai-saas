@@ -120,7 +120,7 @@ export default function SalesCallsPage() {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout requiredModule="LEAD_GEN">
       <div className="mb-6 flex flex-col gap-4 sm:mb-8 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <h2 className="text-2xl font-bold sm:text-3xl">Sales Calls</h2>

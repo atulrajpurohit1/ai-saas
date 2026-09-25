@@ -54,7 +54,7 @@ export default function IncidentReviewQueuePage() {
     });
 
   return (
-    <DashboardLayout>
+    <DashboardLayout requiredModule="GUARD_TOUR">
       <div className="mb-6">
         <Link
           href="/incidents"

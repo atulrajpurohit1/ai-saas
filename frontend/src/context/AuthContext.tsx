@@ -4,6 +4,12 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import api from '@/lib/api';
+import {
+  Entitlements,
+  ServiceModuleKey,
+  activeModules,
+  serviceForPermission,
+} from '@/lib/entitlements';
 
 export interface User {
   id?: string;
@@ -15,6 +21,7 @@ export interface User {
   branchId?: string | null;
   isSuperAdmin?: boolean;
   permissions?: string[];
+  entitlements?: Entitlements | null;
   roles?: {
     assignmentId: string;
     id: string;
@@ -30,6 +37,8 @@ interface AuthContextType {
   logout: () => void;
   can: (permission: string | string[]) => boolean;
   canAny: (permissions: string[]) => boolean;
+  hasModule: (module: ServiceModuleKey) => boolean;
+  entitlements: Entitlements | null;
   loading: boolean;
 }
 
@@ -43,20 +52,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const normalizeUser = (value: User): User => ({
     ...value,
     permissions: Array.isArray(value.permissions) ? value.permissions : [],
+    entitlements: value.entitlements ?? null,
     roles: Array.isArray(value.roles) ? value.roles : [],
   });
 
   const getRedirectPath = (nextUser: User) => {
     const permissions = new Set(nextUser.permissions || []);
+    const modules = activeModules(nextUser.entitlements);
+
+    // Landing must respect entitlement as well as permission: sending a
+    // Lead-Gen-only user to /shifts would 403 them straight after login.
+    const entitled = (permission: string) => {
+      if (!permissions.has(permission)) return false;
+      const service = serviceForPermission(permission);
+      return service === null || modules.has(service);
+    };
+
     if (nextUser.role === 'client') return '/client/dashboard';
-    if (nextUser.role === 'finance') return '/finance';
+    if (nextUser.role === 'finance' && modules.has('FINANCE')) return '/finance';
     if (!permissions.has('dashboard.view')) {
-      if (permissions.has('shifts.view')) return '/shifts';
-      if (permissions.has('finance.view')) return '/finance';
-      if (permissions.has('invoices.view')) return '/invoices';
-      if (permissions.has('leads.view')) return '/leads';
-      if (permissions.has('integrations.view')) return '/integrations';
-      if (permissions.has('roles.view')) return '/settings/roles';
+      if (entitled('shifts.view')) return '/shifts';
+      if (entitled('finance.view')) return '/finance';
+      if (entitled('invoices.view')) return '/invoices';
+      if (entitled('leads.view')) return '/leads';
+      if (entitled('integrations.view')) return '/integrations';
+      if (entitled('roles.view')) return '/settings/roles';
     }
     return '/';
   };
@@ -144,23 +164,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
+  // A Super Admin holds every permission, but entitlement is a TENANT fact and
+  // no role overrides it: at a Lead-Gen-only tenant they must not see Guard
+  // Tour nav. ModuleGuard enforces the same rule on the API, which would
+  // otherwise 403 every link rendered here.
+  const entitledTo = (permission: string) => {
+    const service = serviceForPermission(permission);
+    return service === null || activeModules(user?.entitlements).has(service);
+  };
+
   const can = (permission: string | string[]) => {
     if (!user) return false;
+    const required = Array.isArray(permission) ? permission : [permission];
+    if (!required.every(entitledTo)) return false;
     if (user.isSuperAdmin) return true;
     const permissions = new Set(user.permissions || []);
-    const required = Array.isArray(permission) ? permission : [permission];
     return required.every((item) => permissions.has(item));
   };
 
   const canAny = (permissionsToCheck: string[]) => {
     if (!user) return false;
+    const entitled = permissionsToCheck.filter(entitledTo);
+    if (entitled.length === 0) return false;
     if (user.isSuperAdmin) return true;
     const permissions = new Set(user.permissions || []);
-    return permissionsToCheck.some((permission) => permissions.has(permission));
+    return entitled.some((permission) => permissions.has(permission));
   };
 
+  const hasModule = (module: ServiceModuleKey) =>
+    activeModules(user?.entitlements).has(module);
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, can, canAny, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        logout,
+        can,
+        canAny,
+        hasModule,
+        entitlements: user?.entitlements ?? null,
+        loading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -123,7 +123,7 @@ export default function InvoiceDisputeDetailPage() {
   const canReview = dispute?.status === 'open' || dispute?.status === 'under_review';
 
   return (
-    <DashboardLayout>
+    <DashboardLayout requiredModule="FINANCE">
       <div className="mb-6">
         <Link href="/invoice-disputes" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 transition hover:text-white">
           <ArrowLeft size={16} />

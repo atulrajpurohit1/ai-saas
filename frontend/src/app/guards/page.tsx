@@ -196,7 +196,7 @@ export default function GuardsPage() {
   );
 
   return (
-    <DashboardLayout>
+    <DashboardLayout requiredModule="GUARD_TOUR">
       <PageHeader
         title="Guards"
         description="Manage your security personnel and assignments."

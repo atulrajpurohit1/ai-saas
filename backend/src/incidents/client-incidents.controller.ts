@@ -10,13 +10,16 @@ import { Response } from 'express';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ModuleGuard } from '../auth/guards/module.guard';
+import { RequireModule } from '../auth/decorators/module.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { IncidentsService } from './incidents.service';
 
 @Controller('client/incidents')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ModuleGuard)
 @Roles('client')
+@RequireModule('GUARD_TOUR')
 export class ClientIncidentsController {
   constructor(private readonly incidentsService: IncidentsService) {}
 

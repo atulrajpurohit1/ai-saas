@@ -160,7 +160,7 @@ export default function TimesheetDetailPage() {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout requiredModule="GUARD_TOUR">
       <div className="mb-6">
         <Link href="/timesheets" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 transition hover:text-white">
           <ArrowLeft size={16} />

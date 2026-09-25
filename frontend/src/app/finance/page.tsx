@@ -128,7 +128,7 @@ export default function FinancePage() {
   };
 
   return (
-    <DashboardLayout allowedRoles={['admin', 'finance']}>
+    <DashboardLayout requiredModule="FINANCE" allowedRoles={['admin', 'finance']}>
       <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="flex items-center gap-3 text-2xl font-bold sm:text-3xl">

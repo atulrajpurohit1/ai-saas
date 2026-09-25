@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RolesService } from './roles.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
+import { SERVICE_MODULES } from '../entitlements/entitlements.constants';
 import { ALL_PERMISSION_KEYS } from './rbac.constants';
 
 describe('RolesService', () => {
@@ -44,6 +46,20 @@ describe('RolesService', () => {
         RolesService,
         { provide: PrismaService, useValue: prisma },
         { provide: AuditService, useValue: { log: jest.fn() } },
+        {
+          // Fully entitled tenant: these tests assert RBAC behaviour, so
+          // entitlement must not filter anything out from under them.
+          provide: EntitlementsService,
+          useValue: {
+            modulesForTenant: jest
+              .fn()
+              .mockResolvedValue(new Set(SERVICE_MODULES)),
+            summaryForTenant: jest.fn().mockResolvedValue({
+              status: 'ACTIVE',
+              modules: SERVICE_MODULES.map((key) => ({ key, active: true })),
+            }),
+          },
+        },
       ],
     }).compile();
 

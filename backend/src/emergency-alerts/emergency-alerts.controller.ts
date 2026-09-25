@@ -8,6 +8,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ModuleGuard } from '../auth/guards/module.guard';
+import { RequireModule } from '../auth/decorators/module.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
@@ -21,8 +23,9 @@ import { EmergencyAlertActionDto } from './dto/emergency-alert-action.dto';
 // ownership of and closing out a safety event, which is exactly what
 // acknowledge/resolve are.
 @Controller('emergency-alerts')
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
 @RequirePermission('incidents.view')
+@RequireModule('GUARD_TOUR')
 export class EmergencyAlertsController {
   constructor(
     private readonly emergencyAlertsService: EmergencyAlertsService,

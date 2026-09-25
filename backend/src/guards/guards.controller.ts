@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { GuardsService } from './guards.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ModuleGuard } from '../auth/guards/module.guard';
+import { RequireModule } from '../auth/decorators/module.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
@@ -20,8 +22,9 @@ import { UpdateGuardDto } from './dto/update-guard.dto';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 
 @Controller('v2/guards')
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
 @RequirePermission('guards.view')
+@RequireModule('GUARD_TOUR')
 export class GuardsController {
   constructor(private readonly guardsService: GuardsService) {}
 
@@ -68,8 +71,9 @@ export class GuardsController {
 }
 
 @Controller('guards')
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
 @RequirePermission('guards.view')
+@RequireModule('GUARD_TOUR')
 export class GuardsAliasController {
   constructor(private readonly guardsService: GuardsService) {}
 

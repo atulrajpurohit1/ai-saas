@@ -18,6 +18,8 @@ const deals_service_1 = require("./deals.service");
 const create_deal_dto_1 = require("./dto/create-deal.dto");
 const update_deal_stage_dto_1 = require("./dto/update-deal-stage.dto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const module_guard_1 = require("../auth/guards/module.guard");
+const module_decorator_1 = require("../auth/decorators/module.decorator");
 const permission_guard_1 = require("../auth/guards/permission.guard");
 const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 let DealsController = class DealsController {
@@ -106,8 +108,9 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], DealsController.prototype, "remove", null);
 exports.DealsController = DealsController = __decorate([
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard, module_guard_1.ModuleGuard),
     (0, common_1.Controller)('deals'),
+    (0, module_decorator_1.RequireModule)('LEAD_GEN'),
     __metadata("design:paramtypes", [deals_service_1.DealsService])
 ], DealsController);
 //# sourceMappingURL=deals.controller.js.map

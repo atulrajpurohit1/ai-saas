@@ -12,6 +12,8 @@ import {
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ModuleGuard } from '../auth/guards/module.guard';
+import { RequireModule } from '../auth/decorators/module.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CreateRateCardDto } from './dto/create-rate-card.dto';
@@ -19,8 +21,9 @@ import { UpdateRateCardDto } from './dto/update-rate-card.dto';
 import { RateCardsService } from './rate-cards.service';
 
 @Controller('rate-cards')
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
 @RequirePermission('rate_cards.view')
+@RequireModule('FINANCE')
 export class RateCardsController {
   constructor(private readonly rateCardsService: RateCardsService) {}
 

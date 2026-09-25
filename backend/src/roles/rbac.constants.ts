@@ -200,6 +200,19 @@ export const PERMISSIONS: PermissionDefinition[] = [
     module: 'guards',
   },
   {
+    key: 'patrols.view',
+    name: 'View patrols',
+    description: 'Read checkpoints, patrol routes, and patrol run history.',
+    module: 'patrols',
+  },
+  {
+    key: 'patrols.manage',
+    name: 'Manage patrols',
+    description:
+      'Create and update checkpoints and patrol routes, and manage patrol runs.',
+    module: 'patrols',
+  },
+  {
     key: 'shifts.view',
     name: 'View shifts',
     description: 'Read shifts and guard recommendations.',
@@ -371,6 +384,13 @@ export const PERMISSIONS: PermissionDefinition[] = [
     key: 'ai.view',
     name: 'View AI',
     description: 'Access AI Sales features (Prospect Search, Sales Accelerator, Sales Calls).',
+    module: 'ai',
+  },
+  {
+    key: 'ai.manage',
+    name: 'Manage AI',
+    description:
+      'Review AI generation feedback and manage AI monitoring and governance.',
     module: 'ai',
   },
   {
@@ -583,6 +603,8 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       'sites.manage',
       'guards.view',
       'guards.manage',
+      'patrols.view',
+      'patrols.manage',
       'shifts.view',
       'shifts.create',
       'shifts.assign',
@@ -601,6 +623,7 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       'invoices.export',
       'branches.view',
       'ai.view',
+      'ai.manage',
       'billing.view',
       'rate_cards.view',
       'audit.view',
@@ -633,6 +656,8 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       'branches.view',
       'sites.view',
       'guards.view',
+      'patrols.view',
+      'patrols.manage',
       'shifts.view',
       'shifts.create',
       'shifts.assign',
@@ -648,6 +673,7 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       'branches.view',
       'sites.view',
       'guards.view',
+      'patrols.view',
       'shifts.view',
       'incidents.view',
       'incidents.review',

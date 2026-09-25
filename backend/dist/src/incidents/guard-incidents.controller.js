@@ -20,6 +20,8 @@ const crypto_1 = require("crypto");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const module_guard_1 = require("../auth/guards/module.guard");
+const module_decorator_1 = require("../auth/decorators/module.decorator");
 const roles_guard_1 = require("../auth/guards/roles.guard");
 const file_storage_util_1 = require("../common/file-storage.util");
 const create_incident_dto_1 = require("./dto/create-incident.dto");
@@ -135,8 +137,9 @@ __decorate([
 ], GuardIncidentsController.prototype, "downloadEvidence", null);
 exports.GuardIncidentsController = GuardIncidentsController = __decorate([
     (0, common_1.Controller)('guard'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard, module_guard_1.ModuleGuard),
     (0, roles_decorator_1.Roles)('guard'),
+    (0, module_decorator_1.RequireModule)('GUARD_TOUR'),
     __metadata("design:paramtypes", [incidents_service_1.IncidentsService])
 ], GuardIncidentsController);
 //# sourceMappingURL=guard-incidents.controller.js.map

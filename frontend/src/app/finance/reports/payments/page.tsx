@@ -84,7 +84,7 @@ export default function PaymentReportPage() {
   };
 
   return (
-    <DashboardLayout allowedRoles={['admin', 'finance']}>
+    <DashboardLayout requiredModule="FINANCE" allowedRoles={['admin', 'finance']}>
       <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <Link href="/finance" className="mb-4 inline-flex items-center gap-2 text-sm font-bold text-indigo-300 hover:text-indigo-200">

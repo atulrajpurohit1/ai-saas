@@ -128,7 +128,7 @@ export default function DealsPage() {
   });
 
   return (
-    <DashboardLayout>
+    <DashboardLayout requiredModule="LEAD_GEN">
       <PageHeader
         title="Sales Pipeline"
         description="Track your active deals and conversion progress."

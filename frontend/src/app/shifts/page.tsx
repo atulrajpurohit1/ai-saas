@@ -256,7 +256,7 @@ export default function ShiftsPage() {
   };
 
   return (
-    <DashboardLayout requiredPermissions="shifts.view">
+    <DashboardLayout requiredModule="GUARD_TOUR" requiredPermissions="shifts.view">
       <PageHeader
         title="Shift Management"
         description="Schedule and manage guard presence at client sites."

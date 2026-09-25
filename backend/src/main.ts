@@ -16,7 +16,12 @@ import { setDefaultResultOrder } from 'dns';
 setDefaultResultOrder('ipv4first');
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    // Stripe signs the exact bytes it sent, so signature verification needs the
+    // unparsed body. This keeps the parsed body available everywhere else and
+    // exposes req.rawBody alongside it, used only by the Stripe webhook route.
+    rawBody: true,
+  });
 
   // Default body-parser limit (100kb) is too small for base64 logo uploads on RFPs/branding.
   app.useBodyParser('json', { limit: '10mb' });

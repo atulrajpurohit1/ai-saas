@@ -17,6 +17,8 @@ const common_1 = require("@nestjs/common");
 const platform_express_1 = require("@nestjs/platform-express");
 const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const module_guard_1 = require("../auth/guards/module.guard");
+const module_decorator_1 = require("../auth/decorators/module.decorator");
 const permission_guard_1 = require("../auth/guards/permission.guard");
 const call_transcription_service_1 = require("./call-transcription.service");
 let CallTranscriptionController = class CallTranscriptionController {
@@ -53,8 +55,9 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], CallTranscriptionController.prototype, "transcribe", null);
 exports.CallTranscriptionController = CallTranscriptionController = __decorate([
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard, module_guard_1.ModuleGuard),
     (0, common_1.Controller)('call-transcription'),
+    (0, module_decorator_1.RequireModule)('LEAD_GEN'),
     __metadata("design:paramtypes", [call_transcription_service_1.CallTranscriptionService])
 ], CallTranscriptionController);
 //# sourceMappingURL=call-transcription.controller.js.map

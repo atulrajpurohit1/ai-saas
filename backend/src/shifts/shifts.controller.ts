@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Body, UseGuards, Query } from '@nestjs/common';
 import { ShiftsService } from './shifts.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ModuleGuard } from '../auth/guards/module.guard';
+import { RequireModule } from '../auth/decorators/module.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
@@ -10,8 +12,9 @@ import { AssignGuardDto } from './dto/assign-guard.dto';
 import { Param, Put, Delete } from '@nestjs/common';
 
 @Controller('v2/shifts')
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
 @RequirePermission('shifts.view')
+@RequireModule('GUARD_TOUR')
 export class ShiftsController {
   constructor(private readonly shiftsService: ShiftsService) {}
 

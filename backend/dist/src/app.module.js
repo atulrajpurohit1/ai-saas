@@ -44,6 +44,7 @@ const ai_monitoring_module_1 = require("./ai-monitoring/ai-monitoring.module");
 const ai_governance_module_1 = require("./ai-governance/ai-governance.module");
 const branches_module_1 = require("./branches/branches.module");
 const roles_module_1 = require("./roles/roles.module");
+const entitlements_module_1 = require("./entitlements/entitlements.module");
 const api_keys_module_1 = require("./api-keys/api-keys.module");
 const webhooks_module_1 = require("./webhooks/webhooks.module");
 const public_api_module_1 = require("./public-api/public-api.module");
@@ -73,6 +74,7 @@ exports.AppModule = AppModule = __decorate([
         imports: [
             config_1.ConfigModule.forRoot({ isGlobal: true }),
             prisma_module_1.PrismaModule,
+            entitlements_module_1.EntitlementsModule,
             roles_module_1.RolesModule,
             dashboard_module_1.DashboardModule,
             guard_compliance_module_1.GuardComplianceModule,

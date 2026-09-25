@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 
 type PlanKey = 'free' | 'starter' | 'growth' | 'enterprise';
 type LimitKey = 'adminUsers' | 'clientUsers' | 'branches' | 'leads' | 'deals';
@@ -58,7 +59,10 @@ const PLANS: Record<
 
 @Injectable()
 export class BillingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly entitlements: EntitlementsService,
+  ) {}
 
   async getTenantBilling(tenantId: string) {
     const tenant = await this.prisma.tenant.findUnique({
@@ -96,6 +100,7 @@ export class BillingService {
       },
       limits,
       features: this.featuresForPlan(planKey),
+      entitlements: await this.entitlements.summaryForTenant(tenantId),
       availablePlans: Object.entries(PLANS).map(([key, value]) => ({
         key,
         name: value.name,

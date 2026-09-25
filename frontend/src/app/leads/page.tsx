@@ -161,7 +161,7 @@ export default function LeadsPage() {
   });
 
   return (
-    <DashboardLayout>
+    <DashboardLayout requiredModule="LEAD_GEN">
       <PageHeader
         title="Leads"
         description="Manage your incoming business opportunities."

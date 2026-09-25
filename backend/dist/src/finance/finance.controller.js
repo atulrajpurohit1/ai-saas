@@ -17,6 +17,8 @@ const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const module_guard_1 = require("../auth/guards/module.guard");
+const module_decorator_1 = require("../auth/decorators/module.decorator");
 const permission_guard_1 = require("../auth/guards/permission.guard");
 const finance_service_1 = require("./finance.service");
 let FinanceController = class FinanceController {
@@ -91,8 +93,9 @@ __decorate([
 ], FinanceController.prototype, "dashboard", null);
 exports.FinanceController = FinanceController = __decorate([
     (0, common_1.Controller)('finance'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard, module_guard_1.ModuleGuard),
     (0, permissions_decorator_1.RequirePermission)('finance.view'),
+    (0, module_decorator_1.RequireModule)('FINANCE'),
     __metadata("design:paramtypes", [finance_service_1.FinanceService])
 ], FinanceController);
 //# sourceMappingURL=finance.controller.js.map

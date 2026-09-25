@@ -207,7 +207,7 @@ export default function PatrolRoutesPage() {
   });
 
   return (
-    <DashboardLayout>
+    <DashboardLayout requiredModule="GUARD_TOUR">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
           <h2 className="text-2xl font-bold sm:text-3xl">Patrol Routes</h2>

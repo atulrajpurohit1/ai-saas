@@ -32,5 +32,16 @@ export declare class UsersController {
             } | null;
         }[];
         permissions: string[];
+        entitlements: {
+            status: import(".prisma/client").$Enums.SubscriptionStatus;
+            trialEndsAt: Date | null;
+            currentPeriodEnd: Date | null;
+            cancelAtPeriodEnd: boolean;
+            modules: {
+                key: import(".prisma/client").$Enums.ServiceModule;
+                name: string;
+                active: boolean;
+            }[];
+        };
     }>;
 }

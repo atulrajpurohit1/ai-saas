@@ -120,7 +120,7 @@ let EmailVerificationService = EmailVerificationService_1 = class EmailVerificat
         catch (error) {
             this.logger.warn(`Failed to send OTP email to ${params.email}: ${error instanceof Error ? error.message : String(error)}`);
             if (process.env.NODE_ENV === 'production') {
-                throw new common_1.BadRequestException(INVALID_EMAIL_MESSAGE);
+                throw new common_1.BadRequestException('Could not send the verification email right now. Please try again in a few minutes.');
             }
             else {
                 this.logger.warn('Development mode: Ignoring email send failure to unblock workflow.');

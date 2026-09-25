@@ -1,8 +1,11 @@
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { BillingService } from './billing.service';
+import { StripeService } from './stripe.service';
+import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 export declare class BillingController {
     private readonly billingService;
-    constructor(billingService: BillingService);
+    private readonly stripe;
+    constructor(billingService: BillingService, stripe: StripeService);
     getBilling(user: ActiveUser): Promise<{
         tenant: {
             id: string;
@@ -24,6 +27,17 @@ export declare class BillingController {
             customDomains: boolean;
             prioritySupport: boolean;
         };
+        entitlements: {
+            status: import(".prisma/client").$Enums.SubscriptionStatus;
+            trialEndsAt: Date | null;
+            currentPeriodEnd: Date | null;
+            cancelAtPeriodEnd: boolean;
+            modules: {
+                key: import(".prisma/client").$Enums.ServiceModule;
+                name: string;
+                active: boolean;
+            }[];
+        };
         availablePlans: {
             key: string;
             name: string;
@@ -36,5 +50,17 @@ export declare class BillingController {
                 adminUsers: number | null;
             };
         }[];
+    }>;
+    checkoutAvailability(): {
+        configured: boolean;
+        monthly: import(".prisma/client").$Enums.ServiceModule[];
+        annual: import(".prisma/client").$Enums.ServiceModule[];
+    };
+    createCheckoutSession(user: ActiveUser, dto: CreateCheckoutSessionDto): Promise<{
+        url: string | null;
+        sessionId: string;
+    }>;
+    createPortalSession(user: ActiveUser): Promise<{
+        url: string;
     }>;
 }

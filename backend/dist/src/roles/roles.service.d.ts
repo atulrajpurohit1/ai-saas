@@ -1,15 +1,18 @@
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { PrismaService } from '../prisma/prisma.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 import { AssignUserRoleDto } from './dto/assign-user-role.dto';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 export declare class RolesService {
     private readonly prisma;
     private readonly auditService;
+    private readonly entitlements;
     private permissionsReady;
     private readonly tenantSystemRolesReady;
-    constructor(prisma: PrismaService, auditService: AuditService);
+    constructor(prisma: PrismaService, auditService: AuditService, entitlements: EntitlementsService);
+    private filterByEntitlement;
     ensurePermissions(): Promise<void>;
     ensureTenantSystemRoles(tenantId: string): Promise<void>;
     ensureDefaultAssignmentForUser(userId: string): Promise<void>;
@@ -39,14 +42,25 @@ export declare class RolesService {
             } | null;
         }[];
         permissions: string[];
+        entitlements: {
+            status: import(".prisma/client").$Enums.SubscriptionStatus;
+            trialEndsAt: Date | null;
+            currentPeriodEnd: Date | null;
+            cancelAtPeriodEnd: boolean;
+            modules: {
+                key: import(".prisma/client").$Enums.ServiceModule;
+                name: string;
+                active: boolean;
+            }[];
+        };
     }>;
     listPermissions(): Promise<{
         id: string;
         name: string;
         createdAt: Date;
         description: string | null;
-        key: string;
         module: string;
+        key: string;
     }[]>;
     listRoles(user: ActiveUser): Promise<{
         id: any;
@@ -115,8 +129,8 @@ export declare class RolesService {
                 updatedAt: Date;
                 tenantId: string;
                 description: string | null;
-                isSystemRole: boolean;
                 isActive: boolean;
+                isSystemRole: boolean;
             };
             branch: {
                 id: string;
@@ -142,8 +156,8 @@ export declare class RolesService {
             updatedAt: Date;
             tenantId: string;
             description: string | null;
-            isSystemRole: boolean;
             isActive: boolean;
+            isSystemRole: boolean;
         };
         branch: {
             id: string;

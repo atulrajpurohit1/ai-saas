@@ -75,7 +75,7 @@ export default function DealDetailsPage() {
       : 'Not recorded';
 
   return (
-    <DashboardLayout>
+    <DashboardLayout requiredModule="LEAD_GEN">
       <div className="mb-6 flex items-center justify-between gap-4">
         <Link
           href="/deals"

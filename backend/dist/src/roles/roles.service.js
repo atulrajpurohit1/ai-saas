@@ -14,15 +14,27 @@ const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const audit_service_1 = require("../audit/audit.service");
 const prisma_service_1 = require("../prisma/prisma.service");
+const entitlements_service_1 = require("../entitlements/entitlements.service");
+const entitlements_constants_1 = require("../entitlements/entitlements.constants");
 const rbac_constants_1 = require("./rbac.constants");
 let RolesService = class RolesService {
     prisma;
     auditService;
+    entitlements;
     permissionsReady = false;
     tenantSystemRolesReady = new Set();
-    constructor(prisma, auditService) {
+    constructor(prisma, auditService, entitlements) {
         this.prisma = prisma;
         this.auditService = auditService;
+        this.entitlements = entitlements;
+    }
+    async filterByEntitlement(tenantId, keys) {
+        const granted = await this.entitlements.modulesForTenant(tenantId);
+        const moduleByKey = new Map(rbac_constants_1.PERMISSIONS.map((permission) => [permission.key, permission.module]));
+        return keys.filter((key) => {
+            const service = (0, entitlements_constants_1.serviceForPermissionModule)(moduleByKey.get(key) ?? '');
+            return service === null || granted.has(service);
+        });
     }
     async ensurePermissions() {
         if (this.permissionsReady)
@@ -229,7 +241,7 @@ let RolesService = class RolesService {
             branchId: user.branchId,
             isSuperAdmin: user.isSuperAdmin,
         };
-        const permissionKeys = await this.getUserPermissionKeys(activeUser);
+        const permissionKeys = await this.filterByEntitlement(user.tenantId, await this.getUserPermissionKeys(activeUser));
         return {
             id: user.id,
             email: user.email,
@@ -252,6 +264,7 @@ let RolesService = class RolesService {
                 branch: assignment.branch,
             })),
             permissions: permissionKeys,
+            entitlements: await this.entitlements.summaryForTenant(user.tenantId),
         };
     }
     async listPermissions() {
@@ -744,6 +757,7 @@ exports.RolesService = RolesService;
 exports.RolesService = RolesService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        audit_service_1.AuditService])
+        audit_service_1.AuditService,
+        entitlements_service_1.EntitlementsService])
 ], RolesService);
 //# sourceMappingURL=roles.service.js.map

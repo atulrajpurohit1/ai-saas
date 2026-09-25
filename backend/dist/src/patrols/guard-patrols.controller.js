@@ -19,6 +19,8 @@ const multer_1 = require("multer");
 const crypto_1 = require("crypto");
 const patrols_service_1 = require("./patrols.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const module_guard_1 = require("../auth/guards/module.guard");
+const module_decorator_1 = require("../auth/decorators/module.decorator");
 const roles_guard_1 = require("../auth/guards/roles.guard");
 const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
@@ -203,8 +205,9 @@ __decorate([
 ], GuardPatrolsController.prototype, "downloadCheckpointEvidence", null);
 exports.GuardPatrolsController = GuardPatrolsController = __decorate([
     (0, common_1.Controller)('guard'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard, module_guard_1.ModuleGuard),
     (0, roles_decorator_1.Roles)('guard'),
+    (0, module_decorator_1.RequireModule)('GUARD_TOUR'),
     __metadata("design:paramtypes", [patrols_service_1.PatrolsService])
 ], GuardPatrolsController);
 //# sourceMappingURL=guard-patrols.controller.js.map

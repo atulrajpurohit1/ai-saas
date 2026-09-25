@@ -10,11 +10,14 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { RequireAnyPermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ModuleGuard } from '../auth/guards/module.guard';
+import { RequireModule } from '../auth/decorators/module.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { CallTranscriptionService } from './call-transcription.service';
 
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
 @Controller('call-transcription')
+@RequireModule('LEAD_GEN')
 export class CallTranscriptionController {
   constructor(
     private readonly callTranscriptionService: CallTranscriptionService,

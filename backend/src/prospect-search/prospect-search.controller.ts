@@ -14,6 +14,8 @@ import {
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ModuleGuard } from '../auth/guards/module.guard';
+import { RequireModule } from '../auth/decorators/module.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CompanyInsightDto } from './dto/company-insight.dto';
@@ -29,7 +31,8 @@ import { ProspectSearchService } from './prospect-search.service';
 import { SavedProspectSearchService } from './saved-prospect-search.service';
 
 @Controller('prospect-search')
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
+@RequireModule('LEAD_GEN')
 export class ProspectSearchController {
   constructor(
     private readonly prospectSearchService: ProspectSearchService,
@@ -38,7 +41,7 @@ export class ProspectSearchController {
   ) {}
 
   @Post('search')
-  @UseGuards(ProspectSearchRateLimitGuard)
+  @UseGuards(ProspectSearchRateLimitGuard, ModuleGuard)
   @RequirePermission('prospect_search.view', 'prospect_search.search')
   @HttpCode(HttpStatus.OK)
   search(@Body() dto: SearchProspectsDto, @GetUser() user: ActiveUser) {
@@ -60,7 +63,7 @@ export class ProspectSearchController {
    * /search above, which only ever researches one already-named company.
    */
   @Post('discover')
-  @UseGuards(ProspectSearchRateLimitGuard)
+  @UseGuards(ProspectSearchRateLimitGuard, ModuleGuard)
   @RequirePermission('prospect_search.view', 'prospect_search.search')
   @HttpCode(HttpStatus.OK)
   discover(@Body() dto: DiscoverProspectsDto, @GetUser() user: ActiveUser) {
@@ -92,7 +95,7 @@ export class ProspectSearchController {
   }
 
   @Post('insights')
-  @UseGuards(ProspectSearchRateLimitGuard)
+  @UseGuards(ProspectSearchRateLimitGuard, ModuleGuard)
   @RequirePermission('prospect_search.view', 'prospect_search.search')
   @HttpCode(HttpStatus.OK)
   getCompanyInsight(
@@ -103,7 +106,7 @@ export class ProspectSearchController {
   }
 
   @Post('import')
-  @UseGuards(ProspectSearchRateLimitGuard)
+  @UseGuards(ProspectSearchRateLimitGuard, ModuleGuard)
   @RequirePermission(
     'prospect_search.view',
     'prospect_search.search',

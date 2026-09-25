@@ -560,7 +560,7 @@ export default function ProspectSearchPage() {
     : null;
 
   return (
-    <DashboardLayout requiredPermissions="prospect_search.view">
+    <DashboardLayout requiredModule="LEAD_GEN" requiredPermissions="prospect_search.view">
       <div className="mb-6 sm:mb-8">
         <h2 className="flex items-center gap-3 text-2xl font-bold sm:text-3xl">
           <Radar className="text-primary" size={30} aria-hidden="true" />

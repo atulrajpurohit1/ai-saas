@@ -47,31 +47,138 @@ const common_1 = require("@nestjs/common");
 const nodemailer = __importStar(require("nodemailer"));
 const branding_service_1 = require("../branding/branding.service");
 const prisma_service_1 = require("../prisma/prisma.service");
+function parseAddress(address) {
+    const match = /^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/.exec(address);
+    if (!match) {
+        return { email: address.trim() };
+    }
+    const name = match[1].trim();
+    return { ...(name ? { name } : {}), email: match[2].trim() };
+}
+class BrevoHttpTransport {
+    apiKey;
+    constructor(apiKey) {
+        this.apiKey = apiKey;
+    }
+    async sendMail(options) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15_000);
+        let response;
+        try {
+            response = await fetch('https://api.brevo.com/v3/smtp/email', {
+                method: 'POST',
+                headers: {
+                    'api-key': this.apiKey,
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                },
+                body: JSON.stringify({
+                    sender: parseAddress(options.from),
+                    to: [{ email: options.to }],
+                    ...(options.replyTo
+                        ? { replyTo: parseAddress(options.replyTo) }
+                        : {}),
+                    subject: options.subject,
+                    textContent: options.text,
+                    htmlContent: options.html,
+                }),
+                signal: controller.signal,
+            });
+        }
+        finally {
+            clearTimeout(timeout);
+        }
+        if (!response.ok) {
+            const body = await response.text().catch(() => '');
+            throw new Error(`Brevo API request failed (${response.status}): ${body || response.statusText}`);
+        }
+        const data = (await response.json());
+        return { messageId: data.messageId || '' };
+    }
+}
+class ResendHttpTransport {
+    apiKey;
+    constructor(apiKey) {
+        this.apiKey = apiKey;
+    }
+    async sendMail(options) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15_000);
+        let response;
+        try {
+            response = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${this.apiKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    from: options.from,
+                    to: options.to,
+                    ...(options.replyTo ? { reply_to: options.replyTo } : {}),
+                    subject: options.subject,
+                    text: options.text,
+                    html: options.html,
+                }),
+                signal: controller.signal,
+            });
+        }
+        finally {
+            clearTimeout(timeout);
+        }
+        if (!response.ok) {
+            const body = await response.text().catch(() => '');
+            throw new Error(`Resend API request failed (${response.status}): ${body || response.statusText}`);
+        }
+        const data = (await response.json());
+        return { messageId: data.id || '' };
+    }
+}
 let EmailService = class EmailService {
     prisma;
     brandingService;
     transporter;
+    usingNodemailer = false;
     envelopeFrom = process.env.EMAIL_FROM || 'no-reply@aisaascrm.com';
     constructor(prisma, brandingService) {
         this.prisma = prisma;
         this.brandingService = brandingService;
-        this.transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-            port: Number(process.env.SMTP_PORT) || 587,
-            auth: {
-                user: process.env.SMTP_USER || 'ethereal.user@ethereal.email',
-                pass: process.env.SMTP_PASS || 'ethereal-pass',
-            },
-            connectionTimeout: 10_000,
-            greetingTimeout: 10_000,
-            socketTimeout: 15_000,
-        });
+        const brevoApiKey = process.env.BREVO_API_KEY;
+        const resendApiKey = process.env.RESEND_API_KEY;
+        if (brevoApiKey) {
+            this.transporter = new BrevoHttpTransport(brevoApiKey);
+        }
+        else if (resendApiKey) {
+            this.transporter = new ResendHttpTransport(resendApiKey);
+        }
+        else {
+            const smtpPort = Number(process.env.SMTP_PORT) || 587;
+            this.transporter = nodemailer.createTransport({
+                host: process.env.SMTP_HOST || 'smtp.ethereal.email',
+                port: smtpPort,
+                secure: smtpPort === 465,
+                auth: {
+                    user: process.env.SMTP_USER || 'ethereal.user@ethereal.email',
+                    pass: process.env.SMTP_PASS || 'ethereal-pass',
+                },
+                connectionTimeout: 10_000,
+                greetingTimeout: 10_000,
+                socketTimeout: 15_000,
+            });
+            this.usingNodemailer = true;
+        }
     }
     senderFor(companyName, supportEmail) {
         return {
             from: `"${companyName}" <${this.envelopeFrom}>`,
             ...(supportEmail ? { replyTo: supportEmail } : {}),
         };
+    }
+    previewUrlFor(info) {
+        if (!this.usingNodemailer) {
+            return false;
+        }
+        return nodemailer.getTestMessageUrl(info);
     }
     async sendProposalEmail(tenantId, leadId) {
         const lead = await this.prisma.lead.findFirst({
@@ -115,7 +222,7 @@ let EmailService = class EmailService {
         });
         return {
             messageId: info.messageId,
-            previewUrl: nodemailer.getTestMessageUrl(info),
+            previewUrl: this.previewUrlFor(info),
             status: 'sent',
         };
     }
@@ -136,7 +243,7 @@ let EmailService = class EmailService {
         });
         return {
             messageId: info.messageId,
-            previewUrl: nodemailer.getTestMessageUrl(info),
+            previewUrl: this.previewUrlFor(info),
         };
     }
     async sendPasswordResetOtpEmail(tenantId, params) {
@@ -156,7 +263,7 @@ let EmailService = class EmailService {
         });
         return {
             messageId: info.messageId,
-            previewUrl: nodemailer.getTestMessageUrl(info),
+            previewUrl: this.previewUrlFor(info),
         };
     }
     passwordResetOtpEmailBody(companyName, greetingName, code, expiresInMinutes) {
@@ -218,7 +325,7 @@ let EmailService = class EmailService {
         });
         return {
             messageId: info.messageId,
-            previewUrl: nodemailer.getTestMessageUrl(info),
+            previewUrl: this.previewUrlFor(info),
         };
     }
     async sendContractAwardEmail(tenantId, params) {
@@ -240,7 +347,7 @@ let EmailService = class EmailService {
         });
         return {
             messageId: info.messageId,
-            previewUrl: nodemailer.getTestMessageUrl(info),
+            previewUrl: this.previewUrlFor(info),
         };
     }
     async sendVendorRejectionEmail(tenantId, params) {
@@ -262,7 +369,7 @@ let EmailService = class EmailService {
         });
         return {
             messageId: info.messageId,
-            previewUrl: nodemailer.getTestMessageUrl(info),
+            previewUrl: this.previewUrlFor(info),
         };
     }
 };

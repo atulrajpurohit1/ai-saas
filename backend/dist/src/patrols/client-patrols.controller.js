@@ -17,6 +17,8 @@ const common_1 = require("@nestjs/common");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
 const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const module_guard_1 = require("../auth/guards/module.guard");
+const module_decorator_1 = require("../auth/decorators/module.decorator");
 const roles_guard_1 = require("../auth/guards/roles.guard");
 const patrols_service_1 = require("./patrols.service");
 let ClientPatrolsController = class ClientPatrolsController {
@@ -48,8 +50,9 @@ __decorate([
 ], ClientPatrolsController.prototype, "liveStatus", null);
 exports.ClientPatrolsController = ClientPatrolsController = __decorate([
     (0, common_1.Controller)('client/patrols'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard, module_guard_1.ModuleGuard),
     (0, roles_decorator_1.Roles)('client'),
+    (0, module_decorator_1.RequireModule)('GUARD_TOUR'),
     __metadata("design:paramtypes", [patrols_service_1.PatrolsService])
 ], ClientPatrolsController);
 //# sourceMappingURL=client-patrols.controller.js.map

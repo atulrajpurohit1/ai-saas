@@ -16,6 +16,8 @@ exports.AssignmentsController = void 0;
 const common_1 = require("@nestjs/common");
 const assignments_service_1 = require("./assignments.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const module_guard_1 = require("../auth/guards/module.guard");
+const module_decorator_1 = require("../auth/decorators/module.decorator");
 const permission_guard_1 = require("../auth/guards/permission.guard");
 const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
@@ -38,8 +40,9 @@ __decorate([
 ], AssignmentsController.prototype, "findAll", null);
 exports.AssignmentsController = AssignmentsController = __decorate([
     (0, common_1.Controller)('assignments'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard, module_guard_1.ModuleGuard),
     (0, permissions_decorator_1.RequirePermission)('shifts.view'),
+    (0, module_decorator_1.RequireModule)('GUARD_TOUR'),
     __metadata("design:paramtypes", [assignments_service_1.AssignmentsService])
 ], AssignmentsController);
 //# sourceMappingURL=assignments.controller.js.map

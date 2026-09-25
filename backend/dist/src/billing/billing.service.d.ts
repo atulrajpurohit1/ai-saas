@@ -1,10 +1,12 @@
 import { PrismaService } from '../prisma/prisma.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 type PlanKey = 'free' | 'starter' | 'growth' | 'enterprise';
 type LimitKey = 'adminUsers' | 'clientUsers' | 'branches' | 'leads' | 'deals';
 type PlanLimits = Record<LimitKey, number | null>;
 export declare class BillingService {
     private readonly prisma;
-    constructor(prisma: PrismaService);
+    private readonly entitlements;
+    constructor(prisma: PrismaService, entitlements: EntitlementsService);
     getTenantBilling(tenantId: string): Promise<{
         tenant: {
             id: string;
@@ -25,6 +27,17 @@ export declare class BillingService {
             publicApi: boolean;
             customDomains: boolean;
             prioritySupport: boolean;
+        };
+        entitlements: {
+            status: import(".prisma/client").$Enums.SubscriptionStatus;
+            trialEndsAt: Date | null;
+            currentPeriodEnd: Date | null;
+            cancelAtPeriodEnd: boolean;
+            modules: {
+                key: import(".prisma/client").$Enums.ServiceModule;
+                name: string;
+                active: boolean;
+            }[];
         };
         availablePlans: {
             key: string;

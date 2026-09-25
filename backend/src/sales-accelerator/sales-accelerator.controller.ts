@@ -11,6 +11,8 @@ import {
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { RequireAnyPermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ModuleGuard } from '../auth/guards/module.guard';
+import { RequireModule } from '../auth/decorators/module.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { AnalyzeDiscoveryCallDto } from './dto/analyze-discovery-call.dto';
@@ -21,7 +23,8 @@ import { SaveDiscoveryDto } from './dto/save-discovery.dto';
 import { SalesAcceleratorService } from './sales-accelerator.service';
 
 @Controller('sales-accelerator')
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
+@RequireModule('LEAD_GEN')
 export class SalesAcceleratorController {
   constructor(
     private readonly salesAcceleratorService: SalesAcceleratorService,

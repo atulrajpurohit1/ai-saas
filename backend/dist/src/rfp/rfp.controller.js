@@ -26,6 +26,8 @@ const update_performance_review_dto_1 = require("./dto/update-performance-review
 const generate_rfp_dto_1 = require("../ai/dto/generate-rfp.dto");
 const generate_rfp_proposal_dto_1 = require("./dto/generate-rfp-proposal.dto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const module_guard_1 = require("../auth/guards/module.guard");
+const module_decorator_1 = require("../auth/decorators/module.decorator");
 const permission_guard_1 = require("../auth/guards/permission.guard");
 const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 const get_user_decorator_1 = require("../auth/decorators/get-user.decorator");
@@ -316,8 +318,9 @@ __decorate([
 ], RfpController.prototype, "updatePerformanceReview", null);
 exports.RfpController = RfpController = __decorate([
     (0, common_1.Controller)('rfp'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard, module_guard_1.ModuleGuard),
     (0, permissions_decorator_1.RequirePermission)('rfp.view'),
+    (0, module_decorator_1.RequireModule)('LEAD_GEN'),
     __metadata("design:paramtypes", [rfp_service_1.RfpService])
 ], RfpController);
 //# sourceMappingURL=rfp.controller.js.map
