@@ -7,6 +7,7 @@ import { StripeService } from './stripe.service';
 import { StripeWebhookService } from './stripe-webhook.service';
 import { StripeWebhookController } from './stripe-webhook.controller';
 import { SubscriptionProvisioningService } from './subscription-provisioning.service';
+import { GuardMeteringService } from './guard-metering.service';
 
 @Global()
 @Module({
@@ -17,7 +18,12 @@ import { SubscriptionProvisioningService } from './subscription-provisioning.ser
     StripeService,
     StripeWebhookService,
     SubscriptionProvisioningService,
+    GuardMeteringService,
   ],
-  exports: [BillingService, SubscriptionProvisioningService],
+  exports: [
+    BillingService,
+    SubscriptionProvisioningService,
+    GuardMeteringService,
+  ],
 })
 export class BillingModule {}

@@ -16,6 +16,7 @@ const stripe_service_1 = require("./stripe.service");
 const stripe_webhook_service_1 = require("./stripe-webhook.service");
 const stripe_webhook_controller_1 = require("./stripe-webhook.controller");
 const subscription_provisioning_service_1 = require("./subscription-provisioning.service");
+const guard_metering_service_1 = require("./guard-metering.service");
 let BillingModule = class BillingModule {
 };
 exports.BillingModule = BillingModule;
@@ -29,8 +30,13 @@ exports.BillingModule = BillingModule = __decorate([
             stripe_service_1.StripeService,
             stripe_webhook_service_1.StripeWebhookService,
             subscription_provisioning_service_1.SubscriptionProvisioningService,
+            guard_metering_service_1.GuardMeteringService,
         ],
-        exports: [billing_service_1.BillingService, subscription_provisioning_service_1.SubscriptionProvisioningService],
+        exports: [
+            billing_service_1.BillingService,
+            subscription_provisioning_service_1.SubscriptionProvisioningService,
+            guard_metering_service_1.GuardMeteringService,
+        ],
     })
 ], BillingModule);
 //# sourceMappingURL=billing.module.js.map
