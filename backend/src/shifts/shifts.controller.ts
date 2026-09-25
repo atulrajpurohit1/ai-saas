@@ -14,7 +14,7 @@ import { Param, Put, Delete } from '@nestjs/common';
 @Controller('v2/shifts')
 @UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
 @RequirePermission('shifts.view')
-@RequireModule('GUARD_TOUR')
+@RequireModule('FINANCE')
 export class ShiftsController {
   constructor(private readonly shiftsService: ShiftsService) {}
 

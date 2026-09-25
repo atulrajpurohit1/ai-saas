@@ -43,7 +43,7 @@ exports.ShiftRecommendationsController = ShiftRecommendationsController = __deco
     (0, common_1.Controller)('shifts'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard, module_guard_1.ModuleGuard),
     (0, permissions_decorator_1.RequirePermission)('shifts.assign'),
-    (0, module_decorator_1.RequireModule)('GUARD_TOUR'),
+    (0, module_decorator_1.RequireModule)('FINANCE'),
     __metadata("design:paramtypes", [shifts_service_1.ShiftsService])
 ], ShiftRecommendationsController);
 //# sourceMappingURL=shift-recommendations.controller.js.map

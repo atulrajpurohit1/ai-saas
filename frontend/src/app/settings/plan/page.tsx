@@ -33,14 +33,14 @@ const MODULE_HIGHLIGHTS: Record<ServiceModuleKey, string[]> = {
     'RFP generation and vendor evaluation',
   ],
   GUARD_TOUR: [
-    'Shift scheduling and guard assignment',
     'Patrol routes with checkpoint photo evidence',
     'Live incident reporting and emergency alerts',
+    'Guard compliance and accountability',
   ],
   FINANCE: [
+    'Scheduling and workforce management',
     'Rate cards and automated invoicing',
-    'Dispute handling',
-    'Revenue and margin reporting',
+    'Finance and profitability reporting',
   ],
 };
 
@@ -174,8 +174,14 @@ function PlanContent() {
 
               <h3 className="text-base font-semibold text-foreground">
                 {module.name}
+                <span className="align-super text-[10px] text-muted-foreground">
+                  &trade;
+                </span>
               </h3>
-              <p className="mt-1 text-sm text-muted-foreground">{module.blurb}</p>
+              <p className="mt-1 text-sm font-medium text-foreground/80">
+                {module.tagline}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">{module.blurb}</p>
 
               <ul className="mt-4 space-y-2">
                 {MODULE_HIGHLIGHTS[module.key].map((highlight) => (

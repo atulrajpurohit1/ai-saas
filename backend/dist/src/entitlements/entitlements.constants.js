@@ -9,9 +9,9 @@ exports.SERVICE_MODULES = [
     'FINANCE',
 ];
 exports.SERVICE_MODULE_LABELS = {
-    LEAD_GEN: 'Lead Gen',
-    GUARD_TOUR: 'Guard Tour',
-    FINANCE: 'Finance',
+    LEAD_GEN: 'AegisLead Generation',
+    GUARD_TOUR: 'AegisLead Guard',
+    FINANCE: 'AegisLead Operations',
 };
 exports.PERMISSION_MODULE_TO_SERVICE = {
     leads: 'LEAD_GEN',
@@ -22,10 +22,10 @@ exports.PERMISSION_MODULE_TO_SERVICE = {
     vendors: 'LEAD_GEN',
     guards: 'GUARD_TOUR',
     patrols: 'GUARD_TOUR',
-    shifts: 'GUARD_TOUR',
     incidents: 'GUARD_TOUR',
-    timesheets: 'GUARD_TOUR',
     reports: 'GUARD_TOUR',
+    shifts: 'FINANCE',
+    timesheets: 'FINANCE',
     invoices: 'FINANCE',
     invoice_disputes: 'FINANCE',
     finance: 'FINANCE',

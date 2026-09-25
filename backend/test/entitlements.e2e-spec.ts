@@ -30,7 +30,15 @@ const PASSWORD = 'Passw0rd!123';
 // One representative GET per service, plus core routes everyone keeps.
 const LEAD_GEN_ROUTES = ['/leads', '/deals', '/proposals'];
 const GUARD_TOUR_ROUTES = ['/guards', '/v2/guards', '/checkpoints'];
-const FINANCE_ROUTES = ['/invoices', '/rate-cards'];
+// Scheduling lives with Operations, not Guard: rostering the workforce is
+// planning, and timesheets are what invoicing is built on. A Guard-only
+// tenant is therefore refused /v2/shifts and /timesheets.
+const FINANCE_ROUTES = [
+  '/invoices',
+  '/rate-cards',
+  '/v2/shifts',
+  '/timesheets',
+];
 const CORE_ROUTES = ['/sites', '/dashboard/summary', '/billing'];
 
 const ROUTES_BY_MODULE: Record<ServiceModule, string[]> = {
@@ -240,7 +248,7 @@ describe('Standalone service entitlements (e2e)', () => {
           statusCode: 403,
           upgradeRequired: true,
           modules: ['GUARD_TOUR'],
-          message: expect.stringContaining('Guard Tour') as unknown as string,
+          message: expect.stringContaining('AegisLead Guard') as unknown as string,
         }),
       );
     });

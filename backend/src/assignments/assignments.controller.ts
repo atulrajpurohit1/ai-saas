@@ -11,7 +11,7 @@ import { ActiveUser } from '../auth/interfaces/active-user.interface';
 @Controller('assignments')
 @UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
 @RequirePermission('shifts.view')
-@RequireModule('GUARD_TOUR')
+@RequireModule('FINANCE')
 export class AssignmentsController {
   constructor(private readonly assignmentsService: AssignmentsService) {}
 
