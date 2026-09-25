@@ -5,6 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
+import { EmailService } from '../email/email.service';
+import { AiService } from '../ai/ai.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { BrandingService } from '../branding/branding.service';
 import { branchScopedWhere, branchWhere } from '../branches/branch-scope';
@@ -89,6 +91,8 @@ export class ReportsService {
     private prisma: PrismaService,
     private auditService: AuditService,
     private brandingService: BrandingService,
+    private emailService: EmailService,
+    private aiService: AiService,
   ) {}
 
   private parseReportDate(value: string) {
@@ -216,6 +220,9 @@ export class ReportsService {
           name: true,
           companyName: true,
           email: true,
+          reportEmailEnabled: true,
+          reportEmailMode: true,
+          reportEmailCc: true,
         },
       },
       site: {
@@ -698,7 +705,119 @@ export class ReportsService {
       details: `Daily report published for client "${updated.client.companyName || updated.client.name}"`,
     });
 
-    return this.mapReport(updated);
+    // Delivery is best-effort and deliberately awaited: the supervisor should
+    // be told in the same response whether the client actually received it,
+    // rather than discovering days later that mail was misconfigured.
+    const delivery = await this.deliverReportByEmail(updated, 'publish');
+
+    return { ...this.mapReport(updated), delivery };
+  }
+
+  /**
+   * Emails a published report to the client: AI-written summary in the body,
+   * the existing PDF attached.
+   *
+   * Never throws. A mail failure must not undo a publish that already
+   * happened, so the outcome is returned and audited instead. The caller
+   * surfaces it; the report stays published either way.
+   */
+  async deliverReportByEmail(
+    report: any,
+    trigger: 'publish' | 'automatic' | 'manual',
+  ): Promise<{ sent: boolean; skipped?: string; error?: string }> {
+    const client = report.client;
+
+    if (!client?.reportEmailEnabled) {
+      return { sent: false, skipped: 'disabled' };
+    }
+    if (!client.email) {
+      return { sent: false, skipped: 'no-client-email' };
+    }
+
+    const stored = this.parseStoredSummary(report.summary);
+    const structured = 'totals' in stored ? stored : null;
+    const reportDate = this.formatDate(report.reportDate);
+    const siteName = report.site?.name || 'site';
+    const clientName = client.companyName || client.name;
+
+    const narrative = await this.aiService
+      .generateDailyReportSummary({
+        clientName,
+        siteName,
+        reportDate,
+        supervisorSummary: structured ? '' : (stored as { raw: string }).raw,
+        shiftsCovered: structured?.totals.shifts ?? 0,
+        patrolsCompleted: structured?.totals.completedAttendances ?? 0,
+        checkpointsScanned: structured?.totals.checkedInAttendances ?? 0,
+        incidents: (structured?.incidents ?? []).map((incident) => ({
+          title: incident.title,
+          severity: incident.severity,
+        })),
+      })
+      .catch(() => {
+        // AI being down is not a reason to withhold the report.
+        return structured
+          ? `Security cover was provided at ${siteName} on ${reportDate}. Please see the attached report for full detail.`
+          : (stored as { raw: string }).raw;
+      });
+
+    const pdf = await this.buildPdfBuffer(report);
+
+    const result = await this.emailService.sendDailyReportEmail({
+      tenantId: report.tenantId,
+      to: client.email,
+      cc: client.reportEmailCc,
+      clientName,
+      siteName,
+      reportDate,
+      summary: narrative,
+      pdf,
+    });
+
+    await this.auditService
+      .log({
+        tenantId: report.tenantId,
+        action: result.sent ? 'DAILY_REPORT_EMAILED' : 'DAILY_REPORT_EMAIL_FAILED',
+        entityType: 'DailyServiceReport',
+        entityId: report.id,
+        details: result.sent
+          ? `Report for "${clientName}" emailed to ${client.email} (${trigger})`
+          : `Report email to ${client.email} failed: ${result.error}`,
+      })
+      .catch(() => undefined);
+
+    return result;
+  }
+
+  /** Manual re-send of a published report, triggered by a supervisor. */
+  async resendReportEmail(user: ActiveUser, id: string) {
+    const report = await this.findReportOrThrow(user, id);
+
+    if (report.status !== 'published') {
+      throw new BadRequestException(
+        'Only published reports can be emailed to the client.',
+      );
+    }
+    if (!report.client?.email) {
+      throw new BadRequestException(
+        'This client has no email address on record.',
+      );
+    }
+
+    // A manual send is an explicit instruction, so it ignores the per-client
+    // toggle -- that switch governs automatic delivery, not a deliberate act.
+    const result = await this.deliverReportByEmail(
+      { ...report, client: { ...report.client, reportEmailEnabled: true } },
+      'manual',
+    );
+
+    if (!result.sent) {
+      throw new BadRequestException(
+        result.error || 'The report could not be emailed. Please try again.',
+      );
+    }
+
+    return { sent: true, to: report.client.email };
   }
 
   async exportForAdmin(user: ActiveUser, id: string) {

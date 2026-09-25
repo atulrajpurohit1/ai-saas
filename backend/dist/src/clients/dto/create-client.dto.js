@@ -21,6 +21,9 @@ class CreateClientDto {
     billingNotes;
     internal_notes;
     internalNotes;
+    reportEmailEnabled;
+    reportEmailMode;
+    reportEmailCc;
 }
 exports.CreateClientDto = CreateClientDto;
 __decorate([
@@ -68,4 +71,19 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateClientDto.prototype, "internalNotes", void 0);
+__decorate([
+    (0, class_validator_1.IsBoolean)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Boolean)
+], CreateClientDto.prototype, "reportEmailEnabled", void 0);
+__decorate([
+    (0, class_validator_1.IsIn)(['MANUAL', 'AUTOMATIC']),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateClientDto.prototype, "reportEmailMode", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateClientDto.prototype, "reportEmailCc", void 0);
 //# sourceMappingURL=create-client.dto.js.map

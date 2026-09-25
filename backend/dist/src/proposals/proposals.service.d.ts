@@ -62,6 +62,9 @@ export declare class ProposalsService {
             phone: string | null;
             billingNotes: string | null;
             internalNotes: string | null;
+            reportEmailEnabled: boolean;
+            reportEmailMode: import(".prisma/client").$Enums.ReportEmailMode;
+            reportEmailCc: string | null;
         } | null;
     } & {
         id: string;
@@ -115,6 +118,9 @@ export declare class ProposalsService {
             phone: string | null;
             billingNotes: string | null;
             internalNotes: string | null;
+            reportEmailEnabled: boolean;
+            reportEmailMode: import(".prisma/client").$Enums.ReportEmailMode;
+            reportEmailCc: string | null;
         } | null;
     } & {
         id: string;

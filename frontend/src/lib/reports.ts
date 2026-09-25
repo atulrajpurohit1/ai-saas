@@ -112,7 +112,19 @@ export async function generateDailyReport(input: { site_id: string; report_date:
 }
 
 export async function publishDailyReport(id: string) {
-  const response = await api.post<DailyServiceReport>(`reports/${id}/publish`);
+  const response = await api.post<
+    DailyServiceReport & {
+      delivery?: { sent: boolean; skipped?: string; error?: string };
+    }
+  >(`reports/${id}/publish`);
+  return response.data;
+}
+
+/** Re-send a published report to the client. */
+export async function emailDailyReport(id: string) {
+  const response = await api.post<{ sent: boolean; to: string }>(
+    `reports/${id}/send-email`,
+  );
   return response.data;
 }
 

@@ -10,17 +10,20 @@ exports.ReportsModule = void 0;
 const common_1 = require("@nestjs/common");
 const audit_module_1 = require("../audit/audit.module");
 const prisma_module_1 = require("../prisma/prisma.module");
+const email_module_1 = require("../email/email.module");
+const ai_module_1 = require("../ai/ai.module");
 const client_reports_controller_1 = require("./client-reports.controller");
 const reports_controller_1 = require("./reports.controller");
 const reports_service_1 = require("./reports.service");
+const report_delivery_scheduler_1 = require("./report-delivery.scheduler");
 let ReportsModule = class ReportsModule {
 };
 exports.ReportsModule = ReportsModule;
 exports.ReportsModule = ReportsModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule],
+        imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule, email_module_1.EmailModule, ai_module_1.AiModule],
         controllers: [reports_controller_1.ReportsController, client_reports_controller_1.ClientReportsController],
-        providers: [reports_service_1.ReportsService],
+        providers: [reports_service_1.ReportsService, report_delivery_scheduler_1.ReportDeliveryScheduler],
     })
 ], ReportsModule);
 //# sourceMappingURL=reports.module.js.map

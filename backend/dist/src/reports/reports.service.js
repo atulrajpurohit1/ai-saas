@@ -12,6 +12,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReportsService = void 0;
 const common_1 = require("@nestjs/common");
 const audit_service_1 = require("../audit/audit.service");
+const email_service_1 = require("../email/email.service");
+const ai_service_1 = require("../ai/ai.service");
 const branding_service_1 = require("../branding/branding.service");
 const branch_scope_1 = require("../branches/branch-scope");
 const prisma_service_1 = require("../prisma/prisma.service");
@@ -19,10 +21,14 @@ let ReportsService = class ReportsService {
     prisma;
     auditService;
     brandingService;
-    constructor(prisma, auditService, brandingService) {
+    emailService;
+    aiService;
+    constructor(prisma, auditService, brandingService, emailService, aiService) {
         this.prisma = prisma;
         this.auditService = auditService;
         this.brandingService = brandingService;
+        this.emailService = emailService;
+        this.aiService = aiService;
     }
     parseReportDate(value) {
         const trimmed = value?.trim();
@@ -117,6 +123,9 @@ let ReportsService = class ReportsService {
                     name: true,
                     companyName: true,
                     email: true,
+                    reportEmailEnabled: true,
+                    reportEmailMode: true,
+                    reportEmailCc: true,
                 },
             },
             site: {
@@ -513,7 +522,78 @@ let ReportsService = class ReportsService {
             entityId: updated.id,
             details: `Daily report published for client "${updated.client.companyName || updated.client.name}"`,
         });
-        return this.mapReport(updated);
+        const delivery = await this.deliverReportByEmail(updated, 'publish');
+        return { ...this.mapReport(updated), delivery };
+    }
+    async deliverReportByEmail(report, trigger) {
+        const client = report.client;
+        if (!client?.reportEmailEnabled) {
+            return { sent: false, skipped: 'disabled' };
+        }
+        if (!client.email) {
+            return { sent: false, skipped: 'no-client-email' };
+        }
+        const stored = this.parseStoredSummary(report.summary);
+        const structured = 'totals' in stored ? stored : null;
+        const reportDate = this.formatDate(report.reportDate);
+        const siteName = report.site?.name || 'site';
+        const clientName = client.companyName || client.name;
+        const narrative = await this.aiService
+            .generateDailyReportSummary({
+            clientName,
+            siteName,
+            reportDate,
+            supervisorSummary: structured ? '' : stored.raw,
+            shiftsCovered: structured?.totals.shifts ?? 0,
+            patrolsCompleted: structured?.totals.completedAttendances ?? 0,
+            checkpointsScanned: structured?.totals.checkedInAttendances ?? 0,
+            incidents: (structured?.incidents ?? []).map((incident) => ({
+                title: incident.title,
+                severity: incident.severity,
+            })),
+        })
+            .catch(() => {
+            return structured
+                ? `Security cover was provided at ${siteName} on ${reportDate}. Please see the attached report for full detail.`
+                : stored.raw;
+        });
+        const pdf = await this.buildPdfBuffer(report);
+        const result = await this.emailService.sendDailyReportEmail({
+            tenantId: report.tenantId,
+            to: client.email,
+            cc: client.reportEmailCc,
+            clientName,
+            siteName,
+            reportDate,
+            summary: narrative,
+            pdf,
+        });
+        await this.auditService
+            .log({
+            tenantId: report.tenantId,
+            action: result.sent ? 'DAILY_REPORT_EMAILED' : 'DAILY_REPORT_EMAIL_FAILED',
+            entityType: 'DailyServiceReport',
+            entityId: report.id,
+            details: result.sent
+                ? `Report for "${clientName}" emailed to ${client.email} (${trigger})`
+                : `Report email to ${client.email} failed: ${result.error}`,
+        })
+            .catch(() => undefined);
+        return result;
+    }
+    async resendReportEmail(user, id) {
+        const report = await this.findReportOrThrow(user, id);
+        if (report.status !== 'published') {
+            throw new common_1.BadRequestException('Only published reports can be emailed to the client.');
+        }
+        if (!report.client?.email) {
+            throw new common_1.BadRequestException('This client has no email address on record.');
+        }
+        const result = await this.deliverReportByEmail({ ...report, client: { ...report.client, reportEmailEnabled: true } }, 'manual');
+        if (!result.sent) {
+            throw new common_1.BadRequestException(result.error || 'The report could not be emailed. Please try again.');
+        }
+        return { sent: true, to: report.client.email };
     }
     async exportForAdmin(user, id) {
         const report = await this.findReportOrThrow(user, id);
@@ -588,6 +668,8 @@ exports.ReportsService = ReportsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         audit_service_1.AuditService,
-        branding_service_1.BrandingService])
+        branding_service_1.BrandingService,
+        email_service_1.EmailService,
+        ai_service_1.AiService])
 ], ReportsService);
 //# sourceMappingURL=reports.service.js.map

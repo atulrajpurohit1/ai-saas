@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
@@ -11,6 +12,12 @@ interface SendMailResult {
   messageId: string;
 }
 
+/** A file to send alongside the message, e.g. a report PDF. */
+export interface MailAttachment {
+  filename: string;
+  content: Buffer;
+}
+
 interface MailTransport {
   sendMail(options: {
     from: string;
@@ -19,6 +26,7 @@ interface MailTransport {
     subject: string;
     text: string;
     html: string;
+    attachments?: MailAttachment[];
   }): Promise<SendMailResult>;
 }
 
@@ -59,6 +67,7 @@ class BrevoHttpTransport implements MailTransport {
     subject: string;
     text: string;
     html: string;
+    attachments?: MailAttachment[];
   }): Promise<SendMailResult> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15_000);
@@ -81,6 +90,14 @@ class BrevoHttpTransport implements MailTransport {
           subject: options.subject,
           textContent: options.text,
           htmlContent: options.html,
+          ...(options.attachments?.length
+            ? {
+                attachment: options.attachments.map((file) => ({
+                  name: file.filename,
+                  content: file.content.toString('base64'),
+                })),
+              }
+            : {}),
         }),
         signal: controller.signal,
       });
@@ -120,6 +137,7 @@ class ResendHttpTransport implements MailTransport {
     subject: string;
     text: string;
     html: string;
+    attachments?: MailAttachment[];
   }): Promise<SendMailResult> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15_000);
@@ -137,6 +155,14 @@ class ResendHttpTransport implements MailTransport {
           to: options.to,
           ...(options.replyTo ? { reply_to: options.replyTo } : {}),
           subject: options.subject,
+          ...(options.attachments?.length
+            ? {
+                attachments: options.attachments.map((file) => ({
+                  filename: file.filename,
+                  content: file.content.toString('base64'),
+                })),
+              }
+            : {}),
           text: options.text,
           html: options.html,
         }),
@@ -160,6 +186,7 @@ class ResendHttpTransport implements MailTransport {
 
 @Injectable()
 export class EmailService {
+  private readonly logger = new Logger(EmailService.name);
   private transporter: MailTransport;
   // Set at construction time alongside `transporter` -- see previewUrlFor().
   private usingNodemailer = false;
@@ -254,6 +281,76 @@ export class EmailService {
     return nodemailer.getTestMessageUrl(
       info as Parameters<typeof nodemailer.getTestMessageUrl>[0],
     );
+  }
+
+  /**
+   * Sends a published daily service report to the client, with the PDF
+   * attached and the AI-written summary in the body.
+   *
+   * Returns a result rather than throwing: a delivery failure must never roll
+   * back the publish itself. The report is published either way; the caller
+   * logs what happened.
+   */
+  async sendDailyReportEmail(input: {
+    tenantId: string;
+    to: string;
+    cc?: string | null;
+    clientName: string;
+    siteName: string;
+    reportDate: string;
+    summary: string;
+    pdf: Buffer;
+  }): Promise<{ sent: boolean; error?: string }> {
+    const branding = await this.brandingService.brandingSnapshot(
+      input.tenantId,
+    );
+
+    const filename = `daily-report-${input.reportDate}.pdf`;
+    const paragraphs = input.summary
+      .split(/\n{2,}/)
+      .map((block) => block.trim())
+      .filter(Boolean);
+
+    try {
+      await this.transporter.sendMail({
+        ...this.senderFor(branding.company_name, branding.support_email),
+        to: input.to,
+        subject: `Daily Service Report — ${input.siteName} — ${input.reportDate}`,
+        text:
+          `Daily Service Report\n${input.siteName} — ${input.reportDate}\n\n` +
+          `${input.summary}\n\n` +
+          `The full report is attached as a PDF.`,
+        html: this.brandingService.emailShell(
+          branding,
+          'Daily Service Report',
+          `
+          <p>Dear ${input.clientName},</p>
+          <p>Please find below the service summary for
+            <strong>${input.siteName}</strong> on
+            <strong>${input.reportDate}</strong>.</p>
+          <div style="background-color: #f9fafb; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb; margin: 20px 0;">
+            ${paragraphs
+              .map(
+                (block) =>
+                  `<p style="margin: 0 0 12px; font-size: 14px; line-height: 1.6; color: #4b5563;">${block}</p>`,
+              )
+              .join('')}
+          </div>
+          <p style="font-size: 13px; color: #6b7280;">The full report is attached as a PDF.</p>
+        `,
+        ),
+        attachments: [{ filename, content: input.pdf }],
+      });
+
+      return { sent: true };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown mail error';
+      this.logger.error(
+        `Daily report email to ${input.to} failed: ${message}`,
+      );
+      return { sent: false, error: message };
+    }
   }
 
   async sendProposalEmail(tenantId: string, leadId: string) {

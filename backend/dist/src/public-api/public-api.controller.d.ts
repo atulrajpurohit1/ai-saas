@@ -25,6 +25,9 @@ export declare class PublicApiController {
         phone: string | null;
         billingNotes: string | null;
         internalNotes: string | null;
+        reportEmailEnabled: boolean;
+        reportEmailMode: import(".prisma/client").$Enums.ReportEmailMode;
+        reportEmailCc: string | null;
     }>;
     listSites(request: PublicApiRequest, query: Record<string, string | undefined>): Promise<{
         id: string;
@@ -258,5 +261,6 @@ export declare class PublicApiController {
         summary: string;
         reportDate: Date;
         publishedAt: Date | null;
+        emailSentAt: Date | null;
     })[]>;
 }

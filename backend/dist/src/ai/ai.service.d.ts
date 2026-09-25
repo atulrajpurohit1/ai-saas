@@ -175,6 +175,19 @@ export declare class AiService {
     private normalizeStringArray;
     private withTimeout;
     private generateText;
+    generateDailyReportSummary(input: {
+        clientName: string;
+        siteName: string;
+        reportDate: string;
+        supervisorSummary: string;
+        shiftsCovered: number;
+        patrolsCompleted: number;
+        checkpointsScanned: number;
+        incidents: {
+            title: string;
+            severity?: string | null;
+        }[];
+    }): Promise<string>;
     generateSalesAssessment(context: string): Promise<AiSalesAssessmentDraft>;
     generateDiscoveryGuide(context: string): Promise<AiDiscoveryGuideDraft>;
     generateOutreachPlan(context: string): Promise<AiOutreachDraft>;

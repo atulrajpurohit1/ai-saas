@@ -1,4 +1,6 @@
 import { AuditService } from '../audit/audit.service';
+import { EmailService } from '../email/email.service';
+import { AiService } from '../ai/ai.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { BrandingService } from '../branding/branding.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -68,7 +70,9 @@ export declare class ReportsService {
     private prisma;
     private auditService;
     private brandingService;
-    constructor(prisma: PrismaService, auditService: AuditService, brandingService: BrandingService);
+    private emailService;
+    private aiService;
+    constructor(prisma: PrismaService, auditService: AuditService, brandingService: BrandingService, emailService: EmailService, aiService: AiService);
     private parseReportDate;
     private summarizeAttendance;
     private parseStoredSummary;
@@ -179,6 +183,44 @@ export declare class ReportsService {
             name: any;
             address: any;
         } | null;
+    } | {
+        delivery: {
+            sent: boolean;
+            skipped?: string;
+            error?: string;
+        };
+        id: any;
+        tenantId: any;
+        clientId: any;
+        siteId: any;
+        branchId: any;
+        reportDate: any;
+        status: any;
+        createdAt: any;
+        publishedAt: any;
+        summary: DailyReportSummary | {
+            raw: string;
+        };
+        client: {
+            id: any;
+            name: any;
+            companyName: any;
+            email: any;
+        } | null;
+        site: {
+            id: any;
+            name: any;
+            address: any;
+        } | null;
+    }>;
+    deliverReportByEmail(report: any, trigger: 'publish' | 'automatic' | 'manual'): Promise<{
+        sent: boolean;
+        skipped?: string;
+        error?: string;
+    }>;
+    resendReportEmail(user: ActiveUser, id: string): Promise<{
+        sent: boolean;
+        to: string;
     }>;
     exportForAdmin(user: ActiveUser, id: string): Promise<{
         buffer: Buffer<ArrayBufferLike>;

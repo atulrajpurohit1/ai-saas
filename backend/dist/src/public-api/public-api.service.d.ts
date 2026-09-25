@@ -29,6 +29,9 @@ export declare class PublicApiService {
         phone: string | null;
         billingNotes: string | null;
         internalNotes: string | null;
+        reportEmailEnabled: boolean;
+        reportEmailMode: import(".prisma/client").$Enums.ReportEmailMode;
+        reportEmailCc: string | null;
     }>;
     listSites(apiKey: ApiKeyContext, query: Record<string, string | undefined>): Promise<{
         id: string;
@@ -262,6 +265,7 @@ export declare class PublicApiService {
         summary: string;
         reportDate: Date;
         publishedAt: Date | null;
+        emailSentAt: Date | null;
     })[]>;
     private resolveBranch;
     private auditEntity;

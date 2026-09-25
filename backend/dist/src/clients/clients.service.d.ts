@@ -27,6 +27,9 @@ export declare class ClientsService {
         phone: string | null;
         billingNotes: string | null;
         internalNotes: string | null;
+        reportEmailEnabled: boolean;
+        reportEmailMode: import(".prisma/client").$Enums.ReportEmailMode;
+        reportEmailCc: string | null;
     }>;
     findAll(user: ActiveUser, requestedBranchId?: string | null): Promise<{
         id: string;
@@ -75,6 +78,9 @@ export declare class ClientsService {
         phone: string | null;
         billingNotes: string | null;
         internalNotes: string | null;
+        reportEmailEnabled: boolean;
+        reportEmailMode: import(".prisma/client").$Enums.ReportEmailMode;
+        reportEmailCc: string | null;
     }>;
     update(user: ActiveUser, id: string, dto: UpdateClientDto): Promise<{
         id: string;
@@ -88,6 +94,9 @@ export declare class ClientsService {
         phone: string | null;
         billingNotes: string | null;
         internalNotes: string | null;
+        reportEmailEnabled: boolean;
+        reportEmailMode: import(".prisma/client").$Enums.ReportEmailMode;
+        reportEmailCc: string | null;
     }>;
     createClientUser(user: ActiveUser, clientId: string, email: string): Promise<{
         id: string;

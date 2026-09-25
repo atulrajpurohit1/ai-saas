@@ -29,6 +29,9 @@ interface Client {
   phone: string;
   billingNotes?: string | null;
   internalNotes?: string | null;
+  reportEmailEnabled?: boolean;
+  reportEmailMode?: 'MANUAL' | 'AUTOMATIC';
+  reportEmailCc?: string | null;
   branchId?: string | null;
   branch?: BranchSummary | null;
   createdAt: string;
@@ -62,6 +65,9 @@ export default function ClientsPage() {
     branch_id: '',
     billing_notes: '',
     internal_notes: '',
+    reportEmailEnabled: false,
+    reportEmailMode: 'MANUAL' as 'MANUAL' | 'AUTOMATIC',
+    reportEmailCc: '',
   });
 
   // Document management state
@@ -87,6 +93,9 @@ export default function ClientsPage() {
       branch_id: selectedBranchId,
       billing_notes: '',
       internal_notes: '',
+      reportEmailEnabled: false,
+      reportEmailMode: 'MANUAL',
+      reportEmailCc: '',
     });
     setIsEditing(null);
   };
@@ -226,6 +235,9 @@ export default function ClientsPage() {
       branch_id: client.branchId || '',
       billing_notes: client.billingNotes || '',
       internal_notes: client.internalNotes || '',
+      reportEmailEnabled: client.reportEmailEnabled ?? false,
+      reportEmailMode: client.reportEmailMode || 'MANUAL',
+      reportEmailCc: client.reportEmailCc || '',
     });
     setIsEditing(client.id);
     setShowModal(true);
@@ -581,6 +593,76 @@ export default function ClientsPage() {
                 )}
               </div>
             )}
+
+            <div className="mt-6 space-y-3 rounded-lg border border-border p-4">
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  Daily service reports
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Email the client an AI-written summary with the report PDF attached.
+                </p>
+              </div>
+
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={formData.reportEmailEnabled}
+                  onChange={(e) =>
+                    setFormData({ ...formData, reportEmailEnabled: e.target.checked })
+                  }
+                  className="h-4 w-4 rounded border-border"
+                />
+                Email daily reports to this client
+              </label>
+
+              {formData.reportEmailEnabled && (
+                <div className="space-y-3 border-l-2 border-border pl-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      When to send
+                    </label>
+                    <select
+                      className={fieldInputClass}
+                      value={formData.reportEmailMode}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          reportEmailMode: e.target.value as 'MANUAL' | 'AUTOMATIC',
+                        })
+                      }
+                    >
+                      <option value="MANUAL">
+                        After a supervisor reviews and publishes
+                      </option>
+                      <option value="AUTOMATIC">
+                        Automatically at end of shift
+                      </option>
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      {formData.reportEmailMode === 'MANUAL'
+                        ? 'A supervisor checks the summary before the client sees it.'
+                        : 'Sent without review. The client receives whatever the summary says.'}
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Copy to (optional)
+                    </label>
+                    <input
+                      type="text"
+                      className={fieldInputClass}
+                      placeholder="facilities@example.com, ops@example.com"
+                      value={formData.reportEmailCc}
+                      onChange={(e) =>
+                        setFormData({ ...formData, reportEmailCc: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" onClick={() => setShowModal(false)}>

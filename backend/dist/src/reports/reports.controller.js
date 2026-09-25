@@ -48,6 +48,9 @@ let ReportsController = class ReportsController {
     publish(user, id) {
         return this.reportsService.publishReport(user, id);
     }
+    sendEmail(user, id) {
+        return this.reportsService.resendReportEmail(user, id);
+    }
 };
 exports.ReportsController = ReportsController;
 __decorate([
@@ -94,6 +97,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], ReportsController.prototype, "publish", null);
+__decorate([
+    (0, common_1.Post)(':id/send-email'),
+    (0, permissions_decorator_1.RequirePermission)('reports.publish'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], ReportsController.prototype, "sendEmail", null);
 exports.ReportsController = ReportsController = __decorate([
     (0, common_1.Controller)('reports'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard, module_guard_1.ModuleGuard),

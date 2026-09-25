@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
@@ -61,6 +62,8 @@ import { ClientComplianceModule } from './client-compliance/client-compliance.mo
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    // Drives automatic daily-report delivery; see ReportDeliveryScheduler.
+    ScheduleModule.forRoot(),
     PrismaModule,
     EntitlementsModule,
     RolesModule,
