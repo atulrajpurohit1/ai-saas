@@ -116,5 +116,8 @@ export declare class ClientPortalController {
         phone: string | null;
         billingNotes: string | null;
         internalNotes: string | null;
+        reportEmailEnabled: boolean;
+        reportEmailMode: import(".prisma/client").$Enums.ReportEmailMode;
+        reportEmailCc: string | null;
     }>;
 }

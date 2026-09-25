@@ -191,6 +191,15 @@ let ClientsService = class ClientsService {
                 ...(dto.email !== undefined ? { email: dto.email } : {}),
                 ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
                 ...(branchId !== undefined ? { branchId } : {}),
+                ...(dto.reportEmailEnabled !== undefined
+                    ? { reportEmailEnabled: dto.reportEmailEnabled }
+                    : {}),
+                ...(dto.reportEmailMode !== undefined
+                    ? { reportEmailMode: dto.reportEmailMode }
+                    : {}),
+                ...(dto.reportEmailCc !== undefined
+                    ? { reportEmailCc: dto.reportEmailCc || null }
+                    : {}),
                 ...this.sensitiveClientData(dto),
             },
         });

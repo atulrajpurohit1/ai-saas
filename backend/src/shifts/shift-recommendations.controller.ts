@@ -11,7 +11,7 @@ import { ShiftsService } from './shifts.service';
 @Controller('shifts')
 @UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
 @RequirePermission('shifts.assign')
-@RequireModule('GUARD_TOUR')
+@RequireModule('FINANCE')
 export class ShiftRecommendationsController {
   constructor(private readonly shiftsService: ShiftsService) {}
 

@@ -86,7 +86,7 @@ describe('ModuleGuard', () => {
           statusCode: 403,
           upgradeRequired: true,
           modules: ['GUARD_TOUR'],
-          message: expect.stringContaining('Guard Tour'),
+          message: expect.stringContaining('AegisLead Guard'),
         }),
       );
     });

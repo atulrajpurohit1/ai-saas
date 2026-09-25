@@ -11,6 +11,7 @@ import {
   getAdminReport,
   isDailyReportSummary,
   publishDailyReport,
+  emailDailyReport,
 } from '@/lib/reports';
 import {
   AlertTriangle,
@@ -62,6 +63,7 @@ export default function ReportDetailPage() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     const fetchReport = async () => {
@@ -91,8 +93,37 @@ export default function ReportDetailPage() {
     try {
       const updated = await publishDailyReport(report.id);
       setReport(updated);
+
+      // Publishing also emails the client when they are opted in. Say what
+      // actually happened -- a silent failure here means the client never
+      // gets their report and nobody notices.
+      if (updated.delivery?.sent) {
+        setNotice('Published, and emailed to the client.');
+      } else if (updated.delivery?.error) {
+        setNotice('');
+        setError(`Published, but the email failed: ${updated.delivery.error}`);
+      } else {
+        setNotice('Published. This client is not set up for report emails.');
+      }
     } catch (err) {
       setError(getApiErrorMessage(err, 'Could not publish the report.'));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const handleResendEmail = async () => {
+    if (!report) return;
+
+    setWorking(true);
+    setError('');
+    setNotice('');
+
+    try {
+      const result = await emailDailyReport(report.id);
+      setNotice(`Report emailed to ${result.to}.`);
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not email the report.'));
     } finally {
       setWorking(false);
     }
@@ -180,6 +211,17 @@ export default function ReportDetailPage() {
                     Publish
                   </button>
                 )}
+                {report.status === 'published' && (
+                  <button
+                    type="button"
+                    onClick={handleResendEmail}
+                    disabled={working}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white/5 px-4 py-3 text-sm font-bold text-slate-200 transition hover:bg-white/10 disabled:opacity-60"
+                  >
+                    <Send size={16} />
+                    Email to client
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={handleDownload}
@@ -192,6 +234,13 @@ export default function ReportDetailPage() {
               </div>
             </div>
           </section>
+
+          {notice && (
+            <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-4 text-sm font-semibold text-emerald-300">
+              <Send size={18} />
+              {notice}
+            </div>
+          )}
 
           {error && (
             <div className="flex items-center gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-5 py-4 text-sm font-semibold text-rose-300">

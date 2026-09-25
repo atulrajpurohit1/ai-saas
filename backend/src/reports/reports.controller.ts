@@ -68,4 +68,15 @@ export class ReportsController {
   publish(@GetUser() user: ActiveUser, @Param('id') id: string) {
     return this.reportsService.publishReport(user, id);
   }
+
+  /**
+   * Re-send an already-published report. Covers the common cases: the client
+   * says it never arrived, mail was misconfigured at publish time, or the
+   * recipient address was corrected afterwards.
+   */
+  @Post(':id/send-email')
+  @RequirePermission('reports.publish')
+  sendEmail(@GetUser() user: ActiveUser, @Param('id') id: string) {
+    return this.reportsService.resendReportEmail(user, id);
+  }
 }

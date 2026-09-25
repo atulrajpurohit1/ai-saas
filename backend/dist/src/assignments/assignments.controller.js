@@ -42,7 +42,7 @@ exports.AssignmentsController = AssignmentsController = __decorate([
     (0, common_1.Controller)('assignments'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard, module_guard_1.ModuleGuard),
     (0, permissions_decorator_1.RequirePermission)('shifts.view'),
-    (0, module_decorator_1.RequireModule)('GUARD_TOUR'),
+    (0, module_decorator_1.RequireModule)('FINANCE'),
     __metadata("design:paramtypes", [assignments_service_1.AssignmentsService])
 ], AssignmentsController);
 //# sourceMappingURL=assignments.controller.js.map

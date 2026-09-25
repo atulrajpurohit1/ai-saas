@@ -1,4 +1,11 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreateClientDto {
   @IsString()
@@ -36,4 +43,19 @@ export class CreateClientDto {
   @IsString()
   @IsOptional()
   internalNotes?: string;
+
+  // Daily service report delivery.
+  @IsBoolean()
+  @IsOptional()
+  reportEmailEnabled?: boolean;
+
+  // MANUAL: a supervisor publishes and the email goes then.
+  // AUTOMATIC: sent without review once the shift ends.
+  @IsIn(['MANUAL', 'AUTOMATIC'])
+  @IsOptional()
+  reportEmailMode?: 'MANUAL' | 'AUTOMATIC';
+
+  @IsString()
+  @IsOptional()
+  reportEmailCc?: string;
 }

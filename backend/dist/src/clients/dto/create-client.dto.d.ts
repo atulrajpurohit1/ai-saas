@@ -8,4 +8,7 @@ export declare class CreateClientDto {
     billingNotes?: string;
     internal_notes?: string;
     internalNotes?: string;
+    reportEmailEnabled?: boolean;
+    reportEmailMode?: 'MANUAL' | 'AUTOMATIC';
+    reportEmailCc?: string;
 }

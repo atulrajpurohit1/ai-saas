@@ -41,6 +41,7 @@ var __importStar = (this && this.__importStar) || (function () {
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var EmailService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmailService = void 0;
 const common_1 = require("@nestjs/common");
@@ -81,6 +82,14 @@ class BrevoHttpTransport {
                     subject: options.subject,
                     textContent: options.text,
                     htmlContent: options.html,
+                    ...(options.attachments?.length
+                        ? {
+                            attachment: options.attachments.map((file) => ({
+                                name: file.filename,
+                                content: file.content.toString('base64'),
+                            })),
+                        }
+                        : {}),
                 }),
                 signal: controller.signal,
             });
@@ -117,6 +126,14 @@ class ResendHttpTransport {
                     to: options.to,
                     ...(options.replyTo ? { reply_to: options.replyTo } : {}),
                     subject: options.subject,
+                    ...(options.attachments?.length
+                        ? {
+                            attachments: options.attachments.map((file) => ({
+                                filename: file.filename,
+                                content: file.content.toString('base64'),
+                            })),
+                        }
+                        : {}),
                     text: options.text,
                     html: options.html,
                 }),
@@ -134,9 +151,10 @@ class ResendHttpTransport {
         return { messageId: data.id || '' };
     }
 }
-let EmailService = class EmailService {
+let EmailService = EmailService_1 = class EmailService {
     prisma;
     brandingService;
+    logger = new common_1.Logger(EmailService_1.name);
     transporter;
     usingNodemailer = false;
     envelopeFrom = process.env.EMAIL_FROM || 'no-reply@aisaascrm.com';
@@ -179,6 +197,43 @@ let EmailService = class EmailService {
             return false;
         }
         return nodemailer.getTestMessageUrl(info);
+    }
+    async sendDailyReportEmail(input) {
+        const branding = await this.brandingService.brandingSnapshot(input.tenantId);
+        const filename = `daily-report-${input.reportDate}.pdf`;
+        const paragraphs = input.summary
+            .split(/\n{2,}/)
+            .map((block) => block.trim())
+            .filter(Boolean);
+        try {
+            await this.transporter.sendMail({
+                ...this.senderFor(branding.company_name, branding.support_email),
+                to: input.to,
+                subject: `Daily Service Report — ${input.siteName} — ${input.reportDate}`,
+                text: `Daily Service Report\n${input.siteName} — ${input.reportDate}\n\n` +
+                    `${input.summary}\n\n` +
+                    `The full report is attached as a PDF.`,
+                html: this.brandingService.emailShell(branding, 'Daily Service Report', `
+          <p>Dear ${input.clientName},</p>
+          <p>Please find below the service summary for
+            <strong>${input.siteName}</strong> on
+            <strong>${input.reportDate}</strong>.</p>
+          <div style="background-color: #f9fafb; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb; margin: 20px 0;">
+            ${paragraphs
+                    .map((block) => `<p style="margin: 0 0 12px; font-size: 14px; line-height: 1.6; color: #4b5563;">${block}</p>`)
+                    .join('')}
+          </div>
+          <p style="font-size: 13px; color: #6b7280;">The full report is attached as a PDF.</p>
+        `),
+                attachments: [{ filename, content: input.pdf }],
+            });
+            return { sent: true };
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown mail error';
+            this.logger.error(`Daily report email to ${input.to} failed: ${message}`);
+            return { sent: false, error: message };
+        }
     }
     async sendProposalEmail(tenantId, leadId) {
         const lead = await this.prisma.lead.findFirst({
@@ -374,7 +429,7 @@ let EmailService = class EmailService {
     }
 };
 exports.EmailService = EmailService;
-exports.EmailService = EmailService = __decorate([
+exports.EmailService = EmailService = EmailService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         branding_service_1.BrandingService])

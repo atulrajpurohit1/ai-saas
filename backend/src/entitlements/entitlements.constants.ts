@@ -6,10 +6,15 @@ export const SERVICE_MODULES: ServiceModule[] = [
   'FINANCE',
 ];
 
+/**
+ * Customer-facing product names. The enum values stay as they are -- renaming
+ * them would mean a data migration across every tenant's module rows for no
+ * functional gain, so the mapping lives here instead.
+ */
 export const SERVICE_MODULE_LABELS: Record<ServiceModule, string> = {
-  LEAD_GEN: 'Lead Gen',
-  GUARD_TOUR: 'Guard Tour',
-  FINANCE: 'Finance',
+  LEAD_GEN: 'AegisLead Generation',
+  GUARD_TOUR: 'AegisLead Guard',
+  FINANCE: 'AegisLead Operations',
 };
 
 /**
@@ -29,13 +34,18 @@ export const PERMISSION_MODULE_TO_SERVICE: Record<string, ServiceModule> = {
   rfp: 'LEAD_GEN',
   vendors: 'LEAD_GEN',
 
+  // AegisLead Guard -- field execution and accountability.
   guards: 'GUARD_TOUR',
   patrols: 'GUARD_TOUR',
-  shifts: 'GUARD_TOUR',
   incidents: 'GUARD_TOUR',
-  timesheets: 'GUARD_TOUR',
   reports: 'GUARD_TOUR',
 
+  // AegisLead Operations -- "scheduling, workforce management, finance and
+  // profitability". Shifts and timesheets live here rather than with Guard,
+  // because rostering the workforce is planning, not field execution, and
+  // timesheets are what invoicing is built on.
+  shifts: 'FINANCE',
+  timesheets: 'FINANCE',
   invoices: 'FINANCE',
   invoice_disputes: 'FINANCE',
   finance: 'FINANCE',

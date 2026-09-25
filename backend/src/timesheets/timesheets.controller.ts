@@ -22,7 +22,7 @@ import { TimesheetsService } from './timesheets.service';
 @Controller('timesheets')
 @UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
 @RequirePermission('timesheets.view')
-@RequireModule('GUARD_TOUR')
+@RequireModule('FINANCE')
 export class TimesheetsController {
   constructor(private readonly timesheetsService: TimesheetsService) {}
 

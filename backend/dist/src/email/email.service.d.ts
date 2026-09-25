@@ -1,14 +1,32 @@
 import { BrandingService } from '../branding/branding.service';
 import { PrismaService } from '../prisma/prisma.service';
+export interface MailAttachment {
+    filename: string;
+    content: Buffer;
+}
 export declare class EmailService {
     private prisma;
     private brandingService;
+    private readonly logger;
     private transporter;
     private usingNodemailer;
     private readonly envelopeFrom;
     constructor(prisma: PrismaService, brandingService: BrandingService);
     private senderFor;
     private previewUrlFor;
+    sendDailyReportEmail(input: {
+        tenantId: string;
+        to: string;
+        cc?: string | null;
+        clientName: string;
+        siteName: string;
+        reportDate: string;
+        summary: string;
+        pdf: Buffer;
+    }): Promise<{
+        sent: boolean;
+        error?: string;
+    }>;
     sendProposalEmail(tenantId: string, leadId: string): Promise<{
         messageId: string;
         previewUrl: string | false;

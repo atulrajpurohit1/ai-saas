@@ -23,18 +23,30 @@ export const SERVICE_MODULE_KEYS: ServiceModuleKey[] = [
 ];
 
 export const SERVICE_MODULE_LABELS: Record<ServiceModuleKey, string> = {
-  LEAD_GEN: 'Lead Gen',
-  GUARD_TOUR: 'Guard Tour',
-  FINANCE: 'Finance',
+  LEAD_GEN: 'AegisLead Generation',
+  GUARD_TOUR: 'AegisLead Guard',
+  FINANCE: 'AegisLead Operations',
 };
+
+/** The bundle of all three. Not a module -- a package name. */
+export const COMPLETE_PACKAGE_LABEL = 'AegisLead Complete';
+
+export const SERVICE_MODULE_TAGLINES: Record<ServiceModuleKey, string> = {
+  LEAD_GEN: 'Find the opportunity. Know the buyer. Execute the sale.',
+  GUARD_TOUR: 'Manage field operations, guard tours and accountability.',
+  FINANCE: 'Scheduling, workforce management, finance and profitability.',
+};
+
+export const COMPLETE_PACKAGE_TAGLINE =
+  'One platform. From opportunity to operation to revenue.';
 
 export const SERVICE_MODULE_BLURBS: Record<ServiceModuleKey, string> = {
   LEAD_GEN:
     'Find and qualify prospects, run deals through the pipeline, and generate proposals and RFPs.',
   GUARD_TOUR:
-    'Schedule guards, run patrol routes with checkpoint photo evidence, and track incidents live.',
+    'Run patrol routes with checkpoint photo evidence, track incidents live, and hold the field accountable.',
   FINANCE:
-    'Rate cards, invoicing, dispute handling, and revenue reporting for delivered work.',
+    'Scheduling, workforce management, rate cards, invoicing and profitability reporting.',
 };
 
 /**
@@ -59,11 +71,11 @@ const PERMISSION_PREFIX_TO_SERVICE: Record<string, ServiceModuleKey> = {
 
   guards: 'GUARD_TOUR',
   patrols: 'GUARD_TOUR',
-  shifts: 'GUARD_TOUR',
   incidents: 'GUARD_TOUR',
-  timesheets: 'GUARD_TOUR',
   reports: 'GUARD_TOUR',
 
+  shifts: 'FINANCE',
+  timesheets: 'FINANCE',
   invoices: 'FINANCE',
   invoice_disputes: 'FINANCE',
   finance: 'FINANCE',
@@ -126,6 +138,7 @@ export function moduleSummary(entitlements?: Entitlements | null) {
   return SERVICE_MODULE_KEYS.map((key) => ({
     key,
     name: SERVICE_MODULE_LABELS[key],
+    tagline: SERVICE_MODULE_TAGLINES[key],
     blurb: SERVICE_MODULE_BLURBS[key],
     active: active.has(key),
   }));

@@ -30,6 +30,11 @@ enum VendorStatus {
   INACTIVE
 }
 
+enum ReportEmailMode {
+  MANUAL
+  AUTOMATIC
+}
+
 enum ServiceModule {
   LEAD_GEN
   GUARD_TOUR
@@ -940,6 +945,14 @@ model Client {
   timesheets          Timesheet[]
   rateCards           RateCard[]
   insurancePolicies   ClientInsurancePolicy[]
+  // Daily service report delivery. Off by default: emailing a client without
+  // them asking is worse than them not getting it.
+  reportEmailEnabled  Boolean                 @default(false) @map("report_email_enabled")
+  // MANUAL: a supervisor publishes and the email goes then.
+  // AUTOMATIC: sent without review once the shift ends.
+  reportEmailMode     ReportEmailMode         @default(MANUAL) @map("report_email_mode")
+  // Comma-separated extras, e.g. a facilities manager alongside the main contact.
+  reportEmailCc       String?                 @map("report_email_cc")
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
 
@@ -1005,6 +1018,9 @@ model DailyServiceReport {
   status      String    @default("draft")
   createdAt   DateTime  @default(now()) @map("created_at")
   publishedAt DateTime? @map("published_at")
+  // Stamped only once the client email actually goes out, so a failed send is
+  // retried by the next sweep rather than silently dropped.
+  emailSentAt DateTime? @map("email_sent_at")
 
   @@index([tenantId])
   @@index([branchId])

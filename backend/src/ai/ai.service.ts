@@ -412,6 +412,69 @@ export class AiService {
     }
   }
 
+  /**
+   * Writes the client-facing narrative for a daily service report.
+   *
+   * Clients receive this by email, so it has to read as something a duty
+   * manager would write -- not a dump of the underlying events. Falls back to
+   * the supervisor's own summary when AI is unavailable, so a report always
+   * has something sensible in it.
+   */
+  async generateDailyReportSummary(input: {
+    clientName: string;
+    siteName: string;
+    reportDate: string;
+    supervisorSummary: string;
+    shiftsCovered: number;
+    patrolsCompleted: number;
+    checkpointsScanned: number;
+    incidents: { title: string; severity?: string | null }[];
+  }): Promise<string> {
+    const incidentLines = input.incidents.length
+      ? input.incidents
+          .map((i) => `- ${i.title}${i.severity ? ` (${i.severity})` : ''}`)
+          .join('\n')
+      : '- None reported';
+
+    const prompt = `You are a security operations duty manager writing the daily service report that goes to the client.
+
+Client: ${input.clientName}
+Site: ${input.siteName}
+Date: ${input.reportDate}
+
+Activity recorded:
+- Shifts covered: ${input.shiftsCovered}
+- Patrols completed: ${input.patrolsCompleted}
+- Checkpoints scanned: ${input.checkpointsScanned}
+
+Incidents:
+${incidentLines}
+
+Supervisor's notes:
+${input.supervisorSummary || '(none provided)'}
+
+Write 2-3 short paragraphs summarising the day for the client. Rules:
+- Plain professional English, no bullet points, no headings, no markdown.
+- Lead with whether the site was covered as contracted.
+- Mention incidents factually and say what was done. Never speculate about
+  cause or blame, and never invent detail that is not above.
+- If nothing of note happened, say so plainly rather than padding.
+- Do not address the reader by name or sign off.`;
+
+    return this.generateText(
+      prompt,
+      'daily report summary generation',
+      () =>
+        input.supervisorSummary ||
+        `Security cover was provided at ${input.siteName} on ${input.reportDate}. ` +
+          `${input.patrolsCompleted} patrol(s) completed across ${input.shiftsCovered} shift(s), ` +
+          `with ${input.checkpointsScanned} checkpoint scan(s) recorded. ` +
+          (input.incidents.length
+            ? `${input.incidents.length} incident(s) were reported and logged.`
+            : 'No incidents were reported.'),
+    );
+  }
+
   async generateSalesAssessment(
     context: string,
   ): Promise<AiSalesAssessmentDraft> {
