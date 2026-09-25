@@ -22,12 +22,16 @@ const billing_service_1 = require("./billing.service");
 const stripe_service_1 = require("./stripe.service");
 const create_checkout_session_dto_1 = require("./dto/create-checkout-session.dto");
 const billing_config_1 = require("./billing.config");
+const guard_metering_service_1 = require("./guard-metering.service");
+const pricing_constants_1 = require("./pricing.constants");
 let BillingController = class BillingController {
     billingService;
     stripe;
-    constructor(billingService, stripe) {
+    metering;
+    constructor(billingService, stripe, metering) {
         this.billingService = billingService;
         this.stripe = stripe;
+        this.metering = metering;
     }
     getBilling(user) {
         return this.billingService.getTenantBilling(user.tenantId);
@@ -38,6 +42,20 @@ let BillingController = class BillingController {
             monthly: (0, billing_config_1.sellableModules)('monthly'),
             annual: (0, billing_config_1.sellableModules)('annual'),
         };
+    }
+    pricing() {
+        return {
+            bands: pricing_constants_1.GUARD_BANDS,
+            packages: Object.entries(pricing_constants_1.PACKAGE_LABELS).map(([key, name]) => ({
+                key,
+                name,
+                modules: pricing_constants_1.PACKAGE_MODULES[key],
+                monthly: pricing_constants_1.MONTHLY_PRICES[key],
+            })),
+        };
+    }
+    usage(user) {
+        return this.metering.billingProfile(user.tenantId);
     }
     createCheckoutSession(user, dto) {
         return this.stripe.createCheckoutSession({
@@ -68,6 +86,21 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], BillingController.prototype, "checkoutAvailability", null);
 __decorate([
+    (0, common_1.Get)('pricing'),
+    (0, permissions_decorator_1.RequireAnyPermission)('billing.view', 'roles.view', 'users.view'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], BillingController.prototype, "pricing", null);
+__decorate([
+    (0, common_1.Get)('usage'),
+    (0, permissions_decorator_1.RequireAnyPermission)('billing.view', 'roles.view', 'users.view'),
+    __param(0, (0, get_user_decorator_1.GetUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], BillingController.prototype, "usage", null);
+__decorate([
     (0, common_1.Post)('checkout/session'),
     (0, permissions_decorator_1.RequirePermission)('billing.manage'),
     __param(0, (0, get_user_decorator_1.GetUser)()),
@@ -88,6 +121,7 @@ exports.BillingController = BillingController = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     (0, common_1.Controller)('billing'),
     __metadata("design:paramtypes", [billing_service_1.BillingService,
-        stripe_service_1.StripeService])
+        stripe_service_1.StripeService,
+        guard_metering_service_1.GuardMeteringService])
 ], BillingController);
 //# sourceMappingURL=billing.controller.js.map
