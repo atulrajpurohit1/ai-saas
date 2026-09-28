@@ -8,8 +8,8 @@
  */
 import Stripe from 'stripe';
 import * as dotenv from 'dotenv';
-import { CREDIT_PACKS, CREDIT_PACK_KEYS } from './src/billing/credit-packs.constants';
-import { MONTHLY_PRICES, GENERATION_ONLY_BAND } from './src/billing/pricing.constants';
+import { CREDIT_PACKS, CREDIT_PACK_KEYS } from '../src/billing/credit-packs.constants';
+import { MONTHLY_PRICES, GENERATION_ONLY_BAND } from '../src/billing/pricing.constants';
 
 dotenv.config();
 
