@@ -5,6 +5,9 @@ import {
 } from '@nestjs/common';
 import { AiService, ProspectCompanyInsight } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
+import { CreditsService } from '../billing/credits.service';
+import { PLAYBOOK_CREDIT_COST } from '../billing/credit-packs.constants';
+import { InsufficientCreditsException } from '../billing/insufficient-credits.exception';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { LeadsService } from '../leads/leads.service';
 import { NotesService } from '../notes/notes.service';
@@ -31,6 +34,9 @@ import {
 const PROVIDER_NAME = 'blackpearl';
 const DISCOVERY_PROVIDER_NAME = 'blackpearl_prospecting';
 
+/** Matches the provider's own default when the caller sends no limit. */
+const DEFAULT_DISCOVERY_LIMIT = 10;
+
 @Injectable()
 export class ProspectSearchService {
   private readonly logger = new Logger(ProspectSearchService.name);
@@ -45,6 +51,7 @@ export class ProspectSearchService {
     private readonly historyService: ProspectSearchHistoryService,
     private readonly blackPearlInsightProvider: BlackPearlInsightProvider,
     private readonly blackPearlProspectingProvider: BlackPearlProspectingProvider,
+    private readonly creditsService: CreditsService,
   ) {}
 
   /**
@@ -81,6 +88,12 @@ export class ProspectSearchService {
       );
     }
 
+    // Checked before submitting, so a tenant with no credits never triggers a
+    // billed BlackPearl job. The authoritative hold happens after submission
+    // (a reservation is keyed on the job id, which does not exist yet) - this
+    // is the cheap guard that stops the common case.
+    await this.assertCanAfford(user.tenantId, PLAYBOOK_CREDIT_COST);
+
     const jobId = await this.blackPearlInsightProvider.submitPlaybookJob({
       name: companyName,
     });
@@ -90,6 +103,18 @@ export class ProspectSearchService {
         "We couldn't start researching this company right now. Please try again shortly.",
       );
     }
+
+    // The job is now running and will be billed to us whatever happens next,
+    // so the hold is placed even if it races the balance to zero. reserve()
+    // throws 402 only when the balance genuinely cannot cover it, which the
+    // pre-check above has already made unlikely.
+    await this.creditsService.reserve({
+      tenantId: user.tenantId,
+      jobId,
+      amount: PLAYBOOK_CREDIT_COST,
+      description: `Company playbook: "${companyName}"`,
+      userId: user.sub,
+    });
 
     this.logger.log(
       `Prospect search job submitted: tenant=${user.tenantId} provider=${PROVIDER_NAME} jobId=${jobId} company="${companyName}"`,
@@ -158,6 +183,12 @@ export class ProspectSearchService {
         searchResult,
       );
       await this.recordHistory(companyName, user);
+      await this.settleJobCredits(
+        user.tenantId,
+        jobId,
+        PLAYBOOK_CREDIT_COST,
+        `Company playbook: "${companyName}"`,
+      );
 
       this.logger.log(
         `Prospect search job completed: tenant=${user.tenantId} provider=${PROVIDER_NAME} jobId=${jobId}`,
@@ -170,11 +201,73 @@ export class ProspectSearchService {
       `Prospect search job failed: tenant=${user.tenantId} provider=${PROVIDER_NAME} jobId=${jobId}`,
     );
 
+    // Nothing usable came back, so the customer is not charged.
+    await this.settleJobCredits(
+      user.tenantId,
+      jobId,
+      0,
+      'Playbook could not be generated; credits returned.',
+    );
+
     return {
       status: 'failed',
       message:
         "We couldn't generate a sales playbook for this company. Please try again.",
     };
+  }
+
+  /**
+   * Cheap pre-flight check before submitting a billed job. reserve() enforces
+   * this properly at the point of the hold; doing it here as well means a
+   * tenant with an empty balance is turned away before we ever call BlackPearl
+   * and incur the cost.
+   */
+  private async assertCanAfford(tenantId: string, required: number) {
+    const { balance } = await this.creditsService.getBalance(tenantId);
+    if (balance < required) {
+      throw new InsufficientCreditsException(
+        `This search needs ${required} Prospect Search credit${
+          required === 1 ? '' : 's'
+        }, but your account has ${balance}. Purchase more credits to continue.`,
+        required,
+        balance,
+      );
+    }
+  }
+
+  /**
+   * Settles the hold placed at submission, once a job reaches a terminal state.
+   *
+   * Deliberately never throws: the job has finished and the caller is holding a
+   * real result, so a ledger failure must not turn a successful search into an
+   * error for the user. A hold left behind by a failure here is swept up later
+   * by CreditsService.expireStaleReservations().
+   */
+  private async settleJobCredits(
+    tenantId: string,
+    jobId: string,
+    actualUsed: number,
+    description: string,
+  ): Promise<void> {
+    try {
+      const reservation = await this.creditsService.findReservation(
+        tenantId,
+        jobId,
+      );
+      if (!reservation) return;
+
+      await this.creditsService.settle({
+        reservationId: reservation.id,
+        actualUsed,
+        description,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to settle credits for job ${jobId} (tenant=${tenantId}): ${
+          error instanceof Error ? error.message : String(error)
+        }. The hold will be released by the stale-reservation sweep.`,
+      );
+    }
   }
 
   private async recordHistory(
@@ -238,6 +331,12 @@ export class ProspectSearchService {
       );
     }
 
+    // Discovery bills per prospect returned, and the count is unknown until the
+    // job finishes - so we hold the most it could cost (the requested limit)
+    // and hand back whatever goes unused when it settles.
+    const requestedLimit = dto.limit ?? DEFAULT_DISCOVERY_LIMIT;
+    await this.assertCanAfford(user.tenantId, requestedLimit);
+
     const jobId = await this.blackPearlProspectingProvider.submitProspectingJob(
       {
         objective,
@@ -259,6 +358,14 @@ export class ProspectSearchService {
         "We couldn't start this search right now. Please try again shortly.",
       );
     }
+
+    await this.creditsService.reserve({
+      tenantId: user.tenantId,
+      jobId,
+      amount: requestedLimit,
+      description: `Prospect discovery: "${objective}" (up to ${requestedLimit})`,
+      userId: user.sub,
+    });
 
     this.logger.log(
       `Prospect discovery job submitted: tenant=${user.tenantId} jobId=${jobId} objective="${objective}"`,
@@ -320,6 +427,15 @@ export class ProspectSearchService {
         user,
       );
 
+      // Charge for what actually came back, not what was held: a search that
+      // asked for 20 and found 3 costs 3, and the other 17 go back.
+      await this.settleJobCredits(
+        user.tenantId,
+        jobId,
+        result.prospects.length,
+        `Prospect discovery: "${objective}" (${result.prospects.length} found)`,
+      );
+
       this.logger.log(
         `Prospect discovery job completed: tenant=${user.tenantId} jobId=${jobId} prospects=${result.prospects.length}`,
       );
@@ -329,6 +445,13 @@ export class ProspectSearchService {
 
     this.logger.warn(
       `Prospect discovery job failed: tenant=${user.tenantId} jobId=${jobId}`,
+    );
+
+    await this.settleJobCredits(
+      user.tenantId,
+      jobId,
+      0,
+      'Search could not be completed; credits returned.',
     );
 
     return {

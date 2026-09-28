@@ -65,3 +65,69 @@ export async function openBillingPortal(): Promise<{ url: string }> {
   const res = await api.post<{ url: string }>('billing/portal/session', {});
   return res.data;
 }
+
+// --- Prospect Search credits ---------------------------------------------
+
+export interface CreditBalance {
+  balance: number;
+  lifetimePurchased: number;
+  lifetimeConsumed: number;
+  /** Credits held by searches that have not finished yet. */
+  reservedPending: number;
+}
+
+export interface CreditPack {
+  key: string;
+  label: string;
+  credits: number;
+  price: number;
+}
+
+export interface CreditPackAvailability {
+  configured: boolean;
+  packs: CreditPack[];
+  costs: { playbook: number; perProspect: number };
+}
+
+export type CreditLedgerEntryType =
+  | 'PURCHASE'
+  | 'RESERVATION'
+  | 'RELEASE'
+  | 'CONSUMPTION'
+  | 'ADJUSTMENT';
+
+export interface CreditLedgerEntry {
+  id: string;
+  type: CreditLedgerEntryType;
+  amount: number;
+  balanceAfter: number;
+  description: string;
+  createdAt: string;
+}
+
+export async function getCreditBalance(): Promise<CreditBalance> {
+  const res = await api.get<CreditBalance>('billing/credits');
+  return res.data;
+}
+
+export async function getCreditPacks(): Promise<CreditPackAvailability> {
+  const res = await api.get<CreditPackAvailability>('billing/credits/packs');
+  return res.data;
+}
+
+export async function getCreditLedger(limit = 50): Promise<CreditLedgerEntry[]> {
+  const res = await api.get<CreditLedgerEntry[]>('billing/credits/ledger', {
+    params: { limit },
+  });
+  return res.data;
+}
+
+export async function startCreditCheckout(
+  pack: string,
+): Promise<{ url: string | null }> {
+  const res = await api.post<{ url: string | null }>(
+    'billing/credits/checkout/session',
+    { pack },
+  );
+  return res.data;
+}

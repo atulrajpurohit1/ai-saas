@@ -65,7 +65,9 @@ custom roles built from a catalog of fine-grained permission keys.
   scoring, deal-risk triage, a "focus queue" of prioritised deals with AI next-actions.
 - **AI Prospect Search** – type one company name → BlackPearl generates a sales
   "playbook" (business summary, value props, sales angles, personas, objections) →
-  import it as a lead. Single-company research, not a filter search.
+  import it as a lead. Single-company research, not a filter search. **Metered:
+  customers spend Prospect Search credits to run it** (see below) – this is the
+  one feature that is not covered by the subscription alone.
 - **Sales Calls / Call Transcription** – paste or upload a call recording, get an AI
   transcript, live coaching, and structured discovery analysis.
 
@@ -386,12 +388,52 @@ by the UI may not exist in the RBAC catalog. SSO has been fully removed.
 | Integration | Status | What it's for |
 |---|---|---|
 | **Google Gemini** | Active (needs `GEMINI_API_KEY`) | The general AI layer: proposal drafting, sales scoring/coaching, RFP drafting/evaluation, guard-recommendation explanations. Has deterministic fallbacks. |
-| **BlackPearl / Bebop** | Optional (needs `BLACKPEARL_API_KEY`) | AI Prospect Search company playbooks. Async job API (jobs can take minutes). No fallback – fails with a `503` if not configured. |
+| **BlackPearl / Bebop** | Optional (needs `BLACKPEARL_API_KEY`) | AI Prospect Search company playbooks and prospect discovery. Async job API (jobs can take minutes). Billed per prospect (~$0.11), passed on to customers as credits. No fallback – fails with a `503` if not configured. |
 | **OpenAI** | Optional (needs `OPENAI_API_KEY`, currently commented out in `.env`) | Call audio transcription only. No fallback. |
 | **HubSpot** | Optional (needs `HUBSPOT_CLIENT_ID` / `SECRET` / `REDIRECT_URI`) | OAuth import of HubSpot contacts into the CRM. |
 | **SMTP (Nodemailer)** | Falls back to Ethereal test mailbox | Sends proposal-delivery and RFP vendor-notification emails. |
 | **GoHighLevel** | Active (widget script in `frontend/src/app/layout.tsx`) | Embedded live support-chat widget only – not a data sync. |
 | **Outbound Webhooks** | Active | Tenant-configured URLs receive signed event notifications. |
+
+### Prospect Search credits (usage-based billing)
+
+Every other feature is covered by the monthly subscription. AI Prospect Search is
+not, because BlackPearl bills us per prospect returned (~$0.11) and an
+unconstrained search UI would otherwise be an uncapped cost against a flat fee.
+
+- **1 credit = 1 unit of BlackPearl work**: one company playbook, or one prospect
+  returned by a discovery search. Pricing credits in the same unit BlackPearl
+  bills in keeps the margin per pack fixed.
+- **Reserve, then settle.** A job's true cost is unknown until it finishes minutes
+  later, so `CreditsService.reserve()` holds the maximum (the requested limit)
+  before submitting, and `settle()` charges the actual count and returns the rest.
+  A search that asked for 20 and found 3 costs 3. Failed jobs refund in full, and
+  cache hits cost nothing.
+- **Out of credits is a `402`** with `code: INSUFFICIENT_CREDITS`, deliberately
+  distinct from the `403` an entitlement failure raises, so the UI can offer a
+  top-up rather than an upgrade.
+- **Credits require AegisLead Generation.** The whole `billing/credits` controller
+  is gated on `LEAD_GEN`, so a tenant cannot buy credits it would be refused
+  permission to spend.
+- **Purchased as Stripe one-off packs** (`STRIPE_PRICE_CREDITS_STARTER` /
+  `_GROWTH` / `_SCALE`, created as one-time prices). The webhook resolves the
+  credit amount from the purchased **price id, never session metadata**, since
+  metadata is editable in the Stripe Dashboard. A unique index on
+  `stripe_session_id` makes redelivered events no-ops.
+- **Refunds and chargebacks claw the credits back** (`charge.refunded`,
+  `charge.dispute.created`). The balance is allowed to go negative: a customer who
+  buys, spends and then refunds must not keep the usage. Partial refunds are
+  logged for a human rather than guessed at.
+- **Abandoned holds are swept hourly** by `CreditReservationScheduler`, releasing
+  reservations older than 60 minutes. Without it, a closed tab or a backend
+  restart would freeze a customer's credits permanently.
+- **The ledger is the source of truth.** `CreditLedgerEntry` is append-only and
+  its summed `amount` must always equal `TenantCreditBalance.balance`; every
+  mutation writes both in one transaction. Corrections are new rows, never edits.
+
+Pack sizes and list prices live in `src/billing/credit-packs.constants.ts` for
+display; Stripe remains the source of truth for what is actually charged, so the
+two can silently disagree if only one is changed.
 
 ---
 

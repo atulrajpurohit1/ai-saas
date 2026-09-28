@@ -94,6 +94,23 @@ This is a **single-company deep-research tool, not a multi-company discovery/fil
 - Import the searched company directly as a new Lead (auto-populated with an import note built from whatever profile fields are available), with automatic duplicate-lead detection and an "import anyway" override
 - Save a searched company name for later re-use, rename or delete saved searches
 - View recent search history
+- See their Prospect Search credit balance and the credit cost of a search before
+  running it, and buy more credits when they run out
+
+## Credits
+
+This feature is **metered**: BlackPearl bills per prospect (~$0.11), so customers
+spend Prospect Search credits rather than it being covered by the subscription.
+One credit buys one playbook or one discovered prospect.
+
+Credits are **held** when a job is submitted and **settled** when it finishes,
+because the real cost is not known until then. A discovery search for 20 prospects
+holds 20 credits and returns whatever it does not use, so finding 3 costs 3. A
+failed job refunds in full, and a cached result costs nothing. Running out returns
+a `402` (not a `403`), and the UI offers a "Buy credits" route rather than an
+upgrade prompt. Credits require AegisLead Generation, and a refunded purchase is
+clawed back even if the credits were already spent. Full detail in
+`PROJECT_OVERVIEW.md` §11.
 
 ## Workflow
 ```

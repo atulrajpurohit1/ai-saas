@@ -72,6 +72,10 @@ export function billingReturnUrls() {
     success: `${base}/settings/plan?checkout=success`,
     cancel: `${base}/settings/plan?checkout=cancelled`,
     portalReturn: `${base}/settings/plan`,
+    // Credit packs return to the credits screen rather than the plan screen,
+    // so the customer lands where their new balance is shown.
+    creditsSuccess: `${base}/settings/credits?checkout=success`,
+    creditsCancel: `${base}/settings/credits?checkout=cancelled`,
   };
 }
 

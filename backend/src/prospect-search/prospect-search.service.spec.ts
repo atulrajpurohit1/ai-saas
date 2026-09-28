@@ -1,6 +1,8 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import { AiService } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
+import { CreditsService } from '../billing/credits.service';
+import { InsufficientCreditsException } from '../billing/insufficient-credits.exception';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { LeadsService } from '../leads/leads.service';
 import { NotesService } from '../notes/notes.service';
@@ -35,6 +37,12 @@ describe('ProspectSearchService', () => {
     isConfigured: jest.Mock;
     submitProspectingJob: jest.Mock;
     getJobResult: jest.Mock;
+  };
+  let creditsService: {
+    getBalance: jest.Mock;
+    reserve: jest.Mock;
+    findReservation: jest.Mock;
+    settle: jest.Mock;
   };
 
   const tenantId = 'tenant-1';
@@ -116,6 +124,24 @@ describe('ProspectSearchService', () => {
       }),
     };
 
+    creditsService = {
+      // Enough balance that the existing tests exercise the search paths
+      // rather than the out-of-credits branch, which has its own tests.
+      getBalance: jest.fn().mockResolvedValue({
+        balance: 1000,
+        lifetimePurchased: 1000,
+        lifetimeConsumed: 0,
+        reservedPending: 0,
+      }),
+      reserve: jest.fn().mockResolvedValue({
+        reservationId: 'reservation-1',
+        reserved: 1,
+        balanceAfter: 999,
+      }),
+      findReservation: jest.fn().mockResolvedValue({ id: 'reservation-1' }),
+      settle: jest.fn().mockResolvedValue({ released: 0, consumed: 1 }),
+    };
+
     service = new ProspectSearchService(
       aiService as unknown as AiService,
       auditService as unknown as AuditService,
@@ -126,6 +152,7 @@ describe('ProspectSearchService', () => {
       historyService as unknown as ProspectSearchHistoryService,
       blackPearlInsightProvider as unknown as BlackPearlInsightProvider,
       blackPearlProspectingProvider as unknown as BlackPearlProspectingProvider,
+      creditsService as unknown as CreditsService,
     );
   });
 
@@ -686,6 +713,159 @@ describe('ProspectSearchService', () => {
       await expect(
         service.getDiscoveryJobStatus('discovery-job-1', dto, user),
       ).rejects.toThrow(ServiceUnavailableException);
+    });
+  });
+  describe('credit enforcement', () => {
+    const discoverDto = { objective: 'Marketing agencies in India' };
+
+    it('holds one credit against a submitted playbook job', async () => {
+      await service.search({ companyName: 'Acme Corp' }, user);
+
+      expect(creditsService.reserve).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId,
+          jobId: 'job-1',
+          amount: 1,
+          userId: 'user-1',
+        }),
+      );
+    });
+
+    // The pre-flight check exists so an unaffordable search never reaches
+    // BlackPearl, because reaching it is what costs us money.
+    it('refuses a playbook search without submitting a billed job when credits are short', async () => {
+      creditsService.getBalance.mockResolvedValue({
+        balance: 0,
+        lifetimePurchased: 0,
+        lifetimeConsumed: 0,
+        reservedPending: 0,
+      });
+
+      await expect(
+        service.search({ companyName: 'Acme Corp' }, user),
+      ).rejects.toBeInstanceOf(InsufficientCreditsException);
+
+      expect(
+        blackPearlInsightProvider.submitPlaybookJob,
+      ).not.toHaveBeenCalled();
+      expect(creditsService.reserve).not.toHaveBeenCalled();
+    });
+
+    it('holds the requested limit for a discovery job', async () => {
+      await service.discover({ ...discoverDto, limit: 15 }, user);
+
+      expect(creditsService.reserve).toHaveBeenCalledWith(
+        expect.objectContaining({ jobId: 'discovery-job-1', amount: 15 }),
+      );
+    });
+
+    it('holds the provider default when the caller sends no limit', async () => {
+      await service.discover(discoverDto, user);
+
+      expect(creditsService.reserve).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 10 }),
+      );
+    });
+
+    it('refuses a discovery search that the balance cannot cover', async () => {
+      creditsService.getBalance.mockResolvedValue({
+        balance: 5,
+        lifetimePurchased: 5,
+        lifetimeConsumed: 0,
+        reservedPending: 0,
+      });
+
+      await expect(
+        service.discover({ ...discoverDto, limit: 20 }, user),
+      ).rejects.toBeInstanceOf(InsufficientCreditsException);
+
+      expect(
+        blackPearlProspectingProvider.submitProspectingJob,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('settles a completed discovery against the prospects actually returned', async () => {
+      blackPearlProspectingProvider.getJobResult.mockResolvedValue({
+        status: 'completed',
+        progress: 100,
+        stageLabel: null,
+        result: {
+          query: '',
+          discoveredCount: 3,
+          qualifiedCount: 3,
+          prospects: [{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }],
+        },
+      });
+
+      await service.getDiscoveryJobStatus(
+        'discovery-job-1',
+        discoverDto,
+        user,
+      );
+
+      expect(creditsService.settle).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reservationId: 'reservation-1',
+          actualUsed: 3,
+        }),
+      );
+    });
+
+    it('charges nothing for a failed discovery job', async () => {
+      blackPearlProspectingProvider.getJobResult.mockResolvedValue({
+        status: 'failed',
+        progress: null,
+        stageLabel: null,
+        result: null,
+      });
+
+      await service.getDiscoveryJobStatus(
+        'discovery-job-1',
+        discoverDto,
+        user,
+      );
+
+      expect(creditsService.settle).toHaveBeenCalledWith(
+        expect.objectContaining({ actualUsed: 0 }),
+      );
+    });
+
+    it('charges nothing for a failed playbook job', async () => {
+      blackPearlInsightProvider.getJobResult.mockResolvedValue({
+        jobId: 'job-1',
+        status: 'failed',
+        progress: null,
+        companyName: 'Acme Corp',
+        insight: null,
+      });
+
+      await service.getSearchJobStatus('job-1', user);
+
+      expect(creditsService.settle).toHaveBeenCalledWith(
+        expect.objectContaining({ actualUsed: 0 }),
+      );
+    });
+
+    // A settled result is already in the caller's hands; a ledger problem must
+    // not turn a successful search into an error for the user.
+    it('still returns the result when settling the hold fails', async () => {
+      creditsService.settle.mockRejectedValue(new Error('ledger unavailable'));
+
+      const result = await service.getSearchJobStatus('job-1', user);
+
+      expect(result.status).toBe('completed');
+    });
+
+    // Cached results cost us nothing, so they must cost the customer nothing.
+    it('does not charge for a cache hit', async () => {
+      cacheService.get.mockReturnValue({
+        companyName: 'Acme Corp',
+        insight,
+      });
+
+      await service.search({ companyName: 'Acme Corp' }, user);
+
+      expect(creditsService.reserve).not.toHaveBeenCalled();
     });
   });
 });

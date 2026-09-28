@@ -48,6 +48,32 @@ enum SubscriptionStatus {
   CANCELED
 }
 
+/**
+ * Why a credit ledger row exists. The ledger is append-only: a correction is
+ * another row, never an edit, so the balance is always the sum of its rows.
+ */
+enum CreditEntryType {
+  /// Credits bought through Stripe, or granted by an admin.
+  PURCHASE
+  /// Credits held while a BlackPearl job runs. Negative amount.
+  RESERVATION
+  /// The unused part of a reservation, handed back when the job settles.
+  RELEASE
+  /// A reservation confirmed as actually consumed. Amount is zero -- the
+  /// credits already left the balance at RESERVATION time; this row exists so
+  /// the reservation's terminal state is recorded rather than inferred.
+  CONSUMPTION
+  /// Manual adjustment by a platform admin (positive or negative).
+  ADJUSTMENT
+}
+
+/** Terminal state of a RESERVATION row. */
+enum CreditReservationStatus {
+  PENDING
+  SETTLED
+  RELEASED
+}
+
 enum InvitationStatus {
   PENDING
   INVITED
@@ -122,6 +148,8 @@ model Tenant {
   rfpRequirementAnalyses  RfpRequirementAnalysis[]
   subscription            TenantSubscription?
   modules                 TenantModule[]
+  creditBalance           TenantCreditBalance?
+  creditLedger            CreditLedgerEntry[]
 }
 
 model Branch {
@@ -1822,4 +1850,78 @@ model SavedProspectSearch {
   @@index([tenantId])
   @@index([tenantId, userId])
   @@map("SavedProspectSearch")
+}
+
+/**
+ * A tenant's spendable Prospect Search credit balance.
+ *
+ * Denormalised from CreditLedgerEntry purely so the hot path (can this tenant
+ * afford a job?) is one indexed read rather than an aggregate over the whole
+ * ledger. The ledger stays the source of truth: `balance` must always equal
+ * the sum of that tenant's ledger amounts, and every write to this row happens
+ * in the same transaction as the ledger row that justifies it.
+ */
+model TenantCreditBalance {
+  id        String   @id @default(uuid())
+  tenantId  String   @unique @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Spendable credits: purchased minus reserved. Never negative -- reserve()
+  /// refuses rather than overdrawing.
+  balance   Int      @default(0)
+  /// Lifetime totals, for the billing screen. Not used in any spend decision.
+  lifetimePurchased Int @default(0) @map("lifetime_purchased")
+  lifetimeConsumed  Int @default(0) @map("lifetime_consumed")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("TenantCreditBalance")
+}
+
+/**
+ * Append-only credit ledger. Every movement of credit is a row here, and a
+ * RESERVATION row doubles as the reservation record itself -- holding the job
+ * id, what was reserved, and how it ended -- so a held job needs no second
+ * table to track it.
+ */
+model CreditLedgerEntry {
+  id       String          @id @default(uuid())
+  tenantId String          @map("tenant_id")
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type     CreditEntryType
+  /// Signed: positive adds credit, negative removes it. The balance is the sum
+  /// of this column, so a CONSUMPTION row is deliberately 0.
+  amount   Int
+  /// Balance immediately after this row was applied, for auditing a drift.
+  balanceAfter Int         @map("balance_after")
+  description  String
+
+  /// The user who triggered it, where there was one (null for webhooks).
+  userId String? @map("user_id")
+
+  // --- Reservation fields: set on RESERVATION rows only. ---
+  /// BlackPearl job id this reservation is held against.
+  jobId             String?                  @map("job_id")
+  reservationStatus CreditReservationStatus?  @map("reservation_status")
+  /// How many credits were actually consumed once the job settled. Null while
+  /// still PENDING.
+  settledAmount     Int?                     @map("settled_amount")
+  settledAt         DateTime?                @map("settled_at")
+
+  /// The RESERVATION row a RELEASE or CONSUMPTION row settles.
+  reservationId String?             @map("reservation_id")
+  reservation   CreditLedgerEntry?  @relation("ReservationSettlement", fields: [reservationId], references: [id], onDelete: SetNull)
+  settlements   CreditLedgerEntry[] @relation("ReservationSettlement")
+
+  /// Stripe checkout session id on a PURCHASE. Unique so a replayed webhook
+  /// cannot grant the same pack twice -- the insert simply violates this.
+  stripeSessionId String? @unique @map("stripe_session_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, type])
+  @@unique([tenantId, jobId, type])
+  @@map("CreditLedgerEntry")
 }

@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
 import ProspectDetailsDrawer from '@/components/ProspectDetailsDrawer';
@@ -9,7 +10,11 @@ import ProspectDiscoveryResultCard from '@/components/ProspectDiscoveryResultCar
 import ProspectSearchFilterChip from '@/components/ProspectSearchFilterChip';
 import EmptyState from '@/components/EmptyState';
 import { useAuth } from '@/context/AuthContext';
-import { getApiErrorMessage } from '@/lib/api-error';
+import {
+  getApiErrorMessage,
+  getInsufficientCreditsError,
+} from '@/lib/api-error';
+import { getCreditBalance, type CreditBalance } from '@/lib/billing';
 import { getCrmConnectorStatus } from '@/lib/integrations';
 import { buildCsv, downloadTextFile } from '@/lib/csv';
 import {
@@ -110,6 +115,10 @@ export default function ProspectSearchPage() {
   const [progress, setProgress] = useState<number | null>(null);
   const [stageLabel, setStageLabel] = useState<string | null>(null);
   const [error, setError] = useState('');
+  // Set instead of `error` when the backend answers 402, so the page can offer
+  // a top-up link rather than a bare failure message.
+  const [creditsShortfall, setCreditsShortfall] = useState<string | null>(null);
+  const [credits, setCredits] = useState<CreditBalance | null>(null);
   const [result, setResult] = useState<ProspectDiscoveryResult | null>(null);
 
   const [history, setHistory] = useState<ProspectSearchHistoryEntry[]>([]);
@@ -332,11 +341,16 @@ export default function ProspectSearchPage() {
             setResult(status.result);
             setLoading(false);
             void loadHistoryAndSaved();
+            // The hold settles when the job finishes, so the balance has only
+            // just become accurate.
+            getCreditBalance().then(setCredits).catch(() => {});
             return;
           }
 
           setError(status.message);
           setLoading(false);
+          // A failed job refunds in full; show that straight away.
+          getCreditBalance().then(setCredits).catch(() => {});
           return;
         } catch (err) {
           if (searchGenerationRef.current !== generation) return;
@@ -365,6 +379,7 @@ export default function ProspectSearchPage() {
 
       setLoading(true);
       setError('');
+      setCreditsShortfall(null);
       setProgress(null);
       setStageLabel(null);
       setResult(null);
@@ -386,12 +401,32 @@ export default function ProspectSearchPage() {
         void pollDiscoveryJob(submission.jobId, request, generation);
       } catch (err) {
         if (searchGenerationRef.current !== generation) return;
-        setError(getApiErrorMessage(err, 'Prospect search failed. Please try again.'));
+
+        // Running out of credits is a billing state, not a failure -- it gets
+        // its own message with a route to buy more.
+        const shortfall = getInsufficientCreditsError(err);
+        if (shortfall) {
+          setCreditsShortfall(shortfall.message);
+        } else {
+          setError(getApiErrorMessage(err, 'Prospect search failed. Please try again.'));
+        }
         setLoading(false);
       }
     },
     [buildRequest, loadHistoryAndSaved, pollDiscoveryJob],
   );
+
+  const refreshCredits = useCallback(() => {
+    // The balance is an enhancement on this page: if it cannot be read, the
+    // search UI still works and the backend remains the real gate.
+    getCreditBalance()
+      .then(setCredits)
+      .catch(() => setCredits(null));
+  }, []);
+
+  useEffect(() => {
+    refreshCredits();
+  }, [refreshCredits]);
 
   const handleSubmit = useCallback(
     (event: React.FormEvent) => {
@@ -548,7 +583,18 @@ export default function ProspectSearchPage() {
         })
         .catch((err: unknown) => {
           if (deepResearchGenerationRef.current !== generation) return;
-          setDeepResearchError(getApiErrorMessage(err, 'Full playbook generation failed. Please try again.'));
+
+          // A playbook is its own charge, so it has its own out-of-credits
+          // path -- surfaced on the page banner, since the drawer never opened.
+          const shortfall = getInsufficientCreditsError(err);
+          if (shortfall) {
+            setCreditsShortfall(shortfall.message);
+            setDeepResearchError('');
+          } else {
+            setDeepResearchError(
+              getApiErrorMessage(err, 'Full playbook generation failed. Please try again.'),
+            );
+          }
           setDeepResearchPendingName(null);
         });
     },
@@ -834,6 +880,20 @@ export default function ProspectSearchPage() {
             </div>
             <span className="text-xs text-slate-500">
               Expected: up to {SEARCH_MODE_LIMITS[searchMode]} results &middot; ~1 min
+              {/* Credits are held for the maximum and refunded down to what the
+                  search actually finds, so this is a ceiling, not a charge. */}
+              {' '}&middot; up to {SEARCH_MODE_LIMITS[searchMode]} credits
+              {credits && (
+                <>
+                  {' '}&middot;{' '}
+                  <Link
+                    href="/settings/credits"
+                    className="underline underline-offset-2 hover:text-slate-300"
+                  >
+                    {credits.balance.toLocaleString()} available
+                  </Link>
+                </>
+              )}
             </span>
           </div>
 
@@ -863,6 +923,22 @@ export default function ProspectSearchPage() {
           </div>
         </div>
       </form>
+
+      {creditsShortfall && (
+        <div
+          role="alert"
+          className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-sm font-semibold text-foreground"
+        >
+          <AlertTriangle size={18} aria-hidden="true" className="text-amber-600" />
+          <span className="flex-1">{creditsShortfall}</span>
+          <Link
+            href="/settings/credits"
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            Buy credits
+          </Link>
+        </div>
+      )}
 
       {error && (
         <div

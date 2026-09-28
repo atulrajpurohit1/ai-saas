@@ -26,6 +26,7 @@ import {
   Building2,
   FileCheck2,
   Umbrella,
+  Coins,
   Sparkles,
   type LucideIcon,
 } from 'lucide-react';
@@ -107,6 +108,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/integrations', label: 'Integrations', icon: Plug, permissions: ['integrations.view'] },
       { href: '/settings/branding', label: 'Branding', icon: Palette, permissions: ['branding.view'] },
       { href: '/settings/plan', label: 'Your Plan', icon: Sparkles, permissions: ['billing.view'] },
+      { href: '/settings/credits', label: 'Search Credits', icon: Coins, permissions: ['billing.view'] },
       { href: '/settings/billing', label: 'Billing', icon: CreditCard, permissions: ['billing.view'] },
       { href: '/settings/roles', label: 'Roles', icon: Settings, permissions: ['roles.view'] },
       { href: '/audit', label: 'Audit Logs', icon: Activity, permissions: ['audit.view'] },

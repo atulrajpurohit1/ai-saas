@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { StripeService } from './stripe.service';
 import { StripeWebhookService } from './stripe-webhook.service';
 import { SubscriptionProvisioningService } from './subscription-provisioning.service';
+import { CreditsService } from './credits.service';
 
 const PRICE_LEAD_GEN = 'price_lead_gen_monthly';
 const PRICE_GUARD_TOUR = 'price_guard_tour_monthly';
@@ -41,7 +42,12 @@ describe('StripeWebhookService', () => {
     setStatus: jest.Mock;
     tenantForProviderIds: jest.Mock;
   };
-  let stripe: { retrieveSubscription: jest.Mock };
+  let stripe: {
+    retrieveSubscription: jest.Mock;
+    priceIdsForCheckoutSession: jest.Mock;
+    checkoutSessionForPaymentIntent: jest.Mock;
+  };
+  let credits: { grant: jest.Mock; reversePurchase: jest.Mock };
 
   beforeEach(async () => {
     process.env.STRIPE_PRICE_LEAD_GEN_MONTHLY = PRICE_LEAD_GEN;
@@ -54,13 +60,24 @@ describe('StripeWebhookService', () => {
       setStatus: jest.fn().mockResolvedValue(undefined),
       tenantForProviderIds: jest.fn().mockResolvedValue('tenant-1'),
     };
-    stripe = { retrieveSubscription: jest.fn() };
+    stripe = {
+      retrieveSubscription: jest.fn(),
+      priceIdsForCheckoutSession: jest.fn().mockResolvedValue([]),
+      checkoutSessionForPaymentIntent: jest.fn().mockResolvedValue(null),
+    };
+    credits = {
+      grant: jest.fn().mockResolvedValue({ balance: 250, granted: true }),
+      reversePurchase: jest
+        .fn()
+        .mockResolvedValue({ reversed: 1000, balance: -200 }),
+    };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         StripeWebhookService,
         { provide: StripeService, useValue: stripe },
         { provide: SubscriptionProvisioningService, useValue: provisioning },
+        { provide: CreditsService, useValue: credits },
       ],
     }).compile();
 
@@ -260,6 +277,208 @@ describe('StripeWebhookService', () => {
       );
       expect(provisioning.cancel).not.toHaveBeenCalled();
       expect(provisioning.provision).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('credit pack purchases', () => {
+    const PRICE_CREDITS_GROWTH = 'price_credits_growth';
+
+    beforeEach(() => {
+      process.env.STRIPE_PRICE_CREDITS_GROWTH = PRICE_CREDITS_GROWTH;
+    });
+
+    afterEach(() => {
+      delete process.env.STRIPE_PRICE_CREDITS_GROWTH;
+    });
+
+    const packSession = (overrides: Record<string, unknown> = {}) => ({
+      id: 'cs_credits_1',
+      mode: 'payment',
+      payment_status: 'paid',
+      metadata: { tenantId: 'tenant-1', creditPack: 'GROWTH' },
+      ...overrides,
+    });
+
+    it('grants the credits the purchased price actually sells', async () => {
+      stripe.priceIdsForCheckoutSession.mockResolvedValue([
+        PRICE_CREDITS_GROWTH,
+      ]);
+
+      const result = await service.handle(
+        event('checkout.session.completed', packSession()),
+      );
+
+      expect(credits.grant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant-1',
+          amount: 1000,
+          // The session id is what makes a replayed webhook a no-op.
+          stripeSessionId: 'cs_credits_1',
+        }),
+      );
+      expect(result).toEqual({
+        handled: true,
+        tenantId: 'tenant-1',
+        credits: 1000,
+      });
+      // A one-off payment must never be mistaken for a subscription.
+      expect(provisioning.provision).not.toHaveBeenCalled();
+    });
+
+    // Session metadata is editable in the Stripe Dashboard, so trusting it
+    // would let an edited session mint arbitrary credits.
+    it('ignores a credit figure in metadata that the price does not back', async () => {
+      stripe.priceIdsForCheckoutSession.mockResolvedValue([
+        PRICE_CREDITS_GROWTH,
+      ]);
+
+      await service.handle(
+        event(
+          'checkout.session.completed',
+          packSession({
+            metadata: {
+              tenantId: 'tenant-1',
+              creditPack: 'GROWTH',
+              credits: '999999',
+            },
+          }),
+        ),
+      );
+
+      expect(credits.grant).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 1000 }),
+      );
+    });
+
+    it('grants nothing when the price matches no configured pack', async () => {
+      stripe.priceIdsForCheckoutSession.mockResolvedValue(['price_unknown']);
+
+      const result = await service.handle(
+        event('checkout.session.completed', packSession()),
+      );
+
+      expect(credits.grant).not.toHaveBeenCalled();
+      expect(result).toEqual({ handled: false, reason: 'unknown-pack' });
+    });
+
+    it('grants nothing for a session that has not been paid', async () => {
+      const result = await service.handle(
+        event(
+          'checkout.session.completed',
+          packSession({ payment_status: 'unpaid' }),
+        ),
+      );
+
+      expect(credits.grant).not.toHaveBeenCalled();
+      expect(result).toEqual({ handled: false, reason: 'unpaid' });
+    });
+
+    it('ignores a pack session carrying no tenant', async () => {
+      const result = await service.handle(
+        event('checkout.session.completed', packSession({ metadata: {} })),
+      );
+
+      expect(credits.grant).not.toHaveBeenCalled();
+      expect(result).toEqual({ handled: false, reason: 'missing-tenant' });
+    });
+  });
+
+  describe('refunds and disputes', () => {
+    const packSessionForRefund = {
+      id: 'cs_credits_1',
+      mode: 'payment',
+      metadata: { tenantId: 'tenant-1' },
+    };
+
+    const charge = (overrides: Record<string, unknown> = {}) => ({
+      id: 'ch_1',
+      payment_intent: 'pi_1',
+      amount: 29900,
+      amount_refunded: 29900,
+      ...overrides,
+    });
+
+    it('reverses the credits when a pack purchase is fully refunded', async () => {
+      stripe.checkoutSessionForPaymentIntent.mockResolvedValue(
+        packSessionForRefund,
+      );
+
+      const result = await service.handle(event('charge.refunded', charge()));
+
+      expect(credits.reversePurchase).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant-1',
+          stripeSessionId: 'cs_credits_1',
+        }),
+      );
+      expect(result).toEqual({
+        handled: true,
+        tenantId: 'tenant-1',
+        reversed: 1000,
+      });
+    });
+
+    // Guessing how many credits a partial refund corresponds to is worse than
+    // leaving it to a human.
+    it('leaves a partial refund alone', async () => {
+      const result = await service.handle(
+        event('charge.refunded', charge({ amount_refunded: 10000 })),
+      );
+
+      expect(credits.reversePurchase).not.toHaveBeenCalled();
+      expect(result).toEqual({ handled: false, reason: 'partial-refund' });
+    });
+
+    it('reverses the credits on a chargeback', async () => {
+      stripe.checkoutSessionForPaymentIntent.mockResolvedValue(
+        packSessionForRefund,
+      );
+
+      const result = await service.handle(
+        event('charge.dispute.created', {
+          id: 'dp_1',
+          payment_intent: 'pi_1',
+        }),
+      );
+
+      expect(credits.reversePurchase).toHaveBeenCalled();
+      expect(result).toEqual({
+        handled: true,
+        tenantId: 'tenant-1',
+        reversed: 1000,
+      });
+    });
+
+    // Subscription invoices refund through the same event and have no credit
+    // grant behind them.
+    it('ignores a refund that is not a credit purchase', async () => {
+      stripe.checkoutSessionForPaymentIntent.mockResolvedValue({
+        id: 'cs_sub_1',
+        mode: 'subscription',
+        metadata: { tenantId: 'tenant-1' },
+      });
+
+      const result = await service.handle(event('charge.refunded', charge()));
+
+      expect(credits.reversePurchase).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        handled: false,
+        reason: 'not-a-credit-purchase',
+      });
+    });
+
+    it('reports nothing-to-reverse when no grant is found', async () => {
+      stripe.checkoutSessionForPaymentIntent.mockResolvedValue(
+        packSessionForRefund,
+      );
+      credits.reversePurchase.mockResolvedValue(null);
+
+      const result = await service.handle(event('charge.refunded', charge()));
+
+      expect(result).toEqual({
+        handled: false,
+        reason: 'nothing-to-reverse',
+      });
     });
   });
 

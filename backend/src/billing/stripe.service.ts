@@ -16,6 +16,11 @@ import {
   stripeWebhookSecret,
   trialDays,
 } from './billing.config';
+import {
+  CREDIT_PACKS,
+  CreditPackKey,
+  creditPackPriceId,
+} from './credit-packs.constants';
 
 /**
  * Thin wrapper over the Stripe SDK.
@@ -120,6 +125,81 @@ export class StripeService {
     });
 
     return { url: session.url, sessionId: session.id };
+  }
+
+  /**
+   * One-off checkout for a Prospect Search credit pack.
+   *
+   * `mode: 'payment'` rather than 'subscription': credit packs are bought
+   * outright, not billed on a cycle. The tenant's existing Stripe customer is
+   * reused, so a pack purchase lands on the same customer record as their
+   * subscription rather than creating a second one.
+   */
+  async createCreditPackCheckoutSession(params: {
+    tenantId: string;
+    pack: CreditPackKey;
+    email?: string;
+  }) {
+    const { tenantId, pack, email } = params;
+
+    const price = creditPackPriceId(pack);
+    if (!price) {
+      throw new ServiceUnavailableException(
+        `No price is configured for the ${CREDIT_PACKS[pack].label} yet.`,
+      );
+    }
+
+    const urls = billingReturnUrls();
+    const customer = await this.customerIdFor(tenantId, email);
+
+    const session = await this.stripe().checkout.sessions.create({
+      mode: 'payment',
+      customer,
+      line_items: [{ price, quantity: 1 }],
+      success_url: urls.creditsSuccess,
+      cancel_url: urls.creditsCancel,
+      // The webhook re-reads the purchased price id and resolves the credit
+      // amount from that, never from this metadata -- metadata is editable in
+      // the Dashboard, so it is a cross-check only.
+      metadata: {
+        tenantId,
+        creditPack: pack,
+        credits: String(CREDIT_PACKS[pack].credits),
+      },
+      payment_intent_data: {
+        metadata: { tenantId, creditPack: pack },
+      },
+    });
+
+    return { url: session.url, sessionId: session.id };
+  }
+
+  /**
+   * The checkout session a payment intent belongs to, if any.
+   *
+   * A refund arrives as `charge.refunded`, which carries a payment intent, not a
+   * session -- but the credit purchase is recorded against the session id. This
+   * closes that gap so a refund can find the grant it needs to reverse.
+   */
+  async checkoutSessionForPaymentIntent(
+    paymentIntentId: string,
+  ): Promise<Stripe.Checkout.Session | null> {
+    const sessions = await this.stripe().checkout.sessions.list({
+      payment_intent: paymentIntentId,
+      limit: 1,
+    });
+    return sessions.data[0] ?? null;
+  }
+
+  /** The price ids on a completed one-off checkout, for resolving the pack. */
+  async priceIdsForCheckoutSession(sessionId: string): Promise<string[]> {
+    const lineItems = await this.stripe().checkout.sessions.listLineItems(
+      sessionId,
+      { limit: 100 },
+    );
+    return lineItems.data
+      .map((item) => item.price?.id)
+      .filter((id): id is string => Boolean(id));
   }
 
   /** Stripe-hosted page for cards, invoices, plan changes and cancellation. */
