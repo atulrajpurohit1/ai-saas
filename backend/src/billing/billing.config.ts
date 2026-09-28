@@ -60,13 +60,32 @@ export function stripeWebhookSecret(): string | null {
   return process.env.STRIPE_WEBHOOK_SECRET?.trim() || null;
 }
 
-/** Where Stripe returns the customer after checkout. */
+/**
+ * Where Stripe returns the customer after checkout.
+ *
+ * This MUST be the origin the customer is actually signed in on. Sessions live
+ * in that origin's localStorage, so returning them to a different host -- even
+ * another domain serving the same app -- lands them with no session and bounces
+ * them to the login screen straight after paying. Their purchase still
+ * completes (the webhook is server-side), which is what makes the misconfigured
+ * case so easy to miss.
+ */
 export function billingReturnUrls() {
-  const base = (
-    process.env.BILLING_RETURN_URL ||
-    process.env.FRONTEND_URL ||
-    'http://localhost:3000'
-  ).replace(/\/+$/, '');
+  const configured = process.env.BILLING_RETURN_URL || process.env.FRONTEND_URL;
+
+  // Falling back to localhost in a deployed environment sends real customers to
+  // their OWN machine after payment. Say so loudly rather than silently
+  // producing a URL that cannot work.
+  if (!configured && process.env.NODE_ENV === 'production') {
+    // eslint-disable-next-line no-console
+    console.error(
+      'BILLING_RETURN_URL is not set. Stripe will return paying customers to ' +
+        'http://localhost:3000, which is their own machine. Set it to the origin ' +
+        'customers sign in on.',
+    );
+  }
+
+  const base = (configured || 'http://localhost:3000').replace(/\/+$/, '');
 
   return {
     success: `${base}/settings/plan?checkout=success`,

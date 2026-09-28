@@ -47,6 +47,9 @@ async function bootstrap() {
     'https://ai-saas-mxab.vercel.app',
     'https://www.aegislead.co',
     'https://aegislead.co',
+    // The live dashboard. Listed here as well as in CORS_ORIGINS so the app
+    // keeps working if that env var is lost in a redeploy or a new environment.
+    'https://dashboard.aegislead.co',
     ...configuredOrigins,
   ]);
 
