@@ -182,8 +182,15 @@ export class CreditsService {
     reservationId: string;
     actualUsed: number;
     description?: string;
+    /**
+     * What the upstream provider actually charged us for this job, in USD.
+     * Recorded alongside the credits we charged the customer so the margin on
+     * a search is a measured number rather than an assumed one. Undefined when
+     * the provider reported nothing; that is stored as NULL, not zero.
+     */
+    upstreamCostUsd?: number | null;
   }): Promise<{ released: number; consumed: number } | null> {
-    const { reservationId, actualUsed, description } = params;
+    const { reservationId, actualUsed, description, upstreamCostUsd } = params;
 
     if (!Number.isInteger(actualUsed) || actualUsed < 0) {
       throw new BadRequestException(
@@ -275,6 +282,12 @@ export class CreditsService {
               : CreditReservationStatus.RELEASED,
           settledAmount: consumed,
           settledAt: new Date(),
+          // Left untouched when the provider reported nothing, so a later
+          // settle cannot overwrite a real figure with a null.
+          ...(typeof upstreamCostUsd === 'number' &&
+          Number.isFinite(upstreamCostUsd)
+            ? { upstreamCostUsd }
+            : {}),
         },
       });
 

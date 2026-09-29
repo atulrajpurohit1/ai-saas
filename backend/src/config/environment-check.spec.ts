@@ -1,4 +1,33 @@
-import { assertEnvironment, checkEnvironment } from './environment-check';
+import {
+  assertEnvironment,
+  checkEnvironment,
+  isDevelopmentLike,
+} from './environment-check';
+
+describe('isDevelopmentLike', () => {
+  it.each(['development', 'test', 'local', 'DEVELOPMENT', ' development '])(
+    'treats %p as development',
+    (value) => {
+      expect(isDevelopmentLike({ NODE_ENV: value } as NodeJS.ProcessEnv)).toBe(
+        true,
+      );
+    },
+  );
+
+  /**
+   * The point of this helper: an UNSET NODE_ENV must not be mistaken for
+   * development. `NODE_ENV !== 'production'` would have said development here
+   * and handed a real deployment OTP logging and localhost CORS.
+   */
+  it.each([undefined, '', 'production', 'staging', 'prod', 'PRODUCTION'])(
+    'treats %p as production',
+    (value) => {
+      expect(isDevelopmentLike({ NODE_ENV: value } as NodeJS.ProcessEnv)).toBe(
+        false,
+      );
+    },
+  );
+});
 
 const STRONG_A = 'a'.repeat(48);
 const STRONG_B = 'b'.repeat(48);
@@ -72,12 +101,35 @@ describe('checkEnvironment', () => {
     expect(checkEnvironment(env).fatal.length).toBe(1);
   });
 
-  it('warns when NODE_ENV is unset, naming what silently downgrades', () => {
+  it('warns when NODE_ENV is unset but confirms production is assumed', () => {
     const env = { ...validProduction };
     delete env.NODE_ENV;
-    const { warnings } = checkEnvironment(env);
+    const { fatal, warnings } = checkEnvironment(env);
+    expect(fatal).toEqual([]);
     expect(warnings).toEqual([expect.stringContaining('NODE_ENV')]);
-    expect(warnings[0]).toMatch(/cleartext/);
+    expect(warnings[0]).toMatch(/treated as production/);
+  });
+
+  it('still applies production checks when NODE_ENV is unset', () => {
+    const env = { ...validProduction };
+    delete env.NODE_ENV;
+    delete env.RESEND_API_KEY;
+    // An unset NODE_ENV must not exempt a real deploy from being told its
+    // mail provider is missing.
+    expect(checkEnvironment(env).warnings).toEqual(
+      expect.arrayContaining([expect.stringContaining('No mail provider')]),
+    );
+  });
+
+  it('is fatal on a weak secret even when NODE_ENV is unset', () => {
+    const env: NodeJS.ProcessEnv = {
+      ...validProduction,
+      JWT_ACCESS_SECRET: 'changeme',
+    };
+    delete env.NODE_ENV;
+    expect(checkEnvironment(env).fatal).toEqual([
+      expect.stringContaining('JWT_ACCESS_SECRET'),
+    ]);
   });
 
   it('warns in production when no mail provider is configured', () => {

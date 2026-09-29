@@ -20,6 +20,28 @@ export interface EnvironmentReport {
   warnings: string[];
 }
 
+/**
+ * True ONLY when NODE_ENV explicitly names a non-production environment.
+ *
+ * Every developer convenience that would be dangerous in production is gated
+ * on this rather than on `NODE_ENV !== 'production'`. The difference is what
+ * happens when NODE_ENV is unset, which is easy to end up with on a hosting
+ * platform: `!== 'production'` treats an unset value as development and hands
+ * a real deployment the debug behaviour (OTPs printed in the clear, localhost
+ * accepted as a CORS origin, mail failures swallowed). This function treats
+ * anything it does not recognise as production, so forgetting to set the
+ * variable costs a little local convenience instead of leaking credentials.
+ *
+ * Local development gets the conveniences back by setting NODE_ENV=development,
+ * which .env.example does.
+ */
+export function isDevelopmentLike(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const value = env.NODE_ENV?.trim().toLowerCase();
+  return value === 'development' || value === 'test' || value === 'local';
+}
+
 const MIN_SECRET_LENGTH = 32;
 
 /** Values that appear in example files and must never reach a real deploy. */
@@ -52,7 +74,10 @@ export function checkEnvironment(
 ): EnvironmentReport {
   const fatal: string[] = [];
   const warnings: string[] = [];
-  const isProduction = env.NODE_ENV === 'production';
+  // Anything not explicitly a development environment is held to production
+  // standards, matching isDevelopmentLike. An unset NODE_ENV on a real deploy
+  // must still be told its mail provider is missing.
+  const isProduction = !isDevelopmentLike(env);
 
   // Without these the process cannot serve a single authenticated request.
   for (const key of ['DATABASE_URL', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET']) {
@@ -88,7 +113,7 @@ export function checkEnvironment(
 
   if (!env.NODE_ENV) {
     warnings.push(
-      'NODE_ENV is not set. OTP codes will be written to the logs in cleartext, localhost and preview CORS origins will be accepted, and HSTS will not be sent. Set NODE_ENV=production for a production deploy.',
+      'NODE_ENV is not set; it is being treated as production, which is the safe default (no OTP logging, no localhost CORS). Set NODE_ENV=production explicitly on a deployed service, or NODE_ENV=development locally to get the developer conveniences back.',
     );
   }
 
@@ -119,6 +144,19 @@ export function checkEnvironment(
     if (!env.CORS_ORIGINS?.trim() && !env.FRONTEND_URL?.trim()) {
       warnings.push(
         'Neither CORS_ORIGINS nor FRONTEND_URL is set; only the origins hard-coded in main.ts will be accepted.',
+      );
+    }
+
+    // Worth its own check because the failure is invisible: the payment
+    // succeeds server-side via the webhook, so the only symptom is the
+    // customer being bounced to a dead page straight after paying.
+    if (
+      env.STRIPE_SECRET_KEY?.trim() &&
+      !env.BILLING_RETURN_URL?.trim() &&
+      !env.FRONTEND_URL?.trim()
+    ) {
+      warnings.push(
+        'Stripe is configured but neither BILLING_RETURN_URL nor FRONTEND_URL is set. Paying customers will be returned to http://localhost:3000 -- their own machine -- after checkout.',
       );
     }
   }

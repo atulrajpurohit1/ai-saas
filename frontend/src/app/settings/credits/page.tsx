@@ -96,9 +96,16 @@ function CreditsContent() {
     // Generation sees the upgrade prompt rather than a buy button for something
     // they could not spend. The backend enforces the same rule.
     <DashboardLayout requiredModule="LEAD_GEN" requiredPermissions="billing.view">
+      {/*
+        The cost of each action is read from the API, never written into this
+        copy. It is configurable server-side, and this page previously claimed
+        "one credit covers one company playbook, or one prospect found by a
+        discovery search" -- which silently became false the moment pricing
+        moved to a flat price per search.
+      */}
       <PageHeader
         title="Prospect Search credits"
-        description="Credits pay for AI prospect research. One credit covers one company playbook, or one prospect found by a discovery search."
+        description="Credits pay for AI prospect research. Each search costs a fixed number of credits, whatever it finds."
       />
 
       {checkoutState === 'success' && (
@@ -156,6 +163,34 @@ function CreditsContent() {
           </p>
         </div>
       </div>
+
+      {packs?.costs && (
+        <div className="mb-6 rounded-xl border border-border bg-card p-4">
+          <h2 className="mb-2 text-sm font-semibold text-foreground">
+            What a search costs
+          </h2>
+          <ul className="space-y-1 text-sm text-muted-foreground">
+            <li>
+              <span className="font-medium text-foreground">
+                {packs.costs.discoverySearch}
+              </span>{' '}
+              {packs.costs.discoverySearch === 1 ? 'credit' : 'credits'} per
+              prospect discovery search
+            </li>
+            <li>
+              <span className="font-medium text-foreground">
+                {packs.costs.playbook}
+              </span>{' '}
+              {packs.costs.playbook === 1 ? 'credit' : 'credits'} per company
+              playbook
+            </li>
+          </ul>
+          <p className="mt-2 text-xs text-muted-foreground">
+            The price is the same however many prospects a search returns. A
+            search that fails is refunded in full.
+          </p>
+        </div>
+      )}
 
       <h2 className="mb-3 text-lg font-semibold text-foreground">Buy credits</h2>
 

@@ -13,7 +13,8 @@ import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { AuditService } from '../audit/audit.service';
 import { isCheckoutConfigured } from './billing.config';
 import {
-  PLAYBOOK_CREDIT_COST,
+  discoveryCreditCost,
+  playbookCreditCost,
   sellableCreditPacks,
 } from './credit-packs.constants';
 import { CreditsService } from './credits.service';
@@ -61,9 +62,13 @@ export class CreditsController {
       configured: isCheckoutConfigured(),
       packs: sellableCreditPacks(),
       // Shown to the customer so the cost of a search is never a surprise.
+      // Both are now flat per search. `perProspect` is retained, always null,
+      // so an older frontend build that reads it renders nothing rather than
+      // crashing or quoting a per-prospect price that no longer exists.
       costs: {
-        playbook: PLAYBOOK_CREDIT_COST,
-        perProspect: 1,
+        playbook: playbookCreditCost(),
+        discoverySearch: discoveryCreditCost(),
+        perProspect: null,
       },
     };
   }

@@ -32,6 +32,104 @@ describe('BlackPearlProspectingProvider', () => {
     jest.restoreAllMocks();
   });
 
+  /**
+   * These cover the only record we have of what Prospect Search costs us.
+   * BlackPearl reports it per job and we discarded it entirely until now, so a
+   * regression here would silently return the system to having no idea whether
+   * a search makes money.
+   */
+  describe('upstream cost capture', () => {
+    it('reads cost_usd off a completed job', async () => {
+      global.fetch = jest.fn().mockResolvedValue(
+        jsonResponse(200, {
+          id: 'job-1',
+          status: 'succeeded',
+          type: 'prospecting',
+          usage: { cost_usd: 2.4567, tokens: 45200 },
+          result: { prospects: [] },
+        }),
+      );
+
+      const result = await buildProvider().getJobResult('job-1');
+      expect(result?.upstreamCostUsd).toBe(2.4567);
+    });
+
+    it('reads cost_usd off a FAILED job, which still spent money', async () => {
+      global.fetch = jest.fn().mockResolvedValue(
+        jsonResponse(200, {
+          id: 'job-1',
+          status: 'failed',
+          type: 'prospecting',
+          error: 'upstream timeout',
+          usage: { cost_usd: 0.91 },
+        }),
+      );
+
+      const result = await buildProvider().getJobResult('job-1');
+      expect(result?.status).toBe('failed');
+      expect(result?.upstreamCostUsd).toBe(0.91);
+    });
+
+    it('reports null, never zero, when usage is absent', async () => {
+      global.fetch = jest.fn().mockResolvedValue(
+        jsonResponse(200, {
+          id: 'job-1',
+          status: 'succeeded',
+          type: 'prospecting',
+          result: { prospects: [] },
+        }),
+      );
+
+      // Zero would be a lie that averages into the margin figures as though
+      // the search were free.
+      expect((await buildProvider().getJobResult('job-1'))?.upstreamCostUsd).toBeNull();
+    });
+
+    it('ignores a non-numeric cost rather than propagating NaN', async () => {
+      global.fetch = jest.fn().mockResolvedValue(
+        jsonResponse(200, {
+          id: 'job-1',
+          status: 'succeeded',
+          type: 'prospecting',
+          usage: { cost_usd: 'not-a-number' },
+          result: { prospects: [] },
+        }),
+      );
+
+      expect((await buildProvider().getJobResult('job-1'))?.upstreamCostUsd).toBeNull();
+    });
+  });
+
+  describe('getUpstreamBalanceUsd', () => {
+    it('returns the prepaid balance', async () => {
+      global.fetch = jest.fn().mockResolvedValue(
+        jsonResponse(200, {
+          credits: { billing_enabled: true, balance_usd: 487.25 },
+        }),
+      );
+
+      await expect(buildProvider().getUpstreamBalanceUsd()).resolves.toBe(
+        487.25,
+      );
+    });
+
+    it('returns null when no prepaid balance is reported', async () => {
+      global.fetch = jest
+        .fn()
+        .mockResolvedValue(jsonResponse(200, { rollup: { cost_usd: 1.2 } }));
+
+      await expect(
+        buildProvider().getUpstreamBalanceUsd(),
+      ).resolves.toBeNull();
+    });
+
+    it('returns null when BlackPearl is not configured', async () => {
+      await expect(
+        buildProvider({ BLACKPEARL_API_KEY: undefined }).getUpstreamBalanceUsd(),
+      ).resolves.toBeNull();
+    });
+  });
+
   describe('isConfigured', () => {
     it('is true when BLACKPEARL_API_KEY is set', () => {
       expect(buildProvider().isConfigured()).toBe(true);
@@ -133,6 +231,8 @@ describe('BlackPearlProspectingProvider', () => {
         progress: 55,
         stageLabel: 'Searching the web',
         result: null,
+        // Not reported on a job that is still running.
+        upstreamCostUsd: null,
       });
     });
 
@@ -242,6 +342,7 @@ describe('BlackPearlProspectingProvider', () => {
         progress: null,
         stageLabel: null,
         result: null,
+        upstreamCostUsd: null,
       });
     });
 

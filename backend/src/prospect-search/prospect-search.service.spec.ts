@@ -2,6 +2,11 @@ import { ServiceUnavailableException } from '@nestjs/common';
 import { AiService } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
 import { CreditsService } from '../billing/credits.service';
+import { UpstreamBudgetService } from './upstream-budget.service';
+import {
+  discoveryCreditCost,
+  playbookCreditCost,
+} from '../billing/credit-packs.constants';
 import { InsufficientCreditsException } from '../billing/insufficient-credits.exception';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { LeadsService } from '../leads/leads.service';
@@ -43,6 +48,11 @@ describe('ProspectSearchService', () => {
     reserve: jest.Mock;
     findReservation: jest.Mock;
     settle: jest.Mock;
+  };
+  let upstreamBudget: {
+    assertCanSpend: jest.Mock;
+    invalidate: jest.Mock;
+    getBalanceUsd: jest.Mock;
   };
 
   const tenantId = 'tenant-1';
@@ -142,6 +152,14 @@ describe('ProspectSearchService', () => {
       settle: jest.fn().mockResolvedValue({ released: 0, consumed: 1 }),
     };
 
+    // Default: plenty of upstream budget, so existing tests exercise the
+    // search paths rather than the exhausted-balance branch.
+    upstreamBudget = {
+      assertCanSpend: jest.fn().mockResolvedValue(undefined),
+      invalidate: jest.fn(),
+      getBalanceUsd: jest.fn().mockResolvedValue(500),
+    };
+
     service = new ProspectSearchService(
       aiService as unknown as AiService,
       auditService as unknown as AuditService,
@@ -153,6 +171,7 @@ describe('ProspectSearchService', () => {
       blackPearlInsightProvider as unknown as BlackPearlInsightProvider,
       blackPearlProspectingProvider as unknown as BlackPearlProspectingProvider,
       creditsService as unknown as CreditsService,
+      upstreamBudget as unknown as UpstreamBudgetService,
     );
   });
 
@@ -718,14 +737,14 @@ describe('ProspectSearchService', () => {
   describe('credit enforcement', () => {
     const discoverDto = { objective: 'Marketing agencies in India' };
 
-    it('holds one credit against a submitted playbook job', async () => {
+    it('holds the flat playbook price against a submitted job', async () => {
       await service.search({ companyName: 'Acme Corp' }, user);
 
       expect(creditsService.reserve).toHaveBeenCalledWith(
         expect.objectContaining({
           tenantId,
           jobId: 'job-1',
-          amount: 1,
+          amount: playbookCreditCost(),
           userId: 'user-1',
         }),
       );
@@ -751,19 +770,28 @@ describe('ProspectSearchService', () => {
       expect(creditsService.reserve).not.toHaveBeenCalled();
     });
 
-    it('holds the requested limit for a discovery job', async () => {
+    /**
+     * Discovery is a flat price per search. It used to hold the requested
+     * limit and refund the unused part, which made revenue fall as the search
+     * got harder -- and a hard search is the expensive one upstream. The
+     * requested limit must no longer influence what is held.
+     */
+    it('holds the flat search price regardless of the requested limit', async () => {
       await service.discover({ ...discoverDto, limit: 15 }, user);
 
       expect(creditsService.reserve).toHaveBeenCalledWith(
-        expect.objectContaining({ jobId: 'discovery-job-1', amount: 15 }),
+        expect.objectContaining({
+          jobId: 'discovery-job-1',
+          amount: discoveryCreditCost(),
+        }),
       );
     });
 
-    it('holds the provider default when the caller sends no limit', async () => {
+    it('holds the same price when the caller sends no limit', async () => {
       await service.discover(discoverDto, user);
 
       expect(creditsService.reserve).toHaveBeenCalledWith(
-        expect.objectContaining({ amount: 10 }),
+        expect.objectContaining({ amount: discoveryCreditCost() }),
       );
     });
 
@@ -784,7 +812,13 @@ describe('ProspectSearchService', () => {
       ).not.toHaveBeenCalled();
     });
 
-    it('settles a completed discovery against the prospects actually returned', async () => {
+    /**
+     * The headline behaviour change: a thin result set is no longer a partial
+     * refund. Three prospects is what a hard search looks like, and a hard
+     * search costs us MORE upstream, so refunding it paid us least exactly
+     * when we had spent most.
+     */
+    it('settles a completed discovery at the flat price, not the prospect count', async () => {
       blackPearlProspectingProvider.getJobResult.mockResolvedValue({
         status: 'completed',
         progress: 100,
@@ -795,6 +829,7 @@ describe('ProspectSearchService', () => {
           qualifiedCount: 3,
           prospects: [{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }],
         },
+        upstreamCostUsd: 2.75,
       });
 
       await service.getDiscoveryJobStatus(
@@ -806,9 +841,76 @@ describe('ProspectSearchService', () => {
       expect(creditsService.settle).toHaveBeenCalledWith(
         expect.objectContaining({
           reservationId: 'reservation-1',
-          actualUsed: 3,
+          actualUsed: discoveryCreditCost(),
+          // Our real cost is recorded alongside the sale price, which is the
+          // only way the margin on this search is ever knowable.
+          upstreamCostUsd: 2.75,
         }),
       );
+    });
+
+    it('bills a search that found nobody, because it still ran upstream', async () => {
+      blackPearlProspectingProvider.getJobResult.mockResolvedValue({
+        status: 'completed',
+        progress: 100,
+        stageLabel: null,
+        result: {
+          query: '',
+          discoveredCount: 0,
+          qualifiedCount: 0,
+          prospects: [],
+        },
+        upstreamCostUsd: 1.1,
+      });
+
+      await service.getDiscoveryJobStatus(
+        'discovery-job-1',
+        discoverDto,
+        user,
+      );
+
+      expect(creditsService.settle).toHaveBeenCalledWith(
+        expect.objectContaining({ actualUsed: discoveryCreditCost() }),
+      );
+    });
+
+    it('records the upstream cost of a FAILED job even while refunding it', async () => {
+      blackPearlProspectingProvider.getJobResult.mockResolvedValue({
+        status: 'failed',
+        progress: null,
+        stageLabel: null,
+        result: null,
+        upstreamCostUsd: 0.8,
+      });
+
+      await service.getDiscoveryJobStatus(
+        'discovery-job-1',
+        discoverDto,
+        user,
+      );
+
+      // Customer pays nothing; we still spent the money, and our own spend
+      // figures would understate reality if this were dropped.
+      expect(creditsService.settle).toHaveBeenCalledWith(
+        expect.objectContaining({ actualUsed: 0, upstreamCostUsd: 0.8 }),
+      );
+    });
+
+    it('refuses a search when the shared upstream budget is exhausted', async () => {
+      upstreamBudget.assertCanSpend.mockRejectedValue(
+        new ServiceUnavailableException('exhausted'),
+      );
+
+      await expect(
+        service.discover(discoverDto, user),
+      ).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+      // Nothing is submitted and the tenant is not charged for a search we
+      // could never have run.
+      expect(
+        blackPearlProspectingProvider.submitProspectingJob,
+      ).not.toHaveBeenCalled();
+      expect(creditsService.reserve).not.toHaveBeenCalled();
     });
 
     it('charges nothing for a failed discovery job', async () => {

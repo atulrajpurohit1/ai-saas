@@ -1907,6 +1907,16 @@ model CreditLedgerEntry {
   /// still PENDING.
   settledAmount     Int?                     @map("settled_amount")
   settledAt         DateTime?                @map("settled_at")
+  /// What BlackPearl actually charged US in USD for this job, as reported on
+  /// the finished job (PublicJobUsage.cost_usd). Null when they did not report
+  /// it, which must not be read as zero.
+  ///
+  /// This is the only record of our real cost. Customer credits are a sale
+  /// price in our own unit; they say nothing about what the work cost, because
+  /// BlackPearl bills for AI compute that varies by roughly an order of
+  /// magnitude between an easy search and a hard one. Margin is only knowable
+  /// by comparing the two, which is what this column exists for.
+  upstreamCostUsd   Decimal?                 @map("upstream_cost_usd") @db.Decimal(12, 6)
 
   /// The RESERVATION row a RELEASE or CONSUMPTION row settles.
   reservationId String?             @map("reservation_id")

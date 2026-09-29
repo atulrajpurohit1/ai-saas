@@ -52,10 +52,53 @@ export function isCreditPackKey(value: string): value is CreditPackKey {
 }
 
 /**
- * How many credits a playbook costs. A single-company playbook is one unit of
- * BlackPearl work regardless of how much it returns.
+ * What each kind of search costs the customer, as a FLAT price per search.
+ *
+ * Discovery used to be charged per prospect returned: the hold was the
+ * requested limit and settlement charged `prospects.length`, refunding the
+ * rest. That was backwards. BlackPearl bills for AI compute, and a search that
+ * returns few prospects is a HARD search, which burns more compute than an
+ * easy one. So the old model refunded the customer most precisely when the
+ * search had cost us most -- revenue fell as cost rose.
+ *
+ * A flat per-search price breaks that link. It is also what the customer can
+ * actually reason about: they know the price before they run it, and it does
+ * not change based on how many results the AI happened to find.
+ *
+ * PROVISIONAL VALUES. These are a starting point, not a calibrated price. Our
+ * real cost per search is being recorded for the first time via
+ * CreditLedgerEntry.upstreamCostUsd; until enough of those rows exist, nobody
+ * knows the true margin. Both are overridable by env var so they can be tuned
+ * from real data without a deploy. Revisit once there is a week of usage.
  */
-export const PLAYBOOK_CREDIT_COST = 1;
+const DEFAULT_PLAYBOOK_CREDIT_COST = 5;
+const DEFAULT_DISCOVERY_CREDIT_COST = 10;
+
+function creditCostFromEnv(key: string, fallback: number): number {
+  const configured = Number(process.env[key]);
+  return Number.isInteger(configured) && configured > 0 ? configured : fallback;
+}
+
+/** Credits charged for one single-company playbook. */
+export function playbookCreditCost(): number {
+  return creditCostFromEnv(
+    'PROSPECT_PLAYBOOK_CREDIT_COST',
+    DEFAULT_PLAYBOOK_CREDIT_COST,
+  );
+}
+
+/**
+ * Credits charged for one discovery search, whatever it returns -- including
+ * when it returns nothing, because an empty result still costs us a full job
+ * upstream. A search that FAILS is still refunded in full; that is a different
+ * case from one that succeeded and found nobody.
+ */
+export function discoveryCreditCost(): number {
+  return creditCostFromEnv(
+    'PROSPECT_DISCOVERY_CREDIT_COST',
+    DEFAULT_DISCOVERY_CREDIT_COST,
+  );
+}
 
 /**
  * Stripe price id env var for a pack, e.g. STRIPE_PRICE_CREDITS_GROWTH.
