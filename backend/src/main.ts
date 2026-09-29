@@ -5,6 +5,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { PrismaExceptionFilter } from './prisma/prisma-exception.filter';
 import { setDefaultResultOrder } from 'dns';
 import type { Request, Response, NextFunction } from 'express';
+import { assertEnvironment } from './config/environment-check';
 
 // Prefer IPv4 for all outbound DNS lookups, process-wide. Some
 // hosting/sandboxed networks resolve a hostname (e.g. the SMTP provider) to
@@ -17,6 +18,10 @@ import type { Request, Response, NextFunction } from 'express';
 setDefaultResultOrder('ipv4first');
 
 async function bootstrap() {
+  // Before anything connects or listens: a deploy missing its secrets should
+  // fail here with the name of what is missing, not on the first request.
+  assertEnvironment();
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     // Stripe signs the exact bytes it sent, so signature verification needs the
     // unparsed body. This keeps the parsed body available everywhere else and
