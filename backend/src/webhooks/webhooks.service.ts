@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateWebhookDto } from './dto/create-webhook.dto';
 import { UpdateWebhookDto } from './dto/update-webhook.dto';
 import { SUPPORTED_WEBHOOK_EVENTS } from './webhook-events';
+import { assertPublicHttpUrl } from './ssrf-guard';
 
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 5000;
@@ -43,11 +44,17 @@ export class WebhooksService {
   }
 
   async create(user: ActiveUser, dto: CreateWebhookDto) {
+    const endpointUrl = dto.endpoint_url.trim();
+    // Reject internal/private destinations up front so a bad URL is a clear
+    // 400 at save time rather than a silent failed delivery later. Delivery
+    // re-checks, because DNS can be repointed after this passes.
+    await assertPublicHttpUrl(endpointUrl);
+
     const webhook = await this.prisma.webhook.create({
       data: {
         tenantId: user.tenantId,
         eventType: dto.event_type,
-        endpointUrl: dto.endpoint_url.trim(),
+        endpointUrl,
         secretKey: this.generateSecret(),
         status: 'active',
       },
@@ -70,6 +77,11 @@ export class WebhooksService {
 
   async update(user: ActiveUser, id: string, dto: UpdateWebhookDto) {
     const existing = await this.findTenantWebhook(user.tenantId, id);
+
+    if (dto.endpoint_url !== undefined) {
+      await assertPublicHttpUrl(dto.endpoint_url.trim());
+    }
+
     const updated = await this.prisma.webhook.update({
       where: { id: existing.id },
       data: {
@@ -374,6 +386,11 @@ export class WebhooksService {
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     try {
+      // Re-checked per delivery, not just at save time: the hostname may have
+      // been repointed at an internal address since (DNS rebinding), and a
+      // webhook row can outlive many DNS TTLs.
+      await assertPublicHttpUrl(webhook.endpointUrl);
+
       const response = await fetch(webhook.endpointUrl, {
         method: 'POST',
         headers: {
@@ -385,6 +402,10 @@ export class WebhooksService {
         },
         body,
         signal: controller.signal,
+        // Do not follow redirects: a public URL that 302s to 169.254.169.254
+        // would otherwise walk straight past the check above. A redirect is
+        // reported as a non-2xx delivery, which is the honest outcome.
+        redirect: 'manual',
       });
 
       return {

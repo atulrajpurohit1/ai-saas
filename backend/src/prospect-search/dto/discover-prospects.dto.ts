@@ -77,9 +77,10 @@ export class DiscoverProspectsDto {
 
   /**
    * Capped well below BlackPearl's own max of 100: each discovered prospect
-   * is a metered, billed lookup (confirmed empirically: ~$0.11/prospect on
-   * our account), so an ad-hoc search UI should default small and never let
-   * a single request silently rack up a large bill.
+   * is a metered, billed lookup, so an ad-hoc search UI should default small
+   * and never let a single request silently rack up a large bill. (This
+   * comment previously quoted "~$0.11/prospect, confirmed empirically" -- an
+   * unmeasured figure, since removed. The cap is prudent at any unit cost.)
    */
   @IsOptional()
   @Type(() => Number)

@@ -1,16 +1,22 @@
-import { IsNotEmpty, IsString, MinLength } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '../password-policy';
 
 export class ResetPasswordDto {
   @IsString()
   @IsNotEmpty()
   resetToken: string;
 
-  // Matches RegisterDto's password policy (MinLength(8)) — the existing
-  // signup password requirement, reused so reset doesn't invent a second
-  // policy.
+  // Shares RegisterDto's policy via password-policy.ts, so reset can never
+  // become a way to set a password that signup would have rejected.
   @IsString()
   @IsNotEmpty()
-  @MinLength(8)
+  @MinLength(PASSWORD_MIN_LENGTH)
+  @MaxLength(PASSWORD_MAX_LENGTH)
   newPassword: string;
 
   @IsString()

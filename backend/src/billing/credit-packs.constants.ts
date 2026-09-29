@@ -2,10 +2,22 @@
  * Prospect Search credit packs.
  *
  * One credit buys one unit of BlackPearl work: one prospect returned by a
- * discovery search, or one single-company playbook. That mapping is deliberate
- * -- BlackPearl bills us per prospect (~$0.11 confirmed empirically, see
- * ProspectDiscoveryCacheService), so pricing credits in the same unit keeps the
- * margin on every pack fixed instead of swinging with result counts.
+ * discovery search, or one single-company playbook.
+ *
+ * PLACEHOLDER PRICING -- NOT CONFIRMED WITH BLACKPEARL OR THE CLIENT.
+ *
+ * Earlier revisions of this file stated a unit cost of "~$0.11 per prospect,
+ * confirmed empirically". That figure was never measured against a real
+ * BlackPearl account and no source for it exists; it should not be relied on
+ * in a pricing conversation. The per-prospect billing MODEL is also an
+ * assumption: BlackPearl's own API describes prepaid credit in USD
+ * (PublicCredits.balance_usd) with per-job usage reported in tokens and
+ * compute (PublicJobUsage: input_tokens, output_tokens, cost_usd), plus
+ * request-metered quotas -- none of which is a per-prospect charge.
+ *
+ * Before these numbers back any external commitment, get real figures from
+ * BlackPearl's /v1/usage endpoint on our own API key after live runs, or a
+ * rate card from them directly, and replace this block with the source.
  *
  * As with subscription pricing, the amounts here are list price for display and
  * for picking the right Stripe price id -- Stripe remains the source of truth
@@ -24,8 +36,8 @@ export interface CreditPack {
 
 /**
  * Pack sizes and prices. The per-credit rate falls as packs get larger, which
- * is both conventional and safe: even the cheapest rate here sits well above
- * the ~$0.11 unit cost.
+ * is conventional. Whether the margin is adequate is UNKNOWN until the real
+ * BlackPearl unit cost is established -- see the note above.
  */
 export const CREDIT_PACKS: Record<CreditPackKey, CreditPack> = {
   STARTER: { key: 'STARTER', label: 'Starter Pack', credits: 250, price: 99 },

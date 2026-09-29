@@ -4,6 +4,7 @@ import {
   HttpException,
   Inject,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
   ServiceUnavailableException,
@@ -556,12 +557,32 @@ export class CrmConnectorsService {
     return createHash('sha256').update(this.secret()).digest();
   }
 
+  /**
+   * Key material for encrypting stored CRM OAuth tokens (HubSpot/GHL access
+   * and refresh tokens) at rest.
+   *
+   * This used to fall back to the literal 'local-crm-token-secret' when no
+   * secret was configured. That literal is published in this repository, so
+   * any deployment missing both env vars encrypted every tenant's CRM tokens
+   * under a key anyone could derive -- and did so silently, with nothing
+   * failing or logging. A database backup or dump was then enough to take
+   * over connected CRM accounts.
+   *
+   * There is no safe default for this, so there is no default: an unset
+   * secret is a configuration error, not something to paper over.
+   */
   private secret() {
-    return (
-      process.env.CRM_TOKEN_SECRET ||
-      process.env.JWT_ACCESS_SECRET ||
-      'local-crm-token-secret'
-    );
+    const configured =
+      process.env.CRM_TOKEN_SECRET?.trim() ||
+      process.env.JWT_ACCESS_SECRET?.trim();
+
+    if (!configured) {
+      throw new InternalServerErrorException(
+        'CRM token encryption is not configured. Set CRM_TOKEN_SECRET.',
+      );
+    }
+
+    return configured;
   }
 
   private scopeList(provider: CrmProviderAdapter, scope?: string) {

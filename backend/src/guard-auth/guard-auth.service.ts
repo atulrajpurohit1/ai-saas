@@ -6,6 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { BCRYPT_TOKEN_ROUNDS } from '../auth/password-policy';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GuardLoginDto } from './dto/guard-login.dto';
@@ -100,7 +101,7 @@ export class GuardAuthService {
   }
 
   private async updateRefreshTokenHash(guardId: string, rt: string) {
-    const hash = await bcrypt.hash(rt, 10);
+    const hash = await bcrypt.hash(rt, BCRYPT_TOKEN_ROUNDS);
     await this.prisma.guard.update({
       where: { id: guardId },
       data: { refreshToken: hash },

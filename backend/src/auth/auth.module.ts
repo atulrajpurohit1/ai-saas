@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { AuthRateLimitService } from './auth-rate-limit.service';
 import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -22,7 +23,12 @@ import { EmailVerificationModule } from '../email-verification/email-verificatio
     EmailVerificationModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtRefreshStrategy],
-  exports: [AuthService],
+  providers: [
+    AuthService,
+    AuthRateLimitService,
+    JwtStrategy,
+    JwtRefreshStrategy,
+  ],
+  exports: [AuthService, AuthRateLimitService],
 })
 export class AuthModule {}

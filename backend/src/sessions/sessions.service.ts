@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { BCRYPT_TOKEN_ROUNDS } from '../auth/password-policy';
 import { randomUUID } from 'crypto';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
@@ -34,7 +35,10 @@ export class SessionsService {
     ipAddress?: string | null;
     userAgent?: string | null;
   }) {
-    const refreshTokenHash = await bcrypt.hash(data.refreshToken, 10);
+    const refreshTokenHash = await bcrypt.hash(
+      data.refreshToken,
+      BCRYPT_TOKEN_ROUNDS,
+    );
     return this.prisma.userSession.create({
       data: {
         id: data.id,
@@ -89,7 +93,7 @@ export class SessionsService {
     await this.prisma.userSession.update({
       where: { id: sessionId },
       data: {
-        refreshTokenHash: await bcrypt.hash(refreshToken, 10),
+        refreshTokenHash: await bcrypt.hash(refreshToken, BCRYPT_TOKEN_ROUNDS),
         lastSeenAt: new Date(),
       },
     });

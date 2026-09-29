@@ -99,9 +99,13 @@ This is a **single-company deep-research tool, not a multi-company discovery/fil
 
 ## Credits
 
-This feature is **metered**: BlackPearl bills per prospect (~$0.11), so customers
-spend Prospect Search credits rather than it being covered by the subscription.
+This feature is **metered**: BlackPearl usage is billed, so customers spend
+Prospect Search credits rather than it being covered by the subscription.
 One credit buys one playbook or one discovered prospect.
+
+> **Provisional pricing.** The pack prices, and the per-prospect billing model
+> they assume, were never confirmed with BlackPearl or the client. See
+> `backend/src/billing/credit-packs.constants.ts` before relying on them.
 
 Credits are **held** when a job is submitted and **settled** when it finishes,
 because the real cost is not known until then. A discovery search for 20 prospects

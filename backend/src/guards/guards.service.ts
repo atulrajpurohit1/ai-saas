@@ -17,6 +17,7 @@ import { CreateGuardDto } from './dto/create-guard.dto';
 import { UpdateGuardDto } from './dto/update-guard.dto';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
 import * as bcrypt from 'bcrypt';
+import { BCRYPT_PASSWORD_ROUNDS } from '../auth/password-policy';
 import { WebhooksService } from '../webhooks/webhooks.service';
 
 @Injectable()
@@ -83,7 +84,7 @@ export class GuardsService {
     }
 
     const passwordHash = dto.password
-      ? await bcrypt.hash(dto.password, 10)
+      ? await bcrypt.hash(dto.password, BCRYPT_PASSWORD_ROUNDS)
       : undefined;
 
     const guard = await this.prisma.guard.create({
@@ -193,7 +194,7 @@ export class GuardsService {
       ...(dto.phone !== undefined ? { phone } : {}),
       ...(dto.email !== undefined ? { email } : {}),
       ...(dto.password
-        ? { passwordHash: await bcrypt.hash(dto.password, 10) }
+        ? { passwordHash: await bcrypt.hash(dto.password, BCRYPT_PASSWORD_ROUNDS) }
         : {}),
       ...(branchId !== undefined ? { branchId } : {}),
       ...this.sensitiveGuardData(dto),

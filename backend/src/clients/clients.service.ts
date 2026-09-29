@@ -15,6 +15,7 @@ import { FieldPermissionsService } from '../field-permissions/field-permissions.
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import * as bcrypt from 'bcrypt';
+import { BCRYPT_PASSWORD_ROUNDS } from '../auth/password-policy';
 import { randomBytes } from 'crypto';
 import { BillingService } from '../billing/billing.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
@@ -240,7 +241,10 @@ export class ClientsService {
     }
 
     const temporaryPassword = randomBytes(12).toString('base64url');
-    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+    const hashedPassword = await bcrypt.hash(
+      temporaryPassword,
+      BCRYPT_PASSWORD_ROUNDS,
+    );
 
     try {
       const clientUser = await this.prisma.clientUser.create({
