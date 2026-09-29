@@ -5,7 +5,10 @@ import { ValidationPipe } from '@nestjs/common';
 import { PrismaExceptionFilter } from './prisma/prisma-exception.filter';
 import { setDefaultResultOrder } from 'dns';
 import type { Request, Response, NextFunction } from 'express';
-import { assertEnvironment } from './config/environment-check';
+import {
+  assertEnvironment,
+  isDevelopmentLike,
+} from './config/environment-check';
 
 // Prefer IPv4 for all outbound DNS lookups, process-wide. Some
 // hosting/sandboxed networks resolve a hostname (e.g. the SMTP provider) to
@@ -59,15 +62,14 @@ async function bootstrap() {
     res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
     res.removeHeader('X-Powered-By');
 
-    // HSTS only makes sense once traffic is actually HTTPS, and setting it in
-    // local development would pin localhost to https in the developer's
-    // browser for a year.
-    if (process.env.NODE_ENV === 'production') {
-      res.setHeader(
-        'Strict-Transport-Security',
-        'max-age=31536000; includeSubDomains',
-      );
-    }
+    // Browsers ignore HSTS on a plain-http response, so sending it
+    // unconditionally is safe: it takes effect over HTTPS and is a no-op
+    // locally. That is deliberately not gated on NODE_ENV -- a header this
+    // important should not go missing because an env var was unset.
+    res.setHeader(
+      'Strict-Transport-Security',
+      'max-age=31536000; includeSubDomains',
+    );
     next();
   });
 
@@ -101,7 +103,7 @@ async function bootstrap() {
   // ever needed -- but it is no longer on by default where it matters.
   const allowVercelPreviews =
     process.env.ALLOW_VERCEL_PREVIEW_ORIGINS === 'true' ||
-    process.env.NODE_ENV !== 'production';
+    isDevelopmentLike();
 
   const isAllowedOrigin = (origin?: string) => {
     // No Origin header: a non-browser caller (curl, server-to-server, health
@@ -116,7 +118,7 @@ async function bootstrap() {
     // Localhost is a developer convenience and has no place in production,
     // where it only widens what an attacker-controlled page can reach.
     if (
-      process.env.NODE_ENV !== 'production' &&
+      isDevelopmentLike() &&
       /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)
     ) {
       return true;
