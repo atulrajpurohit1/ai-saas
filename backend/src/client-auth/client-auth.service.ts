@@ -12,7 +12,20 @@ import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { ClientLoginDto } from './dto/client-login.dto';
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+import {
+  BCRYPT_PASSWORD_ROUNDS,
+  BCRYPT_TOKEN_ROUNDS,
+  DUMMY_PASSWORD_HASH,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+} from '../auth/password-policy';
 import { EmailVerificationService } from '../email-verification/email-verification.service';
 import { VerifyOtpDto } from '../email-verification/dto/verify-otp.dto';
 import { ResendOtpDto } from '../email-verification/dto/resend-otp.dto';
@@ -24,8 +37,12 @@ export class ClientRegisterDto {
   @IsEmail({}, { message: INVALID_EMAIL_MESSAGE })
   email: string;
 
+  // Was MinLength(6): the client portal accepted passwords the admin portal
+  // would have rejected, for accounts on the same system. Both now share
+  // password-policy.ts.
   @IsString()
-  @MinLength(6)
+  @MinLength(PASSWORD_MIN_LENGTH)
+  @MaxLength(PASSWORD_MAX_LENGTH)
   password: string;
 
   @IsString()
@@ -53,7 +70,11 @@ export class ClientAuthService {
       include: { client: true },
     });
 
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    // Same constant-time treatment as AuthService.login -- see the note there.
+    if (!user) {
+      await bcrypt.compare(dto.password, DUMMY_PASSWORD_HASH);
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
     const passwordMatches = await bcrypt.compare(dto.password, user.password);
     if (!passwordMatches)
@@ -88,7 +109,7 @@ export class ClientAuthService {
         throw new BadRequestException('Full name is required.');
       }
 
-      const hashedPassword = await bcrypt.hash(dto.password, 10);
+      const hashedPassword = await bcrypt.hash(dto.password, BCRYPT_PASSWORD_ROUNDS);
 
       const existingUser = await this.prisma.clientUser.findUnique({
         where: { email },
@@ -260,7 +281,7 @@ export class ClientAuthService {
   }
 
   private async updateRefreshTokenHash(userId: string, rt: string) {
-    const hash = await bcrypt.hash(rt, 10);
+    const hash = await bcrypt.hash(rt, BCRYPT_TOKEN_ROUNDS);
     await this.prisma.clientUser.update({
       where: { id: userId },
       data: { refreshToken: hash },
