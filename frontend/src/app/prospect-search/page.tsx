@@ -14,7 +14,11 @@ import {
   getApiErrorMessage,
   getInsufficientCreditsError,
 } from '@/lib/api-error';
-import { getCreditBalance, type CreditBalance } from '@/lib/billing';
+import {
+  getCreditBalance,
+  getCreditPacks,
+  type CreditBalance,
+} from '@/lib/billing';
 import { getCrmConnectorStatus } from '@/lib/integrations';
 import { buildCsv, downloadTextFile } from '@/lib/csv';
 import {
@@ -119,6 +123,7 @@ export default function ProspectSearchPage() {
   // a top-up link rather than a bare failure message.
   const [creditsShortfall, setCreditsShortfall] = useState<string | null>(null);
   const [credits, setCredits] = useState<CreditBalance | null>(null);
+  const [searchCost, setSearchCost] = useState<number | null>(null);
   const [result, setResult] = useState<ProspectDiscoveryResult | null>(null);
 
   const [history, setHistory] = useState<ProspectSearchHistoryEntry[]>([]);
@@ -427,6 +432,25 @@ export default function ProspectSearchPage() {
   useEffect(() => {
     refreshCredits();
   }, [refreshCredits]);
+
+  // What one search costs, read from the API rather than hard-coded: it is
+  // configurable server-side and must never drift out of step with what the
+  // customer is actually charged. Like the balance above, this is an
+  // enhancement -- if it cannot be read the price is simply not shown, and the
+  // search still works.
+  useEffect(() => {
+    let cancelled = false;
+    getCreditPacks()
+      .then((packs) => {
+        if (!cancelled) setSearchCost(packs.costs.discoverySearch ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setSearchCost(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSubmit = useCallback(
     (event: React.FormEvent) => {
@@ -880,9 +904,18 @@ export default function ProspectSearchPage() {
             </div>
             <span className="text-xs text-slate-500">
               Expected: up to {SEARCH_MODE_LIMITS[searchMode]} results &middot; ~1 min
-              {/* Credits are held for the maximum and refunded down to what the
-                  search actually finds, so this is a ceiling, not a charge. */}
-              {' '}&middot; up to {SEARCH_MODE_LIMITS[searchMode]} credits
+              {/* A search is a flat charge now, so this is the price, not a
+                  ceiling. It used to read "up to N credits" because credits
+                  were held for the requested limit and refunded down to what
+                  was found -- saying that now would understate the cost. The
+                  number comes from the API because it is configurable
+                  server-side. */}
+              {searchCost !== null && (
+                <>
+                  {' '}&middot; {searchCost}{' '}
+                  {searchCost === 1 ? 'credit' : 'credits'}
+                </>
+              )}
               {credits && (
                 <>
                   {' '}&middot;{' '}
