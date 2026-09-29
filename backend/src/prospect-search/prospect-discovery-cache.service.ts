@@ -17,7 +17,10 @@ const MAX_CACHE_SIZE = 500;
  * as a separate service rather than a shared generic one because the cached
  * value shape differs (a list of prospects vs. one company insight).
  * Skipping a repeat search within the TTL avoids a duplicate, billed
- * BlackPearl Prospecting job (confirmed empirically: ~$0.11/prospect).
+ * BlackPearl Prospecting job. (A previous version of this comment quoted
+ * "~$0.11/prospect, confirmed empirically"; that figure was never measured
+ * and has been removed -- see credit-packs.constants.ts. The cache is worth
+ * having regardless of what a job actually costs.)
  *
  * Per-process only - a multi-instance deployment would need a shared store
  * (e.g. Redis) for cache hits to work across instances.
