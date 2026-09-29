@@ -182,18 +182,26 @@ export class AuthService {
       throw new UnauthorizedException('Invalid verification code.');
     }
 
-    if (!user.emailVerified) {
-      await this.emailVerification.verifyOtp({
-        accountType: 'USER',
-        accountId: user.id,
-        code: dto.code,
-      });
-
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { emailVerified: true, emailVerifiedAt: new Date() },
-      });
+    // The OTP is ALWAYS checked before any token is issued. An already-verified
+    // account must not short-circuit this: skipping the check for
+    // `emailVerified` accounts turned this endpoint into an unauthenticated
+    // login -- an email address alone was enough to mint a full session.
+    // A verified account has no pending signup OTP to present, so it is simply
+    // rejected here and must go through /auth/login with its password.
+    if (user.emailVerified) {
+      throw new UnauthorizedException('Invalid verification code.');
     }
+
+    await this.emailVerification.verifyOtp({
+      accountType: 'USER',
+      accountId: user.id,
+      code: dto.code,
+    });
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerified: true, emailVerifiedAt: new Date() },
+    });
 
     await this.rolesService.ensureDefaultAssignmentForUser(user.id);
     const profile = await this.rolesService.getUserAccessProfile(user.id);
@@ -208,7 +216,11 @@ export class AuthService {
       sessionId,
     );
 
-    await this.updateRefreshTokenHash(user.id, tokens.refresh_token, profile.role);
+    await this.updateRefreshTokenHash(
+      user.id,
+      tokens.refresh_token,
+      profile.role,
+    );
     await this.sessionsService.createSession({
       id: sessionId,
       tenantId: user.tenantId,
@@ -322,9 +334,7 @@ export class AuthService {
     }
 
     const { accountId, tenantId } =
-      await this.emailVerification.consumePasswordResetToken(
-        dto.resetToken,
-      );
+      await this.emailVerification.consumePasswordResetToken(dto.resetToken);
 
     const user = await this.prisma.user.findUnique({
       where: { id: accountId },
@@ -350,7 +360,11 @@ export class AuthService {
     // cannot continue using the old credentials.
     await this.prisma.userSession.updateMany({
       where: { userId: user.id, status: 'active' },
-      data: { status: 'revoked', refreshTokenHash: null, revokedAt: new Date() },
+      data: {
+        status: 'revoked',
+        refreshTokenHash: null,
+        revokedAt: new Date(),
+      },
     });
 
     return { message: 'Password reset successfully.' };
@@ -487,7 +501,12 @@ export class AuthService {
     tenantId: string,
     role: AdminPortalRole,
     branchId: string | null = null,
-    isSuperAdmin = true,
+    // Defaults to false. This previously defaulted to TRUE, meaning any caller
+    // that omitted the argument minted a super-admin token. Every current
+    // caller passes it explicitly, so this changes no behaviour today -- it
+    // removes a landmine where the unsafe value was the one you got by
+    // forgetting to think about it.
+    isSuperAdmin = false,
     sessionId?: string,
   ) {
     const atSecret = this.configService.get<string>('JWT_ACCESS_SECRET');

@@ -175,18 +175,24 @@ export class ClientAuthService {
       throw new UnauthorizedException('Invalid verification code.');
     }
 
-    if (!user.emailVerified) {
-      await this.emailVerification.verifyOtp({
-        accountType: 'CLIENT_USER',
-        accountId: user.id,
-        code: dto.code,
-      });
-
-      await this.prisma.clientUser.update({
-        where: { id: user.id },
-        data: { emailVerified: true, emailVerifiedAt: new Date() },
-      });
+    // The OTP is ALWAYS checked before any token is issued -- see the matching
+    // note in AuthService.verifyEmail. Skipping the check for already-verified
+    // accounts made this endpoint an unauthenticated login for any client user
+    // whose email address was known.
+    if (user.emailVerified) {
+      throw new UnauthorizedException('Invalid verification code.');
     }
+
+    await this.emailVerification.verifyOtp({
+      accountType: 'CLIENT_USER',
+      accountId: user.id,
+      code: dto.code,
+    });
+
+    await this.prisma.clientUser.update({
+      where: { id: user.id },
+      data: { emailVerified: true, emailVerifiedAt: new Date() },
+    });
 
     const tokens = await this.getTokens(
       user.id,

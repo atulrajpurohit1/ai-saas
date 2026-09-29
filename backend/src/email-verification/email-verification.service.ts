@@ -143,7 +143,15 @@ export class EmailVerificationService {
     // from the caller's point of view, not a server error. The OTP row
     // above is left in place; a legitimate retry (same email) is still rate
     // limited/superseded by the cooldown and resend logic as normal.
-    this.logger.log(`[DEVELOPMENT MODE] OTP for ${params.email}: ${code}`);
+    //
+    // The local-development convenience line below prints the code so a
+    // developer without a mail provider can finish signup. It is gated on
+    // NODE_ENV: printing it unconditionally put every signup and
+    // password-reset code into production logs in cleartext, which makes
+    // anyone with log access able to take over any account.
+    if (process.env.NODE_ENV !== 'production') {
+      this.logger.log(`[DEVELOPMENT MODE] OTP for ${params.email}: ${code}`);
+    }
 
     try {
       if (purpose === PASSWORD_RESET_PURPOSE) {
