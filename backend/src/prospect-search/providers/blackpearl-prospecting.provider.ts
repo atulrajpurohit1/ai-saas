@@ -88,6 +88,22 @@ interface RawProspectingJobStage {
   status?: string;
 }
 
+/**
+ * `usage` on a finished job is what BlackPearl actually charged us for it
+ * (PublicJobUsage in their OpenAPI). We ignored this field entirely until
+ * now, which is why nothing in this system knew what a search cost.
+ *
+ * Note what it is NOT: there is no per-prospect line here. `cost_usd` is
+ * driven by tokens and compute, so two searches returning the same number of
+ * prospects can cost very different amounts.
+ */
+interface RawJobUsage {
+  cost_usd?: number | null;
+  tokens?: number | null;
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+}
+
 interface RawProspectingJob {
   id: string;
   status: string;
@@ -97,6 +113,7 @@ interface RawProspectingJob {
   error_code?: string | null;
   stages?: RawProspectingJobStage[] | null;
   result?: RawProspectingResult | null;
+  usage?: RawJobUsage | null;
 }
 
 export interface ProspectingTargetInput {
@@ -120,6 +137,12 @@ export interface ProspectingJobPollResult {
   progress: number | null;
   stageLabel: string | null;
   result: ProspectDiscoveryResult | null;
+  /**
+   * What this job actually cost us in USD, straight from BlackPearl, or null
+   * when they did not report it. Recorded against the credit ledger so the
+   * real cost of a search is knowable rather than assumed.
+   */
+  upstreamCostUsd: number | null;
 }
 
 /**
@@ -228,30 +251,87 @@ export class BlackPearlProspectingProvider {
       return null;
     }
 
+    // A failed job can still have burned budget, so the cost is read before
+    // branching on status rather than only on the success path.
+    const upstreamCostUsd =
+      typeof job.usage?.cost_usd === 'number' &&
+      Number.isFinite(job.usage.cost_usd)
+        ? job.usage.cost_usd
+        : null;
+
     if (PENDING_JOB_STATUSES.has(job.status)) {
       return {
         status: 'pending',
         progress: typeof job.progress === 'number' ? job.progress : null,
         stageLabel: currentStageLabel(job.stages),
         result: null,
+        upstreamCostUsd,
       };
     }
 
     if (job.status === SUCCESS_JOB_STATUS && job.result) {
       const result = normalizeProspectingResult(job.result);
       this.logger.log(
-        `BlackPearl prospecting job FINAL STATUS: jobId=${jobId} status="succeeded" prospects=${result.prospects.length}.`,
+        `BlackPearl prospecting job FINAL STATUS: jobId=${jobId} status="succeeded" prospects=${
+          result.prospects.length
+        } costUsd=${upstreamCostUsd ?? 'unreported'}.`,
       );
-      return { status: 'completed', progress: 100, stageLabel: null, result };
+      return {
+        status: 'completed',
+        progress: 100,
+        stageLabel: null,
+        result,
+        upstreamCostUsd,
+      };
     }
 
     this.logger.warn(
       `BlackPearl prospecting job FINAL STATUS: jobId=${jobId} status="${job.status}"${
         job.error ? ` (${job.error_code ?? 'error'}: ${job.error})` : ''
-      } - treating as failed.`,
+      } costUsd=${upstreamCostUsd ?? 'unreported'} - treating as failed.`,
     );
 
-    return { status: 'failed', progress: null, stageLabel: null, result: null };
+    return {
+      status: 'failed',
+      progress: null,
+      stageLabel: null,
+      result: null,
+      upstreamCostUsd,
+    };
+  }
+
+  /**
+   * Our remaining prepaid balance with BlackPearl, in USD, from GET /v1/usage.
+   *
+   * This exists because AegisLead is funded by a one-off prepaid grant, not a
+   * monthly plan: there is a finite pot and no overage to fall back on. Until
+   * now nothing in the system could see it, so the only way to discover it had
+   * run out was for customer searches to start failing.
+   *
+   * Returns null when BlackPearl is unconfigured or does not report a balance
+   * (e.g. an account on plan billing rather than prepaid credit) -- callers
+   * must treat null as "unknown", never as "zero".
+   */
+  async getUpstreamBalanceUsd(): Promise<number | null> {
+    const apiKey = this.configService.get<string>('BLACKPEARL_API_KEY');
+    if (!apiKey) return null;
+
+    const usage = await blackPearlRequest<{
+      credits?: {
+        billing_enabled?: boolean;
+        balance_usd?: number | null;
+      } | null;
+    }>(
+      this.logger,
+      `${this.getBaseUrl()}/usage`,
+      { method: 'GET', headers: blackPearlHeaders(apiKey) },
+      'check prepaid balance',
+    );
+
+    const balance = usage?.credits?.balance_usd;
+    return typeof balance === 'number' && Number.isFinite(balance)
+      ? balance
+      : null;
   }
 
   private getBaseUrl(): string {

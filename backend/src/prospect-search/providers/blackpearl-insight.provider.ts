@@ -67,6 +67,8 @@ interface RawBlackPearlJob {
   error_code?: string | null;
   result?: RawBlackPearlResult | null;
   input?: { target_company?: string } | null;
+  /** PublicJobUsage: what this job cost us. Previously ignored entirely. */
+  usage?: { cost_usd?: number | null } | null;
 }
 
 export interface BlackPearlJobResult {
@@ -75,6 +77,13 @@ export interface BlackPearlJobResult {
   progress: number | null;
   companyName: string | null;
   insight: ProspectCompanyInsight | null;
+  /**
+   * What BlackPearl actually charged us for this job in USD, from the job's
+   * `usage` block, or null when unreported. See the matching field on
+   * ProspectingJobPollResult -- playbooks are billed the same way, so the cost
+   * of one is just as unknown without reading it.
+   */
+  upstreamCostUsd: number | null;
 }
 
 /**
@@ -178,6 +187,14 @@ export class BlackPearlInsightProvider {
 
     const companyName = job.input?.target_company ?? null;
 
+    // Read before branching on status: a job that ends in failure can still
+    // have spent our budget, and that spend has to be recorded.
+    const upstreamCostUsd =
+      typeof job.usage?.cost_usd === 'number' &&
+      Number.isFinite(job.usage.cost_usd)
+        ? job.usage.cost_usd
+        : null;
+
     if (PENDING_JOB_STATUSES.has(job.status)) {
       this.logger.log(
         `BlackPearl job polling: jobId=${jobId} status="${job.status}" progress=${job.progress ?? 'n/a'} - still running.`,
@@ -188,6 +205,7 @@ export class BlackPearlInsightProvider {
         progress: typeof job.progress === 'number' ? job.progress : null,
         companyName,
         insight: null,
+        upstreamCostUsd,
       };
     }
 
@@ -203,6 +221,7 @@ export class BlackPearlInsightProvider {
           progress: 100,
           companyName,
           insight,
+          upstreamCostUsd,
         };
       }
       this.logger.warn(
@@ -226,6 +245,7 @@ export class BlackPearlInsightProvider {
       progress: null,
       companyName,
       insight: null,
+      upstreamCostUsd,
     };
   }
 
