@@ -178,6 +178,30 @@ describe('Email verification OTP (e2e)', () => {
       tenantIds.push(user!.tenantId);
     });
 
+    // Regression: signup used to create no subscription row at all, and
+    // EntitlementsService responded to a missing row by granting every
+    // module. A new signup therefore received all three services free.
+    // The row must exist, be ACTIVE, and carry NO modules -- the tenant can
+    // log in and reach the plan page, but every @RequireModule route is
+    // locked until a purchase grants the module.
+    it('creates an ACTIVE subscription with no modules, not a free full product', async () => {
+      const user = await prisma.user.findUnique({ where: { email } });
+      expect(user).toBeTruthy();
+
+      const subscription = await prisma.tenantSubscription.findUnique({
+        where: { tenantId: user!.tenantId },
+      });
+
+      expect(subscription).toBeTruthy();
+      expect(subscription!.status).toBe('ACTIVE');
+
+      const modules = await prisma.tenantModule.findMany({
+        where: { tenantId: user!.tenantId, isActive: true },
+      });
+
+      expect(modules).toEqual([]);
+    });
+
     it('blocks login before verification', async () => {
       const res = await request(app.getHttpServer())
         .post('/auth/login')

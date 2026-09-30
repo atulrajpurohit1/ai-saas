@@ -88,6 +88,22 @@ export class AuthService {
           },
         });
 
+        // Every tenant gets a subscription row at creation, with NO modules.
+        // Without this the tenant hits EntitlementsService with no row at
+        // all, and a new signup silently received all three services free.
+        //
+        // ACTIVE with zero TenantModule rows is deliberate: the account is
+        // in good standing and can log in, manage users and reach
+        // /settings/plan, but every @RequireModule controller is locked
+        // until a purchase grants the module. Modules are added by the
+        // Stripe webhook, or by hand for demo tenants.
+        await tx.tenantSubscription.create({
+          data: {
+            tenantId: tenant.id,
+            status: 'ACTIVE',
+          },
+        });
+
         const user = await tx.user.create({
           data: {
             email,

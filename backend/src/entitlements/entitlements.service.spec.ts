@@ -62,12 +62,14 @@ describe('EntitlementsService', () => {
     expect([...(await withTenant('CANCELED', ['LEAD_GEN']))]).toEqual([]);
   });
 
-  // A tenant predating this system that missed the backfill must not be
-  // locked out of a product it already pays for.
-  it('fails open when the tenant has no subscription row', async () => {
+  // Signup creates a subscription row in the same transaction as the tenant,
+  // so a missing row is corruption rather than a legitimate state. This used
+  // to fail open and grant all three services, which handed every new signup
+  // the full product for free.
+  it('fails closed when the tenant has no subscription row', async () => {
     const modules = await withTenant(null, []);
 
-    expect([...modules].sort()).toEqual(['FINANCE', 'GUARD_TOUR', 'LEAD_GEN']);
+    expect([...modules]).toEqual([]);
   });
 
   it('ignores deactivated modules', async () => {
