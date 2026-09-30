@@ -35,14 +35,41 @@ interface MailTransport {
  * senderFor builds, and what SMTP takes directly) into the separate name
  * and email fields that JSON email APIs expect. A bare address with no
  * display name is returned with `name` undefined.
+ *
+ * A value that is neither form falls through as the whole string in `email`,
+ * which the provider then rejects with a generic "valid sender email
+ * required". That is a real configuration failure -- a dashboard that strips
+ * or HTML-escapes the angle brackets in EMAIL_FROM produces exactly it -- so
+ * recoverAddress salvages the address rather than sending a value that cannot
+ * work. The caller logs when this fires; see senderFor.
  */
 function parseAddress(address: string): { name?: string; email: string } {
   const match = /^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/.exec(address);
   if (!match) {
-    return { email: address.trim() };
+    return { email: recoverAddress(address) };
   }
   const name = match[1].trim();
   return { ...(name ? { name } : {}), email: match[2].trim() };
+}
+
+/**
+ * Last-resort extraction of an address from a malformed EMAIL_FROM. Picks the
+ * first token that looks like an address, so "Aegislead atul@example.com" and
+ * an HTML-escaped "Aegislead &lt;atul@example.com&gt;" both still send. Returns
+ * the trimmed input unchanged when nothing address-shaped is present, leaving
+ * the provider to reject it as before.
+ */
+function recoverAddress(address: string): string {
+  // Decode the entities a dashboard may have escaped the brackets into first,
+  // so they delimit the address here exactly as raw `<`/`>` would.
+  const trimmed = address
+    .trim()
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&amp;/gi, '&');
+  const found = /[^\s<>"',;:]+@[^\s<>"',;:]+\.[^\s<>"',;:]+/.exec(trimmed);
+  return found ? found[0] : trimmed;
 }
 
 /**
@@ -198,8 +225,14 @@ export class EmailService {
   // rejected by a provider that enforces sender verification. Falls back to
   // the same placeholder used throughout this service for local/dev
   // (Ethereal accepts any From address).
-  private readonly envelopeFrom =
-    process.env.EMAIL_FROM || 'no-reply@aisaascrm.com';
+  // Always a BARE address. senderFor wraps it as `"Company" <addr>`, so a
+  // display name here would nest into `"Company" <Name <addr>>` and reach the
+  // provider malformed. EMAIL_FROM is operator-supplied and a hosting
+  // dashboard may strip or HTML-escape its angle brackets, so normalise once
+  // here rather than trusting the shape.
+  private readonly envelopeFrom = recoverAddress(
+    process.env.EMAIL_FROM || 'no-reply@aisaascrm.com',
+  );
 
   constructor(
     private prisma: PrismaService,
@@ -216,6 +249,19 @@ export class EmailService {
     // as an API key would send the wrong credential to the wrong endpoint.
     const brevoApiKey = process.env.BREVO_API_KEY;
     const resendApiKey = process.env.RESEND_API_KEY;
+
+    // A malformed EMAIL_FROM fails every send with the provider's generic
+    // "valid sender email required", which says nothing about the cause. Say
+    // it once, loudly, at boot instead of leaving it to be diagnosed one
+    // failed password reset at a time.
+    const rawFrom = (process.env.EMAIL_FROM || '').trim();
+    if (rawFrom && rawFrom !== this.envelopeFrom) {
+      this.logger.warn(
+        `EMAIL_FROM was normalised from ${JSON.stringify(rawFrom)} to ` +
+          `${JSON.stringify(this.envelopeFrom)}. Set it to a bare address ` +
+          `(user@example.com) that is verified with the mail provider.`,
+      );
+    }
 
     if (brevoApiKey) {
       this.transporter = new BrevoHttpTransport(brevoApiKey);

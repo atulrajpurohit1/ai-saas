@@ -404,13 +404,13 @@ describe('EmailService', () => {
       global.fetch = originalFetch;
     });
 
-    const buildWithBrevoKey = async (apiKey: string) => {
+    const buildWithBrevoKey = async (apiKey: string, from?: string) => {
       delete process.env.SMTP_HOST;
       delete process.env.SMTP_PORT;
       delete process.env.SMTP_PASS;
       delete process.env.RESEND_API_KEY;
       process.env.BREVO_API_KEY = apiKey;
-      process.env.EMAIL_FROM = 'atul@hybridmonks.com';
+      process.env.EMAIL_FROM = from ?? 'atul@hybridmonks.com';
 
       const module: TestingModule = await Test.createTestingModule({
         providers: [
@@ -464,6 +464,57 @@ describe('EmailService', () => {
       expect(body.textContent).toContain('123456');
       expect(info.messageId).toBe('<brevo-id@smtp-relay.brevo.com>');
       expect(info.previewUrl).toBe(false);
+    });
+
+    // A hosting dashboard that strips or HTML-escapes the angle brackets in
+    // EMAIL_FROM turns the whole value into the address, which Brevo rejects
+    // with a generic "valid sender email required" that names no cause. These
+    // cover the salvage path so a mangled value still sends.
+    it.each([
+      ['angle brackets stripped', 'AegisLead atul@hybridmonks.com'],
+      ['brackets HTML-escaped', 'AegisLead &lt;atul@hybridmonks.com&gt;'],
+      ['trailing whitespace', '  atul@hybridmonks.com  '],
+    ])('recovers the address when EMAIL_FROM has %s', async (_label, value) => {
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ messageId: 'recovered' }),
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      // envelopeFrom is read once at construction, so this must be set
+      // BEFORE the service is built or the test proves nothing.
+      const service = await buildWithBrevoKey('xkeysib-test', value);
+
+      await service.sendOtpEmail(null, {
+        email: 'recipient@gmail.com',
+        code: '123456',
+        expiresInMinutes: 10,
+      });
+
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(body.sender.email).toBe('atul@hybridmonks.com');
+    });
+
+    it('leaves a well-formed EMAIL_FROM untouched', async () => {
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ messageId: 'ok' }),
+      });
+      global.fetch = fetchMock as unknown as typeof fetch;
+
+      const service = await buildWithBrevoKey(
+        'xkeysib-test',
+        'Aegislead <atul@hybridmonks.com>',
+      );
+
+      await service.sendOtpEmail(null, {
+        email: 'recipient@gmail.com',
+        code: '123456',
+        expiresInMinutes: 10,
+      });
+
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(body.sender.email).toBe('atul@hybridmonks.com');
     });
 
     it('takes precedence over RESEND_API_KEY when both are set', async () => {
