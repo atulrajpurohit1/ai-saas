@@ -20,6 +20,9 @@ import { LeadsService } from './leads.service';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { UpdateLeadStatusDto } from './dto/update-lead-status.dto';
+import { ImportLeadsDto } from './dto/import-leads.dto';
+import { CrmImportService } from './import/crm-import.service';
+import { IMPORTABLE_FIELDS, REQUIRED_FIELDS } from './import/crm-import.types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
@@ -32,7 +35,10 @@ import { ActiveUser } from '../auth/interfaces/active-user.interface';
 @Controller('leads')
 @RequireModule('LEAD_GEN')
 export class LeadsController {
-  constructor(private readonly leadsService: LeadsService) {}
+  constructor(
+    private readonly leadsService: LeadsService,
+    private readonly crmImportService: CrmImportService,
+  ) {}
 
   @Post()
   @RequirePermission('leads.create')
@@ -52,8 +58,48 @@ export class LeadsController {
   @RequirePermission('leads.import')
   @UseInterceptors(FileInterceptor('file'))
   async import(@UploadedFile() file: Express.Multer.File, @Req() req: Request) {
+    if (!file) throw new BadRequestException('No file uploaded');
     const user = req.user as unknown as ActiveUser;
     return this.leadsService.importLeads(file.buffer, user.tenantId);
+  }
+
+  /** Lead fields an uploaded column can be mapped onto. */
+  @Get('import/fields')
+  @RequirePermission('leads.import')
+  importFields() {
+    return { fields: IMPORTABLE_FIELDS, required: REQUIRED_FIELDS };
+  }
+
+  /**
+   * Step 1 of importing from any CRM: read the uploaded export and return
+   * its columns with a suggested mapping. Writes nothing.
+   */
+  @Post('import/preview')
+  @RequirePermission('leads.import')
+  @UseInterceptors(FileInterceptor('file'))
+  async previewImport(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No file uploaded');
+    return this.crmImportService.preview(file.buffer);
+  }
+
+  /** Step 2: import the file using the mapping the user confirmed. */
+  @Post('import/commit')
+  @RequirePermission('leads.import')
+  @UseInterceptors(FileInterceptor('file'))
+  async commitImport(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() dto: ImportLeadsDto,
+    @Req() req: Request,
+  ) {
+    if (!file) throw new BadRequestException('No file uploaded');
+    const user = req.user as unknown as ActiveUser;
+    return this.crmImportService.commit(
+      file.buffer,
+      dto.mapping,
+      user.tenantId,
+      user.sub,
+      dto.source,
+    );
   }
 
   @Post('upload-pdf')
