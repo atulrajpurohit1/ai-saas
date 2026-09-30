@@ -14,6 +14,9 @@ exports.ProspectSearchService = void 0;
 const common_1 = require("@nestjs/common");
 const ai_service_1 = require("../ai/ai.service");
 const audit_service_1 = require("../audit/audit.service");
+const credits_service_1 = require("../billing/credits.service");
+const credit_packs_constants_1 = require("../billing/credit-packs.constants");
+const insufficient_credits_exception_1 = require("../billing/insufficient-credits.exception");
 const leads_service_1 = require("../leads/leads.service");
 const notes_service_1 = require("../notes/notes.service");
 const blackpearl_insight_provider_1 = require("./providers/blackpearl-insight.provider");
@@ -23,6 +26,7 @@ const prospect_search_cache_service_1 = require("./prospect-search-cache.service
 const prospect_search_history_service_1 = require("./prospect-search-history.service");
 const PROVIDER_NAME = 'blackpearl';
 const DISCOVERY_PROVIDER_NAME = 'blackpearl_prospecting';
+const DEFAULT_DISCOVERY_LIMIT = 10;
 let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchService {
     aiService;
     auditService;
@@ -33,8 +37,9 @@ let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchServic
     historyService;
     blackPearlInsightProvider;
     blackPearlProspectingProvider;
+    creditsService;
     logger = new common_1.Logger(ProspectSearchService_1.name);
-    constructor(aiService, auditService, leadsService, notesService, cacheService, discoveryCacheService, historyService, blackPearlInsightProvider, blackPearlProspectingProvider) {
+    constructor(aiService, auditService, leadsService, notesService, cacheService, discoveryCacheService, historyService, blackPearlInsightProvider, blackPearlProspectingProvider, creditsService) {
         this.aiService = aiService;
         this.auditService = auditService;
         this.leadsService = leadsService;
@@ -44,6 +49,7 @@ let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchServic
         this.historyService = historyService;
         this.blackPearlInsightProvider = blackPearlInsightProvider;
         this.blackPearlProspectingProvider = blackPearlProspectingProvider;
+        this.creditsService = creditsService;
     }
     async search(dto, user) {
         const companyName = dto.companyName.trim();
@@ -57,12 +63,20 @@ let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchServic
             this.logger.error('BLACKPEARL_API_KEY is not configured. Prospect Search cannot return results.');
             throw new common_1.ServiceUnavailableException('Prospect Search is temporarily unavailable. Please contact your administrator.');
         }
+        await this.assertCanAfford(user.tenantId, credit_packs_constants_1.PLAYBOOK_CREDIT_COST);
         const jobId = await this.blackPearlInsightProvider.submitPlaybookJob({
             name: companyName,
         });
         if (!jobId) {
             throw new common_1.ServiceUnavailableException("We couldn't start researching this company right now. Please try again shortly.");
         }
+        await this.creditsService.reserve({
+            tenantId: user.tenantId,
+            jobId,
+            amount: credit_packs_constants_1.PLAYBOOK_CREDIT_COST,
+            description: `Company playbook: "${companyName}"`,
+            userId: user.sub,
+        });
         this.logger.log(`Prospect search job submitted: tenant=${user.tenantId} provider=${PROVIDER_NAME} jobId=${jobId} company="${companyName}"`);
         await this.auditService.log({
             tenantId: user.tenantId,
@@ -91,14 +105,37 @@ let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchServic
             };
             this.cacheService.set(user.tenantId, companyName, PROVIDER_NAME, searchResult);
             await this.recordHistory(companyName, user);
+            await this.settleJobCredits(user.tenantId, jobId, credit_packs_constants_1.PLAYBOOK_CREDIT_COST, `Company playbook: "${companyName}"`);
             this.logger.log(`Prospect search job completed: tenant=${user.tenantId} provider=${PROVIDER_NAME} jobId=${jobId}`);
             return { status: 'completed', companyName, insight: result.insight };
         }
         this.logger.warn(`Prospect search job failed: tenant=${user.tenantId} provider=${PROVIDER_NAME} jobId=${jobId}`);
+        await this.settleJobCredits(user.tenantId, jobId, 0, 'Playbook could not be generated; credits returned.');
         return {
             status: 'failed',
             message: "We couldn't generate a sales playbook for this company. Please try again.",
         };
+    }
+    async assertCanAfford(tenantId, required) {
+        const { balance } = await this.creditsService.getBalance(tenantId);
+        if (balance < required) {
+            throw new insufficient_credits_exception_1.InsufficientCreditsException(`This search needs ${required} Prospect Search credit${required === 1 ? '' : 's'}, but your account has ${balance}. Purchase more credits to continue.`, required, balance);
+        }
+    }
+    async settleJobCredits(tenantId, jobId, actualUsed, description) {
+        try {
+            const reservation = await this.creditsService.findReservation(tenantId, jobId);
+            if (!reservation)
+                return;
+            await this.creditsService.settle({
+                reservationId: reservation.id,
+                actualUsed,
+                description,
+            });
+        }
+        catch (error) {
+            this.logger.error(`Failed to settle credits for job ${jobId} (tenant=${tenantId}): ${error instanceof Error ? error.message : String(error)}. The hold will be released by the stale-reservation sweep.`);
+        }
     }
     async recordHistory(companyName, user) {
         try {
@@ -127,6 +164,8 @@ let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchServic
             this.logger.error('BLACKPEARL_API_KEY is not configured. Prospect discovery cannot return results.');
             throw new common_1.ServiceUnavailableException('Prospect Search is temporarily unavailable. Please contact your administrator.');
         }
+        const requestedLimit = dto.limit ?? DEFAULT_DISCOVERY_LIMIT;
+        await this.assertCanAfford(user.tenantId, requestedLimit);
         const jobId = await this.blackPearlProspectingProvider.submitProspectingJob({
             objective,
             target: {
@@ -143,6 +182,13 @@ let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchServic
         if (!jobId) {
             throw new common_1.ServiceUnavailableException("We couldn't start this search right now. Please try again shortly.");
         }
+        await this.creditsService.reserve({
+            tenantId: user.tenantId,
+            jobId,
+            amount: requestedLimit,
+            description: `Prospect discovery: "${objective}" (up to ${requestedLimit})`,
+            userId: user.sub,
+        });
         this.logger.log(`Prospect discovery job submitted: tenant=${user.tenantId} jobId=${jobId} objective="${objective}"`);
         await this.auditService.log({
             tenantId: user.tenantId,
@@ -172,10 +218,12 @@ let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchServic
             const cacheKey = this.discoveryCacheService.buildKey(user.tenantId, DISCOVERY_PROVIDER_NAME, this.normalizeDiscoveryQuery(dto));
             this.discoveryCacheService.set(cacheKey, result);
             await this.recordDiscoveryHistory(objective, result.prospects.length, user);
+            await this.settleJobCredits(user.tenantId, jobId, result.prospects.length, `Prospect discovery: "${objective}" (${result.prospects.length} found)`);
             this.logger.log(`Prospect discovery job completed: tenant=${user.tenantId} jobId=${jobId} prospects=${result.prospects.length}`);
             return { status: 'completed', query: objective, result };
         }
         this.logger.warn(`Prospect discovery job failed: tenant=${user.tenantId} jobId=${jobId}`);
+        await this.settleJobCredits(user.tenantId, jobId, 0, 'Search could not be completed; credits returned.');
         return {
             status: 'failed',
             message: "We couldn't complete this search. Please try again.",
@@ -374,6 +422,7 @@ exports.ProspectSearchService = ProspectSearchService = ProspectSearchService_1 
         prospect_discovery_cache_service_1.ProspectDiscoveryCacheService,
         prospect_search_history_service_1.ProspectSearchHistoryService,
         blackpearl_insight_provider_1.BlackPearlInsightProvider,
-        blackpearl_prospecting_provider_1.BlackPearlProspectingProvider])
+        blackpearl_prospecting_provider_1.BlackPearlProspectingProvider,
+        credits_service_1.CreditsService])
 ], ProspectSearchService);
 //# sourceMappingURL=prospect-search.service.js.map

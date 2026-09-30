@@ -28,6 +28,7 @@ async function bootstrap() {
         'https://ai-saas-mxab.vercel.app',
         'https://www.aegislead.co',
         'https://aegislead.co',
+        'https://dashboard.aegislead.co',
         ...configuredOrigins,
     ]);
     const isAllowedOrigin = (origin) => {

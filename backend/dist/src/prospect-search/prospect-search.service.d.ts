@@ -1,5 +1,6 @@
 import { AiService, ProspectCompanyInsight } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
+import { CreditsService } from '../billing/credits.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { LeadsService } from '../leads/leads.service';
 import { NotesService } from '../notes/notes.service';
@@ -24,10 +25,13 @@ export declare class ProspectSearchService {
     private readonly historyService;
     private readonly blackPearlInsightProvider;
     private readonly blackPearlProspectingProvider;
+    private readonly creditsService;
     private readonly logger;
-    constructor(aiService: AiService, auditService: AuditService, leadsService: LeadsService, notesService: NotesService, cacheService: ProspectSearchCacheService, discoveryCacheService: ProspectDiscoveryCacheService, historyService: ProspectSearchHistoryService, blackPearlInsightProvider: BlackPearlInsightProvider, blackPearlProspectingProvider: BlackPearlProspectingProvider);
+    constructor(aiService: AiService, auditService: AuditService, leadsService: LeadsService, notesService: NotesService, cacheService: ProspectSearchCacheService, discoveryCacheService: ProspectDiscoveryCacheService, historyService: ProspectSearchHistoryService, blackPearlInsightProvider: BlackPearlInsightProvider, blackPearlProspectingProvider: BlackPearlProspectingProvider, creditsService: CreditsService);
     search(dto: SearchProspectsDto, user: ActiveUser): Promise<ProspectSearchSubmission>;
     getSearchJobStatus(jobId: string, user: ActiveUser): Promise<ProspectSearchJobStatusResult>;
+    private assertCanAfford;
+    private settleJobCredits;
     private recordHistory;
     discover(dto: DiscoverProspectsDto, user: ActiveUser): Promise<ProspectDiscoverySubmission>;
     getDiscoveryJobStatus(jobId: string, dto: DiscoverProspectsDto, user: ActiveUser): Promise<ProspectDiscoveryJobStatusResult>;

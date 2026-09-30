@@ -209,11 +209,11 @@ export declare class PublicApiController {
             guardId: string;
             shiftId: string;
             hourlyRate: number;
+            amount: number;
             rateCardId: string | null;
             invoiceId: string;
             timesheetId: string | null;
             workedHours: number;
-            amount: number;
         }[];
     } & {
         id: string;

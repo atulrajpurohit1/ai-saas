@@ -18,6 +18,7 @@ const common_1 = require("@nestjs/common");
 const stripe_1 = __importDefault(require("stripe"));
 const prisma_service_1 = require("../prisma/prisma.service");
 const billing_config_1 = require("./billing.config");
+const credit_packs_constants_1 = require("./credit-packs.constants");
 let StripeService = StripeService_1 = class StripeService {
     prisma;
     logger = new common_1.Logger(StripeService_1.name);
@@ -84,6 +85,44 @@ let StripeService = StripeService_1 = class StripeService {
             },
         });
         return { url: session.url, sessionId: session.id };
+    }
+    async createCreditPackCheckoutSession(params) {
+        const { tenantId, pack, email } = params;
+        const price = (0, credit_packs_constants_1.creditPackPriceId)(pack);
+        if (!price) {
+            throw new common_1.ServiceUnavailableException(`No price is configured for the ${credit_packs_constants_1.CREDIT_PACKS[pack].label} yet.`);
+        }
+        const urls = (0, billing_config_1.billingReturnUrls)();
+        const customer = await this.customerIdFor(tenantId, email);
+        const session = await this.stripe().checkout.sessions.create({
+            mode: 'payment',
+            customer,
+            line_items: [{ price, quantity: 1 }],
+            success_url: urls.creditsSuccess,
+            cancel_url: urls.creditsCancel,
+            metadata: {
+                tenantId,
+                creditPack: pack,
+                credits: String(credit_packs_constants_1.CREDIT_PACKS[pack].credits),
+            },
+            payment_intent_data: {
+                metadata: { tenantId, creditPack: pack },
+            },
+        });
+        return { url: session.url, sessionId: session.id };
+    }
+    async checkoutSessionForPaymentIntent(paymentIntentId) {
+        const sessions = await this.stripe().checkout.sessions.list({
+            payment_intent: paymentIntentId,
+            limit: 1,
+        });
+        return sessions.data[0] ?? null;
+    }
+    async priceIdsForCheckoutSession(sessionId) {
+        const lineItems = await this.stripe().checkout.sessions.listLineItems(sessionId, { limit: 100 });
+        return lineItems.data
+            .map((item) => item.price?.id)
+            .filter((id) => Boolean(id));
     }
     async createPortalSession(tenantId) {
         const subscription = await this.prisma.tenantSubscription.findUnique({

@@ -103,6 +103,12 @@ let AuthService = class AuthService {
                         slug: tenantSlug,
                     },
                 });
+                await tx.tenantSubscription.create({
+                    data: {
+                        tenantId: tenant.id,
+                        status: 'ACTIVE',
+                    },
+                });
                 const user = await tx.user.create({
                     data: {
                         email,
