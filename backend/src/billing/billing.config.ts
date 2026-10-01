@@ -1,4 +1,5 @@
 import { ServiceModule } from '@prisma/client';
+import { isDevelopmentLike } from '../config/environment-check';
 
 /**
  * Stripe price ids, one per sellable service.
@@ -76,7 +77,10 @@ export function billingReturnUrls() {
   // Falling back to localhost in a deployed environment sends real customers to
   // their OWN machine after payment. Say so loudly rather than silently
   // producing a URL that cannot work.
-  if (!configured && process.env.NODE_ENV === 'production') {
+  // isDevelopmentLike, not `NODE_ENV === 'production'`: with NODE_ENV unset
+  // the old test stayed silent, so a deployed service fell back to localhost
+  // AND said nothing about it.
+  if (!configured && !isDevelopmentLike()) {
     // eslint-disable-next-line no-console
     console.error(
       'BILLING_RETURN_URL is not set. Stripe will return paying customers to ' +

@@ -10,6 +10,7 @@ import { EmailOtpAccountType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { EmailValidationService } from './email-validation.service';
+import { isDevelopmentLike } from '../config/environment-check';
 
 const OTP_LENGTH = 6;
 const OTP_TTL_MINUTES = 10;
@@ -143,7 +144,19 @@ export class EmailVerificationService {
     // from the caller's point of view, not a server error. The OTP row
     // above is left in place; a legitimate retry (same email) is still rate
     // limited/superseded by the cooldown and resend logic as normal.
-    this.logger.log(`[DEVELOPMENT MODE] OTP for ${params.email}: ${code}`);
+    //
+    // The local-development convenience line below prints the code so a
+    // developer without a mail provider can finish signup. Printing it
+    // unconditionally put every signup and password-reset code into
+    // production logs in cleartext, which makes anyone with log access able
+    // to take over any account.
+    //
+    // Gated on isDevelopmentLike rather than `NODE_ENV !== 'production'`: an
+    // unset NODE_ENV is common on hosting platforms, and the weaker test
+    // would treat that deployment as development and keep printing codes.
+    if (isDevelopmentLike()) {
+      this.logger.log(`[DEVELOPMENT MODE] OTP for ${params.email}: ${code}`);
+    }
 
     try {
       if (purpose === PASSWORD_RESET_PURPOSE) {
@@ -170,7 +183,17 @@ export class EmailVerificationService {
           error instanceof Error ? error.message : String(error)
         }`,
       );
-      if (process.env.NODE_ENV === 'production') {
+      // Swallowing this is a development-only convenience: it lets a
+      // developer with no mail provider finish signup using the code printed
+      // above. Anywhere else it is actively harmful -- the user is told their
+      // account was created, no email ever arrives, and nothing surfaces the
+      // outage. Keyed on isDevelopmentLike so an unset NODE_ENV does NOT get
+      // the silent-failure path.
+      if (isDevelopmentLike()) {
+        this.logger.warn(
+          'Development mode: ignoring email send failure to unblock workflow.',
+        );
+      } else {
         // This is a delivery/infra failure (SMTP connection timeout,
         // provider outage, etc.) -- the address itself already passed
         // syntax + MX validation above, so INVALID_EMAIL_MESSAGE here would
@@ -180,8 +203,6 @@ export class EmailVerificationService {
         throw new BadRequestException(
           'Could not send the verification email right now. Please try again in a few minutes.',
         );
-      } else {
-        this.logger.warn('Development mode: Ignoring email send failure to unblock workflow.');
       }
     }
 

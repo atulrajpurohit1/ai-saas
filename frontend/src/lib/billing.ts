@@ -86,7 +86,21 @@ export interface CreditPack {
 export interface CreditPackAvailability {
   configured: boolean;
   packs: CreditPack[];
-  costs: { playbook: number; perProspect: number };
+  /**
+   * What each kind of search costs, as a flat price per search. Both are set
+   * server-side and can change without a frontend deploy, so they are always
+   * read from here rather than hard-coded into copy.
+   *
+   * `perProspect` is a retired field the API now always sends as null:
+   * discovery used to be billed per prospect returned and no longer is. Kept
+   * in the type so the null is handled deliberately rather than surprising an
+   * older build.
+   */
+  costs: {
+    playbook: number;
+    discoverySearch: number;
+    perProspect: number | null;
+  };
 }
 
 export type CreditLedgerEntryType =

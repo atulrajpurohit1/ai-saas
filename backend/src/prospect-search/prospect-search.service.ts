@@ -6,7 +6,11 @@ import {
 import { AiService, ProspectCompanyInsight } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
 import { CreditsService } from '../billing/credits.service';
-import { PLAYBOOK_CREDIT_COST } from '../billing/credit-packs.constants';
+import { UpstreamBudgetService } from './upstream-budget.service';
+import {
+  discoveryCreditCost,
+  playbookCreditCost,
+} from '../billing/credit-packs.constants';
 import { InsufficientCreditsException } from '../billing/insufficient-credits.exception';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { LeadsService } from '../leads/leads.service';
@@ -52,6 +56,7 @@ export class ProspectSearchService {
     private readonly blackPearlInsightProvider: BlackPearlInsightProvider,
     private readonly blackPearlProspectingProvider: BlackPearlProspectingProvider,
     private readonly creditsService: CreditsService,
+    private readonly upstreamBudget: UpstreamBudgetService,
   ) {}
 
   /**
@@ -92,7 +97,8 @@ export class ProspectSearchService {
     // billed BlackPearl job. The authoritative hold happens after submission
     // (a reservation is keyed on the job id, which does not exist yet) - this
     // is the cheap guard that stops the common case.
-    await this.assertCanAfford(user.tenantId, PLAYBOOK_CREDIT_COST);
+    const playbookCost = playbookCreditCost();
+    await this.assertCanAfford(user.tenantId, playbookCost);
 
     const jobId = await this.blackPearlInsightProvider.submitPlaybookJob({
       name: companyName,
@@ -111,7 +117,7 @@ export class ProspectSearchService {
     await this.creditsService.reserve({
       tenantId: user.tenantId,
       jobId,
-      amount: PLAYBOOK_CREDIT_COST,
+      amount: playbookCost,
       description: `Company playbook: "${companyName}"`,
       userId: user.sub,
     });
@@ -183,11 +189,14 @@ export class ProspectSearchService {
         searchResult,
       );
       await this.recordHistory(companyName, user);
+      // Settled at the reserved amount: a playbook is already a flat price,
+      // so the hold and the charge are the same number.
       await this.settleJobCredits(
         user.tenantId,
         jobId,
-        PLAYBOOK_CREDIT_COST,
+        playbookCreditCost(),
         `Company playbook: "${companyName}"`,
+        result.upstreamCostUsd ?? null,
       );
 
       this.logger.log(
@@ -223,6 +232,14 @@ export class ProspectSearchService {
    * and incur the cost.
    */
   private async assertCanAfford(tenantId: string, required: number) {
+    // Two separate budgets have to hold, and they fail differently. The
+    // tenant's credit balance is THEIR limit and running out is a 402 telling
+    // them to buy more. Our prepaid BlackPearl balance is OUR limit, shared by
+    // every tenant, and running out is a 503 that no customer action fixes.
+    // Checked first so we never take a paying customer's credits for work the
+    // upstream account cannot fund.
+    await this.upstreamBudget.assertCanSpend();
+
     const { balance } = await this.creditsService.getBalance(tenantId);
     if (balance < required) {
       throw new InsufficientCreditsException(
@@ -248,6 +265,7 @@ export class ProspectSearchService {
     jobId: string,
     actualUsed: number,
     description: string,
+    upstreamCostUsd?: number | null,
   ): Promise<void> {
     try {
       const reservation = await this.creditsService.findReservation(
@@ -256,10 +274,15 @@ export class ProspectSearchService {
       );
       if (!reservation) return;
 
+      // Spending has happened, so any cached view of our prepaid balance is
+      // now stale.
+      this.upstreamBudget.invalidate();
+
       await this.creditsService.settle({
         reservationId: reservation.id,
         actualUsed,
         description,
+        upstreamCostUsd,
       });
     } catch (error) {
       this.logger.error(
@@ -331,11 +354,14 @@ export class ProspectSearchService {
       );
     }
 
-    // Discovery bills per prospect returned, and the count is unknown until the
-    // job finishes - so we hold the most it could cost (the requested limit)
-    // and hand back whatever goes unused when it settles.
-    const requestedLimit = dto.limit ?? DEFAULT_DISCOVERY_LIMIT;
-    await this.assertCanAfford(user.tenantId, requestedLimit);
+    // Discovery is a FLAT price per search. It used to hold the requested
+    // limit and refund whatever was not returned, which meant a search finding
+    // 3 prospects earned us a third of one finding 9 -- while costing MORE
+    // upstream, because a thin result set is what a hard search looks like.
+    // The hold and the charge are now the same number and do not depend on
+    // what the AI finds.
+    const searchCost = discoveryCreditCost();
+    await this.assertCanAfford(user.tenantId, searchCost);
 
     const jobId = await this.blackPearlProspectingProvider.submitProspectingJob(
       {
@@ -362,8 +388,8 @@ export class ProspectSearchService {
     await this.creditsService.reserve({
       tenantId: user.tenantId,
       jobId,
-      amount: requestedLimit,
-      description: `Prospect discovery: "${objective}" (up to ${requestedLimit})`,
+      amount: searchCost,
+      description: `Prospect discovery: "${objective}"`,
       userId: user.sub,
     });
 
@@ -427,13 +453,17 @@ export class ProspectSearchService {
         user,
       );
 
-      // Charge for what actually came back, not what was held: a search that
-      // asked for 20 and found 3 costs 3, and the other 17 go back.
+      // Flat price: the search ran and produced an answer, so it costs what a
+      // search costs. Finding nobody is still a real, fully-billed job
+      // upstream -- a thin result set is information, not a failure, and
+      // refunding it would mean paying BlackPearl for work we gave away.
+      // (A search that genuinely FAILS is refunded in full, below.)
       await this.settleJobCredits(
         user.tenantId,
         jobId,
-        result.prospects.length,
+        discoveryCreditCost(),
         `Prospect discovery: "${objective}" (${result.prospects.length} found)`,
+        poll.upstreamCostUsd,
       );
 
       this.logger.log(
@@ -447,11 +477,14 @@ export class ProspectSearchService {
       `Prospect discovery job failed: tenant=${user.tenantId} jobId=${jobId}`,
     );
 
+    // The customer is refunded in full, but a failed job can still have cost
+    // us money upstream -- record that, or our own spend looks lower than it is.
     await this.settleJobCredits(
       user.tenantId,
       jobId,
       0,
       'Search could not be completed; credits returned.',
+      poll.upstreamCostUsd,
     );
 
     return {

@@ -106,6 +106,7 @@ describe('BlackPearlInsightProvider', () => {
         progress: 42,
         companyName: 'Acme Corp',
         insight: null,
+        upstreamCostUsd: null,
       });
     });
 
@@ -248,6 +249,7 @@ describe('BlackPearlInsightProvider', () => {
         progress: 30,
         companyName: 'Acme Corp',
         insight: null,
+        upstreamCostUsd: null,
       });
     });
 

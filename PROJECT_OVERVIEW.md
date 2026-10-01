@@ -388,7 +388,7 @@ by the UI may not exist in the RBAC catalog. SSO has been fully removed.
 | Integration | Status | What it's for |
 |---|---|---|
 | **Google Gemini** | Active (needs `GEMINI_API_KEY`) | The general AI layer: proposal drafting, sales scoring/coaching, RFP drafting/evaluation, guard-recommendation explanations. Has deterministic fallbacks. |
-| **BlackPearl / Bebop** | Optional (needs `BLACKPEARL_API_KEY`) | AI Prospect Search company playbooks and prospect discovery. Async job API (jobs can take minutes). Billed per prospect (~$0.11), passed on to customers as credits. No fallback – fails with a `503` if not configured. |
+| **BlackPearl / Bebop** | Optional (needs `BLACKPEARL_API_KEY`) | AI Prospect Search company playbooks and prospect discovery. Async job API (jobs can take minutes). Metered usage, passed on to customers as credits — **the unit cost and billing model are not yet confirmed with BlackPearl** (see `credit-packs.constants.ts`). No fallback – fails with a `503` if not configured. |
 | **OpenAI** | Optional (needs `OPENAI_API_KEY`, currently commented out in `.env`) | Call audio transcription only. No fallback. |
 | **HubSpot** | Optional (needs `HUBSPOT_CLIENT_ID` / `SECRET` / `REDIRECT_URI`) | OAuth import of HubSpot contacts into the CRM. |
 | **SMTP (Nodemailer)** | Falls back to Ethereal test mailbox | Sends proposal-delivery and RFP vendor-notification emails. |
@@ -398,8 +398,15 @@ by the UI may not exist in the RBAC catalog. SSO has been fully removed.
 ### Prospect Search credits (usage-based billing)
 
 Every other feature is covered by the monthly subscription. AI Prospect Search is
-not, because BlackPearl bills us per prospect returned (~$0.11) and an
-unconstrained search UI would otherwise be an uncapped cost against a flat fee.
+not, because BlackPearl usage is metered and an unconstrained search UI would
+otherwise be an uncapped cost against a flat fee.
+
+> **Pricing is provisional.** The credit pack sizes and prices, and the
+> assumption that BlackPearl bills per prospect, are placeholders that were
+> never confirmed with BlackPearl or the client. BlackPearl's API describes
+> prepaid USD credit with token/compute-based per-job usage, which is not a
+> per-prospect charge. Get real figures before quoting these to anyone —
+> see `backend/src/billing/credit-packs.constants.ts`.
 
 - **1 credit = 1 unit of BlackPearl work**: one company playbook, or one prospect
   returned by a discovery search. Pricing credits in the same unit BlackPearl

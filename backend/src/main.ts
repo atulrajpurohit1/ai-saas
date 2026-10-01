@@ -4,6 +4,11 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { PrismaExceptionFilter } from './prisma/prisma-exception.filter';
 import { setDefaultResultOrder } from 'dns';
+import type { Request, Response, NextFunction } from 'express';
+import {
+  assertEnvironment,
+  isDevelopmentLike,
+} from './config/environment-check';
 
 // Prefer IPv4 for all outbound DNS lookups, process-wide. Some
 // hosting/sandboxed networks resolve a hostname (e.g. the SMTP provider) to
@@ -16,6 +21,10 @@ import { setDefaultResultOrder } from 'dns';
 setDefaultResultOrder('ipv4first');
 
 async function bootstrap() {
+  // Before anything connects or listens: a deploy missing its secrets should
+  // fail here with the name of what is missing, not on the first request.
+  assertEnvironment();
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     // Stripe signs the exact bytes it sent, so signature verification needs the
     // unparsed body. This keeps the parsed body available everywhere else and
@@ -28,8 +37,41 @@ async function bootstrap() {
   app.useBodyParser('urlencoded', { limit: '10mb', extended: true });
 
   app.useGlobalFilters(new PrismaExceptionFilter());
+  // `whitelist: true` already strips any property the DTO does not declare,
+  // which is what prevents mass assignment. `forbidNonWhitelisted` was
+  // deliberately NOT added: it would turn every request carrying a stray field
+  // into a 400, which is a breaking change for existing clients without
+  // closing any hole that whitelist leaves open.
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.setGlobalPrefix('api');
+
+  // Baseline security response headers. Written by hand rather than pulled in
+  // via helmet so this needs no new dependency; the set below is the subset of
+  // helmet's defaults that is meaningful for a JSON API with no server-rendered
+  // HTML. Revisit if this process ever serves a browser-facing document.
+  app.use((_req: Request, res: Response, next: NextFunction) => {
+    // Stop browsers from MIME-sniffing a JSON response into something else.
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    // No API response should ever be framed.
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+    // Do not leak API paths (which contain ids) to third-party sites.
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    // Cross-origin responses are governed by the CORS config below; this stops
+    // other origins embedding responses as a resource.
+    res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
+    res.removeHeader('X-Powered-By');
+
+    // Browsers ignore HSTS on a plain-http response, so sending it
+    // unconditionally is safe: it takes effect over HTTPS and is a no-op
+    // locally. That is deliberately not gated on NODE_ENV -- a header this
+    // important should not go missing because an env var was unset.
+    res.setHeader(
+      'Strict-Transport-Security',
+      'max-age=31536000; includeSubDomains',
+    );
+    next();
+  });
 
   const configuredOrigins = (
     process.env.CORS_ORIGINS ||
@@ -53,14 +95,37 @@ async function bootstrap() {
     ...configuredOrigins,
   ]);
 
+  // `ai-saas-*.vercel.app` is a wildcard over a namespace WE DO NOT CONTROL:
+  // anyone can create a Vercel project called `ai-saas-<anything>` and get a
+  // matching origin, which this rule would then trust with credentials. It is
+  // genuinely useful for preview deploys, so it stays available outside
+  // production and can be re-enabled explicitly if a production preview URL is
+  // ever needed -- but it is no longer on by default where it matters.
+  const allowVercelPreviews =
+    process.env.ALLOW_VERCEL_PREVIEW_ORIGINS === 'true' ||
+    isDevelopmentLike();
+
   const isAllowedOrigin = (origin?: string) => {
+    // No Origin header: a non-browser caller (curl, server-to-server, health
+    // check). CORS is a browser mechanism and cannot protect these anyway --
+    // they are authenticated by the Authorization header like any other client.
     if (!origin) {
       return true;
     }
 
+    if (allowedOrigins.has(origin)) return true;
+
+    // Localhost is a developer convenience and has no place in production,
+    // where it only widens what an attacker-controlled page can reach.
+    if (
+      isDevelopmentLike() &&
+      /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)
+    ) {
+      return true;
+    }
+
     return (
-      allowedOrigins.has(origin) ||
-      /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin) ||
+      allowVercelPreviews &&
       /^https:\/\/ai-saas-[a-z0-9-]+\.vercel\.app$/.test(origin)
     );
   };

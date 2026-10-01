@@ -127,15 +127,29 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
             )}
           </Link>
         )}
-        <div className={cn('min-w-0', collapsed && 'lg:hidden')}>
+        {/* flex-1 lets this claim the header's free width, so the logo is sized
+            by the sidebar rather than by a `truncate` paragraph that
+            contributes no intrinsic width of its own. */}
+        <div className={cn('min-w-0 flex-1', collapsed && 'lg:hidden')}>
           {logoUrl ? (
+            /* A tenant's own logo was capped at h-8 (32px tall). Most uploads
+               are wide lockups rather than square marks, so a 32px cap left
+               them rendering at well under half the sidebar's width -- small
+               enough to read as an afterthought next to the company name
+               beneath. Sized by width instead, with a height ceiling, so a
+               wide lockup fills the space and a tall or square mark still
+               cannot push the header out of shape. */
             <img
               src={logoUrl}
               alt={companyName || user?.tenantName || 'Company logo'}
-              className="mb-1.5 h-8 max-w-full object-contain object-left"
+              className="mb-1.5 max-h-14 w-full object-contain object-left"
             />
           ) : (
-            <BrandMark variant="lockup" lockupWidth={172} className="mb-1.5 w-[172px]" />
+            <BrandMark
+              variant="lockup"
+              lockupWidth={208}
+              className="mb-1.5 h-auto w-full"
+            />
           )}
           <p className="truncate text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             {companyName || user?.tenantName || 'Management'}

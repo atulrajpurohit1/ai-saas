@@ -15,6 +15,11 @@ import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RolesService } from '../roles/roles.service';
+import {
+  BCRYPT_PASSWORD_ROUNDS,
+  BCRYPT_TOKEN_ROUNDS,
+  DUMMY_PASSWORD_HASH,
+} from './password-policy';
 import { SessionsService } from '../sessions/sessions.service';
 import {
   EmailVerificationService,
@@ -45,7 +50,10 @@ export class AuthService {
     context?: { ipAddress?: string | null; userAgent?: string | null },
   ) {
     const email = await this.emailVerification.assertValidEmail(dto.email);
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const hashedPassword = await bcrypt.hash(
+      dto.password,
+      BCRYPT_PASSWORD_ROUNDS,
+    );
     const name = dto.name?.trim() || '';
     const tenantName = dto.tenantName?.trim() || '';
 
@@ -198,18 +206,26 @@ export class AuthService {
       throw new UnauthorizedException('Invalid verification code.');
     }
 
-    if (!user.emailVerified) {
-      await this.emailVerification.verifyOtp({
-        accountType: 'USER',
-        accountId: user.id,
-        code: dto.code,
-      });
-
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { emailVerified: true, emailVerifiedAt: new Date() },
-      });
+    // The OTP is ALWAYS checked before any token is issued. An already-verified
+    // account must not short-circuit this: skipping the check for
+    // `emailVerified` accounts turned this endpoint into an unauthenticated
+    // login -- an email address alone was enough to mint a full session.
+    // A verified account has no pending signup OTP to present, so it is simply
+    // rejected here and must go through /auth/login with its password.
+    if (user.emailVerified) {
+      throw new UnauthorizedException('Invalid verification code.');
     }
+
+    await this.emailVerification.verifyOtp({
+      accountType: 'USER',
+      accountId: user.id,
+      code: dto.code,
+    });
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerified: true, emailVerifiedAt: new Date() },
+    });
 
     await this.rolesService.ensureDefaultAssignmentForUser(user.id);
     const profile = await this.rolesService.getUserAccessProfile(user.id);
@@ -224,7 +240,11 @@ export class AuthService {
       sessionId,
     );
 
-    await this.updateRefreshTokenHash(user.id, tokens.refresh_token, profile.role);
+    await this.updateRefreshTokenHash(
+      user.id,
+      tokens.refresh_token,
+      profile.role,
+    );
     await this.sessionsService.createSession({
       id: sessionId,
       tenantId: user.tenantId,
@@ -338,9 +358,7 @@ export class AuthService {
     }
 
     const { accountId, tenantId } =
-      await this.emailVerification.consumePasswordResetToken(
-        dto.resetToken,
-      );
+      await this.emailVerification.consumePasswordResetToken(dto.resetToken);
 
     const user = await this.prisma.user.findUnique({
       where: { id: accountId },
@@ -355,7 +373,10 @@ export class AuthService {
       );
     }
 
-    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+    const hashedPassword = await bcrypt.hash(
+      dto.newPassword,
+      BCRYPT_PASSWORD_ROUNDS,
+    );
 
     await this.prisma.user.update({
       where: { id: user.id },
@@ -366,7 +387,11 @@ export class AuthService {
     // cannot continue using the old credentials.
     await this.prisma.userSession.updateMany({
       where: { userId: user.id, status: 'active' },
-      data: { status: 'revoked', refreshTokenHash: null, revokedAt: new Date() },
+      data: {
+        status: 'revoked',
+        refreshTokenHash: null,
+        revokedAt: new Date(),
+      },
     });
 
     return { message: 'Password reset successfully.' };
@@ -382,7 +407,16 @@ export class AuthService {
       include: { tenant: true },
     });
 
-    if (!user) throw new UnauthorizedException('Invalid credentials');
+    // Returning early for an unknown email skips the bcrypt comparison, and
+    // bcrypt is deliberately slow: "no such account" answers in a few
+    // milliseconds where "wrong password" takes ~250ms. That gap is
+    // measurable over the network and turns login into an account-enumeration
+    // oracle even though both answers say "Invalid credentials". Comparing
+    // against a dummy hash spends the same time either way.
+    if (!user) {
+      await bcrypt.compare(dto.password, DUMMY_PASSWORD_HASH);
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
     const passwordMatches = await bcrypt.compare(dto.password, user.password);
     if (!passwordMatches)
@@ -490,7 +524,7 @@ export class AuthService {
   }
 
   async updateRefreshTokenHash(userId: string, rt: string, role: string) {
-    const hash = await bcrypt.hash(rt, 10);
+    const hash = await bcrypt.hash(rt, BCRYPT_TOKEN_ROUNDS);
     await this.prisma.user.update({
       where: { id: userId },
       data: { refreshToken: hash },
@@ -503,7 +537,12 @@ export class AuthService {
     tenantId: string,
     role: AdminPortalRole,
     branchId: string | null = null,
-    isSuperAdmin = true,
+    // Defaults to false. This previously defaulted to TRUE, meaning any caller
+    // that omitted the argument minted a super-admin token. Every current
+    // caller passes it explicitly, so this changes no behaviour today -- it
+    // removes a landmine where the unsafe value was the one you got by
+    // forgetting to think about it.
+    isSuperAdmin = false,
     sessionId?: string,
   ) {
     const atSecret = this.configService.get<string>('JWT_ACCESS_SECRET');
