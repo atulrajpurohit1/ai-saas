@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { ServiceModule, SubscriptionStatus } from '@prisma/client';
 import { moduleForPriceId } from './billing.config';
 import { creditPackForPriceId } from './credit-packs.constants';
+import { PACKAGE_MODULES, planForLookupKey } from './pricing.constants';
 import { CreditsService } from './credits.service';
 import { StripeService } from './stripe.service';
 import { SubscriptionProvisioningService } from './subscription-provisioning.service';
@@ -330,13 +331,19 @@ export class StripeWebhookService {
    * so what was actually billed is the safer source of truth.
    */
   private modulesFor(subscription: Stripe.Subscription): ServiceModule[] {
-    const fromPrices = subscription.items.data
-      .map((item) => item.price?.id)
-      .filter((id): id is string => Boolean(id))
-      .map(moduleForPriceId)
-      .filter((module): module is ServiceModule => module !== null);
+    const modules = subscription.items.data.flatMap((item) => {
+      // Band-priced plans are recognised by the price's lookup_key, which
+      // encodes the package, band and amount (see planLookupKey).
+      const plan = planForLookupKey(item.price?.lookup_key);
+      if (plan) return PACKAGE_MODULES[plan.packageKey];
 
-    return [...new Set(fromPrices)];
+      // Per-service prices sold before band pricing still map through their
+      // STRIPE_PRICE_* env vars, so an older subscription keeps its access.
+      const legacy = item.price?.id ? moduleForPriceId(item.price.id) : null;
+      return legacy ? [legacy] : [];
+    });
+
+    return [...new Set(modules)];
   }
 
   private statusFor(status: Stripe.Subscription.Status): SubscriptionStatus {

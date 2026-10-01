@@ -13,10 +13,13 @@ import {
 } from '@/lib/entitlements';
 import { cn } from '@/lib/utils';
 import {
-  getCheckoutAvailability,
-  startCheckout,
-  type CheckoutAvailability,
+  getPlanPricing,
+  startPlanCheckout,
+  type GuardBand,
+  type PackageKey,
+  type PlanPricing,
 } from '@/lib/billing';
+import PlanPricingTable from '@/components/PlanPricingTable';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { BrainCircuit, Check, DollarSign, Lock, ShieldCheck } from 'lucide-react';
 
@@ -50,27 +53,51 @@ function PlanContent() {
   const requested = searchParams.get('module') as ServiceModuleKey | null;
   const checkoutState = searchParams.get('checkout');
 
-  const [availability, setAvailability] = useState<CheckoutAvailability | null>(null);
-  const [pending, setPending] = useState<ServiceModuleKey | null>(null);
+  const [pricing, setPricing] = useState<PlanPricing | null>(null);
+  const [pricingError, setPricingError] = useState(false);
+  const [selectedBand, setSelectedBand] = useState<GuardBand | null>(null);
+  const [pending, setPending] = useState<PackageKey | null>(null);
   const [error, setError] = useState('');
+  const [changed, setChanged] = useState(false);
+
+  const loadPricing = () =>
+    getPlanPricing()
+      .then((next) => {
+        setPricing(next);
+        setPricingError(false);
+        // Start on the plan they are on, or else the lowest band they can
+        // choose -- never a band below the guards they run.
+        setSelectedBand((previous) => {
+          const rank = (band: GuardBand) =>
+            next.bands.findIndex((entry) => entry.key === band);
+          const candidate = previous ?? next.current?.band ?? next.minimumBand;
+          return rank(candidate) < rank(next.minimumBand)
+            ? next.minimumBand
+            : candidate;
+        });
+      })
+      .catch(() => setPricingError(true));
 
   useEffect(() => {
-    getCheckoutAvailability()
-      .then(setAvailability)
-      .catch(() => {
-        // Availability is an enhancement: if it cannot be read, fall back to
-        // the contact route rather than blocking the page.
-        setAvailability({ configured: false, monthly: [], annual: [] });
-      });
+    void loadPricing();
   }, []);
 
-  const buy = async (module: ServiceModuleKey) => {
+  const choose = async (packageKey: PackageKey) => {
+    if (!pricing || !selectedBand) return;
     setError('');
-    setPending(module);
+    setChanged(false);
+    setPending(packageKey);
     try {
-      const { url } = await startCheckout([module]);
-      if (url) {
-        window.location.href = url;
+      const band =
+        packageKey === 'GENERATION' ? pricing.generationOnlyBand : selectedBand;
+      const result = await startPlanCheckout(packageKey, band);
+      if (result.url) {
+        window.location.href = result.url;
+        return;
+      }
+      if (result.changed) {
+        setChanged(true);
+        await loadPricing();
         return;
       }
       setError('Stripe did not return a checkout link. Please try again.');
@@ -107,6 +134,20 @@ function PlanContent() {
         </div>
       )}
 
+      {changed && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+          <Check className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+          <div>
+            <p className="font-semibold text-foreground">Plan changed</p>
+            <p className="text-sm text-muted-foreground">
+              Your subscription has been moved to the new plan, and the
+              difference is prorated on your next invoice. Sign out and back in
+              if your services have not updated within a minute.
+            </p>
+          </div>
+        </div>
+      )}
+
       {checkoutState === 'cancelled' && (
         <div className="mb-6 rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
           Checkout was cancelled. Nothing has been charged and your plan is
@@ -128,8 +169,8 @@ function PlanContent() {
               {requestedName} is not part of your plan
             </p>
             <p className="text-sm text-muted-foreground">
-              The page you tried to open belongs to {requestedName}. Add it below
-              to enable it for your team.
+              The page you tried to open belongs to {requestedName}. Choose a
+              plan that includes it below to enable it for your team.
             </p>
           </div>
         </div>
@@ -200,35 +241,51 @@ function PlanContent() {
                 ))}
               </ul>
 
-              {!module.active &&
-                (availability?.configured &&
-                availability.monthly.includes(module.key) ? (
-                  <button
-                    type="button"
-                    onClick={() => void buy(module.key)}
-                    disabled={pending !== null}
-                    className="mt-5 inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
-                  >
-                    {pending === module.key
-                      ? 'Redirecting…'
-                      : `Add ${module.name}`}
-                  </button>
-                ) : (
-                  // No price configured yet, so there is nothing to sell.
-                  // Offer a real route rather than a button that would 503.
-                  <a
-                    href={`mailto:sales@aegislead.com?subject=${encodeURIComponent(
-                      `Add ${module.name} to our AegisLead plan`,
-                    )}`}
-                    className="mt-5 inline-flex w-full items-center justify-center rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
-                  >
-                    Contact us about {module.name}
-                  </a>
-                ))}
+              {!module.active && (
+                <a
+                  href="#plans"
+                  className="mt-5 inline-flex w-full items-center justify-center rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+                >
+                  See plans that include it
+                </a>
+              )}
             </div>
           );
         })}
       </div>
+
+      <section id="plans" className="mt-10 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-foreground">
+          Plans and pricing
+        </h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Priced by the number of active guards you run. Choose the row your
+          guard count falls in, then a plan.
+        </p>
+
+        {pricingError && (
+          <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+            Pricing could not be loaded right now. Refresh the page to try
+            again.
+          </div>
+        )}
+
+        {!pricing && !pricingError && (
+          <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+            Loading pricing…
+          </div>
+        )}
+
+        {pricing && selectedBand && (
+          <PlanPricingTable
+            pricing={pricing}
+            selectedBand={selectedBand}
+            onSelectBand={setSelectedBand}
+            onChoose={(packageKey) => void choose(packageKey)}
+            pending={pending}
+          />
+        )}
+      </section>
 
       <p className="mt-6 text-sm text-muted-foreground">
         Need to change users, branches or usage limits?{' '}

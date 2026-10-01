@@ -2,15 +2,12 @@ import { ServiceModule } from '@prisma/client';
 import { isDevelopmentLike } from '../config/environment-check';
 
 /**
- * Stripe price ids, one per sellable service.
+ * Per-service Stripe price ids from before band pricing.
  *
- * Prices live in Stripe, not here -- the amounts, currency and interval are
- * whatever the Dashboard says. This file only records WHICH price id sells
- * WHICH service, so a price change in Stripe needs no deploy.
- *
- * Until the client confirms pricing these env vars are unset, and
- * `isCheckoutConfigured()` returns false. Every checkout endpoint then answers
- * 503 with a clear message rather than half-working.
+ * Plans are now sold by package and guard band, found in Stripe by lookup_key
+ * (see planLookupKey in pricing.constants). These env vars are no longer used
+ * to SELL anything; they remain only so the webhook still recognises a
+ * subscription bought on one of the old per-service prices.
  */
 export type BillingInterval = 'monthly' | 'annual';
 
@@ -28,13 +25,6 @@ const ENV_KEYS: Record<ServiceModule, Record<BillingInterval, string>> = {
     annual: 'STRIPE_PRICE_FINANCE_ANNUAL',
   },
 };
-
-export function priceIdFor(
-  module: ServiceModule,
-  interval: BillingInterval,
-): string | null {
-  return process.env[ENV_KEYS[module][interval]]?.trim() || null;
-}
 
 /**
  * Stripe sends the module list back on the session, but a webhook is an
@@ -112,11 +102,4 @@ export function trialDays(): number | null {
 
 export function isCheckoutConfigured() {
   return Boolean(stripeSecretKey());
-}
-
-/** Services that actually have a price configured and can be sold today. */
-export function sellableModules(interval: BillingInterval = 'monthly') {
-  return (Object.keys(ENV_KEYS) as ServiceModule[]).filter((module) =>
-    priceIdFor(module, interval),
-  );
 }

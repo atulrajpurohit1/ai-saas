@@ -3,11 +3,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
 import { GuardMeteringService } from './guard-metering.service';
 import {
+  GUARD_BANDS,
   MONTHLY_PRICES,
+  PACKAGE_KEYS,
+  allPlanLookupKeys,
   bandForGuardCount,
   billableBand,
   isCustomQuote,
   packageForModules,
+  planForLookupKey,
+  planLookupKey,
 } from './pricing.constants';
 
 describe('pricing', () => {
@@ -96,6 +101,45 @@ describe('pricing', () => {
       expect(MONTHLY_PRICES.GUARD['251-500']).toBe(599);
     });
 
+    // Every cell of the table the client published on 1 Oct 2026. Checkout
+    // charges from these numbers, so a typo here is a wrong invoice.
+    it('matches every cell of the published table', () => {
+      expect(MONTHLY_PRICES).toEqual({
+        GENERATION: {
+          '1-25': 299,
+          '26-50': 399,
+          '51-100': 499,
+          '101-250': 699,
+          '251-500': 899,
+          '500+': null,
+        },
+        GUARD: {
+          '1-25': 99,
+          '26-50': 149,
+          '51-100': 249,
+          '101-250': 399,
+          '251-500': 599,
+          '500+': null,
+        },
+        OPERATIONS: {
+          '1-25': 199,
+          '26-50': 299,
+          '51-100': 449,
+          '101-250': 699,
+          '251-500': 999,
+          '500+': null,
+        },
+        COMPLETE: {
+          '1-25': 499,
+          '26-50': 649,
+          '51-100': 849,
+          '101-250': 1199,
+          '251-500': 1699,
+          '500+': null,
+        },
+      });
+    });
+
     // Complete has to be worth buying, or the packaging makes no sense.
     it('prices Complete below the sum of its parts in every band', () => {
       for (const band of [
@@ -130,6 +174,46 @@ describe('pricing', () => {
           );
         }
       }
+    });
+  });
+  describe('Stripe plan lookup keys', () => {
+    it('names the package, band and amount', () => {
+      expect(planLookupKey('GUARD', '26-50')).toBe(
+        'aegislead_guard_26_50_149usd_monthly',
+      );
+      expect(planLookupKey('COMPLETE', '251-500')).toBe(
+        'aegislead_complete_251_500_1699usd_monthly',
+      );
+    });
+
+    // 500+ is quoted by sales, so there is no price to look up.
+    it('has no key for the custom band', () => {
+      expect(planLookupKey('COMPLETE', '500+')).toBeNull();
+    });
+
+    it('covers the twenty priced cells exactly once', () => {
+      const keys = allPlanLookupKeys();
+      expect(keys).toHaveLength(20);
+      expect(new Set(keys).size).toBe(20);
+    });
+
+    it('round-trips every key back to its package and band', () => {
+      for (const packageKey of PACKAGE_KEYS) {
+        for (const { key: band } of GUARD_BANDS) {
+          const lookupKey = planLookupKey(packageKey, band);
+          if (lookupKey === null) continue;
+          expect(planForLookupKey(lookupKey)).toEqual({ packageKey, band });
+        }
+      }
+    });
+
+    // A key whose amount no longer matches the table must not resolve, or a
+    // stale price would keep granting services after the table changed.
+    it('does not resolve a key whose amount differs from the table', () => {
+      expect(
+        planForLookupKey('aegislead_guard_26_50_99usd_monthly'),
+      ).toBeNull();
+      expect(planForLookupKey(null)).toBeNull();
     });
   });
 });

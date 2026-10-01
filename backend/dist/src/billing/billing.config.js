@@ -1,13 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.priceIdFor = priceIdFor;
 exports.moduleForPriceId = moduleForPriceId;
 exports.stripeSecretKey = stripeSecretKey;
 exports.stripeWebhookSecret = stripeWebhookSecret;
 exports.billingReturnUrls = billingReturnUrls;
 exports.trialDays = trialDays;
 exports.isCheckoutConfigured = isCheckoutConfigured;
-exports.sellableModules = sellableModules;
 const environment_check_1 = require("../config/environment-check");
 const ENV_KEYS = {
     LEAD_GEN: {
@@ -23,9 +21,6 @@ const ENV_KEYS = {
         annual: 'STRIPE_PRICE_FINANCE_ANNUAL',
     },
 };
-function priceIdFor(module, interval) {
-    return process.env[ENV_KEYS[module][interval]]?.trim() || null;
-}
 function moduleForPriceId(priceId) {
     for (const [module, intervals] of Object.entries(ENV_KEYS)) {
         for (const envKey of Object.values(intervals)) {
@@ -67,8 +62,5 @@ function trialDays() {
 }
 function isCheckoutConfigured() {
     return Boolean(stripeSecretKey());
-}
-function sellableModules(interval = 'monthly') {
-    return Object.keys(ENV_KEYS).filter((module) => priceIdFor(module, interval));
 }
 //# sourceMappingURL=billing.config.js.map

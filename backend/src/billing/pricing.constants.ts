@@ -144,8 +144,63 @@ export function isCustomQuote(band: GuardBand) {
   return band === '500+';
 }
 
-/** Stripe price id env var for a package/band, e.g. STRIPE_PRICE_GUARD_51_100. */
-export function priceEnvKey(packageKey: PackageKey, band: GuardBand) {
-  const suffix = band.replace('+', '_PLUS').replace('-', '_');
-  return `STRIPE_PRICE_${packageKey}_${suffix}`;
+export const PACKAGE_KEYS = Object.keys(PACKAGE_LABELS) as PackageKey[];
+
+/** Position of a band in the table, lowest first. */
+export function bandRank(band: GuardBand): number {
+  return GUARD_BANDS.findIndex((entry) => entry.key === band);
+}
+
+export function isGuardBand(value: string): value is GuardBand {
+  return GUARD_BANDS.some((entry) => entry.key === value);
+}
+
+export function isPackageKey(value: string): value is PackageKey {
+  return Object.prototype.hasOwnProperty.call(PACKAGE_LABELS, value);
+}
+
+/**
+ * The Stripe lookup_key for a package's monthly price in a band, e.g.
+ * `aegislead_guard_26_50_149usd_monthly`. Null for a band with no list price
+ * (500+, quoted by sales).
+ *
+ * Checkout finds plan prices by this key instead of by env var: the table has
+ * twenty sellable cells, and twenty hand-pasted price ids in the host's env is
+ * twenty chances to sell the wrong one. The amount is part of the key, so a
+ * price change in the table resolves to a NEW Stripe price rather than quietly
+ * reusing the old one -- and checkout still checks the amount before selling.
+ */
+export function planLookupKey(
+  packageKey: PackageKey,
+  band: GuardBand,
+): string | null {
+  const price = monthlyPrice(packageKey, band);
+  if (price === null) return null;
+  const bandSlug = band.replace('+', '_plus').replace('-', '_');
+  return `aegislead_${packageKey.toLowerCase()}_${bandSlug}_${price}usd_monthly`;
+}
+
+/** Every plan lookup key in the table, for listing the prices in one go. */
+export function allPlanLookupKeys(): string[] {
+  return PACKAGE_KEYS.flatMap((packageKey) =>
+    GUARD_BANDS.map((band) => planLookupKey(packageKey, band.key)),
+  ).filter((key): key is string => key !== null);
+}
+
+/**
+ * Reverses planLookupKey. Used by the webhook to work out which services a
+ * subscription pays for from the price Stripe reports, never from metadata.
+ */
+export function planForLookupKey(
+  lookupKey: string | null | undefined,
+): { packageKey: PackageKey; band: GuardBand } | null {
+  if (!lookupKey) return null;
+  for (const packageKey of PACKAGE_KEYS) {
+    for (const band of GUARD_BANDS) {
+      if (planLookupKey(packageKey, band.key) === lookupKey) {
+        return { packageKey, band: band.key };
+      }
+    }
+  }
+  return null;
 }

@@ -18,6 +18,7 @@ const common_1 = require("@nestjs/common");
 const stripe_1 = __importDefault(require("stripe"));
 const prisma_service_1 = require("../prisma/prisma.service");
 const billing_config_1 = require("./billing.config");
+const pricing_constants_1 = require("./pricing.constants");
 const credit_packs_constants_1 = require("./credit-packs.constants");
 let StripeService = StripeService_1 = class StripeService {
     prisma;
@@ -57,34 +58,124 @@ let StripeService = StripeService_1 = class StripeService {
         });
         return customer.id;
     }
-    async createCheckoutSession(params) {
-        const { tenantId, modules, interval, email } = params;
-        if (!modules.length) {
-            throw new common_1.BadRequestException('Select at least one service to purchase.');
+    planPriceCache = null;
+    async planPrices() {
+        if (this.planPriceCache &&
+            Date.now() - this.planPriceCache.at < 5 * 60_000) {
+            return this.planPriceCache.prices;
         }
-        const lineItems = modules.map((module) => {
-            const price = (0, billing_config_1.priceIdFor)(module, interval);
-            if (!price) {
-                throw new common_1.ServiceUnavailableException(`No ${interval} price is configured for ${module} yet.`);
+        const keys = (0, pricing_constants_1.allPlanLookupKeys)();
+        const prices = new Map();
+        for (let index = 0; index < keys.length; index += 10) {
+            const page = await this.stripe().prices.list({
+                lookup_keys: keys.slice(index, index + 10),
+                active: true,
+                limit: 10,
+            });
+            for (const price of page.data) {
+                if (price.lookup_key)
+                    prices.set(price.lookup_key, price);
             }
-            return { price, quantity: 1 };
-        });
+        }
+        this.planPriceCache = { at: Date.now(), prices };
+        return prices;
+    }
+    async sellablePlans() {
+        const result = Object.fromEntries(pricing_constants_1.PACKAGE_KEYS.map((packageKey) => [packageKey, []]));
+        if (!(0, billing_config_1.isCheckoutConfigured)())
+            return result;
+        const prices = await this.planPrices();
+        for (const packageKey of pricing_constants_1.PACKAGE_KEYS) {
+            for (const { key: band } of pricing_constants_1.GUARD_BANDS) {
+                const lookupKey = (0, pricing_constants_1.planLookupKey)(packageKey, band);
+                const price = lookupKey ? prices.get(lookupKey) : undefined;
+                if (price && this.priceMatchesPlan(price, packageKey, band)) {
+                    result[packageKey].push(band);
+                }
+            }
+        }
+        return result;
+    }
+    async createPlanCheckoutSession(params) {
+        const { tenantId, packageKey, band, email } = params;
+        if ((0, pricing_constants_1.isCustomQuote)(band)) {
+            throw new common_1.BadRequestException('Plans for more than 500 guards are quoted individually. Please contact sales.');
+        }
+        const lookupKey = (0, pricing_constants_1.planLookupKey)(packageKey, band);
+        const price = lookupKey
+            ? (await this.planPrices()).get(lookupKey)
+            : undefined;
+        if (!price || !this.priceMatchesPlan(price, packageKey, band)) {
+            this.logger.error(`No sellable Stripe price for ${packageKey} at ${band}: expected lookup_key ` +
+                `${lookupKey ?? 'none'} at $${(0, pricing_constants_1.monthlyPrice)(packageKey, band)}/month. ` +
+                'Run scripts/create-live-stripe-prices.ts.');
+            throw new common_1.ServiceUnavailableException(`${pricing_constants_1.PACKAGE_LABELS[packageKey]} can't be bought online right now. Please contact sales.`);
+        }
+        const metadata = {
+            tenantId,
+            package: packageKey,
+            band,
+            modules: pricing_constants_1.PACKAGE_MODULES[packageKey].join(','),
+        };
+        const existing = await this.liveSubscriptionFor(tenantId);
+        if (existing) {
+            const [first, ...rest] = existing.items.data;
+            await this.stripe().subscriptions.update(existing.id, {
+                items: [
+                    { id: first.id, price: price.id, quantity: 1 },
+                    ...rest.map((item) => ({ id: item.id, deleted: true })),
+                ],
+                proration_behavior: 'create_prorations',
+                metadata,
+            });
+            return { url: null, changed: true };
+        }
         const urls = (0, billing_config_1.billingReturnUrls)();
         const trial = (0, billing_config_1.trialDays)();
         const customer = await this.customerIdFor(tenantId, email);
         const session = await this.stripe().checkout.sessions.create({
             mode: 'subscription',
             customer,
-            line_items: lineItems,
+            line_items: [{ price: price.id, quantity: 1 }],
             success_url: urls.success,
             cancel_url: urls.cancel,
-            metadata: { tenantId, modules: modules.join(',') },
+            metadata,
             subscription_data: {
-                metadata: { tenantId, modules: modules.join(',') },
+                metadata,
                 ...(trial ? { trial_period_days: trial } : {}),
             },
         });
-        return { url: session.url, sessionId: session.id };
+        return { url: session.url, changed: false };
+    }
+    async currentPlanLookupKey(tenantId) {
+        const subscription = await this.liveSubscriptionFor(tenantId);
+        return subscription?.items.data[0]?.price?.lookup_key ?? null;
+    }
+    priceMatchesPlan(price, packageKey, band) {
+        const amount = (0, pricing_constants_1.monthlyPrice)(packageKey, band);
+        return (amount !== null &&
+            price.active &&
+            price.currency === 'usd' &&
+            price.type === 'recurring' &&
+            price.recurring?.interval === 'month' &&
+            price.recurring?.interval_count === 1 &&
+            price.unit_amount === amount * 100);
+    }
+    async liveSubscriptionFor(tenantId) {
+        const record = await this.prisma.tenantSubscription.findUnique({
+            where: { tenantId },
+            select: { providerSubscriptionId: true },
+        });
+        if (!record?.providerSubscriptionId)
+            return null;
+        const subscription = await this.stripe().subscriptions.retrieve(record.providerSubscriptionId);
+        const live = [
+            'active',
+            'trialing',
+            'past_due',
+            'unpaid',
+        ];
+        return live.includes(subscription.status) ? subscription : null;
     }
     async createCreditPackCheckoutSession(params) {
         const { tenantId, pack, email } = params;

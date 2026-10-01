@@ -11,21 +11,20 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateCheckoutSessionDto = void 0;
 const class_validator_1 = require("class-validator");
-const MODULES = ['LEAD_GEN', 'GUARD_TOUR', 'FINANCE'];
+const pricing_constants_1 = require("../pricing.constants");
 class CreateCheckoutSessionDto {
-    modules;
-    interval;
+    package;
+    band;
 }
 exports.CreateCheckoutSessionDto = CreateCheckoutSessionDto;
 __decorate([
-    (0, class_validator_1.IsArray)(),
-    (0, class_validator_1.ArrayNotEmpty)({ message: 'Select at least one service to purchase.' }),
-    (0, class_validator_1.IsIn)(MODULES, { each: true, message: 'Unknown service selected.' }),
-    __metadata("design:type", Array)
-], CreateCheckoutSessionDto.prototype, "modules", void 0);
-__decorate([
-    (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsIn)(['monthly', 'annual']),
+    (0, class_validator_1.IsIn)(pricing_constants_1.PACKAGE_KEYS, { message: 'Unknown package selected.' }),
     __metadata("design:type", String)
-], CreateCheckoutSessionDto.prototype, "interval", void 0);
+], CreateCheckoutSessionDto.prototype, "package", void 0);
+__decorate([
+    (0, class_validator_1.IsIn)(pricing_constants_1.GUARD_BANDS.map((band) => band.key), {
+        message: 'Unknown guard band selected.',
+    }),
+    __metadata("design:type", String)
+], CreateCheckoutSessionDto.prototype, "band", void 0);
 //# sourceMappingURL=create-checkout-session.dto.js.map

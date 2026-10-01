@@ -1,7 +1,6 @@
 import Stripe from 'stripe';
-import { ServiceModule } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { BillingInterval } from './billing.config';
+import { GuardBand, PackageKey } from './pricing.constants';
 import { CreditPackKey } from './credit-packs.constants';
 export declare class StripeService {
     private readonly prisma;
@@ -11,15 +10,21 @@ export declare class StripeService {
     get configured(): boolean;
     private stripe;
     private customerIdFor;
-    createCheckoutSession(params: {
+    private planPriceCache;
+    planPrices(): Promise<Map<string, Stripe.Price>>;
+    sellablePlans(): Promise<Record<PackageKey, GuardBand[]>>;
+    createPlanCheckoutSession(params: {
         tenantId: string;
-        modules: ServiceModule[];
-        interval: BillingInterval;
+        packageKey: PackageKey;
+        band: GuardBand;
         email?: string;
     }): Promise<{
         url: string | null;
-        sessionId: string;
+        changed: boolean;
     }>;
+    currentPlanLookupKey(tenantId: string): Promise<string | null>;
+    private priceMatchesPlan;
+    private liveSubscriptionFor;
     createCreditPackCheckoutSession(params: {
         tenantId: string;
         pack: CreditPackKey;

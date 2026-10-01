@@ -14,6 +14,7 @@ exports.StripeWebhookService = void 0;
 const common_1 = require("@nestjs/common");
 const billing_config_1 = require("./billing.config");
 const credit_packs_constants_1 = require("./credit-packs.constants");
+const pricing_constants_1 = require("./pricing.constants");
 const credits_service_1 = require("./credits.service");
 const stripe_service_1 = require("./stripe.service");
 const subscription_provisioning_service_1 = require("./subscription-provisioning.service");
@@ -181,12 +182,14 @@ let StripeWebhookService = StripeWebhookService_1 = class StripeWebhookService {
         return { handled: true, tenantId, modules };
     }
     modulesFor(subscription) {
-        const fromPrices = subscription.items.data
-            .map((item) => item.price?.id)
-            .filter((id) => Boolean(id))
-            .map(billing_config_1.moduleForPriceId)
-            .filter((module) => module !== null);
-        return [...new Set(fromPrices)];
+        const modules = subscription.items.data.flatMap((item) => {
+            const plan = (0, pricing_constants_1.planForLookupKey)(item.price?.lookup_key);
+            if (plan)
+                return pricing_constants_1.PACKAGE_MODULES[plan.packageKey];
+            const legacy = item.price?.id ? (0, billing_config_1.moduleForPriceId)(item.price.id) : null;
+            return legacy ? [legacy] : [];
+        });
+        return [...new Set(modules)];
     }
     statusFor(status) {
         switch (status) {
