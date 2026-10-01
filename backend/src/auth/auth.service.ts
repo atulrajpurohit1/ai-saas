@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { CreditEntryType, Prisma } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -27,6 +27,7 @@ import {
 } from '../email-verification/email-verification.service';
 import { VerifyOtpDto } from '../email-verification/dto/verify-otp.dto';
 import { ResendOtpDto } from '../email-verification/dto/resend-otp.dto';
+import { signupCreditGrant } from '../billing/credit-packs.constants';
 
 type AdminPortalRole = string;
 
@@ -109,6 +110,27 @@ export class AuthService {
           data: {
             tenantId: tenant.id,
             status: 'ACTIVE',
+          },
+        });
+
+        // Welcome credits, written in the same transaction so a tenant can
+        // never exist without them. A retried signup reuses the pending
+        // tenant above and never reaches here, so this cannot stack.
+        const welcomeCredits = signupCreditGrant();
+        await tx.tenantCreditBalance.create({
+          data: {
+            tenantId: tenant.id,
+            balance: welcomeCredits,
+            lifetimePurchased: welcomeCredits,
+          },
+        });
+        await tx.creditLedgerEntry.create({
+          data: {
+            tenantId: tenant.id,
+            type: CreditEntryType.PURCHASE,
+            amount: welcomeCredits,
+            balanceAfter: welcomeCredits,
+            description: 'Welcome credits for a new account',
           },
         });
 

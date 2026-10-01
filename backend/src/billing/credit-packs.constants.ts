@@ -141,6 +141,17 @@ export function previewDiscoveryCreditCost(): number {
 }
 
 /**
+ * Credits every new account starts with, so a customer can try Prospect Search
+ * before buying a pack: one preview search or one playbook, not a full search.
+ * Spendable only once the tenant owns Lead Gen, since credits are gated on it.
+ */
+const DEFAULT_SIGNUP_CREDIT_GRANT = 50;
+
+export function signupCreditGrant(): number {
+  return creditCostFromEnv('SIGNUP_CREDIT_GRANT', DEFAULT_SIGNUP_CREDIT_GRANT);
+}
+
+/**
  * Stripe price id env var for a pack, e.g. STRIPE_PRICE_CREDITS_PRO.
  * Unset means that pack cannot be sold and checkout answers 503 for it,
  * matching how subscription prices behave before the client supplies them.
