@@ -19,8 +19,6 @@ const permissions_decorator_1 = require("../auth/decorators/permissions.decorato
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const permission_guard_1 = require("../auth/guards/permission.guard");
 const branding_service_1 = require("./branding.service");
-const create_domain_dto_1 = require("./dto/create-domain.dto");
-const update_branding_dto_1 = require("./dto/update-branding.dto");
 let BrandingController = class BrandingController {
     brandingService;
     constructor(brandingService) {
@@ -31,18 +29,6 @@ let BrandingController = class BrandingController {
     }
     getBranding(user) {
         return this.brandingService.getForUser(user);
-    }
-    updateBranding(user, dto) {
-        return this.brandingService.updateBranding(user, dto);
-    }
-    listDomains(user) {
-        return this.brandingService.listDomains(user);
-    }
-    addDomain(user, dto) {
-        return this.brandingService.addDomain(user, dto);
-    }
-    verifyDomain(user, id) {
-        return this.brandingService.verifyDomain(user, id);
     }
 };
 exports.BrandingController = BrandingController;
@@ -63,45 +49,6 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], BrandingController.prototype, "getBranding", null);
-__decorate([
-    (0, common_1.Put)(),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
-    (0, permissions_decorator_1.RequirePermission)('branding.manage'),
-    __param(0, (0, get_user_decorator_1.GetUser)()),
-    __param(1, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, update_branding_dto_1.UpdateBrandingDto]),
-    __metadata("design:returntype", void 0)
-], BrandingController.prototype, "updateBranding", null);
-__decorate([
-    (0, common_1.Get)('domains'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
-    (0, permissions_decorator_1.RequireAnyPermission)('branding.view', 'branding.manage'),
-    __param(0, (0, get_user_decorator_1.GetUser)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
-], BrandingController.prototype, "listDomains", null);
-__decorate([
-    (0, common_1.Post)('domains'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
-    (0, permissions_decorator_1.RequirePermission)('branding.manage'),
-    __param(0, (0, get_user_decorator_1.GetUser)()),
-    __param(1, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, create_domain_dto_1.CreateDomainDto]),
-    __metadata("design:returntype", void 0)
-], BrandingController.prototype, "addDomain", null);
-__decorate([
-    (0, common_1.Post)('domains/:id/verify'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
-    (0, permissions_decorator_1.RequirePermission)('branding.manage'),
-    __param(0, (0, get_user_decorator_1.GetUser)()),
-    __param(1, (0, common_1.Param)('id')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String]),
-    __metadata("design:returntype", void 0)
-], BrandingController.prototype, "verifyDomain", null);
 exports.BrandingController = BrandingController = __decorate([
     (0, common_1.Controller)('branding'),
     __metadata("design:paramtypes", [branding_service_1.BrandingService])

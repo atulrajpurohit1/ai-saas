@@ -18,7 +18,6 @@ import {
   GitBranch,
   Settings,
   Plug,
-  Palette,
   FileSpreadsheet,
   PhoneCall,
   CreditCard,
@@ -106,7 +105,6 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Administration',
     links: [
       { href: '/integrations', label: 'Integrations', icon: Plug, permissions: ['integrations.view'] },
-      { href: '/settings/branding', label: 'Branding', icon: Palette, permissions: ['branding.view'] },
       { href: '/settings/plan', label: 'Your Plan', icon: Sparkles, permissions: ['billing.view'] },
       { href: '/settings/credits', label: 'Search Credits', icon: Coins, permissions: ['billing.view'] },
       { href: '/settings/billing', label: 'Billing', icon: CreditCard, permissions: ['billing.view'] },
