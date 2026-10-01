@@ -60,8 +60,7 @@ const PLACEHOLDER_SECRETS = new Set([
 function isWeakSecret(value: string): boolean {
   const normalized = value.trim().toLowerCase();
   return (
-    normalized.length < MIN_SECRET_LENGTH ||
-    PLACEHOLDER_SECRETS.has(normalized)
+    normalized.length < MIN_SECRET_LENGTH || PLACEHOLDER_SECRETS.has(normalized)
   );
 }
 
@@ -80,7 +79,11 @@ export function checkEnvironment(
   const isProduction = !isDevelopmentLike(env);
 
   // Without these the process cannot serve a single authenticated request.
-  for (const key of ['DATABASE_URL', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET']) {
+  for (const key of [
+    'DATABASE_URL',
+    'JWT_ACCESS_SECRET',
+    'JWT_REFRESH_SECRET',
+  ]) {
     if (!env[key]?.trim()) {
       fatal.push(`${key} is not set.`);
     }
@@ -138,6 +141,20 @@ export function checkEnvironment(
     if (!env.CRM_TOKEN_SECRET?.trim()) {
       warnings.push(
         'CRM_TOKEN_SECRET is not set; stored CRM OAuth tokens fall back to being encrypted under JWT_ACCESS_SECRET. Rotating that secret will make existing CRM connections undecryptable.',
+      );
+    }
+
+    const storageKeys = [
+      'S3_ENDPOINT',
+      'S3_REGION',
+      'S3_BUCKET',
+      'S3_ACCESS_KEY_ID',
+      'S3_SECRET_ACCESS_KEY',
+    ];
+    const missingStorage = storageKeys.filter((key) => !env[key]?.trim());
+    if (missingStorage.length) {
+      warnings.push(
+        `Upload storage is not configured (missing ${missingStorage.join(', ')}); uploaded files are kept on the local disk, which is wiped on every redeploy and whenever the instance sleeps.`,
       );
     }
 

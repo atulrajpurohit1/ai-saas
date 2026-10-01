@@ -3,9 +3,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { createReadStream, existsSync } from 'fs';
-import { readFile } from 'fs/promises';
-import { join } from 'path';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -30,6 +27,7 @@ import { UpdateRfpDto } from './dto/update-rfp.dto';
 import { CreatePerformanceReviewDto } from './dto/create-performance-review.dto';
 import { UpdatePerformanceReviewDto } from './dto/update-performance-review.dto';
 import { VENDOR_UPLOAD_DIR } from '../common/file-storage.util';
+import { openStoredFile, readStoredFile } from '../common/object-storage.util';
 
 const SUBMISSION_DOCUMENT_LABELS: Record<string, string> = {
   proposalFile: 'Proposal PDF',
@@ -701,12 +699,12 @@ export class RfpService {
       throw new NotFoundException('This document was not submitted');
     }
 
-    const filePath = join(VENDOR_UPLOAD_DIR, storedFilename);
-    if (!existsSync(filePath)) {
+    const stream = await openStoredFile(VENDOR_UPLOAD_DIR, storedFilename);
+    if (!stream) {
       throw new NotFoundException('File not found on server');
     }
 
-    return { stream: createReadStream(filePath), filename: storedFilename };
+    return { stream, filename: storedFilename };
   }
 
   private async extractPdfExcerpt(
@@ -715,10 +713,9 @@ export class RfpService {
     if (!storedFilename || !/\.pdf$/i.test(storedFilename)) return null;
 
     try {
-      const filePath = join(VENDOR_UPLOAD_DIR, storedFilename);
-      if (!existsSync(filePath)) return null;
+      const buffer = await readStoredFile(VENDOR_UPLOAD_DIR, storedFilename);
+      if (!buffer) return null;
 
-      const buffer = await readFile(filePath);
       const pdfParse = require('pdf-parse');
       const data = await pdfParse(buffer, { pagerender: () => '' });
       const text = String(data.text || '').trim();

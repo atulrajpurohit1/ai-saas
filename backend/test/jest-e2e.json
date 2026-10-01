@@ -1,6 +1,7 @@
 {
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",
+  "setupFiles": ["<rootDir>/no-object-storage.setup.ts"],
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "testTimeout": 60000,

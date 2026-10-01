@@ -5,13 +5,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { createReadStream, existsSync, unlinkSync } from 'fs';
-import { join } from 'path';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import {
+  openStoredFile,
+  persistUpload,
+  removeStoredFile,
+} from '../common/object-storage.util';
 import {
   INCIDENT_EVIDENCE_UPLOAD_DIR,
   classifyIncidentEvidence,
@@ -688,14 +691,8 @@ export class IncidentsService {
   }
 
   private unlinkQuietly(storedFileName: string) {
-    try {
-      const filePath = join(INCIDENT_EVIDENCE_UPLOAD_DIR, storedFileName);
-      if (existsSync(filePath)) {
-        unlinkSync(filePath);
-      }
-    } catch {
-      // Best-effort cleanup - a missing file must not block the DB operation.
-    }
+    // Best-effort cleanup - a missing file must not block the DB operation.
+    removeStoredFile(INCIDENT_EVIDENCE_UPLOAD_DIR, storedFileName);
   }
 
   // Resolves an incident the admin caller is actually allowed to see, using
@@ -816,6 +813,8 @@ export class IncidentsService {
       );
     }
 
+    await persistUpload(INCIDENT_EVIDENCE_UPLOAD_DIR, file.filename);
+
     const created = await this.prisma.incidentEvidence.create({
       data: {
         tenantId,
@@ -911,6 +910,8 @@ export class IncidentsService {
         `${mediaType === 'image' ? 'Image' : 'Video'} evidence must be ${limitMb} MB or smaller.`,
       );
     }
+
+    await persistUpload(INCIDENT_EVIDENCE_UPLOAD_DIR, file.filename);
 
     const created = await this.prisma.incidentEvidence.create({
       data: {
@@ -1029,16 +1030,16 @@ export class IncidentsService {
       throw new NotFoundException('Evidence not found');
     }
 
-    const filePath = join(
+    const stream = await openStoredFile(
       INCIDENT_EVIDENCE_UPLOAD_DIR,
       evidence.storedFileName,
     );
-    if (!existsSync(filePath)) {
+    if (!stream) {
       throw new NotFoundException('Evidence file not found on server');
     }
 
     return {
-      stream: createReadStream(filePath),
+      stream,
       mimeType: evidence.mimeType,
       fileName: evidence.fileName,
       fileSizeBytes: evidence.fileSizeBytes,
