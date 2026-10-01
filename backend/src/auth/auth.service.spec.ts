@@ -126,3 +126,90 @@ describe('AuthService.verifyEmail', () => {
     expect(sessionsService.createSession).toHaveBeenCalled();
   });
 });
+
+describe('AuthService.register welcome credits', () => {
+  let service: AuthService;
+  let tx: {
+    tenant: { findUnique: jest.Mock; create: jest.Mock };
+    tenantSubscription: { create: jest.Mock };
+    tenantCreditBalance: { create: jest.Mock };
+    creditLedgerEntry: { create: jest.Mock };
+    user: { create: jest.Mock };
+  };
+  let prisma: {
+    user: { findUnique: jest.Mock; update: jest.Mock };
+    $transaction: jest.Mock;
+  };
+
+  const dto = {
+    email: 'owner@newco.com',
+    password: 'Str0ng!Passw0rd',
+    name: 'Owner',
+    tenantName: 'NewCo',
+  };
+
+  beforeEach(() => {
+    tx = {
+      tenant: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'tenant-1' }),
+      },
+      tenantSubscription: { create: jest.fn().mockResolvedValue({}) },
+      tenantCreditBalance: { create: jest.fn().mockResolvedValue({}) },
+      creditLedgerEntry: { create: jest.fn().mockResolvedValue({}) },
+      user: { create: jest.fn().mockResolvedValue({ id: 'user-1' }) },
+    };
+    prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      $transaction: jest.fn((fn: (client: typeof tx) => unknown) => fn(tx)),
+    };
+    const rolesService = {
+      ensureTenantSystemRoles: jest.fn().mockResolvedValue(undefined),
+      ensureDefaultAssignmentForUser: jest.fn().mockResolvedValue(undefined),
+    };
+    const emailVerification = {
+      assertValidEmail: jest.fn((email: string) => Promise.resolve(email)),
+      issueOtp: jest.fn().mockResolvedValue(undefined),
+    };
+
+    service = new AuthService(
+      prisma as unknown as PrismaService,
+      {} as JwtService,
+      { get: jest.fn() } as unknown as ConfigService,
+      rolesService as unknown as RolesService,
+      {} as SessionsService,
+      emailVerification as unknown as EmailVerificationService,
+    );
+  });
+
+  it('starts a new tenant with 50 credits and a matching ledger entry', async () => {
+    await service.register(dto);
+
+    expect(tx.tenantCreditBalance.create).toHaveBeenCalledWith({
+      data: { tenantId: 'tenant-1', balance: 50, lifetimePurchased: 50 },
+    });
+    expect(tx.creditLedgerEntry.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        tenantId: 'tenant-1',
+        amount: 50,
+        balanceAfter: 50,
+      }) as unknown,
+    });
+  });
+
+  it('does not grant again when a pending signup is retried', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      tenantId: 'tenant-1',
+      emailVerified: false,
+    });
+
+    await service.register(dto);
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(tx.tenantCreditBalance.create).not.toHaveBeenCalled();
+  });
+});

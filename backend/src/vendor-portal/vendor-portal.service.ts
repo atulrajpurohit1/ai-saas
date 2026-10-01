@@ -5,11 +5,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { unlink } from 'fs/promises';
-import { join } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { VENDOR_UPLOAD_DIR } from '../common/file-storage.util';
+import { persistUpload, removeStoredFile } from '../common/object-storage.util';
 
 export interface SubmissionFiles {
   proposalFile?: Express.Multer.File[];
@@ -110,6 +109,16 @@ export class VendorPortalService {
       );
     }
 
+    try {
+      for (const file of this.uploadedFiles(files)) {
+        await persistUpload(VENDOR_UPLOAD_DIR, file.filename);
+      }
+    } catch (error) {
+      // Some files may already be stored; none are referenced yet.
+      await this.cleanupUploadedFiles(files);
+      throw error;
+    }
+
     const submission = await this.prisma.proposalSubmission.create({
       data: {
         tenantId: rfpVendor.tenantId,
@@ -141,18 +150,19 @@ export class VendorPortalService {
     return { success: true };
   }
 
-  private async cleanupUploadedFiles(files: SubmissionFiles) {
-    const all = [
+  private uploadedFiles(files: SubmissionFiles) {
+    return [
       ...(files.proposalFile ?? []),
       ...(files.pricingFile ?? []),
       ...(files.insuranceFile ?? []),
       ...(files.licenseFile ?? []),
     ];
+  }
 
-    await Promise.all(
-      all.map((file) =>
-        unlink(join(VENDOR_UPLOAD_DIR, file.filename)).catch(() => undefined),
-      ),
-    );
+  private cleanupUploadedFiles(files: SubmissionFiles): Promise<void> {
+    for (const file of this.uploadedFiles(files)) {
+      removeStoredFile(VENDOR_UPLOAD_DIR, file.filename);
+    }
+    return Promise.resolve();
   }
 }

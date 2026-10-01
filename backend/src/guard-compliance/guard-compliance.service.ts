@@ -3,13 +3,16 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { createReadStream, existsSync, unlinkSync } from 'fs';
-import { join } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { branchWhere } from '../branches/branch-scope';
 import { GUARD_COMPLIANCE_UPLOAD_DIR } from '../common/file-storage.util';
+import {
+  openStoredFile,
+  persistUpload,
+  removeStoredFile,
+} from '../common/object-storage.util';
 import { CreateGuardComplianceDto } from './dto/create-guard-compliance.dto';
 import { UpdateGuardComplianceDto } from './dto/update-guard-compliance.dto';
 import { GUARD_COMPLIANCE_TYPES } from './compliance-types.constants';
@@ -188,8 +191,7 @@ export class GuardComplianceService {
     const record = await this.findRecordOrThrow(user, id);
 
     if (record.storedFileName) {
-      const filePath = join(GUARD_COMPLIANCE_UPLOAD_DIR, record.storedFileName);
-      if (existsSync(filePath)) unlinkSync(filePath);
+      removeStoredFile(GUARD_COMPLIANCE_UPLOAD_DIR, record.storedFileName);
     }
 
     await this.prisma.guardCompliance.delete({ where: { id } });
@@ -271,9 +273,10 @@ export class GuardComplianceService {
   ) {
     const record = await this.findRecordOrThrow(user, id);
 
+    await persistUpload(GUARD_COMPLIANCE_UPLOAD_DIR, file.filename);
+
     if (record.storedFileName) {
-      const oldPath = join(GUARD_COMPLIANCE_UPLOAD_DIR, record.storedFileName);
-      if (existsSync(oldPath)) unlinkSync(oldPath);
+      removeStoredFile(GUARD_COMPLIANCE_UPLOAD_DIR, record.storedFileName);
     }
 
     const updated = await this.prisma.guardCompliance.update({
@@ -299,13 +302,16 @@ export class GuardComplianceService {
       throw new NotFoundException('No document uploaded for this record');
     }
 
-    const filePath = join(GUARD_COMPLIANCE_UPLOAD_DIR, record.storedFileName);
-    if (!existsSync(filePath)) {
+    const stream = await openStoredFile(
+      GUARD_COMPLIANCE_UPLOAD_DIR,
+      record.storedFileName,
+    );
+    if (!stream) {
       throw new NotFoundException('File not found on server');
     }
 
     return {
-      stream: createReadStream(filePath),
+      stream,
       filename: record.fileName || record.storedFileName,
     };
   }

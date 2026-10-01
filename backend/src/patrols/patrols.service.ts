@@ -5,8 +5,6 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Checkpoint } from '@prisma/client';
-import { createReadStream, existsSync, unlinkSync } from 'fs';
-import { join } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
@@ -18,6 +16,11 @@ import {
   patrolEvidenceImageMaxBytes,
   patrolEvidenceImageMaxMb,
 } from '../common/file-storage.util';
+import {
+  openStoredFile,
+  persistUpload,
+  removeStoredFile,
+} from '../common/object-storage.util';
 import { CreateCheckpointDto } from './dto/create-checkpoint.dto';
 import { UpdateCheckpointDto } from './dto/update-checkpoint.dto';
 import { CreatePatrolRouteDto } from './dto/create-patrol-route.dto';
@@ -505,7 +508,12 @@ export class PatrolsService {
           },
         },
         events: {
-          select: { id: true, status: true, verificationStatus: true, scannedAt: true },
+          select: {
+            id: true,
+            status: true,
+            verificationStatus: true,
+            scannedAt: true,
+          },
         },
       },
       orderBy: { startedAt: 'desc' },
@@ -538,7 +546,11 @@ export class PatrolsService {
           : null,
         site: run.shift?.site ?? null,
         shift: run.shift
-          ? { id: run.shift.id, startTime: run.shift.startTime, endTime: run.shift.endTime }
+          ? {
+              id: run.shift.id,
+              startTime: run.shift.startTime,
+              endTime: run.shift.endTime,
+            }
           : null,
         checkpoints: { scanned, total: totalCheckpoints, missed },
         geofenceFailures,
@@ -563,13 +575,16 @@ export class PatrolsService {
       generatedAt: new Date(),
       summary: {
         activeRuns: activeRows.length,
-        guardsOnPatrol: new Set(activeRows.map((r) => r.guard?.id).filter(Boolean))
-          .size,
+        guardsOnPatrol: new Set(
+          activeRows.map((r) => r.guard?.id).filter(Boolean),
+        ).size,
         completedToday: completedTodayRows.length,
         checkpointsScannedToday: rows.reduce(
           (sum, r) =>
             sum +
-            (r.completedAt && r.completedAt >= startOfToday ? r.checkpoints.scanned : 0),
+            (r.completedAt && r.completedAt >= startOfToday
+              ? r.checkpoints.scanned
+              : 0),
           0,
         ),
         missedCheckpointsToday: rows.reduce(
@@ -1048,14 +1063,8 @@ export class PatrolsService {
   }
 
   private unlinkPatrolEvidenceQuietly(storedFileName: string) {
-    try {
-      const filePath = join(PATROL_EVIDENCE_UPLOAD_DIR, storedFileName);
-      if (existsSync(filePath)) {
-        unlinkSync(filePath);
-      }
-    } catch {
-      // Best-effort cleanup - a missing file must not block the DB operation.
-    }
+    // Best-effort cleanup - a missing file must not block the DB operation.
+    removeStoredFile(PATROL_EVIDENCE_UPLOAD_DIR, storedFileName);
   }
 
   // Resolves the patrol event a guard is allowed to attach evidence to: it
@@ -1137,6 +1146,8 @@ export class PatrolsService {
         `Photo evidence must be ${patrolEvidenceImageMaxMb()} MB or smaller.`,
       );
     }
+
+    await persistUpload(PATROL_EVIDENCE_UPLOAD_DIR, file.filename);
 
     const created = await this.prisma.patrolEvidence.create({
       data: {
@@ -1240,13 +1251,16 @@ export class PatrolsService {
       throw new NotFoundException('Evidence not found');
     }
 
-    const filePath = join(PATROL_EVIDENCE_UPLOAD_DIR, evidence.storedFileName);
-    if (!existsSync(filePath)) {
+    const stream = await openStoredFile(
+      PATROL_EVIDENCE_UPLOAD_DIR,
+      evidence.storedFileName,
+    );
+    if (!stream) {
       throw new NotFoundException('Evidence file not found on server');
     }
 
     return {
-      stream: createReadStream(filePath),
+      stream,
       mimeType: evidence.mimeType,
       fileName: evidence.fileName,
       fileSizeBytes: evidence.fileSizeBytes,

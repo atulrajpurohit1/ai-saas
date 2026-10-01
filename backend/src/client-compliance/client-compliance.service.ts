@@ -3,8 +3,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { createReadStream, existsSync, unlinkSync } from 'fs';
-import { join } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
@@ -15,6 +13,11 @@ import {
   clientInsuranceUploadMaxMb,
   isAllowedClientInsuranceDocument,
 } from '../common/file-storage.util';
+import {
+  openStoredFile,
+  persistUpload,
+  removeStoredFile,
+} from '../common/object-storage.util';
 import {
   ComplianceStatus,
   calculateRecordStatus,
@@ -138,7 +141,11 @@ export class ClientComplianceService {
     }
   }
 
-  private serialize(record: PolicyRecord, clientName: string, siteName?: string | null) {
+  private serialize(
+    record: PolicyRecord,
+    clientName: string,
+    siteName?: string | null,
+  ) {
     // storedFileName is deliberately never included - it is an internal
     // on-disk path fragment and exposing it would enable enumeration.
     return {
@@ -164,12 +171,8 @@ export class ClientComplianceService {
   }
 
   private unlinkQuietly(storedFileName: string) {
-    try {
-      const filePath = join(CLIENT_INSURANCE_UPLOAD_DIR, storedFileName);
-      if (existsSync(filePath)) unlinkSync(filePath);
-    } catch {
-      // Best-effort cleanup - a missing file must not block the DB operation.
-    }
+    // Best-effort cleanup - a missing file must not block the DB operation.
+    removeStoredFile(CLIENT_INSURANCE_UPLOAD_DIR, storedFileName);
   }
 
   // --- admin: mutations -------------------------------------------------
@@ -231,11 +234,7 @@ export class ClientComplianceService {
     if (dto.site_id !== undefined) {
       nextSiteId = dto.site_id?.trim() || null;
       if (nextSiteId) {
-        await this.assertSiteBelongsToClient(
-          user,
-          record.clientId,
-          nextSiteId,
-        );
+        await this.assertSiteBelongsToClient(user, record.clientId, nextSiteId);
       }
     }
 
@@ -338,6 +337,8 @@ export class ClientComplianceService {
         `Insurance document must be ${clientInsuranceUploadMaxMb()} MB or smaller.`,
       );
     }
+
+    await persistUpload(CLIENT_INSURANCE_UPLOAD_DIR, file.filename);
 
     if (record.storedFileName) {
       this.unlinkQuietly(record.storedFileName);
@@ -449,10 +450,7 @@ export class ClientComplianceService {
   }
 
   async getSummary(user: ActiveUser, clientId?: string) {
-    const rows = await this.findAll(
-      user,
-      clientId ? { clientId } : {},
-    );
+    const rows = await this.findAll(user, clientId ? { clientId } : {});
     const summary = {
       total: rows.length,
       valid: 0,
@@ -518,19 +516,22 @@ export class ClientComplianceService {
     return this.resolveDocumentFile(record.storedFileName, record.fileName);
   }
 
-  private resolveDocumentFile(
+  private async resolveDocumentFile(
     storedFileName: string | null,
     fileName: string | null,
   ) {
     if (!storedFileName) {
       throw new NotFoundException('No document uploaded for this policy');
     }
-    const filePath = join(CLIENT_INSURANCE_UPLOAD_DIR, storedFileName);
-    if (!existsSync(filePath)) {
+    const stream = await openStoredFile(
+      CLIENT_INSURANCE_UPLOAD_DIR,
+      storedFileName,
+    );
+    if (!stream) {
       throw new NotFoundException('Document file not found on server');
     }
     return {
-      stream: createReadStream(filePath),
+      stream,
       filename: fileName || storedFileName,
     };
   }

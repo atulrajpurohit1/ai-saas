@@ -41,6 +41,11 @@ const validProduction = {
   RESEND_API_KEY: 're_test',
   EMAIL_FROM: 'noreply@example.com',
   CORS_ORIGINS: 'https://dashboard.example.com',
+  S3_ENDPOINT: 'https://s3.example.com',
+  S3_REGION: 'us-east-1',
+  S3_BUCKET: 'uploads',
+  S3_ACCESS_KEY_ID: 'key-id',
+  S3_SECRET_ACCESS_KEY: 'key-secret',
 } as NodeJS.ProcessEnv;
 
 describe('checkEnvironment', () => {
@@ -162,5 +167,16 @@ describe('assertEnvironment', () => {
 
   it('returns quietly for a valid environment', () => {
     expect(() => assertEnvironment(validProduction)).not.toThrow();
+  });
+});
+
+describe('checkEnvironment upload storage', () => {
+  it('warns in production when upload storage is not configured', () => {
+    const { fatal, warnings } = checkEnvironment({
+      ...validProduction,
+      S3_BUCKET: '',
+    });
+    expect(fatal).toEqual([]);
+    expect(warnings).toEqual([expect.stringContaining('S3_BUCKET')]);
   });
 });
