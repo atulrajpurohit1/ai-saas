@@ -5,8 +5,10 @@ const app_module_1 = require("./app.module");
 const common_1 = require("@nestjs/common");
 const prisma_exception_filter_1 = require("./prisma/prisma-exception.filter");
 const dns_1 = require("dns");
+const environment_check_1 = require("./config/environment-check");
 (0, dns_1.setDefaultResultOrder)('ipv4first');
 async function bootstrap() {
+    (0, environment_check_1.assertEnvironment)();
     const app = await core_1.NestFactory.create(app_module_1.AppModule, {
         rawBody: true,
     });
@@ -15,6 +17,16 @@ async function bootstrap() {
     app.useGlobalFilters(new prisma_exception_filter_1.PrismaExceptionFilter());
     app.useGlobalPipes(new common_1.ValidationPipe({ whitelist: true, transform: true }));
     app.setGlobalPrefix('api');
+    app.use((_req, res, next) => {
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('X-Frame-Options', 'DENY');
+        res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+        res.setHeader('Referrer-Policy', 'no-referrer');
+        res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
+        res.removeHeader('X-Powered-By');
+        res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+        next();
+    });
     const configuredOrigins = (process.env.CORS_ORIGINS ||
         process.env.FRONTEND_URL ||
         '')
@@ -31,12 +43,19 @@ async function bootstrap() {
         'https://dashboard.aegislead.co',
         ...configuredOrigins,
     ]);
+    const allowVercelPreviews = process.env.ALLOW_VERCEL_PREVIEW_ORIGINS === 'true' ||
+        (0, environment_check_1.isDevelopmentLike)();
     const isAllowedOrigin = (origin) => {
         if (!origin) {
             return true;
         }
-        return (allowedOrigins.has(origin) ||
-            /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin) ||
+        if (allowedOrigins.has(origin))
+            return true;
+        if ((0, environment_check_1.isDevelopmentLike)() &&
+            /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) {
+            return true;
+        }
+        return (allowVercelPreviews &&
             /^https:\/\/ai-saas-[a-z0-9-]+\.vercel\.app$/.test(origin));
     };
     app.enableCors({

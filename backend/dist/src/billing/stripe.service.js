@@ -92,6 +92,7 @@ let StripeService = StripeService_1 = class StripeService {
         if (!price) {
             throw new common_1.ServiceUnavailableException(`No price is configured for the ${credit_packs_constants_1.CREDIT_PACKS[pack].label} yet.`);
         }
+        await this.assertPriceMatchesPack(price, pack);
         const urls = (0, billing_config_1.billingReturnUrls)();
         const customer = await this.customerIdFor(tenantId, email);
         const session = await this.stripe().checkout.sessions.create({
@@ -110,6 +111,22 @@ let StripeService = StripeService_1 = class StripeService {
             },
         });
         return { url: session.url, sessionId: session.id };
+    }
+    async assertPriceMatchesPack(priceId, pack) {
+        const expected = credit_packs_constants_1.CREDIT_PACKS[pack];
+        const price = await this.stripe().prices.retrieve(priceId);
+        const matches = price.active &&
+            price.type === 'one_time' &&
+            price.currency === 'usd' &&
+            price.unit_amount === expected.price * 100;
+        if (!matches) {
+            this.logger.error(`Refusing to sell the ${expected.label}: price ${priceId} charges ` +
+                `${price.unit_amount ?? 'unknown'} ${price.currency} (${price.type}, ` +
+                `${price.active ? 'active' : 'archived'}), but the pack is ` +
+                `$${expected.price} one-time for ${expected.credits} credits. ` +
+                `Set ${(0, credit_packs_constants_1.creditPackPriceEnvKey)(pack)} to the matching price.`);
+            throw new common_1.ServiceUnavailableException(`The ${expected.label} can't be bought right now. Please try again later.`);
+        }
     }
     async checkoutSessionForPaymentIntent(paymentIntentId) {
         const sessions = await this.stripe().checkout.sessions.list({

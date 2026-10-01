@@ -1,4 +1,5 @@
 import { AuthService } from './auth.service';
+import { AuthRateLimitService } from './auth-rate-limit.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { Request } from 'express';
@@ -8,7 +9,8 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 export declare class AuthController {
     private authService;
-    constructor(authService: AuthService);
+    private rateLimit;
+    constructor(authService: AuthService, rateLimit: AuthRateLimitService);
     register(dto: RegisterDto, req: Request): Promise<{
         status: string;
         email: string;
@@ -17,23 +19,25 @@ export declare class AuthController {
         access_token: string;
         refresh_token: string;
     }>;
-    resendOtp(dto: ResendOtpDto): Promise<{
+    resendOtp(dto: ResendOtpDto, req: Request): Promise<{
         message: string;
     }>;
     login(dto: LoginDto, req: Request): Promise<{
         access_token: string;
         refresh_token: string;
     }>;
-    forgotPassword(dto: ForgotPasswordDto): Promise<{
+    forgotPassword(dto: ForgotPasswordDto, req: Request): Promise<{
         message: string;
     }>;
-    verifyResetOtp(dto: VerifyOtpDto): Promise<{
+    verifyResetOtp(dto: VerifyOtpDto, req: Request): Promise<{
         resetToken: string;
         expiresAt: Date;
     }>;
-    resetPassword(dto: ResetPasswordDto): Promise<{
+    resetPassword(dto: ResetPasswordDto, req: Request): Promise<{
         message: string;
     }>;
+    private throttle;
+    private clientIp;
     logout(req: Request): Promise<boolean>;
     refreshTokens(req: Request): Promise<{
         access_token: string;

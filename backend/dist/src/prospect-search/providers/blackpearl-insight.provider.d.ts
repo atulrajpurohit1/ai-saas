@@ -6,6 +6,7 @@ export interface BlackPearlJobResult {
     progress: number | null;
     companyName: string | null;
     insight: ProspectCompanyInsight | null;
+    upstreamCostUsd: number | null;
 }
 export declare class BlackPearlInsightProvider {
     private readonly configService;

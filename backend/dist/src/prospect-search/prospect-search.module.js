@@ -22,6 +22,7 @@ const prospect_search_controller_1 = require("./prospect-search.controller");
 const prospect_search_history_service_1 = require("./prospect-search-history.service");
 const prospect_search_rate_limit_service_1 = require("./prospect-search-rate-limit.service");
 const prospect_search_service_1 = require("./prospect-search.service");
+const upstream_budget_service_1 = require("./upstream-budget.service");
 const saved_prospect_search_service_1 = require("./saved-prospect-search.service");
 let ProspectSearchModule = class ProspectSearchModule {
 };
@@ -46,6 +47,7 @@ exports.ProspectSearchModule = ProspectSearchModule = __decorate([
             saved_prospect_search_service_1.SavedProspectSearchService,
             blackpearl_insight_provider_1.BlackPearlInsightProvider,
             blackpearl_prospecting_provider_1.BlackPearlProspectingProvider,
+            upstream_budget_service_1.UpstreamBudgetService,
         ],
     })
 ], ProspectSearchModule);

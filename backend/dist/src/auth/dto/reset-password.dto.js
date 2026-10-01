@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ResetPasswordDto = void 0;
 const class_validator_1 = require("class-validator");
+const password_policy_1 = require("../password-policy");
 class ResetPasswordDto {
     resetToken;
     newPassword;
@@ -25,7 +26,8 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
-    (0, class_validator_1.MinLength)(8),
+    (0, class_validator_1.MinLength)(password_policy_1.PASSWORD_MIN_LENGTH),
+    (0, class_validator_1.MaxLength)(password_policy_1.PASSWORD_MAX_LENGTH),
     __metadata("design:type", String)
 ], ResetPasswordDto.prototype, "newPassword", void 0);
 __decorate([

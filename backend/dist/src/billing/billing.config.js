@@ -8,6 +8,7 @@ exports.billingReturnUrls = billingReturnUrls;
 exports.trialDays = trialDays;
 exports.isCheckoutConfigured = isCheckoutConfigured;
 exports.sellableModules = sellableModules;
+const environment_check_1 = require("../config/environment-check");
 const ENV_KEYS = {
     LEAD_GEN: {
         monthly: 'STRIPE_PRICE_LEAD_GEN_MONTHLY',
@@ -43,7 +44,7 @@ function stripeWebhookSecret() {
 }
 function billingReturnUrls() {
     const configured = process.env.BILLING_RETURN_URL || process.env.FRONTEND_URL;
-    if (!configured && process.env.NODE_ENV === 'production') {
+    if (!configured && !(0, environment_check_1.isDevelopmentLike)()) {
         console.error('BILLING_RETURN_URL is not set. Stripe will return paying customers to ' +
             'http://localhost:3000, which is their own machine. Set it to the origin ' +
             'customers sign in on.');

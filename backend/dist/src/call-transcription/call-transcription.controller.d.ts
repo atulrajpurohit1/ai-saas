@@ -10,7 +10,7 @@ export declare class CallTranscriptionController {
         supported_types: string[];
     };
     transcribe(file: Express.Multer.File): Promise<{
-        provider: string;
+        provider: "gemini" | "openai";
         model: string;
         filename: string;
         mime_type: string;

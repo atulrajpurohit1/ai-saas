@@ -1,5 +1,9 @@
+type TranscriptionProvider = 'gemini' | 'openai';
 export declare class CallTranscriptionService {
-    private client;
+    private readonly logger;
+    private openaiClient;
+    private geminiClient;
+    private provider;
     getStatus(): {
         configured: boolean;
         provider: string;
@@ -8,7 +12,7 @@ export declare class CallTranscriptionService {
         supported_types: string[];
     };
     transcribe(file: Express.Multer.File): Promise<{
-        provider: string;
+        provider: TranscriptionProvider;
         model: string;
         filename: string;
         mime_type: string;
@@ -16,10 +20,13 @@ export declare class CallTranscriptionService {
         transcript: string;
         elapsed_ms: number;
     }>;
+    private transcribeWithGemini;
+    private transcribeWithOpenAi;
+    private clean;
     private openai;
+    private gemini;
     private isSupported;
-    private apiKey;
     private model;
     private maxFileMb;
-    private maxFileBytes;
 }
+export {};

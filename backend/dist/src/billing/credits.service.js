@@ -106,7 +106,7 @@ let CreditsService = CreditsService_1 = class CreditsService {
         }
     }
     async settle(params) {
-        const { reservationId, actualUsed, description } = params;
+        const { reservationId, actualUsed, description, upstreamCostUsd } = params;
         if (!Number.isInteger(actualUsed) || actualUsed < 0) {
             throw new common_1.BadRequestException('Settled credit amount must be zero or a positive whole number.');
         }
@@ -173,6 +173,10 @@ let CreditsService = CreditsService_1 = class CreditsService {
                         : client_1.CreditReservationStatus.RELEASED,
                     settledAmount: consumed,
                     settledAt: new Date(),
+                    ...(typeof upstreamCostUsd === 'number' &&
+                        Number.isFinite(upstreamCostUsd)
+                        ? { upstreamCostUsd }
+                        : {}),
                 },
             });
             return { released, consumed };

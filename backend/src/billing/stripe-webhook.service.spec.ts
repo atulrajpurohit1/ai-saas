@@ -281,27 +281,27 @@ describe('StripeWebhookService', () => {
   });
 
   describe('credit pack purchases', () => {
-    const PRICE_CREDITS_GROWTH = 'price_credits_growth';
+    const PRICE_CREDITS_PRO = 'price_credits_pro';
 
     beforeEach(() => {
-      process.env.STRIPE_PRICE_CREDITS_GROWTH = PRICE_CREDITS_GROWTH;
+      process.env.STRIPE_PRICE_CREDITS_PRO = PRICE_CREDITS_PRO;
     });
 
     afterEach(() => {
-      delete process.env.STRIPE_PRICE_CREDITS_GROWTH;
+      delete process.env.STRIPE_PRICE_CREDITS_PRO;
     });
 
     const packSession = (overrides: Record<string, unknown> = {}) => ({
       id: 'cs_credits_1',
       mode: 'payment',
       payment_status: 'paid',
-      metadata: { tenantId: 'tenant-1', creditPack: 'GROWTH' },
+      metadata: { tenantId: 'tenant-1', creditPack: 'PRO' },
       ...overrides,
     });
 
     it('grants the credits the purchased price actually sells', async () => {
       stripe.priceIdsForCheckoutSession.mockResolvedValue([
-        PRICE_CREDITS_GROWTH,
+        PRICE_CREDITS_PRO,
       ]);
 
       const result = await service.handle(
@@ -311,7 +311,7 @@ describe('StripeWebhookService', () => {
       expect(credits.grant).toHaveBeenCalledWith(
         expect.objectContaining({
           tenantId: 'tenant-1',
-          amount: 1000,
+          amount: 13000,
           // The session id is what makes a replayed webhook a no-op.
           stripeSessionId: 'cs_credits_1',
         }),
@@ -319,7 +319,7 @@ describe('StripeWebhookService', () => {
       expect(result).toEqual({
         handled: true,
         tenantId: 'tenant-1',
-        credits: 1000,
+        credits: 13000,
       });
       // A one-off payment must never be mistaken for a subscription.
       expect(provisioning.provision).not.toHaveBeenCalled();
@@ -329,7 +329,7 @@ describe('StripeWebhookService', () => {
     // would let an edited session mint arbitrary credits.
     it('ignores a credit figure in metadata that the price does not back', async () => {
       stripe.priceIdsForCheckoutSession.mockResolvedValue([
-        PRICE_CREDITS_GROWTH,
+        PRICE_CREDITS_PRO,
       ]);
 
       await service.handle(
@@ -338,7 +338,7 @@ describe('StripeWebhookService', () => {
           packSession({
             metadata: {
               tenantId: 'tenant-1',
-              creditPack: 'GROWTH',
+              creditPack: 'PRO',
               credits: '999999',
             },
           }),
@@ -346,7 +346,7 @@ describe('StripeWebhookService', () => {
       );
 
       expect(credits.grant).toHaveBeenCalledWith(
-        expect.objectContaining({ amount: 1000 }),
+        expect.objectContaining({ amount: 13000 }),
       );
     });
 

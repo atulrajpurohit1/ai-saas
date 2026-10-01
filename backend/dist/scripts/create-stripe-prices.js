@@ -71,7 +71,7 @@ async function findOrCreatePrice(params) {
         const pack = credit_packs_constants_1.CREDIT_PACKS[packKey];
         const result = await findOrCreatePrice({
             productName: `AegisLead ${pack.label} (${pack.credits} Prospect Search credits)`,
-            lookupKey: `credits_${packKey.toLowerCase()}`,
+            lookupKey: `credits_${packKey.toLowerCase()}_${pack.credits}cr_${pack.price}usd`,
             amount: pack.price,
             recurring: null,
             metadata: { creditPack: packKey, credits: String(pack.credits) },

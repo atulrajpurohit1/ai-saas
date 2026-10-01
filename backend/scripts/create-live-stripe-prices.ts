@@ -68,7 +68,9 @@ async function findOrCreatePrice(params: {
     const pack = CREDIT_PACKS[packKey];
     const result = await findOrCreatePrice({
       productName: `AegisLead ${pack.label} (${pack.credits} Prospect Search credits)`,
-      lookupKey: `credits_${packKey.toLowerCase()}`,
+      // Size and price are part of the key, so resizing a pack creates a new
+      // price instead of silently reusing the old one under the same name.
+      lookupKey: `credits_${packKey.toLowerCase()}_${pack.credits}cr_${pack.price}usd`,
       amount: pack.price,
       recurring: null,
       metadata: { creditPack: packKey, credits: String(pack.credits) },

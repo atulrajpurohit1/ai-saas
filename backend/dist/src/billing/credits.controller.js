@@ -45,8 +45,9 @@ let CreditsController = class CreditsController {
             configured: (0, billing_config_1.isCheckoutConfigured)(),
             packs: (0, credit_packs_constants_1.sellableCreditPacks)(),
             costs: {
-                playbook: credit_packs_constants_1.PLAYBOOK_CREDIT_COST,
-                perProspect: 1,
+                playbook: (0, credit_packs_constants_1.playbookCreditCost)(),
+                discoverySearch: (0, credit_packs_constants_1.discoveryCreditCost)(),
+                perProspect: null,
             },
         };
     }

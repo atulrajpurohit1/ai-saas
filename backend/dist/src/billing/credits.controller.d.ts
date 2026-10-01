@@ -15,7 +15,8 @@ export declare class CreditsController {
         packs: import("./credit-packs.constants").CreditPack[];
         costs: {
             playbook: number;
-            perProspect: number;
+            discoverySearch: number;
+            perProspect: null;
         };
     };
     getLedger(user: ActiveUser, limit?: string): Promise<{
@@ -31,6 +32,7 @@ export declare class CreditsController {
         reservationStatus: import(".prisma/client").$Enums.CreditReservationStatus | null;
         settledAmount: number | null;
         settledAt: Date | null;
+        upstreamCostUsd: import("@prisma/client/runtime/library").Decimal | null;
         stripeSessionId: string | null;
         reservationId: string | null;
     }[]>;

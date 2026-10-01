@@ -17,12 +17,25 @@ const common_1 = require("@nestjs/common");
 const jwt_refresh_guard_1 = require("../auth/guards/jwt-refresh.guard");
 const guard_login_dto_1 = require("./dto/guard-login.dto");
 const guard_auth_service_1 = require("./guard-auth.service");
+const auth_rate_limit_service_1 = require("../auth/auth-rate-limit.service");
 let GuardAuthController = class GuardAuthController {
     guardAuthService;
-    constructor(guardAuthService) {
+    rateLimit;
+    constructor(guardAuthService, rateLimit) {
         this.guardAuthService = guardAuthService;
+        this.rateLimit = rateLimit;
     }
-    login(dto) {
+    login(dto, req) {
+        const identifier = (dto.identifier || dto.email || dto.phone || '').trim();
+        const ip = req.headers['x-forwarded-for']
+            ?.split(',')[0]
+            ?.trim() ||
+            req.ip ||
+            'unknown';
+        this.rateLimit.consume(`login:ip:${ip}`, 50, 900);
+        if (identifier) {
+            this.rateLimit.consume(`login:email:${identifier.toLowerCase()}`, 10, 900);
+        }
         return this.guardAuthService.login(dto);
     }
     refreshTokens(req) {
@@ -45,8 +58,9 @@ __decorate([
     (0, common_1.Post)('login'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [guard_login_dto_1.GuardLoginDto]),
+    __metadata("design:paramtypes", [guard_login_dto_1.GuardLoginDto, Object]),
     __metadata("design:returntype", void 0)
 ], GuardAuthController.prototype, "login", null);
 __decorate([
@@ -69,6 +83,7 @@ __decorate([
 ], GuardAuthController.prototype, "logout", null);
 exports.GuardAuthController = GuardAuthController = __decorate([
     (0, common_1.Controller)('guard-auth'),
-    __metadata("design:paramtypes", [guard_auth_service_1.GuardAuthService])
+    __metadata("design:paramtypes", [guard_auth_service_1.GuardAuthService,
+        auth_rate_limit_service_1.AuthRateLimitService])
 ], GuardAuthController);
 //# sourceMappingURL=guard-auth.controller.js.map

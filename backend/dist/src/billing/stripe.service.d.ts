@@ -28,6 +28,7 @@ export declare class StripeService {
         url: string | null;
         sessionId: string;
     }>;
+    private assertPriceMatchesPack;
     checkoutSessionForPaymentIntent(paymentIntentId: string): Promise<Stripe.Checkout.Session | null>;
     priceIdsForCheckoutSession(sessionId: string): Promise<string[]>;
     createPortalSession(tenantId: string): Promise<{

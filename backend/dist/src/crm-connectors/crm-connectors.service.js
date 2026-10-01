@@ -424,9 +424,12 @@ let CrmConnectorsService = CrmConnectorsService_1 = class CrmConnectorsService {
         return (0, crypto_1.createHash)('sha256').update(this.secret()).digest();
     }
     secret() {
-        return (process.env.CRM_TOKEN_SECRET ||
-            process.env.JWT_ACCESS_SECRET ||
-            'local-crm-token-secret');
+        const configured = process.env.CRM_TOKEN_SECRET?.trim() ||
+            process.env.JWT_ACCESS_SECRET?.trim();
+        if (!configured) {
+            throw new common_1.InternalServerErrorException('CRM token encryption is not configured. Set CRM_TOKEN_SECRET.');
+        }
+        return configured;
     }
     scopeList(provider, scope) {
         return scope ? scope.split(/\s+/).filter(Boolean) : provider.scopes;

@@ -49,6 +49,7 @@ const audit_service_1 = require("../audit/audit.service");
 const branch_scope_1 = require("../branches/branch-scope");
 const field_permissions_service_1 = require("../field-permissions/field-permissions.service");
 const bcrypt = __importStar(require("bcrypt"));
+const password_policy_1 = require("../auth/password-policy");
 const webhooks_service_1 = require("../webhooks/webhooks.service");
 let GuardsService = class GuardsService {
     prisma;
@@ -104,7 +105,7 @@ let GuardsService = class GuardsService {
             throw new common_1.BadRequestException('Guard phone or email is required');
         }
         const passwordHash = dto.password
-            ? await bcrypt.hash(dto.password, 10)
+            ? await bcrypt.hash(dto.password, password_policy_1.BCRYPT_PASSWORD_ROUNDS)
             : undefined;
         const guard = await this.prisma.guard.create({
             data: {
@@ -182,7 +183,7 @@ let GuardsService = class GuardsService {
             ...(dto.phone !== undefined ? { phone } : {}),
             ...(dto.email !== undefined ? { email } : {}),
             ...(dto.password
-                ? { passwordHash: await bcrypt.hash(dto.password, 10) }
+                ? { passwordHash: await bcrypt.hash(dto.password, password_policy_1.BCRYPT_PASSWORD_ROUNDS) }
                 : {}),
             ...(branchId !== undefined ? { branchId } : {}),
             ...this.sensitiveGuardData(dto),

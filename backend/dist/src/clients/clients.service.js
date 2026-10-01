@@ -49,6 +49,7 @@ const audit_service_1 = require("../audit/audit.service");
 const branch_scope_1 = require("../branches/branch-scope");
 const field_permissions_service_1 = require("../field-permissions/field-permissions.service");
 const bcrypt = __importStar(require("bcrypt"));
+const password_policy_1 = require("../auth/password-policy");
 const crypto_1 = require("crypto");
 const billing_service_1 = require("../billing/billing.service");
 const webhooks_service_1 = require("../webhooks/webhooks.service");
@@ -228,7 +229,7 @@ let ClientsService = class ClientsService {
             throw new common_1.ConflictException('Client portal user already exists for this client');
         }
         const temporaryPassword = (0, crypto_1.randomBytes)(12).toString('base64url');
-        const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+        const hashedPassword = await bcrypt.hash(temporaryPassword, password_policy_1.BCRYPT_PASSWORD_ROUNDS);
         try {
             const clientUser = await this.prisma.clientUser.create({
                 data: {

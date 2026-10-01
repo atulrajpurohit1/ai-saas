@@ -1,4 +1,4 @@
-import { CreditEntryType } from '@prisma/client';
+import { CreditEntryType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 export interface CreditReservation {
     reservationId: string;
@@ -28,6 +28,7 @@ export declare class CreditsService {
         reservationId: string;
         actualUsed: number;
         description?: string;
+        upstreamCostUsd?: number | null;
     }): Promise<{
         released: number;
         consumed: number;
@@ -45,6 +46,7 @@ export declare class CreditsService {
         reservationStatus: import(".prisma/client").$Enums.CreditReservationStatus | null;
         settledAmount: number | null;
         settledAt: Date | null;
+        upstreamCostUsd: Prisma.Decimal | null;
         stripeSessionId: string | null;
         reservationId: string | null;
     } | null>;
@@ -84,6 +86,7 @@ export declare class CreditsService {
         reservationStatus: import(".prisma/client").$Enums.CreditReservationStatus | null;
         settledAmount: number | null;
         settledAt: Date | null;
+        upstreamCostUsd: Prisma.Decimal | null;
         stripeSessionId: string | null;
         reservationId: string | null;
     }[]>;
