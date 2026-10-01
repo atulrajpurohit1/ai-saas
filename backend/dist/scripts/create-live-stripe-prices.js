@@ -86,32 +86,37 @@ async function findOrCreatePrice(params) {
         console.log(`  ${pack.label}: $${pack.price} / ${pack.credits} credits -> ${result.id} ${result.created ? '(created)' : '(existing)'}`);
         lines.push(`STRIPE_PRICE_CREDITS_${packKey}=${result.id}`);
     }
-    const SERVICES = [
-        { env: 'LEAD_GEN', label: 'AegisLead Generation', monthly: pricing_constants_1.MONTHLY_PRICES.GENERATION[pricing_constants_1.GENERATION_ONLY_BAND] },
-        { env: 'GUARD_TOUR', label: 'AegisLead Guard', monthly: pricing_constants_1.MONTHLY_PRICES.GUARD['1-25'] },
-        { env: 'FINANCE', label: 'AegisLead Operations', monthly: pricing_constants_1.MONTHLY_PRICES.OPERATIONS['1-25'] },
-    ];
-    console.log('\n--- Subscriptions (monthly + annual) ---');
-    for (const service of SERVICES) {
-        const monthly = await findOrCreatePrice({
-            productName: `${service.label} (monthly)`,
-            lookupKey: `${service.env.toLowerCase()}_monthly`,
-            amount: service.monthly,
-            recurring: 'month',
-            metadata: { module: service.env, interval: 'monthly' },
-        });
-        const annualAmount = service.monthly * 10;
-        const annual = await findOrCreatePrice({
-            productName: `${service.label} (annual)`,
-            lookupKey: `${service.env.toLowerCase()}_annual`,
-            amount: annualAmount,
-            recurring: 'year',
-            metadata: { module: service.env, interval: 'annual' },
-        });
-        console.log(`  ${service.label}: $${service.monthly}/mo -> ${monthly.id} ${monthly.created ? '(created)' : '(existing)'}`);
-        console.log(`  ${service.label}: $${annualAmount}/yr -> ${annual.id} ${annual.created ? '(created)' : '(existing)'}`);
-        lines.push(`STRIPE_PRICE_${service.env}_MONTHLY=${monthly.id}`);
-        lines.push(`STRIPE_PRICE_${service.env}_ANNUAL=${annual.id}`);
+    console.log('\n--- Plans (monthly, by active guards) ---');
+    const products = await stripe.products.list({ active: true, limit: 100 });
+    for (const packageKey of pricing_constants_1.PACKAGE_KEYS) {
+        let product = products.data.find((candidate) => candidate.metadata?.aegisleadPackage === packageKey);
+        if (!product) {
+            product = await stripe.products.create({
+                name: pricing_constants_1.PACKAGE_LABELS[packageKey],
+                metadata: { aegisleadPackage: packageKey },
+            });
+        }
+        for (const { key: band } of pricing_constants_1.GUARD_BANDS) {
+            const lookupKey = (0, pricing_constants_1.planLookupKey)(packageKey, band);
+            const amount = pricing_constants_1.MONTHLY_PRICES[packageKey][band];
+            if (!lookupKey || amount === null)
+                continue;
+            const existing = await stripe.prices.list({ lookup_keys: [lookupKey], limit: 1 });
+            if (existing.data[0]) {
+                console.log(`  ${pricing_constants_1.PACKAGE_LABELS[packageKey]} ${band}: $${amount}/mo -> ${existing.data[0].id} (existing)`);
+                continue;
+            }
+            const price = await stripe.prices.create({
+                product: product.id,
+                unit_amount: amount * 100,
+                currency: 'usd',
+                recurring: { interval: 'month' },
+                lookup_key: lookupKey,
+                nickname: `${band.replace('-', '–')} active guards`,
+                metadata: { package: packageKey, band },
+            });
+            console.log(`  ${pricing_constants_1.PACKAGE_LABELS[packageKey]} ${band}: $${amount}/mo -> ${price.id} (created)`);
+        }
     }
     console.log('\n--- env lines ---');
     lines.forEach((line) => console.log(line));

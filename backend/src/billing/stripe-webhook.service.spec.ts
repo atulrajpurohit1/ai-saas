@@ -10,9 +10,12 @@ const PRICE_GUARD_TOUR = 'price_guard_tour_monthly';
 const PRICE_FINANCE = 'price_finance_annual';
 
 function subscription(
-  overrides: Partial<Stripe.Subscription> & { priceIds?: string[] } = {},
+  overrides: Partial<Stripe.Subscription> & {
+    priceIds?: string[];
+    lookupKeys?: string[];
+  } = {},
 ): Stripe.Subscription {
-  const { priceIds = [PRICE_LEAD_GEN], ...rest } = overrides;
+  const { priceIds = [PRICE_LEAD_GEN], lookupKeys, ...rest } = overrides;
 
   return {
     id: 'sub_123',
@@ -22,10 +25,15 @@ function subscription(
     trial_end: null,
     metadata: { tenantId: 'tenant-1' },
     items: {
-      data: priceIds.map((id) => ({
-        price: { id },
-        current_period_end: 1_800_000_000,
-      })),
+      data: lookupKeys
+        ? lookupKeys.map((lookup_key, index) => ({
+            price: { id: `price_plan_${index}`, lookup_key },
+            current_period_end: 1_800_000_000,
+          }))
+        : priceIds.map((id) => ({
+            price: { id },
+            current_period_end: 1_800_000_000,
+          })),
     },
     ...rest,
   } as unknown as Stripe.Subscription;
@@ -111,6 +119,48 @@ describe('StripeWebhookService', () => {
           status: 'ACTIVE',
           providerSubscriptionId: 'sub_123',
         }),
+      );
+    });
+
+    // Band-priced plans carry no env var: the service set comes from the
+    // price's lookup_key, which names the package.
+    it('provisions every service in a Complete plan from its lookup key', async () => {
+      stripe.retrieveSubscription.mockResolvedValue(
+        subscription({
+          lookupKeys: ['aegislead_complete_51_100_849usd_monthly'],
+        }),
+      );
+
+      await service.handle(
+        event('checkout.session.completed', {
+          id: 'cs_1',
+          subscription: 'sub_123',
+          metadata: { tenantId: 'tenant-1' },
+        }),
+      );
+
+      expect(provisioning.provision).toHaveBeenCalledWith(
+        expect.objectContaining({
+          modules: expect.arrayContaining(['LEAD_GEN', 'GUARD_TOUR', 'FINANCE']),
+        }),
+      );
+    });
+
+    it('provisions only Guard Tour for a Guard plan', async () => {
+      stripe.retrieveSubscription.mockResolvedValue(
+        subscription({ lookupKeys: ['aegislead_guard_26_50_149usd_monthly'] }),
+      );
+
+      await service.handle(
+        event('checkout.session.completed', {
+          id: 'cs_1',
+          subscription: 'sub_123',
+          metadata: { tenantId: 'tenant-1' },
+        }),
+      );
+
+      expect(provisioning.provision).toHaveBeenCalledWith(
+        expect.objectContaining({ modules: ['GUARD_TOUR'] }),
       );
     });
 

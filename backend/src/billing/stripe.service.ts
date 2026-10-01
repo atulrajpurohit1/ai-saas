@@ -5,17 +5,26 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import Stripe from 'stripe';
-import { ServiceModule } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  BillingInterval,
   billingReturnUrls,
   isCheckoutConfigured,
-  priceIdFor,
   stripeSecretKey,
   stripeWebhookSecret,
   trialDays,
 } from './billing.config';
+import {
+  GUARD_BANDS,
+  GuardBand,
+  PACKAGE_KEYS,
+  PACKAGE_LABELS,
+  PACKAGE_MODULES,
+  PackageKey,
+  allPlanLookupKeys,
+  isCustomQuote,
+  monthlyPrice,
+  planLookupKey,
+} from './pricing.constants';
 import {
   CREDIT_PACKS,
   CreditPackKey,
@@ -83,27 +92,123 @@ export class StripeService {
     return customer.id;
   }
 
-  async createCheckoutSession(params: {
-    tenantId: string;
-    modules: ServiceModule[];
-    interval: BillingInterval;
-    email?: string;
-  }) {
-    const { tenantId, modules, interval, email } = params;
+  /**
+   * Live plan prices keyed by lookup_key, cached briefly: the plan page asks
+   * on every load, and the set only changes when someone runs the price script.
+   */
+  private planPriceCache: {
+    at: number;
+    prices: Map<string, Stripe.Price>;
+  } | null = null;
 
-    if (!modules.length) {
-      throw new BadRequestException('Select at least one service to purchase.');
+  async planPrices(): Promise<Map<string, Stripe.Price>> {
+    if (
+      this.planPriceCache &&
+      Date.now() - this.planPriceCache.at < 5 * 60_000
+    ) {
+      return this.planPriceCache.prices;
     }
 
-    const lineItems = modules.map((module) => {
-      const price = priceIdFor(module, interval);
-      if (!price) {
-        throw new ServiceUnavailableException(
-          `No ${interval} price is configured for ${module} yet.`,
-        );
+    const keys = allPlanLookupKeys();
+    const prices = new Map<string, Stripe.Price>();
+    // Stripe accepts at most 10 lookup keys per list call.
+    for (let index = 0; index < keys.length; index += 10) {
+      const page = await this.stripe().prices.list({
+        lookup_keys: keys.slice(index, index + 10),
+        active: true,
+        limit: 10,
+      });
+      for (const price of page.data) {
+        if (price.lookup_key) prices.set(price.lookup_key, price);
       }
-      return { price, quantity: 1 };
-    });
+    }
+
+    this.planPriceCache = { at: Date.now(), prices };
+    return prices;
+  }
+
+  /** Which package/band cells have a live, correctly priced Stripe price. */
+  async sellablePlans(): Promise<Record<PackageKey, GuardBand[]>> {
+    const result = Object.fromEntries(
+      PACKAGE_KEYS.map((packageKey) => [packageKey, [] as GuardBand[]]),
+    ) as Record<PackageKey, GuardBand[]>;
+    if (!isCheckoutConfigured()) return result;
+
+    const prices = await this.planPrices();
+    for (const packageKey of PACKAGE_KEYS) {
+      for (const { key: band } of GUARD_BANDS) {
+        const lookupKey = planLookupKey(packageKey, band);
+        const price = lookupKey ? prices.get(lookupKey) : undefined;
+        if (price && this.priceMatchesPlan(price, packageKey, band)) {
+          result[packageKey].push(band);
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Starts, or changes, the tenant's subscription to one package at one guard
+   * band. The caller is responsible for not letting a tenant pick a band below
+   * the guards they actually run.
+   *
+   * A tenant that already has a live Stripe subscription is moved onto the new
+   * price instead of being sent through checkout again: a second subscription
+   * would bill them twice, and the webhook tracks one subscription per tenant,
+   * so the older one would silently stop being followed.
+   */
+  async createPlanCheckoutSession(params: {
+    tenantId: string;
+    packageKey: PackageKey;
+    band: GuardBand;
+    email?: string;
+  }): Promise<{ url: string | null; changed: boolean }> {
+    const { tenantId, packageKey, band, email } = params;
+
+    if (isCustomQuote(band)) {
+      throw new BadRequestException(
+        'Plans for more than 500 guards are quoted individually. Please contact sales.',
+      );
+    }
+
+    const lookupKey = planLookupKey(packageKey, band);
+    const price = lookupKey
+      ? (await this.planPrices()).get(lookupKey)
+      : undefined;
+
+    if (!price || !this.priceMatchesPlan(price, packageKey, band)) {
+      this.logger.error(
+        `No sellable Stripe price for ${packageKey} at ${band}: expected lookup_key ` +
+          `${lookupKey ?? 'none'} at $${monthlyPrice(packageKey, band)}/month. ` +
+          'Run scripts/create-live-stripe-prices.ts.',
+      );
+      throw new ServiceUnavailableException(
+        `${PACKAGE_LABELS[packageKey]} can't be bought online right now. Please contact sales.`,
+      );
+    }
+
+    const metadata = {
+      tenantId,
+      package: packageKey,
+      band,
+      modules: PACKAGE_MODULES[packageKey].join(','),
+    };
+
+    const existing = await this.liveSubscriptionFor(tenantId);
+    if (existing) {
+      const [first, ...rest] = existing.items.data;
+      await this.stripe().subscriptions.update(existing.id, {
+        items: [
+          { id: first.id, price: price.id, quantity: 1 },
+          // Older subscriptions carried one item per service; a package is a
+          // single price, so the rest go.
+          ...rest.map((item) => ({ id: item.id, deleted: true })),
+        ],
+        proration_behavior: 'create_prorations',
+        metadata,
+      });
+      return { url: null, changed: true };
+    }
 
     const urls = billingReturnUrls();
     const trial = trialDays();
@@ -112,20 +217,64 @@ export class StripeService {
     const session = await this.stripe().checkout.sessions.create({
       mode: 'subscription',
       customer,
-      line_items: lineItems,
+      line_items: [{ price: price.id, quantity: 1 }],
       success_url: urls.success,
       cancel_url: urls.cancel,
       // Carried through to the subscription so every later webhook -- renewal,
       // payment failure, cancellation -- can identify the tenant without a
-      // customer lookup.
-      metadata: { tenantId, modules: modules.join(',') },
+      // customer lookup. Services are still resolved from the price, never
+      // from this.
+      metadata,
       subscription_data: {
-        metadata: { tenantId, modules: modules.join(',') },
+        metadata,
         ...(trial ? { trial_period_days: trial } : {}),
       },
     });
 
-    return { url: session.url, sessionId: session.id };
+    return { url: session.url, changed: false };
+  }
+
+  /** The lookup_key of the price the tenant's live subscription is on. */
+  async currentPlanLookupKey(tenantId: string): Promise<string | null> {
+    const subscription = await this.liveSubscriptionFor(tenantId);
+    return subscription?.items.data[0]?.price?.lookup_key ?? null;
+  }
+
+  private priceMatchesPlan(
+    price: Stripe.Price,
+    packageKey: PackageKey,
+    band: GuardBand,
+  ) {
+    const amount = monthlyPrice(packageKey, band);
+    return (
+      amount !== null &&
+      price.active &&
+      price.currency === 'usd' &&
+      price.type === 'recurring' &&
+      price.recurring?.interval === 'month' &&
+      price.recurring?.interval_count === 1 &&
+      price.unit_amount === amount * 100
+    );
+  }
+
+  /** The tenant's Stripe subscription, if it is one Stripe will still bill. */
+  private async liveSubscriptionFor(tenantId: string) {
+    const record = await this.prisma.tenantSubscription.findUnique({
+      where: { tenantId },
+      select: { providerSubscriptionId: true },
+    });
+    if (!record?.providerSubscriptionId) return null;
+
+    const subscription = await this.stripe().subscriptions.retrieve(
+      record.providerSubscriptionId,
+    );
+    const live: Stripe.Subscription.Status[] = [
+      'active',
+      'trialing',
+      'past_due',
+      'unpaid',
+    ];
+    return live.includes(subscription.status) ? subscription : null;
   }
 
   /**

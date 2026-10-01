@@ -1,15 +1,17 @@
-import { ArrayNotEmpty, IsArray, IsIn, IsOptional } from 'class-validator';
-import { ServiceModule } from '@prisma/client';
-
-const MODULES: ServiceModule[] = ['LEAD_GEN', 'GUARD_TOUR', 'FINANCE'];
+import { IsIn } from 'class-validator';
+import {
+  GUARD_BANDS,
+  GuardBand,
+  PACKAGE_KEYS,
+  PackageKey,
+} from '../pricing.constants';
 
 export class CreateCheckoutSessionDto {
-  @IsArray()
-  @ArrayNotEmpty({ message: 'Select at least one service to purchase.' })
-  @IsIn(MODULES, { each: true, message: 'Unknown service selected.' })
-  modules: ServiceModule[];
+  @IsIn(PACKAGE_KEYS, { message: 'Unknown package selected.' })
+  package: PackageKey;
 
-  @IsOptional()
-  @IsIn(['monthly', 'annual'])
-  interval?: 'monthly' | 'annual';
+  @IsIn(GUARD_BANDS.map((band) => band.key), {
+    message: 'Unknown guard band selected.',
+  })
+  band: GuardBand;
 }

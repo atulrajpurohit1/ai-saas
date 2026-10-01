@@ -1,5 +1,5 @@
-import { ServiceModule } from '@prisma/client';
+import { GuardBand, PackageKey } from '../pricing.constants';
 export declare class CreateCheckoutSessionDto {
-    modules: ServiceModule[];
-    interval?: 'monthly' | 'annual';
+    package: PackageKey;
+    band: GuardBand;
 }

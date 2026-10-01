@@ -15,7 +15,13 @@
 import Stripe from 'stripe';
 import * as dotenv from 'dotenv';
 import { CREDIT_PACKS, CREDIT_PACK_KEYS } from '../src/billing/credit-packs.constants';
-import { MONTHLY_PRICES, GENERATION_ONLY_BAND } from '../src/billing/pricing.constants';
+import {
+  GUARD_BANDS,
+  MONTHLY_PRICES,
+  PACKAGE_KEYS,
+  PACKAGE_LABELS,
+  planLookupKey,
+} from '../src/billing/pricing.constants';
 
 dotenv.config();
 
@@ -79,38 +85,44 @@ async function findOrCreatePrice(params: {
     lines.push(`STRIPE_PRICE_CREDITS_${packKey}=${result.id}`);
   }
 
-  // The app maps one price id per service per interval. Generation is pinned to
-  // its base band ($299 flat); the others use the 1-25 band as the entry price,
-  // since guard-band pricing above that is quoted, not sold self-serve here.
-  const SERVICES: { env: string; label: string; monthly: number }[] = [
-    { env: 'LEAD_GEN', label: 'AegisLead Generation', monthly: MONTHLY_PRICES.GENERATION[GENERATION_ONLY_BAND]! },
-    { env: 'GUARD_TOUR', label: 'AegisLead Guard', monthly: MONTHLY_PRICES.GUARD['1-25']! },
-    { env: 'FINANCE', label: 'AegisLead Operations', monthly: MONTHLY_PRICES.OPERATIONS['1-25']! },
-  ];
+  // Plans: one product per package, one monthly price per guard band. Checkout
+  // finds these by lookup_key (planLookupKey), so there are no env lines to
+  // set. 500+ has no price -- it is quoted by sales.
+  console.log('\n--- Plans (monthly, by active guards) ---');
+  const products = await stripe.products.list({ active: true, limit: 100 });
+  for (const packageKey of PACKAGE_KEYS) {
+    let product = products.data.find(
+      (candidate) => candidate.metadata?.aegisleadPackage === packageKey,
+    );
+    if (!product) {
+      product = await stripe.products.create({
+        name: PACKAGE_LABELS[packageKey],
+        metadata: { aegisleadPackage: packageKey },
+      });
+    }
 
-  console.log('\n--- Subscriptions (monthly + annual) ---');
-  for (const service of SERVICES) {
-    const monthly = await findOrCreatePrice({
-      productName: `${service.label} (monthly)`,
-      lookupKey: `${service.env.toLowerCase()}_monthly`,
-      amount: service.monthly,
-      recurring: 'month',
-      metadata: { module: service.env, interval: 'monthly' },
-    });
-    // Ten months for twelve: a conventional annual discount, and a round number.
-    const annualAmount = service.monthly * 10;
-    const annual = await findOrCreatePrice({
-      productName: `${service.label} (annual)`,
-      lookupKey: `${service.env.toLowerCase()}_annual`,
-      amount: annualAmount,
-      recurring: 'year',
-      metadata: { module: service.env, interval: 'annual' },
-    });
+    for (const { key: band } of GUARD_BANDS) {
+      const lookupKey = planLookupKey(packageKey, band);
+      const amount = MONTHLY_PRICES[packageKey][band];
+      if (!lookupKey || amount === null) continue;
 
-    console.log(`  ${service.label}: $${service.monthly}/mo -> ${monthly.id} ${monthly.created ? '(created)' : '(existing)'}`);
-    console.log(`  ${service.label}: $${annualAmount}/yr -> ${annual.id} ${annual.created ? '(created)' : '(existing)'}`);
-    lines.push(`STRIPE_PRICE_${service.env}_MONTHLY=${monthly.id}`);
-    lines.push(`STRIPE_PRICE_${service.env}_ANNUAL=${annual.id}`);
+      const existing = await stripe.prices.list({ lookup_keys: [lookupKey], limit: 1 });
+      if (existing.data[0]) {
+        console.log(`  ${PACKAGE_LABELS[packageKey]} ${band}: $${amount}/mo -> ${existing.data[0].id} (existing)`);
+        continue;
+      }
+
+      const price = await stripe.prices.create({
+        product: product.id,
+        unit_amount: amount * 100,
+        currency: 'usd',
+        recurring: { interval: 'month' },
+        lookup_key: lookupKey,
+        nickname: `${band.replace('-', '–')} active guards`,
+        metadata: { package: packageKey, band },
+      });
+      console.log(`  ${PACKAGE_LABELS[packageKey]} ${band}: $${amount}/mo -> ${price.id} (created)`);
+    }
   }
 
   console.log('\n--- env lines ---');

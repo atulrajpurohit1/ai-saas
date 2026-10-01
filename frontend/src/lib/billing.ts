@@ -34,30 +34,59 @@ export async function getTenantBilling() {
   return res.data;
 }
 
-export interface CheckoutAvailability {
-  configured: boolean;
-  monthly: string[];
-  annual: string[];
+export type PackageKey = 'GENERATION' | 'GUARD' | 'OPERATIONS' | 'COMPLETE';
+
+export type GuardBand =
+  | '1-25'
+  | '26-50'
+  | '51-100'
+  | '101-250'
+  | '251-500'
+  | '500+';
+
+export interface PlanPackage {
+  key: PackageKey;
+  name: string;
+  modules: string[];
+  /** Monthly list price per band; null means quoted by sales. */
+  monthly: Record<GuardBand, number | null>;
+  /** Bands that can be bought online right now. */
+  sellableBands: GuardBand[];
 }
 
-/**
- * Whether self-serve purchase is switched on. Until pricing is configured in
- * Stripe this reports `configured: false`, and the plan page offers a contact
- * route instead of a buy button that would 503.
- */
-export async function getCheckoutAvailability(): Promise<CheckoutAvailability> {
-  const res = await api.get<CheckoutAvailability>('billing/checkout/availability');
+export interface PlanPricing {
+  /** Whether any plan can be bought online at all. */
+  configured: boolean;
+  bands: { key: GuardBand; min: number; max: number | null }[];
+  packages: PlanPackage[];
+  /** Generation on its own is always charged at this band. */
+  generationOnlyBand: GuardBand;
+  /** Guards rostered in the last 30 days. */
+  activeGuards: number;
+  /** The lowest band this account may choose. */
+  minimumBand: GuardBand;
+  /** The plan the Stripe subscription is on, if there is one. */
+  current: { packageKey: PackageKey; band: GuardBand } | null;
+}
+
+export async function getPlanPricing(): Promise<PlanPricing> {
+  const res = await api.get<PlanPricing>('billing/plan');
   return res.data;
 }
 
-export async function startCheckout(
-  modules: string[],
-  interval: 'monthly' | 'annual' = 'monthly',
-): Promise<{ url: string | null }> {
-  const res = await api.post<{ url: string | null }>('billing/checkout/session', {
-    modules,
-    interval,
-  });
+/**
+ * Starts checkout for a package at a guard band. An account that already has
+ * a subscription is switched onto the new plan instead, in which case there is
+ * no checkout link and `changed` is true.
+ */
+export async function startPlanCheckout(
+  packageKey: PackageKey,
+  band: GuardBand,
+): Promise<{ url: string | null; changed: boolean }> {
+  const res = await api.post<{ url: string | null; changed: boolean }>(
+    'billing/checkout/session',
+    { package: packageKey, band },
+  );
   return res.data;
 }
 

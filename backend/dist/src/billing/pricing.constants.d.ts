@@ -15,4 +15,13 @@ export declare function packageForModules(modules: ServiceModule[]): PackageKey 
 export declare function billableBand(packageKey: PackageKey, activeGuards: number): GuardBand;
 export declare function monthlyPrice(packageKey: PackageKey, band: GuardBand): number | null;
 export declare function isCustomQuote(band: GuardBand): band is "500+";
-export declare function priceEnvKey(packageKey: PackageKey, band: GuardBand): string;
+export declare const PACKAGE_KEYS: PackageKey[];
+export declare function bandRank(band: GuardBand): number;
+export declare function isGuardBand(value: string): value is GuardBand;
+export declare function isPackageKey(value: string): value is PackageKey;
+export declare function planLookupKey(packageKey: PackageKey, band: GuardBand): string | null;
+export declare function allPlanLookupKeys(): string[];
+export declare function planForLookupKey(lookupKey: string | null | undefined): {
+    packageKey: PackageKey;
+    band: GuardBand;
+} | null;

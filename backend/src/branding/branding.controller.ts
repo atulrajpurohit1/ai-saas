@@ -1,24 +1,10 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Put,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
-import {
-  RequireAnyPermission,
-  RequirePermission,
-} from '../auth/decorators/permissions.decorator';
+import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { BrandingService } from './branding.service';
-import { CreateDomainDto } from './dto/create-domain.dto';
-import { UpdateBrandingDto } from './dto/update-branding.dto';
 
 @Controller('branding')
 export class BrandingController {
@@ -39,31 +25,10 @@ export class BrandingController {
     return this.brandingService.getForUser(user);
   }
 
-  @Put()
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermission('branding.manage')
-  updateBranding(@GetUser() user: ActiveUser, @Body() dto: UpdateBrandingDto) {
-    return this.brandingService.updateBranding(user, dto);
-  }
-
-  @Get('domains')
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequireAnyPermission('branding.view', 'branding.manage')
-  listDomains(@GetUser() user: ActiveUser) {
-    return this.brandingService.listDomains(user);
-  }
-
-  @Post('domains')
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermission('branding.manage')
-  addDomain(@GetUser() user: ActiveUser, @Body() dto: CreateDomainDto) {
-    return this.brandingService.addDomain(user, dto);
-  }
-
-  @Post('domains/:id/verify')
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @RequirePermission('branding.manage')
-  verifyDomain(@GetUser() user: ActiveUser, @Param('id') id: string) {
-    return this.brandingService.verifyDomain(user, id);
-  }
+  // Branding is fixed for every tenant: there are deliberately no endpoints
+  // that change it or its custom domains. A settings page used to let any
+  // admin restyle the product; the client asked on 1 Oct 2026 that no one be
+  // able to. Removing the routes, not just the page, is what enforces that --
+  // a hidden page still leaves the API open. Reads stay, because every page
+  // and email renders with the stored branding.
 }

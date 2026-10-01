@@ -3,10 +3,12 @@ import { BillingService } from './billing.service';
 import { StripeService } from './stripe.service';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import { GuardMeteringService } from './guard-metering.service';
+import { GuardBand, PackageKey } from './pricing.constants';
 export declare class BillingController {
     private readonly billingService;
     private readonly stripe;
     private readonly metering;
+    private readonly logger;
     constructor(billingService: BillingService, stripe: StripeService, metering: GuardMeteringService);
     getBilling(user: ActiveUser): Promise<{
         tenant: {
@@ -53,14 +55,35 @@ export declare class BillingController {
             };
         }[];
     }>;
-    checkoutAvailability(): {
+    checkoutAvailability(): Promise<{
         configured: boolean;
-        monthly: import(".prisma/client").$Enums.ServiceModule[];
-        annual: import(".prisma/client").$Enums.ServiceModule[];
-    };
+        plans: Record<PackageKey, GuardBand[]>;
+    }>;
+    plan(user: ActiveUser): Promise<{
+        configured: boolean;
+        bands: {
+            key: GuardBand;
+            min: number;
+            max: number | null;
+        }[];
+        packages: {
+            key: PackageKey;
+            name: string;
+            modules: import(".prisma/client").$Enums.ServiceModule[];
+            monthly: Record<GuardBand, number | null>;
+            sellableBands: GuardBand[];
+        }[];
+        generationOnlyBand: GuardBand;
+        activeGuards: number;
+        minimumBand: GuardBand;
+        current: {
+            packageKey: PackageKey;
+            band: GuardBand;
+        } | null;
+    }>;
     pricing(): {
         bands: {
-            key: import("./pricing.constants").GuardBand;
+            key: GuardBand;
             min: number;
             max: number | null;
         }[];
@@ -68,7 +91,7 @@ export declare class BillingController {
             key: string;
             name: string;
             modules: import(".prisma/client").$Enums.ServiceModule[];
-            monthly: Record<import("./pricing.constants").GuardBand, number | null>;
+            monthly: Record<GuardBand, number | null>;
         }[];
     };
     usage(user: ActiveUser): Promise<{
@@ -80,8 +103,8 @@ export declare class BillingController {
         monthlyPrice: null;
         customQuote: boolean;
     } | {
-        packageKey: import("./pricing.constants").PackageKey;
-        band: import("./pricing.constants").GuardBand;
+        packageKey: PackageKey;
+        band: GuardBand;
         activeGuards: number;
         totalGuards: number;
         monthlyPrice: number | null;
@@ -90,9 +113,12 @@ export declare class BillingController {
     }>;
     createCheckoutSession(user: ActiveUser, dto: CreateCheckoutSessionDto): Promise<{
         url: string | null;
-        sessionId: string;
+        changed: boolean;
     }>;
     createPortalSession(user: ActiveUser): Promise<{
         url: string;
     }>;
+    private billableBandFor;
+    private sellablePlansOrNone;
+    private currentPlan;
 }

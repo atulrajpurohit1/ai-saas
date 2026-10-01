@@ -1,12 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GENERATION_ONLY_BAND = exports.MONTHLY_PRICES = exports.PACKAGE_MODULES = exports.PACKAGE_LABELS = exports.GUARD_BANDS = void 0;
+exports.PACKAGE_KEYS = exports.GENERATION_ONLY_BAND = exports.MONTHLY_PRICES = exports.PACKAGE_MODULES = exports.PACKAGE_LABELS = exports.GUARD_BANDS = void 0;
 exports.bandForGuardCount = bandForGuardCount;
 exports.packageForModules = packageForModules;
 exports.billableBand = billableBand;
 exports.monthlyPrice = monthlyPrice;
 exports.isCustomQuote = isCustomQuote;
-exports.priceEnvKey = priceEnvKey;
+exports.bandRank = bandRank;
+exports.isGuardBand = isGuardBand;
+exports.isPackageKey = isPackageKey;
+exports.planLookupKey = planLookupKey;
+exports.allPlanLookupKeys = allPlanLookupKeys;
+exports.planForLookupKey = planForLookupKey;
 exports.GUARD_BANDS = [
     { key: '1-25', min: 0, max: 25 },
     { key: '26-50', min: 26, max: 50 },
@@ -85,8 +90,36 @@ function monthlyPrice(packageKey, band) {
 function isCustomQuote(band) {
     return band === '500+';
 }
-function priceEnvKey(packageKey, band) {
-    const suffix = band.replace('+', '_PLUS').replace('-', '_');
-    return `STRIPE_PRICE_${packageKey}_${suffix}`;
+exports.PACKAGE_KEYS = Object.keys(exports.PACKAGE_LABELS);
+function bandRank(band) {
+    return exports.GUARD_BANDS.findIndex((entry) => entry.key === band);
+}
+function isGuardBand(value) {
+    return exports.GUARD_BANDS.some((entry) => entry.key === value);
+}
+function isPackageKey(value) {
+    return Object.prototype.hasOwnProperty.call(exports.PACKAGE_LABELS, value);
+}
+function planLookupKey(packageKey, band) {
+    const price = monthlyPrice(packageKey, band);
+    if (price === null)
+        return null;
+    const bandSlug = band.replace('+', '_plus').replace('-', '_');
+    return `aegislead_${packageKey.toLowerCase()}_${bandSlug}_${price}usd_monthly`;
+}
+function allPlanLookupKeys() {
+    return exports.PACKAGE_KEYS.flatMap((packageKey) => exports.GUARD_BANDS.map((band) => planLookupKey(packageKey, band.key))).filter((key) => key !== null);
+}
+function planForLookupKey(lookupKey) {
+    if (!lookupKey)
+        return null;
+    for (const packageKey of exports.PACKAGE_KEYS) {
+        for (const band of exports.GUARD_BANDS) {
+            if (planLookupKey(packageKey, band.key) === lookupKey) {
+                return { packageKey, band: band.key };
+            }
+        }
+    }
+    return null;
 }
 //# sourceMappingURL=pricing.constants.js.map
