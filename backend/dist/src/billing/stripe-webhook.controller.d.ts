@@ -10,12 +10,12 @@ export declare class StripeWebhookController {
         rawBody?: Buffer;
     }, signature?: string): Promise<{
         handled: boolean;
-        reason: string;
+        tenantId: string;
+        reason?: undefined;
         received: boolean;
     } | {
         handled: boolean;
-        tenantId: string;
-        reason?: undefined;
+        reason: string;
         received: boolean;
     }>;
 }

@@ -362,9 +362,11 @@ describe('Standalone service entitlements (e2e)', () => {
   });
 
   describe('tenant with no subscription row', () => {
-    // A tenant created before this system existed that somehow missed the
-    // backfill must not be locked out of a product it already pays for.
-    it('fails open rather than stranding the customer', async () => {
+    // Signup now creates the subscription row in the same transaction as the
+    // tenant, so a missing row is corruption rather than a legitimate state.
+    // This used to fail open and serve every route, which meant any tenant
+    // without a row silently received all three services free.
+    it('fails closed rather than handing over the whole product', async () => {
       const tenant = await prisma.tenant.create({
         data: { name: `${TAG} legacy`, slug: `${TAG}-legacy` },
       });
@@ -385,7 +387,7 @@ describe('Standalone service entitlements (e2e)', () => {
 
       for (const route of [...LEAD_GEN_ROUTES, ...GUARD_TOUR_ROUTES, ...FINANCE_ROUTES]) {
         const res = await get(route, token);
-        expect([res.status, route]).toEqual([200, route]);
+        expect([res.status, route]).toEqual([403, route]);
       }
     }, 60_000);
   });

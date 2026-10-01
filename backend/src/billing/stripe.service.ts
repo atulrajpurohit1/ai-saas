@@ -19,6 +19,7 @@ import {
 import {
   CREDIT_PACKS,
   CreditPackKey,
+  creditPackPriceEnvKey,
   creditPackPriceId,
 } from './credit-packs.constants';
 
@@ -149,6 +150,8 @@ export class StripeService {
       );
     }
 
+    await this.assertPriceMatchesPack(price, pack);
+
     const urls = billingReturnUrls();
     const customer = await this.customerIdFor(tenantId, email);
 
@@ -172,6 +175,43 @@ export class StripeService {
     });
 
     return { url: session.url, sessionId: session.id };
+  }
+
+  /**
+   * Refuses to sell a pack whose configured Stripe price does not charge what
+   * the pack says.
+   *
+   * The webhook grants the credit amount from CREDIT_PACKS, keyed by price id,
+   * while Stripe charges whatever the price itself says. The two are set in
+   * different places -- the constants in code, the price id in the host's env
+   * -- so changing a pack's size without replacing its price id would sell the
+   * new credits at the old price. That happened to be possible on the day the
+   * packs were resized: the Starter key kept its env var while its credits
+   * went from 250 to 3,000, so a stale $99 price id would have sold 3,000
+   * credits for $99. Checking here makes that drift fail closed.
+   */
+  private async assertPriceMatchesPack(priceId: string, pack: CreditPackKey) {
+    const expected = CREDIT_PACKS[pack];
+    const price = await this.stripe().prices.retrieve(priceId);
+
+    const matches =
+      price.active &&
+      price.type === 'one_time' &&
+      price.currency === 'usd' &&
+      price.unit_amount === expected.price * 100;
+
+    if (!matches) {
+      this.logger.error(
+        `Refusing to sell the ${expected.label}: price ${priceId} charges ` +
+          `${price.unit_amount ?? 'unknown'} ${price.currency} (${price.type}, ` +
+          `${price.active ? 'active' : 'archived'}), but the pack is ` +
+          `$${expected.price} one-time for ${expected.credits} credits. ` +
+          `Set ${creditPackPriceEnvKey(pack)} to the matching price.`,
+      );
+      throw new ServiceUnavailableException(
+        `The ${expected.label} can't be bought right now. Please try again later.`,
+      );
+    }
   }
 
   /**

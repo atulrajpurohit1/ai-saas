@@ -184,7 +184,7 @@ describe('Prospect Search credits (e2e)', () => {
       const res = await post(
         '/billing/credits/checkout/session',
         noLeadGenToken,
-        { pack: 'GROWTH' },
+        { pack: 'PRO' },
       );
 
       expect(res.status).toBe(403);
@@ -214,7 +214,7 @@ describe('Prospect Search credits (e2e)', () => {
       const res = await post(
         '/billing/credits/checkout/session',
         leadGenToken,
-        { pack: 'GROWTH' },
+        { pack: 'PRO' },
       );
 
       expect(res.status).toBe(503);

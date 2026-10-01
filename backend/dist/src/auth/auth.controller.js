@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
 const common_1 = require("@nestjs/common");
 const auth_service_1 = require("./auth.service");
+const auth_rate_limit_service_1 = require("./auth-rate-limit.service");
 const register_dto_1 = require("./dto/register.dto");
 const login_dto_1 = require("./dto/login.dto");
 const jwt_auth_guard_1 = require("./guards/jwt-auth.guard");
@@ -25,29 +26,51 @@ const forgot_password_dto_1 = require("./dto/forgot-password.dto");
 const reset_password_dto_1 = require("./dto/reset-password.dto");
 let AuthController = class AuthController {
     authService;
-    constructor(authService) {
+    rateLimit;
+    constructor(authService, rateLimit) {
         this.authService = authService;
+        this.rateLimit = rateLimit;
     }
     register(dto, req) {
+        this.throttle(req, 'register', dto.email, 10, 3600);
         return this.authService.register(dto, this.requestContext(req));
     }
     verifyEmail(dto, req) {
+        this.throttle(req, 'verify-email', dto.email, 10, 900);
         return this.authService.verifyEmail(dto, this.requestContext(req));
     }
-    resendOtp(dto) {
+    resendOtp(dto, req) {
+        this.throttle(req, 'resend-otp', dto.email, 10, 900);
         return this.authService.resendOtp(dto);
     }
     login(dto, req) {
+        this.throttle(req, 'login', dto.email, 10, 900);
         return this.authService.login(dto, this.requestContext(req));
     }
-    forgotPassword(dto) {
+    forgotPassword(dto, req) {
+        this.throttle(req, 'forgot-password', dto.email, 10, 3600);
         return this.authService.forgotPassword(dto);
     }
-    verifyResetOtp(dto) {
+    verifyResetOtp(dto, req) {
+        this.throttle(req, 'verify-reset-otp', dto.email, 10, 900);
         return this.authService.verifyResetOtp(dto);
     }
-    resetPassword(dto) {
+    resetPassword(dto, req) {
+        this.throttle(req, 'reset-password', null, 10, 900);
         return this.authService.resetPassword(dto);
+    }
+    throttle(req, action, email, perEmailLimit, windowSeconds) {
+        const ip = this.clientIp(req) || 'unknown';
+        this.rateLimit.consume(`${action}:ip:${ip}`, perEmailLimit * 5, windowSeconds);
+        const normalizedEmail = email?.trim().toLowerCase();
+        if (normalizedEmail) {
+            this.rateLimit.consume(`${action}:email:${normalizedEmail}`, perEmailLimit, windowSeconds);
+        }
+    }
+    clientIp(req) {
+        return (req.headers['x-forwarded-for']
+            ?.split(',')[0]
+            ?.trim() || req.ip);
     }
     logout(req) {
         const user = req.user;
@@ -59,9 +82,7 @@ let AuthController = class AuthController {
     }
     requestContext(req) {
         return {
-            ipAddress: req.headers['x-forwarded-for']
-                ?.split(',')[0]
-                ?.trim() || req.ip,
+            ipAddress: this.clientIp(req),
             userAgent: req.headers['user-agent'] || null,
         };
     }
@@ -89,8 +110,9 @@ __decorate([
     (0, common_1.Post)('resend-otp'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [resend_otp_dto_1.ResendOtpDto]),
+    __metadata("design:paramtypes", [resend_otp_dto_1.ResendOtpDto, Object]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "resendOtp", null);
 __decorate([
@@ -106,24 +128,27 @@ __decorate([
     (0, common_1.Post)('forgot-password'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [forgot_password_dto_1.ForgotPasswordDto]),
+    __metadata("design:paramtypes", [forgot_password_dto_1.ForgotPasswordDto, Object]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "forgotPassword", null);
 __decorate([
     (0, common_1.Post)('verify-reset-otp'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [verify_otp_dto_1.VerifyOtpDto]),
+    __metadata("design:paramtypes", [verify_otp_dto_1.VerifyOtpDto, Object]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "verifyResetOtp", null);
 __decorate([
     (0, common_1.Post)('reset-password'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [reset_password_dto_1.ResetPasswordDto]),
+    __metadata("design:paramtypes", [reset_password_dto_1.ResetPasswordDto, Object]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "resetPassword", null);
 __decorate([
@@ -146,6 +171,7 @@ __decorate([
 ], AuthController.prototype, "refreshTokens", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)('auth'),
-    __metadata("design:paramtypes", [auth_service_1.AuthService])
+    __metadata("design:paramtypes", [auth_service_1.AuthService,
+        auth_rate_limit_service_1.AuthRateLimitService])
 ], AuthController);
 //# sourceMappingURL=auth.controller.js.map

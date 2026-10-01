@@ -49,6 +49,7 @@ const jwt_1 = require("@nestjs/jwt");
 const config_1 = require("@nestjs/config");
 const bcrypt = __importStar(require("bcrypt"));
 const roles_service_1 = require("../roles/roles.service");
+const password_policy_1 = require("./password-policy");
 const sessions_service_1 = require("../sessions/sessions.service");
 const email_verification_service_1 = require("../email-verification/email-verification.service");
 let AuthService = class AuthService {
@@ -71,7 +72,7 @@ let AuthService = class AuthService {
     }
     async register(dto, context) {
         const email = await this.emailVerification.assertValidEmail(dto.email);
-        const hashedPassword = await bcrypt.hash(dto.password, 10);
+        const hashedPassword = await bcrypt.hash(dto.password, password_policy_1.BCRYPT_PASSWORD_ROUNDS);
         const name = dto.name?.trim() || '';
         const tenantName = dto.tenantName?.trim() || '';
         try {
@@ -101,6 +102,12 @@ let AuthService = class AuthService {
                     data: {
                         name: tenantName,
                         slug: tenantSlug,
+                    },
+                });
+                await tx.tenantSubscription.create({
+                    data: {
+                        tenantId: tenant.id,
+                        status: 'ACTIVE',
                     },
                 });
                 const user = await tx.user.create({
@@ -160,17 +167,18 @@ let AuthService = class AuthService {
         if (!user) {
             throw new common_1.UnauthorizedException('Invalid verification code.');
         }
-        if (!user.emailVerified) {
-            await this.emailVerification.verifyOtp({
-                accountType: 'USER',
-                accountId: user.id,
-                code: dto.code,
-            });
-            await this.prisma.user.update({
-                where: { id: user.id },
-                data: { emailVerified: true, emailVerifiedAt: new Date() },
-            });
+        if (user.emailVerified) {
+            throw new common_1.UnauthorizedException('Invalid verification code.');
         }
+        await this.emailVerification.verifyOtp({
+            accountType: 'USER',
+            accountId: user.id,
+            code: dto.code,
+        });
+        await this.prisma.user.update({
+            where: { id: user.id },
+            data: { emailVerified: true, emailVerifiedAt: new Date() },
+        });
         await this.rolesService.ensureDefaultAssignmentForUser(user.id);
         const profile = await this.rolesService.getUserAccessProfile(user.id);
         const sessionId = this.sessionsService.generateSessionId();
@@ -249,14 +257,18 @@ let AuthService = class AuthService {
         if (!user || user.tenantId !== tenantId) {
             throw new common_1.BadRequestException('This password reset link is invalid or has expired. Please start the reset process again.');
         }
-        const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+        const hashedPassword = await bcrypt.hash(dto.newPassword, password_policy_1.BCRYPT_PASSWORD_ROUNDS);
         await this.prisma.user.update({
             where: { id: user.id },
             data: { password: hashedPassword, refreshToken: null },
         });
         await this.prisma.userSession.updateMany({
             where: { userId: user.id, status: 'active' },
-            data: { status: 'revoked', refreshTokenHash: null, revokedAt: new Date() },
+            data: {
+                status: 'revoked',
+                refreshTokenHash: null,
+                revokedAt: new Date(),
+            },
         });
         return { message: 'Password reset successfully.' };
     }
@@ -266,8 +278,10 @@ let AuthService = class AuthService {
             where: { email },
             include: { tenant: true },
         });
-        if (!user)
+        if (!user) {
+            await bcrypt.compare(dto.password, password_policy_1.DUMMY_PASSWORD_HASH);
             throw new common_1.UnauthorizedException('Invalid credentials');
+        }
         const passwordMatches = await bcrypt.compare(dto.password, user.password);
         if (!passwordMatches)
             throw new common_1.UnauthorizedException('Invalid credentials');
@@ -321,13 +335,13 @@ let AuthService = class AuthService {
         return tokens;
     }
     async updateRefreshTokenHash(userId, rt, role) {
-        const hash = await bcrypt.hash(rt, 10);
+        const hash = await bcrypt.hash(rt, password_policy_1.BCRYPT_TOKEN_ROUNDS);
         await this.prisma.user.update({
             where: { id: userId },
             data: { refreshToken: hash },
         });
     }
-    async getTokens(userId, email, tenantId, role, branchId = null, isSuperAdmin = true, sessionId) {
+    async getTokens(userId, email, tenantId, role, branchId = null, isSuperAdmin = false, sessionId) {
         const atSecret = this.configService.get('JWT_ACCESS_SECRET');
         const atExpires = this.configService.get('JWT_ACCESS_EXPIRES_IN');
         const rtSecret = this.configService.get('JWT_REFRESH_SECRET');

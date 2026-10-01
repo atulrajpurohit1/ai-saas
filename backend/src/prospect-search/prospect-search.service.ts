@@ -263,7 +263,7 @@ export class ProspectSearchService {
   private async settleJobCredits(
     tenantId: string,
     jobId: string,
-    actualUsed: number,
+    actualUsed: number | 'held',
     description: string,
     upstreamCostUsd?: number | null,
   ): Promise<void> {
@@ -280,7 +280,8 @@ export class ProspectSearchService {
 
       await this.creditsService.settle({
         reservationId: reservation.id,
-        actualUsed,
+        actualUsed:
+          actualUsed === 'held' ? Math.abs(reservation.amount) : actualUsed,
         description,
         upstreamCostUsd,
       });
@@ -360,7 +361,9 @@ export class ProspectSearchService {
     // upstream, because a thin result set is what a hard search looks like.
     // The hold and the charge are now the same number and do not depend on
     // what the AI finds.
-    const searchCost = discoveryCreditCost();
+    // Preview and Full differ only in the limit sent, so the price follows
+    // the limit on THIS request rather than anything the UI claims.
+    const searchCost = discoveryCreditCost(dto.limit);
     await this.assertCanAfford(user.tenantId, searchCost);
 
     const jobId = await this.blackPearlProspectingProvider.submitProspectingJob(
@@ -458,10 +461,15 @@ export class ProspectSearchService {
       // upstream -- a thin result set is information, not a failure, and
       // refunding it would mean paying BlackPearl for work we gave away.
       // (A search that genuinely FAILS is refunded in full, below.)
+      //
+      // Charged at what was HELD, not recomputed: this poll is a separate
+      // request that no longer knows whether the search was a preview or a
+      // full one, and a cost changed in the env mid-search must not reprice a
+      // search the customer already agreed to.
       await this.settleJobCredits(
         user.tenantId,
         jobId,
-        discoveryCreditCost(),
+        'held',
         `Prospect discovery: "${objective}" (${result.prospects.length} found)`,
         poll.upstreamCostUsd,
       );

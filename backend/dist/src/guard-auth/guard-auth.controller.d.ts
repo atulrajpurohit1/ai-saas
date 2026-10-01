@@ -1,10 +1,12 @@
 import { Request } from 'express';
 import { GuardLoginDto } from './dto/guard-login.dto';
 import { GuardAuthService } from './guard-auth.service';
+import { AuthRateLimitService } from '../auth/auth-rate-limit.service';
 export declare class GuardAuthController {
     private readonly guardAuthService;
-    constructor(guardAuthService: GuardAuthService);
-    login(dto: GuardLoginDto): Promise<{
+    private readonly rateLimit;
+    constructor(guardAuthService: GuardAuthService, rateLimit: AuthRateLimitService);
+    login(dto: GuardLoginDto, req: Request): Promise<{
         guard: {
             id: string;
             name: string;

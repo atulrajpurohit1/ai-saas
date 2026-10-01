@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { ServiceModule } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BillingInterval } from './billing.config';
+import { CreditPackKey } from './credit-packs.constants';
 export declare class StripeService {
     private readonly prisma;
     private readonly logger;
@@ -19,6 +20,17 @@ export declare class StripeService {
         url: string | null;
         sessionId: string;
     }>;
+    createCreditPackCheckoutSession(params: {
+        tenantId: string;
+        pack: CreditPackKey;
+        email?: string;
+    }): Promise<{
+        url: string | null;
+        sessionId: string;
+    }>;
+    private assertPriceMatchesPack;
+    checkoutSessionForPaymentIntent(paymentIntentId: string): Promise<Stripe.Checkout.Session | null>;
+    priceIdsForCheckoutSession(sessionId: string): Promise<string[]>;
     createPortalSession(tenantId: string): Promise<{
         url: string;
     }>;

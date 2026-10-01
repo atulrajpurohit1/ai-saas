@@ -123,7 +123,10 @@ export default function ProspectSearchPage() {
   // a top-up link rather than a bare failure message.
   const [creditsShortfall, setCreditsShortfall] = useState<string | null>(null);
   const [credits, setCredits] = useState<CreditBalance | null>(null);
-  const [searchCost, setSearchCost] = useState<number | null>(null);
+  const [searchCosts, setSearchCosts] = useState<{
+    full: number;
+    preview: number;
+  } | null>(null);
   const [result, setResult] = useState<ProspectDiscoveryResult | null>(null);
 
   const [history, setHistory] = useState<ProspectSearchHistoryEntry[]>([]);
@@ -442,10 +445,18 @@ export default function ProspectSearchPage() {
     let cancelled = false;
     getCreditPacks()
       .then((packs) => {
-        if (!cancelled) setSearchCost(packs.costs.discoverySearch ?? null);
+        if (cancelled) return;
+        const full = packs.costs.discoverySearch;
+        // An older backend sends no preview price because it charges every
+        // search the full price -- so showing the full price is then correct.
+        setSearchCosts(
+          typeof full === 'number'
+            ? { full, preview: packs.costs.discoveryPreview ?? full }
+            : null,
+        );
       })
       .catch(() => {
-        if (!cancelled) setSearchCost(null);
+        if (!cancelled) setSearchCosts(null);
       });
     return () => {
       cancelled = true;
@@ -903,17 +914,22 @@ export default function ProspectSearchPage() {
               ))}
             </div>
             <span className="text-xs text-slate-500">
-              Expected: up to {SEARCH_MODE_LIMITS[searchMode]} results &middot; ~1 min
+              Expected: up to {SEARCH_MODE_LIMITS[searchMode]}{' '}results
+              {' '}&middot; ~1 min
               {/* A search is a flat charge now, so this is the price, not a
                   ceiling. It used to read "up to N credits" because credits
                   were held for the requested limit and refunded down to what
                   was found -- saying that now would understate the cost. The
-                  number comes from the API because it is configurable
-                  server-side. */}
-              {searchCost !== null && (
+                  numbers come from the API because they are configurable
+                  server-side, and the server prices Preview and Full from the
+                  limit sent, so this must follow the selected mode. */}
+              {searchCosts !== null && (
                 <>
-                  {' '}&middot; {searchCost}{' '}
-                  {searchCost === 1 ? 'credit' : 'credits'}
+                  {' '}&middot;{' '}
+                  {searchMode === 'preview'
+                    ? searchCosts.preview
+                    : searchCosts.full}{' '}
+                  credits
                 </>
               )}
               {credits && (

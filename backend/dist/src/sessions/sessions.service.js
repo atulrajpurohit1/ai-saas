@@ -46,6 +46,7 @@ exports.SessionsService = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const bcrypt = __importStar(require("bcrypt"));
+const password_policy_1 = require("../auth/password-policy");
 const crypto_1 = require("crypto");
 const audit_service_1 = require("../audit/audit.service");
 const prisma_service_1 = require("../prisma/prisma.service");
@@ -64,7 +65,7 @@ let SessionsService = class SessionsService {
         return (0, crypto_1.randomUUID)();
     }
     async createSession(data) {
-        const refreshTokenHash = await bcrypt.hash(data.refreshToken, 10);
+        const refreshTokenHash = await bcrypt.hash(data.refreshToken, password_policy_1.BCRYPT_TOKEN_ROUNDS);
         return this.prisma.userSession.create({
             data: {
                 id: data.id,
@@ -105,7 +106,7 @@ let SessionsService = class SessionsService {
         await this.prisma.userSession.update({
             where: { id: sessionId },
             data: {
-                refreshTokenHash: await bcrypt.hash(refreshToken, 10),
+                refreshTokenHash: await bcrypt.hash(refreshToken, password_policy_1.BCRYPT_TOKEN_ROUNDS),
                 lastSeenAt: new Date(),
             },
         });

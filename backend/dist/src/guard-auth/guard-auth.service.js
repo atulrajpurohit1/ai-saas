@@ -47,6 +47,7 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const jwt_1 = require("@nestjs/jwt");
 const bcrypt = __importStar(require("bcrypt"));
+const password_policy_1 = require("../auth/password-policy");
 const audit_service_1 = require("../audit/audit.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 let GuardAuthService = class GuardAuthService {
@@ -127,7 +128,7 @@ let GuardAuthService = class GuardAuthService {
         return true;
     }
     async updateRefreshTokenHash(guardId, rt) {
-        const hash = await bcrypt.hash(rt, 10);
+        const hash = await bcrypt.hash(rt, password_policy_1.BCRYPT_TOKEN_ROUNDS);
         await this.prisma.guard.update({
             where: { id: guardId },
             data: { refreshToken: hash },

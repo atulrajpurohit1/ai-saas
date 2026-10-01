@@ -3,10 +3,13 @@ import { LeadsService } from './leads.service';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { UpdateLeadStatusDto } from './dto/update-lead-status.dto';
+import { ImportLeadsDto } from './dto/import-leads.dto';
+import { CrmImportService } from './import/crm-import.service';
 import { Request } from 'express';
 export declare class LeadsController {
     private readonly leadsService;
-    constructor(leadsService: LeadsService);
+    private readonly crmImportService;
+    constructor(leadsService: LeadsService, crmImportService: CrmImportService);
     create(createLeadDto: CreateLeadDto, req: Request): Promise<{
         id: string;
         name: string;
@@ -36,6 +39,12 @@ export declare class LeadsController {
     import(file: Express.Multer.File, req: Request): Promise<{
         count: number;
     }>;
+    importFields(): {
+        fields: readonly ["name", "company", "email", "status"];
+        required: ("name" | "email" | "status" | "company")[];
+    };
+    previewImport(file: Express.Multer.File): Promise<import("./import/crm-import.types").ImportPreview>;
+    commitImport(file: Express.Multer.File, dto: ImportLeadsDto, req: Request): Promise<import("./import/crm-import.types").ImportResult>;
     uploadPdf(file: Express.Multer.File, req: Request): Promise<{
         id: string;
         name: string;

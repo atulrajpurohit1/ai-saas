@@ -59,6 +59,10 @@ let BlackPearlInsightProvider = BlackPearlInsightProvider_1 = class BlackPearlIn
             return null;
         }
         const companyName = job.input?.target_company ?? null;
+        const upstreamCostUsd = typeof job.usage?.cost_usd === 'number' &&
+            Number.isFinite(job.usage.cost_usd)
+            ? job.usage.cost_usd
+            : null;
         if (PENDING_JOB_STATUSES.has(job.status)) {
             this.logger.log(`BlackPearl job polling: jobId=${jobId} status="${job.status}" progress=${job.progress ?? 'n/a'} - still running.`);
             return {
@@ -67,6 +71,7 @@ let BlackPearlInsightProvider = BlackPearlInsightProvider_1 = class BlackPearlIn
                 progress: typeof job.progress === 'number' ? job.progress : null,
                 companyName,
                 insight: null,
+                upstreamCostUsd,
             };
         }
         if (job.status === SUCCESS_JOB_STATUS && job.result) {
@@ -79,6 +84,7 @@ let BlackPearlInsightProvider = BlackPearlInsightProvider_1 = class BlackPearlIn
                     progress: 100,
                     companyName,
                     insight,
+                    upstreamCostUsd,
                 };
             }
             this.logger.warn(`BlackPearl job FINAL STATUS: jobId=${jobId} status="succeeded" but result parsing FAILED (no usable company name in the result payload) - treating as failed.`);
@@ -92,6 +98,7 @@ let BlackPearlInsightProvider = BlackPearlInsightProvider_1 = class BlackPearlIn
             progress: null,
             companyName,
             insight: null,
+            upstreamCostUsd,
         };
     }
     async getPlaybook(company) {

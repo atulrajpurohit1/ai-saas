@@ -34,8 +34,9 @@ let EntitlementsService = EntitlementsService_1 = class EntitlementsService {
             select: { status: true },
         });
         if (!subscription) {
-            this.logger.warn(`Tenant ${tenantId} has no subscription row; granting all modules.`);
-            return this.remember(tenantId, new Set(entitlements_constants_1.SERVICE_MODULES));
+            this.logger.error(`Tenant ${tenantId} has no subscription row; denying all modules. ` +
+                `This tenant needs a TenantSubscription row before it can be used.`);
+            return this.remember(tenantId, new Set());
         }
         if (!ACTIVE_STATUSES.includes(subscription.status)) {
             return this.remember(tenantId, new Set());

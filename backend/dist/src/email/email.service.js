@@ -51,10 +51,20 @@ const prisma_service_1 = require("../prisma/prisma.service");
 function parseAddress(address) {
     const match = /^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/.exec(address);
     if (!match) {
-        return { email: address.trim() };
+        return { email: recoverAddress(address) };
     }
     const name = match[1].trim();
     return { ...(name ? { name } : {}), email: match[2].trim() };
+}
+function recoverAddress(address) {
+    const trimmed = address
+        .trim()
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&quot;/gi, '"')
+        .replace(/&amp;/gi, '&');
+    const found = /[^\s<>"',;:]+@[^\s<>"',;:]+\.[^\s<>"',;:]+/.exec(trimmed);
+    return found ? found[0] : trimmed;
 }
 class BrevoHttpTransport {
     apiKey;
@@ -157,12 +167,18 @@ let EmailService = EmailService_1 = class EmailService {
     logger = new common_1.Logger(EmailService_1.name);
     transporter;
     usingNodemailer = false;
-    envelopeFrom = process.env.EMAIL_FROM || 'no-reply@aisaascrm.com';
+    envelopeFrom = recoverAddress(process.env.EMAIL_FROM || 'no-reply@aisaascrm.com');
     constructor(prisma, brandingService) {
         this.prisma = prisma;
         this.brandingService = brandingService;
         const brevoApiKey = process.env.BREVO_API_KEY;
         const resendApiKey = process.env.RESEND_API_KEY;
+        const rawFrom = (process.env.EMAIL_FROM || '').trim();
+        if (rawFrom && rawFrom !== this.envelopeFrom) {
+            this.logger.warn(`EMAIL_FROM was normalised from ${JSON.stringify(rawFrom)} to ` +
+                `${JSON.stringify(this.envelopeFrom)}. Set it to a bare address ` +
+                `(user@example.com) that is verified with the mail provider.`);
+        }
         if (brevoApiKey) {
             this.transporter = new BrevoHttpTransport(brevoApiKey);
         }

@@ -19,6 +19,9 @@ const leads_service_1 = require("./leads.service");
 const create_lead_dto_1 = require("./dto/create-lead.dto");
 const update_lead_dto_1 = require("./dto/update-lead.dto");
 const update_lead_status_dto_1 = require("./dto/update-lead-status.dto");
+const import_leads_dto_1 = require("./dto/import-leads.dto");
+const crm_import_service_1 = require("./import/crm-import.service");
+const crm_import_types_1 = require("./import/crm-import.types");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const module_guard_1 = require("../auth/guards/module.guard");
 const module_decorator_1 = require("../auth/decorators/module.decorator");
@@ -26,8 +29,10 @@ const permission_guard_1 = require("../auth/guards/permission.guard");
 const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
 let LeadsController = class LeadsController {
     leadsService;
-    constructor(leadsService) {
+    crmImportService;
+    constructor(leadsService, crmImportService) {
         this.leadsService = leadsService;
+        this.crmImportService = crmImportService;
     }
     create(createLeadDto, req) {
         const user = req.user;
@@ -38,8 +43,24 @@ let LeadsController = class LeadsController {
         return this.leadsService.findAll(user.tenantId);
     }
     async import(file, req) {
+        if (!file)
+            throw new common_1.BadRequestException('No file uploaded');
         const user = req.user;
         return this.leadsService.importLeads(file.buffer, user.tenantId);
+    }
+    importFields() {
+        return { fields: crm_import_types_1.IMPORTABLE_FIELDS, required: crm_import_types_1.REQUIRED_FIELDS };
+    }
+    async previewImport(file) {
+        if (!file)
+            throw new common_1.BadRequestException('No file uploaded');
+        return this.crmImportService.preview(file.buffer);
+    }
+    async commitImport(file, dto, req) {
+        if (!file)
+            throw new common_1.BadRequestException('No file uploaded');
+        const user = req.user;
+        return this.crmImportService.commit(file.buffer, dto.mapping, user.tenantId, user.sub, dto.source);
     }
     async uploadPdf(file, req) {
         if (!file)
@@ -104,6 +125,33 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], LeadsController.prototype, "import", null);
+__decorate([
+    (0, common_1.Get)('import/fields'),
+    (0, permissions_decorator_1.RequirePermission)('leads.import'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], LeadsController.prototype, "importFields", null);
+__decorate([
+    (0, common_1.Post)('import/preview'),
+    (0, permissions_decorator_1.RequirePermission)('leads.import'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
+    __param(0, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], LeadsController.prototype, "previewImport", null);
+__decorate([
+    (0, common_1.Post)('import/commit'),
+    (0, permissions_decorator_1.RequirePermission)('leads.import'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
+    __param(0, (0, common_1.UploadedFile)()),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, import_leads_dto_1.ImportLeadsDto, Object]),
+    __metadata("design:returntype", Promise)
+], LeadsController.prototype, "commitImport", null);
 __decorate([
     (0, common_1.Post)('upload-pdf'),
     (0, permissions_decorator_1.RequirePermission)('leads.import'),
@@ -174,6 +222,7 @@ exports.LeadsController = LeadsController = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard, module_guard_1.ModuleGuard),
     (0, common_1.Controller)('leads'),
     (0, module_decorator_1.RequireModule)('LEAD_GEN'),
-    __metadata("design:paramtypes", [leads_service_1.LeadsService])
+    __metadata("design:paramtypes", [leads_service_1.LeadsService,
+        crm_import_service_1.CrmImportService])
 ], LeadsController);
 //# sourceMappingURL=leads.controller.js.map

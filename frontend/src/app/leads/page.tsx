@@ -19,7 +19,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useNewIntent } from '@/hooks/useNewIntent';
-import { Plus, Search, User, Upload, Loader2, Users, Trash2 } from 'lucide-react';
+import { Plus, Search, User, Upload, Loader2, Users, Trash2, FileUp } from 'lucide-react';
+import LeadImportDialog from '@/components/LeadImportDialog';
 
 interface Lead {
   id: string;
@@ -63,6 +64,7 @@ export default function LeadsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [newLead, setNewLead] = useState({ name: '', email: '', company: '' });
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -166,11 +168,23 @@ export default function LeadsPage() {
         title="Leads"
         description="Manage your incoming business opportunities."
         actions={
-          <Button onClick={() => setShowModal(true)}>
-            <Plus size={16} />
-            Add New Lead
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setShowImport(true)}>
+              <FileUp size={16} />
+              Import from CRM
+            </Button>
+            <Button onClick={() => setShowModal(true)}>
+              <Plus size={16} />
+              Add New Lead
+            </Button>
+          </div>
         }
+      />
+
+      <LeadImportDialog
+        open={showImport}
+        onOpenChange={setShowImport}
+        onImported={fetchLeads}
       />
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">

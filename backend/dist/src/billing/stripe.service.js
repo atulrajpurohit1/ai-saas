@@ -18,6 +18,7 @@ const common_1 = require("@nestjs/common");
 const stripe_1 = __importDefault(require("stripe"));
 const prisma_service_1 = require("../prisma/prisma.service");
 const billing_config_1 = require("./billing.config");
+const credit_packs_constants_1 = require("./credit-packs.constants");
 let StripeService = StripeService_1 = class StripeService {
     prisma;
     logger = new common_1.Logger(StripeService_1.name);
@@ -84,6 +85,61 @@ let StripeService = StripeService_1 = class StripeService {
             },
         });
         return { url: session.url, sessionId: session.id };
+    }
+    async createCreditPackCheckoutSession(params) {
+        const { tenantId, pack, email } = params;
+        const price = (0, credit_packs_constants_1.creditPackPriceId)(pack);
+        if (!price) {
+            throw new common_1.ServiceUnavailableException(`No price is configured for the ${credit_packs_constants_1.CREDIT_PACKS[pack].label} yet.`);
+        }
+        await this.assertPriceMatchesPack(price, pack);
+        const urls = (0, billing_config_1.billingReturnUrls)();
+        const customer = await this.customerIdFor(tenantId, email);
+        const session = await this.stripe().checkout.sessions.create({
+            mode: 'payment',
+            customer,
+            line_items: [{ price, quantity: 1 }],
+            success_url: urls.creditsSuccess,
+            cancel_url: urls.creditsCancel,
+            metadata: {
+                tenantId,
+                creditPack: pack,
+                credits: String(credit_packs_constants_1.CREDIT_PACKS[pack].credits),
+            },
+            payment_intent_data: {
+                metadata: { tenantId, creditPack: pack },
+            },
+        });
+        return { url: session.url, sessionId: session.id };
+    }
+    async assertPriceMatchesPack(priceId, pack) {
+        const expected = credit_packs_constants_1.CREDIT_PACKS[pack];
+        const price = await this.stripe().prices.retrieve(priceId);
+        const matches = price.active &&
+            price.type === 'one_time' &&
+            price.currency === 'usd' &&
+            price.unit_amount === expected.price * 100;
+        if (!matches) {
+            this.logger.error(`Refusing to sell the ${expected.label}: price ${priceId} charges ` +
+                `${price.unit_amount ?? 'unknown'} ${price.currency} (${price.type}, ` +
+                `${price.active ? 'active' : 'archived'}), but the pack is ` +
+                `$${expected.price} one-time for ${expected.credits} credits. ` +
+                `Set ${(0, credit_packs_constants_1.creditPackPriceEnvKey)(pack)} to the matching price.`);
+            throw new common_1.ServiceUnavailableException(`The ${expected.label} can't be bought right now. Please try again later.`);
+        }
+    }
+    async checkoutSessionForPaymentIntent(paymentIntentId) {
+        const sessions = await this.stripe().checkout.sessions.list({
+            payment_intent: paymentIntentId,
+            limit: 1,
+        });
+        return sessions.data[0] ?? null;
+    }
+    async priceIdsForCheckoutSession(sessionId) {
+        const lineItems = await this.stripe().checkout.sessions.listLineItems(sessionId, { limit: 100 });
+        return lineItems.data
+            .map((item) => item.price?.id)
+            .filter((id) => Boolean(id));
     }
     async createPortalSession(tenantId) {
         const subscription = await this.prisma.tenantSubscription.findUnique({

@@ -50,6 +50,7 @@ const config_1 = require("@nestjs/config");
 const client_1 = require("@prisma/client");
 const bcrypt = __importStar(require("bcrypt"));
 const class_validator_1 = require("class-validator");
+const password_policy_1 = require("../auth/password-policy");
 const email_verification_service_1 = require("../email-verification/email-verification.service");
 const INVALID_EMAIL_MESSAGE = 'Please enter a valid email address.';
 class ClientRegisterDto {
@@ -65,7 +66,8 @@ __decorate([
 ], ClientRegisterDto.prototype, "email", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.MinLength)(6),
+    (0, class_validator_1.MinLength)(password_policy_1.PASSWORD_MIN_LENGTH),
+    (0, class_validator_1.MaxLength)(password_policy_1.PASSWORD_MAX_LENGTH),
     __metadata("design:type", String)
 ], ClientRegisterDto.prototype, "password", void 0);
 __decorate([
@@ -95,8 +97,10 @@ let ClientAuthService = class ClientAuthService {
             where: { email },
             include: { client: true },
         });
-        if (!user)
+        if (!user) {
+            await bcrypt.compare(dto.password, password_policy_1.DUMMY_PASSWORD_HASH);
             throw new common_1.UnauthorizedException('Invalid credentials');
+        }
         const passwordMatches = await bcrypt.compare(dto.password, user.password);
         if (!passwordMatches)
             throw new common_1.UnauthorizedException('Invalid credentials');
@@ -116,7 +120,7 @@ let ClientAuthService = class ClientAuthService {
             if (!name) {
                 throw new common_1.BadRequestException('Full name is required.');
             }
-            const hashedPassword = await bcrypt.hash(dto.password, 10);
+            const hashedPassword = await bcrypt.hash(dto.password, password_policy_1.BCRYPT_PASSWORD_ROUNDS);
             const existingUser = await this.prisma.clientUser.findUnique({
                 where: { email },
             });
@@ -181,17 +185,18 @@ let ClientAuthService = class ClientAuthService {
         if (!user) {
             throw new common_1.UnauthorizedException('Invalid verification code.');
         }
-        if (!user.emailVerified) {
-            await this.emailVerification.verifyOtp({
-                accountType: 'CLIENT_USER',
-                accountId: user.id,
-                code: dto.code,
-            });
-            await this.prisma.clientUser.update({
-                where: { id: user.id },
-                data: { emailVerified: true, emailVerifiedAt: new Date() },
-            });
+        if (user.emailVerified) {
+            throw new common_1.UnauthorizedException('Invalid verification code.');
         }
+        await this.emailVerification.verifyOtp({
+            accountType: 'CLIENT_USER',
+            accountId: user.id,
+            code: dto.code,
+        });
+        await this.prisma.clientUser.update({
+            where: { id: user.id },
+            data: { emailVerified: true, emailVerifiedAt: new Date() },
+        });
         const tokens = await this.getTokens(user.id, user.email, user.tenantId, user.clientId);
         await this.updateRefreshTokenHash(user.id, tokens.refresh_token);
         return tokens;
@@ -232,7 +237,7 @@ let ClientAuthService = class ClientAuthService {
         return tokens;
     }
     async updateRefreshTokenHash(userId, rt) {
-        const hash = await bcrypt.hash(rt, 10);
+        const hash = await bcrypt.hash(rt, password_policy_1.BCRYPT_TOKEN_ROUNDS);
         await this.prisma.clientUser.update({
             where: { id: userId },
             data: { refreshToken: hash },

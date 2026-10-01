@@ -11,8 +11,8 @@ export declare class RolesController {
         name: string;
         createdAt: Date;
         description: string | null;
-        module: string;
         key: string;
+        module: string;
     }[]>;
     listRoles(user: ActiveUser): Promise<{
         id: any;

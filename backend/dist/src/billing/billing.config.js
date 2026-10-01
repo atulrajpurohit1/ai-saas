@@ -8,6 +8,7 @@ exports.billingReturnUrls = billingReturnUrls;
 exports.trialDays = trialDays;
 exports.isCheckoutConfigured = isCheckoutConfigured;
 exports.sellableModules = sellableModules;
+const environment_check_1 = require("../config/environment-check");
 const ENV_KEYS = {
     LEAD_GEN: {
         monthly: 'STRIPE_PRICE_LEAD_GEN_MONTHLY',
@@ -42,13 +43,19 @@ function stripeWebhookSecret() {
     return process.env.STRIPE_WEBHOOK_SECRET?.trim() || null;
 }
 function billingReturnUrls() {
-    const base = (process.env.BILLING_RETURN_URL ||
-        process.env.FRONTEND_URL ||
-        'http://localhost:3000').replace(/\/+$/, '');
+    const configured = process.env.BILLING_RETURN_URL || process.env.FRONTEND_URL;
+    if (!configured && !(0, environment_check_1.isDevelopmentLike)()) {
+        console.error('BILLING_RETURN_URL is not set. Stripe will return paying customers to ' +
+            'http://localhost:3000, which is their own machine. Set it to the origin ' +
+            'customers sign in on.');
+    }
+    const base = (configured || 'http://localhost:3000').replace(/\/+$/, '');
     return {
         success: `${base}/settings/plan?checkout=success`,
         cancel: `${base}/settings/plan?checkout=cancelled`,
         portalReturn: `${base}/settings/plan`,
+        creditsSuccess: `${base}/settings/credits?checkout=success`,
+        creditsCancel: `${base}/settings/credits?checkout=cancelled`,
     };
 }
 function trialDays() {

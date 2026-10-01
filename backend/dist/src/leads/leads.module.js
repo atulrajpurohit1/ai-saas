@@ -12,6 +12,7 @@ const leads_service_1 = require("./leads.service");
 const leads_controller_1 = require("./leads.controller");
 const prisma_module_1 = require("../prisma/prisma.module");
 const ai_module_1 = require("../ai/ai.module");
+const crm_import_service_1 = require("./import/crm-import.service");
 let LeadsModule = class LeadsModule {
 };
 exports.LeadsModule = LeadsModule;
@@ -19,8 +20,8 @@ exports.LeadsModule = LeadsModule = __decorate([
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule, ai_module_1.AiModule],
         controllers: [leads_controller_1.LeadsController],
-        providers: [leads_service_1.LeadsService],
-        exports: [leads_service_1.LeadsService],
+        providers: [leads_service_1.LeadsService, crm_import_service_1.CrmImportService],
+        exports: [leads_service_1.LeadsService, crm_import_service_1.CrmImportService],
     })
 ], LeadsModule);
 //# sourceMappingURL=leads.module.js.map

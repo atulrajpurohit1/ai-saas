@@ -33,14 +33,24 @@ export class EntitlementsService {
       select: { status: true },
     });
 
-    // No subscription row at all: a tenant created before this system existed
-    // and somehow missed the backfill. Fail OPEN rather than locking a paying
-    // customer out of a product they already use.
+    // No subscription row at all. Signup now creates one inside the same
+    // transaction as the tenant, so by this point a missing row means either
+    // a tenant predating that change or data corruption -- not a legitimate
+    // state.
+    //
+    // This deliberately fails CLOSED. It used to grant every module, which
+    // meant any tenant without a row silently received all three services
+    // free; that is a revenue hole once Stripe is live, and it hid the bug
+    // by making the broken case look like the working one. Locking instead
+    // makes the failure loud and cheap to spot.
+    //
+    // Logged at error, not warn: nothing should reach this branch.
     if (!subscription) {
-      this.logger.warn(
-        `Tenant ${tenantId} has no subscription row; granting all modules.`,
+      this.logger.error(
+        `Tenant ${tenantId} has no subscription row; denying all modules. ` +
+          `This tenant needs a TenantSubscription row before it can be used.`,
       );
-      return this.remember(tenantId, new Set(SERVICE_MODULES));
+      return this.remember(tenantId, new Set());
     }
 
     if (!ACTIVE_STATUSES.includes(subscription.status)) {

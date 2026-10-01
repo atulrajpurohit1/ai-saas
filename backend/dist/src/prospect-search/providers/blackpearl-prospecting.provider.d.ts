@@ -19,6 +19,7 @@ export interface ProspectingJobPollResult {
     progress: number | null;
     stageLabel: string | null;
     result: ProspectDiscoveryResult | null;
+    upstreamCostUsd: number | null;
 }
 export declare class BlackPearlProspectingProvider {
     private readonly configService;
@@ -27,6 +28,7 @@ export declare class BlackPearlProspectingProvider {
     isConfigured(): boolean;
     submitProspectingJob(input: ProspectingSubmissionInput): Promise<string | null>;
     getJobResult(jobId: string): Promise<ProspectingJobPollResult | null>;
+    getUpstreamBalanceUsd(): Promise<number | null>;
     private getBaseUrl;
     private getProductInfo;
 }

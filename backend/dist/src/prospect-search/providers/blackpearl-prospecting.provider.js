@@ -76,21 +76,48 @@ let BlackPearlProspectingProvider = BlackPearlProspectingProvider_1 = class Blac
             this.logger.error(`BlackPearl prospecting job status check FAILED for jobId=${jobId} - see the request log above for the exact HTTP failure.`);
             return null;
         }
+        const upstreamCostUsd = typeof job.usage?.cost_usd === 'number' &&
+            Number.isFinite(job.usage.cost_usd)
+            ? job.usage.cost_usd
+            : null;
         if (PENDING_JOB_STATUSES.has(job.status)) {
             return {
                 status: 'pending',
                 progress: typeof job.progress === 'number' ? job.progress : null,
                 stageLabel: currentStageLabel(job.stages),
                 result: null,
+                upstreamCostUsd,
             };
         }
         if (job.status === SUCCESS_JOB_STATUS && job.result) {
             const result = normalizeProspectingResult(job.result);
-            this.logger.log(`BlackPearl prospecting job FINAL STATUS: jobId=${jobId} status="succeeded" prospects=${result.prospects.length}.`);
-            return { status: 'completed', progress: 100, stageLabel: null, result };
+            this.logger.log(`BlackPearl prospecting job FINAL STATUS: jobId=${jobId} status="succeeded" prospects=${result.prospects.length} costUsd=${upstreamCostUsd ?? 'unreported'}.`);
+            return {
+                status: 'completed',
+                progress: 100,
+                stageLabel: null,
+                result,
+                upstreamCostUsd,
+            };
         }
-        this.logger.warn(`BlackPearl prospecting job FINAL STATUS: jobId=${jobId} status="${job.status}"${job.error ? ` (${job.error_code ?? 'error'}: ${job.error})` : ''} - treating as failed.`);
-        return { status: 'failed', progress: null, stageLabel: null, result: null };
+        this.logger.warn(`BlackPearl prospecting job FINAL STATUS: jobId=${jobId} status="${job.status}"${job.error ? ` (${job.error_code ?? 'error'}: ${job.error})` : ''} costUsd=${upstreamCostUsd ?? 'unreported'} - treating as failed.`);
+        return {
+            status: 'failed',
+            progress: null,
+            stageLabel: null,
+            result: null,
+            upstreamCostUsd,
+        };
+    }
+    async getUpstreamBalanceUsd() {
+        const apiKey = this.configService.get('BLACKPEARL_API_KEY');
+        if (!apiKey)
+            return null;
+        const usage = await (0, blackpearl_http_util_1.blackPearlRequest)(this.logger, `${this.getBaseUrl()}/usage`, { method: 'GET', headers: (0, blackpearl_http_util_1.blackPearlHeaders)(apiKey) }, 'check prepaid balance');
+        const balance = usage?.credits?.balance_usd;
+        return typeof balance === 'number' && Number.isFinite(balance)
+            ? balance
+            : null;
     }
     getBaseUrl() {
         return (this.configService.get('BLACKPEARL_BASE_URL') || DEFAULT_BASE_URL);

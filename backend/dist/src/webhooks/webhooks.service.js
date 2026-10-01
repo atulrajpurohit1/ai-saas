@@ -15,6 +15,7 @@ const crypto_1 = require("crypto");
 const audit_service_1 = require("../audit/audit.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const webhook_events_1 = require("./webhook-events");
+const ssrf_guard_1 = require("./ssrf-guard");
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 5000;
 let WebhooksService = class WebhooksService {
@@ -42,11 +43,13 @@ let WebhooksService = class WebhooksService {
         return webhooks.map((webhook) => this.serializeWebhook(webhook));
     }
     async create(user, dto) {
+        const endpointUrl = dto.endpoint_url.trim();
+        await (0, ssrf_guard_1.assertPublicHttpUrl)(endpointUrl);
         const webhook = await this.prisma.webhook.create({
             data: {
                 tenantId: user.tenantId,
                 eventType: dto.event_type,
-                endpointUrl: dto.endpoint_url.trim(),
+                endpointUrl,
                 secretKey: this.generateSecret(),
                 status: 'active',
             },
@@ -66,6 +69,9 @@ let WebhooksService = class WebhooksService {
     }
     async update(user, id, dto) {
         const existing = await this.findTenantWebhook(user.tenantId, id);
+        if (dto.endpoint_url !== undefined) {
+            await (0, ssrf_guard_1.assertPublicHttpUrl)(dto.endpoint_url.trim());
+        }
         const updated = await this.prisma.webhook.update({
             where: { id: existing.id },
             data: {
@@ -300,6 +306,7 @@ let WebhooksService = class WebhooksService {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
         try {
+            await (0, ssrf_guard_1.assertPublicHttpUrl)(webhook.endpointUrl);
             const response = await fetch(webhook.endpointUrl, {
                 method: 'POST',
                 headers: {
@@ -311,6 +318,7 @@ let WebhooksService = class WebhooksService {
                 },
                 body,
                 signal: controller.signal,
+                redirect: 'manual',
             });
             return {
                 ok: response.status >= 200 && response.status < 300,

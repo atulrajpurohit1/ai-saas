@@ -24,7 +24,7 @@
  * for what is actually charged.
  */
 
-export type CreditPackKey = 'STARTER' | 'GROWTH' | 'SCALE';
+export type CreditPackKey = 'STARTER' | 'PRO' | 'ELITE';
 
 export interface CreditPack {
   key: CreditPackKey;
@@ -35,14 +35,22 @@ export interface CreditPack {
 }
 
 /**
- * Pack sizes and prices. The per-credit rate falls as packs get larger, which
- * is conventional. Whether the margin is adequate is UNKNOWN until the real
- * BlackPearl unit cost is established -- see the note above.
+ * Pack sizes and prices, set by the client on 1 Oct 2026 against Bebop's
+ * published tiers: the same price points, with 2,000 fewer credits in each
+ * ($149/5,000, $249/15,000 and $349/25,000 there). Credits are sized in the
+ * same units as Bebop's -- see the per-search costs below -- so the comparison
+ * holds per search, not just per credit.
+ *
+ * One-time purchases, not monthly: renewal was deferred so launch could use the
+ * existing purchase, refund and dispute handling unchanged.
+ *
+ * Whether the margin is adequate is still UNKNOWN until the real BlackPearl
+ * cost per search is established -- see the note above.
  */
 export const CREDIT_PACKS: Record<CreditPackKey, CreditPack> = {
-  STARTER: { key: 'STARTER', label: 'Starter Pack', credits: 250, price: 99 },
-  GROWTH: { key: 'GROWTH', label: 'Growth Pack', credits: 1000, price: 299 },
-  SCALE: { key: 'SCALE', label: 'Scale Pack', credits: 5000, price: 1199 },
+  STARTER: { key: 'STARTER', label: 'Starter Pack', credits: 3000, price: 149 },
+  PRO: { key: 'PRO', label: 'Pro Pack', credits: 13000, price: 249 },
+  ELITE: { key: 'ELITE', label: 'Elite Pack', credits: 23000, price: 349 },
 };
 
 export const CREDIT_PACK_KEYS = Object.keys(CREDIT_PACKS) as CreditPackKey[];
@@ -65,14 +73,26 @@ export function isCreditPackKey(value: string): value is CreditPackKey {
  * actually reason about: they know the price before they run it, and it does
  * not change based on how many results the AI happened to find.
  *
- * PROVISIONAL VALUES. These are a starting point, not a calibrated price. Our
- * real cost per search is being recorded for the first time via
- * CreditLedgerEntry.upstreamCostUsd; until enough of those rows exist, nobody
- * knows the true margin. Both are overridable by env var so they can be tuned
- * from real data without a deploy. Revisit once there is a week of usage.
+ * Sized in Bebop's units, as the client set them: about 200 credits for a full
+ * search and 50 for a preview. Discovery has both modes in the UI -- Preview
+ * asks for up to PREVIEW_RESULT_LIMIT prospects, Full for more -- so its price
+ * follows the limit requested. A single-company playbook is priced like a
+ * preview. Pack sizes above only compare fairly with Bebop's because of this.
+ *
+ * Still not calibrated against our own cost. Real cost per search is recorded
+ * via CreditLedgerEntry.upstreamCostUsd; until enough of those rows exist,
+ * nobody knows the true margin. Both are overridable by env var so they can be
+ * tuned from real data without a deploy.
  */
-const DEFAULT_PLAYBOOK_CREDIT_COST = 5;
-const DEFAULT_DISCOVERY_CREDIT_COST = 10;
+const DEFAULT_PLAYBOOK_CREDIT_COST = 50;
+const DEFAULT_DISCOVERY_CREDIT_COST = 200;
+const DEFAULT_PREVIEW_DISCOVERY_CREDIT_COST = 50;
+
+/**
+ * The largest result limit still charged as a preview. Matches the UI's
+ * Preview preset; anything above it, or no limit at all, is a full search.
+ */
+export const PREVIEW_RESULT_LIMIT = 5;
 
 function creditCostFromEnv(key: string, fallback: number): number {
   const configured = Number(process.env[key]);
@@ -92,16 +112,36 @@ export function playbookCreditCost(): number {
  * when it returns nothing, because an empty result still costs us a full job
  * upstream. A search that FAILS is still refunded in full; that is a different
  * case from one that succeeded and found nobody.
+ *
+ * Priced from the limit the request actually carries, never from which button
+ * the UI showed: a request asking for PREVIEW_RESULT_LIMIT or fewer is a
+ * preview, anything else -- including no limit, which the provider treats as
+ * its own default of 10 -- is a full search.
  */
-export function discoveryCreditCost(): number {
+export function discoveryCreditCost(limit?: number): number {
+  return limit !== undefined && limit <= PREVIEW_RESULT_LIMIT
+    ? previewDiscoveryCreditCost()
+    : fullDiscoveryCreditCost();
+}
+
+/** Credits for a full discovery search. */
+export function fullDiscoveryCreditCost(): number {
   return creditCostFromEnv(
     'PROSPECT_DISCOVERY_CREDIT_COST',
     DEFAULT_DISCOVERY_CREDIT_COST,
   );
 }
 
+/** Credits for a preview discovery search (limit <= PREVIEW_RESULT_LIMIT). */
+export function previewDiscoveryCreditCost(): number {
+  return creditCostFromEnv(
+    'PROSPECT_PREVIEW_CREDIT_COST',
+    DEFAULT_PREVIEW_DISCOVERY_CREDIT_COST,
+  );
+}
+
 /**
- * Stripe price id env var for a pack, e.g. STRIPE_PRICE_CREDITS_GROWTH.
+ * Stripe price id env var for a pack, e.g. STRIPE_PRICE_CREDITS_PRO.
  * Unset means that pack cannot be sold and checkout answers 503 for it,
  * matching how subscription prices behave before the client supplies them.
  */

@@ -28,9 +28,11 @@ import {
   revokeWebhook,
   rotateWebhookSecret,
 } from '@/lib/integrations';
+import LeadImportDialog from '@/components/LeadImportDialog';
 import {
   Ban,
   Copy,
+  FileUp,
   KeyRound,
   Loader2,
   Plug,
@@ -59,6 +61,7 @@ export default function IntegrationsPage() {
   const canManageCrm = can('integrations.manage') || can('crm.manage');
   const [overview, setOverview] = useState<IntegrationOverview | null>(null);
   const [crmStatus, setCrmStatus] = useState<CrmConnectorStatus | null>(null);
+  const [showCsvImport, setShowCsvImport] = useState(false);
   const [apiKeys, setApiKeys] = useState<ApiKeyRecord[]>([]);
   const [apiKeyPermissions, setApiKeyPermissions] = useState<PublicApiPermissionDefinition[]>([]);
   const [webhooks, setWebhooks] = useState<WebhookRecord[]>([]);
@@ -402,6 +405,31 @@ export default function IntegrationsPage() {
               <div className="mt-2 text-3xl font-black text-white">{overview?.failures_last_24h || 0}</div>
             </div>
           </div>
+
+          <section className="rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="mb-2 flex items-center gap-3">
+                  <FileUp className="text-orange-300" size={22} />
+                  <h3 className="text-xl font-bold">Any other CRM (CSV import)</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  No direct connector for your CRM? Export its contacts as CSV and map the
+                  columns onto your lead fields. Works with Salesforce, Pipedrive, Zoho, Close,
+                  Freshsales, Copper, spreadsheets &mdash; anything that exports CSV.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCsvImport(true)}
+                className="shrink-0 rounded-lg bg-orange-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-orange-400"
+              >
+                Import CSV
+              </button>
+            </div>
+          </section>
+
+          <LeadImportDialog open={showCsvImport} onOpenChange={setShowCsvImport} />
 
           {CRM_PROVIDERS_META.map((provider) => {
             const status = crmStatus?.[provider.id];

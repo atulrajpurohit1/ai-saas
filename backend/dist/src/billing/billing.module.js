@@ -17,6 +17,9 @@ const stripe_webhook_service_1 = require("./stripe-webhook.service");
 const stripe_webhook_controller_1 = require("./stripe-webhook.controller");
 const subscription_provisioning_service_1 = require("./subscription-provisioning.service");
 const guard_metering_service_1 = require("./guard-metering.service");
+const credits_service_1 = require("./credits.service");
+const credits_controller_1 = require("./credits.controller");
+const credit_reservation_scheduler_1 = require("./credit-reservation.scheduler");
 let BillingModule = class BillingModule {
 };
 exports.BillingModule = BillingModule;
@@ -24,18 +27,21 @@ exports.BillingModule = BillingModule = __decorate([
     (0, common_1.Global)(),
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule, audit_module_1.AuditModule],
-        controllers: [billing_controller_1.BillingController, stripe_webhook_controller_1.StripeWebhookController],
+        controllers: [billing_controller_1.BillingController, credits_controller_1.CreditsController, stripe_webhook_controller_1.StripeWebhookController],
         providers: [
             billing_service_1.BillingService,
             stripe_service_1.StripeService,
             stripe_webhook_service_1.StripeWebhookService,
             subscription_provisioning_service_1.SubscriptionProvisioningService,
             guard_metering_service_1.GuardMeteringService,
+            credits_service_1.CreditsService,
+            credit_reservation_scheduler_1.CreditReservationScheduler,
         ],
         exports: [
             billing_service_1.BillingService,
             subscription_provisioning_service_1.SubscriptionProvisioningService,
             guard_metering_service_1.GuardMeteringService,
+            credits_service_1.CreditsService,
         ],
     })
 ], BillingModule);

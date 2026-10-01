@@ -8,6 +8,8 @@ export declare function billingReturnUrls(): {
     success: string;
     cancel: string;
     portalReturn: string;
+    creditsSuccess: string;
+    creditsCancel: string;
 };
 export declare function trialDays(): number | null;
 export declare function isCheckoutConfigured(): boolean;

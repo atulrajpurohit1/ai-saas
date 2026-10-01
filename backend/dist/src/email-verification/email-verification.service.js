@@ -16,6 +16,7 @@ const crypto_1 = require("crypto");
 const prisma_service_1 = require("../prisma/prisma.service");
 const email_service_1 = require("../email/email.service");
 const email_validation_service_1 = require("./email-validation.service");
+const environment_check_1 = require("../config/environment-check");
 const OTP_LENGTH = 6;
 const OTP_TTL_MINUTES = 10;
 const MAX_VERIFY_ATTEMPTS = 5;
@@ -98,7 +99,9 @@ let EmailVerificationService = EmailVerificationService_1 = class EmailVerificat
                 lastSentAt: new Date(),
             },
         });
-        this.logger.log(`[DEVELOPMENT MODE] OTP for ${params.email}: ${code}`);
+        if ((0, environment_check_1.isDevelopmentLike)()) {
+            this.logger.log(`[DEVELOPMENT MODE] OTP for ${params.email}: ${code}`);
+        }
         try {
             if (purpose === exports.PASSWORD_RESET_PURPOSE) {
                 await this.emailService.sendPasswordResetOtpEmail(params.tenantId, {
@@ -119,11 +122,11 @@ let EmailVerificationService = EmailVerificationService_1 = class EmailVerificat
         }
         catch (error) {
             this.logger.warn(`Failed to send OTP email to ${params.email}: ${error instanceof Error ? error.message : String(error)}`);
-            if (process.env.NODE_ENV === 'production') {
-                throw new common_1.BadRequestException('Could not send the verification email right now. Please try again in a few minutes.');
+            if ((0, environment_check_1.isDevelopmentLike)()) {
+                this.logger.warn('Development mode: ignoring email send failure to unblock workflow.');
             }
             else {
-                this.logger.warn('Development mode: Ignoring email send failure to unblock workflow.');
+                throw new common_1.BadRequestException('Could not send the verification email right now. Please try again in a few minutes.');
             }
         }
         return { expiresAt, cooldownSeconds: RESEND_COOLDOWN_SECONDS };

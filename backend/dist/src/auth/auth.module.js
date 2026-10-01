@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthModule = void 0;
 const common_1 = require("@nestjs/common");
 const auth_service_1 = require("./auth.service");
+const auth_rate_limit_service_1 = require("./auth-rate-limit.service");
 const auth_controller_1 = require("./auth.controller");
 const users_module_1 = require("../users/users.module");
 const prisma_module_1 = require("../prisma/prisma.module");
@@ -34,8 +35,13 @@ exports.AuthModule = AuthModule = __decorate([
             email_verification_module_1.EmailVerificationModule,
         ],
         controllers: [auth_controller_1.AuthController],
-        providers: [auth_service_1.AuthService, jwt_strategy_1.JwtStrategy, jwt_refresh_strategy_1.JwtRefreshStrategy],
-        exports: [auth_service_1.AuthService],
+        providers: [
+            auth_service_1.AuthService,
+            auth_rate_limit_service_1.AuthRateLimitService,
+            jwt_strategy_1.JwtStrategy,
+            jwt_refresh_strategy_1.JwtRefreshStrategy,
+        ],
+        exports: [auth_service_1.AuthService, auth_rate_limit_service_1.AuthRateLimitService],
     })
 ], AuthModule);
 //# sourceMappingURL=auth.module.js.map

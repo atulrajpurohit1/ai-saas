@@ -150,7 +150,7 @@ function CreditsContent() {
             {loading ? '—' : (balance?.reservedPending ?? 0).toLocaleString()}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Returned automatically if a search finds less than expected.
+            Returned in full if a search fails.
           </p>
         </div>
 
@@ -175,8 +175,17 @@ function CreditsContent() {
                 {packs.costs.discoverySearch}
               </span>{' '}
               {packs.costs.discoverySearch === 1 ? 'credit' : 'credits'} per
-              prospect discovery search
+              full prospect discovery search
             </li>
+            {packs.costs.discoveryPreview !== undefined && (
+              <li>
+                <span className="font-medium text-foreground">
+                  {packs.costs.discoveryPreview}
+                </span>{' '}
+                {packs.costs.discoveryPreview === 1 ? 'credit' : 'credits'} per
+                preview search (up to {packs.costs.previewLimit} results)
+              </li>
+            )}
             <li>
               <span className="font-medium text-foreground">
                 {packs.costs.playbook}
@@ -210,7 +219,14 @@ function CreditsContent() {
       {packs?.configured && packs.packs.length > 0 && (
         <div className="grid gap-4 md:grid-cols-3">
           {packs.packs.map((pack) => {
-            const perCredit = pack.price / pack.credits;
+            // Per-credit price is meaningless at these sizes ($0.02 for both of
+            // the larger packs), so show what the pack actually buys instead.
+            const searches = packs.costs
+              ? Math.floor(pack.credits / packs.costs.discoverySearch)
+              : null;
+            const playbooks = packs.costs
+              ? Math.floor(pack.credits / packs.costs.playbook)
+              : null;
 
             return (
               <div
@@ -227,9 +243,14 @@ function CreditsContent() {
                   </span>
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  ${pack.price.toLocaleString()} — ${perCredit.toFixed(2)} per
-                  credit
+                  ${pack.price.toLocaleString()} one-time
                 </p>
+                {searches !== null && playbooks !== null && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    About {searches.toLocaleString()} discovery searches or{' '}
+                    {playbooks.toLocaleString()} playbooks
+                  </p>
+                )}
 
                 <button
                   type="button"
