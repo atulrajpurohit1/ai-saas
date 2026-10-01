@@ -98,7 +98,15 @@ export interface CreditPackAvailability {
    */
   costs: {
     playbook: number;
+    /** A full discovery search. */
     discoverySearch: number;
+    /**
+     * A preview discovery search (asking for previewLimit results or fewer).
+     * Optional: an older backend charges every search the full price and
+     * does not send it.
+     */
+    discoveryPreview?: number;
+    previewLimit?: number;
     perProspect: number | null;
   };
 }

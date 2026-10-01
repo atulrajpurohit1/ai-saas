@@ -5,7 +5,10 @@ import { CreditsService } from '../billing/credits.service';
 import { UpstreamBudgetService } from './upstream-budget.service';
 import {
   discoveryCreditCost,
+  fullDiscoveryCreditCost,
   playbookCreditCost,
+  PREVIEW_RESULT_LIMIT,
+  previewDiscoveryCreditCost,
 } from '../billing/credit-packs.constants';
 import { InsufficientCreditsException } from '../billing/insufficient-credits.exception';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
@@ -148,7 +151,11 @@ describe('ProspectSearchService', () => {
         reserved: 1,
         balanceAfter: 999,
       }),
-      findReservation: jest.fn().mockResolvedValue({ id: 'reservation-1' }),
+      // Held amounts are stored negative, as the real ledger does; a full
+      // search is the default these tests submit.
+      findReservation: jest
+        .fn()
+        .mockResolvedValue({ id: 'reservation-1', amount: -200 }),
       settle: jest.fn().mockResolvedValue({ released: 0, consumed: 1 }),
     };
 
@@ -773,10 +780,11 @@ describe('ProspectSearchService', () => {
     /**
      * Discovery is a flat price per search. It used to hold the requested
      * limit and refund the unused part, which made revenue fall as the search
-     * got harder -- and a hard search is the expensive one upstream. The
-     * requested limit must no longer influence what is held.
+     * got harder -- and a hard search is the expensive one upstream. Within a
+     * mode the limit no longer moves the price; only crossing from Preview to
+     * Full does (see below).
      */
-    it('holds the flat search price regardless of the requested limit', async () => {
+    it('holds the flat full-search price for any full-sized limit', async () => {
       await service.discover({ ...discoverDto, limit: 15 }, user);
 
       expect(creditsService.reserve).toHaveBeenCalledWith(
@@ -792,6 +800,87 @@ describe('ProspectSearchService', () => {
 
       expect(creditsService.reserve).toHaveBeenCalledWith(
         expect.objectContaining({ amount: discoveryCreditCost() }),
+      );
+    });
+
+    // Preview and Full differ only in the limit the UI sends, so the price
+    // must follow the limit on the request. Both modes used to be charged the
+    // full price, so a preview cost four times what it was advertised at.
+    it('holds the preview price for a preview-sized request', async () => {
+      await service.discover(
+        { ...discoverDto, limit: PREVIEW_RESULT_LIMIT },
+        user,
+      );
+
+      expect(creditsService.reserve).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: previewDiscoveryCreditCost() }),
+      );
+      expect(previewDiscoveryCreditCost()).toBeLessThan(
+        fullDiscoveryCreditCost(),
+      );
+    });
+
+    it('holds the full price one result above the preview limit', async () => {
+      await service.discover(
+        { ...discoverDto, limit: PREVIEW_RESULT_LIMIT + 1 },
+        user,
+      );
+
+      expect(creditsService.reserve).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: fullDiscoveryCreditCost() }),
+      );
+    });
+
+    it('lets a balance that covers a preview run one, even when it cannot cover a full search', async () => {
+      creditsService.getBalance.mockResolvedValue({
+        balance: previewDiscoveryCreditCost(),
+        lifetimePurchased: previewDiscoveryCreditCost(),
+        lifetimeConsumed: 0,
+        reservedPending: 0,
+      });
+
+      await service.discover(
+        { ...discoverDto, limit: PREVIEW_RESULT_LIMIT },
+        user,
+      );
+
+      expect(
+        blackPearlProspectingProvider.submitProspectingJob,
+      ).toHaveBeenCalled();
+    });
+
+    // The status poll is a separate request that no longer knows which mode
+    // the search ran in, so it must charge what was held rather than
+    // recomputing -- recomputing charged every preview the full price.
+    it('settles a preview at the preview price it held', async () => {
+      creditsService.findReservation.mockResolvedValue({
+        id: 'reservation-1',
+        amount: -previewDiscoveryCreditCost(),
+      });
+      blackPearlProspectingProvider.getJobResult.mockResolvedValue({
+        status: 'completed',
+        progress: 100,
+        stageLabel: null,
+        result: {
+          query: '',
+          discoveredCount: 5,
+          qualifiedCount: 5,
+          prospects: [{ id: 'p1' }],
+        },
+        upstreamCostUsd: 0.5,
+      });
+
+      await service.getDiscoveryJobStatus(
+        'discovery-job-1',
+        { ...discoverDto, limit: PREVIEW_RESULT_LIMIT },
+        user,
+      );
+
+      expect(creditsService.settle).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reservationId: 'reservation-1',
+          actualUsed: previewDiscoveryCreditCost(),
+        }),
       );
     });
 

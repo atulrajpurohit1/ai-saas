@@ -135,7 +135,7 @@ let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchServic
             this.upstreamBudget.invalidate();
             await this.creditsService.settle({
                 reservationId: reservation.id,
-                actualUsed,
+                actualUsed: actualUsed === 'held' ? Math.abs(reservation.amount) : actualUsed,
                 description,
                 upstreamCostUsd,
             });
@@ -171,7 +171,7 @@ let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchServic
             this.logger.error('BLACKPEARL_API_KEY is not configured. Prospect discovery cannot return results.');
             throw new common_1.ServiceUnavailableException('Prospect Search is temporarily unavailable. Please contact your administrator.');
         }
-        const searchCost = (0, credit_packs_constants_1.discoveryCreditCost)();
+        const searchCost = (0, credit_packs_constants_1.discoveryCreditCost)(dto.limit);
         await this.assertCanAfford(user.tenantId, searchCost);
         const jobId = await this.blackPearlProspectingProvider.submitProspectingJob({
             objective,
@@ -225,7 +225,7 @@ let ProspectSearchService = ProspectSearchService_1 = class ProspectSearchServic
             const cacheKey = this.discoveryCacheService.buildKey(user.tenantId, DISCOVERY_PROVIDER_NAME, this.normalizeDiscoveryQuery(dto));
             this.discoveryCacheService.set(cacheKey, result);
             await this.recordDiscoveryHistory(objective, result.prospects.length, user);
-            await this.settleJobCredits(user.tenantId, jobId, (0, credit_packs_constants_1.discoveryCreditCost)(), `Prospect discovery: "${objective}" (${result.prospects.length} found)`, poll.upstreamCostUsd);
+            await this.settleJobCredits(user.tenantId, jobId, 'held', `Prospect discovery: "${objective}" (${result.prospects.length} found)`, poll.upstreamCostUsd);
             this.logger.log(`Prospect discovery job completed: tenant=${user.tenantId} jobId=${jobId} prospects=${result.prospects.length}`);
             return { status: 'completed', query: objective, result };
         }

@@ -46,7 +46,9 @@ let CreditsController = class CreditsController {
             packs: (0, credit_packs_constants_1.sellableCreditPacks)(),
             costs: {
                 playbook: (0, credit_packs_constants_1.playbookCreditCost)(),
-                discoverySearch: (0, credit_packs_constants_1.discoveryCreditCost)(),
+                discoverySearch: (0, credit_packs_constants_1.fullDiscoveryCreditCost)(),
+                discoveryPreview: (0, credit_packs_constants_1.previewDiscoveryCreditCost)(),
+                previewLimit: credit_packs_constants_1.PREVIEW_RESULT_LIMIT,
                 perProspect: null,
             },
         };

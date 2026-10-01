@@ -1,9 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CREDIT_PACK_KEYS = exports.CREDIT_PACKS = void 0;
+exports.PREVIEW_RESULT_LIMIT = exports.CREDIT_PACK_KEYS = exports.CREDIT_PACKS = void 0;
 exports.isCreditPackKey = isCreditPackKey;
 exports.playbookCreditCost = playbookCreditCost;
 exports.discoveryCreditCost = discoveryCreditCost;
+exports.fullDiscoveryCreditCost = fullDiscoveryCreditCost;
+exports.previewDiscoveryCreditCost = previewDiscoveryCreditCost;
 exports.creditPackPriceEnvKey = creditPackPriceEnvKey;
 exports.creditPackPriceId = creditPackPriceId;
 exports.creditPackForPriceId = creditPackForPriceId;
@@ -19,6 +21,8 @@ function isCreditPackKey(value) {
 }
 const DEFAULT_PLAYBOOK_CREDIT_COST = 50;
 const DEFAULT_DISCOVERY_CREDIT_COST = 200;
+const DEFAULT_PREVIEW_DISCOVERY_CREDIT_COST = 50;
+exports.PREVIEW_RESULT_LIMIT = 5;
 function creditCostFromEnv(key, fallback) {
     const configured = Number(process.env[key]);
     return Number.isInteger(configured) && configured > 0 ? configured : fallback;
@@ -26,8 +30,16 @@ function creditCostFromEnv(key, fallback) {
 function playbookCreditCost() {
     return creditCostFromEnv('PROSPECT_PLAYBOOK_CREDIT_COST', DEFAULT_PLAYBOOK_CREDIT_COST);
 }
-function discoveryCreditCost() {
+function discoveryCreditCost(limit) {
+    return limit !== undefined && limit <= exports.PREVIEW_RESULT_LIMIT
+        ? previewDiscoveryCreditCost()
+        : fullDiscoveryCreditCost();
+}
+function fullDiscoveryCreditCost() {
     return creditCostFromEnv('PROSPECT_DISCOVERY_CREDIT_COST', DEFAULT_DISCOVERY_CREDIT_COST);
+}
+function previewDiscoveryCreditCost() {
+    return creditCostFromEnv('PROSPECT_PREVIEW_CREDIT_COST', DEFAULT_PREVIEW_DISCOVERY_CREDIT_COST);
 }
 function creditPackPriceEnvKey(pack) {
     return `STRIPE_PRICE_CREDITS_${pack}`;

@@ -175,8 +175,17 @@ function CreditsContent() {
                 {packs.costs.discoverySearch}
               </span>{' '}
               {packs.costs.discoverySearch === 1 ? 'credit' : 'credits'} per
-              prospect discovery search
+              full prospect discovery search
             </li>
+            {packs.costs.discoveryPreview !== undefined && (
+              <li>
+                <span className="font-medium text-foreground">
+                  {packs.costs.discoveryPreview}
+                </span>{' '}
+                {packs.costs.discoveryPreview === 1 ? 'credit' : 'credits'} per
+                preview search (up to {packs.costs.previewLimit} results)
+              </li>
+            )}
             <li>
               <span className="font-medium text-foreground">
                 {packs.costs.playbook}

@@ -13,8 +13,10 @@ import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { AuditService } from '../audit/audit.service';
 import { isCheckoutConfigured } from './billing.config';
 import {
-  discoveryCreditCost,
+  fullDiscoveryCreditCost,
   playbookCreditCost,
+  PREVIEW_RESULT_LIMIT,
+  previewDiscoveryCreditCost,
   sellableCreditPacks,
 } from './credit-packs.constants';
 import { CreditsService } from './credits.service';
@@ -67,7 +69,12 @@ export class CreditsController {
       // crashing or quoting a per-prospect price that no longer exists.
       costs: {
         playbook: playbookCreditCost(),
-        discoverySearch: discoveryCreditCost(),
+        // A full discovery search. Kept under its original name so an older
+        // frontend build still shows a real price.
+        discoverySearch: fullDiscoveryCreditCost(),
+        // A search asking for previewLimit results or fewer is a preview.
+        discoveryPreview: previewDiscoveryCreditCost(),
+        previewLimit: PREVIEW_RESULT_LIMIT,
         perProspect: null,
       },
     };

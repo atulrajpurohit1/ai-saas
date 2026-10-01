@@ -74,9 +74,10 @@ export function isCreditPackKey(value: string): value is CreditPackKey {
  * not change based on how many results the AI happened to find.
  *
  * Sized in Bebop's units, as the client set them: about 200 credits for a full
- * search and 50 for a lighter one. Discovery, which returns a list of
- * companies, is the full search; a single-company playbook is the lighter one.
- * Pack sizes above only compare fairly with Bebop's because of this.
+ * search and 50 for a preview. Discovery has both modes in the UI -- Preview
+ * asks for up to PREVIEW_RESULT_LIMIT prospects, Full for more -- so its price
+ * follows the limit requested. A single-company playbook is priced like a
+ * preview. Pack sizes above only compare fairly with Bebop's because of this.
  *
  * Still not calibrated against our own cost. Real cost per search is recorded
  * via CreditLedgerEntry.upstreamCostUsd; until enough of those rows exist,
@@ -85,6 +86,13 @@ export function isCreditPackKey(value: string): value is CreditPackKey {
  */
 const DEFAULT_PLAYBOOK_CREDIT_COST = 50;
 const DEFAULT_DISCOVERY_CREDIT_COST = 200;
+const DEFAULT_PREVIEW_DISCOVERY_CREDIT_COST = 50;
+
+/**
+ * The largest result limit still charged as a preview. Matches the UI's
+ * Preview preset; anything above it, or no limit at all, is a full search.
+ */
+export const PREVIEW_RESULT_LIMIT = 5;
 
 function creditCostFromEnv(key: string, fallback: number): number {
   const configured = Number(process.env[key]);
@@ -104,11 +112,31 @@ export function playbookCreditCost(): number {
  * when it returns nothing, because an empty result still costs us a full job
  * upstream. A search that FAILS is still refunded in full; that is a different
  * case from one that succeeded and found nobody.
+ *
+ * Priced from the limit the request actually carries, never from which button
+ * the UI showed: a request asking for PREVIEW_RESULT_LIMIT or fewer is a
+ * preview, anything else -- including no limit, which the provider treats as
+ * its own default of 10 -- is a full search.
  */
-export function discoveryCreditCost(): number {
+export function discoveryCreditCost(limit?: number): number {
+  return limit !== undefined && limit <= PREVIEW_RESULT_LIMIT
+    ? previewDiscoveryCreditCost()
+    : fullDiscoveryCreditCost();
+}
+
+/** Credits for a full discovery search. */
+export function fullDiscoveryCreditCost(): number {
   return creditCostFromEnv(
     'PROSPECT_DISCOVERY_CREDIT_COST',
     DEFAULT_DISCOVERY_CREDIT_COST,
+  );
+}
+
+/** Credits for a preview discovery search (limit <= PREVIEW_RESULT_LIMIT). */
+export function previewDiscoveryCreditCost(): number {
+  return creditCostFromEnv(
+    'PROSPECT_PREVIEW_CREDIT_COST',
+    DEFAULT_PREVIEW_DISCOVERY_CREDIT_COST,
   );
 }
 

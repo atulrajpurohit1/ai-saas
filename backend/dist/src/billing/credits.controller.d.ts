@@ -16,6 +16,8 @@ export declare class CreditsController {
         costs: {
             playbook: number;
             discoverySearch: number;
+            discoveryPreview: number;
+            previewLimit: number;
             perProspect: null;
         };
     };
