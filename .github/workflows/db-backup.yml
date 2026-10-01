@@ -1,0 +1,80 @@
+# Nightly encrypted backup of the production Neon database.
+#
+# Neon's free plan only keeps a few hours of restore history, so this keeps an
+# independent copy outside Neon. The repo is PUBLIC and workflow artifacts can be
+# downloaded by other GitHub users, so the dump is encrypted before upload and is
+# useless without BACKUP_PASSPHRASE.
+#
+# Secrets (Settings -> Secrets and variables -> Actions):
+#   BACKUP_DATABASE_URL  Neon connection string (direct, not -pooler)
+#   BACKUP_PASSPHRASE    long random passphrase; keep a copy OUTSIDE GitHub
+#
+# Restore:
+#   gpg --decrypt aegislead-db-<stamp>.dump.gpg > db.dump
+#   pg_restore --no-owner --no-acl --dbname "<target url>" db.dump
+
+name: Nightly database backup
+
+on:
+  schedule:
+    - cron: '30 20 * * *' # 02:00 IST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check secrets
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -z "$BACKUP_DATABASE_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::BACKUP_DATABASE_URL and BACKUP_PASSPHRASE secrets must both be set"
+            exit 1
+          fi
+
+      # pg_dump must be at least the server's major version (Neon runs 18).
+      - name: Install PostgreSQL 18 client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-18
+
+      - name: Dump and encrypt
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          # A suspended Neon compute takes a few seconds to wake on connect.
+          PGCONNECT_TIMEOUT: '60'
+        run: |
+          set -euo pipefail
+          stamp="$(date -u +%Y-%m-%dT%H%MZ)"
+          /usr/lib/postgresql/18/bin/pg_dump "$BACKUP_DATABASE_URL" \
+            --format=custom --no-owner --no-acl --file=db.dump
+          # Refuse to upload an obviously broken dump.
+          /usr/lib/postgresql/18/bin/pg_restore --list db.dump > /dev/null
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes \
+            --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 \
+            --output "aegislead-db-$stamp.dump.gpg" db.dump
+          rm -f db.dump
+          ls -lh "aegislead-db-$stamp.dump.gpg"
+          echo "STAMP=$stamp" >> "$GITHUB_ENV"
+
+      - name: Upload encrypted backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegislead-db-${{ env.STAMP }}
+          path: aegislead-db-*.dump.gpg
+          retention-days: 30
+          if-no-files-found: error
