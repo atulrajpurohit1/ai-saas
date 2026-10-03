@@ -16,6 +16,11 @@ export class HubspotProvider implements CrmProviderAdapter {
   readonly key = 'hubspot';
   readonly label = 'HubSpot';
   readonly scopes = SCOPES;
+  readonly docsUrl = 'https://developers.hubspot.com/docs/api/oauth-quickstart-guide';
+  readonly setupSteps = [
+    'You will be sent to HubSpot to sign in.',
+    'Choose the account to connect and approve access.',
+  ];
 
   isConfigured() {
     return Boolean(this.clientId() && this.clientSecret() && this.redirectUri());

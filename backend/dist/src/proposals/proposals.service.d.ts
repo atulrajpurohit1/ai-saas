@@ -38,6 +38,7 @@ export declare class ProposalsService {
             email: string | null;
             tenantId: string;
             status: string;
+            phone: string | null;
             company: string;
         } | null;
         deal: {
@@ -87,6 +88,7 @@ export declare class ProposalsService {
             email: string | null;
             tenantId: string;
             status: string;
+            phone: string | null;
             company: string;
         } | null;
         deal: {
@@ -159,6 +161,7 @@ export declare class ProposalsService {
         clientId: string | null;
     }>;
     export(tenantId: string, id: string, userId?: string, clientId?: string): Promise<Buffer>;
+    private pricingForLead;
     generateForLead(tenantId: string, leadId: string, userId?: string, clientId?: string): Promise<{
         id: string;
         createdAt: Date;

@@ -79,7 +79,29 @@ export interface IntegrationOverview {
   failures_last_24h: number;
 }
 
+export type CrmAuthKind = 'oauth' | 'api_key';
+
+export interface CrmCredentialField {
+  key: string;
+  label: string;
+  placeholder?: string | null;
+  help_text?: string | null;
+}
+
+export interface CrmProviderSummary {
+  key: string;
+  label: string;
+  auth_kind: CrmAuthKind;
+  configured: boolean;
+  docs_url?: string | null;
+  setup_steps?: string[];
+  credential_fields: CrmCredentialField[];
+}
+
 export interface CrmProviderStatus {
+  label?: string;
+  auth_kind?: CrmAuthKind;
+  credential_fields?: CrmCredentialField[];
   configured: boolean;
   connected: boolean;
   status: string;
@@ -192,6 +214,19 @@ export async function retryFailedWebhookDeliveries() {
 
 export async function getCrmConnectorStatus() {
   const res = await api.get<CrmConnectorStatus>('crm-connectors/status');
+  return res.data;
+}
+
+export async function getCrmProviders() {
+  const res = await api.get<CrmProviderSummary[]>('crm-connectors/providers');
+  return res.data;
+}
+
+export async function connectCrmWithCredentials(
+  provider: string,
+  credentials: Record<string, string>,
+) {
+  const res = await api.post(`crm-connectors/${provider}/connect`, { credentials });
   return res.data;
 }
 

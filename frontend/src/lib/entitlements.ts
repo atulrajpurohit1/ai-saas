@@ -64,6 +64,7 @@ export const SERVICE_MODULE_BLURBS: Record<ServiceModuleKey, string> = {
 const PERMISSION_PREFIX_TO_SERVICE: Record<string, ServiceModuleKey> = {
   leads: 'LEAD_GEN',
   deals: 'LEAD_GEN',
+  calls: 'LEAD_GEN',
   proposals: 'LEAD_GEN',
   prospect_search: 'LEAD_GEN',
   rfp: 'LEAD_GEN',

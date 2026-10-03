@@ -13,6 +13,11 @@ export class CreateLeadDto {
   @IsOptional()
   email?: string;
 
+  /** Free-form on input; normalised to E.164 only at dial time. */
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
   @IsString()
   @IsOptional()
   status?: string;

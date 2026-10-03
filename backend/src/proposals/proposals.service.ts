@@ -6,7 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProposalDto } from './dto/create-proposal.dto';
 import { UpdateProposalDto } from './dto/update-proposal.dto';
-import { AiService } from '../ai/ai.service';
+import { AiService, LeadProposalPricing } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
 import { BrandingService } from '../branding/branding.service';
 
@@ -259,6 +259,94 @@ export class ProposalsService {
     return this.buildPdfBuffer(proposal);
   }
 
+  // A lead has no client of its own, so the rate card that should price its
+  // proposal is the one for whichever client its deals point at. Precedence
+  // matches Sales Accelerator's pricing insight: a client-specific card first,
+  // then any active tenant card as a benchmark, then nothing -- so the same
+  // lead reads the same price in both places.
+  private async pricingForLead(
+    tenantId: string,
+    lead: { deals?: { clientId?: string | null }[] },
+    clientId?: string,
+  ): Promise<LeadProposalPricing | null> {
+    const now = new Date();
+    const baseWhere = {
+      tenantId,
+      status: 'active',
+      effectiveFrom: { lte: now },
+      OR: [{ effectiveTo: null }, { effectiveTo: { gte: now } }],
+    };
+    const select = {
+      roleName: true,
+      hourlyRate: true,
+      overtimeRate: true,
+      holidayRate: true,
+    };
+
+    // An explicitly passed client wins over one inferred from the deals.
+    const dealClientId =
+      lead.deals?.find((deal) => deal.clientId)?.clientId ?? null;
+    const targetClientId = clientId ?? dealClientId;
+
+    let rateCards = targetClientId
+      ? await this.prisma.rateCard.findMany({
+          where: { ...baseWhere, clientId: targetClientId },
+          orderBy: { effectiveFrom: 'desc' },
+          take: 12,
+          select,
+        })
+      : [];
+    let benchmarkSource: LeadProposalPricing['benchmarkSource'] =
+      rateCards.length > 0 ? 'client_rate_card' : 'none';
+
+    if (rateCards.length === 0) {
+      rateCards = await this.prisma.rateCard.findMany({
+        where: baseWhere,
+        orderBy: { effectiveFrom: 'desc' },
+        take: 20,
+        select,
+      });
+      benchmarkSource = rateCards.length > 0 ? 'tenant_benchmark' : 'none';
+    }
+
+    if (rateCards.length === 0) {
+      return null;
+    }
+
+    const round = (value: number) => Math.round(value * 100) / 100;
+    const average = (values: number[]) =>
+      values.length
+        ? round(values.reduce((sum, value) => sum + value, 0) / values.length)
+        : null;
+    const defined = (values: (number | null)[]) =>
+      values.filter((value): value is number => typeof value === 'number');
+
+    const hourlyRates = rateCards.map((card) => card.hourlyRate);
+
+    return {
+      benchmarkSource,
+      rateCardCount: rateCards.length,
+      averageHourlyRate: average(hourlyRates),
+      minHourlyRate: round(Math.min(...hourlyRates)),
+      maxHourlyRate: round(Math.max(...hourlyRates)),
+      averageOvertimeRate: average(
+        defined(rateCards.map((card) => card.overtimeRate)),
+      ),
+      averageHolidayRate: average(
+        defined(rateCards.map((card) => card.holidayRate)),
+      ),
+      roles: rateCards
+        .filter((card) => card.roleName)
+        .slice(0, 8)
+        .map((card) => ({
+          roleName: card.roleName as string,
+          hourlyRate: card.hourlyRate,
+          overtimeRate: card.overtimeRate,
+          holidayRate: card.holidayRate,
+        })),
+    };
+  }
+
   async generateForLead(
     tenantId: string,
     leadId: string,
@@ -276,7 +364,8 @@ export class ProposalsService {
 
     await this.ensureClientBelongsToTenant(tenantId, clientId);
 
-    const content = await this.aiService.generateForLead(lead);
+    const pricing = await this.pricingForLead(tenantId, lead, clientId);
+    const content = await this.aiService.generateForLead(lead, pricing);
 
     return this.create(
       tenantId,

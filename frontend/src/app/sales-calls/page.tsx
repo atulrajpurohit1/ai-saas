@@ -10,18 +10,21 @@ import {
   type CallTranscriptionResult,
 } from '@/lib/call-transcription';
 import { analyzeDiscoveryCall, coachDiscoveryCall } from '@/lib/sales-accelerator';
+import CallDialer from '@/components/CallDialer';
+import { updateCall, type CallRecord } from '@/lib/calls';
 import { AlertTriangle, BrainCircuit, CheckCircle2, FileAudio, Loader2, Mic, Save, Upload } from 'lucide-react';
 
 interface LeadOption {
   id: string;
   name: string;
   company: string;
+  phone?: string | null;
 }
 
 interface DealOption {
   id: string;
   name: string;
-  lead: { name: string; company: string };
+  lead: { name: string; company: string; phone?: string | null };
 }
 
 export default function SalesCallsPage() {
@@ -37,6 +40,24 @@ export default function SalesCallsPage() {
   const [coach, setCoach] = useState<any>(null);
   const [loading, setLoading] = useState<'data' | 'transcribe' | 'coach' | 'analysis' | null>('data');
   const [error, setError] = useState('');
+  /** The dial the transcript below will be attached to, if one was placed here. */
+  const [lastCall, setLastCall] = useState<CallRecord | null>(null);
+
+  const selectedContact = useMemo(() => {
+    if (entityType === 'deals') {
+      const deal = deals.find((item) => item.id === entityId);
+      return deal
+        ? {
+            phone: deal.lead?.phone ?? null,
+            label: `${deal.lead?.name ?? deal.name} (${deal.lead?.company ?? ''})`,
+          }
+        : null;
+    }
+    const lead = leads.find((item) => item.id === entityId);
+    return lead
+      ? { phone: lead.phone ?? null, label: `${lead.name} (${lead.company})` }
+      : null;
+  }, [deals, entityId, entityType, leads]);
 
   const options = useMemo(() => {
     return entityType === 'deals'
@@ -112,6 +133,18 @@ export default function SalesCallsPage() {
     setLoading('analysis');
     try {
       setAnalysis(await analyzeDiscoveryCall(entityType, entityId, transcript));
+
+      // If this transcript belongs to a call dialed from this page, hang it off
+      // that call so the log shows what was actually said, not just that someone
+      // rang. Best-effort: the analysis is the thing the rep asked for, and
+      // failing to decorate the call record must not read as a failed analysis.
+      if (lastCall) {
+        try {
+          await updateCall(lastCall.id, { transcript });
+        } catch {
+          // Intentionally silent, per above.
+        }
+      }
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Discovery call analysis failed.');
     } finally {
@@ -154,6 +187,15 @@ export default function SalesCallsPage() {
       )}
 
       <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,520px)_minmax(0,1fr)] xl:gap-6">
+        <div className="min-w-0 space-y-5 xl:space-y-6">
+          <CallDialer
+            leadId={entityType === 'leads' ? entityId || undefined : undefined}
+            dealId={entityType === 'deals' ? entityId || undefined : undefined}
+            defaultPhone={selectedContact?.phone}
+            contactLabel={selectedContact?.label}
+            onCallLogged={setLastCall}
+          />
+
         <section className="glass-card min-w-0 rounded-lg border border-white/10 p-4 sm:p-6">
           <div className="mb-5 flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-lg border bg-primary/8 text-primary">
@@ -255,6 +297,7 @@ export default function SalesCallsPage() {
             </div>
           </div>
         </section>
+        </div>
 
         <section className="min-w-0 space-y-5 xl:space-y-6">
           <ResultPanel

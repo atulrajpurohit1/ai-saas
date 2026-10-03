@@ -154,6 +154,22 @@ export interface ProspectCompanyInsight {
     readinessLevel?: string;
     documentUrl?: string;
 }
+export interface LeadProposalPricingRole {
+    roleName: string;
+    hourlyRate: number;
+    overtimeRate: number | null;
+    holidayRate: number | null;
+}
+export interface LeadProposalPricing {
+    benchmarkSource: 'client_rate_card' | 'tenant_benchmark' | 'none';
+    rateCardCount: number;
+    averageHourlyRate: number | null;
+    minHourlyRate: number | null;
+    maxHourlyRate: number | null;
+    averageOvertimeRate: number | null;
+    averageHolidayRate: number | null;
+    roles: LeadProposalPricingRole[];
+}
 export declare class AiService {
     private configService;
     private readonly logger;
@@ -215,7 +231,8 @@ export declare class AiService {
     generateForLead(lead: Lead & {
         notes?: any[];
         deals?: any[];
-    }): Promise<string>;
+    }, pricing?: LeadProposalPricing | null): Promise<string>;
+    private leadPricingPrompt;
     generateEmailDraft(subject: string, context: string): Promise<string>;
     summarizeNotes(notes: string[]): Promise<string>;
     generateBusinessInsightRecommendations(context: string, promptTemplate?: string | null): Promise<string[] | null>;
@@ -228,6 +245,7 @@ export declare class AiService {
     private fallbackPricingSection;
     private fallbackRfp;
     private fallbackLeadProposal;
+    private fallbackLeadPricingSection;
     private fallbackEmailDraft;
     private fallbackSummarizeNotes;
     private fallbackSalesAssessment;

@@ -48,7 +48,8 @@ interface ProspectDetailsDrawerProps {
   searchPrompt: string;
   onClose: () => void;
   canImportLeads: boolean;
-  ghlConnected: boolean;
+  /** The CRM to push this prospect to, or null when none is connected. */
+  crmTarget: { key: string; label: string } | null;
   insightCache: Record<string, ProspectCompanyInsight>;
   onInsightCached: (companyId: string, insight: ProspectCompanyInsight) => void;
 }
@@ -58,7 +59,7 @@ export default function ProspectDetailsDrawer({
   searchPrompt,
   onClose,
   canImportLeads,
-  ghlConnected,
+  crmTarget,
   insightCache,
   onInsightCached,
 }: ProspectDetailsDrawerProps) {
@@ -179,7 +180,7 @@ export default function ProspectDetailsDrawer({
     setGhlError('');
 
     try {
-      await syncProspectToCrm('ghl', {
+      await syncProspectToCrm(crmTarget!.key, {
         name: company.name,
         contactEmail: company.contactEmail!,
         contactName: company.contactName,
@@ -194,7 +195,9 @@ export default function ProspectDetailsDrawer({
       });
       setGhlPhase('success');
     } catch (err) {
-      setGhlError(getApiErrorMessage(err, 'Failed to sync this contact to GHL.'));
+      setGhlError(
+        getApiErrorMessage(err, `Failed to sync this contact to ${crmTarget?.label || 'your CRM'}.`),
+      );
       setGhlPhase('error');
     }
   };
@@ -478,7 +481,7 @@ export default function ProspectDetailsDrawer({
           {ghlPhase === 'success' && (
             <div className="flex items-center gap-3 rounded-2xl border bg-success-wash px-4 py-3 text-sm font-bold text-success">
               <CheckCircle2 size={16} aria-hidden="true" />
-              Synced to GHL
+              Synced to {crmTarget?.label || 'your CRM'}
             </div>
           )}
 
@@ -513,12 +516,12 @@ export default function ProspectDetailsDrawer({
               <button
                 type="button"
                 onClick={() => void handleGhlSync()}
-                disabled={!ghlConnected || !company.contactEmail || ghlPhase === 'syncing'}
+                disabled={!crmTarget || !company.contactEmail || ghlPhase === 'syncing'}
                 title={
-                  !ghlConnected
-                    ? 'Connect GHL from the Integrations page first'
+                  !crmTarget
+                    ? 'Connect a CRM from the Integrations page first'
                     : !company.contactEmail
-                      ? 'GHL sync requires an email address to avoid creating duplicate contacts - this prospect has none available'
+                      ? 'CRM sync requires an email address to avoid creating duplicate contacts - this prospect has none available'
                       : undefined
                 }
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-foreground transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
@@ -528,7 +531,9 @@ export default function ProspectDetailsDrawer({
                 ) : (
                   <Plug size={18} aria-hidden="true" />
                 )}
-                {ghlPhase === 'syncing' ? 'Syncing...' : 'Import to GHL'}
+                {ghlPhase === 'syncing'
+                  ? 'Syncing...'
+                  : `Import to ${crmTarget?.label || 'CRM'}`}
               </button>
             )}
           </div>

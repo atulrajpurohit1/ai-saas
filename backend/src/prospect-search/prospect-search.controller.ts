@@ -142,6 +142,7 @@ export class ProspectSearchController {
       userId: user.sub,
       name: dto.name,
       prompt: dto.prompt,
+      result: dto.result,
     });
   }
 

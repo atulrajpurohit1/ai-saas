@@ -29,6 +29,7 @@ export const SERVICE_MODULE_LABELS: Record<ServiceModule, string> = {
 export const PERMISSION_MODULE_TO_SERVICE: Record<string, ServiceModule> = {
   leads: 'LEAD_GEN',
   deals: 'LEAD_GEN',
+  calls: 'LEAD_GEN',
   proposals: 'LEAD_GEN',
   prospect_search: 'LEAD_GEN',
   rfp: 'LEAD_GEN',
