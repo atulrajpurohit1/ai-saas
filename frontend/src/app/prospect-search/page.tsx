@@ -558,7 +558,16 @@ export default function ProspectSearchPage() {
           }
 
           if (status.status === 'completed') {
-            setInsightCache((current) => ({ ...current, [status.companyName]: status.insight }));
+            // Same keying rule as the cache-hit path above: the drawer looks
+            // this up by company.name, not by BlackPearl's echoed name.
+            if (!status.insight) {
+              setDeepResearchError(
+                'That playbook came back empty. Please try generating it again.',
+              );
+              setDeepResearchPendingName(null);
+              return;
+            }
+            setInsightCache((current) => ({ ...current, [company.name]: status.insight }));
             setDeepResearchPendingName(null);
             setDeepResearchCompany(company);
             return;
@@ -605,9 +614,21 @@ export default function ProspectSearchPage() {
           if (deepResearchGenerationRef.current !== generation) return;
 
           if (submission.status === 'completed') {
+            // Cache under the name the drawer will look up (company.name, via
+            // the id rewrite below), NOT the name BlackPearl echoed back -- it
+            // normalizes ("American Landmark Apartments" -> "American
+            // Landmark") and can return '', which left the drawer re-fetching
+            // a plain insight instead of showing the playbook just paid for.
+            if (!submission.insight) {
+              setDeepResearchError(
+                'That playbook came back empty. Please try generating it again.',
+              );
+              setDeepResearchPendingName(null);
+              return;
+            }
             setInsightCache((current) => ({
               ...current,
-              [submission.companyName]: submission.insight,
+              [company.name]: submission.insight,
             }));
             setDeepResearchPendingName(null);
             setDeepResearchCompany(company);
