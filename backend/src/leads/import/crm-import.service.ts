@@ -83,6 +83,7 @@ export class CrmImportService {
       const name = this.resolveName(row, mapping, nameParts);
       const company = this.value(row, mapping.company);
       const email = this.value(row, mapping.email);
+      const phone = this.value(row, mapping.phone);
       const status = this.value(row, mapping.status)?.toLowerCase() || 'new';
 
       if (!name || !company) {
@@ -106,12 +107,25 @@ export class CrmImportService {
       if (existing) {
         await this.prisma.lead.update({
           where: { id: existing.id },
-          data: { name, company, status, ...(email ? { email } : {}) },
+          data: {
+            name,
+            company,
+            status,
+            ...(email ? { email } : {}),
+            ...(phone ? { phone } : {}),
+          },
         });
         result.updated += 1;
       } else {
         await this.prisma.lead.create({
-          data: { tenantId, name, company, email, status },
+          data: {
+            tenantId,
+            name,
+            company,
+            email,
+            status,
+            ...(phone ? { phone } : {}),
+          },
         });
         result.created += 1;
       }

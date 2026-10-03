@@ -26,6 +26,7 @@ interface Lead {
   id: string;
   name: string;
   email: string | null;
+  phone: string | null;
   company: string;
   status: string;
   createdAt: string;
@@ -65,7 +66,7 @@ export default function LeadsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const [newLead, setNewLead] = useState({ name: '', email: '', company: '' });
+  const [newLead, setNewLead] = useState({ name: '', email: '', phone: '', company: '' });
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -87,6 +88,7 @@ export default function LeadsPage() {
         name: name !== 'Unknown' ? name : '',
         company: company !== 'Unknown' ? company : '',
         email: email || '',
+        phone: '',
       });
     } catch (err) {
       console.error('PDF Analysis Error:', err);
@@ -145,7 +147,7 @@ export default function LeadsPage() {
     try {
       await api.post('leads', newLead);
       setShowModal(false);
-      setNewLead({ name: '', email: '', company: '' });
+      setNewLead({ name: '', email: '', phone: '', company: '' });
       fetchLeads();
     } catch (err) {
       console.error(err);
@@ -404,6 +406,20 @@ export default function LeadsPage() {
                 value={newLead.email}
                 onChange={(e) => setNewLead({ ...newLead, email: e.target.value })}
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-muted-foreground">Phone Number</label>
+              <Input
+                type="tel"
+                inputMode="tel"
+                placeholder="+14155551234"
+                value={newLead.phone}
+                onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Include the country code so the number can be dialed from Sales Calls.
+              </p>
             </div>
 
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

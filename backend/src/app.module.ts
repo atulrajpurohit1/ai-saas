@@ -43,6 +43,7 @@ import { PublicApiModule } from './public-api/public-api.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { CrmConnectorsModule } from './crm-connectors/crm-connectors.module';
 import { CallTranscriptionModule } from './call-transcription/call-transcription.module';
+import { CallsModule } from './calls/calls.module';
 import { ApiDocsModule } from './api-docs/api-docs.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { BrandingModule } from './branding/branding.module';
@@ -78,6 +79,7 @@ import { ClientComplianceModule } from './client-compliance/client-compliance.mo
     IntegrationsModule,
     CrmConnectorsModule,
     CallTranscriptionModule,
+    CallsModule,
     ApiDocsModule,
     SessionsModule,
     BrandingModule,

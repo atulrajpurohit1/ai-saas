@@ -150,6 +150,7 @@ model Tenant {
   modules                 TenantModule[]
   creditBalance           TenantCreditBalance?
   creditLedger            CreditLedgerEntry[]
+  callRecords             CallRecord[]
 }
 
 model Branch {
@@ -356,12 +357,14 @@ model Lead {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   email             String?
+  phone             String?
   deals             Deal[]
   tenant            Tenant             @relation(fields: [tenantId], references: [id])
   proposals         Proposal[]
   notes             Note[]
   discoverySessions DiscoverySession[]
   salesAssessments  SalesAssessment[]
+  callRecords       CallRecord[]
 
   @@index([tenantId])
 }
@@ -383,6 +386,7 @@ model Deal {
   client            Client?            @relation(fields: [clientId], references: [id])
   discoverySessions DiscoverySession[]
   salesAssessments  SalesAssessment[]
+  callRecords       CallRecord[]
 
   @@index([tenantId])
   @@index([leadId])
@@ -1934,4 +1938,51 @@ model CreditLedgerEntry {
   @@index([tenantId, type])
   @@unique([tenantId, jobId, type])
   @@map("CreditLedgerEntry")
+}
+
+/**
+ * A call a rep placed from the app.
+ *
+ * Dialing here is a handoff: the browser opens a tel: link and the rep talks on
+ * their own phone or softphone. Nothing in this product carries the audio, so a
+ * row is only ever a record that a dial was *initiated* -- it cannot prove the
+ * call connected, and `outcome` stays "dialed" until a human says otherwise.
+ * That is why there is no recordingUrl and no provider call SID: there is no
+ * provider. If telephony is brought in-house later, this model is where the
+ * provider's identifiers and recording pointer would hang.
+ */
+model CallRecord {
+  id             String    @id @default(uuid())
+  tenantId       String    @map("tenant_id")
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leadId         String?   @map("lead_id")
+  lead           Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  dealId         String?   @map("deal_id")
+  deal           Deal?     @relation(fields: [dealId], references: [id], onDelete: SetNull)
+
+  /** The number as dialed, in E.164. Kept verbatim so a later audit can tell
+   *  which number was reached even if the lead's number is edited afterwards. */
+  phoneNumber    String    @map("phone_number")
+  direction      String    @default("outbound")
+
+  /** dialed | connected | no_answer | voicemail | wrong_number | failed */
+  outcome        String    @default("dialed")
+  /** Rep-entered call length. Not measured -- the app never sees the call. */
+  durationSec    Int?      @map("duration_sec")
+  notes          String?
+
+  /** Set once the rep uploads audio or pastes a transcript for this call, so
+   *  the existing transcribe -> coach -> analyze flow can attach to the dial. */
+  transcript     String?
+  discoverySessionId String? @map("discovery_session_id")
+
+  createdBy      String?   @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([tenantId, leadId])
+  @@index([tenantId, dealId])
+  @@index([tenantId, createdAt])
+  @@map("CallRecord")
 }
