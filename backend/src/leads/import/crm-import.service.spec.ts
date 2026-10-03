@@ -174,6 +174,35 @@ describe('CrmImportService', () => {
       });
     });
 
+    it('imports a mapped phone column so the lead can be dialed', async () => {
+      await service.commit(
+        csv(
+          'Name,Company,Phone\nAda Lovelace,Analytical Ltd,+14155551234\n',
+        ),
+        { name: 'Name', company: 'Company', phone: 'Phone' },
+        TENANT,
+        USER,
+      );
+
+      expect(prisma.lead.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ phone: '+14155551234' }),
+      });
+    });
+
+    it('does not blank an existing phone when the imported row has none', async () => {
+      prisma.lead.findFirst.mockResolvedValue({ id: 'existing-1' });
+
+      await service.commit(
+        csv('Name,Company,Email\nAda,Analytical,ada@analytical.io\n'),
+        mapping,
+        TENANT,
+        USER,
+      );
+
+      const updateArg = prisma.lead.update.mock.calls[0][0];
+      expect(updateArg.data).not.toHaveProperty('phone');
+    });
+
     it('updates an existing lead matched on email instead of duplicating it', async () => {
       prisma.lead.findFirst.mockResolvedValue({ id: 'existing-1' });
 

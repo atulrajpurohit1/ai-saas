@@ -10,6 +10,7 @@ export const IMPORTABLE_FIELDS = [
   'name',
   'company',
   'email',
+  'phone',
   'status',
 ] as const;
 
