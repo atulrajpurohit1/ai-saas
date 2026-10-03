@@ -201,6 +201,68 @@ let ProposalsService = class ProposalsService {
         const proposal = await this.findOne(tenantId, id, clientId);
         return this.buildPdfBuffer(proposal);
     }
+    async pricingForLead(tenantId, lead, clientId) {
+        const now = new Date();
+        const baseWhere = {
+            tenantId,
+            status: 'active',
+            effectiveFrom: { lte: now },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gte: now } }],
+        };
+        const select = {
+            roleName: true,
+            hourlyRate: true,
+            overtimeRate: true,
+            holidayRate: true,
+        };
+        const dealClientId = lead.deals?.find((deal) => deal.clientId)?.clientId ?? null;
+        const targetClientId = clientId ?? dealClientId;
+        let rateCards = targetClientId
+            ? await this.prisma.rateCard.findMany({
+                where: { ...baseWhere, clientId: targetClientId },
+                orderBy: { effectiveFrom: 'desc' },
+                take: 12,
+                select,
+            })
+            : [];
+        let benchmarkSource = rateCards.length > 0 ? 'client_rate_card' : 'none';
+        if (rateCards.length === 0) {
+            rateCards = await this.prisma.rateCard.findMany({
+                where: baseWhere,
+                orderBy: { effectiveFrom: 'desc' },
+                take: 20,
+                select,
+            });
+            benchmarkSource = rateCards.length > 0 ? 'tenant_benchmark' : 'none';
+        }
+        if (rateCards.length === 0) {
+            return null;
+        }
+        const round = (value) => Math.round(value * 100) / 100;
+        const average = (values) => values.length
+            ? round(values.reduce((sum, value) => sum + value, 0) / values.length)
+            : null;
+        const defined = (values) => values.filter((value) => typeof value === 'number');
+        const hourlyRates = rateCards.map((card) => card.hourlyRate);
+        return {
+            benchmarkSource,
+            rateCardCount: rateCards.length,
+            averageHourlyRate: average(hourlyRates),
+            minHourlyRate: round(Math.min(...hourlyRates)),
+            maxHourlyRate: round(Math.max(...hourlyRates)),
+            averageOvertimeRate: average(defined(rateCards.map((card) => card.overtimeRate))),
+            averageHolidayRate: average(defined(rateCards.map((card) => card.holidayRate))),
+            roles: rateCards
+                .filter((card) => card.roleName)
+                .slice(0, 8)
+                .map((card) => ({
+                roleName: card.roleName,
+                hourlyRate: card.hourlyRate,
+                overtimeRate: card.overtimeRate,
+                holidayRate: card.holidayRate,
+            })),
+        };
+    }
     async generateForLead(tenantId, leadId, userId, clientId) {
         const lead = await this.prisma.lead.findFirst({
             where: { id: leadId, tenantId },
@@ -210,7 +272,8 @@ let ProposalsService = class ProposalsService {
             throw new common_1.NotFoundException(`Lead with ID ${leadId} not found`);
         }
         await this.ensureClientBelongsToTenant(tenantId, clientId);
-        const content = await this.aiService.generateForLead(lead);
+        const pricing = await this.pricingForLead(tenantId, lead, clientId);
+        const content = await this.aiService.generateForLead(lead, pricing);
         return this.create(tenantId, {
             title: `Security Services Proposal - ${lead.company}`,
             content,

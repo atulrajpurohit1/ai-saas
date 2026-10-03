@@ -223,6 +223,28 @@ export interface ProspectCompanyInsight {
   documentUrl?: string;
 }
 
+// Real bill rates, resolved from the tenant's active rate cards, so a lead
+// proposal can quote them instead of leaving a placeholder. `benchmarkSource`
+// says how much to trust them: a client's own card is quotable as firm, a
+// tenant-wide average is only indicative.
+export interface LeadProposalPricingRole {
+  roleName: string;
+  hourlyRate: number;
+  overtimeRate: number | null;
+  holidayRate: number | null;
+}
+
+export interface LeadProposalPricing {
+  benchmarkSource: 'client_rate_card' | 'tenant_benchmark' | 'none';
+  rateCardCount: number;
+  averageHourlyRate: number | null;
+  minHourlyRate: number | null;
+  maxHourlyRate: number | null;
+  averageOvertimeRate: number | null;
+  averageHolidayRate: number | null;
+  roles: LeadProposalPricingRole[];
+}
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
@@ -1752,6 +1774,7 @@ _This draft was generated without AI (AI was unavailable). Every bracketed field
 
   async generateForLead(
     lead: Lead & { notes?: any[]; deals?: any[] },
+    pricing?: LeadProposalPricing | null,
   ): Promise<string> {
     const context = `
       Lead Name: ${lead.name}
@@ -1766,13 +1789,14 @@ _This draft was generated without AI (AI was unavailable). Every bracketed field
       
       CONTEXT:
       ${context}
-
+${this.leadPricingPrompt(pricing)}
       STRUCTURE:
       1. Executive Introduction
       2. Threat Landscape & Risk Analysis (specific to ${lead.company})
       3. Operational Strategy
       4. Recommended Service Tiers
-      5. Value Proposition
+      5. Pricing
+      6. Value Proposition
 
       Format the output in clean Markdown. Start with a Title: # Security Services Proposal - ${lead.company}
     `;
@@ -1780,8 +1804,61 @@ _This draft was generated without AI (AI was unavailable). Every bracketed field
     return this.generateText(
       prompt,
       `proposal generation for lead ${lead.id}`,
-      () => this.fallbackLeadProposal(lead),
+      () => this.fallbackLeadProposal(lead, undefined, pricing),
     );
+  }
+
+  // The model is given the tenant's real rate cards so the Pricing section
+  // quotes actual bill rates instead of inventing them. With no rate card we
+  // deliberately ask for bracketed placeholders rather than a plausible
+  // number -- an invented rate in a client-facing quote is worse than a blank.
+  private leadPricingPrompt(pricing?: LeadProposalPricing | null): string {
+    if (!pricing) {
+      return `
+      PRICING DATA: none. No active rate card exists for this tenant.
+      In the Pricing section, state that rates are to be confirmed and leave
+      [bracketed placeholders] for the hourly bill rate, overtime and holiday
+      rates, and monthly total. Never invent a rate or a dollar figure.
+`;
+    }
+
+    const lines = [
+      `Average hourly bill rate: $${pricing.averageHourlyRate}`,
+      `Hourly bill rate range: $${pricing.minHourlyRate} - $${pricing.maxHourlyRate}`,
+    ];
+    if (pricing.averageOvertimeRate !== null) {
+      lines.push(`Average overtime bill rate: $${pricing.averageOvertimeRate}`);
+    }
+    if (pricing.averageHolidayRate !== null) {
+      lines.push(`Average holiday bill rate: $${pricing.averageHolidayRate}`);
+    }
+    for (const role of pricing.roles) {
+      const extras = [
+        role.overtimeRate !== null ? `OT $${role.overtimeRate}` : null,
+        role.holidayRate !== null ? `holiday $${role.holidayRate}` : null,
+      ].filter(Boolean);
+      lines.push(
+        `Role "${role.roleName}": $${role.hourlyRate}/hr${
+          extras.length ? ` (${extras.join(', ')})` : ''
+        }`,
+      );
+    }
+
+    const caveat =
+      pricing.benchmarkSource === 'client_rate_card'
+        ? "These are this client's own active rate cards. Quote them as firm rates."
+        : 'These are tenant-wide benchmark rates, NOT client-specific. Present them as indicative and state that final pricing will be confirmed.';
+
+    return `
+      PRICING DATA (from ${pricing.rateCardCount} active rate card(s)):
+      ${lines.join('\n      ')}
+
+      In the Pricing section, present these as a Markdown table of bill rates.
+      ${caveat}
+      Use ONLY these figures. Do not invent rates, discounts, or totals. If a
+      monthly total is not derivable from the data above, leave it as a
+      [bracketed placeholder] rather than estimating one.
+`;
   }
 
   async generateEmailDraft(subject: string, context: string): Promise<string> {
@@ -2164,7 +2241,11 @@ Proposals are due by ${dto.dueDate || 'the date specified by the issuer'}. Addit
     `.trim();
   }
 
-  private fallbackLeadProposal(lead: Lead, reason?: string): string {
+  private fallbackLeadProposal(
+    lead: Lead,
+    reason?: string,
+    pricing?: LeadProposalPricing | null,
+  ): string {
     return `
 # Security Services Proposal - ${lead.company} (Fallback)
 For: ${lead.name} - ${lead.company}
@@ -2178,7 +2259,65 @@ Based on your status (${lead.status}), we recommend a baseline security audit.
 
 ## 3. Operational Strategy
 Custom deployment tailored for ${lead.company}.
+
+${this.fallbackLeadPricingSection(pricing)}
     `.trim();
+  }
+
+  // Mirrors the AI path: real rates when we have them, placeholders when we do
+  // not. This runs when AI is unavailable, so it must never be the reason a
+  // proposal goes out carrying a made-up number.
+  private fallbackLeadPricingSection(
+    pricing?: LeadProposalPricing | null,
+  ): string {
+    const money = (value: number | null) =>
+      typeof value === 'number' ? `$${value.toFixed(2)}` : '[Confirm]';
+
+    if (!pricing) {
+      return `## 4. Pricing
+No active rate card was found, so rates are to be confirmed.
+
+| Item | Rate |
+|---|---|
+| Hourly bill rate | [Confirm hourly bill rate] |
+| Overtime rate | [Confirm overtime rate] |
+| Holiday rate | [Confirm holiday rate] |
+| Estimated monthly total | [Confirm monthly total] |
+
+_Every bracketed field must be completed and reviewed before this proposal is sent._`;
+    }
+
+    const rows =
+      pricing.roles.length > 0
+        ? pricing.roles.map(
+            (role) =>
+              `| ${role.roleName} | ${money(role.hourlyRate)} | ${money(
+                role.overtimeRate,
+              )} | ${money(role.holidayRate)} |`,
+          )
+        : [
+            `| Standard officer | ${money(pricing.averageHourlyRate)} | ${money(
+              pricing.averageOvertimeRate,
+            )} | ${money(pricing.averageHolidayRate)} |`,
+          ];
+
+    const note =
+      pricing.benchmarkSource === 'client_rate_card'
+        ? "Rates below are taken from this client's active rate cards."
+        : 'No client-specific rate card was found. The rates below are tenant-wide benchmarks and are indicative only -- confirm final pricing before sending.';
+
+    return `## 4. Pricing
+${note}
+
+| Role | Hourly | Overtime | Holiday |
+|---|---|---|---|
+${rows.join('\n')}
+
+Hourly bill rates range from ${money(pricing.minHourlyRate)} to ${money(
+      pricing.maxHourlyRate,
+    )} across ${pricing.rateCardCount} active rate card(s).
+
+Estimated monthly total: [Confirm once guard count and service hours are agreed]`;
   }
 
   private fallbackEmailDraft(subject: string, context: string): string {
