@@ -31,6 +31,8 @@ import LeadImportDialog from '@/components/LeadImportDialog';
 import CrmConnectDialog from '@/components/CrmConnectDialog';
 import {
   Ban,
+  ChevronDown,
+  Code2,
   Copy,
   FileUp,
   KeyRound,
@@ -58,6 +60,12 @@ export default function IntegrationsPage() {
   const [crmStatus, setCrmStatus] = useState<CrmConnectorStatus | null>(null);
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [showCrmConnect, setShowCrmConnect] = useState(false);
+  /**
+   * API keys, webhooks and the two log tables are only useful to someone
+   * wiring up their own software. They stay collapsed so the common jobs
+   * (connect a CRM, import a CSV) are the whole page for everyone else.
+   */
+  const [showDeveloper, setShowDeveloper] = useState(false);
   const [apiKeys, setApiKeys] = useState<ApiKeyRecord[]>([]);
   const [apiKeyPermissions, setApiKeyPermissions] = useState<PublicApiPermissionDefinition[]>([]);
   const [webhooks, setWebhooks] = useState<WebhookRecord[]>([]);
@@ -309,19 +317,10 @@ export default function IntegrationsPage() {
             <Plug className="text-indigo-300" size={28} />
             Integrations
           </h2>
-          <p className="mt-2 text-muted-foreground">Public APIs and webhooks</p>
+          <p className="mt-2 text-muted-foreground">
+            Connect AegisLead to the other tools you already use.
+          </p>
         </div>
-        {canManageWebhooks && (
-          <button
-            type="button"
-            onClick={retryFailed}
-            disabled={saving}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-sky-400/20 bg-sky-400/10 px-5 py-3 text-sm font-bold text-sky-200 transition hover:bg-sky-400/20 disabled:opacity-60"
-          >
-            {saving ? <Loader2 className="animate-spin" size={17} /> : <RotateCcw size={18} />}
-            Retry Failed
-          </button>
-        )}
       </div>
 
       {error && (
@@ -338,7 +337,11 @@ export default function IntegrationsPage() {
 
       {newApiKey && (
         <div className="mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-          <div className="mb-2 text-sm font-black uppercase tracking-widest text-emerald-300">API Key</div>
+          <div className="mb-1 text-sm font-black uppercase tracking-widest text-emerald-300">Your new API key</div>
+          <p className="mb-3 text-sm text-emerald-100/80">
+            Copy it now and store it somewhere safe &mdash; for your security we cannot show
+            it again. If you lose it, use the refresh button on the key to issue a new one.
+          </p>
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <code className="min-w-0 flex-1 overflow-x-auto rounded-lg bg-slate-950/70 px-3 py-2 text-sm text-emerald-100">
               {newApiKey}
@@ -357,7 +360,11 @@ export default function IntegrationsPage() {
 
       {newSecret && (
         <div className="mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-          <div className="mb-2 text-sm font-black uppercase tracking-widest text-emerald-300">Webhook Secret</div>
+          <div className="mb-1 text-sm font-black uppercase tracking-widest text-emerald-300">Your webhook secret</div>
+          <p className="mb-3 text-sm text-emerald-100/80">
+            Give this to your developer &mdash; it proves the notifications really came from
+            AegisLead. Copy it now; we cannot show it again.
+          </p>
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <code className="min-w-0 flex-1 overflow-x-auto rounded-lg bg-slate-950/70 px-3 py-2 text-sm text-emerald-100">
               {newSecret}
@@ -388,14 +395,6 @@ export default function IntegrationsPage() {
                 <div className="mt-2 text-3xl font-black text-white">{item.active}</div>
               </div>
             ))}
-            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-5">
-              <div className="text-sm font-semibold text-slate-400">API Requests</div>
-              <div className="mt-2 text-3xl font-black text-white">{overview?.api_usage.requests_last_24h || 0}</div>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-5">
-              <div className="text-sm font-semibold text-slate-400">Webhook Failures</div>
-              <div className="mt-2 text-3xl font-black text-white">{overview?.failures_last_24h || 0}</div>
-            </div>
           </div>
 
           <section className="rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
@@ -521,50 +520,98 @@ export default function IntegrationsPage() {
             </section>
           ))}
 
-          {canViewApiKeys && (
+          {/*
+            Everything below is for tenants wiring up their own software.
+            One disclosure, closed by default, so the page reads as "connect
+            a CRM or import a CSV" unless someone goes looking for more.
+          */}
+          <section className="rounded-xl border border-white/10 bg-white/[0.04]">
+            <button
+              type="button"
+              onClick={() => setShowDeveloper((current) => !current)}
+              aria-expanded={showDeveloper}
+              className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-white/[0.03] sm:p-6"
+            >
+              <Code2 className="shrink-0 text-slate-400" size={22} />
+              <span className="min-w-0 flex-1">
+                <span className="block text-xl font-bold">Developer tools</span>
+                <span className="mt-1 block text-sm text-muted-foreground">
+                  Optional. Only needed if a developer is connecting your own software to
+                  AegisLead. Most accounts never open this.
+                </span>
+              </span>
+              <ChevronDown
+                className={`shrink-0 text-slate-400 transition-transform ${showDeveloper ? 'rotate-180' : ''}`}
+                size={20}
+              />
+            </button>
+          </section>
+
+          {showDeveloper && canViewApiKeys && (
             <section className="rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
-              <div className="mb-5 flex items-center gap-3">
+              <div className="mb-2 flex items-center gap-3">
                 <KeyRound className="text-amber-300" size={22} />
-                <h3 className="text-xl font-bold">API Keys</h3>
+                <h3 className="text-xl font-bold">API keys</h3>
               </div>
+              <p className="mb-5 max-w-3xl text-sm text-muted-foreground">
+                An API key is a password for another program. It lets software you
+                control &mdash; your website, your accounting system &mdash; read or add
+                AegisLead records without anyone logging in. Share a key only with people
+                you trust; anyone holding it can do whatever you tick below.
+              </p>
 
               {canManageApiKeys && (
                 <div className="mb-6 rounded-xl border border-white/10 bg-slate-950/20 p-4">
-                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_160px_160px_auto]">
-                    <input
-                      value={apiKeyForm.name}
-                      onChange={(event) => setApiKeyForm({ ...apiKeyForm, name: event.target.value })}
-                      placeholder="Key name"
-                      className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
-                    />
-                    <input
-                      value={apiKeyForm.rateLimit}
-                      onChange={(event) => setApiKeyForm({ ...apiKeyForm, rateLimit: event.target.value })}
-                      type="number"
-                      min="1"
-                      max="5000"
-                      className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
-                      aria-label="Rate limit per minute"
-                    />
-                    <input
-                      value={apiKeyForm.expiresAt}
-                      onChange={(event) => setApiKeyForm({ ...apiKeyForm, expiresAt: event.target.value })}
-                      type="date"
-                      className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
-                      aria-label="Expiry date"
-                    />
-                    <button
-                      type="button"
-                      onClick={submitApiKey}
-                      disabled={saving || !apiKeyForm.name.trim() || apiKeyForm.permissions.length === 0}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:opacity-60"
-                    >
-                      {saving ? <Loader2 className="animate-spin" size={17} /> : <KeyRound size={17} />}
-                      Create
-                    </button>
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_170px_190px]">
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-bold text-white">Name</span>
+                      <input
+                        value={apiKeyForm.name}
+                        onChange={(event) => setApiKeyForm({ ...apiKeyForm, name: event.target.value })}
+                        placeholder="e.g. Website contact form"
+                        className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      />
+                      <span className="mt-1.5 block text-xs text-slate-500">
+                        So you can tell your keys apart later.
+                      </span>
+                    </label>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-bold text-white">Requests per minute</span>
+                      <input
+                        value={apiKeyForm.rateLimit}
+                        onChange={(event) => setApiKeyForm({ ...apiKeyForm, rateLimit: event.target.value })}
+                        type="number"
+                        min="1"
+                        max="5000"
+                        className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      />
+                      <span className="mt-1.5 block text-xs text-slate-500">
+                        Leave at 120 unless advised.
+                      </span>
+                    </label>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-bold text-white">Expires</span>
+                      <input
+                        value={apiKeyForm.expiresAt}
+                        onChange={(event) => setApiKeyForm({ ...apiKeyForm, expiresAt: event.target.value })}
+                        type="date"
+                        className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      />
+                      <span className="mt-1.5 block text-xs text-slate-500">
+                        Optional. Blank means it never expires.
+                      </span>
+                    </label>
                   </div>
 
-                  <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <div className="mt-5">
+                    <div className="text-sm font-bold text-white">What may this key do?</div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Tick at least one. Choose the fewest that get the job done &mdash;
+                      &ldquo;read&rdquo; only looks at records, &ldquo;write&rdquo; can also create them.
+                    </p>
+                  </div>
+
+                  <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {Object.entries(permissionGroups).map(([group, permissions]) => (
                       <div key={group} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
                         <div className="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">{group}</div>
@@ -586,6 +633,28 @@ export default function IntegrationsPage() {
                         </div>
                       </div>
                     ))}
+                  </div>
+
+                  <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <button
+                      type="button"
+                      onClick={submitApiKey}
+                      disabled={saving || !apiKeyForm.name.trim() || apiKeyForm.permissions.length === 0}
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:opacity-60"
+                    >
+                      {saving ? <Loader2 className="animate-spin" size={17} /> : <KeyRound size={17} />}
+                      Create key
+                    </button>
+                    {/* Say why the button is dim, rather than leaving it dead. */}
+                    {(!apiKeyForm.name.trim() || apiKeyForm.permissions.length === 0) && (
+                      <span className="text-xs text-slate-500">
+                        {!apiKeyForm.name.trim() && apiKeyForm.permissions.length === 0
+                          ? 'Add a name and tick at least one permission to continue.'
+                          : !apiKeyForm.name.trim()
+                            ? 'Add a name to continue.'
+                            : 'Tick at least one permission to continue.'}
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -643,25 +712,36 @@ export default function IntegrationsPage() {
                   </div>
                 ))}
                 {apiKeys.length === 0 && (
-                  <div className="rounded-xl border border-white/10 bg-slate-950/20 p-4 text-sm text-slate-400">
-                    No API keys.
+                  <div className="rounded-xl border border-dashed border-white/10 bg-slate-950/20 p-4 text-sm text-slate-400">
+                    No API keys yet &mdash; and you only need one if a developer is
+                    connecting your own software to AegisLead.
                   </div>
                 )}
               </div>
             </section>
           )}
 
-          {canManageWebhooks && (
+          {showDeveloper && (
             <section className="rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
-              <div className="mb-5 flex items-center gap-3">
+              <div className="mb-2 flex items-center gap-3">
                 <Webhook className="text-indigo-300" size={22} />
-                <h3 className="text-xl font-bold">Webhook</h3>
+                <h3 className="text-xl font-bold">Webhooks</h3>
               </div>
-              <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)_auto]">
+              <p className="mb-5 max-w-3xl text-sm text-muted-foreground">
+                A webhook is an automatic notification. Pick something that happens in
+                AegisLead &mdash; an incident approved, an invoice paid &mdash; and we send
+                the details straight to a web address you choose, the moment it happens.
+                Your developer will tell you what address to use.
+              </p>
+
+              {canManageWebhooks && (
+              <div className="mb-6 grid gap-4 rounded-xl border border-white/10 bg-slate-950/20 p-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-white">When this happens</span>
                 <select
                   value={form.eventType}
                   onChange={(event) => setForm({ ...form, eventType: event.target.value })}
-                  className="min-h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
                 >
                   {events.map((eventType) => (
                     <option key={eventType} value={eventType} className="bg-[#0e0e1a]">
@@ -669,30 +749,30 @@ export default function IntegrationsPage() {
                     </option>
                   ))}
                 </select>
-                <input
-                  value={form.endpointUrl}
-                  onChange={(event) => setForm({ ...form, endpointUrl: event.target.value })}
-                  placeholder="https://example.com/webhooks/ai-saas"
-                  className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
-                />
-                <button
-                  type="button"
-                  onClick={submitWebhook}
-                  disabled={saving || !form.eventType || !form.endpointUrl.trim()}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:opacity-60"
-                >
-                  {saving ? <Loader2 className="animate-spin" size={17} /> : <Send size={17} />}
-                  Create
-                </button>
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-bold text-white">Send it to this address</span>
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <input
+                      value={form.endpointUrl}
+                      onChange={(event) => setForm({ ...form, endpointUrl: event.target.value })}
+                      placeholder="https://example.com/webhooks/ai-saas"
+                      className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    />
+                    <button
+                      type="button"
+                      onClick={submitWebhook}
+                      disabled={saving || !form.eventType || !form.endpointUrl.trim()}
+                      className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:opacity-60"
+                    >
+                      {saving ? <Loader2 className="animate-spin" size={17} /> : <Send size={17} />}
+                      Add webhook
+                    </button>
+                  </div>
+                </label>
               </div>
-            </section>
-          )}
+              )}
 
-          <section className="rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
-            <div className="mb-5 flex items-center gap-3">
-              <Webhook className="text-sky-300" size={22} />
-              <h3 className="text-xl font-bold">Webhook Status</h3>
-            </div>
             <div className="grid gap-3">
               {webhooks.map((webhook) => (
                 <div key={webhook.id} className="rounded-xl border border-white/10 bg-slate-950/20 p-4">
@@ -739,15 +819,36 @@ export default function IntegrationsPage() {
                 </div>
               ))}
               {webhooks.length === 0 && (
-                <div className="rounded-xl border border-white/10 bg-slate-950/20 p-4 text-sm text-slate-400">
-                  No webhooks.
+                <div className="rounded-xl border border-dashed border-white/10 bg-slate-950/20 p-4 text-sm text-slate-400">
+                  No webhooks yet. Once you add one, its delivery history appears here.
                 </div>
               )}
             </div>
           </section>
+          )}
 
+          {showDeveloper && (
           <section className="rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
-            <h3 className="mb-5 text-xl font-bold">Delivery Logs</h3>
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="text-xl font-bold">Webhook delivery history</h3>
+                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                  Every notification we tried to send, and whether it arrived. Failures are
+                  usually the receiving address being offline.
+                </p>
+              </div>
+              {canManageWebhooks && (overview?.failures_last_24h || 0) > 0 && (
+                <button
+                  type="button"
+                  onClick={retryFailed}
+                  disabled={saving}
+                  className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-sky-400/20 bg-sky-400/10 px-5 py-3 text-sm font-bold text-sky-200 transition hover:bg-sky-400/20 disabled:opacity-60"
+                >
+                  {saving ? <Loader2 className="animate-spin" size={17} /> : <RotateCcw size={18} />}
+                  Retry all failed ({overview?.failures_last_24h})
+                </button>
+              )}
+            </div>
             <div className="overflow-x-auto rounded-xl border border-white/10">
               <table className="responsive-table w-full text-left">
                 <thead>
@@ -791,13 +892,28 @@ export default function IntegrationsPage() {
                       </td>
                     </tr>
                   ))}
+                  {(overview?.delivery_logs || []).length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-400">
+                        Nothing sent yet.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </section>
+          )}
 
+          {showDeveloper && canViewApiKeys && (
           <section className="rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
-            <h3 className="mb-5 text-xl font-bold">API Usage</h3>
+            <h3 className="text-xl font-bold">API request history</h3>
+            <p className="mb-5 mt-1 max-w-2xl text-sm text-muted-foreground">
+              The last requests other software made with your API keys
+              {typeof overview?.api_usage.requests_last_24h === 'number'
+                ? ` — ${overview.api_usage.requests_last_24h} in the past 24 hours.`
+                : '.'}
+            </p>
             <div className="overflow-x-auto rounded-xl border border-white/10">
               <table className="responsive-table w-full text-left">
                 <thead>
@@ -823,10 +939,18 @@ export default function IntegrationsPage() {
                       <td className="px-4 py-4 text-sm text-slate-400" data-label="Time">{formatDate(request.created_at)}</td>
                     </tr>
                   ))}
+                  {(overview?.request_logs || []).length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-sm text-slate-400">
+                        No requests yet.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </section>
+          )}
         </div>
       )}
     </DashboardLayout>
