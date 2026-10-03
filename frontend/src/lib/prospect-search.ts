@@ -101,6 +101,12 @@ export interface SavedProspectSearchEntry {
   prompt: string;
   createdAt: string;
   updatedAt: string;
+  /**
+   * The results captured when the search was saved, so reopening it costs
+   * nothing. Absent on searches saved before snapshots existed - those still
+   * have to re-run.
+   */
+  result?: ProspectDiscoveryResult;
 }
 
 export async function searchProspects(companyName: string) {
@@ -149,10 +155,15 @@ export async function getSavedProspectSearches() {
   return res.data;
 }
 
-export async function saveProspectSearch(name: string, prompt: string) {
+export async function saveProspectSearch(
+  name: string,
+  prompt: string,
+  result?: ProspectDiscoveryResult,
+) {
   const res = await api.post<SavedProspectSearchEntry>('prospect-search/saved-searches', {
     name,
     prompt,
+    result,
   });
   return res.data;
 }

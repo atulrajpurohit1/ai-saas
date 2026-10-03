@@ -58,7 +58,6 @@ import {
   MapPin,
   Pencil,
   Radar,
-  RotateCcw,
   Square,
   Tags,
   Trash2,
@@ -144,7 +143,12 @@ export default function ProspectSearchPage() {
   const [deepResearchError, setDeepResearchError] = useState('');
   const [insightCache, setInsightCache] = useState<Record<string, ProspectCompanyInsight>>({});
   const deepResearchGenerationRef = useRef(0);
-  const [ghlConnected, setGhlConnected] = useState(false);
+  /**
+   * The CRM this tenant has connected, if any - prospects push back to
+   * whichever one it is, not just GHL. Null means none is connected and the
+   * sync button stays disabled.
+   */
+  const [crmTarget, setCrmTarget] = useState<{ key: string; label: string } | null>(null);
 
   // --- Results toolbar: sort, pagination, bulk select/import/export ---
   const [sortBy, setSortBy] = useState<'match' | 'name'>('match');
@@ -264,9 +268,18 @@ export default function ProspectSearchPage() {
 
   useEffect(() => {
     getCrmConnectorStatus()
-      .then((status) => setGhlConnected(Boolean(status.ghl?.connected)))
+      .then((status) => {
+        // Push-back needs a provider that can write contacts back. Prefer a
+        // stable order so the target does not change between loads when a
+        // tenant has connected more than one CRM.
+        const connected = Object.entries(status)
+          .filter(([, value]) => value.connected)
+          .sort(([a], [b]) => a.localeCompare(b));
+        const [key, value] = connected[0] || [];
+        setCrmTarget(key ? { key, label: value?.label || key.toUpperCase() } : null);
+      })
       .catch(() => {
-        // Non-critical - "Import to GHL" simply stays disabled if this fails.
+        // Non-critical - the CRM sync button simply stays disabled.
       });
   }, []);
 
@@ -487,12 +500,39 @@ export default function ProspectSearchPage() {
     if (!name || !name.trim()) return;
 
     try {
-      await saveProspectSearch(name.trim(), objective.trim());
+      // Save what is on screen alongside the prompt, so reopening this search
+      // shows these results instead of paying to find them again.
+      await saveProspectSearch(name.trim(), objective.trim(), result ?? undefined);
       await loadHistoryAndSaved();
     } catch (err) {
       setError(getApiErrorMessage(err, 'Could not save this search.'));
     }
-  }, [objective, loadHistoryAndSaved]);
+  }, [objective, result, loadHistoryAndSaved]);
+
+  /**
+   * Opening a saved search shows its stored results - no job, no charge.
+   * Searches saved before snapshots existed have none, so those still re-run;
+   * "Run again" re-runs either way when fresh results are actually wanted.
+   */
+  const handleOpenSaved = useCallback(
+    (entry: SavedProspectSearchEntry) => {
+      setObjective(entry.prompt);
+
+      if (!entry.result) {
+        if (!loading) void runSearch(entry.prompt);
+        return;
+      }
+
+      searchGenerationRef.current += 1;
+      setLoading(false);
+      setError('');
+      setCreditsShortfall(null);
+      setProgress(null);
+      setStageLabel(null);
+      setResult(entry.result);
+    },
+    [loading, runSearch],
+  );
 
   const handleRenameSaved = useCallback(
     async (entry: SavedProspectSearchEntry) => {
@@ -708,11 +748,15 @@ export default function ProspectSearchPage() {
                 >
                   <button
                     type="button"
-                    onClick={() => handleRunAgain(entry.prompt)}
-                    title={entry.prompt}
+                    onClick={() => handleOpenSaved(entry)}
+                    title={
+                      entry.result
+                        ? `${entry.prompt} - shows saved results, no credits used`
+                        : `${entry.prompt} - no saved results, this runs a new search`
+                    }
                     className="flex max-w-[160px] items-center gap-1 truncate transition hover:text-foreground"
                   >
-                    <RotateCcw size={11} aria-hidden="true" />
+                    <Bookmark size={11} aria-hidden="true" />
                     <span className="truncate">{entry.name}</span>
                   </button>
                   <button
@@ -1105,7 +1149,7 @@ export default function ProspectSearchPage() {
                 key={prospect.id}
                 prospect={prospect}
                 canImportLeads={can('leads.create')}
-                ghlConnected={ghlConnected}
+                crmTarget={crmTarget}
                 onOpenDeepResearch={handleOpenDeepResearch}
                 selectable={result.prospects.length > 0}
                 selected={selectedIds.has(prospect.id)}
@@ -1173,7 +1217,7 @@ export default function ProspectSearchPage() {
           searchPrompt={deepResearchCompany.name}
           onClose={() => setDeepResearchCompany(null)}
           canImportLeads={can('leads.create')}
-          ghlConnected={ghlConnected}
+          crmTarget={crmTarget}
           insightCache={insightCache}
           onInsightCached={(companyId, insight) =>
             setInsightCache((current) => ({ ...current, [companyId]: insight }))
