@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CrmConnectorsService } from './crm-connectors.service';
+import { ConnectCredentialsDto } from './dto/connect-credentials.dto';
 import { SyncContactDto } from './dto/sync-contact.dto';
 
 @Controller('crm-connectors')
@@ -28,6 +29,24 @@ export class CrmConnectorsController {
   @RequireAnyPermission('integrations.view', 'crm.view')
   getStatus(@GetUser() user: ActiveUser) {
     return this.crmConnectorsService.getStatus(user);
+  }
+
+  @Get('providers')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequireAnyPermission('integrations.view', 'crm.view')
+  listProviders() {
+    return this.crmConnectorsService.listProviders();
+  }
+
+  @Post(':provider/connect')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @RequireAnyPermission('integrations.manage', 'crm.manage')
+  connectWithCredentials(
+    @GetUser() user: ActiveUser,
+    @Param('provider') provider: string,
+    @Body() dto: ConnectCredentialsDto,
+  ) {
+    return this.crmConnectorsService.connectWithCredentials(user, provider, dto);
   }
 
   @Get(':provider/connect-url')

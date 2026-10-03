@@ -28,6 +28,7 @@ import {
   CrmProviderAdapter,
   CrmTokenResponse,
 } from './providers/crm-provider.interface';
+import { ConnectCredentialsDto } from './dto/connect-credentials.dto';
 
 @Injectable()
 export class CrmConnectorsService {
@@ -58,8 +59,105 @@ export class CrmConnectorsService {
     return status;
   }
 
+  /**
+   * Catalog for the connect picker. Unlike getStatus this needs no tenant
+   * context - it describes what the product supports, so the UI can render
+   * the list without hardcoding provider names.
+   */
+  listProviders() {
+    return [...this.providers.values()].map((provider) => ({
+      key: provider.key,
+      label: provider.label,
+      auth_kind: provider.authKind || 'oauth',
+      configured: provider.isConfigured(),
+      docs_url: provider.docsUrl || null,
+      setup_steps: provider.setupSteps || [],
+      credential_fields: (provider.credentialFields || []).map((field) => ({
+        key: field.key,
+        label: field.label,
+        placeholder: field.placeholder || null,
+        help_text: field.helpText || null,
+      })),
+    }));
+  }
+
+  /**
+   * Connect an api_key provider (Close, Freshsales, Copper). The credentials
+   * are verified against the CRM before anything is stored, so a bad key
+   * fails here rather than silently at the next sync.
+   */
+  async connectWithCredentials(
+    user: ActiveUser,
+    providerKey: string,
+    dto: ConnectCredentialsDto,
+  ) {
+    const provider = this.requireProvider(providerKey);
+
+    if ((provider.authKind || 'oauth') !== 'api_key' || !provider.verifyCredentials) {
+      throw new BadRequestException(
+        `${provider.label} connects with OAuth - start the connect flow instead`,
+      );
+    }
+
+    let verified: { token: string; meta: { portalId: string | null; externalAccountName: string | null } };
+    try {
+      verified = await provider.verifyCredentials(dto.credentials || {});
+    } catch (err) {
+      if (err instanceof CrmApiError) {
+        throw new BadRequestException(err.message);
+      }
+      throw err;
+    }
+
+    const connection = await this.prisma.crmConnection.upsert({
+      where: {
+        tenantId_provider: { tenantId: user.tenantId, provider: provider.key },
+      },
+      update: {
+        status: 'connected',
+        accessToken: this.encrypt(verified.token),
+        refreshToken: null,
+        tokenExpiresAt: null,
+        scopes: provider.scopes,
+        portalId: verified.meta.portalId ?? undefined,
+        externalAccountName: verified.meta.externalAccountName,
+        lastError: null,
+      },
+      create: {
+        tenantId: user.tenantId,
+        provider: provider.key,
+        status: 'connected',
+        accessToken: this.encrypt(verified.token),
+        scopes: provider.scopes,
+        portalId: verified.meta.portalId,
+        externalAccountName: verified.meta.externalAccountName,
+      },
+    });
+
+    await this.auditService.log({
+      tenantId: user.tenantId,
+      userId: user.sub,
+      action: 'CRM_CONNECTED',
+      entityType: 'CrmConnection',
+      entityId: connection.id,
+      details: `${provider.label} connected`,
+    });
+
+    return this.serializeConnection(connection);
+  }
+
   getConnectUrl(user: ActiveUser, providerKey: string) {
     const provider = this.requireProvider(providerKey);
+
+    // An api_key provider has no authorize endpoint - buildAuthUrl would
+    // throw a raw CrmApiError, which is not an HttpException and would
+    // surface as a 500. Fail cleanly instead.
+    if (!this.usesOAuth(provider)) {
+      throw new BadRequestException(
+        `${provider.label} connects with an API key - submit its credentials instead`,
+      );
+    }
+
     const state = this.signState({
       tenantId: user.tenantId,
       userId: user.sub,
@@ -355,7 +453,7 @@ export class CrmConnectorsService {
     } catch (err) {
       if (!(err instanceof CrmApiError)) throw err;
 
-      if (err.status === 401 && connection.refreshToken) {
+      if (err.status === 401 && connection.refreshToken && this.usesOAuth(provider)) {
         try {
           const refreshed = await provider.refreshToken(this.decrypt(connection.refreshToken));
           await this.persistRefreshedToken(connection, provider, refreshed);
@@ -385,11 +483,11 @@ export class CrmConnectorsService {
     );
 
     if (err.status === 401) {
-      await this.markConnectionError(
-        connection.id,
-        `${provider.label} connection expired. Please reconnect.`,
-      );
-      return new UnauthorizedException(`${provider.label} connection expired. Please reconnect.`);
+      const message = this.usesOAuth(provider)
+        ? `${provider.label} connection expired. Please reconnect.`
+        : `${provider.label} rejected the stored API key. Please reconnect with a current key.`;
+      await this.markConnectionError(connection.id, message);
+      return new UnauthorizedException(message);
     }
     if (err.status === 403) {
       await this.markConnectionError(
@@ -433,6 +531,12 @@ export class CrmConnectorsService {
   }
 
   private async validAccessToken(provider: CrmProviderAdapter, connection: CrmConnection) {
+    // API keys have no expiry and no refresh endpoint - the stored secret is
+    // the credential, so use it as-is.
+    if (!this.usesOAuth(provider)) {
+      return this.decrypt(connection.accessToken);
+    }
+
     const needsRefresh =
       connection.tokenExpiresAt &&
       connection.tokenExpiresAt.getTime() < Date.now() + 2 * 60 * 1000;
@@ -476,8 +580,20 @@ export class CrmConnectorsService {
     });
   }
 
+  private usesOAuth(provider: CrmProviderAdapter) {
+    return (provider.authKind || 'oauth') === 'oauth';
+  }
+
   private serializeStatus(provider: CrmProviderAdapter, connection?: CrmConnection) {
     return {
+      label: provider.label,
+      auth_kind: provider.authKind || 'oauth',
+      credential_fields: (provider.credentialFields || []).map((field) => ({
+        key: field.key,
+        label: field.label,
+        placeholder: field.placeholder || null,
+        help_text: field.helpText || null,
+      })),
       configured: provider.isConfigured(),
       connected: connection?.status === 'connected',
       status: connection?.status || 'not_connected',

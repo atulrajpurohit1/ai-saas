@@ -47,7 +47,8 @@ interface ExternalImportResult {
 interface ProspectDiscoveryResultCardProps {
   prospect: DiscoveredProspect;
   canImportLeads: boolean;
-  ghlConnected: boolean;
+  /** The CRM to push this prospect to, or null when none is connected. */
+  crmTarget: { key: string; label: string } | null;
   onOpenDeepResearch: (company: ProspectCompany) => void;
   selectable?: boolean;
   selected?: boolean;
@@ -61,7 +62,7 @@ interface ProspectDiscoveryResultCardProps {
 export default function ProspectDiscoveryResultCard({
   prospect,
   canImportLeads,
-  ghlConnected,
+  crmTarget,
   onOpenDeepResearch,
   selectable = false,
   selected = false,
@@ -119,7 +120,7 @@ export default function ProspectDiscoveryResultCard({
 
     try {
       const company = asProspectCompany();
-      await syncProspectToCrm('ghl', {
+      await syncProspectToCrm(crmTarget!.key, {
         name: company.name,
         contactEmail: company.contactEmail!,
         contactName: company.contactName,
@@ -134,7 +135,9 @@ export default function ProspectDiscoveryResultCard({
       });
       setGhlPhase('success');
     } catch (err) {
-      setGhlError(getApiErrorMessage(err, 'Failed to sync this contact to GHL.'));
+      setGhlError(
+        getApiErrorMessage(err, `Failed to sync this contact to ${crmTarget?.label || 'your CRM'}.`),
+      );
       setGhlPhase('error');
     }
   };
@@ -319,7 +322,7 @@ export default function ProspectDiscoveryResultCard({
       {ghlPhase === 'success' && (
         <div className="mt-3 flex items-center gap-2 rounded-xl border bg-success-wash px-3 py-2 text-xs font-bold text-success">
           <CheckCircle2 size={15} aria-hidden="true" />
-          Synced to GHL
+          Synced to {crmTarget?.label || 'your CRM'}
         </div>
       )}
 
@@ -353,12 +356,12 @@ export default function ProspectDiscoveryResultCard({
             <button
               type="button"
               onClick={() => void handleGhlSync()}
-              disabled={!ghlConnected || !prospect.contact.email || ghlPhase === 'syncing'}
+              disabled={!crmTarget || !prospect.contact.email || ghlPhase === 'syncing'}
               title={
-                !ghlConnected
-                  ? 'Connect GHL from the Integrations page first'
+                !crmTarget
+                  ? 'Connect a CRM from the Integrations page first'
                   : !prospect.contact.email
-                    ? 'GHL sync requires an email address to avoid creating duplicate contacts - this prospect has none available'
+                    ? 'CRM sync requires an email address to avoid creating duplicate contacts - this prospect has none available'
                     : undefined
               }
               className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold text-foreground transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
@@ -368,7 +371,9 @@ export default function ProspectDiscoveryResultCard({
               ) : (
                 <Plug size={14} aria-hidden="true" />
               )}
-              {ghlPhase === 'syncing' ? 'Syncing...' : 'Import to GHL'}
+              {ghlPhase === 'syncing'
+                ? 'Syncing...'
+                : `Import to ${crmTarget?.label || 'CRM'}`}
             </button>
           )}
           <button

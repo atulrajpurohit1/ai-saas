@@ -21,6 +21,11 @@ export class GhlProvider implements CrmProviderAdapter {
   readonly key = 'ghl';
   readonly label = 'GoHighLevel';
   readonly scopes = SCOPES;
+  readonly docsUrl = 'https://highlevel.stoplight.io/docs/integrations/';
+  readonly setupSteps = [
+    'You will be sent to GoHighLevel to sign in.',
+    'Choose the sub-account (location) to connect and approve access.',
+  ];
 
   isConfigured() {
     return Boolean(this.clientId() && this.clientSecret() && this.redirectUri());

@@ -15,7 +15,6 @@ import {
   disconnectCrm,
   getApiKeyPermissions,
   getCrmConnectorStatus,
-  getCrmConnectUrl,
   getApiKeys,
   getIntegrationOverview,
   getWebhookEvents,
@@ -29,6 +28,7 @@ import {
   rotateWebhookSecret,
 } from '@/lib/integrations';
 import LeadImportDialog from '@/components/LeadImportDialog';
+import CrmConnectDialog from '@/components/CrmConnectDialog';
 import {
   Ban,
   Copy,
@@ -48,11 +48,6 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleString();
 }
 
-const CRM_PROVIDERS_META = [
-  { id: 'hubspot', label: 'HubSpot CRM', description: 'Connect HubSpot and import contacts into leads.' },
-  { id: 'ghl', label: 'GoHighLevel (GHL) CRM', description: 'Connect GoHighLevel and import contacts into leads.' },
-];
-
 export default function IntegrationsPage() {
   const { can } = useAuth();
   const canViewApiKeys = can('api_keys.view');
@@ -62,6 +57,7 @@ export default function IntegrationsPage() {
   const [overview, setOverview] = useState<IntegrationOverview | null>(null);
   const [crmStatus, setCrmStatus] = useState<CrmConnectorStatus | null>(null);
   const [showCsvImport, setShowCsvImport] = useState(false);
+  const [showCrmConnect, setShowCrmConnect] = useState(false);
   const [apiKeys, setApiKeys] = useState<ApiKeyRecord[]>([]);
   const [apiKeyPermissions, setApiKeyPermissions] = useState<PublicApiPermissionDefinition[]>([]);
   const [webhooks, setWebhooks] = useState<WebhookRecord[]>([]);
@@ -248,18 +244,6 @@ export default function IntegrationsPage() {
     }
   };
 
-  const connectProvider = async (providerId: string, label: string) => {
-    setSaving(true);
-    setError('');
-    try {
-      const result = await getCrmConnectUrl(providerId);
-      window.location.assign(result.url);
-    } catch (err) {
-      setError(getApiErrorMessage(err, `Could not start ${label} connection.`));
-      setSaving(false);
-    }
-  };
-
   const syncProvider = async (providerId: string, label: string) => {
     setSaving(true);
     setError('');
@@ -289,6 +273,14 @@ export default function IntegrationsPage() {
       setSaving(false);
     }
   };
+
+  /**
+   * The connected CRMs, in a stable order so cards don't jump around as the
+   * status object's key order changes between loads.
+   */
+  const connectedProviders = Object.entries(crmStatus || {})
+    .filter(([, status]) => status.connected)
+    .sort(([a], [b]) => a.localeCompare(b));
 
   const copySecret = async () => {
     if (!newSecret) return;
@@ -410,129 +402,124 @@ export default function IntegrationsPage() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <div className="mb-2 flex items-center gap-3">
-                  <FileUp className="text-orange-300" size={22} />
-                  <h3 className="text-xl font-bold">Any other CRM (CSV import)</h3>
+                  <Plug className="text-indigo-300" size={22} />
+                  <h3 className="text-xl font-bold">Connect your CRM</h3>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  No direct connector for your CRM? Export its contacts as CSV and map the
-                  columns onto your lead fields. Works with Salesforce, Pipedrive, Zoho, Close,
-                  Freshsales, Copper, spreadsheets &mdash; anything that exports CSV.
+                  Sync contacts both ways with HubSpot, GoHighLevel, Salesforce, Pipedrive,
+                  Zoho, Close, Freshsales or Copper. Using something else? Import a CSV
+                  export instead &mdash; it works with any CRM.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowCsvImport(true)}
-                className="shrink-0 rounded-lg bg-orange-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-orange-400"
-              >
-                Import CSV
-              </button>
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                {canManageCrm && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCrmConnect(true)}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-400"
+                  >
+                    <Plug size={17} />
+                    Connect CRM
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowCsvImport(true)}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-bold text-white transition hover:bg-white/[0.08]"
+                >
+                  <FileUp size={17} />
+                  Import CSV
+                </button>
+              </div>
             </div>
           </section>
 
           <LeadImportDialog open={showCsvImport} onOpenChange={setShowCsvImport} />
+          <CrmConnectDialog
+            open={showCrmConnect}
+            onOpenChange={setShowCrmConnect}
+            onConnected={loadData}
+            onImportCsv={() => setShowCsvImport(true)}
+          />
 
-          {CRM_PROVIDERS_META.map((provider) => {
-            const status = crmStatus?.[provider.id];
-            return (
-              <section key={provider.id} className="rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
-                <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
-                    <div className="mb-2 flex items-center gap-3">
-                      <Plug className="text-orange-300" size={22} />
-                      <h3 className="text-xl font-bold">{provider.label}</h3>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{provider.description}</p>
+          {/*
+            Only CRMs this tenant has actually connected get a card. Providers
+            we support but that are not connected live in the picker, so the
+            page never shows a dead "Not Configured" card for something the
+            tenant cannot act on.
+          */}
+          {connectedProviders.map(([providerKey, status]) => (
+            <section key={providerKey} className="rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
+              <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div className="mb-2 flex items-center gap-3">
+                    <Plug className="text-orange-300" size={22} />
+                    <h3 className="text-xl font-bold">{status.label || providerKey}</h3>
                   </div>
-                  <div className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-widest ${
-                    status?.last_error
-                      ? 'bg-rose-400/10 text-rose-300'
-                      : status?.connected
-                        ? 'bg-emerald-400/10 text-emerald-300'
-                        : status?.configured
-                          ? 'bg-amber-400/10 text-amber-300'
-                          : 'bg-rose-400/10 text-rose-300'
-                  }`}>
-                    {status?.last_error
-                      ? 'Connection Error'
-                      : status?.connected
-                        ? 'Connected'
-                        : status?.configured
-                          ? 'Ready'
-                          : 'Not Configured'}
+                  <p className="text-sm text-muted-foreground">
+                    Import contacts into leads and push prospects back to this CRM.
+                  </p>
+                </div>
+                <div className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-widest ${
+                  status.last_error
+                    ? 'bg-rose-400/10 text-rose-300'
+                    : 'bg-emerald-400/10 text-emerald-300'
+                }`}>
+                  {status.last_error ? 'Connection Error' : 'Connected'}
+                </div>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="rounded-xl border border-white/10 bg-slate-950/20 p-4">
+                    <div className="text-xs font-black uppercase tracking-widest text-slate-500">Account</div>
+                    <div className="mt-2 truncate font-bold text-white">
+                      {status.external_account_name || status.portal_id || 'Connected'}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-slate-950/20 p-4">
+                    <div className="text-xs font-black uppercase tracking-widest text-slate-500">Last Sync</div>
+                    <div className="mt-2 font-bold text-white">{formatDate(status.last_sync_at)}</div>
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-slate-950/20 p-4">
+                    <div className="text-xs font-black uppercase tracking-widest text-slate-500">Scopes</div>
+                    <div className="mt-2 truncate font-bold text-white">
+                      {(status.scopes || []).join(', ') || 'Full access'}
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-xl border border-white/10 bg-slate-950/20 p-4">
-                      <div className="text-xs font-black uppercase tracking-widest text-slate-500">Portal</div>
-                      <div className="mt-2 truncate font-bold text-white">
-                        {status?.external_account_name || status?.portal_id || 'Not connected'}
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-white/10 bg-slate-950/20 p-4">
-                      <div className="text-xs font-black uppercase tracking-widest text-slate-500">Last Sync</div>
-                      <div className="mt-2 font-bold text-white">{formatDate(status?.last_sync_at)}</div>
-                    </div>
-                    <div className="rounded-xl border border-white/10 bg-slate-950/20 p-4">
-                      <div className="text-xs font-black uppercase tracking-widest text-slate-500">Scopes</div>
-                      <div className="mt-2 truncate font-bold text-white">
-                        {(status?.scopes || []).join(', ') || 'None'}
-                      </div>
-                    </div>
+                {canManageCrm && (
+                  <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+                    <button
+                      type="button"
+                      onClick={() => syncProvider(providerKey, status.label || providerKey)}
+                      disabled={saving}
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:opacity-60"
+                    >
+                      {saving ? <Loader2 className="animate-spin" size={17} /> : <RefreshCw size={17} />}
+                      Import Contacts
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => disconnectProvider(providerKey, status.label || providerKey)}
+                      disabled={saving}
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-rose-400/20 bg-rose-400/10 px-5 py-3 text-sm font-bold text-rose-300 transition hover:bg-rose-400/20 disabled:opacity-60"
+                    >
+                      <Unplug size={17} />
+                      Disconnect
+                    </button>
                   </div>
+                )}
+              </div>
 
-                  {canManageCrm && (
-                    <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
-                      {!status?.connected ? (
-                        <button
-                          type="button"
-                          onClick={() => connectProvider(provider.id, provider.label)}
-                          disabled={saving || !status?.configured}
-                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:opacity-60"
-                        >
-                          {saving ? <Loader2 className="animate-spin" size={17} /> : <Plug size={17} />}
-                          Connect
-                        </button>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => syncProvider(provider.id, provider.label)}
-                            disabled={saving}
-                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:opacity-60"
-                          >
-                            {saving ? <Loader2 className="animate-spin" size={17} /> : <RefreshCw size={17} />}
-                            Import Contacts
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => disconnectProvider(provider.id, provider.label)}
-                            disabled={saving}
-                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-rose-400/20 bg-rose-400/10 px-5 py-3 text-sm font-bold text-rose-300 transition hover:bg-rose-400/20 disabled:opacity-60"
-                          >
-                            <Unplug size={17} />
-                            Disconnect
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  )}
+              {status.last_error && (
+                <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                  {status.last_error}
                 </div>
-
-                {!status?.configured && (
-                  <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-                    Configure {provider.id.toUpperCase()}_CLIENT_ID, {provider.id.toUpperCase()}_CLIENT_SECRET, and {provider.id.toUpperCase()}_REDIRECT_URI to enable OAuth.
-                  </div>
-                )}
-                {status?.last_error && (
-                  <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-                    {status.last_error}
-                  </div>
-                )}
-              </section>
-            );
-          })}
+              )}
+            </section>
+          ))}
 
           {canViewApiKeys && (
             <section className="rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
