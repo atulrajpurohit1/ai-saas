@@ -10,18 +10,17 @@ export const BRAND_NAME = 'AegisLead';
 export const BRAND_TAGLINE = 'Find Leads. Engage. Convert. Grow.';
 
 /**
- * Derived from the supplied brand artwork. The app-icon tile was delivered
- * intact, so `mark` is its glyph lifted onto transparency and `icon` is the
- * tile itself; `badge` is the supplied circular lockup.
- *
- * There is deliberately no full horizontal lockup image: the only copy of it
- * we were given was cropped (both the triangle mark and the end of the
- * wordmark/tagline were cut off), so the lockup is composed at render time
- * from `mark` + live text instead of shipping a redrawn approximation. If the
- * uncropped original ever arrives, add it here and simplify <BrandMark>.
+ * The supplied brand artwork, as delivered. These are the real files, cut out
+ * onto transparency so they sit on any surface - do not redraw them. If a
+ * vector original ever arrives, swap these files and update BRAND_LOGO_RATIO
+ * to match its intrinsic size.
  */
 export const BRAND_LOGO = {
-  /** Icon glyph only, transparent background - pairs with text, any surface. */
+  /** Full horizontal lockup (mark + wordmark + tagline), dark text for light backgrounds. */
+  light: '/brand/aegislead-logo-light.png',
+  /** The same lockup with the wordmark and tagline in white, for dark backgrounds. */
+  dark: '/brand/aegislead-logo-dark.png',
+  /** Icon glyph only, transparent background - pairs with live text, any surface. */
   mark: '/brand/aegislead-mark.png',
   /** The app-icon tile (dark rounded square), for avatars and tiles. */
   icon: '/brand/aegislead-icon.png',
@@ -32,9 +31,11 @@ export const BRAND_LOGO = {
 /**
  * Intrinsic aspect ratios, so callers can size by width without distortion.
  * These are the artwork's real pixel dimensions: get them wrong and the logo
- * is stretched.
+ * is stretched, since BrandMark derives height from width using these.
  */
 export const BRAND_LOGO_RATIO = {
+  /** Lockup artwork is 1200x271. */
+  lockup: 1200 / 271,
   /** Mark, icon tile and badge artwork are all square. */
   mark: 1,
   icon: 1,

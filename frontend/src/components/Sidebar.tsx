@@ -147,7 +147,7 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
           ) : (
             <BrandMark
               variant="lockup"
-              lockupWidth={220}
+              lockupWidth={208}
               className="mb-1.5 h-auto w-full"
             />
           )}
