@@ -269,3 +269,63 @@ export function clientInsuranceUploadMaxMb(): number {
 export function clientInsuranceUploadMaxBytes(): number {
   return clientInsuranceUploadMaxMb() * 1024 * 1024;
 }
+
+// Sales call recordings - audio captured in the rep's browser while they are on
+// a call dialed from the Sales Calls page, uploaded when the recording stops.
+// Same local-disk-then-bucket pattern as the uploads above (persistUpload moves
+// it to object storage when S3_* is configured). storedFileName is the
+// sanitized on-disk name and is NEVER returned to a client.
+export const CALL_RECORDING_UPLOAD_DIR = join(
+  process.cwd(),
+  'uploads',
+  'call-recordings',
+);
+
+export function ensureCallRecordingUploadDir(): string {
+  if (!existsSync(CALL_RECORDING_UPLOAD_DIR)) {
+    mkdirSync(CALL_RECORDING_UPLOAD_DIR, { recursive: true });
+  }
+  return CALL_RECORDING_UPLOAD_DIR;
+}
+
+// Browsers record WebM/Opus (Chrome, Firefox, Edge) or MP4/AAC (Safari); the
+// rest cover a recording a rep re-uploads from elsewhere.
+export const CALL_RECORDING_ALLOWED_EXTENSIONS =
+  /\.(webm|ogg|oga|m4a|mp4|mp3|wav)$/i;
+
+export const CALL_RECORDING_ALLOWED_MIME_TYPES: Record<string, true> = {
+  'audio/webm': true,
+  'video/webm': true,
+  'audio/ogg': true,
+  'audio/mp4': true,
+  'audio/x-m4a': true,
+  'video/mp4': true,
+  'audio/mpeg': true,
+  'audio/mp3': true,
+  'audio/wav': true,
+  'audio/x-wav': true,
+};
+
+/** True only when the extension and the declared MIME type (codec parameters
+ * ignored) both pass the allow-list. Caller rejects with a 400 otherwise. */
+export function isAllowedCallRecording(
+  originalName: string,
+  mimeType: string,
+): boolean {
+  if (!CALL_RECORDING_ALLOWED_EXTENSIONS.test(originalName)) {
+    return false;
+  }
+  const normalized = (mimeType || '').toLowerCase().split(';')[0].trim();
+  return Boolean(CALL_RECORDING_ALLOWED_MIME_TYPES[normalized]);
+}
+
+/** Opus at browser voice bitrates is roughly 15MB an hour, so the default
+ * leaves room for a long call without accepting arbitrary files. */
+export function callRecordingUploadMaxMb(): number {
+  const parsed = Number(process.env.CALL_RECORDING_UPLOAD_MAX_MB || 100);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 100;
+}
+
+export function callRecordingUploadMaxBytes(): number {
+  return callRecordingUploadMaxMb() * 1024 * 1024;
+}

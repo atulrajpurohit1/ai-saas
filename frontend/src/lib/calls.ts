@@ -30,6 +30,12 @@ export interface CallRecord {
   transcript: string | null;
   leadId: string | null;
   dealId: string | null;
+  hasRecording: boolean;
+  recordingFileName: string | null;
+  recordingMimeType: string | null;
+  recordingSizeBytes: number | null;
+  recordingDurationSec: number | null;
+  recordedAt: string | null;
   createdAt: string;
   lead?: { id: string; name: string; company: string } | null;
   deal?: { id: string; name: string } | null;
@@ -51,6 +57,7 @@ export async function listCalls(params: {
   leadId?: string;
   dealId?: string;
   limit?: number;
+  hasRecording?: boolean;
 } = {}) {
   const res = await api.get<CallRecord[]>('calls', { params });
   return res.data;
@@ -66,6 +73,32 @@ export async function updateCall(
   },
 ) {
   const res = await api.patch<CallRecord>(`calls/${id}`, payload);
+  return res.data;
+}
+
+/** Uploads the audio recorded during a call; replaces any earlier recording. */
+export async function uploadCallRecording(id: string, file: File, durationSec?: number) {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (durationSec !== undefined) formData.append('durationSec', String(durationSec));
+  const res = await api.post<CallRecord>(`calls/${id}/recording`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    // A long call is a large file on a rep's upstream; the default 25s
+    // timeout would fail it part-way.
+    timeout: 10 * 60 * 1000,
+  });
+  return res.data;
+}
+
+/**
+ * Fetches a recording as a Blob. The endpoint needs the bearer token, which an
+ * <audio src> cannot send, so playback goes through an object URL.
+ */
+export async function fetchCallRecording(id: string) {
+  const res = await api.get<Blob>(`calls/${id}/recording`, {
+    responseType: 'blob',
+    timeout: 5 * 60 * 1000,
+  });
   return res.data;
 }
 
