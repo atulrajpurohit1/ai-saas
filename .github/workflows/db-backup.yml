@@ -5,11 +5,24 @@
 # downloaded by other GitHub users, so the dump is encrypted before upload and is
 # useless without BACKUP_PASSPHRASE.
 #
+# Each dump is kept in two places:
+#   - Backblaze B2, under daily/ in its own bucket. This is the long-term copy:
+#     the bucket's Object Lock and lifecycle rules decide how long it is kept,
+#     and the key this job holds can write files but not delete them, so a
+#     leaked secret cannot destroy the history.
+#   - A GitHub workflow artifact, kept 30 days, as a second copy. It is saved
+#     before the B2 upload, so a B2 problem never costs a night's backup.
+#
 # Secrets (Settings -> Secrets and variables -> Actions):
 #   BACKUP_DATABASE_URL  Neon connection string (direct, not -pooler)
 #   BACKUP_PASSPHRASE    long random passphrase; keep a copy OUTSIDE GitHub
+#   B2_BACKUP_KEY_ID     B2 application key id, scoped to the backup bucket
+#   B2_BACKUP_APP_KEY    that key's secret
+#   B2_BACKUP_BUCKET     backup bucket name (in us-east-005, see B2_ENDPOINT)
 #
 # Restore:
+#   Download the file from the B2 bucket (web UI, or any key that can read it),
+#   or from the run's artifacts, then:
 #   gpg --decrypt aegislead-db-<stamp>.dump.gpg > db.dump
 #   pg_restore --no-owner --no-acl --dbname "<target url>" db.dump
 
@@ -80,3 +93,32 @@ jobs:
           path: aegislead-db-*.dump.gpg
           retention-days: 30
           if-no-files-found: error
+
+      - name: Upload encrypted backup to Backblaze B2
+        env:
+          B2_ENDPOINT: https://s3.us-east-005.backblazeb2.com
+          B2_BACKUP_BUCKET: ${{ secrets.B2_BACKUP_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.B2_BACKUP_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_BACKUP_APP_KEY }}
+          AWS_DEFAULT_REGION: us-east-005
+          # B2 rejects the CRC32 checksums the AWS CLI now adds by default (the
+          # same reason object-storage.util.ts turns them off for uploads).
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          set -euo pipefail
+          if [ -z "$B2_BACKUP_BUCKET" ] || [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+            echo "::error::B2_BACKUP_BUCKET, B2_BACKUP_KEY_ID and B2_BACKUP_APP_KEY secrets must all be set"
+            exit 1
+          fi
+          file="aegislead-db-$STAMP.dump.gpg"
+          # Content-MD5 makes B2 reject the upload unless every byte arrived
+          # intact, which the job's write-only key could not check afterwards.
+          aws s3api put-object \
+            --endpoint-url "$B2_ENDPOINT" \
+            --bucket "$B2_BACKUP_BUCKET" \
+            --key "daily/$file" \
+            --body "$file" \
+            --content-md5 "$(openssl dgst -md5 -binary "$file" | base64)" \
+            > /dev/null
+          echo "Uploaded daily/$file to $B2_BACKUP_BUCKET"
