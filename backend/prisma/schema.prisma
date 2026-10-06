@@ -1947,9 +1947,12 @@ model CreditLedgerEntry {
  * their own phone or softphone. Nothing in this product carries the audio, so a
  * row is only ever a record that a dial was *initiated* -- it cannot prove the
  * call connected, and `outcome` stays "dialed" until a human says otherwise.
- * That is why there is no recordingUrl and no provider call SID: there is no
- * provider. If telephony is brought in-house later, this model is where the
- * provider's identifiers and recording pointer would hang.
+ * There is no provider call SID: there is no provider.
+ *
+ * The recording, when present, is captured in the rep's browser through the
+ * microphone of the device they dialed from (speakerphone or a softphone on
+ * the same machine), then uploaded. It is whatever that microphone heard, not
+ * a carrier-side recording of both legs of the line.
  */
 model CallRecord {
   id             String    @id @default(uuid())
@@ -1975,6 +1978,16 @@ model CallRecord {
    *  the existing transcribe -> coach -> analyze flow can attach to the dial. */
   transcript     String?
   discoverySessionId String? @map("discovery_session_id")
+
+  /** Audio recorded in the browser during the call. storedFileName is the
+   *  sanitized on-disk / bucket name and is NEVER returned to a client. */
+  recordingFileName       String?   @map("recording_file_name")
+  recordingStoredFileName String?   @map("recording_stored_file_name")
+  recordingMimeType       String?   @map("recording_mime_type")
+  recordingSizeBytes      Int?      @map("recording_size_bytes")
+  /** Measured by the recorder, unlike durationSec which the rep types. */
+  recordingDurationSec    Int?      @map("recording_duration_sec")
+  recordedAt              DateTime? @map("recorded_at")
 
   createdBy      String?   @map("created_by")
   createdAt      DateTime  @default(now()) @map("created_at")

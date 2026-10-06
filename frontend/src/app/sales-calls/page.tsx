@@ -11,7 +11,14 @@ import {
 } from '@/lib/call-transcription';
 import { analyzeDiscoveryCall, coachDiscoveryCall } from '@/lib/sales-accelerator';
 import CallDialer from '@/components/CallDialer';
-import { updateCall, type CallRecord } from '@/lib/calls';
+import CallRecordingPlayer from '@/components/CallRecordingPlayer';
+import {
+  fetchCallRecording,
+  formatDuration,
+  listCalls,
+  updateCall,
+  type CallRecord,
+} from '@/lib/calls';
 import { AlertTriangle, BrainCircuit, CheckCircle2, FileAudio, Loader2, Mic, Save, Upload } from 'lucide-react';
 
 interface LeadOption {
@@ -42,6 +49,8 @@ export default function SalesCallsPage() {
   const [error, setError] = useState('');
   /** The dial the transcript below will be attached to, if one was placed here. */
   const [lastCall, setLastCall] = useState<CallRecord | null>(null);
+  const [recordings, setRecordings] = useState<CallRecord[]>([]);
+  const [recordingsVersion, setRecordingsVersion] = useState(0);
 
   const selectedContact = useMemo(() => {
     if (entityType === 'deals') {
@@ -90,6 +99,20 @@ export default function SalesCallsPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    listCalls({ hasRecording: true, limit: 20 })
+      .then((rows) => {
+        if (!cancelled) setRecordings(rows);
+      })
+      .catch(() => {
+        // The recordings list is supporting detail; it must not block the page.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [recordingsVersion]);
+
+  useEffect(() => {
     const nextId = options[0]?.id || '';
     if (!options.some((option) => option.id === entityId)) {
       setEntityId(nextId);
@@ -109,13 +132,13 @@ export default function SalesCallsPage() {
     }
   };
 
-  const transcribeAudio = async () => {
-    if (!audioFile) return;
+  const transcribeAudio = async (file: File | null = audioFile) => {
+    if (!file) return;
     setError('');
     setTranscriptionResult(null);
     setLoading('transcribe');
     try {
-      const result = await transcribeCallAudio(audioFile);
+      const result = await transcribeCallAudio(file);
       setTranscriptionResult(result);
       setTranscript(result.transcript);
       setAnalysis(null);
@@ -125,6 +148,34 @@ export default function SalesCallsPage() {
     } finally {
       setLoading(null);
     }
+  };
+
+  /** A recording just saved from the dialer: queue it up for transcription. */
+  const handleRecordingSaved = (call: CallRecord, file: File) => {
+    setLastCall(call);
+    setAudioFile(file);
+    setTranscriptionResult(null);
+    setRecordingsVersion((version) => version + 1);
+  };
+
+  /** Transcribes a stored recording and attaches the transcript flow to its call. */
+  const transcribeRecording = async (call: CallRecord) => {
+    setError('');
+    setLoading('transcribe');
+    let file: File;
+    try {
+      const blob = await fetchCallRecording(call.id);
+      file = new File([blob], call.recordingFileName || `call-${call.id}.webm`, {
+        type: call.recordingMimeType || blob.type,
+      });
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Could not load the recording.');
+      setLoading(null);
+      return;
+    }
+    setLastCall(call);
+    setAudioFile(file);
+    await transcribeAudio(file);
   };
 
   const runAnalysis = async () => {
@@ -157,7 +208,7 @@ export default function SalesCallsPage() {
       <div className="mb-6 flex flex-col gap-4 sm:mb-8 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <h2 className="text-2xl font-bold sm:text-3xl">Sales Calls</h2>
-          <p className="text-muted-foreground">Paste call notes or transcripts for live coaching and discovery capture.</p>
+          <p className="text-muted-foreground">Calls placed here are recorded and saved automatically. Transcribe them for live coaching and discovery capture.</p>
         </div>
         <div className="grid w-full grid-cols-2 rounded-lg border border-white/10 bg-white/5 p-1 sm:inline-flex sm:w-auto">
           {(['deals', 'leads'] as const).map((item) => (
@@ -194,6 +245,7 @@ export default function SalesCallsPage() {
             defaultPhone={selectedContact?.phone}
             contactLabel={selectedContact?.label}
             onCallLogged={setLastCall}
+            onRecordingSaved={handleRecordingSaved}
           />
 
         <section className="glass-card min-w-0 rounded-lg border border-white/10 p-4 sm:p-6">
@@ -237,7 +289,7 @@ export default function SalesCallsPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={transcribeAudio}
+                  onClick={() => transcribeAudio()}
                   disabled={!audioFile || !transcriptionStatus?.configured || loading !== null}
                   className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-indigo-500 px-4 text-sm font-bold text-white transition hover:bg-indigo-400 disabled:opacity-50 sm:w-auto"
                 >
@@ -300,6 +352,12 @@ export default function SalesCallsPage() {
         </div>
 
         <section className="min-w-0 space-y-5 xl:space-y-6">
+          <RecordingsPanel
+            recordings={recordings}
+            canTranscribe={Boolean(transcriptionStatus?.configured) && loading === null}
+            transcribingId={loading === 'transcribe' ? lastCall?.id : undefined}
+            onTranscribe={transcribeRecording}
+          />
           <ResultPanel
             title="Live Coach"
             empty="Run live coaching to see missed questions, next best question, and proposal pause guidance."
@@ -315,6 +373,62 @@ export default function SalesCallsPage() {
         </section>
       </div>
     </DashboardLayout>
+  );
+}
+
+function RecordingsPanel({
+  recordings,
+  canTranscribe,
+  transcribingId,
+  onTranscribe,
+}: {
+  recordings: CallRecord[];
+  canTranscribe: boolean;
+  transcribingId?: string;
+  onTranscribe: (call: CallRecord) => void;
+}) {
+  return (
+    <div className="glass-card rounded-lg border border-white/10 p-5 sm:p-6">
+      <div className="mb-4 flex items-center gap-2">
+        <Mic size={18} className="text-primary" />
+        <h3 className="text-lg font-bold">Call Recordings</h3>
+      </div>
+      {recordings.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.03] p-6 text-sm text-muted-foreground">
+          Calls you place from this page are recorded and saved here once you stop the recording or save the outcome.
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {recordings.map((call) => (
+            <li key={call.id} className="space-y-3 rounded-lg border border-white/10 bg-black/20 p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-slate-100">
+                    {call.deal?.name || call.lead?.company || call.lead?.name || call.phoneNumber}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {call.phoneNumber}
+                    {call.recordingDurationSec !== null && ` - ${formatDuration(call.recordingDurationSec)}`}
+                    {` - ${new Date(call.recordedAt || call.createdAt).toLocaleString()}`}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onTranscribe(call)}
+                  disabled={!canTranscribe}
+                  title={canTranscribe ? undefined : 'Audio transcription is unavailable or busy'}
+                  className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-500 px-3 text-xs font-bold text-white transition hover:bg-indigo-400 disabled:opacity-50"
+                >
+                  {transcribingId === call.id ? <Loader2 size={14} className="animate-spin" /> : <FileAudio size={14} />}
+                  Transcribe
+                </button>
+              </div>
+              <CallRecordingPlayer callId={call.id} fileName={call.recordingFileName} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
