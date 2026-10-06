@@ -208,7 +208,7 @@ export default function SalesCallsPage() {
       <div className="mb-6 flex flex-col gap-4 sm:mb-8 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <h2 className="text-2xl font-bold sm:text-3xl">Sales Calls</h2>
-          <p className="text-muted-foreground">Calls placed here are recorded and saved automatically. Transcribe them for live coaching and discovery capture.</p>
+          <p className="text-muted-foreground">Call recordings are saved here. Transcribe them for live coaching and discovery capture.</p>
         </div>
         <div className="grid w-full grid-cols-2 rounded-lg border border-white/10 bg-white/5 p-1 sm:inline-flex sm:w-auto">
           {(['deals', 'leads'] as const).map((item) => (
@@ -246,6 +246,8 @@ export default function SalesCallsPage() {
             contactLabel={selectedContact?.label}
             onCallLogged={setLastCall}
             onRecordingSaved={handleRecordingSaved}
+            onRecordingDeleted={() => setRecordingsVersion((version) => version + 1)}
+            refreshKey={recordingsVersion}
           />
 
         <section className="glass-card min-w-0 rounded-lg border border-white/10 p-4 sm:p-6">
@@ -357,6 +359,7 @@ export default function SalesCallsPage() {
             canTranscribe={Boolean(transcriptionStatus?.configured) && loading === null}
             transcribingId={loading === 'transcribe' ? lastCall?.id : undefined}
             onTranscribe={transcribeRecording}
+            onDeleted={() => setRecordingsVersion((version) => version + 1)}
           />
           <ResultPanel
             title="Live Coach"
@@ -381,11 +384,13 @@ function RecordingsPanel({
   canTranscribe,
   transcribingId,
   onTranscribe,
+  onDeleted,
 }: {
   recordings: CallRecord[];
   canTranscribe: boolean;
   transcribingId?: string;
   onTranscribe: (call: CallRecord) => void;
+  onDeleted: (call: CallRecord) => void;
 }) {
   return (
     <div className="glass-card rounded-lg border border-white/10 p-5 sm:p-6">
@@ -395,7 +400,7 @@ function RecordingsPanel({
       </div>
       {recordings.length === 0 ? (
         <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.03] p-6 text-sm text-muted-foreground">
-          Calls you place from this page are recorded and saved here once you stop the recording or save the outcome.
+          Calls you place from this page are saved here. On a computer they are recorded automatically; on a phone, attach the recording your dialer saved after you hang up.
         </div>
       ) : (
         <ul className="space-y-3">
@@ -403,7 +408,7 @@ function RecordingsPanel({
             <li key={call.id} className="space-y-3 rounded-lg border border-white/10 bg-black/20 p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-slate-100">
+                  <p className="truncate text-sm font-bold text-foreground">
                     {call.deal?.name || call.lead?.company || call.lead?.name || call.phoneNumber}
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -423,7 +428,7 @@ function RecordingsPanel({
                   Transcribe
                 </button>
               </div>
-              <CallRecordingPlayer callId={call.id} fileName={call.recordingFileName} />
+              <CallRecordingPlayer callId={call.id} fileName={call.recordingFileName} onDeleted={onDeleted} />
             </li>
           ))}
         </ul>

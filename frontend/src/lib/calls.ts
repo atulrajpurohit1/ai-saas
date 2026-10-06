@@ -102,6 +102,39 @@ export async function fetchCallRecording(id: string) {
   return res.data;
 }
 
+/** Deletes a call's recording; the call itself stays in the log. */
+export async function deleteCallRecording(id: string) {
+  const res = await api.delete<CallRecord>(`calls/${id}/recording`);
+  return res.data;
+}
+
+/**
+ * Reads an audio file's length in the browser, for recordings attached from a
+ * phone where nothing measured the call. Undefined when the browser cannot
+ * decode the format (AMR, for one) -- the length is a nicety, not required.
+ */
+export function readAudioDurationSec(file: File): Promise<number | undefined> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const audio = new Audio();
+    const done = (value?: number) => {
+      window.clearTimeout(timer);
+      URL.revokeObjectURL(url);
+      resolve(value);
+    };
+    const timer = window.setTimeout(() => done(), 5000);
+    audio.preload = 'metadata';
+    audio.onloadedmetadata = () =>
+      done(Number.isFinite(audio.duration) ? Math.round(audio.duration) : undefined);
+    audio.onerror = () => done();
+    audio.src = url;
+  });
+}
+
+/** What the attach picker accepts: the formats phone dialers save. */
+export const CALL_RECORDING_ACCEPT =
+  'audio/*,.m4a,.mp3,.wav,.aac,.amr,.3gp,.3gpp,.ogg,.opus,.webm,.mp4';
+
 export async function deleteCall(id: string) {
   const res = await api.delete(`calls/${id}`);
   return res.data;

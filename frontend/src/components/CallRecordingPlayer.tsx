@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { fetchCallRecording } from '@/lib/calls';
-import { Download, Loader2, Play } from 'lucide-react';
+import { deleteCallRecording, fetchCallRecording, type CallRecord } from '@/lib/calls';
+import { Download, Loader2, Play, Trash2 } from 'lucide-react';
 
 /**
  * Plays a saved call recording. The audio is fetched only when the rep asks
@@ -11,12 +11,16 @@ import { Download, Loader2, Play } from 'lucide-react';
 export default function CallRecordingPlayer({
   callId,
   fileName,
+  onDeleted,
 }: {
   callId: string;
   fileName?: string | null;
+  /** Shows a delete button; called with the call after its recording is gone. */
+  onDeleted?: (call: CallRecord) => void;
 }) {
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -38,6 +42,34 @@ export default function CallRecordingPlayer({
     }
   };
 
+  const remove = async () => {
+    if (!window.confirm('Delete this recording? The call stays in the log, but the audio cannot be recovered.')) {
+      return;
+    }
+    setError('');
+    setDeleting(true);
+    try {
+      const call = await deleteCallRecording(callId);
+      onDeleted?.(call);
+    } catch {
+      setError('Could not delete the recording.');
+      setDeleting(false);
+    }
+  };
+
+  const deleteButton = onDeleted && (
+    <button
+      type="button"
+      onClick={remove}
+      disabled={deleting}
+      title="Delete recording"
+      aria-label="Delete recording"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-muted-foreground transition hover:border-rose-400/40 hover:text-rose-300 disabled:opacity-50"
+    >
+      {deleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+    </button>
+  );
+
   if (url) {
     return (
       <div className="flex items-center gap-2">
@@ -50,6 +82,7 @@ export default function CallRecordingPlayer({
         >
           <Download size={16} />
         </a>
+        {deleteButton}
       </div>
     );
   }
@@ -65,6 +98,7 @@ export default function CallRecordingPlayer({
         {loading ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
         Play recording
       </button>
+      {deleteButton}
       {error && <span className="text-xs text-rose-300">{error}</span>}
     </div>
   );

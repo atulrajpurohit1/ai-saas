@@ -288,26 +288,72 @@ export function ensureCallRecordingUploadDir(): string {
   return CALL_RECORDING_UPLOAD_DIR;
 }
 
-// Browsers record WebM/Opus (Chrome, Firefox, Edge) or MP4/AAC (Safari); the
-// rest cover a recording a rep re-uploads from elsewhere.
+// Browsers record WebM/Opus (Chrome, Firefox, Edge) or MP4/AAC (Safari). The
+// rest cover recordings a rep attaches from their phone's own dialer, which
+// saves M4A, MP3, AAC, AMR or 3GP depending on the make.
 export const CALL_RECORDING_ALLOWED_EXTENSIONS =
-  /\.(webm|ogg|oga|m4a|mp4|mp3|wav)$/i;
+  /\.(webm|ogg|oga|opus|m4a|mp4|mp3|wav|aac|amr|3gp|3gpp)$/i;
 
 export const CALL_RECORDING_ALLOWED_MIME_TYPES: Record<string, true> = {
   'audio/webm': true,
   'video/webm': true,
   'audio/ogg': true,
+  'audio/opus': true,
   'audio/mp4': true,
+  'audio/m4a': true,
   'audio/x-m4a': true,
   'video/mp4': true,
   'audio/mpeg': true,
   'audio/mp3': true,
   'audio/wav': true,
   'audio/x-wav': true,
+  'audio/wave': true,
+  'audio/aac': true,
+  'audio/x-aac': true,
+  'audio/aacp': true,
+  'audio/amr': true,
+  'audio/3gpp': true,
+  'video/3gpp': true,
 };
 
-/** True only when the extension and the declared MIME type (codec parameters
- * ignored) both pass the allow-list. Caller rejects with a 400 otherwise. */
+/** What a recording's extension says it is, used when the browser sent no
+ * usable MIME type. */
+const CALL_RECORDING_MIME_BY_EXTENSION: Record<string, string> = {
+  webm: 'audio/webm',
+  ogg: 'audio/ogg',
+  oga: 'audio/ogg',
+  opus: 'audio/ogg',
+  m4a: 'audio/mp4',
+  mp4: 'audio/mp4',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  aac: 'audio/aac',
+  amr: 'audio/amr',
+  '3gp': 'audio/3gpp',
+  '3gpp': 'audio/3gpp',
+};
+
+/**
+ * The MIME type to store and serve a recording with. Android's file picker
+ * routinely sends dialer recordings (.amr, .m4a) as application/octet-stream
+ * or with no type at all; for those, and only those, the extension decides.
+ * A declared type that is something else is kept as-is so the allow-list
+ * still rejects it.
+ */
+export function resolveCallRecordingMimeType(
+  originalName: string,
+  mimeType: string,
+): string {
+  const normalized = (mimeType || '').toLowerCase().split(';')[0].trim();
+  if (normalized && normalized !== 'application/octet-stream') {
+    return normalized;
+  }
+  const extension = originalName.split('.').pop()?.toLowerCase() ?? '';
+  return CALL_RECORDING_MIME_BY_EXTENSION[extension] ?? normalized;
+}
+
+/** True only when the extension and the resolved MIME type both pass the
+ * allow-list. Caller rejects with a 400 otherwise. */
 export function isAllowedCallRecording(
   originalName: string,
   mimeType: string,
@@ -315,8 +361,11 @@ export function isAllowedCallRecording(
   if (!CALL_RECORDING_ALLOWED_EXTENSIONS.test(originalName)) {
     return false;
   }
-  const normalized = (mimeType || '').toLowerCase().split(';')[0].trim();
-  return Boolean(CALL_RECORDING_ALLOWED_MIME_TYPES[normalized]);
+  return Boolean(
+    CALL_RECORDING_ALLOWED_MIME_TYPES[
+      resolveCallRecordingMimeType(originalName, mimeType)
+    ],
+  );
 }
 
 /** Opus at browser voice bitrates is roughly 15MB an hour, so the default

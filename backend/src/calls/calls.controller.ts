@@ -53,7 +53,7 @@ function recordingFileFilter(
   if (!CALL_RECORDING_ALLOWED_EXTENSIONS.test(file.originalname)) {
     callback(
       new BadRequestException(
-        'Unsupported recording type. Allowed: WebM, OGG, M4A, MP4, MP3, WAV.',
+        'Unsupported recording type. Allowed: M4A, MP3, WAV, AAC, AMR, 3GP, WebM, OGG.',
       ),
       false,
     );
@@ -160,6 +160,14 @@ export class CallsController {
       'Cache-Control': 'private, no-store',
     });
     stream.pipe(res);
+  }
+
+  /** Deletes the audio only; the call stays in the log. */
+  @Delete(':id/recording')
+  @RequirePermission('calls.delete')
+  removeRecording(@Param('id') id: string, @Req() req: Request) {
+    const user = req.user as unknown as ActiveUser;
+    return this.callsService.removeRecording(id, user.tenantId, user.sub);
   }
 
   @Delete(':id')
