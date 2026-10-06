@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * The app does not carry the call (see CallDialer), so this hears exactly what
  * the microphone hears: both sides when the rep is on speakerphone or a
  * softphone on this machine, only the rep when the call is on a separate
- * handset. Nothing here pretends otherwise.
+ * handset. It is not used on phones at all -- see isMobileDevice.
  */
 
 export type CallRecorderStatus = 'idle' | 'requesting' | 'recording' | 'unsupported' | 'denied';
@@ -44,6 +44,20 @@ export function isCallRecordingSupported() {
     typeof MediaRecorder !== 'undefined' &&
     Boolean(navigator.mediaDevices?.getUserMedia)
   );
+}
+
+/**
+ * Phones and tablets. On these the dialer takes the microphone the moment a
+ * call connects, so a page recording in the background hears only the
+ * ringing and then silence -- no browser API can capture a native phone call.
+ */
+export function isMobileDevice() {
+  if (typeof navigator === 'undefined') return false;
+  const uaData = (navigator as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData;
+  if (uaData?.mobile) return true;
+  if (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) return true;
+  // iPadOS reports itself as a Mac; the touch screen gives it away.
+  return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
 }
 
 export function useCallRecorder() {

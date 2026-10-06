@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import {
   CALL_OUTCOMES,
   CALL_OUTCOME_LABELS,
@@ -13,9 +13,12 @@ import {
   type CallOutcome,
   type CallRecord,
 } from '@/lib/calls';
-import { useCallRecorder, type FinishedRecording } from '@/lib/use-call-recorder';
+import { isMobileDevice, useCallRecorder, type FinishedRecording } from '@/lib/use-call-recorder';
 import CallRecordingPlayer from '@/components/CallRecordingPlayer';
-import { AlertTriangle, Phone, PhoneOutgoing, Loader2, History, Mic, Square, RotateCw } from 'lucide-react';
+import AttachCallRecording from '@/components/AttachCallRecording';
+import { AlertTriangle, CheckCircle2, Phone, PhoneOutgoing, Loader2, History, Mic, Square, RotateCw } from 'lucide-react';
+
+const subscribeNever = () => () => {};
 
 /**
  * Click-to-dial panel.
@@ -26,9 +29,12 @@ import { AlertTriangle, Phone, PhoneOutgoing, Loader2, History, Mic, Square, Rot
  * it logs that a dial was started, then asks the rep for the outcome. Anything
  * resembling live call state here would be a lie.
  *
- * Recording starts automatically with the dial, from this device's microphone
- * (see useCallRecorder for what that can and cannot hear), and is uploaded to
- * the call record when the rep stops it or saves the outcome.
+ * On a computer, recording starts automatically with the dial, from this
+ * device's microphone (see useCallRecorder for what that can and cannot hear),
+ * and is uploaded to the call record when the rep stops it or saves the
+ * outcome. On a phone the dialer owns the microphone during the call, so the
+ * page does not record; the rep attaches the recording their phone's dialer
+ * made instead.
  */
 export default function CallDialer({
   leadId,
@@ -37,6 +43,8 @@ export default function CallDialer({
   contactLabel,
   onCallLogged,
   onRecordingSaved,
+  onRecordingDeleted,
+  refreshKey,
 }: {
   leadId?: string;
   dealId?: string;
@@ -46,7 +54,12 @@ export default function CallDialer({
   /** Fires once a recording is stored, with the local file so the page can
    *  transcribe it without downloading it again. */
   onRecordingSaved?: (call: CallRecord, file: File) => void;
+  onRecordingDeleted?: (call: CallRecord) => void;
+  /** Bump to reload the recent-calls list after a change made elsewhere. */
+  refreshKey?: number;
 }) {
+  // Read on the client only; the server render assumes a computer.
+  const mobile = useSyncExternalStore(subscribeNever, isMobileDevice, () => false);
   const [phone, setPhone] = useState(defaultPhone || '');
   const [history, setHistory] = useState<CallRecord[]>([]);
   const [activeCall, setActiveCall] = useState<CallRecord | null>(null);
@@ -85,7 +98,7 @@ export default function CallDialer({
     return () => {
       cancelled = true;
     };
-  }, [leadId, dealId, activeCall?.id]);
+  }, [leadId, dealId, activeCall?.id, refreshKey]);
 
   const replaceInHistory = (updated: CallRecord) => {
     setHistory((rows) =>
@@ -93,6 +106,21 @@ export default function CallDialer({
         ? rows.map((row) => (row.id === updated.id ? updated : row))
         : rows,
     );
+  };
+
+  const handleAttached = (updated: CallRecord, file: File) => {
+    replaceInHistory(updated);
+    if (activeCall?.id === updated.id) setActiveCall(updated);
+    setError('');
+    setRecordingNotice('Recording saved.');
+    onRecordingSaved?.(updated, file);
+  };
+
+  const handleRecordingDeleted = (updated: CallRecord) => {
+    replaceInHistory(updated);
+    if (activeCall?.id === updated.id) setActiveCall(updated);
+    setRecordingNotice('');
+    onRecordingDeleted?.(updated);
   };
 
   const uploadRecording = async (call: CallRecord, recording: FinishedRecording) => {
@@ -144,8 +172,9 @@ export default function CallDialer({
       onCallLogged?.(call);
 
       // Recording before the dialer opens, so the start of the call is not
-      // lost. A refused microphone must not stop the rep from calling.
-      if (await recorder.start()) {
+      // lost. A refused microphone must not stop the rep from calling. Not on
+      // a phone: it would record the ringing and then silence.
+      if (!mobile && (await recorder.start())) {
         setRecordingCall(call);
       }
       window.location.href = toTelHref(call.phoneNumber);
@@ -233,11 +262,19 @@ export default function CallDialer({
           </button>
         </div>
 
-        <p className="text-xs text-muted-foreground">
-          Opens your phone or softphone and starts recording through this device&apos;s
-          microphone. Use speakerphone or a softphone on this computer so both sides
-          are captured; a call on a separate handset only records your side.
-        </p>
+        {mobile ? (
+          <p className="text-xs text-muted-foreground">
+            Opens your phone&apos;s dialer. Phones do not let websites record calls, so turn
+            on call recording in your dialer&apos;s settings, then attach that recording here
+            after you hang up to save both sides of the call.
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Opens your phone or softphone and starts recording through this device&apos;s
+            microphone. Use speakerphone or a softphone on this computer so both sides
+            are captured; a call on a separate handset only records your side.
+          </p>
+        )}
 
         {recorder.status === 'recording' && recordingCall && (
           <div className="flex flex-col gap-3 rounded-lg border border-rose-400/40 bg-rose-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -328,6 +365,23 @@ export default function CallDialer({
                 className="min-h-11 w-full rounded-lg border border-border bg-muted px-3 text-foreground outline-none focus:border-primary sm:w-36"
               />
             </div>
+            {activeCall.hasRecording ? (
+              <div className="flex items-center gap-2 text-xs text-emerald-200">
+                <CheckCircle2 size={14} />
+                Recording attached to this call.
+              </div>
+            ) : (
+              recordingCall?.id !== activeCall.id && (
+                <div className="space-y-2 rounded-lg border border-white/10 bg-black/20 p-3">
+                  <p className="text-xs text-muted-foreground">
+                    {mobile
+                      ? 'Attach the recording your phone saved for this call. It is usually in your dialer\'s recordings, or under Recordings / Call in your files.'
+                      : 'Recorded this call somewhere else? Attach the audio here.'}
+                  </p>
+                  <AttachCallRecording call={activeCall} label="Attach call recording" onSaved={handleAttached} />
+                </div>
+              )
+            )}
             <textarea
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
@@ -366,7 +420,7 @@ export default function CallDialer({
               {history.map((call) => (
                 <li key={call.id} className="space-y-2">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="flex min-w-0 items-center gap-1.5 truncate text-slate-100">
+                    <span className="flex min-w-0 items-center gap-1.5 truncate text-foreground">
                       {call.hasRecording && <Mic size={12} className="shrink-0 text-primary" />}
                       {call.phoneNumber}
                     </span>
@@ -376,8 +430,16 @@ export default function CallDialer({
                       {` - ${new Date(call.createdAt).toLocaleDateString()}`}
                     </span>
                   </div>
-                  {call.hasRecording && (
-                    <CallRecordingPlayer callId={call.id} fileName={call.recordingFileName} />
+                  {call.hasRecording ? (
+                    <CallRecordingPlayer
+                      callId={call.id}
+                      fileName={call.recordingFileName}
+                      onDeleted={handleRecordingDeleted}
+                    />
+                  ) : (
+                    call.id !== recordingCall?.id && (
+                      <AttachCallRecording call={call} onSaved={handleAttached} />
+                    )
                   )}
                 </li>
               ))}

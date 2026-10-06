@@ -10,6 +10,7 @@ import { AuditService } from '../audit/audit.service';
 import {
   CALL_RECORDING_UPLOAD_DIR,
   isAllowedCallRecording,
+  resolveCallRecordingMimeType,
 } from '../common/file-storage.util';
 import {
   openStoredFile,
@@ -198,7 +199,7 @@ export class CallsService {
       previous = (await this.findOwned(id, tenantId)).recordingStoredFileName;
       if (!isAllowedCallRecording(file.originalname, file.mimetype)) {
         throw new BadRequestException(
-          'Unsupported recording type. Allowed: WebM, OGG, M4A, MP4, MP3, WAV.',
+          'Unsupported recording type. Allowed: M4A, MP3, WAV, AAC, AMR, 3GP, WebM, OGG.',
         );
       }
       if (!file.size) {
@@ -217,7 +218,10 @@ export class CallsService {
       data: {
         recordingFileName: file.originalname,
         recordingStoredFileName: file.filename,
-        recordingMimeType: file.mimetype,
+        recordingMimeType: resolveCallRecordingMimeType(
+          file.originalname,
+          file.mimetype,
+        ),
         recordingSizeBytes: file.size,
         recordingDurationSec:
           durationSec !== undefined &&
@@ -240,6 +244,43 @@ export class CallsService {
       entityType: 'CALL',
       entityId: call.id,
       details: `Recording saved for call to ${call.phoneNumber}`,
+    });
+
+    return toPublicCall(call);
+  }
+
+  /** Removes a call's recording but keeps the call itself in the log. */
+  async removeRecording(id: string, tenantId: string, userId?: string) {
+    const existing = await this.findOwned(id, tenantId);
+    if (!existing.recordingStoredFileName) {
+      throw new NotFoundException('This call has no recording');
+    }
+
+    const call = await this.prisma.callRecord.update({
+      where: { id },
+      data: {
+        recordingFileName: null,
+        recordingStoredFileName: null,
+        recordingMimeType: null,
+        recordingSizeBytes: null,
+        recordingDurationSec: null,
+        recordedAt: null,
+      },
+    });
+    // After the row stops pointing at it, so a failed delete leaves an orphan
+    // file rather than a row whose recording will not play.
+    removeStoredFile(
+      CALL_RECORDING_UPLOAD_DIR,
+      existing.recordingStoredFileName,
+    );
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'CALL_RECORDING_DELETED',
+      entityType: 'CALL',
+      entityId: call.id,
+      details: `Recording deleted for call to ${call.phoneNumber}`,
     });
 
     return toPublicCall(call);

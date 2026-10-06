@@ -334,6 +334,93 @@ describe('CallsService', () => {
       );
     });
 
+    it('accepts a phone dialer recording sent without a usable MIME type', async () => {
+      prisma.callRecord.findFirst.mockResolvedValue({
+        id: 'c1',
+        tenantId: TENANT,
+        recordingStoredFileName: null,
+      });
+      prisma.callRecord.update.mockResolvedValue({
+        id: 'c1',
+        phoneNumber: '+14155551234',
+        recordingStoredFileName: '123-abc-Call_2026.amr',
+      });
+
+      await service.attachRecording(
+        'c1',
+        recording({
+          originalname: 'Call_2026.amr',
+          filename: '123-abc-Call_2026.amr',
+          mimetype: 'application/octet-stream',
+        }),
+        TENANT,
+      );
+
+      expect(prisma.callRecord.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ recordingMimeType: 'audio/amr' }),
+        }),
+      );
+    });
+
+    it('still rejects a non-audio file renamed to an audio extension', async () => {
+      prisma.callRecord.findFirst.mockResolvedValue({
+        id: 'c1',
+        tenantId: TENANT,
+      });
+
+      await expect(
+        service.attachRecording(
+          'c1',
+          recording({ originalname: 'payload.amr', mimetype: 'text/html' }),
+          TENANT,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('deletes a recording but keeps the call in the log', async () => {
+      prisma.callRecord.findFirst.mockResolvedValue({
+        id: 'c1',
+        tenantId: TENANT,
+        recordingStoredFileName: 'rec.webm',
+      });
+      prisma.callRecord.update.mockResolvedValue({
+        id: 'c1',
+        phoneNumber: '+14155551234',
+        recordingStoredFileName: null,
+      });
+
+      const result = await service.removeRecording('c1', TENANT, 'user-1');
+
+      expect(prisma.callRecord.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            recordingStoredFileName: null,
+            recordingFileName: null,
+          }),
+        }),
+      );
+      expect(prisma.callRecord.delete).not.toHaveBeenCalled();
+      expect(removeStoredFile).toHaveBeenCalledWith(
+        expect.any(String),
+        'rec.webm',
+      );
+      expect(result).toEqual(expect.objectContaining({ hasRecording: false }));
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'CALL_RECORDING_DELETED' }),
+      );
+    });
+
+    it('refuses to delete a recording on another tenant’s call', async () => {
+      prisma.callRecord.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.removeRecording('c1', TENANT),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.callRecord.update).not.toHaveBeenCalled();
+      expect(removeStoredFile).not.toHaveBeenCalled();
+    });
+
     it('404s when a call has no recording to play', async () => {
       prisma.callRecord.findFirst.mockResolvedValue({
         id: 'c1',
