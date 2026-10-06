@@ -168,7 +168,7 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
       <nav
         ref={navRef}
         onScroll={saveScrollPosition}
-        className="flex-1 space-y-1 overflow-y-auto px-3 py-2"
+        className="sidebar-scroll flex-1 space-y-1 overflow-y-auto px-3 py-2"
       >
         {visibleDashboardLink && (
           <div className="mb-2">
