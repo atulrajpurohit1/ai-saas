@@ -152,6 +152,7 @@ model Tenant {
   creditLedger            CreditLedgerEntry[]
   aiUsageEvents           AiUsageEvent[]
   creditAlerts            CreditBalanceAlert[]
+  creditAutoRecharge      CreditAutoRecharge?
   callRecords             CallRecord[]
 }
 
@@ -2122,4 +2123,111 @@ model CreditBalanceAlert {
   /// rather than by a partial unique index, which Prisma cannot express.
   @@index([tenantId, tier, clearedAt])
   @@map("CreditBalanceAlert")
+}
+
+
+/// Why auto-recharge is currently paused, when it is.
+enum AutoRechargePauseReason {
+  /// The saved card was declined. Cleared when a new card is saved or the
+  /// tenant re-enables manually.
+  PAYMENT_FAILED
+  /// Hit the configured monthly spend cap.
+  MONTHLY_CAP_REACHED
+}
+
+/**
+ * Per-tenant auto-recharge settings: buy a credit pack automatically when the
+ * balance falls below a threshold.
+ *
+ * Opt-in and tenant-controlled, because it charges a saved card without
+ * anyone present. Everything that bounds the charging -- the threshold, which
+ * pack, the monthly cap -- is stored here rather than inferred, so a tenant
+ * can always answer "what will you charge me, and when".
+ */
+model CreditAutoRecharge {
+  id       String @id @default(uuid())
+  tenantId String @unique @map("tenant_id")
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  enabled Boolean @default(false)
+  /// Buy when the balance is at or below this many credits.
+  thresholdCredits Int    @map("threshold_credits")
+  /// Which pack to buy. A CreditPackKey, validated against CREDIT_PACKS on
+  /// write rather than stored as an enum, so resizing packs needs no
+  /// migration.
+  packKey          String @map("pack_key")
+
+  /// Stripe payment method to charge. Null means no card is saved yet, which
+  /// is distinct from disabled: the tenant has configured auto-recharge but it
+  /// cannot fire.
+  stripePaymentMethodId String? @map("stripe_payment_method_id")
+  /// Last 4 digits and brand, for display. Never the full number -- Stripe
+  /// holds the card, we hold a reference.
+  cardBrand String? @map("card_brand")
+  cardLast4 String? @map("card_last4")
+
+  /// Hard ceiling on automatic spend per calendar month, in whole currency
+  /// units. The point of auto-recharge is that nobody is watching, so an
+  /// unbounded version of it is a runaway charge waiting to happen.
+  monthlyCapAmount Int? @map("monthly_cap_amount")
+
+  /// Set when auto-recharge stops itself. A paused config stays enabled so the
+  /// tenant can see why it is not firing, rather than silently flipping off.
+  pausedAt     DateTime?                @map("paused_at")
+  pauseReason  AutoRechargePauseReason? @map("pause_reason")
+
+  /// Last successful automatic top-up, for display and for rate limiting.
+  lastRechargeAt     DateTime? @map("last_recharge_at")
+  consecutiveFailures Int      @default(0) @map("consecutive_failures")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  attempts CreditAutoRechargeAttempt[]
+
+  @@index([enabled, pausedAt])
+  @@map("CreditAutoRecharge")
+}
+
+enum AutoRechargeAttemptStatus {
+  SUCCEEDED
+  FAILED
+  /// Blocked before charging -- cap reached, no card, already in flight.
+  SKIPPED
+}
+
+/**
+ * Audit trail of every automatic top-up attempt.
+ *
+ * Auto-recharge spends a customer's money unattended, so each attempt is
+ * recorded whether it charged, failed or was skipped. This is what answers a
+ * billing dispute, and what the monthly cap is computed from.
+ */
+model CreditAutoRechargeAttempt {
+  id       String @id @default(uuid())
+  configId String @map("config_id")
+  config   CreditAutoRecharge @relation(fields: [configId], references: [id], onDelete: Cascade)
+  tenantId String @map("tenant_id")
+
+  status AutoRechargeAttemptStatus
+  /// Balance that triggered the attempt.
+  balanceAtTrigger Int    @map("balance_at_trigger")
+  packKey          String @map("pack_key")
+  /// Amount charged in whole currency units, where a charge was made.
+  amountCharged    Int?   @map("amount_charged")
+  creditsGranted   Int?   @map("credits_granted")
+
+  /// Stripe PaymentIntent id. Doubles as the idempotency key for the credit
+  /// grant, which is keyed on it.
+  stripePaymentIntentId String? @unique @map("stripe_payment_intent_id")
+
+  /// Why it failed or was skipped. Stripe's decline message where there is
+  /// one, so support can tell an expired card from insufficient funds.
+  failureReason String? @map("failure_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@index([configId, createdAt])
+  @@map("CreditAutoRechargeAttempt")
 }

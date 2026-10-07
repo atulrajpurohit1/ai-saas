@@ -13,12 +13,20 @@ import { CreditsController } from './credits.controller';
 import { CreditReservationScheduler } from './credit-reservation.scheduler';
 import { CreditBalanceAlertService } from './credit-balance-alert.service';
 import { CreditBalanceAlertScheduler } from './credit-balance-alert.scheduler';
+import { CreditAutoRechargeService } from './credit-auto-recharge.service';
+import { CreditAutoRechargeScheduler } from './credit-auto-recharge.scheduler';
+import { CreditAutoRechargeController } from './credit-auto-recharge.controller';
 import { EmailModule } from '../email/email.module';
 
 @Global()
 @Module({
   imports: [PrismaModule, AuditModule, EmailModule],
-  controllers: [BillingController, CreditsController, StripeWebhookController],
+  controllers: [
+    BillingController,
+    CreditsController,
+    CreditAutoRechargeController,
+    StripeWebhookController,
+  ],
   providers: [
     BillingService,
     StripeService,
@@ -29,6 +37,8 @@ import { EmailModule } from '../email/email.module';
     CreditReservationScheduler,
     CreditBalanceAlertService,
     CreditBalanceAlertScheduler,
+    CreditAutoRechargeService,
+    CreditAutoRechargeScheduler,
   ],
   exports: [
     BillingService,

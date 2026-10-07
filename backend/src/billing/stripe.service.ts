@@ -327,6 +327,144 @@ export class StripeService {
   }
 
   /**
+   * Checkout session that saves a card for later off-session use, without
+   * charging it.
+   *
+   * `mode: 'setup'` rather than reusing a pack purchase: a tenant enabling
+   * auto-recharge is authorising future charges, not buying credits now, and
+   * conflating the two would charge them twice the first time.
+   */
+  async createCardSetupSession(params: { tenantId: string; email?: string }) {
+    const { tenantId, email } = params;
+    const urls = billingReturnUrls();
+    const customer = await this.customerIdFor(tenantId, email);
+
+    const session = await this.stripe().checkout.sessions.create({
+      mode: 'setup',
+      customer,
+      // Explicit: the whole point is a card chargeable while nobody is
+      // present, and Stripe's SCA handling differs for off-session use.
+      payment_method_types: ['card'],
+      success_url: urls.creditsSuccess,
+      cancel_url: urls.creditsCancel,
+      metadata: { tenantId, purpose: 'auto_recharge_card' },
+    });
+
+    return { url: session.url, sessionId: session.id };
+  }
+
+  /**
+   * The payment method a completed setup session saved, with the display
+   * details we store alongside it.
+   *
+   * Returns null when the session did not complete or carries no payment
+   * method, which is the normal shape of an abandoned card-entry flow.
+   */
+  async paymentMethodFromSetupSession(sessionId: string): Promise<{
+    paymentMethodId: string;
+    customerId: string;
+    brand: string | null;
+    last4: string | null;
+  } | null> {
+    const session = await this.stripe().checkout.sessions.retrieve(sessionId, {
+      expand: ['setup_intent'],
+    });
+
+    if (session.mode !== 'setup') return null;
+
+    const setupIntent = session.setup_intent;
+    if (!setupIntent || typeof setupIntent === 'string') return null;
+
+    const paymentMethodId =
+      typeof setupIntent.payment_method === 'string'
+        ? setupIntent.payment_method
+        : setupIntent.payment_method?.id;
+    if (!paymentMethodId) return null;
+
+    const customerId =
+      typeof session.customer === 'string'
+        ? session.customer
+        : session.customer?.id;
+    if (!customerId) return null;
+
+    // Attach so the card survives beyond this session: a payment method left
+    // unattached cannot be charged off-session later.
+    const method = await this.stripe().paymentMethods.attach(paymentMethodId, {
+      customer: customerId,
+    });
+
+    return {
+      paymentMethodId,
+      customerId,
+      brand: method.card?.brand ?? null,
+      last4: method.card?.last4 ?? null,
+    };
+  }
+
+  /**
+   * Charges a saved card for a credit pack with nobody present.
+   *
+   * `off_session: true` with `confirm: true` tells Stripe this is an
+   * unattended charge against previously authorised card details, so it
+   * either succeeds or declines outright rather than returning a challenge
+   * no one is there to complete.
+   *
+   * Throws Stripe's error on decline -- the caller records the attempt and
+   * pauses auto-recharge, and needs the decline reason to do it.
+   */
+  async chargeSavedCardForPack(params: {
+    tenantId: string;
+    pack: CreditPackKey;
+    paymentMethodId: string;
+  }) {
+    const { tenantId, pack, paymentMethodId } = params;
+
+    const price = creditPackPriceId(pack);
+    if (!price) {
+      throw new ServiceUnavailableException(
+        `No price is configured for the ${CREDIT_PACKS[pack].label} yet.`,
+      );
+    }
+
+    // Same guard as the interactive path: never charge a price that disagrees
+    // with the pack it claims to be.
+    await this.assertPriceMatchesPack(price, pack);
+
+    const resolvedPrice = await this.stripe().prices.retrieve(price);
+    const amount = resolvedPrice.unit_amount;
+    if (amount === null) {
+      throw new ServiceUnavailableException(
+        `The ${CREDIT_PACKS[pack].label} price has no fixed amount and cannot be charged automatically.`,
+      );
+    }
+
+    const customer = await this.customerIdFor(tenantId);
+
+    const intent = await this.stripe().paymentIntents.create({
+      amount,
+      currency: resolvedPrice.currency,
+      customer,
+      payment_method: paymentMethodId,
+      off_session: true,
+      confirm: true,
+      description: `Auto-recharge: ${CREDIT_PACKS[pack].label}`,
+      metadata: {
+        tenantId,
+        creditPack: pack,
+        credits: String(CREDIT_PACKS[pack].credits),
+        autoRecharge: 'true',
+      },
+    });
+
+    return {
+      paymentIntentId: intent.id,
+      status: intent.status,
+      amount,
+      currency: resolvedPrice.currency,
+    };
+  }
+
+  /**
    * Refuses to sell a pack whose configured Stripe price does not charge what
    * the pack says.
    *
