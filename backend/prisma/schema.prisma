@@ -151,6 +151,7 @@ model Tenant {
   creditBalance           TenantCreditBalance?
   creditLedger            CreditLedgerEntry[]
   aiUsageEvents           AiUsageEvent[]
+  creditAlerts            CreditBalanceAlert[]
   callRecords             CallRecord[]
 }
 
@@ -2082,4 +2083,43 @@ model AiUsageEvent {
   @@index([feature, createdAt])
   @@index([createdAt])
   @@map("AiUsageEvent")
+}
+
+
+/// Which threshold a credit alert fired for. The tier is part of the dedupe
+/// key, so a tenant gets one LOW and one DEPLETED email per drain cycle
+/// rather than one per cron tick.
+enum CreditAlertTier {
+  LOW
+  DEPLETED
+}
+
+/**
+ * Record of a credit-balance warning already sent to a tenant.
+ *
+ * Exists purely to stop re-notifying. The balance sweep runs hourly, so
+ * without a record of what was sent, a tenant sitting below the threshold
+ * would be emailed every hour until they topped up -- which trains people to
+ * ignore the one email that matters.
+ *
+ * `clearedAt` is what makes the alert re-armable: when a tenant tops back up
+ * above the threshold the open alert is cleared, so a later drain notifies
+ * again. A tenant who never tops up is never re-notified.
+ */
+model CreditBalanceAlert {
+  id       String          @id @default(uuid())
+  tenantId String          @map("tenant_id")
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tier     CreditAlertTier
+  /// Balance at the moment the alert fired, for the audit trail.
+  balanceAtAlert Int       @map("balance_at_alert")
+  /// Null while the alert is still open. Set when the balance recovers above
+  /// the threshold, which re-arms this tier for the next drain.
+  clearedAt DateTime?      @map("cleared_at")
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  /// At most one OPEN alert per tier per tenant. Enforced in application code
+  /// rather than by a partial unique index, which Prisma cannot express.
+  @@index([tenantId, tier, clearedAt])
+  @@map("CreditBalanceAlert")
 }

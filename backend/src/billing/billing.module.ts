@@ -11,10 +11,13 @@ import { GuardMeteringService } from './guard-metering.service';
 import { CreditsService } from './credits.service';
 import { CreditsController } from './credits.controller';
 import { CreditReservationScheduler } from './credit-reservation.scheduler';
+import { CreditBalanceAlertService } from './credit-balance-alert.service';
+import { CreditBalanceAlertScheduler } from './credit-balance-alert.scheduler';
+import { EmailModule } from '../email/email.module';
 
 @Global()
 @Module({
-  imports: [PrismaModule, AuditModule],
+  imports: [PrismaModule, AuditModule, EmailModule],
   controllers: [BillingController, CreditsController, StripeWebhookController],
   providers: [
     BillingService,
@@ -24,6 +27,8 @@ import { CreditReservationScheduler } from './credit-reservation.scheduler';
     GuardMeteringService,
     CreditsService,
     CreditReservationScheduler,
+    CreditBalanceAlertService,
+    CreditBalanceAlertScheduler,
   ],
   exports: [
     BillingService,
