@@ -150,6 +150,7 @@ model Tenant {
   modules                 TenantModule[]
   creditBalance           TenantCreditBalance?
   creditLedger            CreditLedgerEntry[]
+  aiUsageEvents           AiUsageEvent[]
   callRecords             CallRecord[]
 }
 
@@ -1998,4 +1999,87 @@ model CallRecord {
   @@index([tenantId, dealId])
   @@index([tenantId, createdAt])
   @@map("CallRecord")
+}
+
+
+/// Enum of metered AI features, so usage can be grouped by what was run
+/// rather than by a free-text string that drifts between call sites.
+enum AiFeature {
+  DAILY_REPORT_SUMMARY
+  SALES_ASSESSMENT
+  DISCOVERY_GUIDE
+  OUTREACH_PLAN
+  DISCOVERY_CALL_INTELLIGENCE
+  DISCOVERY_LIVE_COACH
+  DISCOVERY_PROPOSAL
+  PROPOSAL_DRAFT
+  RFP_GENERATION
+  EVALUATION_REPORT
+  SECURITY_RFP_ANALYSIS
+  PROPOSAL_FROM_RFP
+  LEAD_GENERATION
+  EMAIL_DRAFT
+  NOTE_SUMMARY
+  BUSINESS_INSIGHT_RECOMMENDATIONS
+  INCIDENT_RISK_SUMMARY
+  REVENUE_INTELLIGENCE_SUMMARY
+  REVENUE_FINANCIAL_RECOMMENDATIONS
+  GUARD_RECOMMENDATION_EXPLANATION
+  COPILOT_ANSWER
+  LEAD_EXTRACTION
+  PROSPECT_COMPANY_INSIGHT
+  OTHER
+}
+
+/**
+ * Append-only log of what each AI call cost us.
+ *
+ * AI features are currently unmetered: they check whether a plan includes a
+ * feature, never how much of it has been used. Before they can be billed, the
+ * real cost has to be knowable, and nothing recorded it -- a proposal drafted
+ * from a 60-page RFP and one from a 2-pager differ by more than an order of
+ * magnitude, so the cost cannot be inferred from the call count.
+ *
+ * This table is deliberately observation-only. It moves no balance and blocks
+ * nothing; it exists so the per-feature credit price can be set from measured
+ * figures rather than guessed, and so a tenant's AI spend is answerable at
+ * all. Metering reads from it later.
+ */
+model AiUsageEvent {
+  id       String    @id @default(uuid())
+  /// Null when the call had no tenant in scope -- a system or scheduled job.
+  /// Recorded anyway: unattributed spend is still spend, and a rising share of
+  /// nulls is itself the finding.
+  tenantId String?   @map("tenant_id")
+  tenant   Tenant?   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  userId   String?   @map("user_id")
+
+  feature AiFeature
+  /// The model that served it. Rates are per-model, so a stored cost cannot be
+  /// re-derived later without knowing which model produced it.
+  model   String
+
+  /// Token counts as reported by the provider. Null when the response carried
+  /// no usage metadata, which must not be read as zero.
+  inputTokens  Int? @map("input_tokens")
+  outputTokens Int? @map("output_tokens")
+  totalTokens  Int? @map("total_tokens")
+
+  /// Our cost in USD, computed from the token counts at the per-million rates
+  /// in effect when the row was written. Stored rather than derived so that a
+  /// later price change does not silently rewrite history.
+  estimatedCostUsd Decimal? @map("estimated_cost_usd") @db.Decimal(12, 8)
+
+  /// False when the call failed or fell back. Failed calls can still have
+  /// burned tokens, so they are logged; excluded from pricing averages.
+  succeeded  Boolean @default(true)
+  /// Wall-clock duration, to tell a slow feature from an expensive one.
+  durationMs Int?    @map("duration_ms")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@index([feature, createdAt])
+  @@index([createdAt])
+  @@map("AiUsageEvent")
 }
