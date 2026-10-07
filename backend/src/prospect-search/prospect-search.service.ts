@@ -70,7 +70,7 @@ export class ProspectSearchService {
   ): Promise<ProspectSearchSubmission> {
     const companyName = dto.companyName.trim();
 
-    const cached = this.cacheService.get(
+    const cached = await this.cacheService.get(
       user.tenantId,
       companyName,
       PROVIDER_NAME,
@@ -182,7 +182,7 @@ export class ProspectSearchService {
         insight: result.insight,
       };
 
-      this.cacheService.set(
+      await this.cacheService.set(
         user.tenantId,
         companyName,
         PROVIDER_NAME,
@@ -333,7 +333,7 @@ export class ProspectSearchService {
       this.normalizeDiscoveryQuery(dto),
     );
 
-    const cached = this.discoveryCacheService.get(cacheKey);
+    const cached = await this.discoveryCacheService.get(cacheKey);
     if (cached) {
       this.logger.log(
         `Prospect discovery cache hit: tenant=${user.tenantId} objective="${objective}"`,
@@ -449,7 +449,7 @@ export class ProspectSearchService {
         DISCOVERY_PROVIDER_NAME,
         this.normalizeDiscoveryQuery(dto),
       );
-      this.discoveryCacheService.set(cacheKey, result);
+      await this.discoveryCacheService.set(cacheKey, result);
       await this.recordDiscoveryHistory(
         objective,
         result.prospects.length,

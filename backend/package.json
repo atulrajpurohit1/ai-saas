@@ -37,6 +37,7 @@
     "csv-parser": "^3.2.0",
     "disposable-email-domains": "^1.0.62",
     "fast-csv": "^5.0.5",
+    "ioredis": "^6.0.0",
     "nodemailer": "^10.0.12",
     "openai": "^6.34.0",
     "passport": "^0.7.0",

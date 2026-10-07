@@ -10,31 +10,40 @@ function buildContext(user?: { sub: string }): ExecutionContext {
   } as unknown as ExecutionContext;
 }
 
+function buildGuard(check: jest.Mock) {
+  return new ProspectSearchRateLimitGuard({
+    check,
+  } as unknown as ProspectSearchRateLimitService);
+}
+
 describe('ProspectSearchRateLimitGuard', () => {
-  it('delegates the check to the rate limit service using the active user id', () => {
-    const rateLimitService = { check: jest.fn() };
-    const guard = new ProspectSearchRateLimitGuard(
-      rateLimitService as unknown as ProspectSearchRateLimitService,
-    );
+  it('delegates the check to the rate limit service using the active user id', async () => {
+    const check = jest.fn().mockResolvedValue(undefined);
+    const guard = buildGuard(check);
 
-    const result = guard.canActivate(buildContext({ sub: 'user-1' }));
-
-    expect(result).toBe(true);
-    expect(rateLimitService.check).toHaveBeenCalledWith('user-1');
+    await expect(
+      guard.canActivate(buildContext({ sub: 'user-1' })),
+    ).resolves.toBe(true);
+    expect(check).toHaveBeenCalledWith('user-1');
   });
 
-  it('propagates the exception thrown when the rate limit is exceeded', () => {
-    const rateLimitService = {
-      check: jest.fn(() => {
-        throw new Error('rate limited');
-      }),
-    };
-    const guard = new ProspectSearchRateLimitGuard(
-      rateLimitService as unknown as ProspectSearchRateLimitService,
+  it('falls back to "anonymous" when there is no active user', async () => {
+    const check = jest.fn().mockResolvedValue(undefined);
+    const guard = buildGuard(check);
+
+    await expect(guard.canActivate(buildContext())).resolves.toBe(true);
+    expect(check).toHaveBeenCalledWith('anonymous');
+  });
+
+  it('propagates the exception thrown when the rate limit is exceeded', async () => {
+    // The check is awaited now, so the rejection surfaces as a rejected
+    // promise rather than a synchronous throw.
+    const guard = buildGuard(
+      jest.fn().mockRejectedValue(new Error('rate limited')),
     );
 
-    expect(() => guard.canActivate(buildContext({ sub: 'user-1' }))).toThrow(
-      'rate limited',
-    );
+    await expect(
+      guard.canActivate(buildContext({ sub: 'user-1' })),
+    ).rejects.toThrow('rate limited');
   });
 });

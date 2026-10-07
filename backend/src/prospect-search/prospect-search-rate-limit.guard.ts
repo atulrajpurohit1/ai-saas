@@ -8,10 +8,10 @@ export class ProspectSearchRateLimitGuard implements CanActivate {
     private readonly rateLimitService: ProspectSearchRateLimitService,
   ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<{ user?: ActiveUser }>();
 
-    this.rateLimitService.check(request.user?.sub || 'anonymous');
+    await this.rateLimitService.check(request.user?.sub || 'anonymous');
     return true;
   }
 }
