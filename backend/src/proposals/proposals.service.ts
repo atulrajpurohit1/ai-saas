@@ -9,6 +9,8 @@ import { UpdateProposalDto } from './dto/update-proposal.dto';
 import { AiService, LeadProposalPricing } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
 import { BrandingService } from '../branding/branding.service';
+import { AiMeteringService } from '../billing/ai-metering.service';
+import { AiFeature } from '@prisma/client';
 
 @Injectable()
 export class ProposalsService {
@@ -17,6 +19,7 @@ export class ProposalsService {
     private aiService: AiService,
     private auditService: AuditService,
     private brandingService: BrandingService,
+    private aiMetering: AiMeteringService,
   ) {}
 
   private async ensureLeadBelongsToTenant(tenantId: string, leadId?: string) {
@@ -365,7 +368,10 @@ export class ProposalsService {
     await this.ensureClientBelongsToTenant(tenantId, clientId);
 
     const pricing = await this.pricingForLead(tenantId, lead, clientId);
-    const content = await this.aiService.generateForLead(lead, pricing);
+    const content = await this.aiMetering.run(
+      { tenantId, userId, feature: AiFeature.LEAD_GENERATION },
+      () => this.aiService.generateForLead(lead, pricing),
+    );
 
     return this.create(
       tenantId,

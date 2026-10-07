@@ -4,6 +4,7 @@ import { AiModule } from '../ai/ai.module';
 import { AiMonitoringModule } from '../ai-monitoring/ai-monitoring.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RecommendationService } from './recommendation.service';
+import { BillingModule } from '../billing/billing.module';
 
 /**
  * AiInsightsController/AiInsightsService/RevenueInsightsService (the standalone
@@ -12,7 +13,13 @@ import { RecommendationService } from './recommendation.service';
  * guard recommendations.
  */
 @Module({
-  imports: [PrismaModule, AiModule, AiMonitoringModule, AiGovernanceModule],
+  imports: [
+    PrismaModule,
+    AiModule,
+    AiMonitoringModule,
+    AiGovernanceModule,
+    BillingModule,
+  ],
   providers: [RecommendationService],
   exports: [RecommendationService],
 })

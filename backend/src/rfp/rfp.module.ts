@@ -3,6 +3,7 @@ import { RfpService } from './rfp.service';
 import { RfpController } from './rfp.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AiModule } from '../ai/ai.module';
+import { BillingModule } from '../billing/billing.module';
 import { AiGovernanceModule } from '../ai-governance/ai-governance.module';
 import { EmailModule } from '../email/email.module';
 import { ProposalsModule } from '../proposals/proposals.module';
@@ -14,6 +15,7 @@ import { ProposalsModule } from '../proposals/proposals.module';
     AiGovernanceModule,
     EmailModule,
     ProposalsModule,
+    BillingModule,
   ],
   controllers: [RfpController],
   providers: [RfpService],

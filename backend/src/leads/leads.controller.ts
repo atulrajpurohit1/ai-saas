@@ -117,9 +117,13 @@ export class LeadsController {
   @Post('analyze-pdf')
   @RequirePermission('leads.import')
   @UseInterceptors(FileInterceptor('file'))
-  async analyzePdf(@UploadedFile() file: Express.Multer.File) {
+  async analyzePdf(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: Request,
+  ) {
     if (!file) throw new BadRequestException('No file uploaded');
-    return this.leadsService.analyzePdf(file.buffer);
+    const user = req.user as unknown as ActiveUser;
+    return this.leadsService.analyzePdf(file.buffer, user.tenantId);
   }
 
   @Get('export')

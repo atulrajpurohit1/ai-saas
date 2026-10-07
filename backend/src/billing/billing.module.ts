@@ -16,6 +16,7 @@ import { CreditBalanceAlertScheduler } from './credit-balance-alert.scheduler';
 import { CreditAutoRechargeService } from './credit-auto-recharge.service';
 import { CreditAutoRechargeScheduler } from './credit-auto-recharge.scheduler';
 import { CreditAutoRechargeController } from './credit-auto-recharge.controller';
+import { AiMeteringService } from './ai-metering.service';
 import { EmailModule } from '../email/email.module';
 
 @Global()
@@ -39,6 +40,7 @@ import { EmailModule } from '../email/email.module';
     CreditBalanceAlertScheduler,
     CreditAutoRechargeService,
     CreditAutoRechargeScheduler,
+    AiMeteringService,
   ],
   exports: [
     BillingService,

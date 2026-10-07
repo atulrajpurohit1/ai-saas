@@ -8,6 +8,8 @@ import csv from 'csv-parser';
 import { format } from 'fast-csv';
 import { Readable } from 'stream';
 import { AiService } from '../ai/ai.service';
+import { AiMeteringService } from '../billing/ai-metering.service';
+import { AiFeature } from '@prisma/client';
 
 @Injectable()
 export class LeadsService {
@@ -15,6 +17,7 @@ export class LeadsService {
     private prisma: PrismaService,
     private aiService: AiService,
     private auditService: AuditService,
+    private aiMetering: AiMeteringService,
   ) {}
 
   async create(
@@ -230,7 +233,10 @@ export class LeadsService {
     const data = await pdfParse(buffer);
     const extractedText = data.text;
 
-    const leadInfo = await this.aiService.extractLeadFromText(extractedText);
+    const leadInfo = await this.aiMetering.run(
+      { tenantId, feature: AiFeature.LEAD_EXTRACTION },
+      () => this.aiService.extractLeadFromText(extractedText),
+    );
 
     return this.prisma.lead.create({
       data: {
@@ -243,7 +249,7 @@ export class LeadsService {
     });
   }
 
-  async analyzePdf(buffer: Buffer) {
+  async analyzePdf(buffer: Buffer, tenantId: string) {
     console.log('PDF: Analysis started, buffer size:', buffer.length);
     try {
       const pdfParse = require('pdf-parse');
@@ -255,7 +261,10 @@ export class LeadsService {
       const data = await pdfParse(buffer, options);
       console.log('PDF: Text extracted successfully');
 
-      const leadInfo = await this.aiService.extractLeadFromText(data.text);
+      const leadInfo = await this.aiMetering.run(
+        { tenantId, feature: AiFeature.LEAD_EXTRACTION },
+        () => this.aiService.extractLeadFromText(data.text),
+      );
       console.log('PDF: AI extraction result:', leadInfo);
       return leadInfo;
     } catch (error) {
