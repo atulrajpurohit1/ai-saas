@@ -4,6 +4,7 @@ import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
+import { SharedStoreModule } from './common/shared-store/shared-store.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { LeadsModule } from './leads/leads.module';
@@ -66,6 +67,7 @@ import { ClientComplianceModule } from './client-compliance/client-compliance.mo
     // Drives automatic daily-report delivery; see ReportDeliveryScheduler.
     ScheduleModule.forRoot(),
     PrismaModule,
+    SharedStoreModule,
     EntitlementsModule,
     RolesModule,
     DashboardModule,
