@@ -345,8 +345,8 @@ export class StripeService {
       // Explicit: the whole point is a card chargeable while nobody is
       // present, and Stripe's SCA handling differs for off-session use.
       payment_method_types: ['card'],
-      success_url: urls.creditsSuccess,
-      cancel_url: urls.creditsCancel,
+      success_url: urls.cardSetupSuccess,
+      cancel_url: urls.cardSetupCancel,
       metadata: { tenantId, purpose: 'auto_recharge_card' },
     });
 

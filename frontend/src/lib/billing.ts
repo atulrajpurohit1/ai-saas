@@ -182,3 +182,115 @@ export async function startCreditCheckout(
   );
   return res.data;
 }
+
+/** A pack as offered by the auto-recharge endpoint. */
+export interface AutoRechargePack {
+  key: string;
+  label: string;
+  credits: number;
+  price: number;
+}
+
+export type AutoRechargePauseReason =
+  | 'PAYMENT_FAILED'
+  | 'MONTHLY_CAP_REACHED';
+
+export type AutoRechargeAttemptStatus = 'SUCCEEDED' | 'FAILED' | 'SKIPPED';
+
+export interface AutoRechargeAttempt {
+  id: string;
+  status: AutoRechargeAttemptStatus;
+  balanceAtTrigger: number;
+  packKey: string;
+  amountCharged: number | null;
+  creditsGranted: number | null;
+  failureReason: string | null;
+  createdAt: string;
+}
+
+/**
+ * Auto-recharge settings. `configured: false` means the tenant has never
+ * saved settings, so only the pack list comes back -- distinct from
+ * configured-but-disabled, which has real values to show.
+ */
+export interface AutoRechargeSettings {
+  configured: boolean;
+  enabled?: boolean;
+  thresholdCredits?: number;
+  packKey?: string;
+  monthlyCapAmount?: number | null;
+  hasCard?: boolean;
+  card?: { brand: string | null; last4: string | null } | null;
+  paused?: boolean;
+  pauseReason?: AutoRechargePauseReason | null;
+  pausedAt?: string | null;
+  lastRechargeAt?: string | null;
+  monthlySpend?: number;
+  packs: AutoRechargePack[];
+}
+
+export async function getAutoRecharge(): Promise<AutoRechargeSettings> {
+  const res = await api.get<AutoRechargeSettings>(
+    'billing/credits/auto-recharge',
+  );
+  return res.data;
+}
+
+export async function updateAutoRecharge(input: {
+  enabled: boolean;
+  thresholdCredits: number;
+  packKey: string;
+  monthlyCapAmount: number | null;
+}) {
+  const res = await api.put<{
+    enabled: boolean;
+    thresholdCredits: number;
+    packKey: string;
+    monthlyCapAmount: number | null;
+    hasCard: boolean;
+  }>('billing/credits/auto-recharge', input);
+  return res.data;
+}
+
+/**
+ * Starts the hosted card-entry flow. This saves a card without charging it:
+ * enabling auto-recharge authorises later charges, it is not a purchase.
+ */
+export async function startAutoRechargeCardSetup(): Promise<{
+  url: string | null;
+  sessionId: string;
+}> {
+  const res = await api.post<{ url: string | null; sessionId: string }>(
+    'billing/credits/auto-recharge/card/session',
+    {},
+  );
+  return res.data;
+}
+
+export async function attachAutoRechargeCard(sessionId: string) {
+  const res = await api.post<{
+    hasCard: boolean;
+    card: { brand: string | null; last4: string | null };
+    paused: boolean;
+    pauseReason: AutoRechargePauseReason | null;
+  }>('billing/credits/auto-recharge/card', { sessionId });
+  return res.data;
+}
+
+export async function resumeAutoRecharge() {
+  const res = await api.post<{ paused: boolean; enabled: boolean }>(
+    'billing/credits/auto-recharge/resume',
+    {},
+  );
+  return res.data;
+}
+
+export async function getAutoRechargeAttempts(
+  limit = 20,
+): Promise<AutoRechargeAttempt[]> {
+  const res = await api.get<AutoRechargeAttempt[]>(
+    'billing/credits/auto-recharge/attempts',
+    { params: { limit } },
+  );
+  return res.data;
+}

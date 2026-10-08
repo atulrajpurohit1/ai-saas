@@ -4,6 +4,7 @@ import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import PageHeader from '@/components/PageHeader';
+import AutoRechargeCard from '@/components/billing/AutoRechargeCard';
 import { cn } from '@/lib/utils';
 import {
   getCreditBalance,
@@ -36,6 +37,11 @@ function formatDate(value: string) {
 function CreditsContent() {
   const searchParams = useSearchParams();
   const checkoutState = searchParams.get('checkout');
+  // Saving a card for auto-recharge returns here with its own marker, so a
+  // saved card is never announced as a payment. The session id is what the
+  // auto-recharge card actually posts back to store the card.
+  const cardSetupState = searchParams.get('cardSetup');
+  const cardSetupSessionId = searchParams.get('session_id');
 
   const [balance, setBalance] = useState<CreditBalance | null>(null);
   const [packs, setPacks] = useState<CreditPackAvailability | null>(null);
@@ -268,6 +274,14 @@ function CreditsContent() {
           })}
         </div>
       )}
+
+      <div className="mt-10">
+        <AutoRechargeCard
+          cardSetupState={cardSetupState}
+          cardSetupSessionId={cardSetupSessionId}
+          onChanged={() => void load()}
+        />
+      </div>
 
       <h2 className="mb-3 mt-10 text-lg font-semibold text-foreground">
         Recent activity
