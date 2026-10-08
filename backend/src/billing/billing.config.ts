@@ -89,6 +89,17 @@ export function billingReturnUrls() {
     // so the customer lands where their new balance is shown.
     creditsSuccess: `${base}/settings/credits?checkout=success`,
     creditsCancel: `${base}/settings/credits?checkout=cancelled`,
+    // Saving a card for auto-recharge is not a purchase, so it returns with
+    // its own marker -- otherwise the credits screen would announce "payment
+    // received" for a card that has not been charged.
+    //
+    // `{CHECKOUT_SESSION_ID}` is substituted by Stripe on redirect. The id is
+    // required: no webhook records a `setup` session, so the only thing that
+    // saves the card is the frontend posting this id back to
+    // `POST billing/credits/auto-recharge/card`. Without it the customer
+    // completes the flow and nothing is stored.
+    cardSetupSuccess: `${base}/settings/credits?cardSetup=success&session_id={CHECKOUT_SESSION_ID}`,
+    cardSetupCancel: `${base}/settings/credits?cardSetup=cancelled`,
   };
 }
 

@@ -593,6 +593,89 @@ export class EmailService {
     )}</body></html>`;
   }
 
+  /**
+   * Warns a tenant that their Prospect Search credits are running low, or
+   * have run out.
+   *
+   * Sent to billing contacts rather than to whoever last ran a search: the
+   * person who needs to act is the one who can buy credits. Copy differs by
+   * tier because the two situations call for different urgency -- LOW is a
+   * heads-up that still allows searching, DEPLETED means searches are already
+   * being refused.
+   */
+  async sendCreditBalanceAlertEmail(
+    tenantId: string,
+    params: {
+      recipients: string[];
+      tier: 'LOW' | 'DEPLETED';
+      balance: number;
+      threshold: number;
+      purchaseUrl: string;
+    },
+  ) {
+    if (params.recipients.length === 0) {
+      throw new Error(
+        'sendCreditBalanceAlertEmail requires at least one recipient.',
+      );
+    }
+
+    const branding = await this.brandingService.brandingSnapshot(tenantId);
+    const companyName = branding?.company_name || 'AegisLead';
+    const depleted = params.tier === 'DEPLETED';
+
+    const subject = depleted
+      ? `Action needed: Prospect Search credits exhausted`
+      : `Your Prospect Search credits are running low`;
+
+    const headline = depleted
+      ? 'Your Prospect Search credits have run out'
+      : 'Your Prospect Search credits are running low';
+
+    const explanation = depleted
+      ? `New Prospect Searches are being declined until credits are added. Any search already running will finish normally.`
+      : `You have ${params.balance} Prospect Search credit${
+          params.balance === 1 ? '' : 's'
+        } remaining, which is below your ${params.threshold}-credit alert threshold. Searches still work, but will stop once the balance reaches zero.`;
+
+    const text = `${headline}
+
+${explanation}
+
+Add credits: ${params.purchaseUrl}
+
+You are receiving this because you are a billing contact for ${companyName}.`;
+
+    const bodyHtml = `
+      <p style="margin:0 0 16px;">${explanation}</p>
+      <p style="margin:0 0 24px;">
+        <a href="${params.purchaseUrl}"
+           style="display:inline-block;padding:12px 20px;border-radius:6px;background:#111827;color:#ffffff;text-decoration:none;font-weight:600;">
+          Add credits
+        </a>
+      </p>
+      <p style="margin:0;color:#6b7280;font-size:13px;">
+        You are receiving this because you are a billing contact for ${companyName}.
+      </p>
+    `;
+
+    const info = await this.transporter.sendMail({
+      ...this.senderFor(companyName, branding?.support_email),
+      // Billing contacts are peers, not a disclosure risk to each other, so a
+      // single send to all of them is fine and keeps the thread shared.
+      to: params.recipients.join(', '),
+      subject,
+      text,
+      html: branding
+        ? this.brandingService.emailShell(branding, headline, bodyHtml)
+        : `<!DOCTYPE html><html><body style="font-family: sans-serif; color: #111827;"><h2>${headline}</h2>${bodyHtml}</body></html>`,
+    });
+
+    return {
+      messageId: info.messageId,
+      previewUrl: this.previewUrlFor(info),
+    };
+  }
+
   private otpEmailBody(
     companyName: string,
     greetingName: string,

@@ -3,6 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiService } from '../ai/ai.service';
 import { AiGovernanceService } from '../ai-governance/ai-governance.service';
+import { AiMeteringService } from '../billing/ai-metering.service';
 import { AuditService } from '../audit/audit.service';
 import { BrandingService } from '../branding/branding.service';
 import { EmailService } from '../email/email.service';
@@ -95,6 +96,18 @@ describe('RfpService - Phase 3H security RFP -> proposal', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: AiService, useValue: ai },
         { provide: AiGovernanceService, useValue: governance },
+        // A real metering service over a stub ledger: these tests exercise
+        // the metered paths, so a pass-through mock would hide a charge that
+        // never happens.
+        {
+          provide: AiMeteringService,
+          useValue: new AiMeteringService({
+            spend: jest.fn().mockResolvedValue({ balance: 100, spent: 40 }),
+            refundSpend: jest.fn().mockResolvedValue({ balance: 140 }),
+            hasCredits: jest.fn().mockResolvedValue(true),
+            getBalance: jest.fn().mockResolvedValue({ balance: 100 }),
+          } as never),
+        },
         { provide: AuditService, useValue: audit },
         {
           provide: BrandingService,

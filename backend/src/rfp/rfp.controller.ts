@@ -38,8 +38,8 @@ export class RfpController {
 
   @Post('generate')
   @RequirePermission('rfp.create')
-  generate(@Body() dto: GenerateRfpDto) {
-    return this.rfpService.generate(dto);
+  generate(@GetUser() user: ActiveUser, @Body() dto: GenerateRfpDto) {
+    return this.rfpService.generate(user.tenantId, user.sub, dto);
   }
 
   @Post()

@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { AiService, ProspectCompanySummary } from './ai.service';
+import { AiUsageService } from './ai-usage.service';
 
 function buildService(
   configOverrides: Record<string, string | undefined> = {},
@@ -7,7 +8,10 @@ function buildService(
   const configService = {
     get: jest.fn((key: string) => configOverrides[key]),
   };
-  return new AiService(configService as unknown as ConfigService);
+  return new AiService(
+    configService as unknown as ConfigService,
+    { record: jest.fn() } as unknown as AiUsageService,
+  );
 }
 
 function mockGeminiResponse(service: AiService, text: string) {

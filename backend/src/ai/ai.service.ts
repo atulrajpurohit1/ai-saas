@@ -9,6 +9,8 @@ import { GenerateProposalDto } from './dto/generate-proposal.dto';
 import { GenerateRfpDto } from './dto/generate-rfp.dto';
 import { GenerateEvaluationDto } from './dto/generate-evaluation.dto';
 import { Lead } from '@prisma/client';
+import { AiUsageService } from './ai-usage.service';
+import { resolveAiFeature } from './ai-feature.map';
 
 export interface AiProposalDraftResponse {
   draft: string | null;
@@ -254,7 +256,10 @@ export class AiService {
   private genAI: GoogleGenerativeAI | null = null;
   private model: any = null;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private readonly aiUsageService: AiUsageService,
+  ) {
     this.modelName =
       this.configService.get<string>('GEMINI_MODEL')?.trim() ||
       'gemini-2.5-flash';
@@ -396,6 +401,82 @@ export class AiService {
     });
   }
 
+  /**
+   * The single place a Gemini request is issued, so token usage is recorded
+   * once rather than at each of the ~23 call sites.
+   *
+   * Wraps the timeout rather than replacing it, and deliberately re-throws:
+   * callers own the fallback decision. Usage is logged on the failure path
+   * too, because a call that timed out or errored after the model ran has
+   * still been billed to us -- dropping those rows would understate real cost,
+   * which is the one thing this instrumentation exists to measure.
+   */
+  private async generateContentTracked(
+    prompt: string,
+    action: string,
+  ): Promise<any> {
+    const startedAt = Date.now();
+    let result: any;
+
+    try {
+      result = await this.withTimeout(
+        this.model.generateContent(prompt),
+        action,
+      );
+    } catch (error) {
+      void this.recordUsage(action, null, startedAt, false);
+      throw error;
+    }
+
+    // Usage metadata hangs off the resolved response, so it is read after the
+    // await and defensively: the SDK omits it on some responses, and a shape
+    // change here must not break generation.
+    let usage: unknown = null;
+    try {
+      usage = (await result.response)?.usageMetadata ?? null;
+    } catch {
+      usage = null;
+    }
+
+    void this.recordUsage(action, usage, startedAt, true);
+    return result;
+  }
+
+  /**
+   * Normalises Gemini's usageMetadata and hands it to the recorder.
+   *
+   * Fire-and-forget by design -- the AI response is already in hand, and
+   * awaiting a log write would add latency to every AI call to record
+   * something nothing is waiting on. Absent counts stay null rather than
+   * becoming zero, so an unmetered response is distinguishable from a free
+   * one.
+   */
+  private async recordUsage(
+    action: string,
+    usage: unknown,
+    startedAt: number,
+    succeeded: boolean,
+  ): Promise<void> {
+    const meta = (usage ?? {}) as {
+      promptTokenCount?: unknown;
+      candidatesTokenCount?: unknown;
+      totalTokenCount?: unknown;
+    };
+
+    const toCount = (value: unknown): number | null =>
+      typeof value === 'number' && Number.isFinite(value) ? value : null;
+
+    await this.aiUsageService.record({
+      feature: resolveAiFeature(action),
+      model: this.modelName,
+      inputTokens: toCount(meta.promptTokenCount),
+      outputTokens: toCount(meta.candidatesTokenCount),
+      totalTokens: toCount(meta.totalTokenCount),
+      succeeded,
+      durationMs: Date.now() - startedAt,
+    });
+  }
+
   private async generateText(
     prompt: string,
     action: string,
@@ -409,10 +490,7 @@ export class AiService {
     }
 
     try {
-      const result = await this.withTimeout(
-        this.model.generateContent(prompt),
-        action,
-      );
+      const result = await this.generateContentTracked(prompt, action);
       const response = await result.response;
       const text = response.text().trim();
 
@@ -1907,7 +1985,7 @@ ${this.leadPricingPrompt(pricing)}
     `;
 
     try {
-      const result = await this.model.generateContent(prompt);
+      const result = await this.generateContentTracked(prompt, 'business insight recommendations');
       const response = await result.response;
       const rawText = response
         .text()
@@ -1954,7 +2032,7 @@ ${this.leadPricingPrompt(pricing)}
     `;
 
     try {
-      const result = await this.model.generateContent(prompt);
+      const result = await this.generateContentTracked(prompt, 'incident risk summary');
       const response = await result.response;
       const text = response.text().replace(/```/g, '').trim();
       return text || null;
@@ -1993,7 +2071,7 @@ ${this.leadPricingPrompt(pricing)}
     `;
 
     try {
-      const result = await this.model.generateContent(prompt);
+      const result = await this.generateContentTracked(prompt, 'revenue intelligence summary');
       const response = await result.response;
       const text = response.text().replace(/```/g, '').trim();
       return text || null;
@@ -2039,7 +2117,7 @@ ${this.leadPricingPrompt(pricing)}
     `;
 
     try {
-      const result = await this.model.generateContent(prompt);
+      const result = await this.generateContentTracked(prompt, 'revenue financial recommendations');
       const response = await result.response;
       const rawText = response
         .text()
@@ -2096,7 +2174,7 @@ ${this.leadPricingPrompt(pricing)}
     `;
 
     try {
-      const result = await this.model.generateContent(prompt);
+      const result = await this.generateContentTracked(prompt, 'guard recommendation explanation');
       const response = await result.response;
       const text = response.text().replace(/```/g, '').trim();
       return text || null;
@@ -2129,7 +2207,7 @@ ${this.leadPricingPrompt(pricing)}
     `;
 
     try {
-      const result = await this.model.generateContent(prompt);
+      const result = await this.generateContentTracked(prompt, 'copilot answer');
       const response = await result.response;
       const text = response.text().replace(/```/g, '').trim();
       return text || null;
@@ -2661,7 +2739,7 @@ Complete discovery, confirm scope, and finalize a proposal aligned to the client
     }
 
     try {
-      const result = await this.model.generateContent(prompt);
+      const result = await this.generateContentTracked(prompt, 'lead extraction');
       const response = await result.response;
       const rawText = response
         .text()
@@ -2751,7 +2829,7 @@ Complete discovery, confirm scope, and finalize a proposal aligned to the client
     `;
 
     try {
-      const result = await this.model.generateContent(renderedPrompt);
+      const result = await this.generateContentTracked(renderedPrompt, 'prospect company insight');
       const response = await result.response;
       const rawText = response.text();
       const parsed =

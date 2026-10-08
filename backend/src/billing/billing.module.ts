@@ -11,11 +11,23 @@ import { GuardMeteringService } from './guard-metering.service';
 import { CreditsService } from './credits.service';
 import { CreditsController } from './credits.controller';
 import { CreditReservationScheduler } from './credit-reservation.scheduler';
+import { CreditBalanceAlertService } from './credit-balance-alert.service';
+import { CreditBalanceAlertScheduler } from './credit-balance-alert.scheduler';
+import { CreditAutoRechargeService } from './credit-auto-recharge.service';
+import { CreditAutoRechargeScheduler } from './credit-auto-recharge.scheduler';
+import { CreditAutoRechargeController } from './credit-auto-recharge.controller';
+import { AiMeteringService } from './ai-metering.service';
+import { EmailModule } from '../email/email.module';
 
 @Global()
 @Module({
-  imports: [PrismaModule, AuditModule],
-  controllers: [BillingController, CreditsController, StripeWebhookController],
+  imports: [PrismaModule, AuditModule, EmailModule],
+  controllers: [
+    BillingController,
+    CreditsController,
+    CreditAutoRechargeController,
+    StripeWebhookController,
+  ],
   providers: [
     BillingService,
     StripeService,
@@ -24,6 +36,11 @@ import { CreditReservationScheduler } from './credit-reservation.scheduler';
     GuardMeteringService,
     CreditsService,
     CreditReservationScheduler,
+    CreditBalanceAlertService,
+    CreditBalanceAlertScheduler,
+    CreditAutoRechargeService,
+    CreditAutoRechargeScheduler,
+    AiMeteringService,
   ],
   exports: [
     BillingService,

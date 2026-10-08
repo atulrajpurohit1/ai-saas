@@ -4,10 +4,14 @@ import {
   SecurityRfpAnalysisDraft,
   SecurityRfpStructuredInput,
 } from './ai.service';
+import { AiUsageService } from './ai-usage.service';
 
 function buildService(overrides: Record<string, string | undefined> = {}) {
   const configService = { get: jest.fn((key: string) => overrides[key]) };
-  return new AiService(configService as unknown as ConfigService);
+  return new AiService(
+    configService as unknown as ConfigService,
+    { record: jest.fn() } as unknown as AiUsageService,
+  );
 }
 
 function mockGemini(service: AiService, text: string) {

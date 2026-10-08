@@ -23,6 +23,8 @@ import { CoachDiscoveryCallDto } from './dto/coach-discovery-call.dto';
 import { CreateFollowUpTaskDto } from './dto/create-follow-up-task.dto';
 import { GenerateDiscoveryProposalDto } from './dto/generate-discovery-proposal.dto';
 import { SaveDiscoveryDto } from './dto/save-discovery.dto';
+import { AiMeteringService } from '../billing/ai-metering.service';
+import { AiFeature } from '@prisma/client';
 
 type SalesEntityType = 'lead' | 'deal';
 
@@ -372,6 +374,7 @@ export class SalesAcceleratorService {
     private readonly auditService: AuditService,
     private readonly activitiesService: ActivitiesService,
     private readonly proposalsService: ProposalsService,
+    private readonly aiMetering: AiMeteringService,
   ) {}
 
   async getDashboard(tenantId: string) {
@@ -1619,7 +1622,10 @@ export class SalesAcceleratorService {
     let errorMessage: string | undefined;
 
     try {
-      content = await this.aiService.generateDiscoveryProposal(context);
+      content = await this.aiMetering.run(
+        { tenantId, userId, feature: AiFeature.DISCOVERY_PROPOSAL },
+        () => this.aiService.generateDiscoveryProposal(context),
+      );
     } catch (error) {
       fallbackUsed = true;
       errorMessage = error instanceof Error ? error.message : String(error);
@@ -1873,7 +1879,10 @@ export class SalesAcceleratorService {
     let errorMessage: string | undefined;
 
     try {
-      guide = await this.aiService.generateDiscoveryGuide(context);
+      guide = await this.aiMetering.run(
+        { tenantId, userId, feature: AiFeature.DISCOVERY_GUIDE },
+        () => this.aiService.generateDiscoveryGuide(context),
+      );
     } catch (error) {
       fallbackUsed = true;
       errorMessage = error instanceof Error ? error.message : String(error);
@@ -1915,7 +1924,10 @@ export class SalesAcceleratorService {
     let errorMessage: string | undefined;
 
     try {
-      outreach = await this.aiService.generateOutreachPlan(context);
+      outreach = await this.aiMetering.run(
+        { tenantId, userId, feature: AiFeature.OUTREACH_PLAN },
+        () => this.aiService.generateOutreachPlan(context),
+      );
     } catch (error) {
       fallbackUsed = true;
       errorMessage = error instanceof Error ? error.message : String(error);
@@ -1966,9 +1978,16 @@ export class SalesAcceleratorService {
     let errorMessage: string | undefined;
 
     try {
-      intelligence = await this.aiService.generateDiscoveryCallIntelligence(
-        context,
-        transcriptText,
+      // Metered inside the try: run() re-throws on failure, so the catch
+      // below still builds the rule-based fallback, and the credits have
+      // already been refunded by then.
+      intelligence = await this.aiMetering.run(
+        { tenantId, userId, feature: AiFeature.DISCOVERY_CALL_INTELLIGENCE },
+        () =>
+          this.aiService.generateDiscoveryCallIntelligence(
+            context,
+            transcriptText,
+          ),
       );
     } catch (error) {
       fallbackUsed = true;
@@ -2018,9 +2037,10 @@ export class SalesAcceleratorService {
     let errorMessage: string | undefined;
 
     try {
-      coach = await this.aiService.generateDiscoveryLiveCoach(
-        context,
-        transcriptText,
+      coach = await this.aiMetering.run(
+        { tenantId, userId, feature: AiFeature.DISCOVERY_LIVE_COACH },
+        () =>
+          this.aiService.generateDiscoveryLiveCoach(context, transcriptText),
       );
     } catch (error) {
       fallbackUsed = true;
@@ -2072,7 +2092,10 @@ export class SalesAcceleratorService {
     let errorMessage: string | undefined;
 
     try {
-      draft = await this.aiService.generateSalesAssessment(contextText);
+      draft = await this.aiMetering.run(
+        { tenantId, userId, feature: AiFeature.SALES_ASSESSMENT },
+        () => this.aiService.generateSalesAssessment(contextText),
+      );
     } catch (error) {
       fallbackUsed = true;
       errorMessage = error instanceof Error ? error.message : String(error);

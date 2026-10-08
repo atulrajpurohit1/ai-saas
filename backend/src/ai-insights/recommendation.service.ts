@@ -3,6 +3,8 @@ import { AiGovernanceService } from '../ai-governance/ai-governance.service';
 import { AiService } from '../ai/ai.service';
 import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AiMeteringService } from '../billing/ai-metering.service';
+import { AiFeature } from '@prisma/client';
 import {
   AiRecommendation,
   GuardRecommendation,
@@ -27,6 +29,11 @@ export class RecommendationService {
     private readonly aiMonitoringService?: AiMonitoringService,
     @Optional()
     private readonly aiGovernanceService?: AiGovernanceService,
+    // Optional like the services above: this class is constructed directly in
+    // places that do not wire the billing module, and an unmetered
+    // explanation is better than a crash.
+    @Optional()
+    private readonly aiMetering?: AiMeteringService,
   ) {}
 
   async recommendGuards(
@@ -612,22 +619,36 @@ export class RecommendationService {
       warnings: input.recommendation.warnings,
     });
 
-    const aiExplanation = await this.aiService.explainGuardRecommendation(
-      JSON.stringify({
-        guard_name: input.recommendation.guard_name,
-        site_name: input.siteName,
-        score: input.recommendation.score,
-        reasons: input.recommendation.reasons,
-        warnings: input.recommendation.warnings,
-        metrics: input.recommendation.metrics,
-        organizationalMemory: [],
-      }),
-      await this.resolvePromptTemplate(
-        input.tenantId,
-        'ai_scheduling.guard_recommendations',
-        'guard_recommendation_explanation',
-      ),
-    );
+    const explain = async () =>
+      this.aiService.explainGuardRecommendation(
+        JSON.stringify({
+          guard_name: input.recommendation.guard_name,
+          site_name: input.siteName,
+          score: input.recommendation.score,
+          reasons: input.recommendation.reasons,
+          warnings: input.recommendation.warnings,
+          metrics: input.recommendation.metrics,
+          organizationalMemory: [],
+        }),
+        await this.resolvePromptTemplate(
+          input.tenantId,
+          'ai_scheduling.guard_recommendations',
+          'guard_recommendation_explanation',
+        ),
+      );
+
+    // runNullable because this method signals failure by returning null and
+    // falling back to the rule-based explanation -- charging for that would
+    // bill the customer for output they did not get.
+    const aiExplanation = this.aiMetering
+      ? await this.aiMetering.runNullable(
+          {
+            tenantId: input.tenantId,
+            feature: AiFeature.GUARD_RECOMMENDATION_EXPLANATION,
+          },
+          explain,
+        )
+      : await explain();
 
     return aiExplanation || fallback;
   }

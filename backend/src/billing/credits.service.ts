@@ -299,6 +299,131 @@ export class CreditsService {
    * The reservation held against a job, if there is one. Scoped by tenant so a
    * job id from one tenant can never settle another tenant's hold.
    */
+  /**
+   * Spends credits immediately on work whose price is known up front.
+   *
+   * The synchronous counterpart to reserve-then-settle. A BlackPearl job needs
+   * a hold because its true cost only arrives minutes later; an AI call's
+   * price is fixed by feature and its outcome is known when it returns, so
+   * there is nothing to settle and a hold would be a state that always
+   * resolves the same way.
+   *
+   * Writes a RESERVATION-free CONSUMPTION pair in one transaction: the balance
+   * decrement, `lifetimeConsumed`, and the ledger row. The conditional update
+   * is the concurrency guard, exactly as in reserve() -- two simultaneous
+   * spends cannot both pass on the same last credits, because the second one's
+   * `balance: { gte: amount }` no longer holds.
+   *
+   * Throws 402 when the tenant cannot afford it.
+   */
+  async spend(params: {
+    tenantId: string;
+    amount: number;
+    description: string;
+    userId?: string;
+  }): Promise<{ balance: number; spent: number }> {
+    const { tenantId, amount, description, userId } = params;
+
+    if (!Number.isInteger(amount) || amount <= 0) {
+      throw new BadRequestException(
+        'Credit spend amount must be a positive whole number.',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.tenantCreditBalance.updateMany({
+        where: { tenantId, balance: { gte: amount } },
+        data: {
+          balance: { decrement: amount },
+          lifetimeConsumed: { increment: amount },
+        },
+      });
+
+      if (updated.count === 0) {
+        const current = await tx.tenantCreditBalance.findUnique({
+          where: { tenantId },
+          select: { balance: true },
+        });
+        const available = current?.balance ?? 0;
+        throw new InsufficientCreditsException(
+          `This action needs ${amount} credit${
+            amount === 1 ? '' : 's'
+          }, but your account has ${available}. Purchase more credits to continue.`,
+          amount,
+          available,
+        );
+      }
+
+      const row = await tx.tenantCreditBalance.findUniqueOrThrow({
+        where: { tenantId },
+        select: { balance: true },
+      });
+
+      // Unlike settle()'s zero-amount CONSUMPTION row, this one carries the
+      // real negative amount: no RESERVATION row removed these credits
+      // earlier, so the balance is only reconstructable from the ledger if
+      // this row states the movement.
+      await tx.creditLedgerEntry.create({
+        data: {
+          tenantId,
+          type: CreditEntryType.CONSUMPTION,
+          amount: -amount,
+          balanceAfter: row.balance,
+          description,
+          userId: userId ?? null,
+        },
+      });
+
+      return { balance: row.balance, spent: amount };
+    });
+  }
+
+  /**
+   * Hands back credits taken by spend() when the work produced nothing.
+   *
+   * An ADJUSTMENT rather than a RELEASE: RELEASE settles a reservation, and
+   * there is none here. `lifetimeConsumed` is decremented back so a refunded
+   * action does not inflate usage reporting.
+   */
+  async refundSpend(params: {
+    tenantId: string;
+    amount: number;
+    description: string;
+    userId?: string;
+  }): Promise<{ balance: number }> {
+    const { tenantId, amount, description, userId } = params;
+
+    if (!Number.isInteger(amount) || amount <= 0) {
+      throw new BadRequestException(
+        'Credit refund amount must be a positive whole number.',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const balance = await tx.tenantCreditBalance.update({
+        where: { tenantId },
+        data: {
+          balance: { increment: amount },
+          lifetimeConsumed: { decrement: amount },
+        },
+        select: { balance: true },
+      });
+
+      await tx.creditLedgerEntry.create({
+        data: {
+          tenantId,
+          type: CreditEntryType.ADJUSTMENT,
+          amount,
+          balanceAfter: balance.balance,
+          description,
+          userId: userId ?? null,
+        },
+      });
+
+      return { balance: balance.balance };
+    });
+  }
+
   async findReservation(tenantId: string, jobId: string) {
     return this.prisma.creditLedgerEntry.findFirst({
       where: { tenantId, jobId, type: CreditEntryType.RESERVATION },

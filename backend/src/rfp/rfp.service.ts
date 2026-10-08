@@ -10,6 +10,8 @@ import {
   SecurityRfpAnalysisDraft,
   SecurityRfpStructuredInput,
 } from '../ai/ai.service';
+import { AiMeteringService } from '../billing/ai-metering.service';
+import { AiFeature } from '@prisma/client';
 import { AiGovernanceService } from '../ai-governance/ai-governance.service';
 import { AuditService } from '../audit/audit.service';
 import { BrandingService } from '../branding/branding.service';
@@ -55,6 +57,7 @@ export class RfpService {
     private emailService: EmailService,
     private proposalsService: ProposalsService,
     private aiGovernanceService: AiGovernanceService,
+    private aiMetering: AiMeteringService,
   ) {}
 
   private parseOptionalDate(value: string | undefined, fieldName: string) {
@@ -325,8 +328,15 @@ export class RfpService {
     return { success: true };
   }
 
-  async generate(dto: GenerateRfpDto) {
-    const content = await this.aiService.generateRfp(dto);
+  async generate(
+    tenantId: string,
+    userId: string | undefined,
+    dto: GenerateRfpDto,
+  ) {
+    const content = await this.aiMetering.run(
+      { tenantId, userId, feature: AiFeature.RFP_GENERATION },
+      () => this.aiService.generateRfp(dto),
+    );
     return { content };
   }
 
@@ -796,7 +806,10 @@ export class RfpService {
       vendors: vendorSummaries,
     };
 
-    const result = await this.aiService.generateEvaluationReport(evaluationDto);
+    const result = await this.aiMetering.run(
+      { tenantId, userId, feature: AiFeature.EVALUATION_REPORT },
+      () => this.aiService.generateEvaluationReport(evaluationDto),
+    );
 
     const evaluation = await this.prisma.evaluationReport.create({
       data: {
@@ -1216,10 +1229,14 @@ export class RfpService {
     const structured = this.toStructuredInput(rfp);
     const sourceText = this.buildRfpSourceText(rfp);
 
-    const draft = await this.aiService.analyzeSecurityRfp({
-      sourceText,
-      structured,
-    });
+    // Charged before the call so a tenant at zero credits cannot run work we
+    // have already paid for, and refunded when the service falls back instead
+    // of actually analysing -- a fallback is not what was bought.
+    const draft = await this.aiMetering.runChargeableIf(
+      { tenantId, userId, feature: AiFeature.SECURITY_RFP_ANALYSIS },
+      () => this.aiService.analyzeSecurityRfp({ sourceText, structured }),
+      (result) => !result.fallbackUsed,
+    );
 
     const safety = this.aiGovernanceService.evaluateSafety({
       generatedOutput: {
@@ -1301,11 +1318,15 @@ export class RfpService {
       structured,
     );
 
-    const content = await this.aiService.generateProposalFromRfp({
-      structured,
-      analysis,
-      capabilities,
-    });
+    const content = await this.aiMetering.run(
+      { tenantId, userId, feature: AiFeature.PROPOSAL_FROM_RFP },
+      () =>
+        this.aiService.generateProposalFromRfp({
+          structured,
+          analysis,
+          capabilities,
+        }),
+    );
 
     const safety = this.aiGovernanceService.evaluateSafety({
       generatedOutput: { content },
