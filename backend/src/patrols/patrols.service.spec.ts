@@ -234,6 +234,53 @@ describe('PatrolsService - geofence verification', () => {
     });
   });
 
+  describe('scanCheckpoint - offline replay timing', () => {
+    const startedAt = new Date('2026-10-09T08:00:00Z');
+
+    beforeEach(() => {
+      prisma.patrolRun.findFirst.mockResolvedValue({
+        id: RUN_ID,
+        tenantId: TENANT_ID,
+        guardId: GUARD_ID,
+        status: 'in_progress',
+        startedAt,
+        patrolRoute: {
+          checkpoints: [
+            { checkpointId: CHECKPOINT_ID, checkpoint: nonGpsCheckpoint },
+          ],
+        },
+      });
+    });
+
+    it('dates a scan recorded offline to when it happened, not when it synced', async () => {
+      const occurredAt = new Date('2026-10-09T08:40:00Z');
+
+      const event = await service.scanCheckpoint(
+        TENANT_ID,
+        GUARD_ID,
+        RUN_ID,
+        CHECKPOINT_ID,
+        {},
+        occurredAt,
+      );
+
+      expect(event.scannedAt).toEqual(occurredAt);
+    });
+
+    it('never dates a scan before its patrol started (phone clock behind)', async () => {
+      const event = await service.scanCheckpoint(
+        TENANT_ID,
+        GUARD_ID,
+        RUN_ID,
+        CHECKPOINT_ID,
+        {},
+        new Date('2026-10-09T07:55:00Z'),
+      );
+
+      expect(event.scannedAt).toEqual(startedAt);
+    });
+  });
+
   describe('scanCheckpoint - authorization (regression)', () => {
     it('rejects scanning when no active run belongs to this guard', async () => {
       prisma.patrolRun.findFirst.mockResolvedValue(null);

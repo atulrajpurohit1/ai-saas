@@ -34,6 +34,12 @@ import {
   DEFAULT_GEOFENCE_RADIUS_METERS,
 } from './checkpoint-verification.constants';
 
+// A scan or completion replayed from offline is dated by the guard's phone,
+// whose clock can lag the server's; never date it before the run started.
+function notBefore(date: Date, floor: Date | null): Date {
+  return floor && date.getTime() < floor.getTime() ? floor : date;
+}
+
 @Injectable()
 export class PatrolsService {
   constructor(
@@ -701,6 +707,8 @@ export class PatrolsService {
     runId: string,
     checkpointId: string,
     dto?: ScanCheckpointDto,
+    // Set when replaying a scan recorded offline: when it actually happened.
+    occurredAt?: Date,
   ) {
     // Authorization: the run must genuinely belong to this guard (from the
     // JWT, never client-supplied) and be in progress - this is the existing
@@ -741,7 +749,7 @@ export class PatrolsService {
     );
 
     const eventData = {
-      scannedAt: new Date(),
+      scannedAt: notBefore(occurredAt ?? new Date(), run.startedAt),
       status: dto?.status || 'completed',
       notes: dto?.notes || null,
       verificationStatus: verification.status,
@@ -841,7 +849,13 @@ export class PatrolsService {
     };
   }
 
-  async completePatrolRun(tenantId: string, guardId: string, runId: string) {
+  async completePatrolRun(
+    tenantId: string,
+    guardId: string,
+    runId: string,
+    // Set when replaying a completion recorded offline.
+    occurredAt?: Date,
+  ) {
     const run = await this.prisma.patrolRun.findFirst({
       where: {
         id: runId,
@@ -862,6 +876,7 @@ export class PatrolsService {
       throw new NotFoundException('Active patrol run not found');
     }
 
+    const completedAt = notBefore(occurredAt ?? new Date(), run.startedAt);
     const scannedCheckpointIds = new Set(run.events.map((e) => e.checkpointId));
     const missingCheckpoints = run.patrolRoute.checkpoints.filter(
       (cp) => !scannedCheckpointIds.has(cp.checkpointId),
@@ -874,7 +889,7 @@ export class PatrolsService {
           patrolRunId: runId,
           checkpointId: cp.checkpointId,
           guardId,
-          scannedAt: new Date(),
+          scannedAt: completedAt,
           status: 'missed',
           notes: 'Auto-marked missed upon patrol run completion',
         })),
@@ -885,7 +900,7 @@ export class PatrolsService {
       where: { id: runId },
       data: {
         status: 'completed',
-        completedAt: new Date(),
+        completedAt,
       },
       include: {
         events: {

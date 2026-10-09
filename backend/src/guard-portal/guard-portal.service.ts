@@ -20,11 +20,49 @@ const MAX_SYNC_ATTEMPTS = 5;
 // died mid-way, and may be claimed again.
 const STALE_PENDING_MS = 10 * 60 * 1000;
 
+// An offline action is dated by the phone that recorded it. Older than this,
+// the phone's clock is more likely wrong than the guard offline for that long.
+const MAX_OFFLINE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * When an offline action actually happened, from the time the phone stamped
+ * on it. Without this, a replayed check-in or check-out was dated when it
+ * synced, so a shift worked offline produced a near-zero-hour timesheet.
+ *
+ * A phone clock that runs ahead is clamped to when the server received the
+ * action; one that is implausibly far behind is refused.
+ */
+export function offlineActionTime(createdAt: string, receivedAt: Date): Date {
+  const recorded = new Date(createdAt);
+  if (Number.isNaN(recorded.getTime())) {
+    throw new BadRequestException('Offline action has an invalid timestamp');
+  }
+  if (recorded.getTime() > receivedAt.getTime()) {
+    return receivedAt;
+  }
+  if (receivedAt.getTime() - recorded.getTime() > MAX_OFFLINE_AGE_MS) {
+    throw new BadRequestException(
+      'Offline action was recorded more than 7 days ago. Ask your supervisor to enter it.',
+    );
+  }
+  return recorded;
+}
+
 function isClientError(error: unknown) {
   if (!(error instanceof HttpException)) return false;
   const status = error.getStatus();
   // 408 / 429 are worth retrying.
   return status >= 400 && status < 500 && status !== 408 && status !== 429;
+}
+
+function attendanceTiming(occurredAt?: Date) {
+  return occurredAt
+    ? { timestamp: occurredAt, source: 'guard_portal_offline' }
+    : { source: 'guard_portal' };
+}
+
+function offlineNote(occurredAt?: Date) {
+  return occurredAt ? ` (recorded offline at ${occurredAt.toISOString()})` : '';
 }
 
 type AttendanceStatus = 'not_started' | 'checked_in' | 'completed';
@@ -252,7 +290,16 @@ export class GuardPortalService {
     };
   }
 
-  async checkIn(tenantId: string, guardId: string, shiftId: string) {
+  /**
+   * `occurredAt` is set only when replaying an action recorded offline; the
+   * event is then dated to that moment and marked as offline-recorded.
+   */
+  async checkIn(
+    tenantId: string,
+    guardId: string,
+    shiftId: string,
+    occurredAt?: Date,
+  ) {
     const { shift, assignment } = await this.getAssignedShiftContext(
       tenantId,
       guardId,
@@ -295,7 +342,7 @@ export class GuardPortalService {
             guardId,
             shiftId,
             type: 'CHECK_IN',
-            source: 'guard_portal',
+            ...attendanceTiming(occurredAt),
           },
         });
 
@@ -313,7 +360,7 @@ export class GuardPortalService {
         action: 'GUARD_CHECKED_IN',
         entityType: 'Shift',
         entityId: shiftId,
-        details: `Guard "${assignment.guard.name}" checked in`,
+        details: `Guard "${assignment.guard.name}" checked in${offlineNote(occurredAt)}`,
       });
 
       return {
@@ -341,7 +388,12 @@ export class GuardPortalService {
     }
   }
 
-  async checkOut(tenantId: string, guardId: string, shiftId: string) {
+  async checkOut(
+    tenantId: string,
+    guardId: string,
+    shiftId: string,
+    occurredAt?: Date,
+  ) {
     const { shift, assignment } = await this.getAssignedShiftContext(
       tenantId,
       guardId,
@@ -376,10 +428,11 @@ export class GuardPortalService {
 
     const checkInTime = attendance.checkInTime;
 
-    // Guard against clock skew / tampering: the check-out moment (now) must be
+    // Guard against clock skew / tampering: the check-out moment must be
     // after the recorded check-in. Without this, a backwards timestamp silently
     // produces a 0-hour timesheet on a billable record.
-    if (Date.now() <= checkInTime.getTime()) {
+    const checkOutAt = occurredAt ?? new Date();
+    if (checkOutAt.getTime() <= checkInTime.getTime()) {
       await this.logInvalidAttendanceAttempt({
         tenantId,
         guardId,
@@ -400,7 +453,7 @@ export class GuardPortalService {
             guardId,
             shiftId,
             type: 'CHECK_OUT',
-            source: 'guard_portal',
+            ...attendanceTiming(occurredAt),
           },
         });
 
@@ -458,7 +511,7 @@ export class GuardPortalService {
         action: 'GUARD_CHECKED_OUT',
         entityType: 'Shift',
         entityId: shiftId,
-        details: `Guard "${assignment.guard.name}" checked out`,
+        details: `Guard "${assignment.guard.name}" checked out${offlineNote(occurredAt)}`,
       });
 
       return {
@@ -579,6 +632,8 @@ export class GuardPortalService {
       ReturnType<typeof this.prisma.guardSyncQueue.create>
     >[] = [];
 
+    const receivedAt = new Date();
+
     // Sort actions by original createdAt
     const sortedActions = [...dto.actions].sort(
       (a, b) =>
@@ -595,9 +650,16 @@ export class GuardPortalService {
       }
 
       try {
+        const occurredAt = offlineActionTime(action.createdAt, receivedAt);
+
         if (action.actionType === 'check_in') {
           try {
-            await this.checkIn(tenantId, guardId, action.payload.shiftId);
+            await this.checkIn(
+              tenantId,
+              guardId,
+              action.payload.shiftId,
+              occurredAt,
+            );
           } catch (error) {
             if (
               error.message === 'Guard has already checked in for this shift'
@@ -609,7 +671,12 @@ export class GuardPortalService {
           }
         } else if (action.actionType === 'check_out') {
           try {
-            await this.checkOut(tenantId, guardId, action.payload.shiftId);
+            await this.checkOut(
+              tenantId,
+              guardId,
+              action.payload.shiftId,
+              occurredAt,
+            );
           } catch (error) {
             if (
               error.message === 'Guard has already checked out for this shift'
@@ -633,12 +700,14 @@ export class GuardPortalService {
             action.payload.runId,
             action.payload.checkpointId,
             action.payload.dto,
+            occurredAt,
           );
         } else if (action.actionType === 'patrol_run_complete') {
           await this.patrolsService.completePatrolRun(
             tenantId,
             guardId,
             action.payload.runId,
+            occurredAt,
           );
         } else {
           throw new BadRequestException(
