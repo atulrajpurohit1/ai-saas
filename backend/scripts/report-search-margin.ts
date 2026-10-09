@@ -8,7 +8,8 @@
  * only way to price the packs is from our own measured cost. This is that
  * measurement.
  *
- * Read-only. Searches are grouped by kind (playbook / discovery) and by the
+ * Read-only. Demo jobs from seed-demo-showcase.ts are skipped: their costs are
+ * invented. Searches are grouped by kind (playbook / discovery) and by the
  * credits actually charged, which separates Preview from Full even if prices
  * changed over time. Searches that failed and were refunded are reported on
  * their own line: they earned nothing but may still have cost us.
@@ -61,7 +62,7 @@ async function main() {
     .map((value) => value.trim())
     .filter(Boolean);
 
-  const rows = await prisma.creditLedgerEntry.findMany({
+  const all = await prisma.creditLedgerEntry.findMany({
     where: {
       type: 'RESERVATION',
       reservationStatus: { in: ['SETTLED', 'RELEASED'] },
@@ -69,12 +70,19 @@ async function main() {
       ...(slugs.length ? { tenant: { slug: { in: slugs } } } : {}),
     },
     select: {
+      jobId: true,
       description: true,
       reservationStatus: true,
       settledAmount: true,
       upstreamCostUsd: true,
     },
   });
+
+  // seed-demo-showcase.ts writes demo searches with invented costs (a flat
+  // $0.11 per prospect) under job ids like demo-job-0001. Real BlackPearl jobs
+  // never look like that, and counting the fake costs would skew every figure.
+  const rows = all.filter((row) => !row.jobId?.startsWith('demo-'));
+  const demoSkipped = all.length - rows.length;
 
   if (!rows.length) {
     console.log('No settled Prospect Search jobs match; nothing to report.');
@@ -102,7 +110,7 @@ async function main() {
   console.log(
     `${rows.length} settled job(s)${since ? ` since ${since}` : ''}${
       slugs.length ? ` for ${slugs.join(', ')}` : ''
-    }.\n`,
+    }.${demoSkipped ? ` Skipped ${demoSkipped} seeded demo job(s).` : ''}\n`,
   );
 
   for (const [label, group] of [...groups].sort(([a], [b]) =>
