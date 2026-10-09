@@ -198,7 +198,7 @@ export default function RateCardsPage() {
 
       <form
         onSubmit={handleCreate}
-        className="mb-8 grid gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:p-6 xl:grid-cols-[1fr_1fr_120px_120px_120px_150px_150px_auto]"
+        className="mb-8 grid gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-4 sm:p-6 md:grid-cols-2 xl:grid-cols-[minmax(11rem,1.4fr)_minmax(11rem,1.4fr)_110px_110px_110px_150px_150px_auto]"
       >
         <div className="space-y-2">
           <label className="text-sm font-semibold text-slate-300">Client</label>

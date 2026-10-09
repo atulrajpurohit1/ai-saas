@@ -39,9 +39,9 @@
   --popover: var(--card);
   --popover-foreground: var(--card-foreground);
 
-  --radius: 14px;
-  --radius-sm: 10px;
-  --radius-lg: 20px;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 12px;
   --radius-pill: 9999px;
   --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.04);
   --shadow-md: 0 4px 12px rgba(17, 24, 39, 0.06);
@@ -327,7 +327,7 @@ select.text-white {
 
   .responsive-table tr {
     border: 1px solid var(--border);
-    border-radius: 1.25rem;
+    border-radius: var(--radius-lg);
     background: var(--card);
     overflow: hidden;
   }
@@ -625,19 +625,30 @@ option.bg-\[\#0f172a\] {
   border-radius: var(--radius);
 }
 
-/* 5. Border-radius normalization. The pre-Phase-2 admin pages hand-picked
- *    Tailwind's rounded-2xl (1rem) / rounded-3xl (1.5rem) for card shells and
- *    modals, which reads slightly larger/softer than the design-system
- *    --radius-lg (20px) used everywhere else. Pull them onto the token so
- *    every card, panel and dialog shares one corner radius. rounded-xl and
- *    smaller are left alone (they match --radius / --radius-sm closely enough
- *    and are used for inner controls). */
+/* 5. Border-radius normalization. Corners across the app were noticeably
+ *    round - pages hand-picked Tailwind's rounded-xl/2xl/3xl for card shells,
+ *    panels and controls, which read softer than intended and made dense
+ *    tables and filter bars look bubbly. Rather than touch ~900 call sites,
+ *    map the literal scale onto the radius tokens, so the whole app follows
+ *    --radius* and the scale can be retuned from one place.
+ *
+ *    rounded-full is deliberately NOT remapped: it is used for genuine pills
+ *    and circular avatars/status dots, which should stay fully round. */
 .rounded-2xl,
 .rounded-3xl,
 .rounded-\[2rem\],
 .rounded-\[2\.5rem\],
 .rounded-\[1\.75rem\] {
   border-radius: var(--radius-lg);
+}
+
+.rounded-xl {
+  border-radius: var(--radius);
+}
+
+.rounded-lg,
+.rounded-md {
+  border-radius: var(--radius-sm);
 }
 
 /* 6. NOTE on the Guard portal's emerald usage: the previous green *shell chrome*

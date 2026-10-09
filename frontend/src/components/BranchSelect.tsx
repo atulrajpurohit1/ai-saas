@@ -47,7 +47,7 @@ export default function BranchSelect({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           disabled={loading}
-          className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-9 text-sm text-white outline-none transition focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-60"
+          className="h-10 w-full rounded-xl border border-white/10 bg-white/5 pl-10 pr-9 text-sm text-white outline-none transition focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-60"
         >
           {includeAll && <option value="" className="bg-[#0e0e1a] text-white">All branches</option>}
           {!includeAll && <option value="" className="bg-[#0e0e1a] text-white">Unassigned</option>}
