@@ -1,7 +1,10 @@
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
-import { GuardMeteringService } from './guard-metering.service';
+import {
+  GuardMeteringService,
+  startOfUtcMonth,
+} from './guard-metering.service';
 import {
   GUARD_BANDS,
   MONTHLY_PRICES,
@@ -241,19 +244,38 @@ describe('GuardMeteringService', () => {
   });
 
   // Anthony, 2026-10-09: a guard added is charged for the whole month even if
-  // they leave. So headcount is a plain row count -- no activity window, no
+  // they leave. So headcount is every guard row -- no activity window, no
   // filtering on shifts. An earlier version counted only guards rostered in
   // the last 30 days, which silently discounted accounts with rota churn.
-  it('counts every guard on the account, with no activity window', async () => {
-    await service.billableGuardCount('tenant-1');
+  // The one exclusion is a guard deactivated before this calendar month.
+  it('counts every guard still active or deactivated this month', async () => {
+    await service.billableGuardCount(
+      'tenant-1',
+      new Date('2026-10-20T15:30:00Z'),
+    );
 
     const where = prisma.guard.count.mock.calls[0][0].where as Record<
       string,
       unknown
     >;
 
-    expect(where).toEqual({ tenantId: 'tenant-1' });
+    expect(where).toEqual({
+      tenantId: 'tenant-1',
+      OR: [
+        { deactivatedAt: null },
+        { deactivatedAt: { gte: new Date('2026-10-01T00:00:00Z') } },
+      ],
+    });
     expect(where.assignments).toBeUndefined();
+  });
+
+  it('starts the billing month at midnight UTC on the 1st', () => {
+    expect(startOfUtcMonth(new Date('2026-01-01T00:00:00Z'))).toEqual(
+      new Date('2026-01-01T00:00:00Z'),
+    );
+    expect(startOfUtcMonth(new Date('2026-12-31T23:59:59Z'))).toEqual(
+      new Date('2026-12-01T00:00:00Z'),
+    );
   });
 
   it('bands a Guard tenant by its billable guard count', async () => {

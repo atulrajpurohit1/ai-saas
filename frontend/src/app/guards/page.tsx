@@ -17,7 +17,8 @@ import { cn } from '@/lib/utils';
 import { branchParams, BranchSummary } from '@/lib/branches';
 import { FieldAccessMap, getEffectiveFieldPermissions } from '@/lib/field-permissions';
 import { useNewIntent } from '@/hooks/useNewIntent';
-import { Plus, Search, ShieldCheck, Edit2, Phone, Mail, KeyRound, FileCheck2 } from 'lucide-react';
+import { getApiErrorMessage } from '@/lib/api-error';
+import { Plus, Search, ShieldCheck, Edit2, Phone, Mail, KeyRound, FileCheck2, UserX, UserCheck } from 'lucide-react';
 
 interface Guard {
   id: string;
@@ -31,6 +32,7 @@ interface Guard {
   branchId?: string | null;
   branch?: BranchSummary | null;
   createdAt: string;
+  deactivatedAt?: string | null;
   availability?: {
     status: string;
   };
@@ -56,6 +58,7 @@ export default function GuardsPage() {
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showDeactivated, setShowDeactivated] = useState(false);
   const [fieldAccess, setFieldAccess] = useState<FieldAccessMap>({});
   const [formData, setFormData] = useState({
     name: '',
@@ -191,8 +194,28 @@ export default function GuardsPage() {
     }
   };
 
+  const setDeactivated = async (guard: Guard, deactivate: boolean) => {
+    const message = deactivate
+      ? `Deactivate ${guard.name}? They won't be able to sign in to the guard portal or be assigned shifts. ` +
+        `They still count toward this month's bill and stop counting from next month.`
+      : `Reactivate ${guard.name}? They'll be able to sign in and be assigned shifts again, and will count toward billing.`;
+    if (!window.confirm(message)) return;
+
+    try {
+      await api.post(`v2/guards/${guard.id}/${deactivate ? 'deactivate' : 'reactivate'}`);
+      fetchGuards();
+    } catch (err) {
+      console.error('Guard status change error:', err);
+      alert(getApiErrorMessage(err, `Failed to ${deactivate ? 'deactivate' : 'reactivate'} guard.`));
+    }
+  };
+
+  const deactivatedCount = guards.filter((guard) => guard.deactivatedAt).length;
+
   const filteredGuards = guards.filter(
-    (guard) => !searchQuery || guard.name.toLowerCase().includes(searchQuery.toLowerCase()),
+    (guard) =>
+      (showDeactivated || !guard.deactivatedAt) &&
+      (!searchQuery || guard.name.toLowerCase().includes(searchQuery.toLowerCase())),
   );
 
   return (
@@ -231,6 +254,17 @@ export default function GuardsPage() {
             </div>
             <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Filter Branch" />
           </div>
+          {deactivatedCount > 0 && (
+            <label className="mt-3 inline-flex items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={showDeactivated}
+                onChange={(e) => setShowDeactivated(e.target.checked)}
+                className="h-4 w-4 rounded border-input"
+              />
+              Show deactivated guards ({deactivatedCount})
+            </label>
+          )}
         </div>
 
         {loading ? (
@@ -257,7 +291,13 @@ export default function GuardsPage() {
             }
           />
         ) : filteredGuards.length === 0 ? (
-          <EmptyState icon={Search} title="No matching guards" description="Try a different search term." />
+          <EmptyState
+            icon={Search}
+            title="No matching guards"
+            description={
+              searchQuery ? 'Try a different search term.' : 'All guards here are deactivated. Tick "Show deactivated guards" to see them.'
+            }
+          />
         ) : (
           <div className="overflow-x-auto">
             <Table className="responsive-table">
@@ -314,18 +354,27 @@ export default function GuardsPage() {
                         <BranchBadge branch={guard.branch} />
                       </TableCell>
                       <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Availability">
-                        <button
-                          type="button"
-                          onClick={() => toggleAvailability(guard.id, availability)}
-                          className={cn(
-                            'inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring',
-                            availability === 'available'
-                              ? 'bg-success-wash text-success'
-                              : 'bg-error-wash text-error',
-                          )}
-                        >
-                          {availability === 'available' ? 'Available' : 'Unavailable'}
-                        </button>
+                        {guard.deactivatedAt ? (
+                          <span
+                            className="inline-flex w-fit items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground"
+                            title={`Deactivated ${new Date(guard.deactivatedAt).toLocaleDateString()}`}
+                          >
+                            Deactivated
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => toggleAvailability(guard.id, availability)}
+                            className={cn(
+                              'inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring',
+                              availability === 'available'
+                                ? 'bg-success-wash text-success'
+                                : 'bg-error-wash text-error',
+                            )}
+                          >
+                            {availability === 'available' ? 'Available' : 'Unavailable'}
+                          </button>
+                        )}
                       </TableCell>
                       <TableCell className="px-6 py-3.5 text-sm text-muted-foreground whitespace-normal" data-label="Date Added">
                         {new Date(guard.createdAt).toLocaleDateString()}
@@ -349,6 +398,15 @@ export default function GuardsPage() {
                             title="Edit guard"
                           >
                             <Edit2 size={14} />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            onClick={() => setDeactivated(guard, !guard.deactivatedAt)}
+                            aria-label={`${guard.deactivatedAt ? 'Reactivate' : 'Deactivate'} ${guard.name}`}
+                            title={guard.deactivatedAt ? 'Reactivate guard' : 'Deactivate guard (left the company)'}
+                          >
+                            {guard.deactivatedAt ? <UserCheck size={14} /> : <UserX size={14} />}
                           </Button>
                         </div>
                       </TableCell>

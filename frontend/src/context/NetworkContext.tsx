@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import api from '@/lib/api';
-import { OfflineSync } from '@/lib/offline-sync';
+import { OfflineSync, SyncResult } from '@/lib/offline-sync';
 
 interface NetworkContextProps {
   isOnline: boolean;
@@ -35,9 +35,32 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setSyncError(null);
 
     try {
-      const response = await api.post('/guard/sync', { actions: pendingActions });
-      const syncedIds = response.data.map((r: any) => r.id);
-      OfflineSync.removeActions(syncedIds);
+      const response = await api.post<SyncResult[]>('/guard/sync', { actions: pendingActions });
+      const results = response.data;
+
+      // Only drop actions the server is finished with. A failed one stays
+      // queued so the next sync retries it.
+      const finished = results.filter((r) => r.status === 'synced' || r.status === 'rejected');
+      OfflineSync.removeActions(finished.map((r) => r.id));
+
+      // Refused for good: tell the guard rather than losing it silently.
+      OfflineSync.addRejectedActions(
+        results
+          .filter((r) => r.status === 'rejected')
+          .map((r) => ({
+            id: r.id,
+            actionType: r.actionType,
+            errorMessage: r.errorMessage || 'Rejected by the server',
+            createdAt: r.createdAt,
+          })),
+      );
+
+      const unfinished = results.length - finished.length;
+      if (unfinished > 0) {
+        setSyncError(
+          `${unfinished} action${unfinished !== 1 ? 's' : ''} couldn't be saved yet. Tap Retry Sync to try again.`,
+        );
+      }
     } catch (error: any) {
       console.error('Failed to sync offline actions', error);
       setSyncError('Sync failed. Please try again later.');

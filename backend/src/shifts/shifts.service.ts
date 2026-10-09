@@ -1,5 +1,6 @@
 import {
   Injectable,
+  BadRequestException,
   NotFoundException,
   ForbiddenException,
   InternalServerErrorException,
@@ -197,6 +198,9 @@ export class ShiftsService {
     });
 
     if (!guard) throw new NotFoundException('Guard not found');
+    if (guard.deactivatedAt) {
+      throw new BadRequestException('Guard has been deactivated');
+    }
     if (shift.branchId && guard.branchId && shift.branchId !== guard.branchId) {
       throw new ForbiddenException(
         'Guard and shift must belong to the same branch',

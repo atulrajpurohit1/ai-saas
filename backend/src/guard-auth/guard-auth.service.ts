@@ -43,6 +43,14 @@ export class GuardAuthService {
       );
       if (!passwordMatches) continue;
 
+      // Only after the password matches, so this can't be used to probe
+      // which accounts exist.
+      if (guard.deactivatedAt) {
+        throw new ForbiddenException(
+          'This guard account has been deactivated. Contact your supervisor.',
+        );
+      }
+
       const tokens = await this.getTokens(guard.id, guard.tenantId, {
         email: guard.email,
         phone: guard.phone,
@@ -77,7 +85,7 @@ export class GuardAuthService {
   async refreshTokens(guardId: string, rt: string) {
     const guard = await this.prisma.guard.findUnique({ where: { id: guardId } });
 
-    if (!guard || !guard.refreshToken) {
+    if (!guard || !guard.refreshToken || guard.deactivatedAt) {
       throw new ForbiddenException('Access Denied');
     }
 

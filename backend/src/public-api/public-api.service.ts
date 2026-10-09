@@ -281,9 +281,12 @@ export class PublicApiService {
 
     const guard = await this.prisma.guard.findFirst({
       where: { id: guardId, tenantId: apiKey.tenantId },
-      select: { id: true, name: true, branchId: true },
+      select: { id: true, name: true, branchId: true, deactivatedAt: true },
     });
     if (!guard) throw new NotFoundException('Guard not found');
+    if (guard.deactivatedAt) {
+      throw new BadRequestException('Guard has been deactivated');
+    }
     if (shift.branchId && guard.branchId && shift.branchId !== guard.branchId) {
       throw new ForbiddenException(
         'Guard and shift must belong to the same branch',

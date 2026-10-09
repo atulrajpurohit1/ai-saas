@@ -241,6 +241,30 @@ describe('ShiftsService smart guard recommendations', () => {
     );
   });
 
+  it('refuses to assign a deactivated guard', async () => {
+    prisma.guard.findFirst.mockResolvedValue({
+      id: 'guard-left',
+      tenantId,
+      name: 'Left',
+      deactivatedAt: new Date('2026-06-10T00:00:00.000Z'),
+    });
+
+    await expect(
+      service.assign(activeUser, shiftId, 'guard-left'),
+    ).rejects.toThrow('Guard has been deactivated');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('only recommends active guards', async () => {
+    await service.recommendGuards(activeUser, shiftId);
+
+    expect(prisma.guard.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ tenantId, deactivatedAt: null }),
+      }),
+    );
+  });
+
   function guard(id: string, name: string) {
     return {
       id,

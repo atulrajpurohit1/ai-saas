@@ -760,6 +760,10 @@ model Guard {
   // bcrypt hash of the guard portal's current refresh token (Phase 5).
   // Nullable: null means no active refresh session. Never store the raw token.
   refreshToken      String?           @map("refresh_token")
+  // Set when the guard leaves. Null means active. A deactivated guard can't
+  // sign in or be rostered, and stops counting toward billing from the start
+  // of the next calendar month (they are still billed for the month they left).
+  deactivatedAt     DateTime?         @map("deactivated_at")
   salary            Float?
   bankDetails       String?           @map("bank_details")
   documents         String?
@@ -1262,9 +1266,13 @@ model GuardSyncQueue {
   guard        Guard     @relation(fields: [guardId], references: [id])
   actionType   String    @map("action_type") // check_in, check_out, incident_create, patrol_checkpoint_scan, patrol_run_complete
   payload      Json
-  status       String    @default("pending") // pending, synced, failed
+  // pending: being processed. synced: applied. failed: transient error, retried
+  // on the next sync. rejected: refused (4xx) or out of retries; final.
+  status       String    @default("pending")
   errorMessage String?   @map("error_message")
+  retryCount   Int       @default(0) @map("retry_count")
   createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
   syncedAt     DateTime? @map("synced_at")
 
   @@index([tenantId])

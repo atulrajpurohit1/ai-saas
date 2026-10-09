@@ -64,7 +64,7 @@ export class RecommendationService {
 
     const [guards, relatedShifts] = await Promise.all([
       this.prisma.guard.findMany({
-        where: { tenantId },
+        where: { tenantId, deactivatedAt: null },
         include: {
           availability: true,
         },

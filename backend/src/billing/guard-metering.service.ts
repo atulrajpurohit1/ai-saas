@@ -18,6 +18,10 @@ import {
  * if they leave part-way through. Confirmed by Anthony on 2026-10-09, and it
  * is the rule the price table assumes.
  *
+ * "Leaving" is recorded by deactivating the guard. A deactivated guard keeps
+ * counting until the end of the calendar month (UTC) they were deactivated in,
+ * then drops off. Without that, every guard ever added would be billed forever.
+ *
  * This replaced an earlier "active in the last 30 days" definition. That
  * version under-counted on purpose, to avoid billing for leavers, but it was
  * our assumption rather than a decision and it silently discounted every
@@ -26,6 +30,10 @@ import {
  * Tenants without Guard Tour are counted as zero -- a Generation-only customer
  * is on the base band whatever their headcount.
  */
+
+export function startOfUtcMonth(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+}
 
 @Injectable()
 export class GuardMeteringService {
@@ -37,16 +45,28 @@ export class GuardMeteringService {
   ) {}
 
   /**
-   * Guards this tenant is billed for: every guard on the books.
+   * Guards this tenant is billed for: every guard on the books, plus any
+   * deactivated during the current calendar month.
    *
    * Named "billable" rather than "active" because there is no activity test --
    * a guard counts from the moment they are added, for the rest of the month.
    */
-  async billableGuardCount(tenantId: string): Promise<number> {
-    return this.prisma.guard.count({ where: { tenantId } });
+  async billableGuardCount(
+    tenantId: string,
+    now: Date = new Date(),
+  ): Promise<number> {
+    return this.prisma.guard.count({
+      where: {
+        tenantId,
+        OR: [
+          { deactivatedAt: null },
+          { deactivatedAt: { gte: startOfUtcMonth(now) } },
+        ],
+      },
+    });
   }
 
-  /** Every guard on the books. Same figure, kept for transparency in the UI. */
+  /** Every guard row, deactivated or not. Kept for transparency in the UI. */
   async totalGuardCount(tenantId: string): Promise<number> {
     return this.prisma.guard.count({ where: { tenantId } });
   }

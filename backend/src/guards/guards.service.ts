@@ -225,6 +225,81 @@ export class GuardsService {
     );
   }
 
+  /**
+   * Marks a guard as having left. The row and its history stay; the guard
+   * can no longer sign in to the portal or be rostered, and billing stops
+   * counting them from the start of next month.
+   */
+  async deactivate(user: ActiveUser, id: string) {
+    const guard = await this.prisma.guard.findFirst({
+      where: { id, tenantId: user.tenantId, ...branchWhere(user) },
+    });
+
+    if (!guard) {
+      throw new NotFoundException('Guard not found');
+    }
+
+    if (guard.deactivatedAt) {
+      throw new BadRequestException('Guard is already deactivated');
+    }
+
+    // Clearing the refresh token ends their portal session; the access token
+    // they hold lapses on its own short expiry.
+    const updatedGuard = await this.prisma.guard.update({
+      where: { id },
+      data: { deactivatedAt: new Date(), refreshToken: null },
+    });
+
+    await this.auditService.log({
+      tenantId: user.tenantId,
+      userId: user.sub,
+      action: 'GUARD_DEACTIVATED',
+      entityType: 'Guard',
+      entityId: guard.id,
+      details: `Guard "${guard.name}" deactivated`,
+    });
+
+    return this.fieldPermissionsService.filterFieldsByPermission(
+      user,
+      'guard',
+      this.withoutPasswordHash(updatedGuard),
+    );
+  }
+
+  async reactivate(user: ActiveUser, id: string) {
+    const guard = await this.prisma.guard.findFirst({
+      where: { id, tenantId: user.tenantId, ...branchWhere(user) },
+    });
+
+    if (!guard) {
+      throw new NotFoundException('Guard not found');
+    }
+
+    if (!guard.deactivatedAt) {
+      throw new BadRequestException('Guard is already active');
+    }
+
+    const updatedGuard = await this.prisma.guard.update({
+      where: { id },
+      data: { deactivatedAt: null },
+    });
+
+    await this.auditService.log({
+      tenantId: user.tenantId,
+      userId: user.sub,
+      action: 'GUARD_REACTIVATED',
+      entityType: 'Guard',
+      entityId: guard.id,
+      details: `Guard "${guard.name}" reactivated`,
+    });
+
+    return this.fieldPermissionsService.filterFieldsByPermission(
+      user,
+      'guard',
+      this.withoutPasswordHash(updatedGuard),
+    );
+  }
+
   async getAvailability(user: ActiveUser, id: string) {
     const guard = await this.prisma.guard.findFirst({
       where: { id, tenantId: user.tenantId, ...branchWhere(user) },
