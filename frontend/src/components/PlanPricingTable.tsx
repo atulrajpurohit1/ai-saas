@@ -96,7 +96,7 @@ export default function PlanPricingTable({
           <thead>
             <tr>
               <th className="w-36 p-4 text-left align-bottom text-sm font-semibold text-primary">
-                Active guards
+                Guards
               </th>
               {pricing.packages.map((pkg) => (
                 <th
@@ -108,7 +108,7 @@ export default function PlanPricingTable({
                 >
                   {pkg.key === 'COMPLETE' && (
                     <span className="mb-2 inline-block rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-semibold text-primary-foreground">
-                      Most popular
+                      Top Selection
                     </span>
                   )}
                   <div className="text-base font-semibold text-primary">
@@ -198,9 +198,10 @@ export default function PlanPricingTable({
 
       <div className="mt-3 space-y-1 text-xs text-muted-foreground">
         <p>
-          Active guards are guards rostered on a shift in the last 30 days. Your
-          account runs {pricing.activeGuards}, so the lowest band you can choose
-          is {bandLabel(pricing.minimumBand)}.
+          Every guard added to your account is billed for the full month, even
+          if they leave part-way through. Your account has{' '}
+          {pricing.billableGuards}, so the lowest band you can choose is{' '}
+          {bandLabel(pricing.minimumBand)}.
         </p>
         <p>
           AegisLead Generation on its own is{' '}

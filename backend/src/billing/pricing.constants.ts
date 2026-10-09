@@ -122,14 +122,14 @@ export function packageForModules(
 
 /**
  * The band a tenant is billed at. Generation-only is pinned to the base band;
- * everything else follows the active guard count.
+ * everything else follows the billable guard count.
  */
 export function billableBand(
   packageKey: PackageKey,
-  activeGuards: number,
+  billableGuards: number,
 ): GuardBand {
   if (packageKey === 'GENERATION') return GENERATION_ONLY_BAND;
-  return bandForGuardCount(activeGuards);
+  return bandForGuardCount(billableGuards);
 }
 
 export function monthlyPrice(

@@ -12,6 +12,10 @@ import { WebhooksService } from '../webhooks/webhooks.service';
 import { GenerateInvoiceDto } from './dto/generate-invoice.dto';
 import { InvoicesService } from './invoices.service';
 
+// Declared separately so the $transaction callback can be annotated without
+// `tx` referencing its own type (TS2502).
+type MockInvoiceTx = { invoice: { count: jest.Mock; create: jest.Mock } };
+
 describe('InvoicesService', () => {
   let service: InvoicesService;
   let prisma: {
@@ -74,7 +78,18 @@ describe('InvoicesService', () => {
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
   };
 
-  const baseInvoice = {
+  // Nullable fields are widened so individual tests can override them with
+  // null (e.g. an invoice with no rate card) without a type error.
+  type MockInvoice = Omit<
+    typeof baseInvoiceShape,
+    'rateCardId' | 'rateSource' | 'rateCard'
+  > & {
+    rateCardId: string | null;
+    rateSource: string | null;
+    rateCard: typeof baseInvoiceShape.rateCard | null;
+  };
+
+  const baseInvoiceShape = {
     id: 'invoice-1',
     tenantId,
     clientId,
@@ -171,6 +186,8 @@ describe('InvoicesService', () => {
     disputes: [],
   };
 
+  const baseInvoice: MockInvoice = baseInvoiceShape;
+
   beforeEach(() => {
     prisma = {
       client: { findFirst: jest.fn() },
@@ -246,15 +263,17 @@ describe('InvoicesService', () => {
     ]);
   }
 
-  function mockInvoiceCreateTransaction(invoice = baseInvoice) {
-    const tx = {
+  function mockInvoiceCreateTransaction(
+    invoice: MockInvoice = baseInvoice,
+  ): MockInvoiceTx {
+    const tx: MockInvoiceTx = {
       invoice: {
         count: jest.fn().mockResolvedValue(0),
         create: jest.fn().mockResolvedValue(invoice),
       },
     };
     prisma.$transaction.mockImplementation(
-      async (callback: (tx: typeof tx) => Promise<unknown>) => callback(tx),
+      async (callback: (tx: MockInvoiceTx) => Promise<unknown>) => callback(tx),
     );
     return tx;
   }

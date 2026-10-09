@@ -4,6 +4,7 @@ import { BillingController } from './billing.controller';
 import { BillingService } from './billing.service';
 import { GuardMeteringService } from './guard-metering.service';
 import { StripeService } from './stripe.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 
 /**
  * The plan page lets a customer pick their guard band, so the server has to
@@ -19,7 +20,8 @@ describe('BillingController plan checkout', () => {
 
   let controller: BillingController;
   let stripe: { createPlanCheckoutSession: jest.Mock };
-  let metering: { activeGuardCount: jest.Mock };
+  let metering: { billableGuardCount: jest.Mock };
+  let entitlements: { modulesForTenant: jest.Mock };
 
   beforeEach(() => {
     stripe = {
@@ -27,17 +29,21 @@ describe('BillingController plan checkout', () => {
         .fn()
         .mockResolvedValue({ url: 'https://checkout.test', changed: false }),
     };
-    metering = { activeGuardCount: jest.fn().mockResolvedValue(40) };
+    metering = { billableGuardCount: jest.fn().mockResolvedValue(40) };
+    entitlements = {
+      modulesForTenant: jest.fn().mockResolvedValue(new Set<string>()),
+    };
 
     controller = new BillingController(
       {} as BillingService,
       stripe as unknown as StripeService,
       metering as unknown as GuardMeteringService,
+      entitlements as unknown as EntitlementsService,
     );
   });
 
-  it('refuses a band below the active guard count', async () => {
-    // 40 active guards sits in 26-50, so 1-25 is below it.
+  it('refuses a band below the billable guard count', async () => {
+    // 40 billable guards sits in 26-50, so 1-25 is below it.
     await expect(
       controller.createCheckoutSession(user, {
         package: 'GUARD',
@@ -76,6 +82,6 @@ describe('BillingController plan checkout', () => {
     expect(stripe.createPlanCheckoutSession).toHaveBeenCalledWith(
       expect.objectContaining({ packageKey: 'GENERATION', band: '1-25' }),
     );
-    expect(metering.activeGuardCount).not.toHaveBeenCalled();
+    expect(metering.billableGuardCount).not.toHaveBeenCalled();
   });
 });

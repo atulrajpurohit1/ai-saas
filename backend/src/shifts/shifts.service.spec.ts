@@ -5,6 +5,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { ShiftsService } from './shifts.service';
 
+// Declared separately so the $transaction callback can be annotated without
+// `tx` referencing its own type (TS2502).
+type MockShiftTx = {
+  assignment: { create: jest.Mock };
+  shift: { update: jest.Mock };
+};
+
 describe('ShiftsService smart guard recommendations', () => {
   let service: ShiftsService;
   let prisma: {
@@ -219,7 +226,7 @@ describe('ShiftsService smart guard recommendations', () => {
       },
     };
     prisma.$transaction.mockImplementation(
-      async (callback: (tx: typeof tx) => Promise<unknown>) => callback(tx),
+      async (callback: (tx: MockShiftTx) => Promise<unknown>) => callback(tx),
     );
 
     await service.assign(activeUser, shiftId, 'guard-ramesh');
