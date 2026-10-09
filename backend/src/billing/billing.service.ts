@@ -1,62 +1,27 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
 
-type PlanKey = 'free' | 'starter' | 'growth' | 'enterprise';
-type LimitKey = 'adminUsers' | 'clientUsers' | 'branches' | 'leads' | 'deals';
+type UsageKey = 'adminUsers' | 'clientUsers' | 'branches' | 'leads' | 'deals';
 
-type PlanLimits = Record<LimitKey, number | null>;
-
-const PLANS: Record<
-  PlanKey,
-  { name: string; monthlyPrice: number | null; limits: PlanLimits }
-> = {
-  free: {
-    name: 'Free',
-    monthlyPrice: 0,
-    limits: {
-      adminUsers: 2,
-      clientUsers: 3,
-      branches: 1,
-      leads: 25,
-      deals: 10,
-    },
-  },
-  starter: {
-    name: 'Starter',
-    monthlyPrice: 99,
-    limits: {
-      adminUsers: 5,
-      clientUsers: 25,
-      branches: 3,
-      leads: 500,
-      deals: 150,
-    },
-  },
-  growth: {
-    name: 'Growth',
-    monthlyPrice: 299,
-    limits: {
-      adminUsers: 20,
-      clientUsers: 100,
-      branches: 20,
-      leads: 5000,
-      deals: 1500,
-    },
-  },
-  enterprise: {
-    name: 'Enterprise',
-    monthlyPrice: null,
-    limits: {
-      adminUsers: null,
-      clientUsers: null,
-      branches: null,
-      leads: null,
-      deals: null,
-    },
-  },
-};
-
+/**
+ * Tenant usage figures for the billing page.
+ *
+ * There used to be a second pricing system here -- Free / Starter / Growth /
+ * Enterprise tiers, each with hard caps on users, branches, leads and deals.
+ * It predated the package-and-guard-band pricing at /settings/plan and was
+ * never removed, so the app shipped two contradictory answers to "what plan am
+ * I on".
+ *
+ * Worse, the tier was not derived from anything the customer had bought: it
+ * came from the BILLING_DEFAULT_PLAN env var, which was unset, so every tenant
+ * silently fell back to 'starter' and its 5-admin-user cap -- including
+ * accounts paying for Complete. Those caps were enforced, so a paying customer
+ * could be blocked from adding a user by a plan they had never purchased.
+ *
+ * AegisLead has ONE pricing model, in pricing.constants.ts. This service now
+ * reports usage only; it does not gate anything.
+ */
 @Injectable()
 export class BillingService {
   constructor(
@@ -69,81 +34,16 @@ export class BillingService {
       where: { id: tenantId },
       select: { id: true, name: true, slug: true, createdAt: true },
     });
-    const planKey = this.planKeyForTenant(tenant?.slug);
-    const plan = PLANS[planKey];
     const usage = await this.usage(tenantId);
-    const limits = Object.entries(plan.limits).reduce<Record<string, any>>(
-      (acc, [key, limit]) => {
-        const used = usage[key as LimitKey];
-        acc[key] = {
-          used,
-          limit,
-          remaining: limit === null ? null : Math.max(0, limit - used),
-          percent:
-            limit === null
-              ? null
-              : Math.min(100, Math.round((used / Math.max(limit, 1)) * 100)),
-          exceeded: limit !== null && used > limit,
-        };
-        return acc;
-      },
-      {},
-    );
 
     return {
       tenant,
-      plan: {
-        key: planKey,
-        name: plan.name,
-        monthlyPrice: plan.monthlyPrice,
-        source: this.planSource(tenant?.slug),
-      },
-      limits,
-      features: this.featuresForPlan(planKey),
+      usage,
       entitlements: await this.entitlements.summaryForTenant(tenantId),
-      availablePlans: Object.entries(PLANS).map(([key, value]) => ({
-        key,
-        name: value.name,
-        monthlyPrice: value.monthlyPrice,
-        limits: value.limits,
-      })),
     };
   }
 
-  async assertCanAddAdminUser(tenantId: string) {
-    await this.assertWithinLimit(tenantId, 'adminUsers', 'admin users');
-  }
-
-  async assertCanAddClientUser(tenantId: string) {
-    await this.assertWithinLimit(
-      tenantId,
-      'clientUsers',
-      'client portal users',
-    );
-  }
-
-  private async assertWithinLimit(
-    tenantId: string,
-    key: LimitKey,
-    label: string,
-  ) {
-    const tenant = await this.prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { slug: true },
-    });
-    const plan = PLANS[this.planKeyForTenant(tenant?.slug)];
-    const limit = plan.limits[key];
-    if (limit === null) return;
-
-    const usage = await this.usage(tenantId);
-    if (usage[key] >= limit) {
-      throw new ForbiddenException(
-        `Plan limit reached for ${label}. Upgrade the billing plan or remove inactive users.`,
-      );
-    }
-  }
-
-  private async usage(tenantId: string): Promise<Record<LimitKey, number>> {
+  private async usage(tenantId: string): Promise<Record<UsageKey, number>> {
     const [adminUsers, clientUsers, branches, leads, deals] = await Promise.all(
       [
         this.prisma.user.count({ where: { tenantId } }),
@@ -155,44 +55,5 @@ export class BillingService {
     );
 
     return { adminUsers, clientUsers, branches, leads, deals };
-  }
-
-  private planKeyForTenant(slug?: string | null): PlanKey {
-    const tenantOverride = slug
-      ? process.env[
-          `BILLING_PLAN_${slug.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`
-        ]
-      : undefined;
-    const candidate = (
-      tenantOverride ||
-      process.env.BILLING_DEFAULT_PLAN ||
-      'starter'
-    ).toLowerCase();
-    return this.isPlanKey(candidate) ? candidate : 'starter';
-  }
-
-  private planSource(slug?: string | null) {
-    if (!slug) return 'default';
-    const key = `BILLING_PLAN_${slug.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`;
-    return process.env[key] ? key : 'BILLING_DEFAULT_PLAN';
-  }
-
-  private isPlanKey(value: string): value is PlanKey {
-    return (
-      value === 'free' ||
-      value === 'starter' ||
-      value === 'growth' ||
-      value === 'enterprise'
-    );
-  }
-
-  private featuresForPlan(plan: PlanKey) {
-    return {
-      salesAccelerator: true,
-      salesAutomation: plan !== 'free',
-      publicApi: plan === 'growth' || plan === 'enterprise',
-      customDomains: plan === 'growth' || plan === 'enterprise',
-      prioritySupport: plan === 'enterprise',
-    };
   }
 }

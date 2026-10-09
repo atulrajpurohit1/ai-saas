@@ -259,7 +259,7 @@ function PlanContent() {
           Plans and pricing
         </h2>
         <p className="mb-4 text-sm text-muted-foreground">
-          Priced by the number of active guards you run. Choose the row your
+          Priced by the number of guards on your account. Choose the row your
           guard count falls in, then a plan.
         </p>
 
@@ -288,9 +288,9 @@ function PlanContent() {
       </section>
 
       <p className="mt-6 text-sm text-muted-foreground">
-        Need to change users, branches or usage limits?{' '}
+        Want to see how much of this account is in use?{' '}
         <Link href="/settings/billing" className="font-medium text-primary hover:underline">
-          View billing and usage
+          View usage
         </Link>
         .
       </p>

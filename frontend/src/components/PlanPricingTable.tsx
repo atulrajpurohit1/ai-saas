@@ -96,7 +96,7 @@ export default function PlanPricingTable({
           <thead>
             <tr>
               <th className="w-36 p-4 text-left align-bottom text-sm font-semibold text-primary">
-                Active guards
+                Guards
               </th>
               {pricing.packages.map((pkg) => (
                 <th
@@ -108,7 +108,7 @@ export default function PlanPricingTable({
                 >
                   {pkg.key === 'COMPLETE' && (
                     <span className="mb-2 inline-block rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-semibold text-primary-foreground">
-                      Most popular
+                      Top Selection
                     </span>
                   )}
                   <div className="text-base font-semibold text-primary">

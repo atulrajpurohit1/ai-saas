@@ -1,21 +1,5 @@
 import api from '@/lib/api';
 
-export interface BillingLimit {
-  used: number;
-  limit: number | null;
-  remaining: number | null;
-  percent: number | null;
-  exceeded: boolean;
-}
-
-export interface BillingPlan {
-  key: string;
-  name: string;
-  monthlyPrice: number | null;
-  source?: string;
-  limits?: Record<string, number | null>;
-}
-
 export interface TenantBilling {
   tenant: {
     id: string;
@@ -23,10 +7,12 @@ export interface TenantBilling {
     slug: string;
     createdAt: string;
   } | null;
-  plan: BillingPlan;
-  limits: Record<string, BillingLimit>;
-  features: Record<string, boolean>;
-  availablePlans: BillingPlan[];
+  /** Raw counts. There are no per-plan caps -- pricing is by guard band. */
+  usage: Record<string, number>;
+  entitlements: {
+    status: string;
+    modules: { key: string; name: string; active: boolean }[];
+  } | null;
 }
 
 export async function getTenantBilling() {

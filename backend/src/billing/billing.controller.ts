@@ -20,6 +20,7 @@ import { StripeService } from './stripe.service';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import { isCheckoutConfigured } from './billing.config';
 import { GuardMeteringService } from './guard-metering.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 import {
   GENERATION_ONLY_BAND,
   GUARD_BANDS,
@@ -31,6 +32,8 @@ import {
   PackageKey,
   bandForGuardCount,
   bandRank,
+  billableBand,
+  packageForModules,
   planForLookupKey,
 } from './pricing.constants';
 
@@ -43,6 +46,7 @@ export class BillingController {
     private readonly billingService: BillingService,
     private readonly stripe: StripeService,
     private readonly metering: GuardMeteringService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   @Get()
@@ -202,13 +206,34 @@ export class BillingController {
     }
   }
 
-  /** The package and band the tenant's Stripe subscription is on, if any. */
+  /**
+   * The package and band the tenant is currently on.
+   *
+   * Stripe is asked first, because a real subscription knows the exact band
+   * that is being charged. But a tenant can hold modules without any Stripe
+   * subscription -- demo accounts, comped accounts and anything provisioned by
+   * hand -- and those are on a plan just as much as a paying customer is.
+   * Reporting null for them made the plan page offer "Get started" on the
+   * package they already had, inviting a customer to pay for what they were
+   * already using. So fall back to the modules actually granted.
+   */
   private async currentPlan(tenantId: string) {
-    if (!isCheckoutConfigured()) return null;
-    try {
-      return planForLookupKey(await this.stripe.currentPlanLookupKey(tenantId));
-    } catch {
-      return null;
+    if (isCheckoutConfigured()) {
+      try {
+        const fromStripe = planForLookupKey(
+          await this.stripe.currentPlanLookupKey(tenantId),
+        );
+        if (fromStripe) return fromStripe;
+      } catch {
+        // Fall through to the entitlement-derived plan below.
+      }
     }
+
+    const modules = [...(await this.entitlements.modulesForTenant(tenantId))];
+    const packageKey = packageForModules(modules);
+    if (!packageKey) return null;
+
+    const billableGuards = await this.metering.billableGuardCount(tenantId);
+    return { packageKey, band: billableBand(packageKey, billableGuards) };
   }
 }
