@@ -29,6 +29,7 @@ import {
 } from '@/lib/integrations';
 import LeadImportDialog from '@/components/LeadImportDialog';
 import CrmConnectDialog from '@/components/CrmConnectDialog';
+import TableScroll from '@/components/TableScroll';
 import {
   Ban,
   ChevronDown,
@@ -849,7 +850,7 @@ export default function IntegrationsPage() {
                 </button>
               )}
             </div>
-            <div className="overflow-x-auto rounded-xl border border-white/10">
+            <TableScroll className="rounded-xl border border-white/10">
               <table className="responsive-table w-full text-left">
                 <thead>
                   <tr className="border-b border-white/10 text-xs uppercase tracking-widest text-slate-500">
@@ -901,7 +902,7 @@ export default function IntegrationsPage() {
                   )}
                 </tbody>
               </table>
-            </div>
+            </TableScroll>
           </section>
           )}
 
@@ -914,7 +915,7 @@ export default function IntegrationsPage() {
                 ? ` — ${overview.api_usage.requests_last_24h} in the past 24 hours.`
                 : '.'}
             </p>
-            <div className="overflow-x-auto rounded-xl border border-white/10">
+            <TableScroll className="rounded-xl border border-white/10">
               <table className="responsive-table w-full text-left">
                 <thead>
                   <tr className="border-b border-white/10 text-xs uppercase tracking-widest text-slate-500">
@@ -948,7 +949,7 @@ export default function IntegrationsPage() {
                   )}
                 </tbody>
               </table>
-            </div>
+            </TableScroll>
           </section>
           )}
         </div>

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import TableScroll from '@/components/TableScroll';
 import api from '@/lib/api';
 import { Plus, Search, Navigation, Edit2, ListOrdered, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 import { PatrolRoute, getPatrolRoutes, createPatrolRoute, updatePatrolRoute, getPatrolRoute, attachRouteCheckpoints, Checkpoint, getCheckpoints } from '@/lib/patrols';
@@ -256,7 +257,7 @@ export default function PatrolRoutesPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <TableScroll>
           <table className="responsive-table w-full text-left">
             <thead>
               <tr className="text-muted-foreground text-sm uppercase tracking-wider">
@@ -341,7 +342,7 @@ export default function PatrolRoutesPage() {
               )}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       </div>
 
       {/* CREATE/EDIT ROUTE MODAL */}

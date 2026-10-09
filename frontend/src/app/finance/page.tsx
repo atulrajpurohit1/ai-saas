@@ -6,6 +6,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import FinanceFiltersBar from '@/components/FinanceFilters';
 import CategoryBarChart from '@/components/charts/CategoryBarChart';
 import InsuranceAdvisoryBanner from '@/components/InsuranceAdvisoryBanner';
+import TableScroll from '@/components/TableScroll';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { downloadBlobFile } from '@/lib/csv';
@@ -208,7 +209,7 @@ export default function FinancePage() {
           <div className="border-b border-white/5 px-6 py-4">
             <h3 className="font-bold text-white">Invoice Count By Status</h3>
           </div>
-          <div className="overflow-x-auto">
+          <TableScroll>
             <table className="responsive-table w-full text-left">
               <thead>
                 <tr className="border-b border-white/5 text-sm uppercase tracking-wider text-muted-foreground">
@@ -231,7 +232,7 @@ export default function FinancePage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </TableScroll>
         </div>
 
         <div className="space-y-3">

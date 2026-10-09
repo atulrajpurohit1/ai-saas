@@ -4,6 +4,7 @@ import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
+import TableScroll from '@/components/TableScroll';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -309,7 +310,7 @@ function GuardComplianceView() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <TableScroll>
           <table className="responsive-table w-full text-left">
             <thead>
               <tr className="text-muted-foreground text-sm uppercase tracking-wider">
@@ -414,7 +415,7 @@ function GuardComplianceView() {
               )}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       </div>
 
       {showModal && (

@@ -350,7 +350,7 @@ export default function ShiftsPage() {
               <Table className="responsive-table">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Site</TableHead>
+                    <TableHead className="min-w-[15rem] px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Site</TableHead>
                     <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">When</TableHead>
                     <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Staffing</TableHead>
                     <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Status</TableHead>
@@ -362,7 +362,7 @@ export default function ShiftsPage() {
                     const assigned = shift.assignments && shift.assignments.length > 0;
                     return (
                       <TableRow key={shift.id}>
-                        <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Site">
+                        <TableCell className="min-w-[15rem] px-6 py-3.5 whitespace-normal" data-label="Site">
                           <div className="flex items-center gap-3">
                             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary">
                               <MapPin size={16} />
