@@ -47,6 +47,11 @@ import { EmailModule } from '../email/email.module';
     SubscriptionProvisioningService,
     GuardMeteringService,
     CreditsService,
+    // Injected by ProposalsService, LeadsService, RfpService,
+    // SalesAcceleratorService and RecommendationService. @Global() exposes
+    // this module everywhere, but only what is exported can be injected, so
+    // leaving this out crashed the app at startup rather than at build time.
+    AiMeteringService,
   ],
 })
 export class BillingModule {}
