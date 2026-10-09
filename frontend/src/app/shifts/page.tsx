@@ -346,19 +346,15 @@ export default function ShiftsPage() {
           ) : filteredShifts.length === 0 ? (
             <EmptyState icon={Search} title="No matching shifts" description="Try a different site or guard name." />
           ) : (
-            <div className="overflow-x-auto">
+            <div>
               <Table className="responsive-table">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Site</TableHead>
-                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Branch</TableHead>
-                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Start</TableHead>
-                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">End</TableHead>
-                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Guards</TableHead>
-                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Assigned</TableHead>
-                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Schedule</TableHead>
-                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Attendance</TableHead>
-                    <TableHead className="px-6 py-3" />
+                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">When</TableHead>
+                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Staffing</TableHead>
+                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Status</TableHead>
+                    <TableHead className="px-6 py-3 text-right text-xs uppercase tracking-wider text-muted-foreground">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -371,53 +367,50 @@ export default function ShiftsPage() {
                             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary">
                               <MapPin size={16} />
                             </div>
-                            <span className="font-semibold text-foreground">{shift.site?.name || 'N/A'}</span>
+                            <div className="min-w-0">
+                              <span className="font-semibold text-foreground">{shift.site?.name || 'N/A'}</span>
+                              <div className="mt-1">
+                                <BranchBadge branch={shift.branch} />
+                              </div>
+                            </div>
                           </div>
                         </TableCell>
-                        <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Branch">
-                          <BranchBadge branch={shift.branch} />
-                        </TableCell>
-                        <TableCell className="px-6 py-3.5 text-sm text-muted-foreground whitespace-nowrap" data-label="Start">
-                          <div className="flex items-center gap-2">
-                            <Calendar size={14} className="shrink-0" aria-hidden="true" />
+                        <TableCell className="px-6 py-3.5 text-sm whitespace-nowrap" data-label="When">
+                          <div className="flex items-center gap-2 text-foreground">
+                            <Calendar size={14} className="shrink-0 text-muted-foreground" aria-hidden="true" />
                             {formatDateTime(shift.startTime)}
                           </div>
-                        </TableCell>
-                        <TableCell className="px-6 py-3.5 text-sm text-muted-foreground whitespace-nowrap" data-label="End">
-                          <div className="flex items-center gap-2">
+                          <div className="mt-1 flex items-center gap-2 text-muted-foreground">
                             <Clock size={14} className="shrink-0" aria-hidden="true" />
                             {formatDateTime(shift.endTime)}
                           </div>
                         </TableCell>
-                        <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Guards">
-                          <div className="flex items-center gap-2">
-                            <Users size={15} className="text-muted-foreground" aria-hidden="true" />
-                            <span className="font-medium text-foreground">{shift.requiredGuards}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-6 py-3.5 whitespace-nowrap" data-label="Assigned">
+                        <TableCell className="px-6 py-3.5 whitespace-nowrap" data-label="Staffing">
                           <span className={assigned ? 'font-medium text-foreground' : 'text-muted-foreground'}>
                             {assigned ? shift.assignments[0].guard.name : 'Unassigned'}
                           </span>
+                          <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Users size={13} aria-hidden="true" />
+                            {shift.assignments?.length ?? 0} of {shift.requiredGuards} assigned
+                          </div>
                         </TableCell>
-                        <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Schedule">
-                          <StatusBadge status={shift.status} />
-                        </TableCell>
-                        <TableCell className="px-6 py-3.5 whitespace-nowrap" data-label="Attendance">
-                          <div className="space-y-1.5">
+                        <TableCell className="px-6 py-3.5 whitespace-nowrap" data-label="Status">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <StatusBadge status={shift.status} />
                             <StatusBadge
                               label={formatAttendanceStatus(shift.attendanceStatus)}
                               tone={attendanceTone(shift.attendanceStatus)}
                             />
-                            <div className="text-xs text-muted-foreground">
-                              In: {shift.checkInTime ? formatDateTime(shift.checkInTime) : 'Not recorded'}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Out: {shift.checkOutTime ? formatDateTime(shift.checkOutTime) : 'Not recorded'}
-                            </div>
                           </div>
+                          {(shift.checkInTime || shift.checkOutTime) && (
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {shift.checkInTime ? `In ${formatDateTime(shift.checkInTime)}` : ''}
+                              {shift.checkInTime && shift.checkOutTime ? ' \u00b7 ' : ''}
+                              {shift.checkOutTime ? `Out ${formatDateTime(shift.checkOutTime)}` : ''}
+                            </div>
+                          )}
                         </TableCell>
-                        <TableCell className="px-6 py-3.5 text-right whitespace-nowrap" data-label="Actions">
+                        <TableCell className="px-6 py-3.5 text-right whitespace-nowrap" data-label="Action">
                           {!canAssignShift ? (
                             <span className="text-xs text-muted-foreground">No actions</span>
                           ) : assigned ? (
@@ -425,7 +418,7 @@ export default function ShiftsPage() {
                               Unassign
                             </Button>
                           ) : (
-                            <Button variant="outline" size="sm" onClick={() => openAssignModal(shift.id)}>
+                            <Button size="sm" onClick={() => openAssignModal(shift.id)}>
                               Assign Guard
                             </Button>
                           )}
