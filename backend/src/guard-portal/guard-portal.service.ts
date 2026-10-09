@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  HttpException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -10,6 +11,21 @@ import { PrismaService } from '../prisma/prisma.service';
 import { IncidentsService } from '../incidents/incidents.service';
 import { PatrolsService } from '../patrols/patrols.service';
 import { SyncOfflineActionsDto } from './dto/sync-offline-actions.dto';
+
+// How many times a transiently-failing offline action is tried before it is
+// given up on and reported back to the guard as rejected.
+const MAX_SYNC_ATTEMPTS = 5;
+
+// A row still 'pending' after this long was left behind by a request that
+// died mid-way, and may be claimed again.
+const STALE_PENDING_MS = 10 * 60 * 1000;
+
+function isClientError(error: unknown) {
+  if (!(error instanceof HttpException)) return false;
+  const status = error.getStatus();
+  // 408 / 429 are worth retrying.
+  return status >= 400 && status < 500 && status !== 408 && status !== 429;
+}
 
 type AttendanceStatus = 'not_started' | 'checked_in' | 'completed';
 
@@ -481,6 +497,79 @@ export class GuardPortalService {
     });
   }
 
+  /**
+   * Records an incoming offline action and decides whether this request should
+   * apply it. Returns the row with status 'pending' when it should; any other
+   * status means leave it alone.
+   *
+   * A 'failed' row (or a 'pending' one abandoned by a crashed request) is
+   * re-claimed for a retry with a conditional update, so two overlapping sync
+   * requests (the browser's online event and the guard pressing Retry) can't
+   * both apply the same action.
+   */
+  private async claimSyncAction(
+    tenantId: string,
+    guardId: string,
+    action: SyncOfflineActionsDto['actions'][number],
+  ) {
+    const existing = await this.prisma.guardSyncQueue.findFirst({
+      where: { tenantId, guardId, id: action.id },
+    });
+
+    if (!existing) {
+      try {
+        return await this.prisma.guardSyncQueue.create({
+          data: {
+            id: action.id,
+            tenantId,
+            guardId,
+            actionType: action.actionType,
+            payload: action.payload,
+            status: 'pending',
+            createdAt: new Date(action.createdAt),
+          },
+        });
+      } catch (error) {
+        // Lost a race with an overlapping request that created it first.
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          const winner = await this.prisma.guardSyncQueue.findFirst({
+            where: { tenantId, guardId, id: action.id },
+          });
+          if (winner) {
+            return winner.status === 'pending'
+              ? { ...winner, status: 'in_progress' }
+              : winner;
+          }
+        }
+        throw error;
+      }
+    }
+
+    if (existing.status === 'synced' || existing.status === 'rejected') {
+      return existing;
+    }
+
+    const staleBefore = new Date(Date.now() - STALE_PENDING_MS);
+    const claimed = await this.prisma.guardSyncQueue.updateMany({
+      where: {
+        id: existing.id,
+        OR: [
+          { status: 'failed' },
+          { status: 'pending', updatedAt: { lt: staleBefore } },
+        ],
+      },
+      data: { status: 'pending' },
+    });
+    if (claimed.count === 0) {
+      // Another request is applying it right now.
+      return { ...existing, status: 'in_progress' };
+    }
+    return { ...existing, status: 'pending' };
+  }
+
   async processSyncQueue(
     tenantId: string,
     guardId: string,
@@ -497,28 +586,13 @@ export class GuardPortalService {
     );
 
     for (const action of sortedActions) {
-      // Check if action already exists
-      const existing = await this.prisma.guardSyncQueue.findFirst({
-        where: { tenantId, guardId, id: action.id },
-      });
-
-      if (existing) {
-        results.push(existing);
+      const record = await this.claimSyncAction(tenantId, guardId, action);
+      if (record.status !== 'pending') {
+        // Already final (synced / rejected), or another sync request is
+        // applying it right now.
+        results.push(record);
         continue;
       }
-
-      // Initial save
-      const record = await this.prisma.guardSyncQueue.create({
-        data: {
-          id: action.id,
-          tenantId,
-          guardId,
-          actionType: action.actionType,
-          payload: action.payload,
-          status: 'pending',
-          createdAt: new Date(action.createdAt),
-        },
-      });
 
       try {
         if (action.actionType === 'check_in') {
@@ -567,21 +641,29 @@ export class GuardPortalService {
             action.payload.runId,
           );
         } else {
-          throw new Error(`Unknown action type: ${action.actionType}`);
+          throw new BadRequestException(
+            `Unknown action type: ${action.actionType}`,
+          );
         }
 
         // Mark as synced
         const synced = await this.prisma.guardSyncQueue.update({
           where: { id: action.id },
-          data: { status: 'synced', syncedAt: new Date() },
+          data: { status: 'synced', syncedAt: new Date(), errorMessage: null },
         });
         results.push(synced);
       } catch (error) {
-        // Mark as failed
+        // A 4xx means the action itself is unacceptable (shift not found,
+        // guard deactivated...) and will never succeed, so don't retry it.
+        // Anything else is retried on the next sync, up to a cap.
+        const retryCount = record.retryCount + 1;
+        const permanent =
+          isClientError(error) || retryCount >= MAX_SYNC_ATTEMPTS;
         const failed = await this.prisma.guardSyncQueue.update({
           where: { id: action.id },
           data: {
-            status: 'failed',
+            status: permanent ? 'rejected' : 'failed',
+            retryCount,
             errorMessage:
               error instanceof Error ? error.message : 'Unknown error',
           },

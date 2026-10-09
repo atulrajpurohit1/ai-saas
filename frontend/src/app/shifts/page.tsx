@@ -38,6 +38,7 @@ interface Site {
 interface Guard {
   id: string;
   name: string;
+  deactivatedAt?: string | null;
 }
 
 interface Shift {
@@ -123,7 +124,8 @@ export default function ShiftsPage() {
   const fetchGuards = async () => {
     try {
       const res = await api.get('v2/guards', { params: branchParams(selectedBranchId) });
-      setGuards(res.data);
+      // Deactivated guards can't be rostered, so don't offer them.
+      setGuards((res.data as Guard[]).filter((guard) => !guard.deactivatedAt));
     } catch (err) {
       console.error('Failed to fetch guards:', err);
     }

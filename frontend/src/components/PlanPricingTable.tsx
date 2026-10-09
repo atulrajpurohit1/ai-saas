@@ -199,7 +199,8 @@ export default function PlanPricingTable({
       <div className="mt-3 space-y-1 text-xs text-muted-foreground">
         <p>
           Every guard added to your account is billed for the full month, even
-          if they leave part-way through. Your account has{' '}
+          if they leave part-way through. Deactivate a guard who has left and
+          they stop counting from the following month. Your account has{' '}
           {pricing.billableGuards}, so the lowest band you can choose is{' '}
           {bandLabel(pricing.minimumBand)}.
         </p>

@@ -54,6 +54,18 @@ export class GuardsController {
     return this.guardsService.update(user, id, updateGuardDto);
   }
 
+  @Post(':id/deactivate')
+  @RequirePermission('guards.manage')
+  deactivate(@GetUser() user: ActiveUser, @Param('id') id: string) {
+    return this.guardsService.deactivate(user, id);
+  }
+
+  @Post(':id/reactivate')
+  @RequirePermission('guards.manage')
+  reactivate(@GetUser() user: ActiveUser, @Param('id') id: string) {
+    return this.guardsService.reactivate(user, id);
+  }
+
   @Get(':id/availability')
   getAvailability(@GetUser() user: ActiveUser, @Param('id') id: string) {
     return this.guardsService.getAvailability(user, id);

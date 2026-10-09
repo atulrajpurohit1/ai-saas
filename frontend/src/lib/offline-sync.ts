@@ -12,7 +12,44 @@ export interface OfflineAction {
   createdAt: string;
 }
 
+/** What the server says happened to one action, from POST /guard/sync. */
+export interface SyncResult {
+  id: string;
+  actionType: OfflineActionType;
+  // synced / rejected are final. failed / pending / in_progress are retried.
+  status: 'synced' | 'rejected' | 'failed' | 'pending' | 'in_progress';
+  errorMessage?: string | null;
+  createdAt: string;
+}
+
+/** An action the server refused for good, kept so the guard can see it. */
+export interface RejectedAction {
+  id: string;
+  actionType: OfflineActionType;
+  errorMessage: string;
+  createdAt: string;
+}
+
 const SYNC_QUEUE_KEY = 'guard_offline_sync_queue';
+const REJECTED_KEY = 'guard_offline_sync_rejected';
+
+const ACTION_LABELS: Record<OfflineActionType, string> = {
+  check_in: 'Check-in',
+  check_out: 'Check-out',
+  incident_create: 'Incident report',
+  patrol_checkpoint_scan: 'Checkpoint scan',
+  patrol_run_complete: 'Patrol completion',
+};
+
+export function offlineActionLabel(actionType: OfflineActionType) {
+  return ACTION_LABELS[actionType] ?? 'Action';
+}
+
+function notifyQueueUpdated() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('offline_queue_updated'));
+  }
+}
 
 function createId() {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -65,8 +102,28 @@ export class OfflineSync {
 
   static clearQueue() {
     localStorage.removeItem(SYNC_QUEUE_KEY);
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('offline_queue_updated'));
+    notifyQueueUpdated();
+  }
+
+  static getRejectedActions(): RejectedAction[] {
+    if (typeof window === 'undefined') return [];
+    try {
+      return JSON.parse(localStorage.getItem(REJECTED_KEY) || '[]');
+    } catch {
+      return [];
     }
+  }
+
+  static addRejectedActions(actions: RejectedAction[]) {
+    if (actions.length === 0) return;
+    const known = new Set(this.getRejectedActions().map((a) => a.id));
+    const merged = [...this.getRejectedActions(), ...actions.filter((a) => !known.has(a.id))];
+    localStorage.setItem(REJECTED_KEY, JSON.stringify(merged));
+    notifyQueueUpdated();
+  }
+
+  static clearRejectedActions() {
+    localStorage.removeItem(REJECTED_KEY);
+    notifyQueueUpdated();
   }
 }
