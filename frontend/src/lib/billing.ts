@@ -61,8 +61,8 @@ export interface PlanPricing {
   packages: PlanPackage[];
   /** Generation on its own is always charged at this band. */
   generationOnlyBand: GuardBand;
-  /** Guards rostered in the last 30 days. */
-  activeGuards: number;
+  /** Every guard on the account. Guards are billed for the full month. */
+  billableGuards: number;
   /** The lowest band this account may choose. */
   minimumBand: GuardBand;
   /** The plan the Stripe subscription is on, if there is one. */

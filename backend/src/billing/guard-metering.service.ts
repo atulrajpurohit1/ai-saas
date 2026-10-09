@@ -13,16 +13,19 @@ import {
 /**
  * Works out which guard band a tenant is billed at.
  *
- * The Guard model has no active/inactive flag, so "active guards" is defined
- * here as guards with at least one shift assignment in the last 30 days. That
- * matters commercially: counting every guard row ever created would bill a
- * customer for leavers they removed from the rota months ago, and the first
- * invoice dispute would be entirely justified.
+ * Billable headcount is EVERY guard on the books, not a rolling-activity
+ * window: a guard added during the month is charged for that whole month even
+ * if they leave part-way through. Confirmed by Anthony on 2026-10-09, and it
+ * is the rule the price table assumes.
+ *
+ * This replaced an earlier "active in the last 30 days" definition. That
+ * version under-counted on purpose, to avoid billing for leavers, but it was
+ * our assumption rather than a decision and it silently discounted every
+ * account with rota churn.
  *
  * Tenants without Guard Tour are counted as zero -- a Generation-only customer
  * is on the base band whatever their headcount.
  */
-const ACTIVE_WINDOW_DAYS = 30;
 
 @Injectable()
 export class GuardMeteringService {
@@ -33,25 +36,17 @@ export class GuardMeteringService {
     private readonly entitlements: EntitlementsService,
   ) {}
 
-  /** Guards with a shift assignment in the last 30 days. */
-  async activeGuardCount(tenantId: string): Promise<number> {
-    const since = new Date(
-      Date.now() - ACTIVE_WINDOW_DAYS * 24 * 60 * 60 * 1000,
-    );
-
-    const active = await this.prisma.guard.count({
-      where: {
-        tenantId,
-        assignments: {
-          some: { shift: { startTime: { gte: since } } },
-        },
-      },
-    });
-
-    return active;
+  /**
+   * Guards this tenant is billed for: every guard on the books.
+   *
+   * Named "billable" rather than "active" because there is no activity test --
+   * a guard counts from the moment they are added, for the rest of the month.
+   */
+  async billableGuardCount(tenantId: string): Promise<number> {
+    return this.prisma.guard.count({ where: { tenantId } });
   }
 
-  /** Every guard on the books, active or not. Shown for transparency. */
+  /** Every guard on the books. Same figure, kept for transparency in the UI. */
   async totalGuardCount(tenantId: string): Promise<number> {
     return this.prisma.guard.count({ where: { tenantId } });
   }
@@ -64,8 +59,8 @@ export class GuardMeteringService {
     const modules = [...(await this.entitlements.modulesForTenant(tenantId))];
     const packageKey = packageForModules(modules);
 
-    const [activeGuards, totalGuards] = await Promise.all([
-      this.activeGuardCount(tenantId),
+    const [billableGuards, totalGuards] = await Promise.all([
+      this.billableGuardCount(tenantId),
       this.totalGuardCount(tenantId),
     ]);
 
@@ -76,20 +71,20 @@ export class GuardMeteringService {
         packageKey: null,
         packageName: 'Custom',
         band: null,
-        activeGuards,
+        billableGuards,
         totalGuards,
         monthlyPrice: null,
         customQuote: true,
       };
     }
 
-    const band = billableBand(packageKey, activeGuards);
+    const band = billableBand(packageKey, billableGuards);
     const price = monthlyPrice(packageKey, band);
 
     return {
       packageKey,
       band,
-      activeGuards,
+      billableGuards,
       totalGuards,
       monthlyPrice: price,
       customQuote: isCustomQuote(band),
@@ -113,14 +108,14 @@ export class GuardMeteringService {
 
     this.logger.log(
       `Tenant ${tenantId} has moved from band ${currentBand} to ${profile.band} ` +
-        `(${profile.activeGuards} active guards).`,
+        `(${profile.billableGuards} billable guards).`,
     );
 
     return {
       drifted: true,
       from: currentBand,
       to: profile.band,
-      activeGuards: profile.activeGuards,
+      billableGuards: profile.billableGuards,
     };
   }
 

@@ -19,7 +19,7 @@ describe('BillingController plan checkout', () => {
 
   let controller: BillingController;
   let stripe: { createPlanCheckoutSession: jest.Mock };
-  let metering: { activeGuardCount: jest.Mock };
+  let metering: { billableGuardCount: jest.Mock };
 
   beforeEach(() => {
     stripe = {
@@ -27,7 +27,7 @@ describe('BillingController plan checkout', () => {
         .fn()
         .mockResolvedValue({ url: 'https://checkout.test', changed: false }),
     };
-    metering = { activeGuardCount: jest.fn().mockResolvedValue(40) };
+    metering = { billableGuardCount: jest.fn().mockResolvedValue(40) };
 
     controller = new BillingController(
       {} as BillingService,
@@ -76,6 +76,6 @@ describe('BillingController plan checkout', () => {
     expect(stripe.createPlanCheckoutSession).toHaveBeenCalledWith(
       expect.objectContaining({ packageKey: 'GENERATION', band: '1-25' }),
     );
-    expect(metering.activeGuardCount).not.toHaveBeenCalled();
+    expect(metering.billableGuardCount).not.toHaveBeenCalled();
   });
 });

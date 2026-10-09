@@ -76,9 +76,9 @@ export class BillingController {
   @Get('plan')
   @RequireAnyPermission('billing.view', 'roles.view', 'users.view')
   async plan(@GetUser() user: ActiveUser) {
-    const [plans, activeGuards, current] = await Promise.all([
+    const [plans, billableGuards, current] = await Promise.all([
       this.sellablePlansOrNone(),
-      this.metering.activeGuardCount(user.tenantId),
+      this.metering.billableGuardCount(user.tenantId),
       this.currentPlan(user.tenantId),
     ]);
 
@@ -95,8 +95,8 @@ export class BillingController {
         sellableBands: plans[key] ?? [],
       })),
       generationOnlyBand: GENERATION_ONLY_BAND,
-      activeGuards,
-      minimumBand: bandForGuardCount(activeGuards),
+      billableGuards,
+      minimumBand: bandForGuardCount(billableGuards),
       current,
     };
   }
@@ -170,11 +170,11 @@ export class BillingController {
   ): Promise<GuardBand> {
     if (packageKey === 'GENERATION') return GENERATION_ONLY_BAND;
 
-    const activeGuards = await this.metering.activeGuardCount(tenantId);
-    const minimum = bandForGuardCount(activeGuards);
+    const billableGuards = await this.metering.billableGuardCount(tenantId);
+    const minimum = bandForGuardCount(billableGuards);
     if (bandRank(requested) < bandRank(minimum)) {
       throw new BadRequestException(
-        `Your account runs ${activeGuards} active guards, so the lowest band you can choose is ${minimum}.`,
+        `Your account has ${billableGuards} guards, so the lowest band you can choose is ${minimum}.`,
       );
     }
     return requested;

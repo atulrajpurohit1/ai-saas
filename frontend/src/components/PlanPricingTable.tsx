@@ -198,9 +198,10 @@ export default function PlanPricingTable({
 
       <div className="mt-3 space-y-1 text-xs text-muted-foreground">
         <p>
-          Active guards are guards rostered on a shift in the last 30 days. Your
-          account runs {pricing.activeGuards}, so the lowest band you can choose
-          is {bandLabel(pricing.minimumBand)}.
+          Every guard added to your account is billed for the full month, even
+          if they leave part-way through. Your account has{' '}
+          {pricing.billableGuards}, so the lowest band you can choose is{' '}
+          {bandLabel(pricing.minimumBand)}.
         </p>
         <p>
           AegisLead Generation on its own is{' '}

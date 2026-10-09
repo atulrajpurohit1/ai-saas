@@ -240,20 +240,23 @@ describe('GuardMeteringService', () => {
     service = moduleRef.get(GuardMeteringService);
   });
 
-  // Counting every guard row ever created would bill customers for leavers.
-  it('counts only guards rostered in the last 30 days', async () => {
-    await service.activeGuardCount('tenant-1');
+  // Anthony, 2026-10-09: a guard added is charged for the whole month even if
+  // they leave. So headcount is a plain row count -- no activity window, no
+  // filtering on shifts. An earlier version counted only guards rostered in
+  // the last 30 days, which silently discounted accounts with rota churn.
+  it('counts every guard on the account, with no activity window', async () => {
+    await service.billableGuardCount('tenant-1');
 
-    const where = prisma.guard.count.mock.calls[0][0].where as {
-      assignments: { some: { shift: { startTime: { gte: Date } } } };
-    };
-    const since = where.assignments.some.shift.startTime.gte;
-    const daysAgo = (Date.now() - since.getTime()) / (24 * 60 * 60 * 1000);
+    const where = prisma.guard.count.mock.calls[0][0].where as Record<
+      string,
+      unknown
+    >;
 
-    expect(Math.round(daysAgo)).toBe(30);
+    expect(where).toEqual({ tenantId: 'tenant-1' });
+    expect(where.assignments).toBeUndefined();
   });
 
-  it('bands a Guard tenant by its active guard count', async () => {
+  it('bands a Guard tenant by its billable guard count', async () => {
     prisma.guard.count.mockResolvedValue(60);
 
     const profile = await service.billingProfile('tenant-1');
