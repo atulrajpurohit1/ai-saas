@@ -145,6 +145,12 @@ export interface ProspectingJobPollResult {
   upstreamCostUsd: number | null;
 }
 
+/** A job's state and cost alone, for any kind of BlackPearl job. */
+export interface JobOutcome {
+  status: 'pending' | 'succeeded' | 'failed';
+  upstreamCostUsd: number | null;
+}
+
 /**
  * Live BlackPearl integration for real, multi-company/multi-contact prospect
  * discovery ("Prospecting" capability, POST /v1/prospects) - distinct from
@@ -230,6 +236,44 @@ export class BlackPearlProspectingProvider {
     );
 
     return job.id;
+  }
+
+  /**
+   * Where any BlackPearl job stands and what it has cost us, without reading
+   * its result. GET /v1/jobs/{id} serves playbooks and prospecting alike, so
+   * this works for both -- unlike getJobResult(), which parses a prospecting
+   * result and would misread a playbook's.
+   *
+   * Used to settle jobs nobody is polling any more. Null when the status could
+   * not be read (auth, network, or a job BlackPearl no longer knows), which
+   * says nothing about the job itself.
+   */
+  async getJobOutcome(jobId: string): Promise<JobOutcome | null> {
+    const apiKey = this.configService.get<string>('BLACKPEARL_API_KEY');
+    if (!apiKey) return null;
+
+    const job = await blackPearlRequest<RawProspectingJob>(
+      this.logger,
+      `${this.getBaseUrl()}/jobs/${encodeURIComponent(jobId)}`,
+      { method: 'GET', headers: blackPearlHeaders(apiKey) },
+      `check job outcome ${jobId}`,
+      jobId,
+    );
+    if (!job) return null;
+
+    const upstreamCostUsd =
+      typeof job.usage?.cost_usd === 'number' &&
+      Number.isFinite(job.usage.cost_usd)
+        ? job.usage.cost_usd
+        : null;
+
+    const status = PENDING_JOB_STATUSES.has(job.status)
+      ? 'pending'
+      : job.status === SUCCESS_JOB_STATUS
+        ? 'succeeded'
+        : 'failed';
+
+    return { status, upstreamCostUsd };
   }
 
   async getJobResult(jobId: string): Promise<ProspectingJobPollResult | null> {

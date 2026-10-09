@@ -612,6 +612,26 @@ export class CreditsService {
   }
 
   /**
+   * Holds still PENDING after the given age, oldest first: jobs nobody polled
+   * to a finish. Prospect Search reconciles these against BlackPearl before
+   * the blind sweep below would release them without knowing what happened.
+   */
+  async findPendingReservations(olderThanMinutes: number, take = 100) {
+    const cutoff = new Date(Date.now() - olderThanMinutes * 60_000);
+
+    return this.prisma.creditLedgerEntry.findMany({
+      where: {
+        type: CreditEntryType.RESERVATION,
+        reservationStatus: CreditReservationStatus.PENDING,
+        createdAt: { lt: cutoff },
+      },
+      select: { id: true, tenantId: true, jobId: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+      take,
+    });
+  }
+
+  /**
    * Releases holds for jobs that never reached a terminal state.
    *
    * Without this, a job abandoned mid-flight -- the user closed the tab, the

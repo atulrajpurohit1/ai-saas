@@ -16,12 +16,12 @@ describe('CreditReservationScheduler', () => {
     );
   });
 
-  it('releases holds older than an hour', async () => {
+  it('releases only holds older than a day', async () => {
     const result = await scheduler.sweep();
 
-    // The cutoff must stay well past BlackPearl's ~15 minute worst case, or a
-    // slow but healthy job would have its credits refunded mid-flight.
-    expect(credits.expireStaleReservations).toHaveBeenCalledWith(60);
+    // The cutoff must stay past AbandonedJobScheduler's six-hour limit, or a
+    // blind release would beat it and lose the job's recorded cost.
+    expect(credits.expireStaleReservations).toHaveBeenCalledWith(24 * 60);
     expect(result).toEqual({ expired: 2, released: 30 });
   });
 

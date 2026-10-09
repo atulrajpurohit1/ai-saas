@@ -82,7 +82,9 @@ describe('BlackPearlProspectingProvider', () => {
 
       // Zero would be a lie that averages into the margin figures as though
       // the search were free.
-      expect((await buildProvider().getJobResult('job-1'))?.upstreamCostUsd).toBeNull();
+      expect(
+        (await buildProvider().getJobResult('job-1'))?.upstreamCostUsd,
+      ).toBeNull();
     });
 
     it('ignores a non-numeric cost rather than propagating NaN', async () => {
@@ -96,7 +98,61 @@ describe('BlackPearlProspectingProvider', () => {
         }),
       );
 
-      expect((await buildProvider().getJobResult('job-1'))?.upstreamCostUsd).toBeNull();
+      expect(
+        (await buildProvider().getJobResult('job-1'))?.upstreamCostUsd,
+      ).toBeNull();
+    });
+  });
+
+  describe('getJobOutcome', () => {
+    it('reports a finished playbook job without parsing its result', async () => {
+      global.fetch = jest.fn().mockResolvedValue(
+        jsonResponse(200, {
+          id: 'job-1',
+          status: 'succeeded',
+          type: 'playbook',
+          usage: { cost_usd: 3.74 },
+          result: { sections: [] },
+        }),
+      );
+
+      await expect(buildProvider().getJobOutcome('job-1')).resolves.toEqual({
+        status: 'succeeded',
+        upstreamCostUsd: 3.74,
+      });
+    });
+
+    it('reports queued and running jobs as pending', async () => {
+      for (const status of ['queued', 'running']) {
+        global.fetch = jest
+          .fn()
+          .mockResolvedValue(jsonResponse(200, { id: 'job-1', status }));
+        const outcome = await buildProvider().getJobOutcome('job-1');
+        expect(outcome).toEqual({ status: 'pending', upstreamCostUsd: null });
+      }
+    });
+
+    it('reports any other terminal status as failed, keeping its cost', async () => {
+      global.fetch = jest.fn().mockResolvedValue(
+        jsonResponse(200, {
+          id: 'job-1',
+          status: 'cancelled',
+          usage: { cost_usd: 0.4 },
+        }),
+      );
+
+      await expect(buildProvider().getJobOutcome('job-1')).resolves.toEqual({
+        status: 'failed',
+        upstreamCostUsd: 0.4,
+      });
+    });
+
+    it('returns null when the job cannot be read', async () => {
+      global.fetch = jest
+        .fn()
+        .mockResolvedValue(jsonResponse(404, { error: 'not found' }));
+
+      await expect(buildProvider().getJobOutcome('job-1')).resolves.toBeNull();
     });
   });
 
@@ -118,14 +174,14 @@ describe('BlackPearlProspectingProvider', () => {
         .fn()
         .mockResolvedValue(jsonResponse(200, { rollup: { cost_usd: 1.2 } }));
 
-      await expect(
-        buildProvider().getUpstreamBalanceUsd(),
-      ).resolves.toBeNull();
+      await expect(buildProvider().getUpstreamBalanceUsd()).resolves.toBeNull();
     });
 
     it('returns null when BlackPearl is not configured', async () => {
       await expect(
-        buildProvider({ BLACKPEARL_API_KEY: undefined }).getUpstreamBalanceUsd(),
+        buildProvider({
+          BLACKPEARL_API_KEY: undefined,
+        }).getUpstreamBalanceUsd(),
       ).resolves.toBeNull();
     });
   });

@@ -5,6 +5,7 @@ import { AuditModule } from '../audit/audit.module';
 import { LeadsModule } from '../leads/leads.module';
 import { NotesModule } from '../notes/notes.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { AbandonedJobScheduler } from './abandoned-job.scheduler';
 import { BlackPearlInsightProvider } from './providers/blackpearl-insight.provider';
 import { BlackPearlProspectingProvider } from './providers/blackpearl-prospecting.provider';
 import { ProspectDiscoveryCacheService } from './prospect-discovery-cache.service';
@@ -36,6 +37,7 @@ import { SavedProspectSearchService } from './saved-prospect-search.service';
     BlackPearlInsightProvider,
     BlackPearlProspectingProvider,
     UpstreamBudgetService,
+    AbandonedJobScheduler,
   ],
 })
 export class ProspectSearchModule {}

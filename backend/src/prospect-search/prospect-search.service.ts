@@ -210,12 +210,14 @@ export class ProspectSearchService {
       `Prospect search job failed: tenant=${user.tenantId} provider=${PROVIDER_NAME} jobId=${jobId}`,
     );
 
-    // Nothing usable came back, so the customer is not charged.
+    // Nothing usable came back, so the customer is not charged -- but a failed
+    // job can still have cost us money upstream, so that is recorded.
     await this.settleJobCredits(
       user.tenantId,
       jobId,
       0,
       'Playbook could not be generated; credits returned.',
+      result.upstreamCostUsd ?? null,
     );
 
     return {

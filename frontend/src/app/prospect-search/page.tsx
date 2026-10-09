@@ -76,10 +76,12 @@ type FilterKey = 'company' | 'location' | 'industry' | 'jobTitle' | 'headcount' 
 const SEARCH_MODE_LIMITS = { preview: 5, full: 20 } as const;
 type SearchMode = keyof typeof SEARCH_MODE_LIMITS;
 
-// Our own live testing showed turbo-mode prospecting jobs typically complete
-// in about a minute - poll modestly and don't wait unreasonably long.
+// A preview usually finishes in a couple of minutes, but BlackPearl quotes 5-15
+// minutes for a full search. The old 5-minute limit gave up on searches that
+// were still running fine: the customer saw an error, and the job settled with
+// nobody watching it. Wait past BlackPearl's own worst case instead.
 const JOB_POLL_INTERVAL_MS = 5_000;
-const JOB_MAX_POLL_MS = 5 * 60 * 1000;
+const JOB_MAX_POLL_MS = 20 * 60 * 1000;
 const MAX_BACKOFF_MS = 60_000;
 
 // The separate single-company deep-research flow (BlackPearl Playbooks)
@@ -334,7 +336,11 @@ export default function ProspectSearchPage() {
         if (searchGenerationRef.current !== generation) return;
 
         if (Date.now() - startedAt > JOB_MAX_POLL_MS) {
-          setError('This search is taking longer than expected. Please try again.');
+          // The server refunds a hold nobody is polling once BlackPearl says
+          // how the job ended, so this is true even if the job later finishes.
+          setError(
+            "This search is taking much longer than usual, so we've stopped waiting for it. You won't be charged - its credits will be returned automatically.",
+          );
           setLoading(false);
           return;
         }
@@ -574,7 +580,9 @@ export default function ProspectSearchPage() {
         if (deepResearchGenerationRef.current !== generation) return;
 
         if (Date.now() - startedAt > DEEP_RESEARCH_MAX_POLL_MS) {
-          setDeepResearchError('Playbook generation is taking longer than expected. Please try again later.');
+          setDeepResearchError(
+            "This playbook is taking much longer than usual, so we've stopped waiting for it. You won't be charged - its credits will be returned automatically.",
+          );
           setDeepResearchPendingName(null);
           return;
         }

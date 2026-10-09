@@ -11,18 +11,20 @@ import { CreditsService } from './credits.service';
  * Without this sweep those credits stay held forever -- the customer has paid
  * for them, cannot spend them, and has no way to get them back themselves.
  *
- * Runs hourly against holds older than an hour, which is comfortably past
- * BlackPearl's observed worst case of ~15 minutes, so a genuinely slow job is
- * never refunded out from under itself. Releasing is idempotent, so a job that
- * does finish later still settles correctly.
+ * This is the last resort, not the normal path. Prospect Search's
+ * AbandonedJobScheduler settles abandoned jobs first, after asking BlackPearl
+ * how each one ended, so their cost is recorded. A blind release records
+ * nothing, and once a hold is released a later settle is ignored -- so this
+ * waits a full day, well past that scheduler's own six-hour limit, and only
+ * catches what it could not settle.
  */
 @Injectable()
 export class CreditReservationScheduler {
   private readonly logger = new Logger(CreditReservationScheduler.name);
   private running = false;
 
-  /** Holds younger than this are assumed to be jobs still legitimately running. */
-  private static readonly STALE_AFTER_MINUTES = 60;
+  /** Holds younger than this are left to AbandonedJobScheduler. */
+  private static readonly STALE_AFTER_MINUTES = 24 * 60;
 
   constructor(private readonly credits: CreditsService) {}
 
