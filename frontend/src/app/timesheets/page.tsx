@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
+import TableScroll from '@/components/TableScroll';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
   approveTimesheet,
@@ -177,7 +178,7 @@ export default function TimesheetsPage() {
         ) : timesheets.length === 0 ? (
           <div className="py-20 text-center text-muted-foreground">No timesheets found.</div>
         ) : (
-          <div className="overflow-x-auto">
+          <TableScroll>
             <table className="responsive-table w-full text-left">
               <thead>
                 <tr className="border-b border-white/5 text-sm uppercase tracking-wider text-muted-foreground">
@@ -215,7 +216,7 @@ export default function TimesheetsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right" data-label="Actions">
-                      <div className="flex flex-wrap justify-end gap-2">
+                      <div className="flex flex-nowrap items-center justify-end gap-2">
                         <Link
                           href={`/timesheets/${timesheet.id}`}
                           className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-white/10"
@@ -250,7 +251,7 @@ export default function TimesheetsPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </TableScroll>
         )}
       </div>
     </DashboardLayout>

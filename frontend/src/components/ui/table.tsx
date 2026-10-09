@@ -3,12 +3,21 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { useOverflowX } from "@/hooks/useOverflowX"
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
+  // When the table is wider than the page, the trailing Actions column is
+  // pinned to the right edge (see .responsive-table rules in globals.css) so
+  // its button never scrolls out of sight. table-scroll-x turns on the shadow
+  // that marks the pinned edge, and only while there is really something
+  // hidden behind it.
+  const { ref, overflowing } = useOverflowX<HTMLDivElement>()
+
   return (
     <div
+      ref={ref}
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      className={cn("relative w-full overflow-x-auto", overflowing && "table-scroll-x")}
     >
       <table
         data-slot="table"

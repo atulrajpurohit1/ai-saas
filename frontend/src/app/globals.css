@@ -39,9 +39,9 @@
   --popover: var(--card);
   --popover-foreground: var(--card-foreground);
 
-  --radius: 14px;
-  --radius-sm: 10px;
-  --radius-lg: 20px;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 12px;
   --radius-pill: 9999px;
   --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.04);
   --shadow-md: 0 4px 12px rgba(17, 24, 39, 0.06);
@@ -327,7 +327,7 @@ select.text-white {
 
   .responsive-table tr {
     border: 1px solid var(--border);
-    border-radius: 1.25rem;
+    border-radius: var(--radius-lg);
     background: var(--card);
     overflow: hidden;
   }
@@ -625,19 +625,30 @@ option.bg-\[\#0f172a\] {
   border-radius: var(--radius);
 }
 
-/* 5. Border-radius normalization. The pre-Phase-2 admin pages hand-picked
- *    Tailwind's rounded-2xl (1rem) / rounded-3xl (1.5rem) for card shells and
- *    modals, which reads slightly larger/softer than the design-system
- *    --radius-lg (20px) used everywhere else. Pull them onto the token so
- *    every card, panel and dialog shares one corner radius. rounded-xl and
- *    smaller are left alone (they match --radius / --radius-sm closely enough
- *    and are used for inner controls). */
+/* 5. Border-radius normalization. Corners across the app were noticeably
+ *    round - pages hand-picked Tailwind's rounded-xl/2xl/3xl for card shells,
+ *    panels and controls, which read softer than intended and made dense
+ *    tables and filter bars look bubbly. Rather than touch ~900 call sites,
+ *    map the literal scale onto the radius tokens, so the whole app follows
+ *    --radius* and the scale can be retuned from one place.
+ *
+ *    rounded-full is deliberately NOT remapped: it is used for genuine pills
+ *    and circular avatars/status dots, which should stay fully round. */
 .rounded-2xl,
 .rounded-3xl,
 .rounded-\[2rem\],
 .rounded-\[2\.5rem\],
 .rounded-\[1\.75rem\] {
   border-radius: var(--radius-lg);
+}
+
+.rounded-xl {
+  border-radius: var(--radius);
+}
+
+.rounded-lg,
+.rounded-md {
+  border-radius: var(--radius-sm);
 }
 
 /* 6. NOTE on the Guard portal's emerald usage: the previous green *shell chrome*
@@ -647,3 +658,54 @@ option.bg-\[\#0f172a\] {
  * the Admin portal already uses app-wide for positive/confirm actions
  * ("Approve", "Export CSV", "Resolve") - that is a shared semantic accent, not
  * a per-portal inconsistency, so it is intentionally left untouched. */
+
+/* Wide tables scroll horizontally on narrow desktop windows, which used to
+   push the row's action button off-screen with nothing to hint it was there.
+   Pin the trailing action column to the right edge so the button is always
+   reachable, and fade the cell it overlaps so the row reads as continuing
+   underneath rather than being cut off. Only above the 768px breakpoint -
+   below it rows become cards and nothing scrolls sideways.
+
+   Matched on :last-child as well as the label, because "Action" is also the
+   name of a leading content column on the audit log, which must not be
+   pinned. The trailing cell is the button column on every table that has one. */
+@media (min-width: 768px) {
+  .responsive-table td[data-label="Actions"]:last-child,
+  .responsive-table td[data-label="Action"]:last-child {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    background: var(--card);
+  }
+
+  /* Only pin the header when the matching body cell is pinned, so a table
+     whose last column is ordinary content keeps a normal header. */
+  .responsive-table:has(td[data-label="Actions"]:last-child) thead th:last-child,
+  .responsive-table:has(td[data-label="Action"]:last-child) thead th:last-child {
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    background: var(--card);
+  }
+
+  /* The sticky cell sits on its own background, so the row hover tint stops
+     at its edge unless we repaint it here. */
+  .responsive-table tbody tr:hover td[data-label="Actions"]:last-child,
+  .responsive-table tbody tr:hover td[data-label="Action"]:last-child {
+    background: color-mix(in srgb, var(--muted) 50%, var(--card));
+  }
+
+  /* A soft edge only while the table actually overflows, so a table that
+     fits does not get a stray seam down its last column. */
+  .table-scroll-x .responsive-table td[data-label="Actions"]:last-child::after,
+  .table-scroll-x .responsive-table td[data-label="Action"]:last-child::after,
+  .table-scroll-x .responsive-table:has(td[data-label="Actions"]:last-child) thead th:last-child::after,
+  .table-scroll-x .responsive-table:has(td[data-label="Action"]:last-child) thead th:last-child::after {
+    content: "";
+    position: absolute;
+    inset: 0 100% 0 auto;
+    width: 1.5rem;
+    pointer-events: none;
+    background: linear-gradient(to right, transparent, color-mix(in srgb, var(--foreground) 10%, transparent));
+  }
+}

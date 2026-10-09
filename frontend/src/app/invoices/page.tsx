@@ -5,6 +5,7 @@ import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
 import InsuranceAdvisoryBanner from '@/components/InsuranceAdvisoryBanner';
+import TableScroll from '@/components/TableScroll';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -469,7 +470,7 @@ export default function InvoicesPage() {
         ) : invoices.length === 0 ? (
           <div className="py-20 text-center text-muted-foreground">No invoices generated yet.</div>
         ) : (
-          <div className="overflow-x-auto">
+          <TableScroll>
             <table className="responsive-table w-full text-left">
               <thead>
                 <tr className="border-b border-white/5 text-sm uppercase tracking-wider text-muted-foreground">
@@ -573,7 +574,7 @@ export default function InvoicesPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </TableScroll>
         )}
       </div>
 

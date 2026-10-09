@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import SearchField from '@/components/SearchField';
 import { useAuth } from '@/context/AuthContext';
 import { useNewIntent } from '@/hooks/useNewIntent';
 import api from '@/lib/api';
@@ -302,16 +303,12 @@ export default function ShiftsPage() {
 
       <div className="mb-5 rounded-[var(--radius-lg)] border border-border bg-card p-4 shadow-sm">
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_240px]">
-          <div className="relative w-full sm:max-w-sm">
-            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-            <Input
-              type="text"
-              placeholder="Search by site or guard..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+          <SearchField
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search by site or guard..."
+            className="w-full sm:max-w-sm"
+          />
           <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Filter Branch" />
         </div>
       </div>
@@ -350,7 +347,7 @@ export default function ShiftsPage() {
               <Table className="responsive-table">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Site</TableHead>
+                    <TableHead className="min-w-[15rem] px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Site</TableHead>
                     <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">When</TableHead>
                     <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Staffing</TableHead>
                     <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Status</TableHead>
@@ -362,7 +359,7 @@ export default function ShiftsPage() {
                     const assigned = shift.assignments && shift.assignments.length > 0;
                     return (
                       <TableRow key={shift.id}>
-                        <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Site">
+                        <TableCell className="min-w-[15rem] px-6 py-3.5 whitespace-normal" data-label="Site">
                           <div className="flex items-center gap-3">
                             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary">
                               <MapPin size={16} />

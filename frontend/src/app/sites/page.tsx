@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import SearchField from '@/components/SearchField';
 import api from '@/lib/api';
 import { branchParams, BranchSummary } from '@/lib/branches';
 import { useNewIntent } from '@/hooks/useNewIntent';
@@ -142,19 +143,12 @@ export default function SitesPage() {
       <div className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card shadow-sm">
         <div className="border-b border-border p-4">
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_240px]">
-            <div className="relative w-full sm:max-w-sm">
-              <Search
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                size={16}
-              />
-              <Input
-                type="text"
-                placeholder="Search sites..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+            <SearchField
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search sites..."
+              className="w-full sm:max-w-sm"
+            />
             <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Filter Branch" />
           </div>
         </div>

@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
+import TableScroll from '@/components/TableScroll';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { branchParams, BranchSummary } from '@/lib/branches';
@@ -247,7 +248,7 @@ export default function ReportsPage() {
         ) : reports.length === 0 ? (
           <div className="py-20 text-center text-muted-foreground">No daily reports generated yet.</div>
         ) : (
-          <div className="overflow-x-auto">
+          <TableScroll>
             <table className="responsive-table w-full text-left">
               <thead>
                 <tr className="border-b border-white/5 text-sm uppercase tracking-wider text-muted-foreground">
@@ -333,7 +334,7 @@ export default function ReportsPage() {
                 })}
               </tbody>
             </table>
-          </div>
+          </TableScroll>
         )}
       </div>
 

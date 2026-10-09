@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
+import TableScroll from '@/components/TableScroll';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { cancelInvoice, getAdminInvoice, Invoice, issueInvoice, markInvoicePaid } from '@/lib/invoices';
@@ -374,7 +375,7 @@ export default function InvoiceDetailPage() {
             {invoice.items.length === 0 ? (
               <div className="py-10 text-center text-slate-500">No invoice items recorded.</div>
             ) : (
-              <div className="overflow-x-auto">
+              <TableScroll>
                 <table className="responsive-table w-full text-left">
                   <thead>
                     <tr className="border-b border-white/5 text-sm uppercase tracking-wider text-muted-foreground">
@@ -409,7 +410,7 @@ export default function InvoiceDetailPage() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </TableScroll>
             )}
           </section>
         </div>

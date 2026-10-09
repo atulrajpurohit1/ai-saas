@@ -11,6 +11,7 @@ import { getApiErrorMessage } from '@/lib/api-error';
 import { ADMIN_LOCATION_POLL_INTERVAL_MS, LOCATION_STALE_THRESHOLD_MS, EMERGENCY_ALERT_POLL_INTERVAL_MS } from '@/lib/guard-tracking.constants';
 import { EmergencyAlert, getEmergencyAlerts, acknowledgeEmergencyAlert, resolveEmergencyAlert } from '@/lib/emergency-alerts';
 import CheckpointEvidenceViewer from '@/components/CheckpointEvidenceViewer';
+import TableScroll from '@/components/TableScroll';
 
 function isLocationStale(lastLocationAt: string | null): boolean {
   if (!lastLocationAt) return true;
@@ -441,7 +442,7 @@ export default function PatrolRunsPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <TableScroll>
           <table className="responsive-table w-full text-left">
             <thead>
               <tr className="text-muted-foreground text-sm uppercase tracking-wider">
@@ -503,7 +504,7 @@ export default function PatrolRunsPage() {
               )}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       </div>
 
       {/* PATROL RUN DETAILS MODAL */}

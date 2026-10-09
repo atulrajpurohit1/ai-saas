@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
+import TableScroll from '@/components/TableScroll';
 import api from '@/lib/api';
 import { formatEnumLabel, isUnknownValue } from '@/lib/format';
 import {
@@ -884,7 +885,7 @@ export default function SalesAcceleratorDashboardPage() {
                 Missing discovery: {metrics.leadsMissingDiscovery + metrics.dealsMissingDiscovery}
               </span>
             </div>
-            <div className="overflow-x-auto">
+            <TableScroll>
               <table className="responsive-table w-full text-left">
                 <thead>
                   <tr className="text-sm uppercase tracking-wider text-muted-foreground">
@@ -923,7 +924,7 @@ export default function SalesAcceleratorDashboardPage() {
                   })}
                 </tbody>
               </table>
-            </div>
+            </TableScroll>
           </section>
         </div>
       )}
