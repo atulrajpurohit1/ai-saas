@@ -229,6 +229,15 @@ export class GuardsService {
    * Marks a guard as having left. The row and its history stay; the guard
    * can no longer sign in to the portal or be rostered, and billing stops
    * counting them from the start of next month.
+   *
+   * Shifts the guard was already rostered onto are released, because they are
+   * now coverage that will not happen: the guard cannot sign in to work them,
+   * so the schedule would show a site as staffed when nobody is coming. The
+   * shift stays, unassigned, for someone else to pick up.
+   *
+   * Only shifts that have not started yet. A past or in-progress shift is a
+   * record of work, and its attendance events and timesheet are what billing
+   * is built on, so those assignments are left exactly as they are.
    */
   async deactivate(user: ActiveUser, id: string) {
     const guard = await this.prisma.guard.findFirst({
@@ -243,12 +252,30 @@ export class GuardsService {
       throw new BadRequestException('Guard is already deactivated');
     }
 
-    // Clearing the refresh token ends their portal session; the access token
-    // they hold lapses on its own short expiry.
-    const updatedGuard = await this.prisma.guard.update({
-      where: { id },
-      data: { deactivatedAt: new Date(), refreshToken: null },
-    });
+    const deactivatedAt = new Date();
+
+    // One transaction: a guard who is marked as left but still holds next
+    // week's shifts is exactly the inconsistency this method exists to avoid,
+    // so the flag and the roster must move together or not at all.
+    const { updatedGuard, releasedShiftCount } = await this.prisma.$transaction(
+      async (tx) => {
+        // Clearing the refresh token ends their portal session; the access
+        // token they hold lapses on its own short expiry.
+        const updated = await tx.guard.update({
+          where: { id },
+          data: { deactivatedAt, refreshToken: null },
+        });
+
+        const released = await tx.assignment.deleteMany({
+          where: {
+            guardId: id,
+            shift: { tenantId: user.tenantId, startTime: { gt: deactivatedAt } },
+          },
+        });
+
+        return { updatedGuard: updated, releasedShiftCount: released.count };
+      },
+    );
 
     await this.auditService.log({
       tenantId: user.tenantId,
@@ -256,7 +283,12 @@ export class GuardsService {
       action: 'GUARD_DEACTIVATED',
       entityType: 'Guard',
       entityId: guard.id,
-      details: `Guard "${guard.name}" deactivated`,
+      details:
+        releasedShiftCount > 0
+          ? `Guard "${guard.name}" deactivated; released from ${releasedShiftCount} upcoming shift${
+              releasedShiftCount === 1 ? '' : 's'
+            }`
+          : `Guard "${guard.name}" deactivated`,
     });
 
     return this.fieldPermissionsService.filterFieldsByPermission(
