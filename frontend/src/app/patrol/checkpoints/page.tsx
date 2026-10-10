@@ -188,7 +188,7 @@ export default function CheckpointsPage() {
         <div className="border-b border-white/5 bg-white/5 p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center">
             <div className="relative w-full sm:max-w-sm">
-              <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
               <input
                 type="text"
                 placeholder="Search checkpoints or QR values..."

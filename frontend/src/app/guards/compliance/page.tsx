@@ -276,7 +276,7 @@ function GuardComplianceView() {
       <div className="glass-card rounded-3xl overflow-hidden border border-white/5">
         <div className="border-b border-white/5 bg-white/5 p-4 sm:p-6 space-y-4">
           <div className="relative w-full sm:max-w-sm">
-            <Search className="absolute left-3 top-2.5 text-muted-foreground" size={18} />
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
             <input
               type="text"
               placeholder="Search by guard name..."
