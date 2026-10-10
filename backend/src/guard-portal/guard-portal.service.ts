@@ -498,6 +498,31 @@ export class GuardPortalService {
   }
 
   /**
+   * A result row for an action that never got a database row of its own, so
+   * the response still carries the fields the client reads (id, actionType,
+   * createdAt) when it decides what to drop and what to show the guard.
+   */
+  private syncResultShape(
+    action: SyncOfflineActionsDto['actions'][number],
+    tenantId: string,
+    guardId: string,
+  ) {
+    return {
+      id: action.id,
+      tenantId,
+      guardId,
+      actionType: action.actionType,
+      payload: action.payload,
+      status: 'pending',
+      errorMessage: null as string | null,
+      retryCount: 0,
+      createdAt: new Date(action.createdAt),
+      updatedAt: new Date(),
+      syncedAt: null as Date | null,
+    };
+  }
+
+  /**
    * Records an incoming offline action and decides whether this request should
    * apply it. Returns the row with status 'pending' when it should; any other
    * status means leave it alone.
@@ -546,14 +571,20 @@ export class GuardPortalService {
 
           // The id is taken, but not by a row belonging to this tenant and
           // guard -- `id` is client-supplied and is this table's global
-          // primary key, so it collided with someone else's row. Refusing it
-          // as a bad request keeps the collision from surfacing as a 500, and
-          // a 4xx is also what stops the client retrying an id it can never
-          // own. The queue id is generated per device, so a legitimate client
-          // never reaches this.
-          throw new BadRequestException(
-            'This offline action could not be accepted. Clear the offline queue and try again.',
-          );
+          // primary key, so it collided with someone else's row.
+          //
+          // Reported as a rejected result for THIS action rather than thrown:
+          // the caller loops over a whole batch, so throwing here would abort
+          // every other action the guard had queued behind it. 'rejected' is
+          // final, so the client drops it and shows it to the guard instead
+          // of retrying an id it can never own. A legitimate client never
+          // reaches this -- ids are generated per device.
+          return {
+            ...this.syncResultShape(action, tenantId, guardId),
+            status: 'rejected',
+            errorMessage:
+              'This action could not be accepted. Please report it to your supervisor.',
+          };
         }
         throw error;
       }

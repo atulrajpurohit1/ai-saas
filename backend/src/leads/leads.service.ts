@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
@@ -13,6 +13,8 @@ import { AiFeature } from '@prisma/client';
 
 @Injectable()
 export class LeadsService {
+  private readonly logger = new Logger(LeadsService.name);
+
   constructor(
     private prisma: PrismaService,
     private aiService: AiService,
@@ -250,7 +252,17 @@ export class LeadsService {
   }
 
   async analyzePdf(buffer: Buffer, tenantId: string) {
-    console.log('PDF: Analysis started, buffer size:', buffer.length);
+    // What comes out of here is a prospect's name, email and phone number.
+    // Printing the extracted result put that personal data into the
+    // production logs in the clear, where anyone with log access could read
+    // it -- the same mistake that was already fixed for OTP codes. The
+    // logging below records that extraction happened and how big the input
+    // was, which is what is actually useful when a PDF fails to parse, and
+    // never the contents.
+    //
+    // Routed through Nest's Logger rather than console so these lines carry
+    // a context and level like the rest of the app's output.
+    this.logger.log(`Lead PDF analysis started (${buffer.length} bytes)`);
     try {
       const pdfParse = require('pdf-parse');
       // Disable rendering to avoid DOMMatrix/Canvas crashes
@@ -259,16 +271,24 @@ export class LeadsService {
       };
 
       const data = await pdfParse(buffer, options);
-      console.log('PDF: Text extracted successfully');
+      this.logger.log(
+        `Lead PDF text extracted (${data.text?.length ?? 0} characters)`,
+      );
 
       const leadInfo = await this.aiMetering.run(
         { tenantId, feature: AiFeature.LEAD_EXTRACTION },
         () => this.aiService.extractLeadFromText(data.text),
       );
-      console.log('PDF: AI extraction result:', leadInfo);
+      this.logger.log('Lead PDF extraction completed');
       return leadInfo;
     } catch (error) {
-      console.error('PDF: Analysis failed error:', error);
+      // The message, not the whole error: a pdf-parse failure can carry
+      // fragments of the document itself in its payload.
+      this.logger.error(
+        `Lead PDF analysis failed: ${
+          error instanceof Error ? error.message : 'unknown error'
+        }`,
+      );
       throw error;
     }
   }

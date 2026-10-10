@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   BadRequestException,
   NotFoundException,
   ForbiddenException,
@@ -27,6 +28,8 @@ type AttendanceEventSummary = {
 
 @Injectable()
 export class ShiftsService {
+  private readonly logger = new Logger(ShiftsService.name);
+
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
@@ -319,9 +322,12 @@ export class ShiftsService {
     }
 
     // 6. Basic Notification
-    console.log(
-      `[NOTIFICATION] Guard "${guard.name}" assigned to Shift #${shiftId}`,
-    );
+    //
+    // A placeholder for real notification delivery. It printed the guard's
+    // name to stdout, which puts staff names in the production logs for an
+    // event the audit trail above already records properly. Logged without
+    // the name, at debug level, until this becomes an actual notification.
+    this.logger.debug(`Guard assigned to shift ${shiftId}`);
 
     return result;
   }
@@ -361,8 +367,8 @@ export class ShiftsService {
       details: `Guard unassigned from shift "${shiftId}"`,
     });
 
-    // 4. Basic Notification
-    console.log(`[NOTIFICATION] Guard unassigned from Shift #${shiftId}`);
+    // 4. Basic Notification -- see the note in assign().
+    this.logger.debug(`Guard unassigned from shift ${shiftId}`);
 
     return { message: 'Guard unassigned successfully' };
   }

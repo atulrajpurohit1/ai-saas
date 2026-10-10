@@ -226,10 +226,45 @@ describe('GuardPortalService offline sync', () => {
       }),
     );
 
-    // A 4xx, so the client stops retrying an id it can never own, rather
-    // than the 500 an unhandled collision produced.
-    await expect(sync()).rejects.toMatchObject({ status: 400 });
+    const [result] = await sync();
+
+    // Rejected (final), so the client drops it and shows it to the guard
+    // rather than retrying an id it can never own -- and NOT thrown, because
+    // throwing would abort every other action queued behind it in the batch.
+    expect(result.status).toBe('rejected');
+    expect(result.id).toBe(action.id);
+    expect(result.actionType).toBe(action.actionType);
     expect(patrols.completePatrolRun).not.toHaveBeenCalled();
+  });
+
+  it('keeps syncing the rest of the batch when one id is unusable', async () => {
+    const good = { ...action, id: 'action-2', payload: { runId: 'run-2' } };
+    prisma.guardSyncQueue.findFirst.mockResolvedValue(null);
+    prisma.guardSyncQueue.create.mockImplementation(({ data }) => {
+      if (data.id === action.id) {
+        return Promise.reject(
+          new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+            code: 'P2002',
+            clientVersion: 'test',
+          }),
+        );
+      }
+      return Promise.resolve(row(data));
+    });
+
+    const results = await service.processSyncQueue(tenantId, guardId, {
+      actions: [action, good],
+    });
+
+    expect(results).toHaveLength(2);
+    expect(results[0].status).toBe('rejected');
+    // The good action still went through.
+    expect(results[1].status).toBe('synced');
+    expect(patrols.completePatrolRun).toHaveBeenCalledWith(
+      tenantId,
+      guardId,
+      'run-2',
+    );
   });
 
   it('rejects an unknown action type instead of retrying it', async () => {
