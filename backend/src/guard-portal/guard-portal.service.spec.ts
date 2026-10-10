@@ -185,6 +185,53 @@ describe('GuardPortalService offline sync', () => {
     expect(result.status).toBe('in_progress');
   });
 
+  // `action.id` is supplied by the guard's device and is this table's global
+  // primary key. Every write must therefore be filtered by tenant and guard,
+  // or one tenant's guard can rewrite another tenant's queue row -- e.g.
+  // flipping a pending action to 'synced' so it is never applied.
+  it('scopes the synced write to this tenant and guard, not the id alone', async () => {
+    await sync();
+
+    const scoped = prisma.guardSyncQueue.updateMany.mock.calls.filter(
+      ([args]) => args.data?.status === 'synced',
+    );
+    expect(scoped).toHaveLength(1);
+    expect(scoped[0][0].where).toEqual(
+      expect.objectContaining({ id: action.id, tenantId, guardId }),
+    );
+  });
+
+  it('scopes the failure write to this tenant and guard too', async () => {
+    patrols.completePatrolRun.mockRejectedValue(new Error('connection reset'));
+
+    await sync();
+
+    const scoped = prisma.guardSyncQueue.updateMany.mock.calls.filter(
+      ([args]) => args.data?.status === 'failed',
+    );
+    expect(scoped).toHaveLength(1);
+    expect(scoped[0][0].where).toEqual(
+      expect.objectContaining({ id: action.id, tenantId, guardId }),
+    );
+  });
+
+  it('refuses an id that already belongs to another tenant', async () => {
+    // Nothing of ours by that id...
+    prisma.guardSyncQueue.findFirst.mockResolvedValue(null);
+    // ...but the insert collides, because the row exists under another tenant.
+    prisma.guardSyncQueue.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: 'test',
+      }),
+    );
+
+    // A 4xx, so the client stops retrying an id it can never own, rather
+    // than the 500 an unhandled collision produced.
+    await expect(sync()).rejects.toMatchObject({ status: 400 });
+    expect(patrols.completePatrolRun).not.toHaveBeenCalled();
+  });
+
   it('rejects an unknown action type instead of retrying it', async () => {
     const [result] = await service.processSyncQueue(tenantId, guardId, {
       actions: [{ ...action, actionType: 'teleport' }],
