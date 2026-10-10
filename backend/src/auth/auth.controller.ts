@@ -107,12 +107,14 @@ export class AuthController {
     }
   }
 
+  /**
+   * `req.ip` only, never X-Forwarded-For directly. With `trust proxy` set to
+   * one hop in main.ts, Express resolves this to the address our own proxy
+   * reported. Reading the header here instead let a caller prepend any value
+   * it liked and land in a fresh rate-limit bucket on every request.
+   */
   private clientIp(req: Request) {
-    return (
-      (req.headers['x-forwarded-for'] as string | undefined)
-        ?.split(',')[0]
-        ?.trim() || req.ip
-    );
+    return req.ip;
   }
 
   @UseGuards(JwtAuthGuard)

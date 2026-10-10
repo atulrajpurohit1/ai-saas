@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { EvaluationReport, generateEvaluation, markdownToHtml } from '@/lib/rfp';
 import { getRfpSubmissions, InvitationStatus, RfpVendorSubmission } from '@/lib/vendors';
+import { sanitizeRichTextHtml } from '@/lib/sanitize-html';
 import { AlertTriangle, Loader2, Sparkles, Trophy } from 'lucide-react';
 
 const statusClass: Record<InvitationStatus, string> = {
@@ -180,7 +181,7 @@ export default function AiEvaluationPanel({ rfpId, initialEvaluation }: AiEvalua
 
           <div
             className="rfp-document rounded-2xl border border-white/5 bg-muted"
-            dangerouslySetInnerHTML={{ __html: markdownToHtml(evaluation.generatedReport) }}
+            dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(markdownToHtml(evaluation.generatedReport)) }}
           />
         </div>
       )}

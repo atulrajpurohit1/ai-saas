@@ -13,6 +13,7 @@ import VendorPerformancePanel from '@/components/VendorPerformancePanel';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { deleteRfp, downloadRfpPdf, getRfp, Rfp } from '@/lib/rfp';
+import { sanitizeRichTextHtml } from '@/lib/sanitize-html';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -293,7 +294,7 @@ export default function RfpViewPage() {
               <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
                 <h3 className="mb-4 text-sm font-bold uppercase tracking-widest text-primary">Generated Document</h3>
                 {rfp.generatedContent ? (
-                  <div className="rfp-document rounded-2xl border border-white/5 bg-black/20" dangerouslySetInnerHTML={{ __html: rfp.generatedContent }} />
+                  <div className="rfp-document rounded-2xl border border-white/5 bg-black/20" dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(rfp.generatedContent) }} />
                 ) : (
                   <div className="rounded-2xl border border-dashed border-white/10 bg-black/10 py-16 text-center text-sm text-slate-500">
                     No document has been generated for this RFP yet.

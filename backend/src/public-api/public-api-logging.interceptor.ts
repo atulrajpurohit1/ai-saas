@@ -45,13 +45,14 @@ export class PublicApiLoggingInterceptor implements NestInterceptor {
     });
   }
 
+  /**
+   * `req.ip` (resolved by Express from the one proxy hop we trust -- see
+   * main.ts) rather than X-Forwarded-For read directly. The header is
+   * caller-supplied, so trusting it here let any client write an arbitrary
+   * address into the request log and pin an action on someone else.
+   */
   private getIpAddress(request: PublicApiRequest) {
-    return (
-      this.getHeader(request, 'x-forwarded-for')?.split(',')[0]?.trim() ||
-      request.ip ||
-      request.socket?.remoteAddress ||
-      null
-    );
+    return request.ip || request.socket?.remoteAddress || null;
   }
 
   private getHeader(request: PublicApiRequest, key: string) {

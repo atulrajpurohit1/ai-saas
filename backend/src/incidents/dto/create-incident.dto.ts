@@ -1,3 +1,4 @@
+import { IsSafeUrl } from '../../common/is-safe-url.validator';
 import {
   IsIn,
   IsISO8601,
@@ -33,6 +34,7 @@ export class CreateIncidentDto {
 
   @IsString()
   @IsOptional()
+  @IsSafeUrl()
   attachment_url?: string;
 
   @IsString()
