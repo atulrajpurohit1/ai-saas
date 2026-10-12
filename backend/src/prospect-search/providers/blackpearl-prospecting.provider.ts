@@ -7,9 +7,12 @@ import {
 } from '../types/prospect-search.types';
 import {
   blackPearlHeaders,
+  BLACKPEARL_TERMINAL_BUDGET_CODES,
   blackPearlRequest,
+  type BlackPearlRequestOutcome,
   normalizeString,
 } from './blackpearl-http.util';
+import { UpstreamBudgetExceededError } from './upstream-budget-exceeded.error';
 
 const DEFAULT_BASE_URL = 'https://api.blackpearl.com/v1';
 
@@ -186,6 +189,7 @@ export class BlackPearlProspectingProvider {
       `BlackPearl prospecting job creation: submitting objective="${input.objective}" limit=${input.limit ?? 10}`,
     );
 
+    const outcome: BlackPearlRequestOutcome = {};
     const job = await blackPearlRequest<RawProspectingJob>(
       this.logger,
       `${this.getBaseUrl()}/prospects`,
@@ -216,9 +220,20 @@ export class BlackPearlProspectingProvider {
         }),
       },
       `submit prospecting job for "${input.objective}"`,
+      undefined,
+      outcome,
     );
 
     if (!job?.id) {
+      const budgetScope = outcome.errorCode
+        ? BLACKPEARL_TERMINAL_BUDGET_CODES[outcome.errorCode]
+        : undefined;
+      if (budgetScope) {
+        // An upstream spending limit, not a fault. Thrown rather than returned
+        // as null so the service can answer 402 "out of budget" instead of the
+        // 503 "try again later" that every other submission failure produces.
+        throw new UpstreamBudgetExceededError(outcome.errorCode!, budgetScope);
+      }
       this.logger.error(
         `BlackPearl prospecting job creation FAILED for objective="${input.objective}" - see the request log above for the exact HTTP failure.`,
       );

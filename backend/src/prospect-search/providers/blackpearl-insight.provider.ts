@@ -6,10 +6,13 @@ import {
 } from '../../ai/ai.service';
 import {
   blackPearlHeaders,
+  BLACKPEARL_TERMINAL_BUDGET_CODES,
   blackPearlRequest,
+  type BlackPearlRequestOutcome,
   normalizeString,
   sleep,
 } from './blackpearl-http.util';
+import { UpstreamBudgetExceededError } from './upstream-budget-exceeded.error';
 
 const DEFAULT_BASE_URL = 'https://api.blackpearl.com/v1';
 const DEFAULT_BRAND_PROFILE_KEY = 'blackpearl';
@@ -110,8 +113,12 @@ export class BlackPearlInsightProvider {
 
   /**
    * Submits a playbook job and returns its id, or null if it couldn't be
-   * submitted (unconfigured, auth, quota, timeout, network error - all
+   * submitted (unconfigured, auth, timeout, network error - all
    * logged, never exposing the API key).
+   *
+   * Throws UpstreamBudgetExceededError when BlackPearl refused the job over a
+   * spending limit, which is a different thing from a failure and must not be
+   * reported to the customer as one.
    */
   async submitPlaybookJob(
     company: ProspectCompanySummary,
@@ -128,6 +135,7 @@ export class BlackPearlInsightProvider {
       `BlackPearl job creation: submitting playbook request for company="${company.name}" brandProfileKey="${this.getBrandProfileKey()}"`,
     );
 
+    const outcome: BlackPearlRequestOutcome = {};
     const job = await blackPearlRequest<RawBlackPearlJob>(
       this.logger,
       `${this.getBaseUrl()}/playbooks`,
@@ -140,9 +148,17 @@ export class BlackPearlInsightProvider {
         }),
       },
       `submit playbook for "${company.name}"`,
+      undefined,
+      outcome,
     );
 
     if (!job?.id) {
+      const budgetScope = outcome.errorCode
+        ? BLACKPEARL_TERMINAL_BUDGET_CODES[outcome.errorCode]
+        : undefined;
+      if (budgetScope) {
+        throw new UpstreamBudgetExceededError(outcome.errorCode!, budgetScope);
+      }
       this.logger.error(
         `BlackPearl job creation FAILED for company="${company.name}" - see the request log above for the exact HTTP failure.`,
       );

@@ -75,12 +75,15 @@ Jobs commonly take several minutes - one observed run took ~13 minutes.
    `{ status: 'pending', jobId, companyName }`. The caller (frontend) polls
    `GET /search/:jobId` until the job reaches a terminal state - this can
    take minutes, so the polling client should not give up quickly.
-4. **Job submission itself fails** (invalid key / 401 / 403, quota exceeded /
-   429, timeout, network error, malformed JSON, or any non-2xx response) →
+4. **Job submission itself fails** (invalid key / 401 / 403, timeout,
+   network error, malformed JSON, or any non-2xx response) →
    `BlackPearlInsightProvider` logs the specific failure (without ever
    logging the API key) and returns `null`; the service turns that into a
    `ServiceUnavailableException`. Nothing is silently substituted - the
    frontend shows a real error instead of fake results.
+5. **BlackPearl refuses the job over a spending limit** → a 402, or a 429
+   whose `error.code` is `budget_exceeded` / `quota_exceeded`. This is not a
+   failure and is not retried; see "Upstream spending limits" below.
 
 `GET /search/:jobId` calls `getJobResult()` once per request and returns the
 current status; on completion it writes to cache/history (which `/search`
@@ -96,6 +99,39 @@ produce from general reasoning (`businessSummary`, `businessObjective`,
 never fabricates `keyPersonas`, `potentialObjections`, `contactOverview`, or
 `documentUrl`, since those are meant to be real, sourced facts from
 BlackPearl's own research, not something an LLM should invent.
+
+## Upstream spending limits
+
+BlackPearl answers a 429 for three different reasons and the codes matter,
+because **only `rate_limit_exceeded` is transient** (their spec says so
+explicitly). `budget_exceeded` means a hard spending limit was hit - a
+project's allowance or its daily/monthly limit, or the company's - and
+`quota_exceeded` means a usage quota is exhausted. A 402
+`insufficient_credits` means our own prepaid balance is gone.
+
+`blackPearlRequest` therefore reads `error.code` and:
+
+- retries only `rate_limit_exceeded` (and a 429 whose code it could not read,
+  since treating an unknown 429 as terminal would fail a search over a
+  momentary rate limit - the worse error);
+- returns a 402 or a budget 429 immediately, reporting the code to the caller
+  via the `outcome` out-parameter.
+
+Previously every 429 was retried three times with backoff and then reported as
+a generic transient failure, so a tenant that had merely run out of budget
+produced a 503 that looked like a BlackPearl outage.
+
+The providers raise `UpstreamBudgetExceededError` with a **scope**, and
+`ProspectSearchService.submitOrTranslateBudgetError` turns it into the right
+customer-facing answer:
+
+| Scope | Meaning | Response |
+|---|---|---|
+| `tenant` | One tenant's allowance or daily/monthly limit. Everyone else keeps working. | `402 INSUFFICIENT_CREDITS` - the frontend offers a top-up |
+| `company` | Our prepaid balance is spent. Every tenant is stopped. | `503` + the cached balance is invalidated, since only an operator can fix it |
+
+No credits are taken in either case: the hold is placed only *after* a
+submission succeeds, so a refusal costs the customer nothing.
 
 ## Configuration
 

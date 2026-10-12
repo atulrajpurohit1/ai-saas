@@ -5,20 +5,88 @@ export const BLACKPEARL_REQUEST_TIMEOUT_MS = 10_000;
 /**
  * A single HTTP call to BlackPearl is retried this many times (in addition
  * to the first attempt) when it fails for a transient reason - network
- * error, timeout, HTTP 429, or HTTP 5xx (including 503, which BlackPearl has
+ * error, timeout, HTTP 5xx (including 503, which BlackPearl has
  * confirmed is a transient condition - an async job keeps running server-side
- * even when a status check returns 503). Backoff is exponential
+ * even when a status check returns 503), or a 429 that is specifically
+ * `rate_limit_exceeded`. Backoff is exponential
  * (RETRY_BASE_DELAY_MS * 2^attempt). This is the fast, sub-request-level
  * retry for a momentary blip; a caller polling an async job over minutes is
  * what carries a sustained outage across multiple polls without giving up or
  * resubmitting the job. Auth failures (401/403) and 404 are never retried -
- * retrying won't fix those.
+ * retrying won't fix those, and neither are the budget-related 429s or a 402
+ * (see BLACKPEARL_TERMINAL_BUDGET_CODES).
  */
 const MAX_ATTEMPTS = 3;
 const RETRY_BASE_DELAY_MS = 1000;
 
 /** Truncated for log readability - a completed job body can be several KB. */
 const LOG_BODY_PREVIEW_CHARS = 500;
+
+/**
+ * BlackPearl's machine-readable error code, from `error.code` in the response
+ * body. It is the ONLY way to tell apart the several distinct conditions that
+ * share one HTTP status, so it drives both the retry decision and the error
+ * the customer eventually sees.
+ */
+/**
+ * Carries the error code of a failed call back to the caller. Passed in by a
+ * caller that wants it; ignored entirely by the ones that do not.
+ */
+export interface BlackPearlRequestOutcome {
+  errorCode?: BlackPearlErrorCode;
+}
+
+export type KnownBlackPearlErrorCode =
+  | 'rate_limit_exceeded'
+  | 'quota_exceeded'
+  | 'budget_exceeded'
+  | 'insufficient_credits';
+
+/**
+ * Widened to `string` on purpose: BlackPearl can add codes we have never seen,
+ * and a code we do not recognise must still travel to the logs intact rather
+ * than being narrowed away. KnownBlackPearlErrorCode above documents the ones
+ * this code actually branches on.
+ */
+export type BlackPearlErrorCode = KnownBlackPearlErrorCode | (string & {});
+
+/**
+ * The 429 codes that must NOT be retried.
+ *
+ * A 429 from BlackPearl carries three different meanings and only one of them
+ * is transient - their spec is explicit: "Only `rate_limit_exceeded` is
+ * transient." `budget_exceeded` means a hard spending limit was reached (a
+ * project's allowance or its daily/monthly limit, or the company's), and
+ * `quota_exceeded` means a usage quota is exhausted. Neither resolves by
+ * waiting a second and asking again.
+ *
+ * Retrying them was actively harmful: it burned three requests and seconds of
+ * backoff before failing, and then reported the generic "transient failure"
+ * that every other retry exhaustion reports - so a tenant who had simply run
+ * out of budget produced a 503 that looked like a BlackPearl outage.
+ */
+const TERMINAL_429_CODES = new Set(['quota_exceeded', 'budget_exceeded']);
+
+/**
+ * Error codes that describe a spending limit rather than a fault, with the
+ * level each one applies to. Surfaced to callers via
+ * `lastBlackPearlErrorCode()` so a per-tenant budget stop can be told apart
+ * from a company-wide one: the first is that tenant's problem, the second
+ * stops everybody and needs an operator.
+ */
+export const BLACKPEARL_TERMINAL_BUDGET_CODES: Record<
+  string,
+  'tenant' | 'company'
+> = {
+  // A project's allowance or its daily/monthly limit - scoped to one tenant,
+  // though the company's own limits also surface here (see the spec's note
+  // that budget_exceeded covers both). Treated as tenant-scoped because that
+  // is the common case and the safe one: it fails that tenant, not everyone.
+  budget_exceeded: 'tenant',
+  quota_exceeded: 'tenant',
+  // No spendable prepaid credit remains company-wide. Every tenant is stopped.
+  insufficient_credits: 'company',
+};
 
 /**
  * Shared low-level HTTP client for every BlackPearl endpoint (Playbooks,
@@ -28,8 +96,10 @@ const LOG_BODY_PREVIEW_CHARS = 500;
  * per endpoint.
  *
  * Performs one logical HTTP call, retrying transient failures (network
- * error, timeout, 429, 5xx) up to MAX_ATTEMPTS times with exponential
- * backoff. 401/403/404 are never retried. Every attempt logs its outgoing
+ * error, timeout, a `rate_limit_exceeded` 429, 5xx) up to MAX_ATTEMPTS times
+ * with exponential backoff. 401/403/404 are never retried, and neither is a
+ * 402 or a budget-related 429 - those are spending limits, which retrying
+ * cannot clear. Every attempt logs its outgoing
  * request and the resulting response (status, elapsed time, and a truncated
  * body preview) so a failure's exact cause is always visible in the logs,
  * not just its final null result. A 503 specifically gets a full,
@@ -38,6 +108,13 @@ const LOG_BODY_PREVIEW_CHARS = 500;
  * this is the signal most worth debugging in full if it ever needs
  * investigating. Never logs the outgoing Authorization header, so the API
  * key is never exposed in logs.
+ *
+ * Returns null for every failure, as it always has. When the failure was a
+ * spending limit, `outcome.errorCode` is set to BlackPearl's own `error.code`
+ * so the caller can raise a 402 instead of a 503. It is an out-parameter
+ * rather than a changed return type because six call sites depend on the
+ * `T | null` contract, and rather than module state because several searches
+ * run concurrently - a shared "last error" would be read by the wrong one.
  */
 export async function blackPearlRequest<T>(
   logger: Logger,
@@ -45,6 +122,7 @@ export async function blackPearlRequest<T>(
   init: RequestInit,
   context: string,
   jobId?: string,
+  outcome?: BlackPearlRequestOutcome,
 ): Promise<T | null> {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     const controller = new AbortController();
@@ -102,18 +180,54 @@ export async function blackPearlRequest<T>(
       logCompleteErrorResponse(logger, response, bodyText, context, jobId);
     }
 
-    if (response.status === 429 || response.status >= 500) {
+    // A 402 or a budget-related 429 is a spending decision, not a fault. It is
+    // recorded so the caller can turn it into the right customer-facing error
+    // (a 402 "you are out of credits" rather than a 503 "try again later"),
+    // and returned immediately -- retrying a hard limit cannot clear it.
+    if (response.status === 402 || response.status === 429) {
+      const code = parseErrorCode(bodyText);
+
+      if (response.status === 402 || TERMINAL_429_CODES.has(code ?? '')) {
+        // A 402 means insufficient credits whether or not the body said so:
+        // the status alone carries that meaning in BlackPearl's spec. Falling
+        // back to the code keeps the caller's budget handling working on a
+        // 402 with an unreadable body, which would otherwise look like an
+        // ordinary failure and be reported as a generic outage.
+        if (outcome) {
+          outcome.errorCode =
+            code ??
+            (response.status === 402 ? 'insufficient_credits' : undefined);
+        }
+        logger.error(
+          `BlackPearl <- HTTP ${response.status} ${context} in ${elapsedMs}ms - ` +
+            `terminal (code=${code ?? 'unreported'}), not retrying. Body: ${truncate(bodyText)}`,
+        );
+        return null;
+      }
+
+      // Falls through to the transient path below: rate_limit_exceeded, or a
+      // 429 whose code we could not read. An unreadable code is retried
+      // deliberately -- treating an unknown 429 as terminal would turn a
+      // momentary rate limit into a failed search, which is the worse error.
+      logger.error(
+        `BlackPearl <- HTTP ${response.status} ${context} in ${elapsedMs}ms - ` +
+          `transient (code=${code ?? 'unreported'}). Body: ${truncate(bodyText)}`,
+      );
+      if (attempt < MAX_ATTEMPTS) {
+        await sleep(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1) * 2);
+        continue;
+      }
+      return null;
+    }
+
+    if (response.status >= 500) {
       if (response.status !== 503) {
         logger.error(
           `BlackPearl <- HTTP ${response.status} ${context} in ${elapsedMs}ms - transient failure. Body: ${truncate(bodyText)}`,
         );
       }
       if (attempt < MAX_ATTEMPTS) {
-        const backoffMs =
-          RETRY_BASE_DELAY_MS *
-          2 ** (attempt - 1) *
-          (response.status === 429 ? 2 : 1);
-        await sleep(backoffMs);
+        await sleep(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
         continue;
       }
       return null;
@@ -160,6 +274,24 @@ export function normalizeString(
   value: string | null | undefined,
 ): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+/**
+ * Reads `error.code` out of a BlackPearl error body. Returns undefined when
+ * the body is not JSON or carries no code - callers must treat that as
+ * "unknown", never as a particular code, since the retry decision depends on
+ * it and guessing wrong either fails a retryable call or retries a hard limit.
+ */
+function parseErrorCode(bodyText: string): BlackPearlErrorCode | undefined {
+  try {
+    const parsed = JSON.parse(bodyText) as {
+      error?: { code?: unknown };
+    };
+    const code = parsed?.error?.code;
+    return typeof code === 'string' && code.trim() ? code.trim() : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 async function safeReadText(response: Response): Promise<string> {
