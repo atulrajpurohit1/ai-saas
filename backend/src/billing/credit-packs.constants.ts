@@ -130,7 +130,27 @@ export function isCreditPackKey(value: string): value is CreditPackKey {
  * size -- see "Measured costs" at the top of this file. Both are overridable
  * by env var so they can be tuned without a deploy.
  */
-const DEFAULT_PLAYBOOK_CREDIT_COST = 50;
+/**
+ * Raised from 50 to 200 on 12 Oct 2026, on the owner's instruction, once
+ * /v1/charges showed what a playbook really costs (median $9.97 -- see
+ * "Measured costs" at the top of this file). At 50 credits every pack lost
+ * $7-$9 on every playbook.
+ *
+ * 200 credits does NOT break even on every pack, because a bigger pack sells
+ * credits more cheaply. Revenue per playbook and the result against our seven
+ * measured charges:
+ *
+ *   Starter  $9.93  -- roughly break-even at the median, loses on 4 of 7
+ *   Pro      $3.83  -- still loses on 7 of 7
+ *   Elite    $3.03  -- still loses on 7 of 7
+ *
+ * So this stops the worst of the bleeding on the entry pack and nothing more.
+ * Full cover across all three packs needs ~650 credits (Elite only reaches
+ * break-even at the median there), which is a product decision about whether
+ * playbooks are worth selling at that price rather than something to quietly
+ * encode here. Flagged to the owner; left at 200 as instructed.
+ */
+const DEFAULT_PLAYBOOK_CREDIT_COST = 200;
 const DEFAULT_DISCOVERY_CREDIT_COST = 200;
 const DEFAULT_PREVIEW_DISCOVERY_CREDIT_COST = 50;
 
@@ -188,7 +208,11 @@ export function previewDiscoveryCreditCost(): number {
 
 /**
  * Credits every new account starts with, so a customer can try Prospect Search
- * before buying a pack: one preview search or one playbook, not a full search.
+ * before buying a pack: one preview search. NOT a playbook any more -- that
+ * went from 50 to 200 credits on 12 Oct 2026 because it was being sold at a
+ * loss, so 50 credits no longer buys one. Raising the grant to cover a
+ * playbook would mean giving away ~$10 of upstream cost per signup, so the
+ * trial is deliberately a preview search only.
  * Spendable only once the tenant owns Lead Gen, since credits are gated on it.
  */
 const DEFAULT_SIGNUP_CREDIT_GRANT = 50;
