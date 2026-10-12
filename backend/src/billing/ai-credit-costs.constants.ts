@@ -9,19 +9,26 @@ import { AiFeature } from '@prisma/client';
  *
  * ## How these numbers were set
  *
- * At the Pro pack rate (13,000 credits for $249) a credit sells for about
- * $0.019. Measured against Gemini 2.5 Flash list prices ($0.30/M input,
- * $2.50/M output), a typical AI call costs us:
+ * A credit sells for about $0.0497 across all three packs (they were levelled
+ * to one rate on 13 Oct 2026 -- see CREDIT_PACKS). Measured against Gemini 2.5
+ * Flash list prices ($0.30/M input, $2.50/M output), a typical AI call costs
+ * us:
  *
  *   - a short draft  (~2k in / 0.5k out):  ~$0.002  -> ~0.1 credits to break even
- *   - a proposal     (~8k in / 2.5k out):  ~$0.009  -> ~0.5 credits
- *   - an RFP analysis (~40k in / 6k out):  ~$0.027  -> ~1.4 credits
+ *   - a proposal     (~8k in / 2.5k out):  ~$0.009  -> ~0.2 credits
+ *   - an RFP analysis (~40k in / 6k out):  ~$0.027  -> ~0.6 credits
  *
  * So AI calls are one to three orders of magnitude cheaper than a Prospect
- * Search, whose 200 credits sell for about $3.83 against an upstream cost of
- * roughly a dollar. Pricing AI features at search-like numbers would make them
+ * Search, whose 200 credits sell for about $9.93 against a median upstream
+ * cost of $9.97. Pricing AI features at search-like numbers would make them
  * absurdly expensive; pricing them at break-even would make them free in
  * practice and leave no margin for the variance.
+ *
+ * NOTE: the figures above were computed at the old $0.019 Pro rate and the
+ * break-even credit counts have been rescaled to the new $0.0497 rate. The
+ * prices below were NOT rescaled -- they were already 5-20x cost at the old
+ * rate and are now ~2.6x more generous in dollar terms, which widens the
+ * margin rather than narrowing it. Revisit them against real usage data.
  *
  * These prices therefore sit at roughly 5-20x our measured cost -- enough that
  * heavy use is paid for and a single large document cannot lose money, while

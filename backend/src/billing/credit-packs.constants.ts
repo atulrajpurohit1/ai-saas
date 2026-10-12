@@ -82,11 +82,33 @@ export interface CreditPack {
 }
 
 /**
- * Pack sizes and prices, set by the client on 1 Oct 2026 against Bebop's
- * published tiers: the same price points, with 2,000 fewer credits in each
- * ($149/5,000, $249/15,000 and $349/25,000 there). Credits are sized in the
- * same units as Bebop's -- see the per-search costs below -- so the comparison
- * holds per search, not just per credit.
+ * Pack sizes and prices. The price points were set by the client on 1 Oct 2026
+ * against Bebop's published tiers ($149/5,000, $249/15,000, $349/25,000
+ * there); the prices are unchanged, but the credit counts were cut on 13 Oct
+ * 2026 for the reason below.
+ *
+ * ## Why Pro and Elite shrank (13 Oct 2026)
+ *
+ * The original sizes sold credits at wildly different rates: $0.0497 each on
+ * Starter but $0.0192 on Pro and $0.0152 on Elite -- roughly a third of the
+ * Starter rate. Because a search is priced in CREDITS, the same search earned
+ * three times less on a big pack, so no single credit price could cover cost
+ * on all three. At any price that worked for Starter, Pro and Elite lost money
+ * on every playbook.
+ *
+ * Pro and Elite were therefore cut to 5,000 and 7,000 credits at the same
+ * dollar prices, putting all three within a cent of $0.0497 per credit. A
+ * playbook at 200 credits now earns $9.93-$9.97 on every pack, against a
+ * $9.97 median upstream cost.
+ *
+ * The volume discount is gone, which is a real commercial change: the packs no
+ * longer reward buying bigger. If a discount is wanted back, it has to come
+ * off the DOLLAR price rather than by handing out more credits, or this
+ * problem returns -- credits are the unit costs are measured in, so inflating
+ * them silently sells work below cost.
+ *
+ * Existing balances are untouched: this changes what a new purchase grants,
+ * not what anyone already holds.
  *
  * One-time purchases, not monthly: renewal was deferred so launch could use the
  * existing purchase, refund and dispute handling unchanged.
@@ -96,8 +118,8 @@ export interface CreditPack {
  */
 export const CREDIT_PACKS: Record<CreditPackKey, CreditPack> = {
   STARTER: { key: 'STARTER', label: 'Starter Pack', credits: 3000, price: 149 },
-  PRO: { key: 'PRO', label: 'Pro Pack', credits: 13000, price: 249 },
-  ELITE: { key: 'ELITE', label: 'Elite Pack', credits: 23000, price: 349 },
+  PRO: { key: 'PRO', label: 'Pro Pack', credits: 5000, price: 249 },
+  ELITE: { key: 'ELITE', label: 'Elite Pack', credits: 7000, price: 349 },
 };
 
 export const CREDIT_PACK_KEYS = Object.keys(CREDIT_PACKS) as CreditPackKey[];
@@ -136,19 +158,13 @@ export function isCreditPackKey(value: string): value is CreditPackKey {
  * "Measured costs" at the top of this file). At 50 credits every pack lost
  * $7-$9 on every playbook.
  *
- * 200 credits does NOT break even on every pack, because a bigger pack sells
- * credits more cheaply. Revenue per playbook and the result against our seven
- * measured charges:
+ * Paired with the pack resize on 13 Oct 2026 (see CREDIT_PACKS below), 200
+ * credits now earns $9.93-$9.97 on every pack against a $9.97 median cost --
+ * break-even at the median everywhere rather than on Starter alone.
  *
- *   Starter  $9.93  -- roughly break-even at the median, loses on 4 of 7
- *   Pro      $3.83  -- still loses on 7 of 7
- *   Elite    $3.03  -- still loses on 7 of 7
- *
- * So this stops the worst of the bleeding on the entry pack and nothing more.
- * Full cover across all three packs needs ~650 credits (Elite only reaches
- * break-even at the median there), which is a product decision about whether
- * playbooks are worth selling at that price rather than something to quietly
- * encode here. Flagged to the owner; left at 200 as instructed.
+ * It is break-even, not profit: 4 of our 7 measured playbooks cost more than
+ * $9.97, up to $14.02, so the expensive tail still loses. Pricing above the
+ * median is a commercial decision, not a correction, so it is left here.
  */
 const DEFAULT_PLAYBOOK_CREDIT_COST = 200;
 const DEFAULT_DISCOVERY_CREDIT_COST = 200;

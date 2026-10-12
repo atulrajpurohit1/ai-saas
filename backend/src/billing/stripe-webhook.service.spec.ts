@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { CREDIT_PACKS } from './credit-packs.constants';
 import Stripe from 'stripe';
 import { StripeService } from './stripe.service';
 import { StripeWebhookService } from './stripe-webhook.service';
@@ -141,7 +142,11 @@ describe('StripeWebhookService', () => {
 
       expect(provisioning.provision).toHaveBeenCalledWith(
         expect.objectContaining({
-          modules: expect.arrayContaining(['LEAD_GEN', 'GUARD_TOUR', 'FINANCE']),
+          modules: expect.arrayContaining([
+            'LEAD_GEN',
+            'GUARD_TOUR',
+            'FINANCE',
+          ]),
         }),
       );
     });
@@ -350,9 +355,7 @@ describe('StripeWebhookService', () => {
     });
 
     it('grants the credits the purchased price actually sells', async () => {
-      stripe.priceIdsForCheckoutSession.mockResolvedValue([
-        PRICE_CREDITS_PRO,
-      ]);
+      stripe.priceIdsForCheckoutSession.mockResolvedValue([PRICE_CREDITS_PRO]);
 
       const result = await service.handle(
         event('checkout.session.completed', packSession()),
@@ -361,7 +364,9 @@ describe('StripeWebhookService', () => {
       expect(credits.grant).toHaveBeenCalledWith(
         expect.objectContaining({
           tenantId: 'tenant-1',
-          amount: 13000,
+          // Read from the constant: these assert that the PRICE decides the
+          // grant, not that the Pro pack is any particular size.
+          amount: CREDIT_PACKS.PRO.credits,
           // The session id is what makes a replayed webhook a no-op.
           stripeSessionId: 'cs_credits_1',
         }),
@@ -369,7 +374,7 @@ describe('StripeWebhookService', () => {
       expect(result).toEqual({
         handled: true,
         tenantId: 'tenant-1',
-        credits: 13000,
+        credits: CREDIT_PACKS.PRO.credits,
       });
       // A one-off payment must never be mistaken for a subscription.
       expect(provisioning.provision).not.toHaveBeenCalled();
@@ -378,9 +383,7 @@ describe('StripeWebhookService', () => {
     // Session metadata is editable in the Stripe Dashboard, so trusting it
     // would let an edited session mint arbitrary credits.
     it('ignores a credit figure in metadata that the price does not back', async () => {
-      stripe.priceIdsForCheckoutSession.mockResolvedValue([
-        PRICE_CREDITS_PRO,
-      ]);
+      stripe.priceIdsForCheckoutSession.mockResolvedValue([PRICE_CREDITS_PRO]);
 
       await service.handle(
         event(
@@ -396,7 +399,7 @@ describe('StripeWebhookService', () => {
       );
 
       expect(credits.grant).toHaveBeenCalledWith(
-        expect.objectContaining({ amount: 13000 }),
+        expect.objectContaining({ amount: CREDIT_PACKS.PRO.credits }),
       );
     });
 
