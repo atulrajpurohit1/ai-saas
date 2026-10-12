@@ -4,7 +4,7 @@
  * One credit buys one unit of BlackPearl work: one prospect returned by a
  * discovery search, or one single-company playbook.
  *
- * PLACEHOLDER PRICING -- NOT CONFIRMED WITH BLACKPEARL OR THE CLIENT.
+ * PRICES BELOW ARE A KNOWN LOSS ON PLAYBOOKS. See "Measured costs" below.
  *
  * Earlier revisions of this file stated a unit cost of "~$0.11 per prospect,
  * confirmed empirically". That figure was never measured against a real
@@ -15,9 +15,42 @@
  * compute (PublicJobUsage: input_tokens, output_tokens, cost_usd), plus
  * request-metered quotas -- none of which is a per-prospect charge.
  *
- * Before these numbers back any external commitment, get real figures from
- * BlackPearl's /v1/usage endpoint on our own API key after live runs, or a
- * rate card from them directly, and replace this block with the source.
+ * ## Measured costs (12 Oct 2026)
+ *
+ * Two independent sources now agree, so the margin is no longer unknown:
+ *
+ * 1. `GET /v1/pricing-estimates` on our own live key -- BlackPearl's published
+ *    typical price at OUR rates:
+ *      playbooks  ~$5.70 per playbook  (10th-90th pct $4.00 - $12.00)
+ *      documents  ~$1.40 per document  ($0.92 - $1.40)
+ *      brands     ~$0.14 per brand     ($0.10 - $0.20)
+ *    No `prospecting` estimate is published for us yet -- that capability is
+ *    enabled, but the endpoint omits anything without enough recent runs.
+ *
+ * 2. Our own CreditLedgerEntry.upstreamCostUsd rows (real `job_*` jobs only;
+ *    the `demo-job-*` rows are seeded fiction and must be excluded):
+ *      discovery (4 jobs, preview-priced)  $0.67 - $1.47, median $0.95
+ *      playbook  (1 job)                   $3.74
+ *
+ * ## What that means
+ *
+ * At 50 credits, a playbook sells for $2.48 (Starter), $0.96 (Pro) or $0.76
+ * (Elite). Against even our single cheapest observed playbook at $3.74 --
+ * itself below BlackPearl's own ~$5.70 typical -- EVERY pack loses money on
+ * EVERY playbook. Breaking even at ~$5.70 would need roughly 115 credits on
+ * Starter, 298 on Pro and 376 on Elite, and ~2x those at the $12.00 top of
+ * the published range.
+ *
+ * Discovery is the healthier half and is only safe on Starter: at 50 credits
+ * it clears a $0.95 median by $1.54 on Starter, $0.01 on Pro and LOSES $0.19
+ * on Elite. Note all four measured discovery runs were preview-sized; a full
+ * search at 200 credits has no measured cost behind it at all.
+ *
+ * This is a pricing decision, not a code one, so the numbers here are left as
+ * the client set them and the loss is documented rather than silently
+ * "corrected". Raising PROSPECT_PLAYBOOK_CREDIT_COST is possible without a
+ * deploy (see the env vars below) if the call is to stop the bleeding first.
+ * Re-run `scripts/report-search-margin.ts` as more real rows accumulate.
  *
  * As with subscription pricing, the amounts here are list price for display and
  * for picking the right Stripe price id -- Stripe remains the source of truth
@@ -79,10 +112,9 @@ export function isCreditPackKey(value: string): value is CreditPackKey {
  * follows the limit requested. A single-company playbook is priced like a
  * preview. Pack sizes above only compare fairly with Bebop's because of this.
  *
- * Still not calibrated against our own cost. Real cost per search is recorded
- * via CreditLedgerEntry.upstreamCostUsd; until enough of those rows exist,
- * nobody knows the true margin. Both are overridable by env var so they can be
- * tuned from real data without a deploy.
+ * Now calibrated, and the playbook price is a confirmed loss at every pack
+ * size -- see "Measured costs" at the top of this file. Both are overridable
+ * by env var so they can be tuned without a deploy.
  */
 const DEFAULT_PLAYBOOK_CREDIT_COST = 50;
 const DEFAULT_DISCOVERY_CREDIT_COST = 200;
