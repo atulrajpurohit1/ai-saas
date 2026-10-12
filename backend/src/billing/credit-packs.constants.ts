@@ -27,24 +27,38 @@
  *    No `prospecting` estimate is published for us yet -- that capability is
  *    enabled, but the endpoint omits anything without enough recent runs.
  *
- * 2. Our own CreditLedgerEntry.upstreamCostUsd rows (real `job_*` jobs only;
- *    the `demo-job-*` rows are seeded fiction and must be excluded):
- *      discovery (4 jobs, preview-priced)  $0.67 - $1.47, median $0.95
- *      playbook  (1 job)                   $3.74
+ * 2. `GET /v1/charges` -- what we were ACTUALLY billed, per job:
+ *      playbooks  (7 jobs)  $4.47, $4.56, $4.86, $9.97, $10.71, $11.19, $14.02
+ *                           median $9.97, mean $8.54
+ *      prospecting          mostly $0.39 - $1.91, one outlier at $7.96
+ *
+ * Our own CreditLedgerEntry.upstreamCostUsd rows are NOT a reliable third
+ * source: every one of the five recorded costs is exactly 76.92% of what
+ * /v1/charges says we paid (i.e. the real charge is the recorded figure x
+ * 1.30, identical across all five jobs). The capture code copies
+ * job.usage.cost_usd verbatim and the charge was finalised BEFORE we settled
+ * in all five cases, yet re-reading those same jobs today returns the full
+ * amount -- so BlackPearl's reported cost_usd rises after the value we read.
+ * A further $12.03 is invisible entirely: four RELEASED (failed, refunded)
+ * jobs that BlackPearl still charged us for recorded null.
+ *
+ * Treat /v1/charges as the only authoritative cost, and the ledger column as
+ * an under-estimate until it is reconciled against it.
  *
  * ## What that means
  *
  * At 50 credits, a playbook sells for $2.48 (Starter), $0.96 (Pro) or $0.76
- * (Elite). Against even our single cheapest observed playbook at $3.74 --
- * itself below BlackPearl's own ~$5.70 typical -- EVERY pack loses money on
- * EVERY playbook. Breaking even at ~$5.70 would need roughly 115 credits on
- * Starter, 298 on Pro and 376 on Elite, and ~2x those at the $12.00 top of
- * the published range.
+ * (Elite). Our median billed playbook is $9.97 and the cheapest we have ever
+ * been charged is $4.47, so EVERY pack loses money on EVERY playbook -- about
+ * $7.49 per playbook on Starter and $9.22 on Elite. Breaking even at the
+ * $9.97 median would need roughly 201 credits on Starter, 521 on Pro and 657
+ * on Elite: four to thirteen times the current price.
  *
- * Discovery is the healthier half and is only safe on Starter: at 50 credits
- * it clears a $0.95 median by $1.54 on Starter, $0.01 on Pro and LOSES $0.19
- * on Elite. Note all four measured discovery runs were preview-sized; a full
- * search at 200 credits has no measured cost behind it at all.
+ * Discovery is the healthier half. Billed prospecting runs are mostly $0.39 -
+ * $1.91, which 50 credits covers on Starter ($2.48) but barely on Pro ($0.96)
+ * and not on Elite ($0.76). One run was billed $7.96, so the tail is real.
+ * Note every measured run was preview-sized; a full search at 200 credits has
+ * no measured cost behind it at all.
  *
  * This is a pricing decision, not a code one, so the numbers here are left as
  * the client set them and the loss is documented rather than silently

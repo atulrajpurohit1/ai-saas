@@ -8,6 +8,14 @@
  * only way to price the packs is from our own measured cost. This is that
  * measurement.
  *
+ * IMPORTANT: upstreamCostUsd systematically UNDER-STATES what we paid. Every
+ * real job measured on 12 Oct 2026 recorded exactly 76.92% of its eventual
+ * charge, because BlackPearl's job.usage.cost_usd rises after we read it at
+ * settlement. `--reconcile` checks this column against GET /v1/charges, which
+ * is authoritative; run it before trusting any margin figure below. It also
+ * reports jobs BlackPearl charged for while the ledger recorded nothing, which
+ * failed-and-refunded jobs routinely do.
+ *
  * Read-only. Searches are grouped by kind (playbook / discovery) and by the
  * credits actually charged, which separates Preview from Full even if prices
  * changed over time. Searches that failed and were refunded are reported on
@@ -19,6 +27,7 @@
  *   npx ts-node -T scripts/report-search-margin.ts
  *   npx ts-node -T scripts/report-search-margin.ts --since=2026-10-01
  *   npx ts-node -T scripts/report-search-margin.ts --slug=acme,globex --since=2026-10-01
+ *   npx ts-node -T scripts/report-search-margin.ts --reconcile
  */
 import { PrismaClient } from '@prisma/client';
 import {
@@ -49,11 +58,134 @@ function kindOf(description: string): string {
   return 'Other';
 }
 
+/**
+ * Compares what the ledger recorded against what BlackPearl actually billed,
+ * per job, using GET /v1/charges. The charge is authoritative: it is the money
+ * that left the account, whereas upstreamCostUsd is whatever cost_usd happened
+ * to say at the moment we settled.
+ *
+ * Needs BLACKPEARL_API_KEY. A project key is enough -- it sees its own
+ * project's charges, which is all of ours today.
+ */
+async function reconcile(sinceDate?: Date) {
+  const apiKey = process.env.BLACKPEARL_API_KEY;
+  if (!apiKey) {
+    throw new Error('--reconcile needs BLACKPEARL_API_KEY to be set.');
+  }
+  const baseUrl = (
+    process.env.BLACKPEARL_BASE_URL ?? 'https://api.blackpearl.com/v1'
+  ).replace(/\/$/, '');
+
+  // Paginate: a long-lived account has more charges than one page returns.
+  const billed = new Map<string, number>();
+  let cursor: string | undefined;
+  do {
+    const url = new URL(`${baseUrl}/charges`);
+    url.searchParams.set('limit', '100');
+    if (cursor) url.searchParams.set('cursor', cursor);
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!response.ok) {
+      throw new Error(
+        `GET /v1/charges failed: HTTP ${response.status} ${await response.text()}`,
+      );
+    }
+    const page = (await response.json()) as {
+      charges?: { job_id?: string | null; amount_usd?: number }[];
+      has_more?: boolean;
+      next_cursor?: string;
+    };
+    for (const charge of page.charges ?? []) {
+      if (charge.job_id && typeof charge.amount_usd === 'number') {
+        // Charges are signed; a debit is negative.
+        billed.set(
+          charge.job_id,
+          (billed.get(charge.job_id) ?? 0) + Math.abs(charge.amount_usd),
+        );
+      }
+    }
+    cursor = page.has_more ? page.next_cursor : undefined;
+  } while (cursor);
+
+  const rows = await prisma.creditLedgerEntry.findMany({
+    where: {
+      type: 'RESERVATION',
+      // Only real jobs: seeded demo rows have no counterpart upstream.
+      jobId: { startsWith: 'job_' },
+      ...(sinceDate ? { createdAt: { gte: sinceDate } } : {}),
+    },
+    select: { jobId: true, upstreamCostUsd: true, reservationStatus: true },
+  });
+
+  console.log(
+    `${billed.size} billed job(s) upstream, ${rows.length} in the ledger.
+`,
+  );
+  console.log(
+    `${'jobId'.padEnd(30)}${'ledger'.padStart(10)}${'billed'.padStart(10)}${'under by'.padStart(11)}`,
+  );
+
+  let recordedTotal = 0;
+  let billedTotal = 0;
+  let mismatches = 0;
+  let unrecorded = 0;
+  let unrecordedUsd = 0;
+
+  for (const row of rows) {
+    const jobId = row.jobId!;
+    const charge = billed.get(jobId);
+    const recorded =
+      row.upstreamCostUsd === null ? null : Number(row.upstreamCostUsd);
+
+    if (recorded !== null) recordedTotal += recorded;
+    if (charge !== undefined) billedTotal += charge;
+
+    if (recorded === null && charge !== undefined) {
+      unrecorded += 1;
+      unrecordedUsd += charge;
+    } else if (recorded !== null && charge !== undefined) {
+      if (Math.abs(charge - recorded) > 0.0001) mismatches += 1;
+    }
+
+    const delta =
+      recorded !== null && charge !== undefined ? usd(charge - recorded) : '-';
+    console.log(
+      jobId.slice(0, 29).padEnd(30) +
+        (recorded === null ? 'none' : usd(recorded)).padStart(10) +
+        (charge === undefined ? '-' : usd(charge)).padStart(10) +
+        delta.padStart(11) +
+        `  ${row.reservationStatus}`,
+    );
+  }
+
+  console.log('');
+  console.log(`  ledger total:  ${usd(recordedTotal)}`);
+  console.log(`  billed total:  ${usd(billedTotal)}`);
+  console.log(
+    `  understated by ${usd(billedTotal - recordedTotal)}` +
+      (recordedTotal > 0
+        ? ` (billed is ${(billedTotal / recordedTotal).toFixed(2)}x recorded)`
+        : ''),
+  );
+  console.log(
+    `  ${mismatches} job(s) recorded a cost that differs from the charge.`,
+  );
+  console.log(
+    `  ${unrecorded} job(s) were charged ${usd(unrecordedUsd)} while the ledger recorded nothing.`,
+  );
+}
+
 async function main() {
   const since = arg('since');
   const sinceDate = since ? new Date(since) : undefined;
   if (sinceDate && Number.isNaN(sinceDate.getTime())) {
     throw new Error(`--since is not a date: ${since}`);
+  }
+
+  if (process.argv.includes('--reconcile')) {
+    await reconcile(sinceDate);
+    return;
   }
 
   const slugs = (arg('slug') ?? '')
