@@ -1,0 +1,154 @@
+# Production stack for the GoDaddy VPS. Copied to /opt/aegislead/ on the box
+# together with .env.production (chmod 600) and the nginx/ directory.
+#
+# Images are built and pushed by .github/workflows/deploy-production.yml and
+# pulled here by tag, so this file never builds anything: a deploy is
+# `docker compose pull && docker compose up -d`, and a rollback is the previous
+# tag in .env.production.
+#
+# Only nginx publishes ports. Postgres and Redis are reachable on the compose
+# network and nowhere else -- there is no published port to firewall off, and
+# nothing on the public internet can reach the database even if ufw is
+# misconfigured.
+name: aegislead
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aegislead}
+      POSTGRES_USER: ${POSTGRES_USER:-aegislead}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      # Pinned rather than left to the image default, which moved in 18.
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-aegislead} -d ${POSTGRES_DB:-aegislead}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # A deploy that restarts the API must not find the connection slots full;
+    # the default 100 is plenty for one backend container but leaves no room
+    # for a stuck old process plus a pg_dump.
+    command: ['postgres', '-c', 'max_connections=150']
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Cache and rate-limit counters only -- nothing here needs to survive a
+    # restart, so persistence is off and memory is capped instead of letting
+    # Redis compete with Postgres for RAM.
+    command:
+      [
+        'redis-server',
+        '--save',
+        '',
+        '--appendonly',
+        'no',
+        '--maxmemory',
+        '256mb',
+        '--maxmemory-policy',
+        'allkeys-lru',
+      ]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE must be set}
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      # Set here, not in .env.production, because they are a property of this
+      # compose file rather than of the deployment's secrets.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aegislead}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aegislead}?schema=public&connection_limit=20
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: production
+      PORT: '5000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # /api/health/ready returns 503 while the database is unreachable, so an
+      # unhealthy container here means "do not send traffic", not "restart me".
+      test:
+        [
+          'CMD',
+          'wget',
+          '--quiet',
+          '--tries=1',
+          '--spider',
+          'http://127.0.0.1:5000/api/health/ready',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 40s
+    # IMPORTANT: exactly one replica. The credit auto-recharge, credit
+    # reservation, credit low-balance and report delivery schedulers are
+    # in-process @Cron jobs with no leader election -- a second replica
+    # double-charges cards and double-sends reports.
+    deploy:
+      replicas: 1
+
+  frontend:
+    image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE must be set}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      HOSTNAME: 0.0.0.0
+    depends_on:
+      - backend
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '--quiet',
+          '--tries=1',
+          '--spider',
+          'http://127.0.0.1:3000/',
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - letsencrypt:/etc/letsencrypt:ro
+      - certbot-webroot:/var/www/certbot:ro
+    depends_on:
+      - frontend
+      - backend
+
+  # Run on demand, never as part of the stack:
+  #   docker compose --profile certs run --rm certbot   (first issuance)
+  #   docker compose --profile certs run --rm certbot renew   (from a timer)
+  certbot:
+    image: certbot/certbot:latest
+    profiles: ['certs']
+    volumes:
+      - letsencrypt:/etc/letsencrypt
+      - certbot-webroot:/var/www/certbot
+    entrypoint: ['certbot']
+
+volumes:
+  pgdata:
+  letsencrypt:
+  certbot-webroot:

@@ -86,7 +86,10 @@ function CreditsContent() {
     try {
       const { url } = await startCreditCheckout(pack);
       if (url) {
-        window.location.href = url;
+        // assign(), not `location.href = url`: the React Compiler lint rule
+        // in eslint-config-next treats the assignment as mutating a value it
+        // owns, and this is the same navigation either way.
+        window.location.assign(url);
         return;
       }
       setError('Stripe did not return a checkout link. Please try again.');

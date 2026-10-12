@@ -1,0 +1,101 @@
+# Port 443 for dashboard.aegislead.co.
+#
+# RENAME to 10-dashboard-tls.conf (dropping .disabled) only AFTER the
+# certificate exists -- nginx refuses to start when ssl_certificate points at a
+# missing file, which would take the whole stack down. See deploy/README.md.
+#
+# The single-origin layout is deliberate: /api/* goes to the NestJS container
+# and everything else to Next.js, so the browser only ever talks to one origin
+# and production needs no CORS at all.
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name dashboard.aegislead.co;
+
+    ssl_certificate /etc/letsencrypt/live/dashboard.aegislead.co/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/dashboard.aegislead.co/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+    ssl_stapling on;
+    ssl_stapling_verify on;
+
+    # Docker's embedded DNS. Without it, nginx resolves the upstream names once
+    # at startup and dies with "host not found in upstream" if the backend
+    # happens to be down -- turning a failed app deploy into a total outage.
+    # The upstreams below are therefore written as variables, which forces a
+    # fresh lookup per request.
+    resolver 127.0.0.11 ipv6=off valid=10s;
+
+    # Bigger than the largest upload the API accepts (see the *_MAX_MB env
+    # vars: incident video evidence and call recordings are the big ones).
+    # Nginx rejects an oversized body itself, before the request ever reaches
+    # the API, so this must be the looser of the two limits.
+    client_max_body_size 200m;
+
+    # The API's own 10mb JSON body-parser limit still applies to JSON requests.
+    client_body_timeout 120s;
+
+    access_log /var/log/nginx/dashboard.access.log;
+    error_log /var/log/nginx/dashboard.error.log;
+
+    location /api/ {
+        set $api_upstream backend:5000;
+        proxy_pass http://$api_upstream$request_uri;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        # REPLACED, not appended. backend/src/main.ts trusts exactly one proxy
+        # hop and several routes read X-Forwarded-For to throttle logins per IP;
+        # appending ($proxy_add_x_forwarded_for) would let a client prepend any
+        # address it liked and walk straight past those limits.
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+
+        # AI endpoints (Gemini/OpenAI calls, proposal and RFP generation) run
+        # well past the 60s default. The frontend axios client gives up at 25s,
+        # so this only needs to outlast the slow server-to-server work that
+        # keeps running after the browser has stopped waiting.
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 120s;
+        proxy_read_timeout 120s;
+
+        # Stripe signs the exact bytes it sent and the webhook route verifies
+        # that signature, so nothing may rewrite or buffer-mangle the body.
+        proxy_request_buffering off;
+        proxy_buffering off;
+    }
+
+    location / {
+        set $web_upstream frontend:3000;
+        proxy_pass http://$web_upstream$request_uri;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Next.js server actions and streamed RSC payloads.
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_read_timeout 120s;
+    }
+}
+
+# Same reasoning as the HTTP default server: a TLS request for an unknown name
+# should not be served the dashboard.
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    http2 on;
+    server_name _;
+    ssl_certificate /etc/letsencrypt/live/dashboard.aegislead.co/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/dashboard.aegislead.co/privkey.pem;
+    return 444;
+}

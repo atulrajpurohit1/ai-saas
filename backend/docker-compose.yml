@@ -1,16 +1,40 @@
-version: '3.8'
+# LOCAL DEVELOPMENT database only. Production runs deploy/docker-compose.prod.yml.
 services:
   db:
-    image: postgres:15-alpine
+    # Matches the production major version. Neon (staging) and the VPS both run
+    # 18, and a dump taken from 18 cannot be restored into an older server, so
+    # a developer on 15 would find prod dumps unusable locally.
+    #
+    # The volume is deliberately named pgdata18 rather than reusing pgdata: a
+    # 15 data directory handed to an 18 server does not upgrade, it refuses to
+    # start. The old volume is left untouched if you still need it.
+    image: postgres:18-alpine
     restart: always
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: auth_db
+      # The 18 image moved its default data directory, so it is pinned here
+      # instead of relying on the image default.
+      PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - '5432:5432'
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata18:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d auth_db']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional locally -- the app falls back to per-process memory when REDIS_URL
+  # is unset. Production sets it, so run this when you need to reproduce the
+  # shared-cache behaviour of Prospect Search rate limiting.
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - '6379:6379'
 
 volumes:
-  pgdata:
+  pgdata18:

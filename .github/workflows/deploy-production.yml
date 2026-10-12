@@ -1,0 +1,129 @@
+# Production deploy to the GoDaddy VPS.
+#
+# INERT until the VPS exists: it only triggers on the `production` branch, and
+# it needs the four VPS_* secrets below. Merging it changes nothing about the
+# current Vercel/Render setup.
+#
+# Shape: build the images on a runner, push them to GHCR, then have the VPS
+# pull them. The VPS never builds -- a Next.js build on a small box is slow and
+# can be OOM-killed, and a runner build gives every deploy an identical,
+# re-deployable artifact tagged with its commit.
+#
+# Secrets (Settings -> Secrets and variables -> Actions):
+#   VPS_HOST          hostname or IP of the VPS
+#   VPS_USER          the unprivileged deploy user (not root)
+#   VPS_SSH_KEY       that user's private key; the public half goes in its
+#                     ~/.ssh/authorized_keys
+#   VPS_KNOWN_HOSTS   output of `ssh-keyscan -H <host>`, so a deploy fails
+#                     rather than trusting whatever answers on port 22
+#
+# The `production` environment (Settings -> Environments) is the manual gate:
+# add yourself as a required reviewer there and no deploy runs unapproved.
+name: Deploy production
+
+on:
+  push:
+    branches: [production]
+  workflow_dispatch:
+
+# Never run two deploys at once, and never cancel one mid-flight: an
+# interrupted deploy can leave migrations applied with the old image running.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: Build and push images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      backend-image: ${{ steps.tags.outputs.backend }}
+      frontend-image: ${{ steps.tags.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image tags
+        id: tags
+        run: |
+          # Lowercased: GHCR rejects an uppercase repository path, and GitHub
+          # owner names may contain capitals.
+          owner="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          echo "backend=ghcr.io/$owner/aegislead-backend:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          echo "frontend=ghcr.io/$owner/aegislead-frontend:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          echo "owner=$owner" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.tags.outputs.backend }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ steps.tags.outputs.frontend }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=/api
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+  deploy:
+    name: Deploy to VPS
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # Required reviewers on this environment are what make the deploy manual.
+    environment:
+      name: production
+      url: https://dashboard.aegislead.co
+    steps:
+      - name: Configure SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          BACKEND_IMAGE: ${{ needs.build.outputs.backend-image }}
+          FRONTEND_IMAGE: ${{ needs.build.outputs.frontend-image }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # The VPS needs its own read access to GHCR. This token is scoped to
+          # this run, so it is piped in rather than stored on the box.
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
+            "docker login ghcr.io -u ${{ github.actor }} --password-stdin" <<< "$GHCR_TOKEN"
+
+          # remote-deploy.sh (deploy/remote-deploy.sh in this repo, installed at
+          # /opt/aegislead/) migrates, swaps the containers, polls
+          # /api/health/ready and rolls back the images if it never passes.
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
+            "/opt/aegislead/remote-deploy.sh '$BACKEND_IMAGE' '$FRONTEND_IMAGE'"

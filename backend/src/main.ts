@@ -36,6 +36,26 @@ async function bootstrap() {
   app.useBodyParser('json', { limit: '10mb' });
   app.useBodyParser('urlencoded', { limit: '10mb', extended: true });
 
+  // SIGTERM is how a container runtime and a platform redeploy both ask this
+  // process to stop. Without shutdown hooks Nest never runs onModuleDestroy,
+  // so in-flight requests are cut off mid-response and Prisma's Postgres
+  // connections are left for the server to time out. That costs little against
+  // a managed pool; against a single Postgres on a VPS with a fixed
+  // max_connections it means a redeploy can exhaust the connection slots.
+  app.enableShutdownHooks();
+
+  // Behind a reverse proxy -- Nginx on the VPS, the platform edge on Render --
+  // the socket's peer address is the proxy, so req.ip would see every visitor
+  // in the world as one client. Trusting exactly one hop makes req.ip the
+  // address that proxy reports.
+  //
+  // One hop, not `true`: this is only sound because that proxy REPLACES
+  // X-Forwarded-For with the connecting address (see
+  // deploy/nginx/dashboard.aegislead.co.conf). If the header were passed
+  // through untouched, a client could prepend any address it liked and walk
+  // straight past the per-IP login throttling that reads it.
+  app.set('trust proxy', 1);
+
   app.useGlobalFilters(new PrismaExceptionFilter());
   // `whitelist: true` already strips any property the DTO does not declare,
   // which is what prevents mass assignment. `forbidNonWhitelisted` was

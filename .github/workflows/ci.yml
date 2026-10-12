@@ -1,0 +1,184 @@
+# Checks every pull request and every push to main.
+#
+# Nothing here needs a secret or touches a deployed environment, so it is safe
+# on forks and runs before the staging deploy that follows a merge to main.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, production]
+
+# A new push supersedes the previous run on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (lint, test, build)
+    # Pinned for the same reason as db-backup.yml: ubuntu-latest moves to
+    # Ubuntu 26 on 2026-10-19 and a runner change should be a deliberate step.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      # The Prisma client is generated code; nothing below compiles without it.
+      - run: npx prisma generate
+
+      # `npm run lint` passes --fix, which rewrites files instead of failing --
+      # so nothing has ever enforced the lint rules, and a strict run currently
+      # reports ~1840 violations (mostly prettier formatting) across code that
+      # predates this workflow.
+      #
+      # Advisory for now: the output is there to read, but it does not block a
+      # merge, because a gate that is red on arrival just gets ignored. Clear
+      # the backlog with one `npm run lint` commit, then delete
+      # continue-on-error and this comment.
+      - name: Lint (advisory)
+        continue-on-error: true
+        run: npx eslint "{src,apps,libs,test}/**/*.ts"
+
+      - name: Unit tests
+        run: npm test
+        env:
+          NODE_ENV: test
+          # app-boots.spec.ts compiles the real module graph, which constructs
+          # PrismaService and JwtStrategy -- both of which throw on a missing
+          # value before any test body runs. Nothing here connects anywhere;
+          # these only have to be present and well-formed.
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+          JWT_ACCESS_SECRET: ci-access-secret-not-used-to-sign-anything-real
+          JWT_REFRESH_SECRET: ci-refresh-secret-not-used-to-sign-anything-real
+
+      - name: Build
+        run: npm run build
+
+  migrations:
+    name: Migrations match schema
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        # Same major version as staging (Neon) and production (the VPS).
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ci?schema=public
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      - name: Schema is valid
+        run: npx prisma validate
+
+      # Proves the migration history still applies cleanly from nothing --
+      # which is exactly what `migrate deploy` will do against a fresh
+      # production database on the VPS.
+      - name: Apply every migration to an empty database
+        run: npx prisma migrate deploy
+
+      # Catches the failure mode this repo has already collected scripts for
+      # (backend/scripts/apply-*.ts): schema.prisma edited, no migration
+      # written, so staging and production diverge invisibly.
+      - name: No drift between migrations and schema.prisma
+        run: |
+          npx prisma migrate diff \
+            --from-url "$DATABASE_URL" \
+            --to-schema-datamodel prisma/schema.prisma \
+            --exit-code
+
+  images:
+    name: Production images build
+    # The production Dockerfiles are only otherwise exercised by a deploy to
+    # the VPS, which runs off the `production` branch. Building them here (no
+    # push) means a broken Dockerfile fails on the pull request that broke it
+    # instead of in the middle of a release.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: false
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: false
+          build-args: |
+            NEXT_PUBLIC_API_URL=/api
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+  frontend:
+    name: Frontend (lint, build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - name: Build
+        run: npm run build
+        env:
+          # Inlined into the bundle at build time. The value only has to be
+          # well-formed for the build to be representative; the real one is set
+          # per environment (Vercel project settings for staging, a Docker
+          # build arg for production).
+          NEXT_PUBLIC_API_URL: /api

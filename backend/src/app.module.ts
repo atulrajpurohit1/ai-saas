@@ -60,6 +60,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { GuardComplianceModule } from './guard-compliance/guard-compliance.module';
 import { EmergencyAlertsModule } from './emergency-alerts/emergency-alerts.module';
 import { ClientComplianceModule } from './client-compliance/client-compliance.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { ClientComplianceModule } from './client-compliance/client-compliance.mo
     // Drives automatic daily-report delivery; see ReportDeliveryScheduler.
     ScheduleModule.forRoot(),
     PrismaModule,
+    HealthModule,
     SharedStoreModule,
     EntitlementsModule,
     RolesModule,

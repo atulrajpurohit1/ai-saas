@@ -523,8 +523,22 @@ From the repo root, `start-all.bat` opens both servers in separate windows
 (`start-backend.bat` = `npm run start:dev`, `start-frontend.bat` = `npm run dev`).
 
 ### Deployment
-`render.yaml` deploys the frontend on Render.com; the backend is a separate Render web
-service. `NEXT_PUBLIC_API_URL` points the frontend at the deployed backend `/api`.
+Two environments:
+
+- **Staging** – frontend on Vercel, backend on a Render web service, database on Neon.
+  Both hosts deploy from `main` on their own git integration. `NEXT_PUBLIC_API_URL` is
+  set per environment in the Vercel project (it is no longer hard-coded in
+  `vercel.json`); `render.yaml` still defines a Render frontend service as well, which is
+  redundant now that Vercel serves staging.
+- **Production** – `dashboard.aegislead.co`, self-hosted on a VPS: Postgres 18, Redis,
+  the NestJS API and the Next.js server behind Nginx, which serves `/api/*` from the API
+  and everything else from Next (one origin, so no CORS). Images are built by
+  `.github/workflows/deploy-production.yml`, pushed to GHCR and pulled by the box.
+  Everything the VPS needs lives in `deploy/` — see `deploy/README.md` for the runbook
+  and `docs/CICD_VPS_MIGRATION_PLAN.md` for the Neon-to-VPS migration.
+
+`GET /api/health` is the liveness probe (no database) and `GET /api/health/ready` the
+readiness probe (503 while Postgres is unreachable); deploys gate on the latter.
 
 ---
 
