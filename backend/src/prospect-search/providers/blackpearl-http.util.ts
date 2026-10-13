@@ -78,22 +78,29 @@ export const BLACKPEARL_TERMINAL_BUDGET_CODES: Record<
   string,
   'tenant' | 'company'
 > = {
-  // A budget or quota ceiling. Company-scoped, because a BlackPearl API key
-  // is scoped to a PROJECT -- `ProjectBearerAuth` is the only security scheme
-  // in their spec, and GET /v1/usage returns the project_id the key
-  // authenticates as -- and we hold exactly one key. So every tenant runs
-  // under the same project, and a budget that refuses one of them has
-  // refused all of them. Their budgets carry scope `organization` or
-  // `project`; with one shared project both are company-wide for us.
+  // One client's own allowance, its daily or monthly limit, or the minimum
+  // required to start a search. BlackPearl is explicit that only that client
+  // stops -- every other tenant keeps working -- and `error.details.kind`
+  // says which of the four it was: `allowance`, `min_to_start`, `day` or
+  // `month`.
   //
-  // This was briefly mapped to 'tenant' on the grounds that failing one
-  // tenant is safer than failing everyone. It is the opposite: it tells one
-  // unlucky customer their account hit a limit, invites them to buy credits
-  // that will not help, and skips the operator alert for what is actually a
-  // platform-wide stop.
-  budget_exceeded: 'company',
-  quota_exceeded: 'company',
+  // This was briefly mapped to 'company' here, on the reasoning that a
+  // BlackPearl key is project-scoped and we hold one key, so any ceiling must
+  // bind everyone. That was read off the August copy of their spec in
+  // scratch/bp_openapi.json, which predates projects entirely. Per-project
+  // allowances are real and the `Blackpearl-Project` header selects the
+  // client per request, so this is per-tenant by design.
+  //
+  // Caveat worth knowing until projects are actually adopted: with no project
+  // header being sent, a budget_exceeded could only come from the
+  // company-wide caps set via PUT /v1/limits, which is NOT per-tenant.
+  // Reading `error.details.kind` is what settles it properly, and is the
+  // right follow-up when projects land.
+  budget_exceeded: 'tenant',
+  quota_exceeded: 'tenant',
   // No spendable prepaid credit remains company-wide. Every tenant is stopped.
+  // This one really is shared fate, and per-client projects do not change it:
+  // the company balance funds every project.
   insufficient_credits: 'company',
 };
 

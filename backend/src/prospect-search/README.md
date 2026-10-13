@@ -126,16 +126,14 @@ customer-facing answer:
 
 | Scope | Meaning | Response |
 |---|---|---|
-| `company` | Our prepaid balance is spent, or a budget or quota on our one shared project refused the job. Every tenant is stopped. | `503` + the cached balance is invalidated, since only an operator can fix it |
-| `tenant` | One tenant's own upstream allowance. Nothing produces this yet - see below. | `402 INSUFFICIENT_CREDITS` - the frontend offers a top-up |
+| `tenant` | One client's allowance, daily/monthly limit, or minimum-to-start. Everyone else keeps working. | `402 INSUFFICIENT_CREDITS` - the frontend offers a top-up |
+| `company` | Our prepaid balance is spent. Every tenant is stopped. | `503` + the cached balance is invalidated, since only an operator can fix it |
 
-**Every code maps to `company` today.** A BlackPearl API key is scoped to a
-project and we hold one key, so all our tenants run under the same project and
-a ceiling that refused one of them refused all of them. Mapping a budget stop
-to `tenant` would tell one unlucky customer their account hit a limit, invite
-them to buy credits that cannot help, and skip the operator alert for a
-platform-wide outage. The `tenant` scope is kept because the distinction is
-the point of the type - who to tell, and whether the customer's money fixes it.
+Until per-client projects are actually adopted, no `Blackpearl-Project` header
+is sent, so a `budget_exceeded` could only come from the company-wide caps set
+via `PUT /v1/limits` - which is not per-tenant. Reading `error.details.kind`
+(`allowance`, `min_to_start`, `day`, `month`) is what settles it properly, and
+is the right follow-up when projects land.
 
 No credits are taken in either case: the hold is placed only *after* a
 submission succeeds, so a refusal costs the customer nothing.
@@ -164,37 +162,40 @@ configured by `BLACKPEARL_TENANT_MONTHLY_COST_CAP_USD`, which has no default
 Those three are the limits WE apply before submitting. The section above is
 what happens when BlackPearl refuses a job we did submit.
 
-### Why the per-tenant cap is enforced here and not by BlackPearl
+### The per-tenant cap here is a stopgap, not the destination
 
-BlackPearl has per-project monthly budgets, and one project per tenant would
-be a tidier place for this. It is not available to us as the API stands:
+BlackPearl supports one project per client, and that is where this ceiling
+belongs. `POST /v1/projects` creates a project, the `Blackpearl-Project` header
+names the client on each request, `POST /v1/projects/{ref}/allowance` tops it
+up and `/allowance/reductions` reverses it, both idempotent on a `reference`
+we already have (the Stripe session id, already unique on the ledger). A client
+over its allowance gets a 429 `budget_exceeded` and nobody else is affected.
 
-- **A BlackPearl API key is project-scoped.** The only security scheme in
-  their OpenAPI document is `ProjectBearerAuth` ("Project-scoped Blackpearl
-  API key"), and `GET /v1/usage` returns the `project_id` the key
-  authenticates as. The project is chosen by WHICH key you send; there is no
-  per-request project header. Per-tenant projects would therefore mean one API
-  key per tenant, minted through their console, stored and rotated per tenant.
-- **Project and budget administration is not in the public API.** Neither
-  `/v1/projects` nor `/v1/limits` appears in their OpenAPI document (v0.2.0,
-  saved at `scratch/bp_openapi.json`), and a project key calling them is
-  refused with "Only a company-level API key can manage projects and limits".
-  So whatever exists there is company-level and undocumented to us; none of it
-  has been verified against the live API.
-- **A budget is a cap, not a balance.** `PublicBudgetStatus` is a monthly
-  ceiling (`limit_usd`, `hard_limit`) that resets at `resets_at`. Mirroring
-  customer credit purchases into it would be wrong twice over: it resets every
-  month, and raising the limit widens a cap rather than funding anything.
-- **Projects would not fix the shared-fate problem anyway.** Prepaid credit is
-  held at the ORGANIZATION level -- `credits.balance_usd` is documented as the
-  organization's balance, and a 402 from a job submission is "the organization
-  does not have enough prepaid credits". A project budget caps one tenant's
-  blast radius; it cannot stop the shared pot emptying and stopping everyone.
+That is not built yet. The cap in `UpstreamBudgetService` is enforced from our
+own ledger instead, which needs no upstream changes and works today, but it is
+an approximation: it reads costs we recorded ourselves rather than a balance
+BlackPearl is enforcing.
 
-So our ledger stays the authority on what a tenant may spend. If per-tenant
-BlackPearl projects are ever set up, they should be a second blast-radius cap,
-not a second billing system -- two balances that disagree is worse than one
-that is right.
+Two things to carry into that work:
+
+- **Projects do not fix shared fate.** Prepaid credit is held at the company
+  level and funds every project, so an exhausted balance is still a 402 that
+  stops every tenant. Auto top-up is console-only, with no API, so customer
+  purchases cannot programmatically fund it either.
+- **Keep our ledger authoritative.** A project allowance is a second record of
+  what a tenant may spend, and the two drift whenever a job's real cost differs
+  from the flat credit price - which is always, since we charge flat and
+  BlackPearl bills variable compute. Treat the allowance as a blast-radius cap,
+  not a second billing system, or there will be two balances to reconcile.
+
+> **A warning about `scratch/bp_openapi.json`.** That file is an August copy
+> and does not contain projects, allowances, limits, charges or pricing
+> estimates, all of which shipped later. Its `info.version` still reads
+> `0.2.0`, exactly as the live spec does, so the version string cannot tell
+> you it is stale. Fetch `https://api.blackpearl.com/v1/openapi.json` before
+> concluding anything about what the API does or does not support - reading
+> the cached copy as current is how an earlier revision of this document came
+> to claim, wrongly, that per-client projects were impossible.
 
 ## Configuration
 

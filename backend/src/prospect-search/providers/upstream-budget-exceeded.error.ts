@@ -11,20 +11,14 @@
  * `scope` says who is affected, which is the whole reason the distinction
  * matters operationally:
  *
- *   - 'company' - a company-wide stop: our prepaid balance is spent, or a
- *                 budget or quota on our one shared project refused the job.
- *                 EVERY tenant is stopped and only we can fix it, so this
- *                 must page an operator rather than ask the customer for
- *                 money. Every code in BLACKPEARL_TERMINAL_BUDGET_CODES maps
- *                 here today.
- *   - 'tenant'  - one tenant's own upstream allowance. NOTHING produces this
- *                 yet: it would need a BlackPearl project per tenant, and
- *                 their keys are project-scoped, so that means one key per
- *                 tenant minted through their console. The scope is kept
- *                 because the distinction is the whole point of the type --
- *                 who to tell, and whether money from the customer fixes it.
- *                 The per-tenant ceiling that DOES exist is enforced from our
- *                 own ledger in UpstreamBudgetService, before we ever submit.
+ *   - 'tenant'  - one client's own allowance, daily/monthly limit, or the
+ *                 minimum needed to start a search. Every other tenant keeps
+ *                 working, and the tenant should be told to top up.
+ *   - 'company' - our own prepaid balance with BlackPearl is spent. EVERY
+ *                 tenant is stopped and only we can fix it, so this must page
+ *                 an operator rather than ask the customer for money. Note
+ *                 that per-client projects do NOT fix this one: the company
+ *                 balance funds every project.
  */
 export class UpstreamBudgetExceededError extends Error {
   constructor(

@@ -172,19 +172,18 @@ describe('blackPearlRequest budget handling', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it('scopes every budget refusal to the company', () => {
+  it('scopes insufficient_credits to the company and allowances to the tenant', () => {
     // The scope decides whether the customer is asked to top up or an
     // operator is paged, so it is worth pinning rather than inferring.
     //
-    // All three are company-wide because a BlackPearl key is project-scoped
-    // and we hold one key: every tenant runs under the same project, so a
-    // ceiling that refused one of them refused all of them. Mapping a budget
-    // stop to 'tenant' would blame one customer for a platform-wide outage
-    // and skip the operator alert.
+    // A budget or quota stop is one client's allowance or limit: BlackPearl
+    // stops only that client. An exhausted prepaid balance is shared fate,
+    // and per-client projects do not change that -- the company balance funds
+    // every project.
     expect(BLACKPEARL_TERMINAL_BUDGET_CODES.insufficient_credits).toBe(
       'company',
     );
-    expect(BLACKPEARL_TERMINAL_BUDGET_CODES.budget_exceeded).toBe('company');
-    expect(BLACKPEARL_TERMINAL_BUDGET_CODES.quota_exceeded).toBe('company');
+    expect(BLACKPEARL_TERMINAL_BUDGET_CODES.budget_exceeded).toBe('tenant');
+    expect(BLACKPEARL_TERMINAL_BUDGET_CODES.quota_exceeded).toBe('tenant');
   });
 });

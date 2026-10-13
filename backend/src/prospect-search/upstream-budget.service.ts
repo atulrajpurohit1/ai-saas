@@ -35,13 +35,18 @@ import {
  * caps what any one tenant may cost us in a month, and refuses that tenant
  * alone rather than taking the whole platform down with them.
  *
- * Note what this does NOT do: it does not ask BlackPearl to enforce anything
- * per tenant. Their per-project budgets could do that, but a BlackPearl API
- * key is project-scoped -- the project is chosen by WHICH key you send, not by
- * a header -- so per-tenant projects would mean one key per tenant, minted
- * through their console. Until that exists, the per-tenant ceiling is enforced
- * here, from our own ledger, which is the only place that knows which tenant
- * a given job's cost belongs to.
+ * Note what this is: a stopgap in the right shape, not the destination.
+ * BlackPearl supports one project per client with its own allowance, and a
+ * `Blackpearl-Project` header to name the client per request -- that is where
+ * this ceiling belongs, because there BlackPearl enforces it and refuses the
+ * job itself. Until that is built, the ceiling is enforced here from our own
+ * ledger, which needs no upstream change and works today, but reads costs we
+ * recorded ourselves rather than a balance anyone is enforcing. See the
+ * README for what to carry into that work.
+ *
+ * What projects will NOT fix is (1) above: prepaid credit is held at the
+ * company level and funds every project, so an exhausted balance still stops
+ * everybody.
  *
  * The upstream figures are cached briefly: they only move when we spend, and a
  * remote call on the path of every search would add latency to the thing we
