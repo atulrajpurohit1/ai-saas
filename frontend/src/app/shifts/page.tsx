@@ -60,6 +60,7 @@ interface Shift {
     id: string;
     guard: {
       name: string;
+      deactivatedAt?: string | null;
     };
   }[];
 }
@@ -386,6 +387,15 @@ export default function ShiftsPage() {
                           <span className={assigned ? 'font-medium text-foreground' : 'text-muted-foreground'}>
                             {assigned ? shift.assignments[0].guard.name : 'Unassigned'}
                           </span>
+                          {/* Deactivation releases upcoming shifts, so this can
+                              only be a shift that had already started when the
+                              guard left. Flag it rather than showing the roster
+                              as if they were still on staff. */}
+                          {assigned && shift.assignments[0].guard.deactivatedAt && (
+                            <span className="ml-2 inline-flex items-center rounded-[var(--radius-sm)] bg-warning/10 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-warning">
+                              Left
+                            </span>
+                          )}
                           <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                             <Users size={13} aria-hidden="true" />
                             {shift.assignments?.length ?? 0} of {shift.requiredGuards} assigned

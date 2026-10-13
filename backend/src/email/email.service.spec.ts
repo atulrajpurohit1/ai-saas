@@ -7,7 +7,7 @@ jest.mock('nodemailer', () => ({
   createTransport: jest.fn(),
   getTestMessageUrl: jest.fn(),
 }));
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+
 const nodemailer = require('nodemailer');
 
 describe('EmailService', () => {

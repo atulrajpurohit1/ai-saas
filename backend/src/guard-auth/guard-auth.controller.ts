@@ -28,12 +28,10 @@ export class GuardAuthController {
     // Guards sign in with an email OR a phone number, so the per-account key
     // is whichever identifier was submitted.
     const identifier = (dto.identifier || dto.email || dto.phone || '').trim();
-    const ip =
-      (req.headers['x-forwarded-for'] as string | undefined)
-        ?.split(',')[0]
-        ?.trim() ||
-      req.ip ||
-      'unknown';
+    // `req.ip` only -- see AuthController.clientIp. X-Forwarded-For is
+    // caller-supplied, so keying a rate limit on it directly meant an
+    // attacker could mint a new bucket per request.
+    const ip = req.ip || 'unknown';
 
     this.rateLimit.consume(`login:ip:${ip}`, 50, 900);
     if (identifier) {

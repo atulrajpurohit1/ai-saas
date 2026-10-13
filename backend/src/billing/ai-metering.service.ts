@@ -222,9 +222,7 @@ export class AiMeteringService {
   }
 
   private chargeDescription(feature: AiFeature, cost: number): string {
-    return `${this.labelFor(feature)}: ${cost} credit${
-      cost === 1 ? '' : 's'
-    }.`;
+    return `${this.labelFor(feature)}: ${cost} credit${cost === 1 ? '' : 's'}.`;
   }
 
   /** Human-readable feature name for the ledger description. */

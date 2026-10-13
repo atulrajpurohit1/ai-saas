@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
 import { BlackPearlInsightProvider } from './blackpearl-insight.provider';
+import { UpstreamBudgetExceededError } from './upstream-budget-exceeded.error';
 
 function buildProvider(overrides: Record<string, string | undefined> = {}) {
   const merged: Record<string, string | undefined> = {
@@ -60,39 +61,38 @@ describe('BlackPearlInsightProvider', () => {
         );
       const provider = buildProvider();
 
-      await expect(provider.submitPlaybookJob(COMPANY)).resolves.toEqual({
-        ok: true,
-        jobId: 'job-1',
-      });
+      await expect(provider.submitPlaybookJob(COMPANY)).resolves.toBe('job-1');
     });
 
-    it('reports a failure when unconfigured, without making a network call', async () => {
+    it('returns null when unconfigured, without making a network call', async () => {
       global.fetch = jest.fn();
       const provider = buildProvider({ BLACKPEARL_API_KEY: undefined });
 
-      const submission = await provider.submitPlaybookJob(COMPANY);
-
-      expect(submission.ok).toBe(false);
+      await expect(provider.submitPlaybookJob(COMPANY)).resolves.toBeNull();
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
-    it('reports an auth failure on a 401', async () => {
+    it('returns null on a 401', async () => {
       global.fetch = jest
         .fn()
         .mockResolvedValue(jsonResponse(401, { detail: 'unauthorized' }));
       const provider = buildProvider();
 
-      const submission = await provider.submitPlaybookJob(COMPANY);
-
-      expect(submission.ok === false && submission.failure.kind).toBe('auth');
+      await expect(provider.submitPlaybookJob(COMPANY)).resolves.toBeNull();
     });
 
+    it('returns null on a network error', async () => {
+      global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+      const provider = buildProvider();
+
+      await expect(provider.submitPlaybookJob(COMPANY)).resolves.toBeNull();
+    });
     /**
-     * The distinction the caller needs: an exhausted prepaid pot is OUR
-     * account running dry, which no customer action fixes and which stops
-     * every tenant at once. It used to be indistinguishable from a timeout.
+     * A spending limit is not a failure, and the provider no longer flattens
+     * it into one: it throws so the service can tell the customer (or page an
+     * operator) instead of reporting a generic outage.
      */
-    it('reports an exhausted prepaid pot distinctly from an outage', async () => {
+    it('throws UpstreamBudgetExceededError when a spending limit refused the job', async () => {
       global.fetch = jest.fn().mockResolvedValue(
         jsonResponse(402, {
           error: {
@@ -105,21 +105,8 @@ describe('BlackPearlInsightProvider', () => {
       );
       const provider = buildProvider();
 
-      const submission = await provider.submitPlaybookJob(COMPANY);
-
-      expect(submission.ok === false && submission.failure.kind).toBe(
-        'insufficient_credits',
-      );
-    });
-
-    it('reports an unavailable failure on a network error', async () => {
-      global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
-      const provider = buildProvider();
-
-      const submission = await provider.submitPlaybookJob(COMPANY);
-
-      expect(submission.ok === false && submission.failure.kind).toBe(
-        'unavailable',
+      await expect(provider.submitPlaybookJob(COMPANY)).rejects.toBeInstanceOf(
+        UpstreamBudgetExceededError,
       );
     });
   });

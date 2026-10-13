@@ -32,6 +32,21 @@ async function bootstrap() {
     rawBody: true,
   });
 
+  // This process always runs behind exactly one reverse proxy (Render's
+  // router), which appends the real client address to X-Forwarded-For.
+  //
+  // Without this, `req.ip` is the proxy's address -- identical for every
+  // caller -- so the auth rate limiter had to read X-Forwarded-For itself.
+  // That header is attacker-supplied: rotating it per request gave every
+  // request its own bucket and the per-IP half of every auth limit never
+  // fired. Telling Express to trust exactly ONE hop makes `req.ip` the
+  // right-most address the proxy vouched for, which a client cannot forge by
+  // prepending entries of its own.
+  //
+  // The hop count is deliberately `1` and not `true`: trusting the whole
+  // chain would hand the choice of `req.ip` back to the caller.
+  app.set('trust proxy', 1);
+
   // Default body-parser limit (100kb) is too small for base64 logo uploads on RFPs/branding.
   app.useBodyParser('json', { limit: '10mb' });
   app.useBodyParser('urlencoded', { limit: '10mb', extended: true });

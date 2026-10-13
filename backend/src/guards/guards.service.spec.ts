@@ -21,6 +21,8 @@ describe('GuardsService deactivation', () => {
       findFirst: jest.Mock;
       update: jest.Mock<Promise<unknown>, [GuardUpdate]>;
     };
+    assignment: { deleteMany: jest.Mock };
+    $transaction: jest.Mock;
   };
   let audit: { log: jest.Mock };
 
@@ -42,6 +44,12 @@ describe('GuardsService deactivation', () => {
           Promise.resolve<unknown>({ ...guard(), ...data }),
         ),
       },
+      assignment: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      // Runs the callback against the same mocks, so a test sees the writes
+      // the real transaction would have made.
+      $transaction: jest.fn((callback: (tx: unknown) => unknown) =>
+        Promise.resolve(callback(prisma)),
+      ),
     };
     audit = { log: jest.fn() };
     service = new GuardsService(
@@ -68,6 +76,52 @@ describe('GuardsService deactivation', () => {
     // Credential hashes never reach the response.
     expect(result).not.toHaveProperty('passwordHash');
     expect(result).not.toHaveProperty('refreshToken');
+  });
+
+  // The bug this covers: deactivation stamped the guard but left their
+  // existing Assignment rows alone, so next week's shifts still showed them as
+  // staffing a site they could no longer sign in to work.
+  it('releases the shifts the guard was rostered onto that have not started', async () => {
+    prisma.assignment.deleteMany.mockResolvedValue({ count: 2 });
+
+    await service.deactivate(user, 'guard-1');
+
+    expect(prisma.assignment.deleteMany).toHaveBeenCalledTimes(1);
+    const { where } = prisma.assignment.deleteMany.mock.calls[0][0];
+    expect(where.guardId).toBe('guard-1');
+    // Only future shifts, and only this tenant's.
+    expect(where.shift.tenantId).toBe('tenant-1');
+    expect(where.shift.startTime.gt).toBeInstanceOf(Date);
+  });
+
+  it('keeps assignments on shifts that already started, as a record of work', async () => {
+    await service.deactivate(user, 'guard-1');
+
+    const { where } = prisma.assignment.deleteMany.mock.calls[0][0];
+    // `gt` on startTime is what spares a past or in-progress shift; a filter
+    // without it would delete the timesheet's own basis.
+    expect(Object.keys(where.shift.startTime)).toEqual(['gt']);
+  });
+
+  it('moves the flag and the roster in one transaction', async () => {
+    await service.deactivate(user, 'guard-1');
+
+    // A guard marked as left who still holds shifts is the exact
+    // inconsistency being fixed, so these two writes must not be separable.
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('records the released shift count in the audit trail', async () => {
+    prisma.assignment.deleteMany.mockResolvedValue({ count: 3 });
+
+    await service.deactivate(user, 'guard-1');
+
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'GUARD_DEACTIVATED',
+        details: expect.stringContaining('3 upcoming shifts'),
+      }),
+    );
   });
 
   it('refuses to deactivate a guard twice', async () => {

@@ -282,8 +282,8 @@ export class BrandingService {
     const primary = this.safeHex(branding.primary_color, '#4f46e5');
     const accent = this.safeHex(branding.accent_color, primary);
     const logo = branding.logo_url
-      ? `<img src="${branding.logo_url}" alt="${branding.company_name}" style="max-height:48px; max-width:180px; display:block; margin-bottom:18px;" />`
-      : `<div style="font-size:22px; font-weight:800; color:${primary}; margin-bottom:18px;">${branding.company_name}</div>`;
+      ? `<img src="${this.escapeHtml(branding.logo_url)}" alt="${this.escapeHtml(branding.company_name)}" style="max-height:48px; max-width:180px; display:block; margin-bottom:18px;" />`
+      : `<div style="font-size:22px; font-weight:800; color:${primary}; margin-bottom:18px;">${this.escapeHtml(branding.company_name)}</div>`;
 
     return `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; color: #1f2937; background: #ffffff;">
@@ -404,5 +404,23 @@ export class BrandingService {
 
   private safeHex(value: string | null | undefined, fallback: string) {
     return value && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
+  }
+
+  /**
+   * Escapes a tenant-supplied value before it is interpolated into the email
+   * HTML below. `company_name` and `logo_url` are free text from the branding
+   * settings form, so a value containing `"` could close the attribute it sits
+   * in and add another one -- including an event handler -- in every branded
+   * email the tenant sends. The URL fields are also validated on the way in
+   * (IsSafeImageUrl), so this is the second of two layers rather than the
+   * only one.
+   */
+  private escapeHtml(value: string | null | undefined) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 }

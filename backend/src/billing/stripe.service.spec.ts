@@ -167,12 +167,10 @@ describe('StripeService plan checkout', () => {
       ),
     };
     sessions = {
-      create: jest
-        .fn()
-        .mockResolvedValue({
-          id: 'cs_plan',
-          url: 'https://checkout.test/plan',
-        }),
+      create: jest.fn().mockResolvedValue({
+        id: 'cs_plan',
+        url: 'https://checkout.test/plan',
+      }),
     };
     subscriptions = { retrieve: jest.fn(), update: jest.fn() };
     (service as unknown as { client: unknown }).client = {

@@ -103,7 +103,11 @@ export class SubscriptionProvisioningService {
       const toCreate = [...desired].filter((module) => !seen.has(module));
       if (toCreate.length) {
         await tx.tenantModule.createMany({
-          data: toCreate.map((module) => ({ tenantId, module, isActive: true })),
+          data: toCreate.map((module) => ({
+            tenantId,
+            module,
+            isActive: true,
+          })),
         });
       }
     });
@@ -156,7 +160,9 @@ export class SubscriptionProvisioningService {
       })
       .catch(() => undefined);
 
-    this.logger.log(`Cancelled subscription for ${tenantId}${reason ? ` (${reason})` : ''}`);
+    this.logger.log(
+      `Cancelled subscription for ${tenantId}${reason ? ` (${reason})` : ''}`,
+    );
   }
 
   async setStatus(
@@ -185,7 +191,9 @@ export class SubscriptionProvisioningService {
     const match = await this.prisma.tenantSubscription.findFirst({
       where: {
         OR: [
-          ...(subscriptionId ? [{ providerSubscriptionId: subscriptionId }] : []),
+          ...(subscriptionId
+            ? [{ providerSubscriptionId: subscriptionId }]
+            : []),
           ...(customerId ? [{ providerCustomerId: customerId }] : []),
         ],
       },

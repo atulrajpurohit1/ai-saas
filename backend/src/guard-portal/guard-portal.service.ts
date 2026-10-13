@@ -498,6 +498,31 @@ export class GuardPortalService {
   }
 
   /**
+   * A result row for an action that never got a database row of its own, so
+   * the response still carries the fields the client reads (id, actionType,
+   * createdAt) when it decides what to drop and what to show the guard.
+   */
+  private syncResultShape(
+    action: SyncOfflineActionsDto['actions'][number],
+    tenantId: string,
+    guardId: string,
+  ) {
+    return {
+      id: action.id,
+      tenantId,
+      guardId,
+      actionType: action.actionType,
+      payload: action.payload,
+      status: 'pending',
+      errorMessage: null as string | null,
+      retryCount: 0,
+      createdAt: new Date(action.createdAt),
+      updatedAt: new Date(),
+      syncedAt: null as Date | null,
+    };
+  }
+
+  /**
    * Records an incoming offline action and decides whether this request should
    * apply it. Returns the row with status 'pending' when it should; any other
    * status means leave it alone.
@@ -543,6 +568,23 @@ export class GuardPortalService {
               ? { ...winner, status: 'in_progress' }
               : winner;
           }
+
+          // The id is taken, but not by a row belonging to this tenant and
+          // guard -- `id` is client-supplied and is this table's global
+          // primary key, so it collided with someone else's row.
+          //
+          // Reported as a rejected result for THIS action rather than thrown:
+          // the caller loops over a whole batch, so throwing here would abort
+          // every other action the guard had queued behind it. 'rejected' is
+          // final, so the client drops it and shows it to the guard instead
+          // of retrying an id it can never own. A legitimate client never
+          // reaches this -- ids are generated per device.
+          return {
+            ...this.syncResultShape(action, tenantId, guardId),
+            status: 'rejected',
+            errorMessage:
+              'This action could not be accepted. Please report it to your supervisor.',
+          };
         }
         throw error;
       }
@@ -556,6 +598,12 @@ export class GuardPortalService {
     const claimed = await this.prisma.guardSyncQueue.updateMany({
       where: {
         id: existing.id,
+        // `existing` came from a tenant/guard-scoped lookup, so this is
+        // already our row; repeating the scope keeps every write to this
+        // table filtered the same way, so none of them is one refactor away
+        // from reaching another tenant's row by id alone.
+        tenantId,
+        guardId,
         OR: [
           { status: 'failed' },
           { status: 'pending', updatedAt: { lt: staleBefore } },
@@ -646,12 +694,22 @@ export class GuardPortalService {
           );
         }
 
-        // Mark as synced
-        const synced = await this.prisma.guardSyncQueue.update({
-          where: { id: action.id },
+        // Mark as synced. Scoped by tenant AND guard, not by id alone:
+        // `action.id` is supplied by the caller and is this table's global
+        // primary key, so an unscoped update let one tenant's guard rewrite
+        // another tenant's queue row (flipping a pending action to synced so
+        // it would never be applied). updateMany ignores a row that is not
+        // ours instead of writing it.
+        await this.prisma.guardSyncQueue.updateMany({
+          where: { id: action.id, tenantId, guardId },
           data: { status: 'synced', syncedAt: new Date(), errorMessage: null },
         });
-        results.push(synced);
+        results.push({
+          ...record,
+          status: 'synced',
+          syncedAt: new Date(),
+          errorMessage: null,
+        });
       } catch (error) {
         // A 4xx means the action itself is unacceptable (shift not found,
         // guard deactivated...) and will never succeed, so don't retry it.
@@ -659,16 +717,15 @@ export class GuardPortalService {
         const retryCount = record.retryCount + 1;
         const permanent =
           isClientError(error) || retryCount >= MAX_SYNC_ATTEMPTS;
-        const failed = await this.prisma.guardSyncQueue.update({
-          where: { id: action.id },
-          data: {
-            status: permanent ? 'rejected' : 'failed',
-            retryCount,
-            errorMessage:
-              error instanceof Error ? error.message : 'Unknown error',
-          },
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
+        const status = permanent ? 'rejected' : 'failed';
+        // Tenant/guard scoped for the same reason as the synced write above.
+        await this.prisma.guardSyncQueue.updateMany({
+          where: { id: action.id, tenantId, guardId },
+          data: { status, retryCount, errorMessage },
         });
-        results.push(failed);
+        results.push({ ...record, status, retryCount, errorMessage });
       }
     }
 

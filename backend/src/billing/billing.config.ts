@@ -71,7 +71,6 @@ export function billingReturnUrls() {
   // the old test stayed silent, so a deployed service fell back to localhost
   // AND said nothing about it.
   if (!configured && !isDevelopmentLike()) {
-    // eslint-disable-next-line no-console
     console.error(
       'BILLING_RETURN_URL is not set. Stripe will return paying customers to ' +
         'http://localhost:3000, which is their own machine. Set it to the origin ' +

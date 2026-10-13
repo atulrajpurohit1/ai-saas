@@ -1,10 +1,4 @@
-import {
-  IsBoolean,
-  IsIn,
-  IsInt,
-  IsOptional,
-  Min,
-} from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsOptional, Min } from 'class-validator';
 import { CREDIT_PACK_KEYS, CreditPackKey } from '../credit-packs.constants';
 
 export class UpdateAutoRechargeDto {

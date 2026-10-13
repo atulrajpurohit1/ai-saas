@@ -7,6 +7,7 @@ import {
   Matches,
   MaxLength,
 } from 'class-validator';
+import { IsSafeImageUrl } from '../../common/is-safe-url.validator';
 
 export class UpdateBrandingDto {
   @IsOptional()
@@ -16,10 +17,12 @@ export class UpdateBrandingDto {
 
   @IsOptional()
   @IsString()
+  @IsSafeImageUrl()
   logo_url?: string | null;
 
   @IsOptional()
   @IsString()
+  @IsSafeImageUrl()
   favicon_url?: string | null;
 
   @IsOptional()

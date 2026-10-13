@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   BadRequestException,
   NotFoundException,
   ForbiddenException,
@@ -27,6 +28,8 @@ type AttendanceEventSummary = {
 
 @Injectable()
 export class ShiftsService {
+  private readonly logger = new Logger(ShiftsService.name);
+
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
@@ -121,6 +124,12 @@ export class ShiftsService {
               guard: {
                 select: {
                   name: true,
+                  // Deactivation releases a guard's UPCOMING shifts, but an
+                  // assignment on a shift that had already started is kept as
+                  // a record of the work. Without this field the schedule
+                  // could not tell that the person holding such a shift has
+                  // left, so it is surfaced for the UI to flag.
+                  deactivatedAt: true,
                 },
               },
             },
@@ -187,7 +196,7 @@ export class ShiftsService {
     // 1. Validate shift exists and belongs to tenant
     const shift = await this.prisma.shift.findFirst({
       where: { id: shiftId, tenantId: user.tenantId, ...branchWhere(user) },
-      include: { assignments: true },
+      include: { assignments: { include: { guard: true } } },
     });
 
     if (!shift) throw new NotFoundException('Shift not found');
@@ -225,8 +234,28 @@ export class ShiftsService {
     }
 
     // 4. Simple rule: reject if already assigned (could be replaced but following "reject for now")
-    if (shift.assignments.length > 0) {
+    //
+    // Exception: a hold by a guard who has since been deactivated is not real
+    // coverage -- they cannot sign in to work it -- so it is released here
+    // instead of blocking the shift. Deactivation now releases upcoming shifts
+    // itself, but shifts stranded by a deactivation that happened before that
+    // fix would otherwise be permanently unassignable, since the only way out
+    // was an unassign call the error message never mentioned.
+    const liveAssignments = shift.assignments.filter(
+      (assignment) => !assignment.guard.deactivatedAt,
+    );
+
+    if (liveAssignments.length > 0) {
       throw new ForbiddenException('Shift is already assigned');
+    }
+
+    if (shift.assignments.length > 0) {
+      await this.prisma.assignment.deleteMany({
+        where: {
+          shiftId,
+          guardId: { in: shift.assignments.map((a) => a.guardId) },
+        },
+      });
     }
 
     let selectedRecommendation: GuardRecommendation | null = null;
@@ -293,9 +322,12 @@ export class ShiftsService {
     }
 
     // 6. Basic Notification
-    console.log(
-      `[NOTIFICATION] Guard "${guard.name}" assigned to Shift #${shiftId}`,
-    );
+    //
+    // A placeholder for real notification delivery. It printed the guard's
+    // name to stdout, which puts staff names in the production logs for an
+    // event the audit trail above already records properly. Logged without
+    // the name, at debug level, until this becomes an actual notification.
+    this.logger.debug(`Guard assigned to shift ${shiftId}`);
 
     return result;
   }
@@ -335,8 +367,8 @@ export class ShiftsService {
       details: `Guard unassigned from shift "${shiftId}"`,
     });
 
-    // 4. Basic Notification
-    console.log(`[NOTIFICATION] Guard unassigned from Shift #${shiftId}`);
+    // 4. Basic Notification -- see the note in assign().
+    this.logger.debug(`Guard unassigned from shift ${shiftId}`);
 
     return { message: 'Guard unassigned successfully' };
   }

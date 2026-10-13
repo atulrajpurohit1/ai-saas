@@ -5,13 +5,14 @@ import {
   ProspectCompanySummary,
 } from '../../ai/ai.service';
 import {
-  BlackPearlSubmission,
   blackPearlHeaders,
+  BLACKPEARL_TERMINAL_BUDGET_CODES,
   blackPearlRequest,
-  blackPearlRequestOutcome,
+  type BlackPearlRequestOutcome,
   normalizeString,
   sleep,
 } from './blackpearl-http.util';
+import { UpstreamBudgetExceededError } from './upstream-budget-exceeded.error';
 
 const DEFAULT_BASE_URL = 'https://api.blackpearl.com/v1';
 const DEFAULT_BRAND_PROFILE_KEY = 'blackpearl';
@@ -111,38 +112,31 @@ export class BlackPearlInsightProvider {
   }
 
   /**
-   * Submits a playbook job and returns its id, or why it could not be
-   * submitted (unconfigured, an empty prepaid pot, a hard budget, auth,
-   * timeout, network error - all logged, never exposing the API key). The
-   * reason is returned rather than flattened to null because an exhausted
-   * upstream account and an unreachable one need different handling and
-   * different words to the customer.
+   * Submits a playbook job and returns its id, or null if it couldn't be
+   * submitted (unconfigured, auth, timeout, network error - all
+   * logged, never exposing the API key).
+   *
+   * Throws UpstreamBudgetExceededError when BlackPearl refused the job over a
+   * spending limit, which is a different thing from a failure and must not be
+   * reported to the customer as one.
    */
   async submitPlaybookJob(
     company: ProspectCompanySummary,
-  ): Promise<BlackPearlSubmission> {
+  ): Promise<string | null> {
     const apiKey = this.configService.get<string>('BLACKPEARL_API_KEY');
     if (!apiKey) {
       this.logger.debug(
         'BLACKPEARL_API_KEY is not configured; skipping BlackPearl playbook submission.',
       );
-      return {
-        ok: false,
-        failure: {
-          kind: 'unavailable',
-          code: null,
-          httpStatus: null,
-          message: 'BLACKPEARL_API_KEY is not configured.',
-          requestId: null,
-        },
-      };
+      return null;
     }
 
     this.logger.log(
       `BlackPearl job creation: submitting playbook request for company="${company.name}" brandProfileKey="${this.getBrandProfileKey()}"`,
     );
 
-    const outcome = await blackPearlRequestOutcome<RawBlackPearlJob>(
+    const outcome: BlackPearlRequestOutcome = {};
+    const job = await blackPearlRequest<RawBlackPearlJob>(
       this.logger,
       `${this.getBaseUrl()}/playbooks`,
       {
@@ -154,40 +148,28 @@ export class BlackPearlInsightProvider {
         }),
       },
       `submit playbook for "${company.name}"`,
+      undefined,
+      outcome,
     );
 
-    if (!outcome.ok) {
-      this.logger.error(
-        `BlackPearl job creation FAILED for company="${company.name}" (${outcome.failure.kind}${
-          outcome.failure.code ? `: ${outcome.failure.code}` : ''
-        }) - see the request log above for the exact HTTP failure.`,
-      );
-      return outcome;
-    }
-
-    const job = outcome.data;
-
     if (!job?.id) {
+      const budgetScope = outcome.errorCode
+        ? BLACKPEARL_TERMINAL_BUDGET_CODES[outcome.errorCode]
+        : undefined;
+      if (budgetScope) {
+        throw new UpstreamBudgetExceededError(outcome.errorCode!, budgetScope);
+      }
       this.logger.error(
-        `BlackPearl job creation FAILED for company="${company.name}" - the response carried no job id.`,
+        `BlackPearl job creation FAILED for company="${company.name}" - see the request log above for the exact HTTP failure.`,
       );
-      return {
-        ok: false,
-        failure: {
-          kind: 'unavailable',
-          code: null,
-          httpStatus: null,
-          message: 'BlackPearl accepted the request but returned no job id.',
-          requestId: null,
-        },
-      };
+      return null;
     }
 
     this.logger.log(
       `BlackPearl job creation succeeded: jobId=${job.id} company="${company.name}" initialStatus="${job.status}"`,
     );
 
-    return { ok: true, jobId: job.id };
+    return job.id;
   }
 
   /**
@@ -297,9 +279,8 @@ export class BlackPearlInsightProvider {
   ): Promise<ProspectCompanyInsight | null> {
     if (!this.isConfigured()) return null;
 
-    const submission = await this.submitPlaybookJob(company);
-    if (!submission.ok) return null;
-    const jobId = submission.jobId;
+    const jobId = await this.submitPlaybookJob(company);
+    if (!jobId) return null;
 
     const shortPollAttempts = 3;
     const shortPollDelayMs = 2000;

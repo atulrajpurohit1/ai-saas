@@ -9,11 +9,7 @@ import { ServiceModule } from '@prisma/client';
  * Stripe remains the source of truth for what is actually charged.
  */
 
-export type PackageKey =
-  | 'GENERATION'
-  | 'GUARD'
-  | 'OPERATIONS'
-  | 'COMPLETE';
+export type PackageKey = 'GENERATION' | 'GUARD' | 'OPERATIONS' | 'COMPLETE';
 
 export type GuardBand =
   | '1-25'
@@ -23,15 +19,18 @@ export type GuardBand =
   | '251-500'
   | '500+';
 
-export const GUARD_BANDS: { key: GuardBand; min: number; max: number | null }[] =
-  [
-    { key: '1-25', min: 0, max: 25 },
-    { key: '26-50', min: 26, max: 50 },
-    { key: '51-100', min: 51, max: 100 },
-    { key: '101-250', min: 101, max: 250 },
-    { key: '251-500', min: 251, max: 500 },
-    { key: '500+', min: 501, max: null },
-  ];
+export const GUARD_BANDS: {
+  key: GuardBand;
+  min: number;
+  max: number | null;
+}[] = [
+  { key: '1-25', min: 0, max: 25 },
+  { key: '26-50', min: 26, max: 50 },
+  { key: '51-100', min: 51, max: 100 },
+  { key: '101-250', min: 101, max: 250 },
+  { key: '251-500', min: 251, max: 500 },
+  { key: '500+', min: 501, max: null },
+];
 
 export const PACKAGE_LABELS: Record<PackageKey, string> = {
   GENERATION: 'AegisLead Generation',
@@ -109,9 +108,7 @@ export function bandForGuardCount(count: number): GuardBand {
 }
 
 /** The package a set of purchased services corresponds to, if any. */
-export function packageForModules(
-  modules: ServiceModule[],
-): PackageKey | null {
+export function packageForModules(modules: ServiceModule[]): PackageKey | null {
   const wanted = [...new Set(modules)].sort().join(',');
 
   for (const [key, included] of Object.entries(PACKAGE_MODULES)) {

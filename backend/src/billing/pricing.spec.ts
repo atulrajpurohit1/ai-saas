@@ -80,9 +80,9 @@ describe('pricing', () => {
       'stays on the base band with %i guards',
       (guards) => {
         expect(billableBand('GENERATION', guards)).toBe('1-25');
-        expect(MONTHLY_PRICES.GENERATION[billableBand('GENERATION', guards)]).toBe(
-          299,
-        );
+        expect(
+          MONTHLY_PRICES.GENERATION[billableBand('GENERATION', guards)],
+        ).toBe(299);
       },
     );
 

@@ -11,6 +11,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { IsSafeImageUrl } from '../../common/is-safe-url.validator';
 
 export const RFP_STATUSES = ['DRAFT', 'GENERATED', 'FINALIZED'] as const;
 export type RfpStatusValue = (typeof RFP_STATUSES)[number];
@@ -126,10 +127,12 @@ export class CreateRfpDto {
 
   @IsOptional()
   @IsString()
+  @IsSafeImageUrl()
   issuerLogoUrl?: string;
 
   @IsOptional()
   @IsString()
+  @IsSafeImageUrl()
   recipientLogoUrl?: string;
 
   @IsOptional()

@@ -47,9 +47,7 @@ export class ProspectSearchCacheService {
     prompt: string,
     provider: string,
   ): Promise<ProspectSearchResult | null> {
-    const raw = await this.store.get(
-      this.buildKey(tenantId, prompt, provider),
-    );
+    const raw = await this.store.get(this.buildKey(tenantId, prompt, provider));
 
     if (raw === null) {
       this.misses += 1;

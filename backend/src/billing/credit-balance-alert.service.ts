@@ -112,11 +112,18 @@ export class CreditBalanceAlertService {
     for (const { tenantId, balance } of balances) {
       outcome.tenantsChecked += 1;
       try {
-        const cleared = await this.clearRecoveredAlerts(tenantId, balance, threshold);
+        const cleared = await this.clearRecoveredAlerts(
+          tenantId,
+          balance,
+          threshold,
+        );
         outcome.alertsCleared += cleared;
 
         const tier = this.tierFor(balance, threshold);
-        if (tier && (await this.sendIfNotAlreadyOpen(tenantId, tier, balance, threshold))) {
+        if (
+          tier &&
+          (await this.sendIfNotAlreadyOpen(tenantId, tier, balance, threshold))
+        ) {
           outcome.alertsSent += 1;
         }
       } catch (error) {

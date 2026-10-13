@@ -42,18 +42,16 @@ function makeConfig(overrides: ConfigOverrides = {}) {
   };
 }
 
-function build(options: {
-  config?: ReturnType<typeof makeConfig> | null;
-  balance?: number;
-  chargeImpl?: jest.Mock;
-  monthlySpend?: number;
-  grantImpl?: jest.Mock;
-} = {}) {
-  const {
-    config = makeConfig(),
-    balance = 100,
-    monthlySpend = 0,
-  } = options;
+function build(
+  options: {
+    config?: ReturnType<typeof makeConfig> | null;
+    balance?: number;
+    chargeImpl?: jest.Mock;
+    monthlySpend?: number;
+    grantImpl?: jest.Mock;
+  } = {},
+) {
+  const { config = makeConfig(), balance = 100, monthlySpend = 0 } = options;
 
   const updateConfig = jest.fn().mockResolvedValue(config ?? makeConfig());
   const createAttempt = jest.fn().mockResolvedValue({ id: 'att1' });

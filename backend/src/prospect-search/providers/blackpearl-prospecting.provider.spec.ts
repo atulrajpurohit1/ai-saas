@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { BlackPearlProspectingProvider } from './blackpearl-prospecting.provider';
+import { UpstreamBudgetExceededError } from './upstream-budget-exceeded.error';
 
 function buildProvider(overrides: Record<string, string | undefined> = {}) {
   const merged: Record<string, string | undefined> = {
@@ -240,13 +241,13 @@ describe('BlackPearlProspectingProvider', () => {
         );
       global.fetch = fetchMock;
 
-      const submission = await buildProvider().submitProspectingJob({
+      const jobId = await buildProvider().submitProspectingJob({
         objective: 'Marketing agencies in India',
         target: { locations: ['India'], industries: ['Marketing'] },
         limit: 5,
       });
 
-      expect(submission).toEqual({ ok: true, jobId: 'job-prospecting-1' });
+      expect(jobId).toBe('job-prospecting-1');
       const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
       expect(url).toBe('https://api.blackpearl.com/v1/prospects');
       const body = JSON.parse(init.body as string) as {
@@ -265,35 +266,34 @@ describe('BlackPearlProspectingProvider', () => {
       expect(body.product_info.length).toBeGreaterThan(0);
     });
 
-    it('reports a failure without calling fetch when unconfigured', async () => {
+    it('returns null without calling fetch when unconfigured', async () => {
       global.fetch = jest.fn();
 
-      const submission = await buildProvider({
+      const jobId = await buildProvider({
         BLACKPEARL_API_KEY: undefined,
       }).submitProspectingJob({ objective: 'Marketing agencies in India' });
 
-      expect(submission.ok).toBe(false);
+      expect(jobId).toBeNull();
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
-    it('reports an auth failure when BlackPearl rejects the key', async () => {
+    it('returns null when BlackPearl rejects the request', async () => {
       global.fetch = jest
         .fn()
         .mockResolvedValue(jsonResponse(401, { detail: 'unauthorized' }));
 
-      const submission = await buildProvider().submitProspectingJob({
+      const jobId = await buildProvider().submitProspectingJob({
         objective: 'Marketing agencies in India',
       });
 
-      expect(submission.ok === false && submission.failure.kind).toBe('auth');
+      expect(jobId).toBeNull();
     });
-
     /**
-     * A hard budget is not a blip: it is reported straight back rather than
-     * retried, and it is named, so the log says a ceiling refused us instead
-     * of implying BlackPearl was down.
+     * A spending limit is not a failure. The provider throws so the service
+     * can decide who to tell -- the customer, or an operator -- instead of
+     * every refusal looking like a BlackPearl outage.
      */
-    it('reports a hard budget refusal without retrying', async () => {
+    it('throws UpstreamBudgetExceededError when a hard budget refused the job', async () => {
       const fetchMock = jest.fn().mockResolvedValue(
         jsonResponse(429, {
           error: {
@@ -306,14 +306,14 @@ describe('BlackPearlProspectingProvider', () => {
       );
       global.fetch = fetchMock;
 
-      const submission = await buildProvider().submitProspectingJob({
-        objective: 'Marketing agencies in India',
-      });
+      await expect(
+        buildProvider().submitProspectingJob({
+          objective: 'Marketing agencies in India',
+        }),
+      ).rejects.toBeInstanceOf(UpstreamBudgetExceededError);
 
+      // Not retried: a ceiling that has already refused us is not a blip.
       expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(submission.ok === false && submission.failure.kind).toBe(
-        'budget_exceeded',
-      );
     });
   });
 

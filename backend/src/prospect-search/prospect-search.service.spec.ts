@@ -1,4 +1,5 @@
 import { ServiceUnavailableException } from '@nestjs/common';
+import { UpstreamBudgetExceededError } from './providers/upstream-budget-exceeded.error';
 import { AiService } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
 import { CreditsService } from '../billing/credits.service';
@@ -115,9 +116,7 @@ describe('ProspectSearchService', () => {
     blackPearlInsightProvider = {
       isConfigured: jest.fn().mockReturnValue(true),
       getPlaybook: jest.fn().mockResolvedValue(insight),
-      submitPlaybookJob: jest
-        .fn()
-        .mockResolvedValue({ ok: true, jobId: 'job-1' }),
+      submitPlaybookJob: jest.fn().mockResolvedValue('job-1'),
       getJobResult: jest.fn().mockResolvedValue({
         jobId: 'job-1',
         status: 'completed',
@@ -128,9 +127,7 @@ describe('ProspectSearchService', () => {
     };
     blackPearlProspectingProvider = {
       isConfigured: jest.fn().mockReturnValue(true),
-      submitProspectingJob: jest
-        .fn()
-        .mockResolvedValue({ ok: true, jobId: 'discovery-job-1' }),
+      submitProspectingJob: jest.fn().mockResolvedValue('discovery-job-1'),
       getJobResult: jest.fn().mockResolvedValue({
         status: 'completed',
         progress: 100,
@@ -236,43 +233,11 @@ describe('ProspectSearchService', () => {
     });
 
     it('throws a clear error when BlackPearl cannot even start the job', async () => {
-      blackPearlInsightProvider.submitPlaybookJob.mockResolvedValue({
-        ok: false,
-        failure: {
-          kind: 'unavailable',
-          code: null,
-          httpStatus: null,
-          message: 'network error',
-          requestId: null,
-        },
-      });
+      blackPearlInsightProvider.submitPlaybookJob.mockResolvedValue(null);
 
       await expect(
         service.search({ companyName: 'Acme Corp' }, user),
       ).rejects.toThrow(ServiceUnavailableException);
-    });
-
-    /**
-     * An exhausted prepaid pot is still a 503 -- it is OUR account, and no
-     * customer action fixes it, so offering a credit top-up here would be a
-     * lie. What it must not be is a 402.
-     */
-    it('reports an exhausted upstream account as a 503, not a credit problem', async () => {
-      blackPearlInsightProvider.submitPlaybookJob.mockResolvedValue({
-        ok: false,
-        failure: {
-          kind: 'insufficient_credits',
-          code: 'insufficient_credits',
-          httpStatus: 402,
-          message: 'The organization has insufficient prepaid credits.',
-          requestId: 'req_1',
-        },
-      });
-
-      await expect(
-        service.search({ companyName: 'Acme Corp' }, user),
-      ).rejects.toThrow(ServiceUnavailableException);
-      expect(creditsService.reserve).not.toHaveBeenCalled();
     });
 
     it('logs a tenant-scoped audit event for every submitted job', async () => {
@@ -634,16 +599,9 @@ describe('ProspectSearchService', () => {
     });
 
     it('throws a clear error when BlackPearl cannot even start the job', async () => {
-      blackPearlProspectingProvider.submitProspectingJob.mockResolvedValue({
-        ok: false,
-        failure: {
-          kind: 'unavailable',
-          code: null,
-          httpStatus: null,
-          message: 'network error',
-          requestId: null,
-        },
-      });
+      blackPearlProspectingProvider.submitProspectingJob.mockResolvedValue(
+        null,
+      );
 
       await expect(service.discover(dto, user)).rejects.toThrow(
         ServiceUnavailableException,
@@ -792,6 +750,82 @@ describe('ProspectSearchService', () => {
       ).rejects.toThrow(ServiceUnavailableException);
     });
   });
+  /**
+   * BlackPearl refuses work over a spending limit with a 429/402, which is a
+   * budget decision rather than a fault. Reporting it as the generic 503
+   * ("try again shortly") was wrong twice over: it gave advice that cannot
+   * work, and it hid whether ONE tenant had run out or the whole company had.
+   */
+  describe('upstream budget refusals', () => {
+    const discoverDto = { objective: 'Marketing agencies in India' };
+
+    it('reports a per-tenant allowance stop as 402, not a 503 outage', async () => {
+      blackPearlProspectingProvider.submitProspectingJob.mockRejectedValue(
+        new UpstreamBudgetExceededError('budget_exceeded', 'tenant'),
+      );
+
+      await expect(service.discover(discoverDto, user)).rejects.toBeInstanceOf(
+        InsufficientCreditsException,
+      );
+    });
+
+    it('takes no credits when the upstream refuses the job', async () => {
+      blackPearlProspectingProvider.submitProspectingJob.mockRejectedValue(
+        new UpstreamBudgetExceededError('budget_exceeded', 'tenant'),
+      );
+
+      await expect(service.discover(discoverDto, user)).rejects.toThrow();
+
+      // The hold is placed only after a successful submission, so a refusal
+      // must leave the customer's balance untouched.
+      expect(creditsService.reserve).not.toHaveBeenCalled();
+    });
+
+    it('reports our own exhausted balance as 503, since no customer action fixes it', async () => {
+      blackPearlProspectingProvider.submitProspectingJob.mockRejectedValue(
+        new UpstreamBudgetExceededError('insufficient_credits', 'company'),
+      );
+
+      await expect(service.discover(discoverDto, user)).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
+    });
+
+    it('drops the cached balance when the company balance is exhausted', async () => {
+      blackPearlProspectingProvider.submitProspectingJob.mockRejectedValue(
+        new UpstreamBudgetExceededError('insufficient_credits', 'company'),
+      );
+
+      await expect(service.discover(discoverDto, user)).rejects.toThrow();
+
+      // The 60s cache said there was budget and BlackPearl disagreed, so the
+      // stale figure must not keep waving searches through.
+      expect(upstreamBudget.invalidate).toHaveBeenCalled();
+    });
+
+    it('applies the same translation to a playbook search', async () => {
+      blackPearlInsightProvider.submitPlaybookJob.mockRejectedValue(
+        new UpstreamBudgetExceededError('budget_exceeded', 'tenant'),
+      );
+
+      await expect(
+        service.search({ companyName: 'Acme Corp' }, user),
+      ).rejects.toBeInstanceOf(InsufficientCreditsException);
+      expect(creditsService.reserve).not.toHaveBeenCalled();
+    });
+
+    it('leaves an ordinary submission failure as a 503', async () => {
+      // Not a budget refusal: null still means "could not submit".
+      blackPearlProspectingProvider.submitProspectingJob.mockResolvedValue(
+        null,
+      );
+
+      await expect(service.discover(discoverDto, user)).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
+    });
+  });
+
   describe('credit enforcement', () => {
     const discoverDto = { objective: 'Marketing agencies in India' };
 

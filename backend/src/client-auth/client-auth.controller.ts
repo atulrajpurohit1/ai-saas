@@ -76,12 +76,10 @@ export class ClientAuthController {
     perEmailLimit: number,
     windowSeconds: number,
   ) {
-    const ip =
-      (req.headers['x-forwarded-for'] as string | undefined)
-        ?.split(',')[0]
-        ?.trim() ||
-      req.ip ||
-      'unknown';
+    // `req.ip` only -- see AuthController.clientIp. X-Forwarded-For is
+    // caller-supplied, so keying a rate limit on it directly meant an
+    // attacker could mint a new bucket per request.
+    const ip = req.ip || 'unknown';
     this.rateLimit.consume(
       `${action}:ip:${ip}`,
       perEmailLimit * 5,

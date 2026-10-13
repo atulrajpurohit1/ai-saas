@@ -30,6 +30,7 @@ describe('ShiftsService smart guard recommendations', () => {
       findUnique: jest.Mock;
     };
     assignment?: {
+      deleteMany?: jest.Mock;
       create: jest.Mock;
     };
     $transaction: jest.Mock;
@@ -253,6 +254,76 @@ describe('ShiftsService smart guard recommendations', () => {
       service.assign(activeUser, shiftId, 'guard-left'),
     ).rejects.toThrow('Guard has been deactivated');
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  // A shift stranded by a deactivation that happened before deactivation
+  // started releasing shifts: the only assignment is held by someone who has
+  // left, so it is not real coverage and must not block re-staffing. Before
+  // this, assign() saw a non-empty assignments array and refused with
+  // "Shift is already assigned", which no amount of retrying could clear.
+  it('re-staffs a shift whose only assignment is a departed guard', async () => {
+    prisma.shift.findFirst.mockResolvedValue({
+      ...targetShift,
+      assignments: [
+        {
+          guardId: 'guard-left',
+          guard: {
+            id: 'guard-left',
+            deactivatedAt: new Date('2026-06-10T00:00:00.000Z'),
+          },
+        },
+      ],
+    });
+    prisma.guard.findFirst.mockResolvedValue({
+      id: 'guard-ramesh',
+      tenantId,
+      name: 'Ramesh',
+      deactivatedAt: null,
+    });
+    prisma.availability.findUnique.mockResolvedValue(null);
+    prisma.guard.findMany.mockResolvedValue([]);
+    prisma.shift.findMany.mockResolvedValue([]);
+    prisma.assignment = {
+      ...(prisma.assignment ?? { create: jest.fn() }),
+      deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+    };
+
+    const tx = {
+      assignment: { create: jest.fn().mockResolvedValue({ id: 'a-2' }) },
+      shift: { update: jest.fn().mockResolvedValue({ id: shiftId }) },
+    };
+    prisma.$transaction.mockImplementation(
+      async (callback: (tx: MockShiftTx) => Promise<unknown>) => callback(tx),
+    );
+
+    await service.assign(activeUser, shiftId, 'guard-ramesh');
+
+    // The dead hold is cleared and the new guard actually gets assigned.
+    expect(prisma.assignment?.deleteMany).toHaveBeenCalledTimes(1);
+    expect(tx.assignment.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('still refuses a shift held by a guard who is active', async () => {
+    prisma.shift.findFirst.mockResolvedValue({
+      ...targetShift,
+      assignments: [
+        {
+          guardId: 'guard-on-staff',
+          guard: { id: 'guard-on-staff', deactivatedAt: null },
+        },
+      ],
+    });
+    prisma.guard.findFirst.mockResolvedValue({
+      id: 'guard-ramesh',
+      tenantId,
+      name: 'Ramesh',
+      deactivatedAt: null,
+    });
+    prisma.availability.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.assign(activeUser, shiftId, 'guard-ramesh'),
+    ).rejects.toThrow('Shift is already assigned');
   });
 
   it('only recommends active guards', async () => {

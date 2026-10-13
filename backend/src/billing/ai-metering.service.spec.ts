@@ -4,9 +4,12 @@ import { CreditsService } from './credits.service';
 import { InsufficientCreditsException } from './insufficient-credits.exception';
 import { aiCreditCost } from './ai-credit-costs.constants';
 
-function build(options: { spendImpl?: jest.Mock; refundImpl?: jest.Mock } = {}) {
+function build(
+  options: { spendImpl?: jest.Mock; refundImpl?: jest.Mock } = {},
+) {
   const spend =
-    options.spendImpl ?? jest.fn().mockResolvedValue({ balance: 100, spent: 5 });
+    options.spendImpl ??
+    jest.fn().mockResolvedValue({ balance: 100, spent: 5 });
   const refundSpend =
     options.refundImpl ?? jest.fn().mockResolvedValue({ balance: 105 });
   const credits = {
@@ -122,7 +125,9 @@ describe('AiMeteringService.runNullable', () => {
   // would bill the customer for nothing.
   it('refunds when the work returns null', async () => {
     const { service, refundSpend } = build();
-    await expect(service.runNullable(CTX, async () => null)).resolves.toBeNull();
+    await expect(
+      service.runNullable(CTX, async () => null),
+    ).resolves.toBeNull();
     expect(refundSpend).toHaveBeenCalledTimes(1);
   });
 
@@ -162,9 +167,9 @@ describe('AiMeteringService.canAfford', () => {
   it('is true for a free feature without consulting the balance', async () => {
     const { service } = build();
     jest.spyOn(service, 'costOf').mockReturnValue(0);
-    await expect(service.canAfford('t1', AiFeature.COPILOT_ANSWER)).resolves.toBe(
-      true,
-    );
+    await expect(
+      service.canAfford('t1', AiFeature.COPILOT_ANSWER),
+    ).resolves.toBe(true);
   });
 });
 

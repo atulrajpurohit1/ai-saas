@@ -34,37 +34,25 @@ export class StripeWebhookService {
   async handle(event: Stripe.Event) {
     switch (event.type) {
       case 'checkout.session.completed':
-        return this.onCheckoutCompleted(
-          event.data.object as Stripe.Checkout.Session,
-          event.id,
-        );
+        return this.onCheckoutCompleted(event.data.object, event.id);
 
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
-        return this.onSubscriptionChanged(
-          event.data.object as Stripe.Subscription,
-          event.id,
-        );
+        return this.onSubscriptionChanged(event.data.object, event.id);
 
       case 'customer.subscription.deleted':
-        return this.onSubscriptionDeleted(
-          event.data.object as Stripe.Subscription,
-          event.id,
-        );
+        return this.onSubscriptionDeleted(event.data.object, event.id);
 
       case 'invoice.payment_failed':
-        return this.onPaymentFailed(
-          event.data.object as Stripe.Invoice,
-          event.id,
-        );
+        return this.onPaymentFailed(event.data.object, event.id);
 
       // A refunded or disputed credit purchase must take the credits back,
       // otherwise a customer can buy, spend, refund and keep the usage.
       case 'charge.refunded':
-        return this.onChargeRefunded(event.data.object as Stripe.Charge);
+        return this.onChargeRefunded(event.data.object);
 
       case 'charge.dispute.created':
-        return this.onChargeDisputed(event.data.object as Stripe.Dispute);
+        return this.onChargeDisputed(event.data.object);
 
       default:
         this.logger.debug(`Ignoring unhandled Stripe event ${event.type}`);
@@ -277,13 +265,19 @@ export class StripeWebhookService {
         ? invoice.customer
         : invoice.customer?.id;
 
-    const tenantId = await this.provisioning.tenantForProviderIds({ customerId });
+    const tenantId = await this.provisioning.tenantForProviderIds({
+      customerId,
+    });
     if (!tenantId) return { handled: false, reason: 'unknown-tenant' };
 
     // PAST_DUE deliberately keeps access. Dunning is a billing conversation,
     // not a reason to strand a customer mid-shift; Stripe retries the payment
     // and only a real cancellation revokes the services.
-    await this.provisioning.setStatus(tenantId, 'PAST_DUE', `stripe:${eventId}`);
+    await this.provisioning.setStatus(
+      tenantId,
+      'PAST_DUE',
+      `stripe:${eventId}`,
+    );
     return { handled: true, tenantId };
   }
 

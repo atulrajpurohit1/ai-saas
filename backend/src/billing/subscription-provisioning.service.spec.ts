@@ -31,7 +31,9 @@ describe('SubscriptionProvisioningService', () => {
       },
     };
     prisma = {
-      $transaction: jest.fn(async (fn: (client: typeof tx) => unknown) => fn(tx)),
+      $transaction: jest.fn(async (fn: (client: typeof tx) => unknown) =>
+        fn(tx),
+      ),
       tenantSubscription: {
         updateMany: jest.fn().mockResolvedValue({}),
         findFirst: jest.fn().mockResolvedValue(null),
@@ -145,10 +147,8 @@ describe('SubscriptionProvisioningService', () => {
       status: 'ACTIVE',
     });
 
-    const update = tx.tenantSubscription.upsert.mock.calls[0][0].update as Record<
-      string,
-      unknown
-    >;
+    const update = tx.tenantSubscription.upsert.mock.calls[0][0]
+      .update as Record<string, unknown>;
     expect(update).not.toHaveProperty('providerCustomerId');
     expect(update).not.toHaveProperty('providerSubscriptionId');
   });

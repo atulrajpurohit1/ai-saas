@@ -6,12 +6,13 @@ import {
   ProspectDiscoveryResult,
 } from '../types/prospect-search.types';
 import {
-  BlackPearlSubmission,
   blackPearlHeaders,
+  BLACKPEARL_TERMINAL_BUDGET_CODES,
   blackPearlRequest,
-  blackPearlRequestOutcome,
+  type BlackPearlRequestOutcome,
   normalizeString,
 } from './blackpearl-http.util';
+import { UpstreamBudgetExceededError } from './upstream-budget-exceeded.error';
 
 const DEFAULT_BASE_URL = 'https://api.blackpearl.com/v1';
 
@@ -233,30 +234,15 @@ export class BlackPearlProspectingProvider {
     return Boolean(this.configService.get<string>('BLACKPEARL_API_KEY'));
   }
 
-  /**
-   * Submits a prospecting job and returns its id, or why it could not be
-   * started. The reason is returned rather than flattened to null because an
-   * exhausted upstream account, a hard budget and an unreachable API need
-   * different handling and different words to the customer.
-   */
   async submitProspectingJob(
     input: ProspectingSubmissionInput,
-  ): Promise<BlackPearlSubmission> {
+  ): Promise<string | null> {
     const apiKey = this.configService.get<string>('BLACKPEARL_API_KEY');
     if (!apiKey) {
       this.logger.debug(
         'BLACKPEARL_API_KEY is not configured; skipping prospecting submission.',
       );
-      return {
-        ok: false,
-        failure: {
-          kind: 'unavailable',
-          code: null,
-          httpStatus: null,
-          message: 'BLACKPEARL_API_KEY is not configured.',
-          requestId: null,
-        },
-      };
+      return null;
     }
 
     const campaignName = `Prospect Search: ${input.objective}`.slice(0, 160);
@@ -265,7 +251,8 @@ export class BlackPearlProspectingProvider {
       `BlackPearl prospecting job creation: submitting objective="${input.objective}" limit=${input.limit ?? 10}`,
     );
 
-    const outcome = await blackPearlRequestOutcome<RawProspectingJob>(
+    const outcome: BlackPearlRequestOutcome = {};
+    const job = await blackPearlRequest<RawProspectingJob>(
       this.logger,
       `${this.getBaseUrl()}/prospects`,
       {
@@ -295,42 +282,31 @@ export class BlackPearlProspectingProvider {
         }),
       },
       `submit prospecting job for "${input.objective}"`,
+      undefined,
+      outcome,
     );
 
-    if (!outcome.ok) {
-      this.logger.error(
-        `BlackPearl prospecting job creation FAILED for objective="${input.objective}" (${
-          outcome.failure.kind
-        }${
-          outcome.failure.code ? `: ${outcome.failure.code}` : ''
-        }) - see the request log above for the exact HTTP failure.`,
-      );
-      return outcome;
-    }
-
-    const job = outcome.data;
-
     if (!job?.id) {
+      const budgetScope = outcome.errorCode
+        ? BLACKPEARL_TERMINAL_BUDGET_CODES[outcome.errorCode]
+        : undefined;
+      if (budgetScope) {
+        // An upstream spending limit, not a fault. Thrown rather than returned
+        // as null so the service can answer 402 "out of budget" instead of the
+        // 503 "try again later" that every other submission failure produces.
+        throw new UpstreamBudgetExceededError(outcome.errorCode!, budgetScope);
+      }
       this.logger.error(
-        `BlackPearl prospecting job creation FAILED for objective="${input.objective}" - the response carried no job id.`,
+        `BlackPearl prospecting job creation FAILED for objective="${input.objective}" - see the request log above for the exact HTTP failure.`,
       );
-      return {
-        ok: false,
-        failure: {
-          kind: 'unavailable',
-          code: null,
-          httpStatus: null,
-          message: 'BlackPearl accepted the request but returned no job id.',
-          requestId: null,
-        },
-      };
+      return null;
     }
 
     this.logger.log(
       `BlackPearl prospecting job creation succeeded: jobId=${job.id} initialStatus="${job.status}"`,
     );
 
-    return { ok: true, jobId: job.id };
+    return job.id;
   }
 
   async getJobResult(jobId: string): Promise<ProspectingJobPollResult | null> {

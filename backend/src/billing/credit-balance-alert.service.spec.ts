@@ -4,13 +4,15 @@ import { CreditBalanceAlertService } from './credit-balance-alert.service';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 
-function build(options: {
-  balances?: Array<{ tenantId: string; balance: number }>;
-  users?: Array<{ email: string }>;
-  openAlert?: { id: string } | null;
-  config?: Record<string, string>;
-  sendImpl?: jest.Mock;
-} = {}) {
+function build(
+  options: {
+    balances?: Array<{ tenantId: string; balance: number }>;
+    users?: Array<{ email: string }>;
+    openAlert?: { id: string } | null;
+    config?: Record<string, string>;
+    sendImpl?: jest.Mock;
+  } = {},
+) {
   const {
     balances = [{ tenantId: 't1', balance: 100 }],
     users = [{ email: 'admin@example.com' }],
@@ -28,8 +30,11 @@ function build(options: {
     creditBalanceAlert: { findFirst, create: createAlert, updateMany },
   } as unknown as PrismaService;
 
-  const send = options.sendImpl ?? jest.fn().mockResolvedValue({ messageId: 'm' });
-  const email = { sendCreditBalanceAlertEmail: send } as unknown as EmailService;
+  const send =
+    options.sendImpl ?? jest.fn().mockResolvedValue({ messageId: 'm' });
+  const email = {
+    sendCreditBalanceAlertEmail: send,
+  } as unknown as EmailService;
   const configService = {
     get: jest.fn((k: string) => config[k]),
   } as unknown as ConfigService;
@@ -77,7 +82,9 @@ describe('CreditBalanceAlertService thresholds', () => {
   });
 
   it('honours a configured threshold over the default', () => {
-    const { service } = build({ config: { CREDIT_LOW_BALANCE_THRESHOLD: '1234' } });
+    const { service } = build({
+      config: { CREDIT_LOW_BALANCE_THRESHOLD: '1234' },
+    });
     expect(service.lowThreshold()).toBe(1234);
   });
 

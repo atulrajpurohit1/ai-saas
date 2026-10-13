@@ -1,12 +1,16 @@
 import { Logger } from '@nestjs/common';
 import {
+  BLACKPEARL_TERMINAL_BUDGET_CODES,
   blackPearlRequest,
-  blackPearlRequestOutcome,
+  type BlackPearlRequestOutcome,
 } from './blackpearl-http.util';
 
-function jsonResponse(status: number, body: unknown) {
+function errorResponse(status: number, code?: string) {
+  const body = code
+    ? { error: { code, message: `simulated ${code}` } }
+    : { message: 'no code here' };
   return {
-    ok: status >= 200 && status < 300,
+    ok: false,
     status,
     headers: new Headers(),
     text: () => Promise.resolve(JSON.stringify(body)),
@@ -14,28 +18,36 @@ function jsonResponse(status: number, body: unknown) {
   } as Response;
 }
 
-/** BlackPearl's failure envelope: `{ error: { code, message, request_id } }`. */
-function errorBody(code: string, message = 'refused') {
+function okResponse(body: unknown) {
   return {
-    error: {
-      code,
-      message,
-      request_id: 'req_abc123',
-      docs_url: 'https://api.blackpearl.com/docs/errors',
-    },
-  };
+    ok: true,
+    status: 200,
+    headers: new Headers(),
+    text: () => Promise.resolve(JSON.stringify(body)),
+    json: () => Promise.resolve(body),
+  } as Response;
 }
 
-describe('blackPearlRequestOutcome', () => {
+/**
+ * A 429 from BlackPearl carries three different meanings and only
+ * `rate_limit_exceeded` is transient. Retrying the other two burned three
+ * requests and seconds of backoff before failing, and then reported the same
+ * "transient failure" as a genuine outage -- so a tenant that had simply run
+ * out of budget produced a 503 that looked like BlackPearl being down.
+ *
+ * These tests pin the distinction, because getting it wrong is invisible in
+ * normal operation and only shows up as a misdiagnosed incident.
+ */
+describe('blackPearlRequest budget handling', () => {
   const originalFetch = global.fetch;
   let logger: Logger;
 
   beforeEach(() => {
     logger = new Logger('test');
-    jest.spyOn(logger, 'log').mockImplementation();
-    jest.spyOn(logger, 'warn').mockImplementation();
-    jest.spyOn(logger, 'error').mockImplementation();
-    jest.spyOn(logger, 'debug').mockImplementation();
+    jest.spyOn(logger, 'error').mockImplementation(() => undefined);
+    jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+    jest.spyOn(logger, 'log').mockImplementation(() => undefined);
+    jest.spyOn(logger, 'debug').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -43,190 +55,136 @@ describe('blackPearlRequestOutcome', () => {
     jest.restoreAllMocks();
   });
 
-  const call = () =>
-    blackPearlRequestOutcome<{ id: string }>(
+  it.each(['budget_exceeded', 'quota_exceeded'])(
+    'does not retry a 429 %s, and reports the code',
+    async (code) => {
+      const fetchMock = jest.fn().mockResolvedValue(errorResponse(429, code));
+      global.fetch = fetchMock;
+
+      const outcome: BlackPearlRequestOutcome = {};
+      const result = await blackPearlRequest(
+        logger,
+        'https://example.test/v1/prospects',
+        { method: 'POST' },
+        'submit',
+        undefined,
+        outcome,
+      );
+
+      expect(result).toBeNull();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(outcome.errorCode).toBe(code);
+    },
+  );
+
+  it('still retries a 429 rate_limit_exceeded, which IS transient', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce(errorResponse(429, 'rate_limit_exceeded'))
+      .mockResolvedValue(okResponse({ id: 'job-1' }));
+    global.fetch = fetchMock;
+
+    const outcome: BlackPearlRequestOutcome = {};
+    const result = await blackPearlRequest<{ id: string }>(
       logger,
-      'https://api.blackpearl.test/v1/prospects',
+      'https://example.test/v1/prospects',
       { method: 'POST' },
-      'submit a job',
+      'submit',
+      undefined,
+      outcome,
     );
 
-  it('returns the parsed body on success', async () => {
-    global.fetch = jest
-      .fn()
-      .mockResolvedValue(jsonResponse(202, { id: 'job-1' }));
-
-    await expect(call()).resolves.toEqual({ ok: true, data: { id: 'job-1' } });
+    expect(result).toEqual({ id: 'job-1' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // A recovered rate limit is not a budget problem, so nothing is reported.
+    expect(outcome.errorCode).toBeUndefined();
   });
 
-  /**
-   * The behaviour this type exists for. BlackPearl's own response
-   * documentation says that of the 429s, "Only `rate_limit_exceeded` is
-   * transient" -- so a hard budget that has already refused us must be
-   * reported at once. It used to be retried twice with doubled backoff and
-   * then reported as an indistinguishable null, which spent six seconds to
-   * learn nothing and lost the one fact worth knowing.
-   */
-  it('does not retry a 429 raised by a hard budget', async () => {
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValue(jsonResponse(429, errorBody('budget_exceeded')));
+  it('retries a 429 whose code cannot be read, rather than failing the search', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(errorResponse(429));
     global.fetch = fetchMock;
 
-    const outcome = await call();
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(outcome).toEqual({
-      ok: false,
-      failure: {
-        kind: 'budget_exceeded',
-        code: 'budget_exceeded',
-        httpStatus: 429,
-        message: 'refused',
-        requestId: 'req_abc123',
-      },
-    });
-  });
-
-  it('does not retry a 429 raised by a usage quota', async () => {
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValue(jsonResponse(429, errorBody('quota_exceeded')));
-    global.fetch = fetchMock;
-
-    const outcome = await call();
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(outcome.ok).toBe(false);
-    expect(outcome.ok === false && outcome.failure.kind).toBe('quota_exceeded');
-  });
-
-  it('retries a 429 that really is a rate limit', async () => {
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValue(jsonResponse(429, errorBody('rate_limit_exceeded')));
-    global.fetch = fetchMock;
-
-    const outcome = await call();
-
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(outcome.ok === false && outcome.failure.kind).toBe('rate_limited');
-  }, 20_000);
-
-  /**
-   * An unrecognised 429 is treated as a rate limit, which is the retryable
-   * reading: guessing "hard ceiling" for a code we do not know would turn a
-   * momentary throttle into an immediate failure.
-   */
-  it('retries a 429 whose body carries no error code', async () => {
-    const fetchMock = jest.fn().mockResolvedValue(jsonResponse(429, {}));
-    global.fetch = fetchMock;
-
-    const outcome = await call();
-
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(outcome.ok === false && outcome.failure.kind).toBe('rate_limited');
-  }, 20_000);
-
-  /**
-   * 402 is the shared organization pot running dry -- the condition that stops
-   * every tenant at once. Reporting it as its own kind is what lets the caller
-   * say so, instead of logging a generic failure.
-   */
-  it('reports an empty prepaid pot as insufficient_credits without retrying', async () => {
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValue(jsonResponse(402, errorBody('insufficient_credits')));
-    global.fetch = fetchMock;
-
-    const outcome = await call();
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(outcome.ok === false && outcome.failure.kind).toBe(
-      'insufficient_credits',
+    const result = await blackPearlRequest(
+      logger,
+      'https://example.test/v1/prospects',
+      { method: 'POST' },
+      'submit',
     );
-  });
 
-  it('classifies a 402 with an unreadable body from its status alone', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: false,
-      status: 402,
-      headers: new Headers(),
-      text: () => Promise.resolve('<html>gateway</html>'),
-    } as Response);
-
-    const outcome = await call();
-
-    expect(outcome.ok === false && outcome.failure.kind).toBe(
-      'insufficient_credits',
-    );
-    expect(outcome.ok === false && outcome.failure.code).toBeNull();
-  });
-
-  it('reports an auth failure without retrying', async () => {
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValue(jsonResponse(401, errorBody('invalid_api_key')));
-    global.fetch = fetchMock;
-
-    const outcome = await call();
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(outcome.ok === false && outcome.failure.kind).toBe('auth');
-  });
-
-  it('reports a 404 without retrying', async () => {
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValue(jsonResponse(404, errorBody('not_found')));
-    global.fetch = fetchMock;
-
-    const outcome = await call();
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(outcome.ok === false && outcome.failure.kind).toBe('not_found');
-  });
-
-  it('retries a 5xx and reports it as unavailable', async () => {
-    const fetchMock = jest.fn().mockResolvedValue(jsonResponse(500, {}));
-    global.fetch = fetchMock;
-
-    const outcome = await call();
-
+    expect(result).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(outcome.ok === false && outcome.failure.kind).toBe('unavailable');
+    // Real backoff is exercised here (doubled for a 429), so this case needs
+    // more than Jest's default 5s budget.
   }, 20_000);
-});
 
-describe('blackPearlRequest', () => {
-  const originalFetch = global.fetch;
-  let logger: Logger;
-
-  beforeEach(() => {
-    logger = new Logger('test');
-    jest.spyOn(logger, 'log').mockImplementation();
-    jest.spyOn(logger, 'warn').mockImplementation();
-    jest.spyOn(logger, 'error').mockImplementation();
-    jest.spyOn(logger, 'debug').mockImplementation();
-  });
-
-  afterEach(() => {
-    global.fetch = originalFetch;
-    jest.restoreAllMocks();
-  });
-
-  /** The existing contract, unchanged for the call sites that only need it. */
-  it('still returns the body on success and null on failure', async () => {
-    global.fetch = jest.fn().mockResolvedValue(jsonResponse(200, { id: 'x' }));
-    await expect(
-      blackPearlRequest(logger, 'https://x.test', { method: 'GET' }, 'read'),
-    ).resolves.toEqual({ id: 'x' });
-
-    global.fetch = jest
+  it('does not retry a 402, and reports insufficient_credits', async () => {
+    const fetchMock = jest
       .fn()
-      .mockResolvedValue(jsonResponse(429, errorBody('budget_exceeded')));
-    await expect(
-      blackPearlRequest(logger, 'https://x.test', { method: 'GET' }, 'read'),
-    ).resolves.toBeNull();
+      .mockResolvedValue(errorResponse(402, 'insufficient_credits'));
+    global.fetch = fetchMock;
+
+    const outcome: BlackPearlRequestOutcome = {};
+    const result = await blackPearlRequest(
+      logger,
+      'https://example.test/v1/prospects',
+      { method: 'POST' },
+      'submit',
+      undefined,
+      outcome,
+    );
+
+    expect(result).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(outcome.errorCode).toBe('insufficient_credits');
+  });
+
+  it('treats a 402 with an unreadable body as insufficient_credits anyway', async () => {
+    global.fetch = jest.fn().mockResolvedValue(errorResponse(402));
+
+    const outcome: BlackPearlRequestOutcome = {};
+    await blackPearlRequest(
+      logger,
+      'https://example.test/v1/prospects',
+      { method: 'POST' },
+      'submit',
+      undefined,
+      outcome,
+    );
+
+    expect(outcome.errorCode).toBe('insufficient_credits');
+  });
+
+  it('still retries 5xx, which the budget branch must not have broken', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce(errorResponse(500))
+      .mockResolvedValue(okResponse({ id: 'job-2' }));
+    global.fetch = fetchMock;
+
+    const result = await blackPearlRequest<{ id: string }>(
+      logger,
+      'https://example.test/v1/jobs/x',
+      { method: 'GET' },
+      'poll',
+    );
+
+    expect(result).toEqual({ id: 'job-2' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('scopes every budget refusal to the company', () => {
+    // The scope decides whether the customer is asked to top up or an
+    // operator is paged, so it is worth pinning rather than inferring.
+    //
+    // All three are company-wide because a BlackPearl key is project-scoped
+    // and we hold one key: every tenant runs under the same project, so a
+    // ceiling that refused one of them refused all of them. Mapping a budget
+    // stop to 'tenant' would blame one customer for a platform-wide outage
+    // and skip the operator alert.
+    expect(BLACKPEARL_TERMINAL_BUDGET_CODES.insufficient_credits).toBe(
+      'company',
+    );
+    expect(BLACKPEARL_TERMINAL_BUDGET_CODES.budget_exceeded).toBe('company');
+    expect(BLACKPEARL_TERMINAL_BUDGET_CODES.quota_exceeded).toBe('company');
   });
 });
