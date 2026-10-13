@@ -1,5 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
-import { CreditEntryType, CreditReservationStatus } from '@prisma/client';
+import {
+  CreditEntryType,
+  CreditReservationStatus,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreditsService } from './credits.service';
 import { InsufficientCreditsException } from './insufficient-credits.exception';
@@ -413,6 +417,51 @@ describe('CreditsService', () => {
           reason: 'Refunded',
         }),
       ).resolves.toBeNull();
+    });
+  });
+
+  /**
+   * The figure a per-tenant upstream spend cap is enforced against. BlackPearl
+   * bills one shared organization pot and has no idea our tenants exist, so
+   * our ledger is the only thing that can say which tenant a cost belongs to.
+   */
+  describe('monthToDateUpstreamCostUsd', () => {
+    it('sums what the tenant has cost us upstream', async () => {
+      prisma.creditLedgerEntry.aggregate.mockResolvedValue({
+        _sum: { upstreamCostUsd: new Prisma.Decimal('12.504321') },
+      });
+
+      await expect(service.monthToDateUpstreamCostUsd(tenantId)).resolves.toBe(
+        12.504321,
+      );
+    });
+
+    it('reports zero when no job has reported a cost', async () => {
+      prisma.creditLedgerEntry.aggregate.mockResolvedValue({
+        _sum: { upstreamCostUsd: null },
+      });
+
+      await expect(service.monthToDateUpstreamCostUsd(tenantId)).resolves.toBe(
+        0,
+      );
+    });
+
+    it('counts only this tenant, from the start of the current UTC month', async () => {
+      prisma.creditLedgerEntry.aggregate.mockResolvedValue({
+        _sum: { upstreamCostUsd: null },
+      });
+
+      await service.monthToDateUpstreamCostUsd(tenantId);
+
+      const [[args]] = prisma.creditLedgerEntry.aggregate.mock.calls as [
+        [{ where: { tenantId: string; createdAt: { gte: Date } } }],
+      ];
+      const where = args.where;
+      expect(where.tenantId).toBe(tenantId);
+      expect(where.createdAt.gte.getUTCDate()).toBe(1);
+      expect(where.createdAt.gte.getUTCHours()).toBe(0);
+      expect(where.createdAt.gte.getUTCMinutes()).toBe(0);
+      expect(where.createdAt.gte.getTime()).toBeLessThanOrEqual(Date.now());
     });
   });
 });

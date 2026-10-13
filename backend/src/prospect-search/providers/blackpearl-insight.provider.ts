@@ -5,8 +5,10 @@ import {
   ProspectCompanySummary,
 } from '../../ai/ai.service';
 import {
+  BlackPearlSubmission,
   blackPearlHeaders,
   blackPearlRequest,
+  blackPearlRequestOutcome,
   normalizeString,
   sleep,
 } from './blackpearl-http.util';
@@ -109,26 +111,38 @@ export class BlackPearlInsightProvider {
   }
 
   /**
-   * Submits a playbook job and returns its id, or null if it couldn't be
-   * submitted (unconfigured, auth, quota, timeout, network error - all
-   * logged, never exposing the API key).
+   * Submits a playbook job and returns its id, or why it could not be
+   * submitted (unconfigured, an empty prepaid pot, a hard budget, auth,
+   * timeout, network error - all logged, never exposing the API key). The
+   * reason is returned rather than flattened to null because an exhausted
+   * upstream account and an unreachable one need different handling and
+   * different words to the customer.
    */
   async submitPlaybookJob(
     company: ProspectCompanySummary,
-  ): Promise<string | null> {
+  ): Promise<BlackPearlSubmission> {
     const apiKey = this.configService.get<string>('BLACKPEARL_API_KEY');
     if (!apiKey) {
       this.logger.debug(
         'BLACKPEARL_API_KEY is not configured; skipping BlackPearl playbook submission.',
       );
-      return null;
+      return {
+        ok: false,
+        failure: {
+          kind: 'unavailable',
+          code: null,
+          httpStatus: null,
+          message: 'BLACKPEARL_API_KEY is not configured.',
+          requestId: null,
+        },
+      };
     }
 
     this.logger.log(
       `BlackPearl job creation: submitting playbook request for company="${company.name}" brandProfileKey="${this.getBrandProfileKey()}"`,
     );
 
-    const job = await blackPearlRequest<RawBlackPearlJob>(
+    const outcome = await blackPearlRequestOutcome<RawBlackPearlJob>(
       this.logger,
       `${this.getBaseUrl()}/playbooks`,
       {
@@ -142,18 +156,38 @@ export class BlackPearlInsightProvider {
       `submit playbook for "${company.name}"`,
     );
 
+    if (!outcome.ok) {
+      this.logger.error(
+        `BlackPearl job creation FAILED for company="${company.name}" (${outcome.failure.kind}${
+          outcome.failure.code ? `: ${outcome.failure.code}` : ''
+        }) - see the request log above for the exact HTTP failure.`,
+      );
+      return outcome;
+    }
+
+    const job = outcome.data;
+
     if (!job?.id) {
       this.logger.error(
-        `BlackPearl job creation FAILED for company="${company.name}" - see the request log above for the exact HTTP failure.`,
+        `BlackPearl job creation FAILED for company="${company.name}" - the response carried no job id.`,
       );
-      return null;
+      return {
+        ok: false,
+        failure: {
+          kind: 'unavailable',
+          code: null,
+          httpStatus: null,
+          message: 'BlackPearl accepted the request but returned no job id.',
+          requestId: null,
+        },
+      };
     }
 
     this.logger.log(
       `BlackPearl job creation succeeded: jobId=${job.id} company="${company.name}" initialStatus="${job.status}"`,
     );
 
-    return job.id;
+    return { ok: true, jobId: job.id };
   }
 
   /**
@@ -263,8 +297,9 @@ export class BlackPearlInsightProvider {
   ): Promise<ProspectCompanyInsight | null> {
     if (!this.isConfigured()) return null;
 
-    const jobId = await this.submitPlaybookJob(company);
-    if (!jobId) return null;
+    const submission = await this.submitPlaybookJob(company);
+    if (!submission.ok) return null;
+    const jobId = submission.jobId;
 
     const shortPollAttempts = 3;
     const shortPollDelayMs = 2000;

@@ -11,6 +11,7 @@ import {
   previewDiscoveryCreditCost,
 } from '../billing/credit-packs.constants';
 import { InsufficientCreditsException } from '../billing/insufficient-credits.exception';
+import { UpstreamSpendCapExceededException } from '../billing/upstream-spend-cap.exception';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { LeadsService } from '../leads/leads.service';
 import { NotesService } from '../notes/notes.service';
@@ -51,9 +52,11 @@ describe('ProspectSearchService', () => {
     reserve: jest.Mock;
     findReservation: jest.Mock;
     settle: jest.Mock;
+    monthToDateUpstreamCostUsd: jest.Mock;
   };
   let upstreamBudget: {
     assertCanSpend: jest.Mock;
+    assertTenantCanSpend: jest.Mock;
     invalidate: jest.Mock;
     getBalanceUsd: jest.Mock;
   };
@@ -112,7 +115,9 @@ describe('ProspectSearchService', () => {
     blackPearlInsightProvider = {
       isConfigured: jest.fn().mockReturnValue(true),
       getPlaybook: jest.fn().mockResolvedValue(insight),
-      submitPlaybookJob: jest.fn().mockResolvedValue('job-1'),
+      submitPlaybookJob: jest
+        .fn()
+        .mockResolvedValue({ ok: true, jobId: 'job-1' }),
       getJobResult: jest.fn().mockResolvedValue({
         jobId: 'job-1',
         status: 'completed',
@@ -123,7 +128,9 @@ describe('ProspectSearchService', () => {
     };
     blackPearlProspectingProvider = {
       isConfigured: jest.fn().mockReturnValue(true),
-      submitProspectingJob: jest.fn().mockResolvedValue('discovery-job-1'),
+      submitProspectingJob: jest
+        .fn()
+        .mockResolvedValue({ ok: true, jobId: 'discovery-job-1' }),
       getJobResult: jest.fn().mockResolvedValue({
         status: 'completed',
         progress: 100,
@@ -157,12 +164,17 @@ describe('ProspectSearchService', () => {
         .fn()
         .mockResolvedValue({ id: 'reservation-1', amount: -200 }),
       settle: jest.fn().mockResolvedValue({ released: 0, consumed: 1 }),
+      // What this tenant has already cost us upstream this month. Low by
+      // default so the existing tests exercise the search paths rather than
+      // the over-cap branch, which has its own tests.
+      monthToDateUpstreamCostUsd: jest.fn().mockResolvedValue(1.25),
     };
 
     // Default: plenty of upstream budget, so existing tests exercise the
     // search paths rather than the exhausted-balance branch.
     upstreamBudget = {
       assertCanSpend: jest.fn().mockResolvedValue(undefined),
+      assertTenantCanSpend: jest.fn(),
       invalidate: jest.fn(),
       getBalanceUsd: jest.fn().mockResolvedValue(500),
     };
@@ -224,11 +236,43 @@ describe('ProspectSearchService', () => {
     });
 
     it('throws a clear error when BlackPearl cannot even start the job', async () => {
-      blackPearlInsightProvider.submitPlaybookJob.mockResolvedValue(null);
+      blackPearlInsightProvider.submitPlaybookJob.mockResolvedValue({
+        ok: false,
+        failure: {
+          kind: 'unavailable',
+          code: null,
+          httpStatus: null,
+          message: 'network error',
+          requestId: null,
+        },
+      });
 
       await expect(
         service.search({ companyName: 'Acme Corp' }, user),
       ).rejects.toThrow(ServiceUnavailableException);
+    });
+
+    /**
+     * An exhausted prepaid pot is still a 503 -- it is OUR account, and no
+     * customer action fixes it, so offering a credit top-up here would be a
+     * lie. What it must not be is a 402.
+     */
+    it('reports an exhausted upstream account as a 503, not a credit problem', async () => {
+      blackPearlInsightProvider.submitPlaybookJob.mockResolvedValue({
+        ok: false,
+        failure: {
+          kind: 'insufficient_credits',
+          code: 'insufficient_credits',
+          httpStatus: 402,
+          message: 'The organization has insufficient prepaid credits.',
+          requestId: 'req_1',
+        },
+      });
+
+      await expect(
+        service.search({ companyName: 'Acme Corp' }, user),
+      ).rejects.toThrow(ServiceUnavailableException);
+      expect(creditsService.reserve).not.toHaveBeenCalled();
     });
 
     it('logs a tenant-scoped audit event for every submitted job', async () => {
@@ -590,9 +634,16 @@ describe('ProspectSearchService', () => {
     });
 
     it('throws a clear error when BlackPearl cannot even start the job', async () => {
-      blackPearlProspectingProvider.submitProspectingJob.mockResolvedValue(
-        null,
-      );
+      blackPearlProspectingProvider.submitProspectingJob.mockResolvedValue({
+        ok: false,
+        failure: {
+          kind: 'unavailable',
+          code: null,
+          httpStatus: null,
+          message: 'network error',
+          requestId: null,
+        },
+      });
 
       await expect(service.discover(dto, user)).rejects.toThrow(
         ServiceUnavailableException,
@@ -921,11 +972,7 @@ describe('ProspectSearchService', () => {
         upstreamCostUsd: 2.75,
       });
 
-      await service.getDiscoveryJobStatus(
-        'discovery-job-1',
-        discoverDto,
-        user,
-      );
+      await service.getDiscoveryJobStatus('discovery-job-1', discoverDto, user);
 
       expect(creditsService.settle).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -952,11 +999,7 @@ describe('ProspectSearchService', () => {
         upstreamCostUsd: 1.1,
       });
 
-      await service.getDiscoveryJobStatus(
-        'discovery-job-1',
-        discoverDto,
-        user,
-      );
+      await service.getDiscoveryJobStatus('discovery-job-1', discoverDto, user);
 
       expect(creditsService.settle).toHaveBeenCalledWith(
         expect.objectContaining({ actualUsed: discoveryCreditCost() }),
@@ -972,11 +1015,7 @@ describe('ProspectSearchService', () => {
         upstreamCostUsd: 0.8,
       });
 
-      await service.getDiscoveryJobStatus(
-        'discovery-job-1',
-        discoverDto,
-        user,
-      );
+      await service.getDiscoveryJobStatus('discovery-job-1', discoverDto, user);
 
       // Customer pays nothing; we still spent the money, and our own spend
       // figures would understate reality if this were dropped.
@@ -990,12 +1029,45 @@ describe('ProspectSearchService', () => {
         new ServiceUnavailableException('exhausted'),
       );
 
-      await expect(
-        service.discover(discoverDto, user),
-      ).rejects.toBeInstanceOf(ServiceUnavailableException);
+      await expect(service.discover(discoverDto, user)).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
 
       // Nothing is submitted and the tenant is not charged for a search we
       // could never have run.
+      expect(
+        blackPearlProspectingProvider.submitProspectingJob,
+      ).not.toHaveBeenCalled();
+      expect(creditsService.reserve).not.toHaveBeenCalled();
+    });
+
+    /**
+     * The per-tenant half of the same guard. The shared pot is healthy here --
+     * what stops this search is that THIS tenant has already cost us more than
+     * their share, which used to be invisible until the pot ran dry and took
+     * every tenant down at once.
+     */
+    it('refuses only the tenant that has used up its own share of upstream spend', async () => {
+      upstreamBudget.assertTenantCanSpend.mockImplementation(() => {
+        throw new UpstreamSpendCapExceededException(
+          'cap reached',
+          '2026-11-01T00:00:00Z',
+        );
+      });
+
+      await expect(service.discover(discoverDto, user)).rejects.toBeInstanceOf(
+        UpstreamSpendCapExceededException,
+      );
+
+      // The cap is checked against what the ledger says this tenant has cost
+      // us, and refuses before any billed work is submitted or held.
+      expect(creditsService.monthToDateUpstreamCostUsd).toHaveBeenCalledWith(
+        tenantId,
+      );
+      expect(upstreamBudget.assertTenantCanSpend).toHaveBeenCalledWith(
+        tenantId,
+        1.25,
+      );
       expect(
         blackPearlProspectingProvider.submitProspectingJob,
       ).not.toHaveBeenCalled();
@@ -1010,11 +1082,7 @@ describe('ProspectSearchService', () => {
         result: null,
       });
 
-      await service.getDiscoveryJobStatus(
-        'discovery-job-1',
-        discoverDto,
-        user,
-      );
+      await service.getDiscoveryJobStatus('discovery-job-1', discoverDto, user);
 
       expect(creditsService.settle).toHaveBeenCalledWith(
         expect.objectContaining({ actualUsed: 0 }),

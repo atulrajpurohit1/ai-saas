@@ -60,31 +60,67 @@ describe('BlackPearlInsightProvider', () => {
         );
       const provider = buildProvider();
 
-      await expect(provider.submitPlaybookJob(COMPANY)).resolves.toBe('job-1');
+      await expect(provider.submitPlaybookJob(COMPANY)).resolves.toEqual({
+        ok: true,
+        jobId: 'job-1',
+      });
     });
 
-    it('returns null when unconfigured, without making a network call', async () => {
+    it('reports a failure when unconfigured, without making a network call', async () => {
       global.fetch = jest.fn();
       const provider = buildProvider({ BLACKPEARL_API_KEY: undefined });
 
-      await expect(provider.submitPlaybookJob(COMPANY)).resolves.toBeNull();
+      const submission = await provider.submitPlaybookJob(COMPANY);
+
+      expect(submission.ok).toBe(false);
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
-    it('returns null on a 401', async () => {
+    it('reports an auth failure on a 401', async () => {
       global.fetch = jest
         .fn()
         .mockResolvedValue(jsonResponse(401, { detail: 'unauthorized' }));
       const provider = buildProvider();
 
-      await expect(provider.submitPlaybookJob(COMPANY)).resolves.toBeNull();
+      const submission = await provider.submitPlaybookJob(COMPANY);
+
+      expect(submission.ok === false && submission.failure.kind).toBe('auth');
     });
 
-    it('returns null on a network error', async () => {
+    /**
+     * The distinction the caller needs: an exhausted prepaid pot is OUR
+     * account running dry, which no customer action fixes and which stops
+     * every tenant at once. It used to be indistinguishable from a timeout.
+     */
+    it('reports an exhausted prepaid pot distinctly from an outage', async () => {
+      global.fetch = jest.fn().mockResolvedValue(
+        jsonResponse(402, {
+          error: {
+            code: 'insufficient_credits',
+            message: 'The organization has insufficient prepaid credits.',
+            request_id: 'req_1',
+            docs_url: 'https://api.blackpearl.com/docs/errors',
+          },
+        }),
+      );
+      const provider = buildProvider();
+
+      const submission = await provider.submitPlaybookJob(COMPANY);
+
+      expect(submission.ok === false && submission.failure.kind).toBe(
+        'insufficient_credits',
+      );
+    });
+
+    it('reports an unavailable failure on a network error', async () => {
       global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
       const provider = buildProvider();
 
-      await expect(provider.submitPlaybookJob(COMPANY)).resolves.toBeNull();
+      const submission = await provider.submitPlaybookJob(COMPANY);
+
+      expect(submission.ok === false && submission.failure.kind).toBe(
+        'unavailable',
+      );
     });
   });
 

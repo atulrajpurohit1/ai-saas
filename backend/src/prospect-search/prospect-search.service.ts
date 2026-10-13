@@ -21,6 +21,7 @@ import { ImportProspectDto } from './dto/import-prospect.dto';
 import { ProspectCompanyDto } from './dto/prospect-company.dto';
 import { SearchProspectsDto } from './dto/search-prospects.dto';
 import { ViewProspectDto } from './dto/view-prospect.dto';
+import { BlackPearlFailure } from './providers/blackpearl-http.util';
 import { BlackPearlInsightProvider } from './providers/blackpearl-insight.provider';
 import { BlackPearlProspectingProvider } from './providers/blackpearl-prospecting.provider';
 import { ProspectDiscoveryCacheService } from './prospect-discovery-cache.service';
@@ -100,15 +101,18 @@ export class ProspectSearchService {
     const playbookCost = playbookCreditCost();
     await this.assertCanAfford(user.tenantId, playbookCost);
 
-    const jobId = await this.blackPearlInsightProvider.submitPlaybookJob({
+    const submission = await this.blackPearlInsightProvider.submitPlaybookJob({
       name: companyName,
     });
 
-    if (!jobId) {
-      throw new ServiceUnavailableException(
+    if (!submission.ok) {
+      this.failSubmission(
+        submission.failure,
         "We couldn't start researching this company right now. Please try again shortly.",
       );
     }
+
+    const jobId = submission.jobId;
 
     // The job is now running and will be billed to us whatever happens next,
     // so the hold is placed even if it races the balance to zero. reserve()
@@ -226,19 +230,83 @@ export class ProspectSearchService {
   }
 
   /**
+   * Turns a refused BlackPearl submission into the right error, and says in
+   * the log which of our limits refused it.
+   *
+   * Every case here is OUR account's problem, not the customer's, so all of
+   * them are a 503 with the same words: there is nothing the customer can do,
+   * and offering them a credit top-up would be a lie. What differs is the log,
+   * because the fixes differ -- an empty prepaid pot needs topping up in the
+   * BlackPearl console, a hard budget needs raising there, and an unreachable
+   * API needs neither.
+   *
+   * Note that `budget_exceeded` is global today: our API key is scoped to one
+   * BlackPearl project shared by every tenant, so a budget refusing one tenant
+   * refuses all of them. The per-tenant ceiling is the one in
+   * UpstreamBudgetService, enforced from our own ledger before we get here.
+   */
+  private failSubmission(
+    failure: BlackPearlFailure,
+    userMessage: string,
+  ): never {
+    const detail = [
+      failure.kind,
+      failure.code,
+      failure.requestId ? `request ${failure.requestId}` : null,
+    ]
+      .filter(Boolean)
+      .join(', ');
+
+    switch (failure.kind) {
+      case 'insufficient_credits':
+        this.logger.error(
+          `BlackPearl refused the job: our ORGANIZATION prepaid balance is exhausted (${detail}). Prospect Search is down for every tenant until the account is topped up.`,
+        );
+        break;
+      case 'budget_exceeded':
+      case 'quota_exceeded':
+        this.logger.error(
+          `BlackPearl refused the job: a hard budget or quota on our account rejected it (${detail}). This is not a per-tenant limit -- it affects every tenant until the ceiling is raised or the period resets.`,
+        );
+        break;
+      case 'auth':
+        this.logger.error(
+          `BlackPearl refused the job: our API key was rejected (${detail}). Check BLACKPEARL_API_KEY.`,
+        );
+        break;
+      default:
+        this.logger.error(`BlackPearl could not start the job (${detail}).`);
+        break;
+    }
+
+    throw new ServiceUnavailableException(userMessage);
+  }
+
+  /**
    * Cheap pre-flight check before submitting a billed job. reserve() enforces
-   * this properly at the point of the hold; doing it here as well means a
-   * tenant with an empty balance is turned away before we ever call BlackPearl
-   * and incur the cost.
+   * the credit hold properly at the point of the hold; doing it here as well
+   * means a tenant who cannot run the search is turned away before we ever
+   * call BlackPearl and incur the cost.
    */
   private async assertCanAfford(tenantId: string, required: number) {
-    // Two separate budgets have to hold, and they fail differently. The
-    // tenant's credit balance is THEIR limit and running out is a 402 telling
-    // them to buy more. Our prepaid BlackPearl balance is OUR limit, shared by
-    // every tenant, and running out is a 503 that no customer action fixes.
-    // Checked first so we never take a paying customer's credits for work the
-    // upstream account cannot fund.
+    // Three separate limits have to hold, and they fail differently.
+    //
+    //   1. Our prepaid BlackPearl room is OUR limit, shared by every tenant.
+    //      Running out is a 503 that no customer action fixes. Checked first
+    //      so we never take a paying customer's credits for work the upstream
+    //      account cannot fund.
+    //   2. This tenant's share of our upstream bill is also OUR limit, but it
+    //      is per tenant: it stops one tenant draining the shared pot and
+    //      refuses only them. A 429, not a 402 -- buying credits does not
+    //      lift it.
+    //   3. The tenant's credit balance is THEIR limit, and running out is a
+    //      402 telling them to buy more.
     await this.upstreamBudget.assertCanSpend();
+
+    this.upstreamBudget.assertTenantCanSpend(
+      tenantId,
+      await this.creditsService.monthToDateUpstreamCostUsd(tenantId),
+    );
 
     const { balance } = await this.creditsService.getBalance(tenantId);
     if (balance < required) {
@@ -366,8 +434,8 @@ export class ProspectSearchService {
     const searchCost = discoveryCreditCost(dto.limit);
     await this.assertCanAfford(user.tenantId, searchCost);
 
-    const jobId = await this.blackPearlProspectingProvider.submitProspectingJob(
-      {
+    const submission =
+      await this.blackPearlProspectingProvider.submitProspectingJob({
         objective,
         target: {
           companyNames: dto.companyNames,
@@ -379,14 +447,16 @@ export class ProspectSearchService {
           companyHeadcountMax: dto.companyHeadcountMax,
         },
         limit: dto.limit,
-      },
-    );
+      });
 
-    if (!jobId) {
-      throw new ServiceUnavailableException(
+    if (!submission.ok) {
+      this.failSubmission(
+        submission.failure,
         "We couldn't start this search right now. Please try again shortly.",
       );
     }
+
+    const jobId = submission.jobId;
 
     await this.creditsService.reserve({
       tenantId: user.tenantId,

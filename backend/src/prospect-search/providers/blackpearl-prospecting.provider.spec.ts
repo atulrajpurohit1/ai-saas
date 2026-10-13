@@ -82,7 +82,9 @@ describe('BlackPearlProspectingProvider', () => {
 
       // Zero would be a lie that averages into the margin figures as though
       // the search were free.
-      expect((await buildProvider().getJobResult('job-1'))?.upstreamCostUsd).toBeNull();
+      expect(
+        (await buildProvider().getJobResult('job-1'))?.upstreamCostUsd,
+      ).toBeNull();
     });
 
     it('ignores a non-numeric cost rather than propagating NaN', async () => {
@@ -96,36 +98,123 @@ describe('BlackPearlProspectingProvider', () => {
         }),
       );
 
-      expect((await buildProvider().getJobResult('job-1'))?.upstreamCostUsd).toBeNull();
+      expect(
+        (await buildProvider().getJobResult('job-1'))?.upstreamCostUsd,
+      ).toBeNull();
     });
   });
 
-  describe('getUpstreamBalanceUsd', () => {
-    it('returns the prepaid balance', async () => {
+  describe('getUpstreamStatus', () => {
+    it('returns the prepaid balance and the project it belongs to', async () => {
       global.fetch = jest.fn().mockResolvedValue(
         jsonResponse(200, {
+          project_id: 'proj_123',
           credits: { billing_enabled: true, balance_usd: 487.25 },
+          budgets: [],
         }),
       );
 
-      await expect(buildProvider().getUpstreamBalanceUsd()).resolves.toBe(
-        487.25,
-      );
+      await expect(buildProvider().getUpstreamStatus()).resolves.toEqual({
+        projectId: 'proj_123',
+        prepaidBalanceUsd: 487.25,
+        tightestHardBudget: null,
+      });
     });
 
-    it('returns null when no prepaid balance is reported', async () => {
+    /**
+     * A hard budget refuses work at zero remaining whether or not the prepaid
+     * pot is healthy, so it has to come back from this read -- the previous
+     * version looked only at `credits` and could not see it.
+     */
+    it('returns the hard budget with the least headroom', async () => {
+      global.fetch = jest.fn().mockResolvedValue(
+        jsonResponse(200, {
+          project_id: 'proj_123',
+          credits: { billing_enabled: true, balance_usd: 900 },
+          budgets: [
+            {
+              period: 'month',
+              scope: 'organization',
+              limit_usd: 500,
+              spend_usd: 100,
+              remaining_usd: 400,
+              hard_limit: true,
+              resets_at: '2026-11-01T00:00:00Z',
+            },
+            {
+              period: 'month',
+              scope: 'project',
+              limit_usd: 50,
+              spend_usd: 48,
+              remaining_usd: 2,
+              hard_limit: true,
+              resets_at: '2026-11-01T00:00:00Z',
+            },
+          ],
+        }),
+      );
+
+      await expect(buildProvider().getUpstreamStatus()).resolves.toEqual({
+        projectId: 'proj_123',
+        prepaidBalanceUsd: 900,
+        tightestHardBudget: {
+          scope: 'project',
+          capabilityKey: null,
+          limitUsd: 50,
+          remainingUsd: 2,
+          resetsAt: '2026-11-01T00:00:00Z',
+        },
+      });
+    });
+
+    /** A soft budget only reports; it cannot refuse a job, so it is not a constraint. */
+    it('ignores budgets that are not hard limits', async () => {
+      global.fetch = jest.fn().mockResolvedValue(
+        jsonResponse(200, {
+          credits: { balance_usd: 900 },
+          budgets: [
+            {
+              scope: 'project',
+              limit_usd: 50,
+              remaining_usd: 1,
+              hard_limit: false,
+            },
+          ],
+        }),
+      );
+
+      await expect(buildProvider().getUpstreamStatus()).resolves.toEqual({
+        projectId: null,
+        prepaidBalanceUsd: 900,
+        tightestHardBudget: null,
+      });
+    });
+
+    /**
+     * "Read fine, reports no balance" is NOT the same as "could not read", and
+     * the caller's last-known fallback depends on telling them apart.
+     */
+    it('reports a null balance when the read succeeded but no balance was given', async () => {
       global.fetch = jest
         .fn()
         .mockResolvedValue(jsonResponse(200, { rollup: { cost_usd: 1.2 } }));
 
-      await expect(
-        buildProvider().getUpstreamBalanceUsd(),
-      ).resolves.toBeNull();
+      await expect(buildProvider().getUpstreamStatus()).resolves.toEqual({
+        projectId: null,
+        prepaidBalanceUsd: null,
+        tightestHardBudget: null,
+      });
+    });
+
+    it('returns null when the usage read fails', async () => {
+      global.fetch = jest.fn().mockResolvedValue(jsonResponse(500, {}));
+
+      await expect(buildProvider().getUpstreamStatus()).resolves.toBeNull();
     });
 
     it('returns null when BlackPearl is not configured', async () => {
       await expect(
-        buildProvider({ BLACKPEARL_API_KEY: undefined }).getUpstreamBalanceUsd(),
+        buildProvider({ BLACKPEARL_API_KEY: undefined }).getUpstreamStatus(),
       ).resolves.toBeNull();
     });
   });
@@ -151,13 +240,13 @@ describe('BlackPearlProspectingProvider', () => {
         );
       global.fetch = fetchMock;
 
-      const jobId = await buildProvider().submitProspectingJob({
+      const submission = await buildProvider().submitProspectingJob({
         objective: 'Marketing agencies in India',
         target: { locations: ['India'], industries: ['Marketing'] },
         limit: 5,
       });
 
-      expect(jobId).toBe('job-prospecting-1');
+      expect(submission).toEqual({ ok: true, jobId: 'job-prospecting-1' });
       const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
       expect(url).toBe('https://api.blackpearl.com/v1/prospects');
       const body = JSON.parse(init.body as string) as {
@@ -176,27 +265,55 @@ describe('BlackPearlProspectingProvider', () => {
       expect(body.product_info.length).toBeGreaterThan(0);
     });
 
-    it('returns null without calling fetch when unconfigured', async () => {
+    it('reports a failure without calling fetch when unconfigured', async () => {
       global.fetch = jest.fn();
 
-      const jobId = await buildProvider({
+      const submission = await buildProvider({
         BLACKPEARL_API_KEY: undefined,
       }).submitProspectingJob({ objective: 'Marketing agencies in India' });
 
-      expect(jobId).toBeNull();
+      expect(submission.ok).toBe(false);
       expect(global.fetch).not.toHaveBeenCalled();
     });
 
-    it('returns null when BlackPearl rejects the request', async () => {
+    it('reports an auth failure when BlackPearl rejects the key', async () => {
       global.fetch = jest
         .fn()
         .mockResolvedValue(jsonResponse(401, { detail: 'unauthorized' }));
 
-      const jobId = await buildProvider().submitProspectingJob({
+      const submission = await buildProvider().submitProspectingJob({
         objective: 'Marketing agencies in India',
       });
 
-      expect(jobId).toBeNull();
+      expect(submission.ok === false && submission.failure.kind).toBe('auth');
+    });
+
+    /**
+     * A hard budget is not a blip: it is reported straight back rather than
+     * retried, and it is named, so the log says a ceiling refused us instead
+     * of implying BlackPearl was down.
+     */
+    it('reports a hard budget refusal without retrying', async () => {
+      const fetchMock = jest.fn().mockResolvedValue(
+        jsonResponse(429, {
+          error: {
+            code: 'budget_exceeded',
+            message: 'A hard monthly budget rejected this request.',
+            request_id: 'req_2',
+            docs_url: 'https://api.blackpearl.com/docs/errors',
+          },
+        }),
+      );
+      global.fetch = fetchMock;
+
+      const submission = await buildProvider().submitProspectingJob({
+        objective: 'Marketing agencies in India',
+      });
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(submission.ok === false && submission.failure.kind).toBe(
+        'budget_exceeded',
+      );
     });
   });
 

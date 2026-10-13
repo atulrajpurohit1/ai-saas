@@ -612,6 +612,43 @@ export class CreditsService {
   }
 
   /**
+   * What this tenant has cost US upstream so far in the current UTC calendar
+   * month, in USD.
+   *
+   * Our ledger is the only record that ties a BlackPearl job's reported cost
+   * to the tenant that ran it: BlackPearl bills one shared organization pot
+   * and has no idea our tenants exist. That makes this the figure a per-tenant
+   * spend cap has to be enforced against -- see
+   * UpstreamBudgetService.assertTenantCanSpend().
+   *
+   * Rows with a NULL `upstreamCostUsd` contribute nothing, which is correct
+   * rather than convenient: a null means BlackPearl reported no cost for that
+   * job, and treating it as zero is the only honest reading available. It does
+   * mean this is a floor on what the tenant has cost us, not an exact figure.
+   *
+   * Windowed on `createdAt` -- when the work was started -- not on when it
+   * settled, so a job that straddles the month boundary counts in the month it
+   * ran. That also keeps the query on the existing (tenantId, createdAt) index.
+   */
+  async monthToDateUpstreamCostUsd(tenantId: string): Promise<number> {
+    const now = new Date();
+    const monthStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0),
+    );
+
+    const totals = await this.prisma.creditLedgerEntry.aggregate({
+      where: { tenantId, createdAt: { gte: monthStart } },
+      _sum: { upstreamCostUsd: true },
+    });
+
+    const sum = totals._sum.upstreamCostUsd;
+    if (sum === null || sum === undefined) return 0;
+
+    const value = Number(sum);
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  /**
    * Releases holds for jobs that never reached a terminal state.
    *
    * Without this, a job abandoned mid-flight -- the user closed the tab, the

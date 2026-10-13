@@ -151,6 +151,56 @@ original creator; `userId` is stored only as "created by" metadata).
 | `prospect_search.manage` | Create/rename/delete saved searches |
 | `leads.create` (existing) | Required in addition to the above to import a company as a Lead |
 
+## Spend limits
+
+Three separate limits have to hold before a billed job is submitted
+(`ProspectSearchService.assertCanAfford`), and they fail differently on
+purpose:
+
+| Limit | Whose | Failure | Fixed by |
+| --- | --- | --- | --- |
+| Upstream spending room | ours, shared | 503 | nothing the customer can do |
+| Per-tenant monthly upstream cost | ours, per tenant | 429 `UPSTREAM_SPEND_CAP_EXCEEDED` | waiting for the reset, or support raising it |
+| Tenant credit balance | theirs | 402 `INSUFFICIENT_CREDITS` | buying credits |
+
+`UpstreamBudgetService` owns the first two. The shared one reads `GET
+/v1/usage` and enforces against whichever ceiling is closest: the
+organization's prepaid balance, or the tightest HARD budget BlackPearl
+reports. The per-tenant one is enforced against
+`CreditsService.monthToDateUpstreamCostUsd()` -- the sum of
+`CreditLedgerEntry.upstream_cost_usd` for that tenant this month -- and is
+configured by `BLACKPEARL_TENANT_MONTHLY_COST_CAP_USD`, which has no default
+(see `.env.example` for why).
+
+### Why the per-tenant cap is enforced here and not by BlackPearl
+
+BlackPearl has per-project monthly budgets, and one project per tenant would
+be a tidier place for this. It is not available to us as the API stands:
+
+- **A BlackPearl API key is project-scoped.** The only security scheme in
+  their OpenAPI document is `ProjectBearerAuth` ("Project-scoped Blackpearl
+  API key"), and `GET /v1/usage` returns the `project_id` the key
+  authenticates as. The project is chosen by WHICH key you send; there is no
+  per-request project header. Per-tenant projects would therefore mean one API
+  key per tenant, minted through their console, stored and rotated per tenant.
+- **Project and budget administration is not in the public API.** There is no
+  `/v1/projects` and no `/v1/limits` path; a project key is refused with
+  "Only a company-level API key can manage projects and limits".
+- **A budget is a cap, not a balance.** `PublicBudgetStatus` is a monthly
+  ceiling (`limit_usd`, `hard_limit`) that resets at `resets_at`. Mirroring
+  customer credit purchases into it would be wrong twice over: it resets every
+  month, and raising the limit widens a cap rather than funding anything.
+- **Projects would not fix the shared-fate problem anyway.** Prepaid credit is
+  held at the ORGANIZATION level -- `credits.balance_usd` is documented as the
+  organization's balance, and a 402 from a job submission is "the organization
+  does not have enough prepaid credits". A project budget caps one tenant's
+  blast radius; it cannot stop the shared pot emptying and stopping everyone.
+
+So our ledger stays the authority on what a tenant may spend. If per-tenant
+BlackPearl projects are ever set up, they should be a second blast-radius cap,
+not a second billing system -- two balances that disagree is worse than one
+that is right.
+
 ## Observability
 
 `ProspectSearchService` logs (via the standard Nest `Logger`, same convention

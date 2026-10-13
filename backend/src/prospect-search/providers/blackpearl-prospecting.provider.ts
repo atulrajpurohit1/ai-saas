@@ -6,8 +6,10 @@ import {
   ProspectDiscoveryResult,
 } from '../types/prospect-search.types';
 import {
+  BlackPearlSubmission,
   blackPearlHeaders,
   blackPearlRequest,
+  blackPearlRequestOutcome,
   normalizeString,
 } from './blackpearl-http.util';
 
@@ -116,6 +118,68 @@ interface RawProspectingJob {
   usage?: RawJobUsage | null;
 }
 
+/**
+ * The slice of GET /v1/usage this system reads. BlackPearl's full
+ * PublicUsageResponse also carries month-to-date rollups, per-capability
+ * usage, quotas and the organization's usage tier; those are reporting, not
+ * a spend decision, so they are deliberately not modelled here.
+ */
+interface RawUsageResponse {
+  project_id?: string | null;
+  credits?: {
+    billing_enabled?: boolean;
+    balance_usd?: number | null;
+  } | null;
+  budgets?: RawBudgetStatus[] | null;
+}
+
+interface RawBudgetStatus {
+  scope?: string | null;
+  capability_key?: string | null;
+  limit_usd?: number | null;
+  spend_usd?: number | null;
+  remaining_usd?: number | null;
+  hard_limit?: boolean | null;
+  resets_at?: string | null;
+}
+
+/**
+ * One monthly cost ceiling that will REFUSE work once reached (BlackPearl's
+ * `hard_limit: true`). A soft budget only reports, so it is not a constraint
+ * on spending and is not represented.
+ *
+ * Note the period: a budget is a monthly allowance that resets at
+ * `resetsAt`, not a balance that accrues. It is a cap, never a source of
+ * funds.
+ */
+export interface UpstreamHardBudget {
+  /** Whose ceiling this is. An organization budget binds every project. */
+  scope: 'organization' | 'project' | 'unknown';
+  /** Null when the budget covers all capability spend. */
+  capabilityKey: string | null;
+  limitUsd: number;
+  remainingUsd: number;
+  resetsAt: string | null;
+}
+
+/** What BlackPearl will currently let us spend, and against which project. */
+export interface UpstreamBudgetSnapshot {
+  /**
+   * The BlackPearl project this API key authenticates as. A key is
+   * project-scoped, so this is fixed for a given key -- it is read so the
+   * logs name the project whose budget refused a job.
+   */
+  projectId: string | null;
+  /**
+   * Prepaid credit balance in USD, or null when BlackPearl reports none
+   * (e.g. an account on plan billing). ORGANIZATION-wide: every project, and
+   * so every tenant, draws on this one pot.
+   */
+  prepaidBalanceUsd: number | null;
+  /** The tightest hard budget standing between us and a refused job. */
+  tightestHardBudget: UpstreamHardBudget | null;
+}
+
 export interface ProspectingTargetInput {
   companyNames?: string[];
   locations?: string[];
@@ -169,15 +233,30 @@ export class BlackPearlProspectingProvider {
     return Boolean(this.configService.get<string>('BLACKPEARL_API_KEY'));
   }
 
+  /**
+   * Submits a prospecting job and returns its id, or why it could not be
+   * started. The reason is returned rather than flattened to null because an
+   * exhausted upstream account, a hard budget and an unreachable API need
+   * different handling and different words to the customer.
+   */
   async submitProspectingJob(
     input: ProspectingSubmissionInput,
-  ): Promise<string | null> {
+  ): Promise<BlackPearlSubmission> {
     const apiKey = this.configService.get<string>('BLACKPEARL_API_KEY');
     if (!apiKey) {
       this.logger.debug(
         'BLACKPEARL_API_KEY is not configured; skipping prospecting submission.',
       );
-      return null;
+      return {
+        ok: false,
+        failure: {
+          kind: 'unavailable',
+          code: null,
+          httpStatus: null,
+          message: 'BLACKPEARL_API_KEY is not configured.',
+          requestId: null,
+        },
+      };
     }
 
     const campaignName = `Prospect Search: ${input.objective}`.slice(0, 160);
@@ -186,7 +265,7 @@ export class BlackPearlProspectingProvider {
       `BlackPearl prospecting job creation: submitting objective="${input.objective}" limit=${input.limit ?? 10}`,
     );
 
-    const job = await blackPearlRequest<RawProspectingJob>(
+    const outcome = await blackPearlRequestOutcome<RawProspectingJob>(
       this.logger,
       `${this.getBaseUrl()}/prospects`,
       {
@@ -218,18 +297,40 @@ export class BlackPearlProspectingProvider {
       `submit prospecting job for "${input.objective}"`,
     );
 
+    if (!outcome.ok) {
+      this.logger.error(
+        `BlackPearl prospecting job creation FAILED for objective="${input.objective}" (${
+          outcome.failure.kind
+        }${
+          outcome.failure.code ? `: ${outcome.failure.code}` : ''
+        }) - see the request log above for the exact HTTP failure.`,
+      );
+      return outcome;
+    }
+
+    const job = outcome.data;
+
     if (!job?.id) {
       this.logger.error(
-        `BlackPearl prospecting job creation FAILED for objective="${input.objective}" - see the request log above for the exact HTTP failure.`,
+        `BlackPearl prospecting job creation FAILED for objective="${input.objective}" - the response carried no job id.`,
       );
-      return null;
+      return {
+        ok: false,
+        failure: {
+          kind: 'unavailable',
+          code: null,
+          httpStatus: null,
+          message: 'BlackPearl accepted the request but returned no job id.',
+          requestId: null,
+        },
+      };
     }
 
     this.logger.log(
       `BlackPearl prospecting job creation succeeded: jobId=${job.id} initialStatus="${job.status}"`,
     );
 
-    return job.id;
+    return { ok: true, jobId: job.id };
   }
 
   async getJobResult(jobId: string): Promise<ProspectingJobPollResult | null> {
@@ -301,37 +402,44 @@ export class BlackPearlProspectingProvider {
   }
 
   /**
-   * Our remaining prepaid balance with BlackPearl, in USD, from GET /v1/usage.
+   * What BlackPearl will let us spend, from GET /v1/usage.
    *
-   * This exists because AegisLead is funded by a one-off prepaid grant, not a
-   * monthly plan: there is a finite pot and no overage to fall back on. Until
-   * now nothing in the system could see it, so the only way to discover it had
-   * run out was for customer searches to start failing.
+   * This used to read only `credits.balance_usd` and throw the rest of the
+   * response away, which left the spend guard enforcing a floor against the
+   * prepaid pot while blind to a hard budget that would refuse the job at
+   * zero remaining. The endpoint reports both, plus which project the key
+   * authenticates as, so all three are returned here.
    *
-   * Returns null when BlackPearl is unconfigured or does not report a balance
-   * (e.g. an account on plan billing rather than prepaid credit) -- callers
-   * must treat null as "unknown", never as "zero".
+   * Returns null ONLY when the figure could not be read at all (no API key,
+   * or the call failed after retries). A successful read that simply reports
+   * no prepaid balance comes back as a snapshot with a null
+   * `prepaidBalanceUsd` -- the distinction matters, because the caller keeps
+   * a last-known figure to fall back on when a read FAILS, and conflating
+   * the two meant that fallback could never fire.
    */
-  async getUpstreamBalanceUsd(): Promise<number | null> {
+  async getUpstreamStatus(): Promise<UpstreamBudgetSnapshot | null> {
     const apiKey = this.configService.get<string>('BLACKPEARL_API_KEY');
     if (!apiKey) return null;
 
-    const usage = await blackPearlRequest<{
-      credits?: {
-        billing_enabled?: boolean;
-        balance_usd?: number | null;
-      } | null;
-    }>(
+    const usage = await blackPearlRequest<RawUsageResponse>(
       this.logger,
       `${this.getBaseUrl()}/usage`,
       { method: 'GET', headers: blackPearlHeaders(apiKey) },
-      'check prepaid balance',
+      'check prepaid balance and budgets',
     );
 
-    const balance = usage?.credits?.balance_usd;
-    return typeof balance === 'number' && Number.isFinite(balance)
-      ? balance
-      : null;
+    if (!usage) return null;
+
+    const balance = usage.credits?.balance_usd;
+
+    return {
+      projectId: typeof usage.project_id === 'string' ? usage.project_id : null,
+      prepaidBalanceUsd:
+        typeof balance === 'number' && Number.isFinite(balance)
+          ? balance
+          : null,
+      tightestHardBudget: tightestHardBudget(usage.budgets),
+    };
   }
 
   private getBaseUrl(): string {
@@ -427,4 +535,48 @@ function normalizeProspectingResult(
     qualifiedCount: raw.summary?.qualified ?? prospects.length,
     prospects,
   };
+}
+
+/**
+ * The hard budget with the least headroom, which is the one that will refuse
+ * the next job. Soft budgets and budgets with no usable `remaining_usd` are
+ * ignored: neither can tell us we are about to be refused.
+ */
+function tightestHardBudget(
+  budgets: RawBudgetStatus[] | null | undefined,
+): UpstreamHardBudget | null {
+  if (!Array.isArray(budgets)) return null;
+
+  const hard = budgets
+    .filter(
+      (budget) =>
+        budget?.hard_limit === true &&
+        typeof budget.remaining_usd === 'number' &&
+        Number.isFinite(budget.remaining_usd),
+    )
+    .map((budget) => ({
+      scope:
+        budget.scope === 'organization'
+          ? ('organization' as const)
+          : budget.scope === 'project'
+            ? ('project' as const)
+            : ('unknown' as const),
+      capabilityKey:
+        typeof budget.capability_key === 'string'
+          ? budget.capability_key
+          : null,
+      limitUsd:
+        typeof budget.limit_usd === 'number' &&
+        Number.isFinite(budget.limit_usd)
+          ? budget.limit_usd
+          : 0,
+      remainingUsd: budget.remaining_usd as number,
+      resetsAt: typeof budget.resets_at === 'string' ? budget.resets_at : null,
+    }));
+
+  if (hard.length === 0) return null;
+
+  return hard.reduce((tightest, budget) =>
+    budget.remainingUsd < tightest.remainingUsd ? budget : tightest,
+  );
 }
