@@ -1040,7 +1040,7 @@ describe('ProspectSearchService', () => {
       );
     });
 
-    it('records the upstream cost of a FAILED job even while refunding it', async () => {
+    it('charges a failed job that BlackPearl billed us for, and records the cost', async () => {
       blackPearlProspectingProvider.getJobResult.mockResolvedValue({
         status: 'failed',
         progress: null,
@@ -1051,10 +1051,11 @@ describe('ProspectSearchService', () => {
 
       await service.getDiscoveryJobStatus('discovery-job-1', discoverDto, user);
 
-      // Customer pays nothing; we still spent the money, and our own spend
-      // figures would understate reality if this were dropped.
+      // The search ran and we were billed for it, so it is charged at what was
+      // held. Refunding it meant paying for the customer's failed search out
+      // of our own pocket.
       expect(creditsService.settle).toHaveBeenCalledWith(
-        expect.objectContaining({ actualUsed: 0, upstreamCostUsd: 0.8 }),
+        expect.objectContaining({ actualUsed: 200, upstreamCostUsd: 0.8 }),
       );
     });
 
@@ -1108,7 +1109,13 @@ describe('ProspectSearchService', () => {
       expect(creditsService.reserve).not.toHaveBeenCalled();
     });
 
-    it('charges nothing for a failed discovery job', async () => {
+    /**
+     * A failed job reports null far more often than it reports a real cost --
+     * and is billed anyway. Treating null as free would refund exactly the
+     * jobs that cost us the most, so the charge stands unless BlackPearl says
+     * outright that the job was free.
+     */
+    it('charges a failed discovery job whose cost went unreported', async () => {
       blackPearlProspectingProvider.getJobResult.mockResolvedValue({
         status: 'failed',
         progress: null,
@@ -1119,17 +1126,77 @@ describe('ProspectSearchService', () => {
       await service.getDiscoveryJobStatus('discovery-job-1', discoverDto, user);
 
       expect(creditsService.settle).toHaveBeenCalledWith(
+        expect.objectContaining({ actualUsed: 200 }),
+      );
+    });
+
+    it('refunds a failed discovery job that BlackPearl reported as free', async () => {
+      blackPearlProspectingProvider.getJobResult.mockResolvedValue({
+        status: 'failed',
+        progress: null,
+        stageLabel: null,
+        result: null,
+        upstreamCostUsd: 0,
+      });
+
+      await service.getDiscoveryJobStatus('discovery-job-1', discoverDto, user);
+
+      // The one case where charging would be indefensible: we have positive
+      // evidence the job cost nothing.
+      expect(creditsService.settle).toHaveBeenCalledWith(
         expect.objectContaining({ actualUsed: 0 }),
       );
     });
 
-    it('charges nothing for a failed playbook job', async () => {
+    it('tells the customer when a failed search was charged', async () => {
+      blackPearlProspectingProvider.getJobResult.mockResolvedValue({
+        status: 'failed',
+        progress: null,
+        stageLabel: null,
+        result: null,
+        upstreamCostUsd: 1.2,
+      });
+
+      const result = await service.getDiscoveryJobStatus(
+        'discovery-job-1',
+        discoverDto,
+        user,
+      );
+
+      // Charging silently while saying "please try again" is how you earn a
+      // chargeback. The message has to say so, and offer recourse.
+      if (result.status !== 'failed') throw new Error('expected a failure');
+      expect(result.message).toMatch(/charged/i);
+      expect(result.message).toMatch(/support/i);
+    });
+
+    it('charges a failed playbook job and records what it cost us', async () => {
       blackPearlInsightProvider.getJobResult.mockResolvedValue({
         jobId: 'job-1',
         status: 'failed',
         progress: null,
         companyName: 'Acme Corp',
         insight: null,
+        upstreamCostUsd: 9.97,
+      });
+
+      await service.getSearchJobStatus('job-1', user);
+
+      // The cost used to be dropped entirely on this path, which hid the
+      // expensive half: measured playbooks bill $4.47 to $14.02.
+      expect(creditsService.settle).toHaveBeenCalledWith(
+        expect.objectContaining({ actualUsed: 200, upstreamCostUsd: 9.97 }),
+      );
+    });
+
+    it('refunds a failed playbook job that BlackPearl reported as free', async () => {
+      blackPearlInsightProvider.getJobResult.mockResolvedValue({
+        jobId: 'job-1',
+        status: 'failed',
+        progress: null,
+        companyName: 'Acme Corp',
+        insight: null,
+        upstreamCostUsd: 0,
       });
 
       await service.getSearchJobStatus('job-1', user);

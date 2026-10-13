@@ -213,21 +213,30 @@ export class ProspectSearchService {
     }
 
     this.logger.warn(
-      `Prospect search job failed: tenant=${user.tenantId} provider=${PROVIDER_NAME} jobId=${jobId}`,
+      `Prospect search job failed: tenant=${user.tenantId} provider=${PROVIDER_NAME} jobId=${jobId} costUsd=${
+        result.upstreamCostUsd ?? 'unreported'
+      }`,
     );
 
-    // Nothing usable came back, so the customer is not charged.
+    const billable = failedJobIsBillable(result.upstreamCostUsd);
+
     await this.settleJobCredits(
       user.tenantId,
       jobId,
-      0,
-      'Playbook could not be generated; credits returned.',
+      billable ? 'held' : 0,
+      billable
+        ? `Company playbook: "${result.companyName ?? ''}" (failed; the research was billed to us)`
+        : 'Playbook could not be generated; credits returned.',
+      // Previously omitted, so a failed playbook recorded no cost at all --
+      // and playbooks are the expensive half (measured $4.47 to $14.02).
+      result.upstreamCostUsd ?? null,
     );
 
     return {
       status: 'failed',
-      message:
-        "We couldn't generate a sales playbook for this company. Please try again.",
+      message: billable
+        ? "We couldn't generate a sales playbook for this company. The research had already run, so this search has been charged -- contact support if you'd like it reviewed."
+        : "We couldn't generate a sales playbook for this company. Please try again.",
     };
   }
 
@@ -565,19 +574,23 @@ export class ProspectSearchService {
       `Prospect discovery job failed: tenant=${user.tenantId} jobId=${jobId}`,
     );
 
-    // The customer is refunded in full, but a failed job can still have cost
-    // us money upstream -- record that, or our own spend looks lower than it is.
+    const billable = failedJobIsBillable(poll.upstreamCostUsd);
+
     await this.settleJobCredits(
       user.tenantId,
       jobId,
-      0,
-      'Search could not be completed; credits returned.',
+      billable ? 'held' : 0,
+      billable
+        ? `Prospect discovery: "${dto.objective.trim()}" (failed; the search was billed to us)`
+        : 'Search could not be completed; credits returned.',
       poll.upstreamCostUsd,
     );
 
     return {
       status: 'failed',
-      message: "We couldn't complete this search. Please try again.",
+      message: billable
+        ? "We couldn't complete this search. The search had already run, so it has been charged -- contact support if you'd like it reviewed."
+        : "We couldn't complete this search. Please try again.",
     };
   }
 
@@ -843,4 +856,30 @@ export class ProspectSearchService {
 
     return lines.join('\n');
   }
+}
+
+/**
+ * Whether a job that ended in failure should still be charged to the customer.
+ *
+ * A failed search is not free. BlackPearl bills for the compute it burned
+ * before giving up: the failures measured on 12 Oct 2026 cost between $0.39
+ * and $7.96 each, $12.03 across four jobs, and every one of them was refunded
+ * in full. That is money paid out of our own pocket for work a customer asked
+ * for and we were billed for.
+ *
+ * Charged UNLESS we have positive evidence the job cost nothing. A reported
+ * cost of exactly 0 is that evidence. A reported cost of null is NOT: a failed
+ * job routinely reports null while still being billed (see the note in
+ * credit-packs.constants.ts), so treating null as free would refund precisely
+ * the jobs that cost us the most.
+ *
+ * Note which failures this does NOT touch. A submission BlackPearl refused
+ * never places a hold, and a status check that could not be completed raises
+ * a 503 without settling, so neither reaches here. This is only for a job
+ * BlackPearl accepted, ran, and reported as failed.
+ */
+function failedJobIsBillable(
+  upstreamCostUsd: number | null | undefined,
+): boolean {
+  return upstreamCostUsd !== 0;
 }
