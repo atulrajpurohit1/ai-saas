@@ -183,9 +183,12 @@ be a tidier place for this. It is not available to us as the API stands:
   authenticates as. The project is chosen by WHICH key you send; there is no
   per-request project header. Per-tenant projects would therefore mean one API
   key per tenant, minted through their console, stored and rotated per tenant.
-- **Project and budget administration is not in the public API.** There is no
-  `/v1/projects` and no `/v1/limits` path; a project key is refused with
-  "Only a company-level API key can manage projects and limits".
+- **Project and budget administration is not in the public API.** Neither
+  `/v1/projects` nor `/v1/limits` appears in their OpenAPI document (v0.2.0,
+  saved at `scratch/bp_openapi.json`), and a project key calling them is
+  refused with "Only a company-level API key can manage projects and limits".
+  So whatever exists there is company-level and undocumented to us; none of it
+  has been verified against the live API.
 - **A budget is a cap, not a balance.** `PublicBudgetStatus` is a monthly
   ceiling (`limit_usd`, `hard_limit`) that resets at `resets_at`. Mirroring
   customer credit purchases into it would be wrong twice over: it resets every
