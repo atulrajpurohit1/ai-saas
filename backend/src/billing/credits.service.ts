@@ -612,6 +612,27 @@ export class CreditsService {
   }
 
   /**
+   * Every spendable credit on the platform, across all tenants.
+   *
+   * This is our outstanding LIABILITY: credits customers have already paid
+   * for and can spend whenever they like, each of which will cost us real
+   * money upstream when they do. Compared against the prepaid BlackPearl
+   * balance by UpstreamSolvencyService -- if the pot cannot cover the credits
+   * we have sold, the shortfall is not a future problem, it is already sold.
+   *
+   * Negative balances are included as written rather than floored at zero. A
+   * balance goes negative only after a refund clawed back credits the
+   * customer had already spent (see reversePurchase), and that genuinely does
+   * reduce what we owe.
+   */
+  async totalOutstandingCredits(): Promise<number> {
+    const totals = await this.prisma.tenantCreditBalance.aggregate({
+      _sum: { balance: true },
+    });
+    return totals._sum.balance ?? 0;
+  }
+
+  /**
    * What this tenant has cost US upstream so far in the current UTC calendar
    * month, in USD.
    *

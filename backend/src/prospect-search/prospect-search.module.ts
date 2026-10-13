@@ -14,6 +14,8 @@ import { ProspectSearchHistoryService } from './prospect-search-history.service'
 import { ProspectSearchRateLimitService } from './prospect-search-rate-limit.service';
 import { ProspectSearchService } from './prospect-search.service';
 import { UpstreamBudgetService } from './upstream-budget.service';
+import { UpstreamSolvencyScheduler } from './upstream-solvency.scheduler';
+import { UpstreamSolvencyService } from './upstream-solvency.service';
 import { SavedProspectSearchService } from './saved-prospect-search.service';
 
 @Module({
@@ -36,6 +38,8 @@ import { SavedProspectSearchService } from './saved-prospect-search.service';
     BlackPearlInsightProvider,
     BlackPearlProspectingProvider,
     UpstreamBudgetService,
+    UpstreamSolvencyService,
+    UpstreamSolvencyScheduler,
   ],
 })
 export class ProspectSearchModule {}
