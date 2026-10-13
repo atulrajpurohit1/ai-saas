@@ -98,14 +98,19 @@ export class UpstreamBudgetService {
    * The most a single tenant may cost us upstream in one calendar month, in
    * USD, or null when no cap is configured.
    *
-   * There is deliberately NO default. A cap has to be set from what a search
-   * actually costs us, and that figure is not yet established -- see the note
-   * at the top of credit-packs.constants.ts, and scripts/report-search-margin.ts
-   * which measures it from real settled jobs. Inventing a number here would
-   * either be too loose to cap anything or would start refusing paying
-   * customers mid-month. Until one is set, this service still records what
-   * each tenant is costing us on every check, so the figure can be chosen
-   * from data rather than guessed.
+   * There is deliberately NO default: the right number depends on which packs
+   * are sold and how large the prepaid pot is. Until one is set, this service
+   * still records what each tenant is costing us on every check.
+   *
+   * Note what the cap is measured against. `monthToDateCostUsd` comes from
+   * CreditLedgerEntry.upstream_cost_usd, which is an UNDER-ESTIMATE on two
+   * counts (both documented in credit-packs.constants.ts): BlackPearl's
+   * job.usage.cost_usd rises after we read it at settlement, and a job that
+   * failed and was refunded records null while still being billed. So this
+   * cap bites later than its nominal value, and a tenant whose jobs mostly
+   * fail -- the expensive tail -- barely registers against it. Reconciling
+   * that column against GET /v1/charges on a schedule, rather than by hand
+   * via scripts/backfill-upstream-costs.ts, is what would make this exact.
    */
   private tenantMonthlyCapUsd(): number | null {
     const raw = this.configService.get<string>(
