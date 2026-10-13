@@ -676,20 +676,120 @@ You are receiving this because you are a billing contact for ${companyName}.`;
     };
   }
 
+  /**
+   * Escapes text that goes into an HTML email body. The greeting name comes
+   * from signup input, so it is attacker-controlled and must never be
+   * interpolated raw.
+   */
+  private escapeHtml(value: string) {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  /**
+   * Platform-branded shell for authentication mail (signup verification and
+   * password reset).
+   *
+   * Deliberately does NOT use BrandingService.emailShell: those two emails
+   * are sent by AegisLead the platform, before and around account access,
+   * so they always carry AegisLead's identity rather than the tenant's.
+   * Every other email (invoices, reports, credit alerts) stays white-labelled
+   * through emailShell. See sendOtpEmail / sendPasswordResetOtpEmail.
+   *
+   * Table-based layout with inline styles throughout: Outlook ignores
+   * <div>-based centring and strips <style> blocks, so this is the shape that
+   * survives the widest range of clients.
+   */
+  private platformEmailShell(title: string, bodyHtml: string) {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light only" />
+<title>${this.escapeHtml(title)}</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f3f4f6;">
+<span style="display:none; font-size:1px; color:#f3f4f6; max-height:0; max-width:0; opacity:0; overflow:hidden;">${this.escapeHtml(
+      title,
+    )} &#8212; AegisLead</span>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#f3f4f6;">
+  <tr>
+    <td align="center" style="padding:32px 12px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px; max-width:100%; background-color:#ffffff; border-radius:14px; overflow:hidden; box-shadow:0 1px 3px rgba(16,24,40,0.08);">
+        <tr>
+          <td style="height:4px; background-color:#4f46e5; font-size:0; line-height:0;">&nbsp;</td>
+        </tr>
+        <tr>
+          <td style="padding:32px 40px 8px;">
+            <div style="font-family:'Segoe UI',Arial,sans-serif; font-size:21px; font-weight:700; color:#4f46e5; letter-spacing:-0.3px;">
+              AegisLead
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:12px 40px 0;">
+            <h1 style="margin:0; font-family:'Segoe UI',Arial,sans-serif; font-size:22px; line-height:1.3; font-weight:600; color:#111827;">
+              ${this.escapeHtml(title)}
+            </h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 40px 32px; font-family:'Segoe UI',Arial,sans-serif; font-size:15px; line-height:1.6; color:#374151;">
+            ${bodyHtml}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 40px 28px; border-top:1px solid #e5e7eb; font-family:'Segoe UI',Arial,sans-serif; font-size:12px; line-height:1.6; color:#6b7280;">
+            Sent by AegisLead &#183; security workforce management<br />
+            This is an automated message from the AegisLead platform.
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+  }
+
+  /**
+   * The code block shared by both OTP emails. The digits are spaced with
+   * letter-spacing rather than injected whitespace so the code still
+   * copy-pastes as one unbroken string.
+   */
+  private otpCodeBlock(code: string) {
+    return `
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:24px 0;">
+        <tr>
+          <td align="center" style="background-color:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; padding:22px 16px;">
+            <div style="font-family:'Segoe UI',Arial,sans-serif; font-size:11px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:#6b7280; margin-bottom:10px;">
+              Verification code
+            </div>
+            <div style="font-family:'Courier New',Courier,monospace; font-size:32px; font-weight:700; letter-spacing:9px; color:#111827; text-indent:9px;">
+              ${this.escapeHtml(code)}
+            </div>
+          </td>
+        </tr>
+      </table>
+    `;
+  }
+
   private otpEmailBody(
-    companyName: string,
     greetingName: string,
     code: string,
     expiresInMinutes: number,
   ) {
     return `
-      <p>Hi ${greetingName},</p>
-      <p>Use the verification code below to confirm your email address for <strong>${companyName}</strong>:</p>
-      <div style="background-color: #f9fafb; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb; margin: 20px 0; text-align: center;">
-        <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #111827;">${code}</span>
-      </div>
-      <p style="color: #4b5563;">This code expires in ${expiresInMinutes} minutes.</p>
-      <p style="color: #6b7280; font-size: 13px;">If you did not request this verification, you can safely ignore this email.</p>
+      <p style="margin:0 0 14px;">Hi ${this.escapeHtml(greetingName)},</p>
+      <p style="margin:0 0 4px;">Use the verification code below to confirm your email address and finish setting up your <strong style="color:#111827;">AegisLead</strong> account:</p>
+      ${this.otpCodeBlock(code)}
+      <p style="margin:0 0 14px; color:#4b5563;">This code expires in <strong style="color:#111827;">${expiresInMinutes} minutes</strong>.</p>
+      <p style="margin:0; color:#6b7280; font-size:13px;">If you did not request this verification, you can safely ignore this email &#8212; no account will be created or changed.</p>
     `;
   }
 
