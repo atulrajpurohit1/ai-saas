@@ -15,13 +15,21 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# NEXT_PUBLIC_* is inlined into the client bundle at build time, so the API
-# origin has to be known HERE -- it cannot be supplied at container start.
-# That is why prod and staging are separate builds. Passed by CI; the default
-# is the production origin, which is same-origin with the app itself (Caddy
-# proxies /api to the backend), so the browser makes no cross-origin request
-# and CORS never enters the picture.
-ARG NEXT_PUBLIC_API_URL="https://dashboard.aegislead.co/api"
+# NEXT_PUBLIC_* is inlined into the client bundle at build time, so this cannot
+# be supplied at container start -- it is fixed when the image is built.
+#
+# The value is RELATIVE on purpose. Caddy serves the app and the API on one
+# origin, so "/api" resolves against whatever host the page was loaded from.
+# Three things follow:
+#   - no cross-origin request is ever made, so CORS never enters the picture;
+#   - the SAME image runs correctly on any hostname, which is what lets the
+#     full stack be tested on a temporary domain before dashboard.aegislead.co
+#     is pointed at this box;
+#   - changing the production domain needs no rebuild.
+# This is only safe because every API call happens in the browser (verified:
+# no server component imports the api client), so there is no server-side
+# request for which a relative URL would be meaningless.
+ARG NEXT_PUBLIC_API_URL="/api"
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 ENV NEXT_TELEMETRY_DISABLED=1

@@ -1,0 +1,170 @@
+# Production uptime monitor.
+#
+# Polls the DEEP health endpoint (which round-trips Postgres), and on sustained
+# failure opens a GitHub issue -- which emails everyone watching the repo -- and
+# closes it again on recovery. Also warns before the TLS certificate expires.
+#
+# WHY A WORKFLOW AND NOT ONLY A HOSTED MONITOR: this one is free, lives in
+# version control, needs no signup, and alerts through a channel you already
+# read. What it is NOT is fast or independent. GitHub states scheduled
+# workflows are best-effort and they are routinely delayed by 5-20 minutes
+# under load, and a monitor that runs on GitHub cannot tell you that GitHub is
+# the thing that is down.
+#
+# So pair it with a hosted monitor for phone alerts -- see
+# docs/PRODUCTION_DEPLOYMENT.md. That one is primary; this is the safety net
+# and the audit trail. If the duplicate alerting becomes noise, delete this
+# file; the hosted monitor is the one that pages you.
+
+name: Production uptime
+
+on:
+  schedule:
+    # Every 5 minutes is the floor GitHub honours, and the effective interval
+    # will be longer than that. Treat it as "roughly every 5-15 minutes".
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+# Needed to open, comment on and close the alert issue.
+permissions:
+  issues: write
+  contents: read
+
+# Overlapping runs would file duplicate issues for one outage.
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+env:
+  HEALTH_URL: https://dashboard.aegislead.co/api/health
+  SITE_HOST: dashboard.aegislead.co
+  ISSUE_LABEL: uptime
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Probe the health endpoint
+        id: probe
+        run: |
+          set -uo pipefail
+          # Three attempts spaced 20s apart. A single failed request is usually
+          # a redeploy or a dropped packet, and paging on it trains people to
+          # ignore the alert. Three in a row over a minute is a real problem.
+          detail=''
+          ok=false
+          for attempt in 1 2 3; do
+            body=$(mktemp)
+            code=$(curl -sS -o "$body" -w '%{http_code}' --max-time 25 "$HEALTH_URL" 2>"$body.err" || echo 000)
+            if [ "$code" = "200" ]; then
+              ok=true
+              echo "attempt $attempt: 200 OK"
+              break
+            fi
+            # The 503 body names which dependency failed, which is the single
+            # most useful thing to put in the alert.
+            snippet=$(head -c 300 "$body" 2>/dev/null)
+            [ -s "$body" ] || snippet=$(head -c 300 "$body.err" 2>/dev/null)
+            detail="${detail}attempt ${attempt}: HTTP ${code} ${snippet}"$'\n'
+            echo "attempt $attempt: HTTP $code"
+            [ "$attempt" -lt 3 ] && sleep 20
+          done
+
+          {
+            echo "ok=$ok"
+            # Multi-line values need a heredoc delimiter in $GITHUB_OUTPUT.
+            echo 'detail<<PROBE_EOF'
+            printf '%s' "${detail:-none}"
+            echo
+            echo 'PROBE_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check TLS certificate expiry
+        id: tls
+        # Runs even when the probe failed: an expired certificate is a likely
+        # CAUSE of that failure, so it is worth reporting in the same alert.
+        if: always()
+        run: |
+          set -uo pipefail
+          # Caddy renews automatically; this catches renewal having silently
+          # stopped working, which otherwise surfaces as a total outage the
+          # moment the certificate lapses.
+          end=$(echo | openssl s_client -servername "$SITE_HOST" -connect "$SITE_HOST:443" 2>/dev/null \
+                | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)
+          if [ -z "$end" ]; then
+            echo "could not read certificate"
+            echo "warn=could not read the TLS certificate" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          days=$(( ( $(date -d "$end" +%s) - $(date +%s) ) / 86400 ))
+          echo "certificate expires in $days days ($end)"
+          if [ "$days" -lt 14 ]; then
+            echo "warn=TLS certificate expires in $days days ($end) -- Caddy auto-renewal may have stopped" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open or update the alert issue
+        if: steps.probe.outputs.ok != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DETAIL: ${{ steps.probe.outputs.detail }}
+          TLS_WARN: ${{ steps.tls.outputs.warn }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          # `gh issue create --label` FAILS outright when the label does not exist,
+          # which is the case on the very first alert -- so it would break at exactly
+          # the moment it is needed. Created idempotently here rather than relying on
+          # someone having made it by hand.
+          gh label create "$ISSUE_LABEL" --color B60205 --description "Automated production health alert" 2>/dev/null || true
+
+          title='Production is failing its health check'
+          # One issue per outage, not one per probe: reuse the open one if there
+          # is one, otherwise open it.
+          existing=$(gh issue list --label "$ISSUE_LABEL" --state open \
+            --search "$title in:title" --json number --jq '.[0].number // empty')
+
+          body=$(cat <<EOF
+          \`$HEALTH_URL\` did not return 200 on three consecutive attempts.
+
+          \`\`\`
+          $DETAIL
+          \`\`\`
+          ${TLS_WARN:+**TLS:** $TLS_WARN}
+
+          [Workflow run]($RUN_URL)
+
+          A 503 here means the backend is running but cannot reach Postgres --
+          check \`docker compose logs db\` on the VPS. Anything else (502, 000,
+          timeout) points at Caddy, the frontend container, or the host itself.
+
+          This issue closes itself on the next successful check.
+          EOF
+          )
+
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+            echo "commented on existing issue #$existing"
+          else
+            gh issue create --title "$title" --label "$ISSUE_LABEL" --body "$body"
+          fi
+
+      - name: Close the alert issue on recovery
+        if: steps.probe.outputs.ok == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          existing=$(gh issue list --label "$ISSUE_LABEL" --state open \
+            --search "Production is failing its health check in:title" \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue close "$existing" --comment "Recovered: health check returned 200. [Run]($RUN_URL)"
+            echo "closed issue #$existing"
+          fi
+
+      - name: Surface the TLS warning even while healthy
+        if: steps.probe.outputs.ok == 'true' && steps.tls.outputs.warn != ''
+        run: echo "::warning::${{ steps.tls.outputs.warn }}"

@@ -111,8 +111,12 @@ jobs:
         with:
           context: ./frontend
           push: true
+          # Relative: same-origin via Caddy, so one image works on any
+          # hostname. See the ARG comment in frontend/Dockerfile. (A '#' line
+          # inside build-args would be parsed as a build argument, not a
+          # comment, so this stays out here.)
           build-args: |
-            NEXT_PUBLIC_API_URL=https://dashboard.aegislead.co/api
+            NEXT_PUBLIC_API_URL=/api
           tags: |
             ghcr.io/${{ github.repository_owner }}/ai-saas-frontend:${{ github.sha }}
             ghcr.io/${{ github.repository_owner }}/ai-saas-frontend:latest

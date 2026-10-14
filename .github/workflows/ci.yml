@@ -90,8 +90,7 @@ jobs:
         working-directory: frontend
         env:
           NEXT_TELEMETRY_DISABLED: '1'
-          # Any absolute URL compiles identically; this build artifact is
-          # discarded. The real production value is baked by the build in
-          # deploy-production.yml.
-          NEXT_PUBLIC_API_URL: https://dashboard.aegislead.co/api
+          # Matches what production actually ships, so this build exercises
+          # the same value. The artifact itself is discarded.
+          NEXT_PUBLIC_API_URL: /api
         run: npm run build
