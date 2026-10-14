@@ -1,0 +1,97 @@
+# Build and test both apps.
+#
+# Runs on every push and pull request, and is also called by
+# deploy-production.yml via workflow_call so a production deploy cannot skip
+# it. That is the reason this is a reusable workflow rather than duplicated
+# steps: there is exactly one definition of "green".
+#
+# NOT GATED ON LINT, deliberately. `npx eslint` currently reports 2088 problems
+# in backend/ (overwhelmingly prettier CRLF-vs-LF noise from Windows checkouts)
+# and 1 error in frontend/. Gating on that would block every deploy from day
+# one, and a job that is always red teaches people to ignore it. Worth fixing
+# as its own piece of work, after which a lint job belongs here.
+
+name: CI
+
+on:
+  push:
+    # `production` is deliberately absent: deploy-production.yml calls this
+    # workflow itself, so listing it here would run the whole suite twice on
+    # the same commit AND make the deploy queue behind its own duplicate
+    # (both runs share the concurrency group below).
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+# A superseded run tells you nothing useful, so let a newer push cancel it --
+# except on production, where deploy-production.yml serialises instead.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/production' }}
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install
+        working-directory: backend
+        run: npm ci
+
+      # `npm run build` is `prisma generate && nest build`. Generation has to
+      # happen before compilation: the generated client supplies the types the
+      # rest of the code is checked against.
+      - name: Build
+        working-directory: backend
+        run: npm run build
+
+      # The suite needs no database -- every spec mocks PrismaService -- so no
+      # service container is required. The specs that exercise the
+      # environment check log ERROR lines about unset DATABASE_URL on purpose;
+      # that is asserted output, not a failure.
+      - name: Test
+        working-directory: backend
+        run: npx jest --ci --runInBand
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+
+      # `next build` does not fail on type errors in every configuration, so
+      # the typecheck is run explicitly as its own gate.
+      - name: Typecheck
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: Build
+        working-directory: frontend
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+          # Any absolute URL compiles identically; this build artifact is
+          # discarded. The real production value is baked by the build in
+          # deploy-production.yml.
+          NEXT_PUBLIC_API_URL: https://dashboard.aegislead.co/api
+        run: npm run build

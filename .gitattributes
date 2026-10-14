@@ -1,0 +1,21 @@
+# Line endings for files that BREAK when they carry CRLF, regardless of which
+# OS commits them.
+#
+# This repo is developed on Windows with core.autocrlf on, so the working copy
+# gets CRLF. Git normalises to LF in the object store, which is why Linux CI
+# has worked so far -- but that is a property of each developer's local config,
+# not of the repo, and it only takes one contributor with autocrlf=false to
+# commit a shell script that fails on the VPS with:
+#     /opt/aegislead/deploy.sh: bad interpreter: /bin/bash^M
+# These rules make the LF guarantee belong to the repo instead.
+#
+# Scoped deliberately to executable/config formats. A blanket `* text=auto
+# eol=lf` would rewrite every source file in the working tree on next
+# checkout, which is a separate (and much larger) change -- and the right one
+# to pair with fixing the ~2000 prettier CRLF lint errors.
+
+*.sh        text eol=lf
+Dockerfile  text eol=lf
+Caddyfile   text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf

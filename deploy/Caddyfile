@@ -1,0 +1,80 @@
+# Reverse proxy and TLS terminator for production.
+#
+# One origin serves both halves of the app: the Next.js server on / and the
+# NestJS API on /api. That is what makes the browser's API calls same-origin,
+# so no CORS preflight happens at all and there is a single certificate to
+# renew.
+#
+# Validate before deploying -- a syntax error here takes the whole site down:
+#   docker run --rm -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
+#     -e SITE_DOMAIN=example.com -e ACME_EMAIL=a@b.c \
+#     caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+
+{
+	email {$ACME_EMAIL}
+	# Caddy's own admin API. Bound to nothing: it is unauthenticated, and
+	# anything reaching it can rewrite the whole proxy config. The cost is that
+	# `caddy reload` no longer works -- restart the container instead.
+	admin off
+}
+
+{$SITE_DOMAIN} {
+	# Caddy imposes no body limit by default. This ceiling is a crude DoS guard
+	# and is deliberately well above the largest legitimate upload (audio for
+	# transcription, capped at 25 MB by TRANSCRIPTION_MAX_FILE_MB, plus the
+	# ~33% base64 inflation Gemini requires). Raise it before raising that cap.
+	request_body {
+		max_size 64MB
+	}
+
+	encode zstd gzip
+
+	# Applied to every response, including the Next.js ones -- the backend sets
+	# its own security headers but the frontend sets none.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Caddy names itself in a Server header by default; no reason to
+		# advertise the proxy or its version.
+		-Server
+	}
+
+	# /api must be matched before the catch-all below. `handle` blocks are
+	# mutually exclusive and evaluated in the order written, so this one wins
+	# for /api/* and the other takes everything else.
+	handle /api/* {
+		reverse_proxy backend:5000 {
+			# `header_up X-Forwarded-For` REPLACES the header rather than
+			# appending, which is the whole point. Caddy appends by default, so
+			# a request arriving with a forged `X-Forwarded-For: 1.2.3.4` would
+			# reach the app as "1.2.3.4, <real ip>" -- and this app reads the
+			# LEFTMOST entry (auth.controller.ts, public-api-key.guard.ts),
+			# which it writes into audit logs and rate-limits on. Overwriting
+			# makes the value unspoofable.
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Real-IP {remote_host}
+
+			# AI generation and audio transcription legitimately run past a
+			# default 30s. The backend's own timeouts are the real bound; this
+			# only stops Caddy cutting a request short before they fire.
+			transport http {
+				response_header_timeout 180s
+			}
+		}
+	}
+
+	handle {
+		reverse_proxy frontend:3000 {
+			header_up X-Forwarded-For {remote_host}
+		}
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 20MB
+			roll_keep 5
+		}
+		format json
+	}
+}

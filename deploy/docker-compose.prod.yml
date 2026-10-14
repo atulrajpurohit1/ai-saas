@@ -1,0 +1,107 @@
+# Production stack for the GoDaddy VPS.
+#
+# Runs on the VPS only -- staging stays on Vercel + Render. Nothing here is
+# built on the VPS: CI builds both images and pushes them to GHCR, and this
+# file only pulls and runs them. The 8 GB host could build them comfortably --
+# the reason not to is that building here would require the production secrets
+# and a source checkout on the box, and pulling a tagged image makes rollback a
+# one-word change rather than a rebuild.
+#
+#   Deploy:   docker compose --env-file .env.production -f docker-compose.prod.yml pull \
+#               && docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+#   Rollback: IMAGE_TAG=<previous-sha> docker compose --env-file .env.production \
+#               -f docker-compose.prod.yml up -d
+#
+# --env-file is NOT optional. Compose reads `.env` for ${...} interpolation by
+# default, so leaving it off resolves SITE_DOMAIN and POSTGRES_PASSWORD to
+# empty -- the `:?` guards below then abort the command, which is the intended
+# failure rather than a stack that starts half-configured.
+#
+# Secrets live in .env.production next to this file, owned by root, mode 600.
+# They are never committed -- the repo is public.
+
+name: aegislead-prod
+
+services:
+  db:
+    # Pinned to 18 to match the managed Postgres the data is migrated FROM: a
+    # dump from an 18 server cannot be restored into an older one.
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env.production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}
+      POSTGRES_DB: ${POSTGRES_DB:-aegislead}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Deliberately NO `ports:` mapping. Docker's port publishing writes its own
+    # iptables rules that bypass ufw, so a published 5432 would be open to the
+    # internet even with the firewall "on". The backend reaches it over the
+    # compose network instead; administer it with `docker compose exec db psql`
+    # or an SSH tunnel.
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # One-shot: applies pending Prisma migrations, then exits. The backend waits
+  # for it to exit 0, so a failed migration stops the deploy instead of booting
+  # application code against a schema it does not match.
+  migrate:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-atulrajpurohit1}/ai-saas-backend:${IMAGE_TAG:-latest}
+    restart: 'no'
+    env_file: .env.production
+    command: ['npx', 'prisma', 'migrate', 'deploy']
+    depends_on:
+      db:
+        condition: service_healthy
+
+  backend:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-atulrajpurohit1}/ai-saas-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env.production
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    # No ports either: Caddy is the only thing that should reach it.
+    expose:
+      - '5000'
+
+  frontend:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-atulrajpurohit1}/ai-saas-frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    expose:
+      - '3000'
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      # QUIC/HTTP3. Harmless if unused; browsers fall back to TCP.
+      - '443:443/udp'
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?set SITE_DOMAIN in .env.production}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env.production}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # caddy_data holds the issued certificates and the ACME account key.
+      # Losing it means re-issuing on next start, which burns Let's Encrypt
+      # rate limit -- keep this volume across deploys.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,23 @@
+# There was no repo-root .gitignore before this. Only backend/.gitignore
+# covered `.env`, which meant a secrets file created anywhere else -- notably
+# deploy/.env.production -- was tracked by default. On a PUBLIC repo that is
+# one `git add .` away from publishing live Stripe and database credentials.
+
+# Every env file is ignored, everywhere, then the *.example templates are
+# exempted. Ignoring by default and opting examples back in is the safe
+# direction: a new secrets file is covered automatically, whereas an
+# allow-by-default list silently misses whatever it does not enumerate.
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+node_modules/
+dist/
+.next/
+coverage/
+*.log
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
