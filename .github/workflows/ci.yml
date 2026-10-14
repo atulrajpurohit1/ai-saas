@@ -60,6 +60,13 @@ jobs:
       # service container is required. The specs that exercise the
       # environment check log ERROR lines about unset DATABASE_URL on purpose;
       # that is asserted output, not a failure.
+      # --runInBand is load-bearing, not a tidiness choice. Run in parallel,
+      # the timing assertion in src/auth/password-policy.spec.ts
+      # ("DUMMY_PASSWORD_HASH costs roughly as much as comparing against a
+      # real hash") fails under CPU contention from the other workers -- it
+      # passes in isolation and fails in a loaded full-suite run. Since this
+      # job gates production deploys, that would make deploys randomly red.
+      # Serialised it is reliable: 868/868. Fix the test before removing this.
       - name: Test
         working-directory: backend
         run: npx jest --ci --runInBand
