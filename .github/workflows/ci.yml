@@ -69,6 +69,20 @@ jobs:
       # Serialised it is reliable: 868/868. Fix the test before removing this.
       - name: Test
         working-directory: backend
+        # app-boots.spec.ts compiles the real DI graph, so PrismaService is
+        # constructed -- and PrismaClient REJECTS `url: undefined` in its
+        # constructor, before any connection is attempted. Locally
+        # backend/.env supplies this; .env is gitignored, so CI has nothing and
+        # that one spec failed while the other 867 passed.
+        #
+        # These are deliberately throwaway values. Nothing in the suite opens a
+        # socket: compile() wires providers, it does not connect them. The JWT
+        # secrets are present so a future provider that reads one at
+        # construction does not reintroduce this failure.
+        env:
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+          JWT_ACCESS_SECRET: ci-access-secret-not-used-for-anything-real-0123456789
+          JWT_REFRESH_SECRET: ci-refresh-secret-not-used-for-anything-real-9876543210
         run: npx jest --ci --runInBand
 
   frontend:

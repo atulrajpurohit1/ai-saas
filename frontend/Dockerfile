@@ -33,6 +33,13 @@ ARG NEXT_PUBLIC_API_URL="/api"
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Switches on `output: "standalone"` in next.config.ts. Gated on this flag
+# because setting it unconditionally breaks Vercel's build -- see the comment
+# there. Without it the build succeeds but emits no .next/standalone, and the
+# COPY lines in the runtime stage below fail.
+ENV DOCKER_BUILD=1
+
 RUN npm run build
 
 # ---------------------------------------------------------------------------
