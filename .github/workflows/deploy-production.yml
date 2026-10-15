@@ -166,6 +166,23 @@ jobs:
             deploy/deploy.sh \
             "$VPS_USER@$VPS_HOST:/opt/aegislead/"
 
+      # GHCR packages are private by default, even when the repository is
+      # public, so the host cannot pull the images it was just sent. This uses
+      # the workflow's OWN token rather than a long-lived PAT parked on the
+      # box: it expires when this run ends, so a compromised host yields no
+      # durable registry credential. Piped over stdin, never argv, so it cannot
+      # appear in the host's process list.
+      - name: Authenticate the VPS to GHCR
+        env:
+          VPS_HOST: ${{ vars.VPS_HOST }}
+          VPS_USER: ${{ vars.VPS_USER }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GHCR_TOKEN" | ssh -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=yes "$VPS_USER@$VPS_HOST" \
+            "docker login ghcr.io -u ${{ github.actor }} --password-stdin"
+
       - name: Deploy
         env:
           VPS_HOST: ${{ vars.VPS_HOST }}
@@ -178,6 +195,18 @@ jobs:
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
             "$VPS_USER@$VPS_HOST" \
             "chmod +x /opt/aegislead/deploy.sh && /opt/aegislead/deploy.sh '${{ github.sha }}'"
+
+      # Leaves no registry credential behind on the host. always() so this runs
+      # even when the deploy failed, which is exactly when a stale credential
+      # would otherwise linger.
+      - name: Revoke the VPS registry credential
+        if: always()
+        env:
+          VPS_HOST: ${{ vars.VPS_HOST }}
+          VPS_USER: ${{ vars.VPS_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" "docker logout ghcr.io" || true
 
       - name: Verify the public origin
         run: |
