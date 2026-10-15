@@ -1,7 +1,14 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "env": {
     "NEXT_PUBLIC_API_URL": "https://ai-saas-backend-ulpb.onrender.com/api"
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://ai-saas-backend-ulpb.onrender.com/api/:path*"
+    }
+  ]
 }

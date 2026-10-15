@@ -92,6 +92,16 @@ async function bootstrap() {
     // The live dashboard. Listed here as well as in CORS_ORIGINS so the app
     // keeps working if that env var is lost in a redeploy or a new environment.
     'https://dashboard.aegislead.co',
+    // Staging, which serves the same app from Vercel against the staging
+    // database. Listed for the same reason as the line above: a redeploy that
+    // loses CORS_ORIGINS should not take staging down with it.
+    //
+    // Note that staging's own API calls do NOT normally exercise this list.
+    // Vercel rewrites /api to this backend SERVER-SIDE, so those requests
+    // arrive with no Origin header at all and are allowed by the `!origin`
+    // branch below. This entry covers a browser calling the Render origin
+    // directly, which is what happens when someone tests the API by hand.
+    'https://staging.aegislead.co',
     ...configuredOrigins,
   ]);
 

@@ -1,0 +1,199 @@
+# Builds both images and deploys them to the production VPS.
+#
+# Triggered by a push to `production`. The intended flow is: merge work into
+# main, let it deploy to staging (Vercel + Render do that on their own), then
+# fast-forward `production` to main when you are happy with staging.
+#
+#   git checkout production && git merge --ff-only main && git push
+#
+# Images are built HERE, not on the VPS, so the box never needs a source
+# checkout or the build toolchain, and every deploy is an immutable tag that
+# can be redeployed byte-for-byte.
+#
+# ---------------------------------------------------------------------------
+# One-time setup this workflow expects:
+#
+#   Repository VARIABLES (Settings -> Secrets and variables -> Actions -> Variables)
+#     VPS_HOST   the VPS IP address (kept out of this file: the repo is
+#                public, and there is no reason to publish the production
+#                host address in a greppable comment)
+#     VPS_USER   the SSH user that owns /opt/aegislead (root, or a sudo-less
+#                user added to the `docker` group -- the latter is preferred)
+#
+#   Repository SECRETS
+#     VPS_SSH_KEY       PRIVATE half of a keypair created FOR this workflow
+#                       (ssh-keygen -t ed25519 -C github-actions-deploy), with
+#                       the public half in the VPS user's authorized_keys.
+#                       Never reuse your personal key.
+#     VPS_SSH_HOST_KEY  The VPS's host key, pinned so a hijacked DNS/IP cannot
+#                       impersonate it. Get it with:
+#                         ssh-keyscan -t ed25519 <VPS_HOST>
+#                       and paste the whole output line.
+#
+# .env.production is deliberately NOT copied by this workflow. Production
+# secrets live only on the VPS, so a compromised Actions run cannot read them
+# and they never pass through GitHub.
+
+name: Deploy to production
+
+on:
+  push:
+    branches: [production]
+  # Lets you redeploy the current production branch without an empty commit,
+  # which is also the quickest way to re-run a deploy that failed on a
+  # transient error.
+  workflow_dispatch:
+
+# Deploys must not overlap: two `compose up` runs racing on the same host can
+# leave containers on mismatched tags. cancel-in-progress stays false because
+# killing a deploy MID-MIGRATION is worse than queueing behind it.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # Same definition of green as every other branch -- a production deploy does
+  # not get a shortcut past the tests.
+  verify:
+    uses: ./.github/workflows/ci.yml
+
+  build-backend:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          # Scoped to this run by `permissions: packages: write` above; no PAT
+          # to create or rotate.
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          # Context is backend/, not the repo root -- matching the path
+          # assumptions in backend/Dockerfile.
+          context: ./backend
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/ai-saas-backend:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/ai-saas-backend:latest
+          # Layer cache in GitHub's own store. Without it every deploy
+          # recompiles bcrypt from source.
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
+  build-frontend:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          # Relative: same-origin via Caddy, so one image works on any
+          # hostname. See the ARG comment in frontend/Dockerfile. (A '#' line
+          # inside build-args would be parsed as a build argument, not a
+          # comment, so this stays out here.)
+          build-args: |
+            NEXT_PUBLIC_API_URL=/api
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/ai-saas-frontend:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/ai-saas-frontend:latest
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+
+  deploy:
+    needs: [build-backend, build-frontend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # Named so you can later add a required reviewer or a deploy window in
+    # Settings -> Environments without touching this file.
+    environment:
+      name: production
+      url: https://dashboard.aegislead.co
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          SSH_HOST_KEY: ${{ secrets.VPS_SSH_HOST_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          # Via env rather than inline interpolation: a key pasted straight
+          # into the script body would break on any shell metacharacter and
+          # risks landing in the run log.
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # Pinned host key, so StrictHostKeyChecking below is a real check
+          # rather than trust-on-first-use against whatever answers.
+          printf '%s\n' "$SSH_HOST_KEY" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Copy stack files to the VPS
+        env:
+          VPS_HOST: ${{ vars.VPS_HOST }}
+          VPS_USER: ${{ vars.VPS_USER }}
+        run: |
+          set -euo pipefail
+          # Only these three. .env.production stays on the host and is never
+          # transferred; .env.production.example is documentation.
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            deploy/docker-compose.prod.yml \
+            deploy/Caddyfile \
+            deploy/deploy.sh \
+            "$VPS_USER@$VPS_HOST:/opt/aegislead/"
+
+      - name: Deploy
+        env:
+          VPS_HOST: ${{ vars.VPS_HOST }}
+          VPS_USER: ${{ vars.VPS_USER }}
+        run: |
+          set -euo pipefail
+          # deploy.sh verifies the deep health endpoint and rolls back to the
+          # previously recorded tag on failure, so a non-zero exit here means
+          # the PREVIOUS version is serving -- not that the site is down.
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" \
+            "chmod +x /opt/aegislead/deploy.sh && /opt/aegislead/deploy.sh '${{ github.sha }}'"
+
+      - name: Verify the public origin
+        run: |
+          set -euo pipefail
+          # deploy.sh checks health from inside the container, which says
+          # nothing about DNS, TLS or the proxy. This closes that gap.
+          for attempt in $(seq 1 10); do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 \
+              https://dashboard.aegislead.co/api/health || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "public health check OK"
+              exit 0
+            fi
+            echo "attempt $attempt: HTTP $code"
+            sleep 6
+          done
+          echo "::error::https://dashboard.aegislead.co/api/health did not return 200."
+          echo "The containers are healthy (deploy.sh passed), so look at Caddy, DNS or TLS."
+          exit 1
