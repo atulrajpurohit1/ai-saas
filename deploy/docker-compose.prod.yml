@@ -33,7 +33,13 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.production}
       POSTGRES_DB: ${POSTGRES_DB:-aegislead}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # Mounted at /var/lib/postgresql, NOT the /var/lib/postgresql/data
+      # path used by Postgres 17 and earlier. From 18 the image stores data
+      # in a major-version subdirectory (…/18/docker) so that pg_upgrade
+      # --link can work without crossing a mount boundary, and it REFUSES TO
+      # START when it finds a mount on the legacy path -- rather than risk a
+      # layout mismatch. Moving this back would break the next major upgrade.
+      - pgdata:/var/lib/postgresql
     # Deliberately NO `ports:` mapping. Docker's port publishing writes its own
     # iptables rules that bypass ufw, so a published 5432 would be open to the
     # internet even with the firewall "on". The backend reaches it over the
