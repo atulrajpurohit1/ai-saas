@@ -308,11 +308,32 @@ These point at the backend origin and fail silently if not updated:
 3. Render (backend env): set `FRONTEND_URL`, `CORS_ORIGINS` and
    `BILLING_RETURN_URL` to `https://staging.aegislead.co`.
 
-`frontend/vercel.json` already rewrites `/api/:path*` to the Render backend and
-sets `NEXT_PUBLIC_API_URL=/api`, so staging matches production's single-origin
-shape. Because Vercel performs that rewrite **server-side**, those requests
-reach Render with no `Origin` header and are allowed by the non-browser branch
-of the CORS check.
+4. **Now** flip `frontend/vercel.json` to the single-origin setup — change
+   `env.NEXT_PUBLIC_API_URL` from the Render URL to `"/api"` and merge.
+
+That flip is deliberately left until this phase. `vercel.json` already carries
+the `/api/:path*` rewrite, but the app keeps calling Render directly until the
+value above changes, so nothing routes through the rewrite yet.
+
+The reason for the delay: until Phase 5, Vercel serves **production**. Flipping
+the value earlier would have rerouted the live site's API calls through
+Vercel's proxy as a side effect of staging preparation, with no staging
+environment to test it on, because staging was production. Two things to check
+the first time traffic does go through the rewrite, since Vercel's proxy sits
+in a path that previously went straight to Render:
+
+- a large upload (audio transcription allows up to 25 MB) — confirm Vercel
+  does not cap the request body below what the app accepts;
+- a slow AI generation — confirm the proxy does not time out before the
+  backend answers.
+
+If either fails, revert `NEXT_PUBLIC_API_URL` to the absolute Render URL.
+Staging then uses two origins while production stays single-origin, which is
+a cosmetic difference between the environments and nothing more.
+
+Because Vercel performs the rewrite **server-side**, those requests reach
+Render with no `Origin` header and are allowed by the non-browser branch of
+the CORS check.
 
 `render.yaml` is deliberately untouched: it currently describes a *frontend*
 service, duplicating Vercel, and editing it could alter Blueprint-managed

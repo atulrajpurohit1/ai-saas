@@ -3,7 +3,7 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "env": {
-    "NEXT_PUBLIC_API_URL": "/api"
+    "NEXT_PUBLIC_API_URL": "https://ai-saas-backend-ulpb.onrender.com/api"
   },
   "rewrites": [
     {
