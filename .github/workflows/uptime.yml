@@ -103,6 +103,19 @@ jobs:
             echo "warn=TLS certificate expires in $days days ($end) -- Caddy auto-renewal may have stopped" >> "$GITHUB_OUTPUT"
           fi
 
+      # Its own step, running ALWAYS, because both the open and the close step
+      # below call `gh issue list --label`, which ERRORS when the label does not
+      # exist. It previously lived inside the open step -- which is skipped on a
+      # healthy run -- so every healthy run failed at the close step instead.
+      # A monitor that reports failure when all is well is worse than none: it
+      # teaches people to ignore it.
+      - name: Ensure the alert label exists
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create "$ISSUE_LABEL" --color B60205 --description "Automated production health alert" 2>/dev/null || true
+
       - name: Open or update the alert issue
         if: steps.probe.outputs.ok != 'true'
         env:
@@ -123,7 +136,7 @@ jobs:
           # One issue per outage, not one per probe: reuse the open one if there
           # is one, otherwise open it.
           existing=$(gh issue list --label "$ISSUE_LABEL" --state open \
-            --search "$title in:title" --json number --jq '.[0].number // empty')
+            --search "$title in:title" --json number --jq '.[0].number // empty' 2>/dev/null || true)
 
           body=$(cat <<EOF
           \`$HEALTH_URL\` did not return 200 on three consecutive attempts.
@@ -159,7 +172,7 @@ jobs:
           set -euo pipefail
           existing=$(gh issue list --label "$ISSUE_LABEL" --state open \
             --search "Production is failing its health check in:title" \
-            --json number --jq '.[0].number // empty')
+            --json number --jq '.[0].number // empty' 2>/dev/null || true)
           if [ -n "$existing" ]; then
             gh issue close "$existing" --comment "Recovered: health check returned 200. [Run]($RUN_URL)"
             echo "closed issue #$existing"
