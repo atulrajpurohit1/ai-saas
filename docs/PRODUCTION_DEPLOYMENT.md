@@ -252,10 +252,19 @@ docker compose --env-file .env.production -f docker-compose.prod.yml \
 
 ### 4.5 The first admin account
 
-> **Do not run `prisma/seed-admin.ts` against production.** It hardcodes
-> `admin@aisaascrm.com` / `Admin123!`, and this repository is public — those
-> credentials are readable by anyone, so seeding them creates a known-password
-> administrator on an internet-facing system.
+`prisma/seed-admin.ts` now requires the credentials in the environment and
+refuses to run without them:
+
+```bash
+ADMIN_EMAIL=you@example.com ADMIN_PASSWORD='<strong password>' \
+  npx ts-node prisma/seed-admin.ts
+```
+
+> It previously hardcoded `admin@aisaascrm.com` / `Admin123!`. Because this
+> repository is public, that was a working published login for every
+> deployment it had been run against — production included. The account was
+> found live on 2026-10-16 and its password rotated. If you are reading this
+> while recovering an old backup, that credential may still work in it.
 
 Create the first admin through the app's own signup flow at
 `https://prod-test.aegislead.co`. Brevo is configured, so the OTP email arrives
