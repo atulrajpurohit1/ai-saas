@@ -87,6 +87,10 @@ printf '%s' "$PASSPHRASE" | gpg --batch --yes \
 rm -f "$DUMP"
 
 echo "==> Uploading daily/$(basename "$ENCRYPTED") to B2"
+# Pinned to an exact aws-cli version: there is no rolling `:2` tag on Docker
+# Hub (the first run failed with "not found"), and a pinned tag also stops a
+# future CLI release changing behaviour under a backup job nobody watches.
+#
 # Content-MD5 makes B2 reject the object unless every byte arrived intact --
 # worth it because a write-only key cannot read the object back to check.
 AWS_ACCESS_KEY_ID="$B2_KEY_ID" \
@@ -98,7 +102,7 @@ docker run --rm \
   -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION \
   -e AWS_REQUEST_CHECKSUM_CALCULATION -e AWS_RESPONSE_CHECKSUM_VALIDATION \
   -v "$WORK_DIR:/data:ro" \
-  amazon/aws-cli:2 s3api put-object \
+  amazon/aws-cli:2.28.0 s3api put-object \
     --endpoint-url https://s3.us-east-005.backblazeb2.com \
     --bucket "$B2_BUCKET" \
     --key "daily/$(basename "$ENCRYPTED")" \
