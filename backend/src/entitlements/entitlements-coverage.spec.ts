@@ -85,7 +85,22 @@ describe('entitlement coverage', () => {
       return classNames.flatMap((className, index) => {
         const block = decoratorBlocks[index + 1] ?? decoratorBlocks[index];
         if (!block?.includes('ModuleGuard')) return [];
-        return block.includes('@RequireModule')
+
+        // Declared at class level, OR on at least one route in the class.
+        //
+        // Per-route declaration is the right shape where a controller mixes
+        // sellable and core routes: ClientPortalController gates its proposal
+        // routes on LEAD_GEN while leaving documents and profile open, and
+        // GuardPortalController leaves GET /guard/me open so a lapsed plan
+        // surfaces as a locked feature rather than a broken login. What this
+        // test is actually guarding against is ModuleGuard wired into the
+        // chain with nothing declared anywhere, which makes the guard a no-op
+        // and waves every request through.
+        const body = segments[index + 1] ?? '';
+        const declaresModule =
+          block.includes('@RequireModule') || body.includes('@RequireModule');
+
+        return declaresModule
           ? []
           : [`${file.replace(SRC_ROOT, '')} :: ${className}`];
       });
@@ -113,10 +128,80 @@ describe('entitlement coverage', () => {
 
       return (
         permissionModules.length > 0 &&
-        permissionModules.every((module) => !!serviceForPermissionModule(module))
+        permissionModules.every(
+          (module) => !!serviceForPermissionModule(module),
+        )
       );
     });
 
     expect(ungated.map((file) => file.replace(SRC_ROOT, ''))).toEqual([]);
+  });
+  /**
+   * Per-ROUTE gate check.
+   *
+   * The test above only flags a controller whose permissions are ENTIRELY
+   * sellable. That blind spot was expensive: CrmConnectorsController mixed the
+   * CORE `integrations` module with `leads`, so it was skipped -- while
+   * `POST /crm-connectors/:provider/import-contacts` wrote Lead rows for any
+   * account that had bought nothing, which is precisely the thing
+   * LeadsController is gated to prevent. One core permission anywhere in the
+   * file was enough to hide a sellable route.
+   *
+   * This checks each route on its own and allows the genuine exceptions by
+   * name, so each one stays a decision somebody made rather than a gap nobody
+   * noticed.
+   */
+  const ALTERNATIVE_ENTRY_ROUTES = new Set([
+    // Core records that all three services read. The sellable keys are extra
+    // ways in for Finance and Guard Tour users, not a gate -- requiring a
+    // service here would lock out the other two, which is the opposite of
+    // what these keys are for. All reads of core data.
+    '/branches/branches.controller.ts :: @Get()',
+    "/branches/branches.controller.ts :: @Get(':id')",
+    '/clients/clients.controller.ts :: @Get()',
+    '/sites/sites.controller.ts :: @Get()',
+    // Aggregate insurance-compliance counts only, never policy detail or
+    // documents; deliberately broadened so a finance-only user still sees the
+    // advisory on the invoice screen.
+    "/client-compliance/client-compliance.controller.ts :: @Get('summary')",
+  ]);
+
+  it('gates every route that touches a sellable module', () => {
+    const moduleByKey = new Map(
+      PERMISSIONS.map((permission) => [permission.key, permission.module]),
+    );
+
+    const ungated = controllerFiles(SRC_ROOT).flatMap((file) => {
+      const contents = readFileSync(file, 'utf8');
+      const segments = contents.split(
+        /\n(?= {2}@(?:Get|Post|Put|Patch|Delete)\()/,
+      );
+      // Segment 0 holds the class-level decorators; a @RequireModule there
+      // covers every route below it.
+      const classGated = segments[0].includes('@RequireModule');
+
+      return segments.slice(1).flatMap((segment) => {
+        const route = segment.split('\n')[0].trim();
+        // Decorators and signature only -- stop at the method body so a
+        // permission string mentioned inside the implementation is not read
+        // as a declaration.
+        const head = segment.split(/\n {2}[a-zA-Z_]/)[0];
+
+        if (classGated || head.includes('@RequireModule')) return [];
+
+        const touchesSellable = [
+          ...new Set(
+            [...head.matchAll(/'([a-z0-9_]+\.[a-z0-9_]+)'/g)]
+              .map(([, key]) => moduleByKey.get(key))
+              .filter((value): value is string => !!value),
+          ),
+        ].some((module) => !!serviceForPermissionModule(module));
+
+        const id = `${file.replace(SRC_ROOT, '').replace(/\\/g, '/')} :: ${route}`;
+        return touchesSellable && !ALTERNATIVE_ENTRY_ROUTES.has(id) ? [id] : [];
+      });
+    });
+
+    expect(ungated).toEqual([]);
   });
 });

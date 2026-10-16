@@ -15,6 +15,8 @@ import {
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
+import { ModuleGuard } from '../auth/guards/module.guard';
+import { RequireModule } from '../auth/decorators/module.decorator';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CrmConnectorsService } from './crm-connectors.service';
 import { ConnectCredentialsDto } from './dto/connect-credentials.dto';
@@ -71,8 +73,16 @@ export class CrmConnectorsController {
     }
   }
 
+  // Writes Lead rows, so it is Lead Gen -- not Integrations.
+  //
+  // 'integrations.manage' is enough to satisfy the permission guard and sits
+  // on the CORE integrations module, so without @RequireModule any account
+  // could connect a CRM and import its whole contact list as leads having
+  // bought nothing. The leads controller was gated from the start; this was
+  // the side door into the same table.
   @Post(':provider/import-contacts')
-  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
+  @RequireModule('LEAD_GEN')
   @RequireAnyPermission('integrations.manage', 'crm.manage', 'leads.import')
   importContacts(@GetUser() user: ActiveUser, @Param('provider') provider: string) {
     return this.crmConnectorsService.importContacts(user, provider);
@@ -85,8 +95,10 @@ export class CrmConnectorsController {
     return this.crmConnectorsService.disconnect(user, provider);
   }
 
+  // Same table as import-contacts, one record at a time; same gate.
   @Post(':provider/contacts')
-  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
+  @RequireModule('LEAD_GEN')
   @RequireAnyPermission('integrations.manage', 'crm.manage', 'leads.import')
   syncContact(
     @GetUser() user: ActiveUser,

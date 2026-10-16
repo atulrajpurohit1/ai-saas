@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ModuleGuard } from '../auth/guards/module.guard';
+import { RequireModule } from '../auth/decorators/module.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { AuditService } from '../audit/audit.service';
@@ -19,8 +21,17 @@ import { ProposalsService } from '../proposals/proposals.service';
 import { findUnresolvedPlaceholders } from '../proposals/proposal-content.util';
 import { Response as ExpressResponse } from 'express';
 
+/**
+ * The client portal authenticates with a client token rather than a staff JWT,
+ * so it never passed through ModuleGuard. Proposals are a Lead Gen feature,
+ * which meant a tenant whose Lead Gen lapsed kept serving -- and letting
+ * clients approve, reject and comment on -- proposals through this portal
+ * indefinitely. ModuleGuard is wired at class level and only acts on the
+ * routes that declare @RequireModule, so documents and profile (core data a
+ * client keeps whatever the tenant bought) are unaffected.
+ */
 @Controller('client-portal')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ModuleGuard)
 export class ClientPortalController {
   constructor(
     private prisma: PrismaService,
@@ -35,6 +46,7 @@ export class ClientPortalController {
   }
 
   @Get('proposals')
+  @RequireModule('LEAD_GEN')
   async getProposals(@GetUser() user: ActiveUser) {
     this.checkClient(user);
 
@@ -48,6 +60,7 @@ export class ClientPortalController {
   }
 
   @Get('proposals/:id')
+  @RequireModule('LEAD_GEN')
   async getProposal(@GetUser() user: ActiveUser, @Param('id') id: string) {
     this.checkClient(user);
 
@@ -68,6 +81,7 @@ export class ClientPortalController {
   }
 
   @Get('proposals/:id/export')
+  @RequireModule('LEAD_GEN')
   async exportProposal(
     @GetUser() user: ActiveUser,
     @Param('id') id: string,
@@ -92,6 +106,7 @@ export class ClientPortalController {
   }
 
   @Post('proposals/:id/approve')
+  @RequireModule('LEAD_GEN')
   async approveProposal(@GetUser() user: ActiveUser, @Param('id') id: string) {
     const proposal = await this.getProposal(user, id);
 
@@ -120,6 +135,7 @@ export class ClientPortalController {
   }
 
   @Post('proposals/:id/reject')
+  @RequireModule('LEAD_GEN')
   async rejectProposal(@GetUser() user: ActiveUser, @Param('id') id: string) {
     const proposal = await this.getProposal(user, id);
 
@@ -141,6 +157,7 @@ export class ClientPortalController {
   }
 
   @Get('proposals/:id/comments')
+  @RequireModule('LEAD_GEN')
   async getComments(@GetUser() user: ActiveUser, @Param('id') id: string) {
     this.checkClient(user);
     await this.getProposal(user, id); // Auth check
@@ -152,6 +169,7 @@ export class ClientPortalController {
   }
 
   @Post('proposals/:id/comments')
+  @RequireModule('LEAD_GEN')
   async addComment(
     @GetUser() user: ActiveUser,
     @Param('id') id: string,
@@ -187,6 +205,7 @@ export class ClientPortalController {
   }
 
   @Get('proposals/:id/timeline')
+  @RequireModule('LEAD_GEN')
   async getTimeline(@GetUser() user: ActiveUser, @Param('id') id: string) {
     this.checkClient(user);
     await this.getProposal(user, id); // Auth check
