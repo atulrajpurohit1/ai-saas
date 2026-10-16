@@ -8,6 +8,8 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { BlackPearlInsightProvider } from './providers/blackpearl-insight.provider';
 import { BlackPearlProspectingProvider } from './providers/blackpearl-prospecting.provider';
 import { ProspectDiscoveryCacheService } from './prospect-discovery-cache.service';
+import { ProspectDiscoveryCollectorScheduler } from './prospect-discovery-collector.scheduler';
+import { ProspectDiscoveryJobService } from './prospect-discovery-job.service';
 import { ProspectSearchCacheService } from './prospect-search-cache.service';
 import { ProspectSearchController } from './prospect-search.controller';
 import { ProspectSearchHistoryService } from './prospect-search-history.service';
@@ -30,6 +32,8 @@ import { SavedProspectSearchService } from './saved-prospect-search.service';
     ProspectSearchService,
     ProspectSearchCacheService,
     ProspectDiscoveryCacheService,
+    ProspectDiscoveryJobService,
+    ProspectDiscoveryCollectorScheduler,
     ProspectSearchHistoryService,
     ProspectSearchRateLimitService,
     SavedProspectSearchService,

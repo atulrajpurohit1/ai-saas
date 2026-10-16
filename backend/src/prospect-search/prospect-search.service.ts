@@ -24,6 +24,7 @@ import { ViewProspectDto } from './dto/view-prospect.dto';
 import { BlackPearlInsightProvider } from './providers/blackpearl-insight.provider';
 import { BlackPearlProspectingProvider } from './providers/blackpearl-prospecting.provider';
 import { ProspectDiscoveryCacheService } from './prospect-discovery-cache.service';
+import { ProspectDiscoveryJobService } from './prospect-discovery-job.service';
 import { ProspectSearchCacheService } from './prospect-search-cache.service';
 import { ProspectSearchHistoryService } from './prospect-search-history.service';
 import {
@@ -53,6 +54,7 @@ export class ProspectSearchService {
     private readonly notesService: NotesService,
     private readonly cacheService: ProspectSearchCacheService,
     private readonly discoveryCacheService: ProspectDiscoveryCacheService,
+    private readonly discoveryJobs: ProspectDiscoveryJobService,
     private readonly historyService: ProspectSearchHistoryService,
     private readonly blackPearlInsightProvider: BlackPearlInsightProvider,
     private readonly blackPearlProspectingProvider: BlackPearlProspectingProvider,
@@ -398,6 +400,16 @@ export class ProspectSearchService {
       userId: user.sub,
     });
 
+    // Recorded so the server can collect this job itself. Without it, the
+    // only handle on a running search was whatever the customer's browser
+    // held, and closing the tab stranded a result they had just paid for.
+    await this.discoveryJobs.record({
+      tenantId: user.tenantId,
+      userId: user.sub,
+      jobId,
+      request: dto,
+    });
+
     this.logger.log(
       `Prospect discovery job submitted: tenant=${user.tenantId} jobId=${jobId} objective="${objective}"`,
     );
@@ -446,6 +458,24 @@ export class ProspectSearchService {
       const objective = dto.objective.trim();
       const result = { ...poll.result, query: objective };
 
+      // Two pollers can now reach a finished job: the customer's page and the
+      // server-side collector. Whoever flips the job row to COMPLETED first
+      // owns the side effects, so the search is never cached, recorded or
+      // settled twice. The loser still returns the result -- it holds the
+      // same answer, it just must not write it again.
+      const claimed = await this.discoveryJobs.claimTerminal(
+        user.tenantId,
+        jobId,
+        'COMPLETED',
+      );
+
+      if (!claimed) {
+        this.logger.log(
+          `Prospect discovery job ${jobId} was already collected; returning the result without recording it again.`,
+        );
+        return { status: 'completed', query: objective, result };
+      }
+
       const cacheKey = this.discoveryCacheService.buildKey(
         user.tenantId,
         DISCOVERY_PROVIDER_NAME,
@@ -488,15 +518,26 @@ export class ProspectSearchService {
       `Prospect discovery job failed: tenant=${user.tenantId} jobId=${jobId}`,
     );
 
-    // The customer is refunded in full, but a failed job can still have cost
-    // us money upstream -- record that, or our own spend looks lower than it is.
-    await this.settleJobCredits(
+    const claimedFailure = await this.discoveryJobs.claimTerminal(
       user.tenantId,
       jobId,
-      0,
-      'Search could not be completed; credits returned.',
-      poll.upstreamCostUsd,
+      'FAILED',
+      'Upstream job reported failure.',
     );
+
+    // The customer is refunded in full, but a failed job can still have cost
+    // us money upstream -- record that, or our own spend looks lower than it is.
+    // Only the poller that claimed the failure refunds, for the same reason
+    // only one records a success.
+    if (claimedFailure) {
+      await this.settleJobCredits(
+        user.tenantId,
+        jobId,
+        0,
+        'Search could not be completed; credits returned.',
+        poll.upstreamCostUsd,
+      );
+    }
 
     return {
       status: 'failed',

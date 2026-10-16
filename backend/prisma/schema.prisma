@@ -134,6 +134,7 @@ model Tenant {
   patrolEvents            PatrolEvent[]
   guardSyncQueues         GuardSyncQueue[]
   prospectSearchHistory   ProspectSearchHistory[]
+  prospectDiscoveryJobs   ProspectDiscoveryJob[]
   savedProspectSearches   SavedProspectSearch[]
   rfps                    Rfp[]
   vendors                 Vendor[]
@@ -2239,4 +2240,58 @@ model CreditAutoRechargeAttempt {
   @@index([tenantId, createdAt])
   @@index([configId, createdAt])
   @@map("CreditAutoRechargeAttempt")
+}
+
+enum ProspectDiscoveryJobState {
+  PENDING
+  COMPLETED
+  FAILED
+  ABANDONED
+}
+
+/**
+ * A prospect discovery search submitted to BlackPearl and not yet collected.
+ *
+ * A search runs upstream; our side only learns what it found by polling for
+ * the result. That polling used to happen only while a customer's browser sat
+ * on the page, so closing the tab meant the result was never fetched -- the
+ * prospects existed, were charged for, and were unreachable. This row is what
+ * lets the server finish its own jobs: it holds the job id and the search it
+ * was submitted for, which is everything the collector needs to poll, cache,
+ * record and settle without anyone watching.
+ *
+ * Deleted with the tenant, like the rest of a tenant's search data.
+ */
+model ProspectDiscoveryJob {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Who ran the search: the history entry it produces belongs to them.
+  userId   String @map("user_id")
+  /// BlackPearl's own job id, which every poll is made against.
+  jobId    String @map("job_id")
+  /// The DiscoverProspectsDto this job was submitted for. Replayed when
+  /// collecting the result, because the cache key and the result's own query
+  /// label are both derived from the original criteria, not from the job.
+  request  Json
+
+  status       ProspectDiscoveryJobState @default(PENDING)
+  /// Set when the job reaches any terminal state. Claiming this transition is
+  /// what stops a browser poll and the collector both recording the same
+  /// search twice.
+  completedAt  DateTime?                 @map("completed_at")
+  lastPolledAt DateTime?                 @map("last_polled_at")
+  /// Why a job ended where that is worth keeping -- an upstream failure
+  /// message, or why it was abandoned.
+  note         String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  /// One row per upstream job, so a resubmission cannot create a duplicate.
+  @@unique([tenantId, jobId])
+  /// The collector's own query: oldest pending jobs first.
+  @@index([status, createdAt])
+  @@index([tenantId, userId])
+  @@map("ProspectDiscoveryJob")
 }

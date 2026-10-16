@@ -18,6 +18,7 @@ import { ProspectCompanyDto } from './dto/prospect-company.dto';
 import { BlackPearlInsightProvider } from './providers/blackpearl-insight.provider';
 import { BlackPearlProspectingProvider } from './providers/blackpearl-prospecting.provider';
 import { ProspectDiscoveryCacheService } from './prospect-discovery-cache.service';
+import { ProspectDiscoveryJobService } from './prospect-discovery-job.service';
 import { ProspectSearchCacheService } from './prospect-search-cache.service';
 import { ProspectSearchHistoryService } from './prospect-search-history.service';
 import { ProspectSearchService } from './prospect-search.service';
@@ -34,6 +35,7 @@ describe('ProspectSearchService', () => {
     get: jest.Mock;
     set: jest.Mock;
   };
+  let discoveryJobs: { record: jest.Mock; claimTerminal: jest.Mock };
   let historyService: { record: jest.Mock };
   let blackPearlInsightProvider: {
     isConfigured: jest.Mock;
@@ -159,6 +161,14 @@ describe('ProspectSearchService', () => {
       settle: jest.fn().mockResolvedValue({ released: 0, consumed: 1 }),
     };
 
+    // The job record the server-side collector works from. Claiming a
+    // terminal state succeeds by default, so these tests run as the poller
+    // that owns the result and performs its side effects.
+    discoveryJobs = {
+      record: jest.fn().mockResolvedValue({ id: 'job-row-1' }),
+      claimTerminal: jest.fn().mockResolvedValue(true),
+    };
+
     // Default: plenty of upstream budget, so existing tests exercise the
     // search paths rather than the exhausted-balance branch.
     upstreamBudget = {
@@ -174,6 +184,7 @@ describe('ProspectSearchService', () => {
       notesService as unknown as NotesService,
       cacheService as unknown as ProspectSearchCacheService,
       discoveryCacheService as unknown as ProspectDiscoveryCacheService,
+      discoveryJobs as unknown as ProspectDiscoveryJobService,
       historyService as unknown as ProspectSearchHistoryService,
       blackPearlInsightProvider as unknown as BlackPearlInsightProvider,
       blackPearlProspectingProvider as unknown as BlackPearlProspectingProvider,
@@ -664,6 +675,56 @@ describe('ProspectSearchService', () => {
         progress: 40,
         stageLabel: 'Finding contacts',
       });
+    });
+
+    it('returns the result but records nothing when another poller already collected the job', async () => {
+      // The page and the server-side collector can both reach a finished job.
+      // Losing the claim means someone else has already cached it, written
+      // the history entry and settled the credits.
+      discoveryJobs.claimTerminal.mockResolvedValue(false);
+      blackPearlProspectingProvider.getJobResult.mockResolvedValue({
+        status: 'completed',
+        progress: 100,
+        stageLabel: null,
+        result: {
+          query: '',
+          discoveredCount: 1,
+          qualifiedCount: 1,
+          prospects: [{ id: 'pros-1', qualificationScore: 0.9, signals: [] }],
+        },
+      });
+
+      const result = await service.getDiscoveryJobStatus(
+        'discovery-job-1',
+        dto,
+        user,
+      );
+
+      // The customer still gets their prospects.
+      expect(result.status).toBe('completed');
+      // But nothing is written a second time.
+      expect(discoveryCacheService.set).not.toHaveBeenCalled();
+      expect(historyService.record).not.toHaveBeenCalled();
+      expect(creditsService.settle).not.toHaveBeenCalled();
+    });
+
+    it('does not refund twice when another poller already handled the failure', async () => {
+      discoveryJobs.claimTerminal.mockResolvedValue(false);
+      blackPearlProspectingProvider.getJobResult.mockResolvedValue({
+        status: 'failed',
+        progress: null,
+        stageLabel: null,
+        result: null,
+      });
+
+      const result = await service.getDiscoveryJobStatus(
+        'discovery-job-1',
+        dto,
+        user,
+      );
+
+      expect(result.status).toBe('failed');
+      expect(creditsService.settle).not.toHaveBeenCalled();
     });
 
     it('caches and records history once the job completes', async () => {
