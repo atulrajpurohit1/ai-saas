@@ -35,6 +35,7 @@ import {
   discoveredProspectToCompany,
   getProspectDiscoveryJobStatus,
   getProspectSearchHistory,
+  getProspectSearchHistoryEntry,
   getSavedProspectSearches,
   importProspectAsLead,
   renameSavedProspectSearch,
@@ -42,6 +43,13 @@ import {
   searchProspects,
   getProspectSearchJobStatus,
 } from '@/lib/prospect-search';
+import {
+  clearInFlightDiscoveryJob,
+  type InFlightDiscoveryJob,
+  loadProspectSearchSession,
+  saveCompletedDiscovery,
+  saveInFlightDiscoveryJob,
+} from '@/lib/prospect-search-session';
 import {
   AlertTriangle,
   ArrowDownAZ,
@@ -79,8 +87,25 @@ type SearchMode = keyof typeof SEARCH_MODE_LIMITS;
 // Our own live testing showed turbo-mode prospecting jobs typically complete
 // in about a minute - poll modestly and don't wait unreasonably long.
 const JOB_POLL_INTERVAL_MS = 5_000;
-const JOB_MAX_POLL_MS = 5 * 60 * 1000;
+/**
+ * How long the page watches a search before it stops spinning and says the
+ * search is still running. Set to BlackPearl's real worst case rather than the
+ * typical minute: a long search is normal behaviour here, not an exception,
+ * and stopping early told customers to "try again" -- a second 200-credit job
+ * for prospects they had already paid for.
+ */
+const JOB_MAX_POLL_MS = 15 * 60 * 1000;
 const MAX_BACKOFF_MS = 60_000;
+
+/**
+ * A search picked back up after leaving the page is given the full upstream
+ * worst case (~15 minutes, per the backend's own reservation sweep) rather
+ * than the five minutes a watched search gets. Nobody is waiting on the screen
+ * for it, and giving up early would strand a result the customer has already
+ * been charged for: the completed job only reaches our cache when someone
+ * polls it to completion.
+ */
+const RESUMED_JOB_MAX_POLL_MS = 20 * 60 * 1000;
 
 // The separate single-company deep-research flow (BlackPearl Playbooks)
 // takes much longer, per BlackPearl's own guidance.
@@ -100,7 +125,10 @@ function parseList(value: string): string[] | undefined {
 }
 
 export default function ProspectSearchPage() {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
+  // Stored searches are scoped to the account that ran them, so a shared
+  // browser never restores one user's prospects for another.
+  const userId = user?.id ?? null;
 
   // --- Primary discovery search state ---
   const [objective, setObjective] = useState('');
@@ -127,6 +155,12 @@ export default function ProspectSearchPage() {
     preview: number;
   } | null>(null);
   const [result, setResult] = useState<ProspectDiscoveryResult | null>(null);
+  /**
+   * A search that outlived the window the page watches it for. It is still
+   * running upstream and still parked, so it can be collected later - this is
+   * a state to report, not an error.
+   */
+  const [stillRunningJob, setStillRunningJob] = useState<InFlightDiscoveryJob | null>(null);
 
   const [history, setHistory] = useState<ProspectSearchHistoryEntry[]>([]);
   const [savedSearches, setSavedSearches] = useState<SavedProspectSearchEntry[]>([]);
@@ -326,25 +360,46 @@ export default function ProspectSearchPage() {
   );
 
   const pollDiscoveryJob = useCallback(
-    async (jobId: string, request: DiscoverProspectsRequest, generation: number) => {
-      const startedAt = Date.now();
+    async (
+      jobId: string,
+      request: DiscoverProspectsRequest,
+      generation: number,
+      options?: { startedAt?: number; checkImmediately?: boolean; maxPollMs?: number },
+    ) => {
+      // Resuming a parked job measures the deadline from when the job was
+      // SUBMITTED, not from when this page happened to mount -- otherwise
+      // leaving and returning silently buys the job another five minutes.
+      const startedAt = options?.startedAt ?? Date.now();
+      const maxPollMs = options?.maxPollMs ?? JOB_MAX_POLL_MS;
       let consecutive503s = 0;
+      // A resumed job is checked before any waiting: it may well have finished
+      // while the user was on another page, and the answer is one call away.
+      let checkNow = options?.checkImmediately ?? false;
 
       for (;;) {
         if (searchGenerationRef.current !== generation) return;
 
-        if (Date.now() - startedAt > JOB_MAX_POLL_MS) {
-          setError('This search is taking longer than expected. Please try again.');
+        if (!checkNow && Date.now() - startedAt > maxPollMs) {
+          // The job is still running upstream and is already paid for, so it
+          // is NOT dropped here: it stays parked, the page says so, and
+          // coming back (or checking again) collects the result. Telling the
+          // customer to "try again" instead charged them a second time for
+          // prospects they had already bought.
+          setStillRunningJob({ jobId, request, startedAt });
           setLoading(false);
           return;
         }
 
-        const waitMs =
-          consecutive503s === 0
-            ? JOB_POLL_INTERVAL_MS
-            : Math.min(JOB_POLL_INTERVAL_MS * 2 ** consecutive503s, MAX_BACKOFF_MS);
+        if (checkNow) {
+          checkNow = false;
+        } else {
+          const waitMs =
+            consecutive503s === 0
+              ? JOB_POLL_INTERVAL_MS
+              : Math.min(JOB_POLL_INTERVAL_MS * 2 ** consecutive503s, MAX_BACKOFF_MS);
 
-        await new Promise((resolve) => setTimeout(resolve, waitMs));
+          await new Promise((resolve) => setTimeout(resolve, waitMs));
+        }
         if (searchGenerationRef.current !== generation) return;
 
         try {
@@ -361,6 +416,8 @@ export default function ProspectSearchPage() {
           if (status.status === 'completed') {
             setResult(status.result);
             setLoading(false);
+            setStillRunningJob(null);
+            saveCompletedDiscovery(userId, request, status.result);
             void loadHistoryAndSaved();
             // The hold settles when the job finishes, so the balance has only
             // just become accurate.
@@ -370,6 +427,8 @@ export default function ProspectSearchPage() {
 
           setError(status.message);
           setLoading(false);
+          setStillRunningJob(null);
+          clearInFlightDiscoveryJob(userId);
           // A failed job refunds in full; show that straight away.
           getCreditBalance().then(setCredits).catch(() => {});
           return;
@@ -381,13 +440,20 @@ export default function ProspectSearchPage() {
             continue;
           }
 
-          setError(getApiErrorMessage(err, 'Could not check search status. Please try again.'));
+          // Failing to CHECK a job does not mean the job failed, so it stays
+          // parked for the next visit to collect rather than being dropped.
+          setError(
+            getApiErrorMessage(
+              err,
+              'Could not check the search status. The search is still running - reopen this page shortly to see the results.',
+            ),
+          );
           setLoading(false);
           return;
         }
       }
     },
-    [loadHistoryAndSaved],
+    [loadHistoryAndSaved, userId],
   );
 
   const runSearch = useCallback(
@@ -404,6 +470,7 @@ export default function ProspectSearchPage() {
       setProgress(null);
       setStageLabel(null);
       setResult(null);
+      setStillRunningJob(null);
 
       const request = buildRequest(trimmed);
 
@@ -415,10 +482,18 @@ export default function ProspectSearchPage() {
         if (submission.status === 'completed') {
           setResult(submission.result);
           setLoading(false);
+          saveCompletedDiscovery(userId, request, submission.result);
           void loadHistoryAndSaved();
           return;
         }
 
+        // Parked BEFORE the first poll: the job is already running upstream,
+        // so from this moment leaving the page must not lose it.
+        saveInFlightDiscoveryJob(userId, {
+          jobId: submission.jobId,
+          request,
+          startedAt: Date.now(),
+        });
         void pollDiscoveryJob(submission.jobId, request, generation);
       } catch (err) {
         if (searchGenerationRef.current !== generation) return;
@@ -434,8 +509,93 @@ export default function ProspectSearchPage() {
         setLoading(false);
       }
     },
-    [buildRequest, loadHistoryAndSaved, pollDiscoveryJob],
+    [buildRequest, loadHistoryAndSaved, pollDiscoveryJob, userId],
   );
+
+  /**
+   * Looks again at a search that outran the watching window. Checking a job's
+   * status is free -- it is the same poll the page was already doing, not a
+   * new search -- so this never costs credits.
+   */
+  const handleCheckAgain = useCallback(() => {
+    if (!stillRunningJob || loading) return;
+
+    const job = stillRunningJob;
+    const generation = searchGenerationRef.current + 1;
+    searchGenerationRef.current = generation;
+
+    setStillRunningJob(null);
+    setError('');
+    setLoading(true);
+    void pollDiscoveryJob(job.jobId, job.request, generation, {
+      startedAt: job.startedAt,
+      checkImmediately: true,
+      maxPollMs: RESUMED_JOB_MAX_POLL_MS,
+    });
+  }, [stillRunningJob, loading, pollDiscoveryJob]);
+
+  /**
+   * Puts the search form back the way it was for a restored search, so the
+   * filters on screen are the ones the shown results actually came from --
+   * and so re-running or saving the search uses that same criteria.
+   */
+  const applyRequestToInputs = useCallback((request: DiscoverProspectsRequest) => {
+    setObjective(request.objective);
+    setCompanyNamesText((request.companyNames ?? []).join(', '));
+    setLocationsText((request.locations ?? []).join(', '));
+    setIndustriesText((request.industries ?? []).join(', '));
+    setJobTitlesText((request.jobTitles ?? []).join(', '));
+    setKeywordsText((request.keywords ?? []).join(', '));
+    setHeadcountMin(
+      typeof request.companyHeadcountMin === 'number' ? String(request.companyHeadcountMin) : '',
+    );
+    setHeadcountMax(
+      typeof request.companyHeadcountMax === 'number' ? String(request.companyHeadcountMax) : '',
+    );
+    setSearchMode(request.limit === SEARCH_MODE_LIMITS.preview ? 'preview' : 'full');
+  }, []);
+
+  /**
+   * Picks a search back up after leaving the page.
+   *
+   * The job runs at BlackPearl, not in this tab, so navigating away never
+   * stopped the search -- it only stopped anyone listening for the answer.
+   * On the way back in we either resume polling the still-running job or
+   * restore the result that landed while the user was elsewhere.
+   *
+   * Held until the signed-in user's id is known: AuthContext populates `user`
+   * from localStorage first and only then fills in the id from /users/me, and
+   * reading the session against a missing id would throw away the user's own
+   * search as if it belonged to someone else.
+   */
+  const restoreAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (restoreAttemptedRef.current || !userId) return;
+    restoreAttemptedRef.current = true;
+
+    const { job, completed } = loadProspectSearchSession(userId);
+
+    if (job) {
+      applyRequestToInputs(job.request);
+      const generation = searchGenerationRef.current + 1;
+      searchGenerationRef.current = generation;
+      setLoading(true);
+      setError('');
+      setProgress(null);
+      setStageLabel(null);
+      void pollDiscoveryJob(job.jobId, job.request, generation, {
+        startedAt: job.startedAt,
+        checkImmediately: true,
+        maxPollMs: RESUMED_JOB_MAX_POLL_MS,
+      });
+      return;
+    }
+
+    if (completed) {
+      applyRequestToInputs(completed.request);
+      setResult(completed.result);
+    }
+  }, [userId, applyRequestToInputs, pollDiscoveryJob]);
 
   const refreshCredits = useCallback(() => {
     // The balance is an enhancement on this page: if it cannot be read, the
@@ -485,12 +645,49 @@ export default function ProspectSearchPage() {
     [loading, objective, runSearch],
   );
 
-  const handleRunAgain = useCallback(
-    (value: string) => {
-      setObjective(value);
-      if (!loading) void runSearch(value);
+  /**
+   * Reopening a Recent search shows what it already found rather than running
+   * it again: a repeat search is a second billed BlackPearl job, and the
+   * customer has paid for these prospects once already.
+   *
+   * Only an entry with no stored results falls back to searching -- entries
+   * recorded before snapshots existed, which have nothing to show.
+   */
+  const handleOpenHistory = useCallback(
+    async (entry: ProspectSearchHistoryEntry) => {
+      if (loading) return;
+      setObjective(entry.prompt);
+
+      if (!entry.hasResult) {
+        void runSearch(entry.prompt);
+        return;
+      }
+
+      try {
+        const snapshot = await getProspectSearchHistoryEntry(entry.id);
+        searchGenerationRef.current += 1;
+        setError('');
+        setCreditsShortfall(null);
+        setProgress(null);
+        setStageLabel(null);
+        setResult(snapshot.result);
+        saveCompletedDiscovery(
+          userId,
+          { objective: entry.prompt, limit: SEARCH_MODE_LIMITS[searchMode] },
+          snapshot.result,
+        );
+      } catch (err) {
+        // Falling back to a billed re-run on an error would spend credits the
+        // user did not ask to spend; say so and let them decide.
+        setError(
+          getApiErrorMessage(
+            err,
+            'Could not reopen that search. Run it again to see prospects.',
+          ),
+        );
+      }
     },
-    [loading, runSearch],
+    [loading, runSearch, userId, searchMode],
   );
 
   const handleSaveSearch = useCallback(async () => {
@@ -530,8 +727,16 @@ export default function ProspectSearchPage() {
       setProgress(null);
       setStageLabel(null);
       setResult(entry.result);
+      // Whatever is on screen is what should come back on return -- otherwise
+      // leaving the page would restore an older search over this snapshot. A
+      // saved snapshot carries no filters, only the prompt it was saved under.
+      saveCompletedDiscovery(
+        userId,
+        { objective: entry.prompt, limit: SEARCH_MODE_LIMITS[searchMode] },
+        entry.result,
+      );
     },
-    [loading, runSearch],
+    [loading, runSearch, userId, searchMode],
   );
 
   const handleRenameSaved = useCallback(
@@ -725,8 +930,12 @@ export default function ProspectSearchPage() {
                 <button
                   key={entry.id}
                   type="button"
-                  onClick={() => handleRunAgain(entry.prompt)}
-                  title={entry.prompt}
+                  onClick={() => void handleOpenHistory(entry)}
+                  title={
+                    entry.hasResult
+                      ? `${entry.prompt} - shows saved results, no credits used`
+                      : `${entry.prompt} - no saved results, this runs a new search`
+                  }
                   className="max-w-[220px] truncate rounded-full border border-white/10 bg-white/5 px-3 py-1 font-semibold text-slate-300 transition hover:bg-white/10"
                 >
                   {entry.prompt}
@@ -1061,6 +1270,26 @@ export default function ProspectSearchPage() {
         >
           <AlertTriangle size={18} aria-hidden="true" />
           {error}
+        </div>
+      )}
+
+      {stillRunningJob && !loading && (
+        <div
+          role="status"
+          className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-sm font-semibold text-slate-300"
+        >
+          <Loader2 className="animate-spin text-primary" size={18} aria-hidden="true" />
+          <span>
+            This search is still running. You can leave this page - the results will be
+            here when you come back, and you will not be charged again.
+          </span>
+          <button
+            type="button"
+            onClick={handleCheckAgain}
+            className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-slate-200 transition hover:bg-white/10"
+          >
+            Check now
+          </button>
         </div>
       )}
 

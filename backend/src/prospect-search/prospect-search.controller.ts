@@ -127,6 +127,16 @@ export class ProspectSearchController {
     );
   }
 
+  /**
+   * The results a past search already produced. Reopening one from Recent
+   * reads this instead of running -- and paying for -- the same search twice.
+   */
+  @Get('history/:id')
+  @RequirePermission('prospect_search.view')
+  getHistoryEntry(@Param('id') id: string, @GetUser() user: ActiveUser) {
+    return this.historyService.getSnapshot(user.tenantId, user.sub, id);
+  }
+
   @Get('saved-searches')
   @RequirePermission('prospect_search.view')
   getSavedSearches(@GetUser() user: ActiveUser) {

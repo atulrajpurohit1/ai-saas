@@ -93,6 +93,17 @@ export interface ProspectSearchHistoryEntry {
   provider: string;
   resultCount: number;
   searchedAt: string;
+  /**
+   * Whether this entry kept the prospects it found. The list carries the flag
+   * rather than the results themselves, so reopening fetches only the entry
+   * that was clicked. Entries recorded before snapshots existed have none and
+   * still have to be re-run.
+   */
+  hasResult?: boolean;
+}
+
+export interface ProspectSearchHistorySnapshot extends ProspectSearchHistoryEntry {
+  result: ProspectDiscoveryResult;
 }
 
 export interface SavedProspectSearchEntry {
@@ -147,6 +158,14 @@ export async function getProspectSearchHistory(limit = 10) {
   const res = await api.get<ProspectSearchHistoryEntry[]>('prospect-search/history', {
     params: { limit },
   });
+  return res.data;
+}
+
+/** The stored results of one past search - no new search, no credits spent. */
+export async function getProspectSearchHistoryEntry(id: string) {
+  const res = await api.get<ProspectSearchHistorySnapshot>(
+    `prospect-search/history/${id}`,
+  );
   return res.data;
 }
 

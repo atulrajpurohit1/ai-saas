@@ -29,6 +29,7 @@ import { ProspectSearchHistoryService } from './prospect-search-history.service'
 import {
   ImportProspectResult,
   ProspectDiscoveryJobStatusResult,
+  ProspectDiscoveryResult,
   ProspectDiscoverySubmission,
   ProspectSearchJobStatusResult,
   ProspectSearchResult,
@@ -342,6 +343,7 @@ export class ProspectSearchService {
         objective,
         cached.prospects.length,
         user,
+        cached,
       );
       return { status: 'completed', query: objective, result: cached };
     }
@@ -454,6 +456,7 @@ export class ProspectSearchService {
         objective,
         result.prospects.length,
         user,
+        result,
       );
 
       // Flat price: the search ran and produced an answer, so it costs what a
@@ -505,6 +508,7 @@ export class ProspectSearchService {
     objective: string,
     resultCount: number,
     user: ActiveUser,
+    result?: ProspectDiscoveryResult,
   ): Promise<void> {
     try {
       await this.historyService.record({
@@ -513,6 +517,7 @@ export class ProspectSearchService {
         prompt: objective,
         provider: DISCOVERY_PROVIDER_NAME,
         resultCount,
+        result,
       });
     } catch (error) {
       this.logger.warn(
