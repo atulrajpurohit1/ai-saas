@@ -141,6 +141,11 @@ export class AuthService {
             name,
             tenantId: tenant.id,
             emailVerified: false,
+            // Stated explicitly. This is the tenant's founding user and does
+            // need full administration, but the column no longer defaults to
+            // true -- so every other creation path has to make the same
+            // decision out loud instead of inheriting it.
+            isSuperAdmin: true,
           },
         });
 

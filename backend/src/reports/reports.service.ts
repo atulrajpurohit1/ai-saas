@@ -7,6 +7,9 @@ import {
 import { AuditService } from '../audit/audit.service';
 import { EmailService } from '../email/email.service';
 import { AiService } from '../ai/ai.service';
+import { AiMeteringService } from '../billing/ai-metering.service';
+import { InsufficientCreditsException } from '../billing/insufficient-credits.exception';
+import { AiFeature } from '@prisma/client';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { BrandingService } from '../branding/branding.service';
 import { branchScopedWhere, branchWhere } from '../branches/branch-scope';
@@ -93,6 +96,7 @@ export class ReportsService {
     private brandingService: BrandingService,
     private emailService: EmailService,
     private aiService: AiService,
+    private aiMetering: AiMeteringService,
   ) {}
 
   private parseReportDate(value: string) {
@@ -740,31 +744,62 @@ export class ReportsService {
     const siteName = report.site?.name || 'site';
     const clientName = client.companyName || client.name;
 
-    const narrative = await this.aiService
-      .generateDailyReportSummary({
-        clientName,
-        siteName,
-        reportDate,
-        supervisorSummary: structured ? '' : (stored as { raw: string }).raw,
-        shiftsCovered: structured?.totals.shifts ?? 0,
-        patrolsCompleted: structured?.totals.completedAttendances ?? 0,
-        checkpointsScanned: structured?.totals.checkedInAttendances ?? 0,
-        incidents: (structured?.incidents ?? []).map((incident) => ({
-          title: incident.title,
-          severity: incident.severity,
-        })),
-      })
-      .catch(() => {
-        // AI being down is not a reason to withhold the report.
-        return structured
-          ? `Security cover was provided at ${siteName} on ${reportDate}. Please see the attached report for full detail.`
-          : (stored as { raw: string }).raw;
-      });
+    const tenantId = report.tenantId as string;
+
+    const fallbackNarrative = () =>
+      structured
+        ? `Security cover was provided at ${siteName} on ${reportDate}. Please see the attached report for full detail.`
+        : (stored as { raw: string }).raw;
+
+    // Metered. This was a real Gemini call with no charge behind it, driven by
+    // ReportDeliveryScheduler on an hourly cron -- so it was recurring spend
+    // per report per client, scaling with the customer's client list and
+    // billed to nobody. DAILY_REPORT_SUMMARY was priced in the credit table
+    // all along; nothing ever charged it.
+    //
+    // runNullable so a failed or unavailable AI call is refunded rather than
+    // billed, and the catch below turns a failure into null for it to see.
+    //
+    // A tenant out of credits still gets the report. Withholding a delivery
+    // the customer paid for over a credit shortfall would be the wrong
+    // trade: the AI narrative is an enhancement, the report is the product.
+    const narrative =
+      (await this.aiMetering
+        .runNullable(
+          {
+            tenantId,
+            feature: AiFeature.DAILY_REPORT_SUMMARY,
+          },
+          () =>
+            this.aiService
+              .generateDailyReportSummary({
+                clientName,
+                siteName,
+                reportDate,
+                supervisorSummary: structured
+                  ? ''
+                  : (stored as { raw: string }).raw,
+                shiftsCovered: structured?.totals.shifts ?? 0,
+                patrolsCompleted: structured?.totals.completedAttendances ?? 0,
+                checkpointsScanned:
+                  structured?.totals.checkedInAttendances ?? 0,
+                incidents: (structured?.incidents ?? []).map((incident) => ({
+                  title: incident.title,
+                  severity: incident.severity,
+                })),
+              })
+              // AI being down is not a reason to withhold the report.
+              .catch(() => null),
+        )
+        .catch((error: unknown) => {
+          if (error instanceof InsufficientCreditsException) return null;
+          throw error;
+        })) ?? fallbackNarrative();
 
     const pdf = await this.buildPdfBuffer(report);
 
     const result = await this.emailService.sendDailyReportEmail({
-      tenantId: report.tenantId,
+      tenantId,
       to: client.email,
       cc: client.reportEmailCc,
       clientName,

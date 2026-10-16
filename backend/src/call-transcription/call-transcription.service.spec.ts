@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { AiFeature } from '@prisma/client';
 import { CallTranscriptionService } from './call-transcription.service';
 
 const generateContent = jest.fn();
@@ -33,8 +34,16 @@ function geminiReturns(text: string) {
   generateContent.mockResolvedValue({ response: { text: () => text } });
 }
 
+// Runs the work so the existing assertions still hold, while recording that
+// the service asked to be charged.
+const meterRun = jest.fn(
+  async (_context: unknown, work: () => Promise<string>) => work(),
+);
+const aiMetering = { run: meterRun } as never;
+
 describe('CallTranscriptionService', () => {
   let service: CallTranscriptionService;
+  const context = { tenantId: 'tenant-1', userId: 'user-1' };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -42,7 +51,7 @@ describe('CallTranscriptionService', () => {
     delete process.env.GEMINI_API_KEY;
     delete process.env.GEMINI_MODEL;
     delete process.env.TRANSCRIPTION_MAX_FILE_MB;
-    service = new CallTranscriptionService();
+    service = new CallTranscriptionService(aiMetering);
   });
 
   describe('provider selection', () => {
@@ -100,7 +109,7 @@ describe('CallTranscriptionService', () => {
       process.env.GEMINI_API_KEY = 'g-key';
       const huge = audioFile({ size: 50 * 1024 * 1024 });
 
-      await expect(service.transcribe(huge)).rejects.toBeInstanceOf(
+      await expect(service.transcribe(huge, context)).rejects.toBeInstanceOf(
         BadRequestException,
       );
       expect(generateContent).not.toHaveBeenCalled();
@@ -121,7 +130,7 @@ describe('CallTranscriptionService', () => {
     it('returns the transcript and reports the provider used', async () => {
       geminiReturns('So tell me about your current guard coverage.');
 
-      const result = await service.transcribe(audioFile());
+      const result = await service.transcribe(audioFile(), context);
 
       expect(result.provider).toBe('gemini');
       expect(result.transcript).toBe(
@@ -132,7 +141,7 @@ describe('CallTranscriptionService', () => {
 
     it('sends the audio inline with its mime type', async () => {
       geminiReturns('Hello.');
-      await service.transcribe(audioFile({ mimetype: 'audio/mp3' }));
+      await service.transcribe(audioFile({ mimetype: 'audio/mp3' }), context);
 
       const [parts] = generateContent.mock.calls[0] as [
         Array<Record<string, unknown>>,
@@ -157,19 +166,19 @@ describe('CallTranscriptionService', () => {
       ['  Hello there.  ', 'Hello there.'],
     ])('strips a model preamble from %p', async (raw, expected) => {
       geminiReturns(raw);
-      const result = await service.transcribe(audioFile());
+      const result = await service.transcribe(audioFile(), context);
       expect(result.transcript).toBe(expected);
     });
 
     it('does not mangle a transcript that legitimately starts with "here"', async () => {
       geminiReturns('Here at Acme we run three shifts.');
-      const result = await service.transcribe(audioFile());
+      const result = await service.transcribe(audioFile(), context);
       expect(result.transcript).toBe('Here at Acme we run three shifts.');
     });
 
     it('reports silence as a clear error rather than an empty transcript', async () => {
       geminiReturns('   ');
-      await expect(service.transcribe(audioFile())).rejects.toThrow(
+      await expect(service.transcribe(audioFile(), context)).rejects.toThrow(
         /No speech could be detected/,
       );
     });
@@ -179,12 +188,12 @@ describe('CallTranscriptionService', () => {
         new Error('quota exceeded for project 12345'),
       );
 
-      await expect(service.transcribe(audioFile())).rejects.toThrow(
+      await expect(service.transcribe(audioFile(), context)).rejects.toThrow(
         /Could not transcribe this recording/,
       );
-      await expect(service.transcribe(audioFile())).rejects.not.toThrow(
-        /quota exceeded/,
-      );
+      await expect(
+        service.transcribe(audioFile(), context),
+      ).rejects.not.toThrow(/quota exceeded/);
     });
 
     /**
@@ -211,7 +220,7 @@ describe('CallTranscriptionService', () => {
 
       generateContent.mockRejectedValue(new Error(message));
 
-      await expect(service.transcribe(audioFile())).rejects.toThrow(
+      await expect(service.transcribe(audioFile(), context)).rejects.toThrow(
         BadRequestException,
       );
 
@@ -226,7 +235,7 @@ describe('CallTranscriptionService', () => {
       process.env.OPENAI_API_KEY = 'o-key';
       openAiTranscribe.mockResolvedValue({ text: 'Hello from OpenAI.' });
 
-      const result = await service.transcribe(audioFile());
+      const result = await service.transcribe(audioFile(), context);
 
       expect(result.provider).toBe('openai');
       expect(result.transcript).toBe('Hello from OpenAI.');
@@ -241,9 +250,72 @@ describe('CallTranscriptionService', () => {
       originalname: 'notes.pdf',
     });
 
-    await expect(service.transcribe(pdf)).rejects.toBeInstanceOf(
+    await expect(service.transcribe(pdf, context)).rejects.toBeInstanceOf(
       BadRequestException,
     );
     expect(generateContent).not.toHaveBeenCalled();
+  });
+  /**
+   * This service holds its own Gemini and OpenAI clients instead of going
+   * through AiService, so it was charged nothing and logged nothing: the most
+   * expensive call in the product was the one nobody paid for. These pin the
+   * charge in place.
+   */
+  describe('metering', () => {
+    it('charges the tenant for a transcription', async () => {
+      process.env.GEMINI_API_KEY = 'g-key';
+      geminiReturns('Transcript.');
+
+      await service.transcribe(audioFile(), context);
+
+      expect(meterRun).toHaveBeenCalledTimes(1);
+      const [meteredContext] = meterRun.mock.calls[0] as unknown[];
+      expect(meteredContext).toEqual({
+        tenantId: 'tenant-1',
+        userId: 'user-1',
+        feature: AiFeature.CALL_TRANSCRIPTION,
+      });
+    });
+
+    // Validation failures must not take credits for work we refused to do.
+    it('does not charge for an oversized upload', async () => {
+      process.env.GEMINI_API_KEY = 'g-key';
+
+      await expect(
+        service.transcribe(audioFile({ size: 50 * 1024 * 1024 }), context),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(meterRun).not.toHaveBeenCalled();
+    });
+
+    it('does not charge for an unsupported file type', async () => {
+      process.env.GEMINI_API_KEY = 'g-key';
+
+      await expect(
+        service.transcribe(
+          audioFile({ mimetype: 'application/pdf', originalname: 'notes.pdf' }),
+          context,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(meterRun).not.toHaveBeenCalled();
+    });
+
+    it('does not charge when no provider is configured', async () => {
+      await expect(
+        service.transcribe(audioFile(), context),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(meterRun).not.toHaveBeenCalled();
+    });
+
+    // The charge wraps only the provider call, so a 402 from the meter stops
+    // the audio ever reaching Google.
+    it('never calls the provider when the charge is refused', async () => {
+      process.env.GEMINI_API_KEY = 'g-key';
+      meterRun.mockRejectedValueOnce(new Error('insufficient credits'));
+
+      await expect(service.transcribe(audioFile(), context)).rejects.toThrow(
+        'insufficient credits',
+      );
+      expect(generateContent).not.toHaveBeenCalled();
+    });
   });
 });

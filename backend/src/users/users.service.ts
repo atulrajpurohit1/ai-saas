@@ -20,9 +20,17 @@ export class UsersService {
     });
   }
 
+  /**
+   * Takes a raw Prisma input, so the caller decides every field. isSuperAdmin
+   * is pinned to false unless the caller asks for it: this method is reachable
+   * from anywhere, and the schema default used to be true, which meant a
+   * caller that simply omitted the flag created a full tenant super admin.
+   * Being explicit here keeps that from coming back if the column default is
+   * ever changed again.
+   */
   async create(data: Prisma.UserCreateInput): Promise<User> {
     return this.prisma.user.create({
-      data,
+      data: { isSuperAdmin: false, ...data },
     });
   }
 

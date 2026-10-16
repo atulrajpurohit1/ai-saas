@@ -25,6 +25,8 @@ async function main() {
       name: 'Demo User',
       role: 'ADMIN',
       tenantId: tenant.id,
+      // Explicit since is_super_admin stopped defaulting to true.
+      isSuperAdmin: true,
     },
   });
 

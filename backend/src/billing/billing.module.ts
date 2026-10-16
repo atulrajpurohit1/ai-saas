@@ -8,6 +8,8 @@ import { StripeWebhookService } from './stripe-webhook.service';
 import { StripeWebhookController } from './stripe-webhook.controller';
 import { SubscriptionProvisioningService } from './subscription-provisioning.service';
 import { GuardMeteringService } from './guard-metering.service';
+import { BandDriftService } from './band-drift.service';
+import { BandDriftScheduler } from './band-drift.scheduler';
 import { CreditsService } from './credits.service';
 import { CreditsController } from './credits.controller';
 import { CreditReservationScheduler } from './credit-reservation.scheduler';
@@ -34,6 +36,8 @@ import { EmailModule } from '../email/email.module';
     StripeWebhookService,
     SubscriptionProvisioningService,
     GuardMeteringService,
+    BandDriftService,
+    BandDriftScheduler,
     CreditsService,
     CreditReservationScheduler,
     CreditBalanceAlertService,
@@ -46,6 +50,7 @@ import { EmailModule } from '../email/email.module';
     BillingService,
     SubscriptionProvisioningService,
     GuardMeteringService,
+    BandDriftService,
     CreditsService,
     // Injected by ProposalsService, LeadsService, RfpService,
     // SalesAcceleratorService and RecommendationService. @Global() exposes

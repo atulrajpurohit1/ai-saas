@@ -640,6 +640,11 @@ export class RecommendationService {
     // runNullable because this method signals failure by returning null and
     // falling back to the rule-based explanation -- charging for that would
     // bill the customer for output they did not get.
+    // Fails CLOSED when metering is absent: without it this ran the Gemini
+    // call unmetered, so a wiring mistake would have silently turned a paid
+    // feature free -- the same fail-open shape that once made every tenant
+    // without a subscription row look entitled. The rule-based explanation is
+    // a real answer, so skipping the AI costs the user very little.
     const aiExplanation = this.aiMetering
       ? await this.aiMetering.runNullable(
           {
@@ -648,7 +653,7 @@ export class RecommendationService {
           },
           explain,
         )
-      : await explain();
+      : null;
 
     return aiExplanation || fallback;
   }

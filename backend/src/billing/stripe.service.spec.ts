@@ -125,6 +125,8 @@ describe('StripeService plan checkout', () => {
 
   let service: StripeService;
   let subscriptionRecord: { providerSubscriptionId: string | null } | null;
+  /** A TenantModule row means this tenant has been provisioned before. */
+  let hasPriorModules: boolean;
   let prices: { list: jest.Mock };
   let sessions: { create: jest.Mock };
   let subscriptions: { retrieve: jest.Mock; update: jest.Mock };
@@ -143,6 +145,7 @@ describe('StripeService plan checkout', () => {
   beforeEach(() => {
     process.env.STRIPE_SECRET_KEY = 'sk_test_plan';
     subscriptionRecord = null;
+    hasPriorModules = false;
 
     const prisma = {
       tenantSubscription: {
@@ -156,6 +159,13 @@ describe('StripeService plan checkout', () => {
             ),
           ),
       },
+      tenantModule: {
+        findFirst: jest
+          .fn()
+          .mockImplementation(() =>
+            Promise.resolve(hasPriorModules ? { id: 'module-row' } : null),
+          ),
+      },
     };
     service = new StripeService(prisma as unknown as PrismaService);
 
@@ -167,12 +177,10 @@ describe('StripeService plan checkout', () => {
       ),
     };
     sessions = {
-      create: jest
-        .fn()
-        .mockResolvedValue({
-          id: 'cs_plan',
-          url: 'https://checkout.test/plan',
-        }),
+      create: jest.fn().mockResolvedValue({
+        id: 'cs_plan',
+        url: 'https://checkout.test/plan',
+      }),
     };
     subscriptions = { retrieve: jest.fn(), update: jest.fn() };
     (service as unknown as { client: unknown }).client = {
@@ -266,5 +274,62 @@ describe('StripeService plan checkout', () => {
 
     expect(subscriptions.update).not.toHaveBeenCalled();
     expect(sessions.create).toHaveBeenCalled();
+  });
+  /**
+   * trial_period_days used to be attached to every new checkout session with
+   * no record of whether this tenant had already had one, so subscribe ->
+   * trial -> cancel -> subscribe again handed out another free period, for as
+   * long as someone was willing to re-checkout. It was harmless only because
+   * STRIPE_TRIAL_DAYS happened to be unset, which is not a control.
+   */
+  describe('free trial', () => {
+    it('gives a trial to a tenant that has never been provisioned', async () => {
+      process.env.STRIPE_TRIAL_DAYS = '14';
+
+      await buyGuard();
+
+      const [session] = sessions.create.mock.calls[0] as [
+        { subscription_data: Record<string, unknown> },
+      ];
+      expect(session.subscription_data.trial_period_days).toBe(14);
+    });
+
+    it('refuses a second trial to a tenant that has subscribed before', async () => {
+      process.env.STRIPE_TRIAL_DAYS = '14';
+      hasPriorModules = true;
+
+      await buyGuard();
+
+      const [session] = sessions.create.mock.calls[0] as [
+        { subscription_data: Record<string, unknown> },
+      ];
+      expect(session.subscription_data).not.toHaveProperty('trial_period_days');
+    });
+
+    // Module rows are deactivated rather than deleted, so a cancelled
+    // customer still carries the history that denies them a fresh trial.
+    it('still refuses after the previous subscription was cancelled', async () => {
+      process.env.STRIPE_TRIAL_DAYS = '30';
+      hasPriorModules = true;
+      subscriptionRecord = { providerSubscriptionId: null };
+
+      await buyGuard();
+
+      const [session] = sessions.create.mock.calls[0] as [
+        { subscription_data: Record<string, unknown> },
+      ];
+      expect(session.subscription_data).not.toHaveProperty('trial_period_days');
+    });
+
+    it('sends no trial field at all when trials are switched off', async () => {
+      delete process.env.STRIPE_TRIAL_DAYS;
+
+      await buyGuard();
+
+      const [session] = sessions.create.mock.calls[0] as [
+        { subscription_data: Record<string, unknown> },
+      ];
+      expect(session.subscription_data).not.toHaveProperty('trial_period_days');
+    });
   });
 });

@@ -5,16 +5,11 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { GenerateProposalDto } from './dto/generate-proposal.dto';
 import { GenerateRfpDto } from './dto/generate-rfp.dto';
 import { GenerateEvaluationDto } from './dto/generate-evaluation.dto';
 import { Lead } from '@prisma/client';
 import { AiUsageService } from './ai-usage.service';
 import { resolveAiFeature } from './ai-feature.map';
-
-export interface AiProposalDraftResponse {
-  draft: string | null;
-}
 
 export interface AiRevenueRecommendationDraft {
   title: string;
@@ -1094,47 +1089,6 @@ Write 2-3 short paragraphs summarising the day for the client. Rules:
       'discovery-based proposal generation',
       () => this.fallbackDiscoveryProposal(),
     );
-  }
-
-  async generateProposalDraft(
-    dto: GenerateProposalDto,
-  ): Promise<AiProposalDraftResponse> {
-    const prompt = `
-      You are a senior security consultant. Generate a professional security services proposal based on these details:
-      
-      Client/Site Name: ${dto.siteName}
-      Required Guards: ${dto.guardCount}
-      Core Requirements: ${dto.requirements}
-      Additional Context: ${dto.additionalNotes || 'None'}
-
-      The proposal MUST follow this structure:
-      # Proposal for ${dto.siteName}
-      
-      ## 1. Executive Summary
-      (Brief overview of the security solution)
-      
-      ## 2. Scope of Work
-      (Detail specific security tasks based on requirements)
-      
-      ## 3. Staffing & Deployment
-      (Explain how ${dto.guardCount} guards will be utilized)
-      
-      ## 4. Operational Strategy
-      (Describe the approach to safety and deterrence)
-      
-      ## 5. Pricing & Terms
-      (Placeholder for pricing assumptions)
-
-      Use professional, persuasive language. Format with Markdown.
-    `;
-
-    const draft = await this.generateText(
-      prompt,
-      'proposal draft generation',
-      () => this.fallbackProposalDraft(dto).draft ?? '',
-    );
-
-    return { draft };
   }
 
   async generateRfp(dto: GenerateRfpDto): Promise<string> {
@@ -2217,28 +2171,6 @@ ${this.leadPricingPrompt(pricing)}
       );
       return null;
     }
-  }
-
-  private fallbackProposalDraft(
-    dto: GenerateProposalDto,
-    reason?: string,
-  ): AiProposalDraftResponse {
-    return {
-      draft: `
-# Security Proposal for ${dto.siteName} (Fallback)
-${reason ? `**Reason**: ${reason}\n` : ''}**Proposed Guards**: ${dto.guardCount}
-**Key Requirements**: ${dto.requirements}
-
-## 1. Executive Summary
-This proposal outlines a standard security framework for ${dto.siteName}.
-
-## 2. Security Strategy
-Deployment focuses on ${dto.requirements}.
-
-## 3. Deployment
-Recommended staffing: ${dto.guardCount} personnel.
-      `.trim(),
-    };
   }
 
   private fallbackPricingSection(dto: GenerateRfpDto): string {

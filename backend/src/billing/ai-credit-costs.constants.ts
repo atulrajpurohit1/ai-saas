@@ -58,6 +58,12 @@ const DEFAULT_AI_CREDIT_COSTS: Record<AiFeature, number> = {
   [AiFeature.SECURITY_RFP_ANALYSIS]: HEAVY,
   [AiFeature.PROPOSAL_FROM_RFP]: HEAVY,
   [AiFeature.RFP_GENERATION]: HEAVY,
+
+  /**
+   * Audio in, text out. Priced heavy because audio tokens cost far more per
+   * minute of input than text, and a long recording is a big prompt.
+   */
+  [AiFeature.CALL_TRANSCRIPTION]: HEAVY,
   [AiFeature.EVALUATION_REPORT]: HEAVY,
 
   // --- Standard: a substantial generated artefact. ---

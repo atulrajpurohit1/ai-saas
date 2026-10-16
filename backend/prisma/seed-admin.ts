@@ -88,6 +88,10 @@ async function main() {
         password,
         name: process.env.ADMIN_NAME?.trim() || 'Super Admin',
         tenantId: tenant.id,
+        // Explicit since is_super_admin stopped defaulting to true. This seed
+        // exists to create an administrator, so omitting it would quietly
+        // produce an account that cannot administer anything.
+        isSuperAdmin: true,
       },
     });
     console.log(`Admin user created: ${email}`);

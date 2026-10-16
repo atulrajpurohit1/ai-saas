@@ -9,6 +9,8 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { RequireAnyPermission } from '../auth/decorators/permissions.decorator';
+import { GetUser } from '../auth/decorators/get-user.decorator';
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
@@ -36,8 +38,14 @@ export class CallTranscriptionController {
       limits: { fileSize: 25 * 1024 * 1024 },
     }),
   )
-  transcribe(@UploadedFile() file: Express.Multer.File) {
+  transcribe(
+    @UploadedFile() file: Express.Multer.File,
+    @GetUser() user: ActiveUser,
+  ) {
     if (!file) throw new BadRequestException('No audio file uploaded');
-    return this.callTranscriptionService.transcribe(file);
+    return this.callTranscriptionService.transcribe(file, {
+      tenantId: user.tenantId,
+      userId: user.sub,
+    });
   }
 }

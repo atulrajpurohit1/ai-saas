@@ -4,6 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import { BrandingService } from '../branding/branding.service';
 import { EmailService } from '../email/email.service';
 import { AiService } from '../ai/ai.service';
+import { AiMeteringService } from '../billing/ai-metering.service';
 import { ReportsService } from './reports.service';
 
 /**
@@ -15,6 +16,8 @@ import { ReportsService } from './reports.service';
  */
 describe('ReportsService — client report email', () => {
   let service: ReportsService;
+  let meterRunNullable: jest.Mock;
+  let aiMetering: { runNullable: jest.Mock };
   let email: { sendDailyReportEmail: jest.Mock };
   let ai: { generateDailyReportSummary: jest.Mock };
   let audit: { log: jest.Mock };
@@ -59,6 +62,12 @@ describe('ReportsService — client report email', () => {
         .mockResolvedValue('The site was covered as contracted.'),
     };
     audit = { log: jest.fn().mockResolvedValue({}) };
+    // Runs the work so the existing AI assertions still hold, while recording
+    // that the narrative asked to be charged.
+    meterRunNullable = jest.fn(
+      async (_context: unknown, work: () => Promise<string | null>) => work(),
+    );
+    aiMetering = { runNullable: meterRunNullable };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -76,6 +85,7 @@ describe('ReportsService — client report email', () => {
         },
         { provide: EmailService, useValue: email },
         { provide: AiService, useValue: ai },
+        { provide: AiMeteringService, useValue: aiMetering },
       ],
     }).compile();
 
@@ -201,5 +211,37 @@ describe('ReportsService — client report email', () => {
     expect(email.sendDailyReportEmail).toHaveBeenCalledWith(
       expect.objectContaining({ clientName: 'Marcus Webb' }),
     );
+  });
+  /**
+   * This narrative was a real Gemini call with no charge behind it, run from
+   * ReportDeliveryScheduler on an hourly cron -- recurring spend per report
+   * per client, billed to nobody, while DAILY_REPORT_SUMMARY sat priced in
+   * the credit table the whole time.
+   */
+  describe('metering', () => {
+    it('charges DAILY_REPORT_SUMMARY for the narrative', async () => {
+      await service.deliverReportByEmail(report(), 'publish');
+
+      expect(meterRunNullable).toHaveBeenCalledTimes(1);
+      const [meteredContext] = meterRunNullable.mock.calls[0] as unknown[];
+      expect(meteredContext).toEqual(
+        expect.objectContaining({ feature: 'DAILY_REPORT_SUMMARY' }),
+      );
+    });
+
+    // The report is the product; the AI narrative is an enhancement. A credit
+    // shortfall must not withhold a delivery the customer already paid for.
+    it('still sends the report when the tenant is out of credits', async () => {
+      const { InsufficientCreditsException } =
+        await import('../billing/insufficient-credits.exception');
+      meterRunNullable.mockRejectedValue(
+        new InsufficientCreditsException('no credits', 5, 0),
+      );
+
+      const result = await service.deliverReportByEmail(report(), 'publish');
+
+      expect(result).toEqual(expect.objectContaining({ sent: true }));
+      expect(email.sendDailyReportEmail).toHaveBeenCalled();
+    });
   });
 });

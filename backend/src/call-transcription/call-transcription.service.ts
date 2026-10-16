@@ -1,5 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { AiFeature } from '@prisma/client';
+import { AiMeteringService } from '../billing/ai-metering.service';
 import OpenAI, { toFile } from 'openai';
 
 const SUPPORTED_AUDIO_TYPES = new Set([
@@ -77,6 +79,8 @@ function redactCredentials(message: string): string {
 
 @Injectable()
 export class CallTranscriptionService {
+  constructor(private readonly aiMetering: AiMeteringService) {}
+
   private readonly logger = new Logger(CallTranscriptionService.name);
   private openaiClient: OpenAI | null = null;
   private geminiClient: GoogleGenerativeAI | null = null;
@@ -107,7 +111,24 @@ export class CallTranscriptionService {
     };
   }
 
-  async transcribe(file: Express.Multer.File) {
+  /**
+   * Transcribes an uploaded recording, charging the tenant for it.
+   *
+   * This service holds its OWN Gemini and OpenAI clients rather than going
+   * through AiService, which meant it bypassed both credit metering and the
+   * AiUsageEvent cost log: the most expensive call in the product was the one
+   * nobody was billed for and nobody could see. The provider clients stay
+   * here -- audio needs inlineData and the OpenAI speech endpoint, neither of
+   * which AiService models -- but the charge does not.
+   *
+   * Charged through AiMeteringService.run, so an account that cannot pay is
+   * refused with a 402 before any audio is uploaded to a provider, and a
+   * failed transcription is refunded.
+   */
+  async transcribe(
+    file: Express.Multer.File,
+    context: { tenantId: string; userId?: string },
+  ) {
     if (!file) throw new BadRequestException('No audio file uploaded');
 
     const provider = this.provider();
@@ -129,10 +150,20 @@ export class CallTranscriptionService {
     }
 
     const startedAt = Date.now();
-    const transcript =
-      provider === 'gemini'
-        ? await this.transcribeWithGemini(file)
-        : await this.transcribeWithOpenAi(file);
+    // Charged here rather than around the whole method so the validation
+    // failures above -- unconfigured provider, wrong file type, oversized
+    // upload -- never take a customer's credits for work we refused to do.
+    const transcript = await this.aiMetering.run(
+      {
+        tenantId: context.tenantId,
+        userId: context.userId,
+        feature: AiFeature.CALL_TRANSCRIPTION,
+      },
+      () =>
+        provider === 'gemini'
+          ? this.transcribeWithGemini(file)
+          : this.transcribeWithOpenAi(file),
+    );
 
     return {
       provider,

@@ -676,6 +676,96 @@ You are receiving this because you are a billing contact for ${companyName}.`;
     };
   }
 
+  /**
+   * Internal digest of customers who have outgrown the guard band they pay
+   * for. Goes to whoever owns pricing, never to the customer: an underbilled
+   * account is a repricing conversation, and this email is the prompt to have
+   * it, not the outcome of it.
+   *
+   * Deliberately unbranded -- it is not a tenant-facing message, and there is
+   * no single tenant whose branding would apply to a list spanning several.
+   */
+  async sendBandDriftDigestEmail(params: {
+    recipients: string[];
+    rows: {
+      tenantName: string;
+      tenantId: string;
+      packageKey: string;
+      fromBand: string;
+      toBand: string;
+      billableGuards: number;
+      currentPrice: number | null;
+      correctPrice: number | null;
+      shortfall: number | null;
+    }[];
+    monthlyShortfall: number;
+  }) {
+    if (params.recipients.length === 0) {
+      throw new Error(
+        'sendBandDriftDigestEmail requires at least one recipient.',
+      );
+    }
+
+    const count = params.rows.length;
+    const subject = `${count} account${count === 1 ? '' : 's'} have outgrown their guard band (${params.monthlyShortfall}/month)`;
+    const headline = 'Guard band review needed';
+
+    const describe = (row: (typeof params.rows)[number]) =>
+      `${row.tenantName}: ${row.packageKey} ${row.fromBand} -> ${row.toBand} ` +
+      `(${row.billableGuards} billable guards)` +
+      (row.shortfall === null
+        ? ' - custom quote, price by arrangement'
+        : ` - ${row.currentPrice} -> ${row.correctPrice}/month, ${row.shortfall} under`);
+
+    const lines = params.rows.map((row) => `- ${describe(row)}`).join('\n');
+
+    const text = `${headline}
+
+These accounts are billed at a lower guard band than their headcount puts them in. Nothing has been changed: moving an account up a band alters what it is charged, so it needs a person to decide.
+
+${lines}
+
+Total monthly shortfall against list price: ${params.monthlyShortfall}`;
+
+    const bodyHtml = `
+      <p style="margin:0 0 16px;">
+        These accounts are billed at a lower guard band than their headcount
+        puts them in. <strong>Nothing has been changed</strong> &mdash; moving
+        an account up a band alters what it is charged, so it needs a person to
+        decide.
+      </p>
+      <ul style="margin:0 0 24px;padding-left:20px;">
+        ${params.rows
+          .map(
+            (row) =>
+              `<li style="margin:0 0 8px;">${describe(row)}<br>
+                 <span style="color:#6b7280;font-size:12px;">${row.tenantId}</span></li>`,
+          )
+          .join('')}
+      </ul>
+      <p style="margin:0 0 24px;">
+        Total monthly shortfall against list price:
+        <strong>${params.monthlyShortfall}</strong>
+      </p>
+      <p style="margin:0;color:#6b7280;font-size:13px;">
+        Sent because BILLING_DRIFT_ALERT_EMAIL lists your address.
+      </p>
+    `;
+
+    const info = await this.transporter.sendMail({
+      ...this.senderFor('AegisLead'),
+      to: params.recipients.join(', '),
+      subject,
+      text,
+      html: `<!DOCTYPE html><html><body style="font-family: sans-serif; color: #111827;"><h2>${headline}</h2>${bodyHtml}</body></html>`,
+    });
+
+    return {
+      messageId: info.messageId,
+      previewUrl: this.previewUrlFor(info),
+    };
+  }
+
   private otpEmailBody(
     companyName: string,
     greetingName: string,

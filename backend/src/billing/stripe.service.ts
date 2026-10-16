@@ -211,7 +211,9 @@ export class StripeService {
     }
 
     const urls = billingReturnUrls();
-    const trial = trialDays();
+    const trial = (await this.hasSubscribedBefore(tenantId))
+      ? null
+      : trialDays();
     const customer = await this.customerIdFor(tenantId, email);
 
     const session = await this.stripe().checkout.sessions.create({
@@ -232,6 +234,34 @@ export class StripeService {
     });
 
     return { url: session.url, changed: false };
+  }
+
+  /**
+   * Whether this tenant has ever held a paid service.
+   *
+   * Gates the free trial. trial_period_days used to be applied to every new
+   * checkout session unconditionally, so a tenant could subscribe, take the
+   * trial, cancel before the first invoice, subscribe again and take another
+   * one -- indefinitely, for as long as they were willing to re-checkout. The
+   * product was free to anyone patient enough to click through it once a
+   * month. Harmless only while STRIPE_TRIAL_DAYS was unset, which is not a
+   * control.
+   *
+   * Read from TenantModule rather than subscription status because module
+   * rows are deactivated and never deleted (see
+   * SubscriptionProvisioningService.provision), so their mere existence is a
+   * permanent record that this tenant has been provisioned at some point.
+   * Subscription status is current-state and says nothing about history.
+   *
+   * This also means a hand-provisioned demo or comped tenant gets no trial,
+   * which is correct: they already have the product.
+   */
+  private async hasSubscribedBefore(tenantId: string): Promise<boolean> {
+    const previous = await this.prisma.tenantModule.findFirst({
+      where: { tenantId },
+      select: { id: true },
+    });
+    return previous !== null;
   }
 
   /** The lookup_key of the price the tenant's live subscription is on. */

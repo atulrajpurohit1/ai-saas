@@ -194,7 +194,7 @@ model User {
   branchId                    String?              @map("branch_id")
   branch                      Branch?              @relation("UserBranch", fields: [branchId], references: [id], onDelete: SetNull)
   managedBranches             Branch[]             @relation("BranchManager")
-  isSuperAdmin                Boolean              @default(true) @map("is_super_admin")
+  isSuperAdmin                Boolean              @default(false) @map("is_super_admin")
   emailVerified               Boolean              @default(false) @map("email_verified")
   emailVerifiedAt             DateTime?            @map("email_verified_at")
   createdAt                   DateTime             @default(now())
@@ -2038,6 +2038,7 @@ enum AiFeature {
   COPILOT_ANSWER
   LEAD_EXTRACTION
   PROSPECT_COMPANY_INSIGHT
+  CALL_TRANSCRIPTION
   OTHER
 }
 

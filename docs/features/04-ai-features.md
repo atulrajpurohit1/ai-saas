@@ -47,8 +47,8 @@ Admin edits/reviews, then shares with the client or exports to PDF
 
 ## Technical Summary
 - **Purpose:** produce a client-ready draft proposal from lead data.
-- **Input:** lead name, company, status, up to a handful of related notes, and related deal names (`ProposalsService.generateForLead`); a second, simpler entry point (`AiController` → `POST /ai/proposal-draft`) accepts a manually-typed site name, guard count, requirements, and notes. This is the only route left on `AiController` — every other AI capability is invoked through its own feature module's controller (sales-accelerator, prospect-search, rfp).
-- **Processing:** a real Gemini call is made (`AiService.generateForLead` / `generateProposalDraft`) using a fixed, hardcoded prompt template.
+- **Input:** lead name, company, status, up to a handful of related notes, and related deal names (`ProposalsService.generateForLead`). Every AI capability is invoked through its own feature module's controller (proposals, sales-accelerator, prospect-search, rfp), each of which is gated by `@RequireModule` and metered through `AiMeteringService`. `AiController` and its `POST /ai/proposal-draft` route were removed: the route carried no entitlement gate and no credit metering, so any account could spend Gemini quota without a plan. Nothing called it.
+- **Processing:** a real Gemini call is made (`AiService.generateForLead`) using a fixed, hardcoded prompt template.
 - **Output:** a Markdown-formatted proposal document saved as `Proposal.content`.
 - **Fallback behavior:** if Gemini is unavailable/fails and `ENABLE_AI_FALLBACK=true`, a short canned template proposal is returned instead; if the flag is off, the request fails with a 500 error rather than silently returning fake AI content.
 - **Modules:** `proposals`, `ai` (shared `AiService`)
