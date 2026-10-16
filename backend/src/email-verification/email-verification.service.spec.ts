@@ -88,6 +88,39 @@ describe('EmailVerificationService', () => {
       expect(otpParams.code).toMatch(/^\d{6}$/);
     });
 
+    it('sends a platform user their code from AegisLead, not dressed in their own tenant branding', async () => {
+      prisma.emailOtp.findUnique.mockResolvedValue(null);
+      prisma.emailOtp.upsert.mockResolvedValue({});
+
+      await service.issueOtp({
+        accountType: 'USER',
+        accountId: 'user-1',
+        tenantId: 'tenant-1',
+        email: 'user@example.com',
+        name: 'User',
+      });
+
+      // A null tenant is what makes the email service use platform branding.
+      const [brandingTenantId] = emailService.sendOtpEmail.mock.calls[0];
+      expect(brandingTenantId).toBeNull();
+    });
+
+    it('sends a client-portal user their code under the tenant brand they actually know', async () => {
+      prisma.emailOtp.findUnique.mockResolvedValue(null);
+      prisma.emailOtp.upsert.mockResolvedValue({});
+
+      await service.issueOtp({
+        accountType: 'CLIENT_USER',
+        accountId: 'client-1',
+        tenantId: 'tenant-1',
+        email: 'client@example.com',
+        name: 'Client',
+      });
+
+      const [brandingTenantId] = emailService.sendOtpEmail.mock.calls[0];
+      expect(brandingTenantId).toBe('tenant-1');
+    });
+
     it('enforces the resend cooldown', async () => {
       prisma.emailOtp.findUnique.mockResolvedValue({
         lastSentAt: new Date(),

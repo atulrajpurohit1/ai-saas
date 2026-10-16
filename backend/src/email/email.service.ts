@@ -12,6 +12,16 @@ interface SendMailResult {
   messageId: string;
 }
 
+/**
+ * The product's own name and colour, for mail sent as AegisLead rather than
+ * on a tenant's behalf. Kept here, not in BrandingService: branding there is
+ * per-tenant and configurable, while this is fixed and is the fallback that
+ * applies precisely when no tenant branding should be used.
+ */
+const PLATFORM_NAME = 'AegisLead';
+/** Matches --primary in the app's own stylesheet. */
+const PLATFORM_BRAND_COLOR = '#e0221f';
+
 /** A file to send alongside the message, e.g. a report PDF. */
 export interface MailAttachment {
   filename: string;
@@ -585,12 +595,30 @@ export class EmailService {
     code: string,
     expiresInMinutes: number,
   ) {
-    return `<!DOCTYPE html><html><body style="font-family: sans-serif; color: #111827;">${this.passwordResetOtpEmailBody(
-      companyName,
-      greetingName,
-      code,
-      expiresInMinutes,
-    )}</body></html>`;
+    return this.platformEmailShell({
+      title: 'Reset your password',
+      preheader: `Your ${PLATFORM_NAME} password reset code is ${code}. It expires in ${expiresInMinutes} minutes.`,
+      bodyHtml: `
+        <p style="margin:0 0 16px; font-size:15px; line-height:24px; color:#1f2937;">Hi ${greetingName},</p>
+        <p style="margin:0 0 24px; font-size:15px; line-height:24px; color:#1f2937;">
+          We received a request to reset the password for your ${companyName} account. Enter this code to choose a new one.
+        </p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 24px;">
+          <tr>
+            <td align="center" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:24px 16px;">
+              <div style="font-family:'SF Mono',Consolas,Menlo,monospace; font-size:34px; font-weight:700; letter-spacing:10px; color:#0f172a; line-height:1;">${code}</div>
+              <div style="margin-top:12px; font-size:13px; color:#64748b;">Expires in ${expiresInMinutes} minutes</div>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:0 0 8px; font-size:14px; line-height:22px; color:#475569;">
+          For your security, never share this code with anyone. ${companyName} will never ask you for it.
+        </p>
+        <p style="margin:0; font-size:14px; line-height:22px; color:#64748b;">
+          If you didn't request a password reset, you can safely ignore this email - your password will not be changed.
+        </p>
+      `,
+    });
   }
 
   /**
@@ -789,12 +817,89 @@ Total monthly shortfall against list price: ${params.monthlyShortfall}`;
     code: string,
     expiresInMinutes: number,
   ) {
-    return `<!DOCTYPE html><html><body style="font-family: sans-serif; color: #111827;">${this.otpEmailBody(
-      companyName,
-      greetingName,
-      code,
-      expiresInMinutes,
-    )}</body></html>`;
+    return this.platformEmailShell({
+      title: 'Verify your email address',
+      preheader: `Your AegisLead verification code is ${code}. It expires in ${expiresInMinutes} minutes.`,
+      bodyHtml: `
+        <p style="margin:0 0 16px; font-size:15px; line-height:24px; color:#1f2937;">Hi ${greetingName},</p>
+        <p style="margin:0 0 24px; font-size:15px; line-height:24px; color:#1f2937;">
+          Enter this code to confirm your email address and finish setting up your ${companyName} account.
+        </p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 24px;">
+          <tr>
+            <td align="center" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:24px 16px;">
+              <div style="font-family:'SF Mono',Consolas,Menlo,monospace; font-size:34px; font-weight:700; letter-spacing:10px; color:#0f172a; line-height:1;">${code}</div>
+              <div style="margin-top:12px; font-size:13px; color:#64748b;">Expires in ${expiresInMinutes} minutes</div>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:0 0 8px; font-size:14px; line-height:22px; color:#475569;">
+          For your security, never share this code with anyone. ${companyName} will never ask you for it.
+        </p>
+        <p style="margin:0; font-size:14px; line-height:22px; color:#64748b;">
+          If you didn't request this, you can safely ignore this email - no account changes have been made.
+        </p>
+      `,
+    });
+  }
+
+  /**
+   * The product's own email frame, for mail AegisLead sends as itself:
+   * account verification, password resets and anything else that is not a
+   * tenant speaking to their own customers. Tenant mail keeps going through
+   * BrandingService.emailShell with that tenant's logo and colours.
+   *
+   * Built as nested tables with inline styles because that is what email
+   * clients reliably render -- Outlook in particular ignores much of modern
+   * CSS, and <style> blocks are stripped by several webmail clients. The
+   * preheader is the grey preview line next to the subject in an inbox list;
+   * without one, clients pull in whatever text comes first.
+   */
+  private platformEmailShell(params: {
+    title: string;
+    preheader: string;
+    bodyHtml: string;
+  }) {
+    const year = new Date().getFullYear();
+
+    return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light only" />
+    <title>${params.title}</title>
+  </head>
+  <body style="margin:0; padding:0; background:#f1f5f9; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+    <div style="display:none; max-height:0; overflow:hidden; opacity:0;">${params.preheader}</div>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f1f5f9;">
+      <tr>
+        <td align="center" style="padding:32px 16px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px; background:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e2e8f0;">
+            <tr>
+              <td style="background:${PLATFORM_BRAND_COLOR}; padding:20px 32px;">
+                <div style="font-size:20px; font-weight:700; color:#ffffff; letter-spacing:-0.3px;">${PLATFORM_NAME}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:32px;">
+                <h1 style="margin:0 0 20px; font-size:20px; line-height:28px; font-weight:700; color:#0f172a;">${params.title}</h1>
+                ${params.bodyHtml}
+              </td>
+            </tr>
+            <tr>
+              <td style="border-top:1px solid #e2e8f0; padding:20px 32px; background:#f8fafc;">
+                <p style="margin:0; font-size:12px; line-height:18px; color:#94a3b8;">
+                  &copy; ${year} ${PLATFORM_NAME}. This is an automated message - please don't reply to it.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
   }
 
   async sendVendorInvitationEmail(

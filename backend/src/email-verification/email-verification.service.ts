@@ -158,16 +158,31 @@ export class EmailVerificationService {
       this.logger.log(`[DEVELOPMENT MODE] OTP for ${params.email}: ${code}`);
     }
 
+    // Which brand this code comes from depends on who is verifying.
+    //
+    // A platform user is creating an AegisLead account, so the email is from
+    // AegisLead. Dressing it in their own tenant's white-label branding --
+    // which defaults to the company name they typed at signup -- produced
+    // "Your GMSC verification code", a code apparently sent by the recipient's
+    // own company, before that company existed to them as a brand.
+    //
+    // A client-portal user is the opposite case: they are a customer of the
+    // tenant and have never heard of AegisLead, so the tenant's branding is
+    // exactly right. White-labelling exists for the mail a tenant sends to
+    // ITS clients and guards, not for our own account-verification mail.
+    const brandingTenantId =
+      params.accountType === 'CLIENT_USER' ? params.tenantId : null;
+
     try {
       if (purpose === PASSWORD_RESET_PURPOSE) {
-        await this.emailService.sendPasswordResetOtpEmail(params.tenantId, {
+        await this.emailService.sendPasswordResetOtpEmail(brandingTenantId, {
           email: params.email,
           name: params.name,
           code,
           expiresInMinutes: OTP_TTL_MINUTES,
         });
       } else {
-        await this.emailService.sendOtpEmail(params.tenantId, {
+        await this.emailService.sendOtpEmail(brandingTenantId, {
           email: params.email,
           name: params.name,
           code,
