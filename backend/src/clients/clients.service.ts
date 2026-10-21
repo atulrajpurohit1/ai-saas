@@ -249,6 +249,17 @@ export class ClientsService {
           password: hashedPassword,
           clientId,
           tenantId: user.tenantId,
+          /**
+           * Active immediately. This is the only way a client account is
+           * created, and it is created by the agency that already knows this
+           * client: the admin typed the address and hands the temporary
+           * password over themselves, so there is no unproven claim to confirm
+           * and no mail to wait for. Leaving it unverified made every invited
+           * client bounce off the login's verification gate with no way past
+           * it, since nothing here ever issued them a code.
+           */
+          emailVerified: true,
+          emailVerifiedAt: new Date(),
         },
       });
 

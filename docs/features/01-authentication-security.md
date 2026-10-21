@@ -67,11 +67,10 @@ User is redirected into the application
 Gives a company's own customers (the clients who receive guard services) a separate, private login to their own portal.
 
 ## Overview
-A client contact can either be invited by the admin (an "Enable Portal" action creates their login and a one-time temporary password) or, where enabled, sign themselves up directly. Either way, they log in separately from admin staff, using a different login page, and only ever see their own company's data.
+A client contact is invited by the admin: an "Enable Portal" action creates their login and a one-time temporary password for the admin to pass on. There is no self-signup — a client account only means something inside one agency's workspace, and nothing a visitor types on a login page identifies which agency that is (see section 4 for what the removed self-signup did instead). Clients log in separately from admin staff, using a different login page, and only ever see their own company's data.
 
 ## What User Can Do
 - Log in to the Client Portal with email/password
-- Self-register (where enabled for the tenant)
 - Log out
 
 ## Workflow
@@ -98,11 +97,11 @@ invoices, incidents, reports, and documents
 
 ## Key Capabilities
 - Client-specific login
-- Self-service registration path (where configured)
+- Admin-created accounts, scoped to the admin's own tenant
 - Logout with token invalidation
 
 ## Current Status
-**Partially Implemented.** Login, registration, and logout work correctly and are used by real client-portal pages. Two known gaps: (1) the token-refresh capability exists on the backend but is not connected to any usable endpoint, so client sessions simply expire and require re-login; (2) client logins do not appear in the admin's Session Management screen, so an admin cannot see or force-revoke a client's active session from that screen.
+**Partially Implemented.** Login and logout work correctly and are used by real client-portal pages; accounts are created by the agency (`POST /clients/:id/create-user`) and are active immediately. Two known gaps: (1) the token-refresh capability exists on the backend but is not connected to any usable endpoint, so client sessions simply expire and require re-login; (2) client logins do not appear in the admin's Session Management screen, so an admin cannot see or force-revoke a client's active session from that screen.
 
 **[Insert Screenshot Here]**
 
@@ -152,13 +151,13 @@ Guard is taken to their shift dashboard
 # 4. Email Validation & OTP Verification
 
 ## Purpose
-Ensures that anyone who signs up for an Admin or Client Portal account actually owns the email address they registered with, and blocks obviously fake or throwaway addresses before an account is ever created around them.
+Ensures that anyone who signs up for an Admin account actually owns the email address they registered with, and blocks obviously fake or throwaway addresses before an account is ever created around them.
 
 ## Overview
-When someone registers (Admin signup or Client Portal signup), the email address is checked for valid syntax, a resolvable domain, and known disposable/throwaway providers before anything else happens. If it passes, a 6-digit one-time code (OTP) is emailed to that address and the new account is held in an "unverified" state — it exists, but cannot log in — until the correct code is entered. Only then does the account become fully active.
+When someone registers an Admin account, the email address is checked for valid syntax, a resolvable domain, and known disposable/throwaway providers before anything else happens. If it passes, a 6-digit one-time code (OTP) is emailed to that address and the new account is held in an "unverified" state — it exists, but cannot log in — until the correct code is entered. Only then does the account become fully active.
 
 ## What User Can Do
-- Sign up with an email address (Admin or Client Portal)
+- Sign up with an email address (Admin signup; client and guard accounts are created for them by an admin)
 - Receive a 6-digit verification code by email
 - Enter the code to verify and activate the account
 - Resend the code if it didn't arrive (after a short cooldown)
@@ -183,7 +182,7 @@ Code matches → account marked verified → session tokens issued
 User is logged in and lands in the app
 ```
 
-Logging in with a correct password before verifying returns "Please verify your email before logging in." instead of a session — there is no way to reach the app with an unverified email.
+Logging in with a correct password before verifying returns "Please verify your email before logging in." instead of a session — there is no way to reach the app with an unverified email. The client portal applies the same gate ("This account is not active. Please contact your account manager."), which now only ever catches accounts left behind by the removed self-signup, since admin-created client accounts are active from the start.
 
 ## Business Value
 - Reduces fake signups, typo'd emails, and support tickets from clients/admins who can never receive password resets or important notifications because their email was wrong from day one.
@@ -191,7 +190,7 @@ Logging in with a correct password before verifying returns "Please verify your 
 - Retrying a signup with the same unverified email reuses the pending account instead of creating duplicates, so someone who mistypes a code or closes the tab mid-signup isn't stuck.
 
 ## Technical Summary
-- **Modules:** `email-verification` (validation + OTP service, shared by both signup flows), `auth` (Admin), `client-auth` (Client Portal), `email` (delivery)
+- **Modules:** `email-verification` (validation + OTP service), `auth` (Admin signup), `email` (delivery)
 - **Key logic:**
   - **Validation** (`EmailValidationService`): syntax check, disposable-domain check against the `disposable-email-domains` list, and a DNS MX/A/AAAA lookup. A DNS lookup that only fails because the resolver is unreachable (not because the domain doesn't exist) is treated as inconclusive and does **not** block signup — only a definitive "no such domain" result does. This is domain-level validation, not proof a specific mailbox exists; the OTP step is what actually proves the user can access the address.
   - **OTP** (`EmailVerificationService`): a cryptographically random 6-digit code (`crypto.randomInt`), stored only as a SHA-256 hash with a 10-minute expiry, up to 5 incorrect attempts, and a 60-second resend cooldown (capped at 10 sends per pending signup). Requesting a new code invalidates the previous one immediately. A successfully verified code cannot be reused.
@@ -205,11 +204,15 @@ Logging in with a correct password before verifying returns "Please verify your 
 - Secure, single-use, expiring, hashed OTP codes
 - Attempt limiting and resend cooldown/rate-limiting
 - Consistent, non-revealing error messages (never confirms whether an email already has an account)
-- Login blocked for any unverified Admin or Client Portal account
+- Login blocked for any unverified Admin account
 - Duplicate-signup-safe: retrying with the same unverified email updates and re-sends rather than creating a second account
 
 ## Current Status
-**Fully Implemented** for Admin (`auth/register`) and Client Portal (`client-auth/register`) signup. Guard accounts are created by admins (not self-registered) and are unaffected. Real email delivery depends on the `SMTP_*`/`EMAIL_FROM` environment variables being configured for a real provider (e.g. Resend) — see `backend/.env.example`; without them the app falls back to Ethereal, a fake-SMTP testing inbox that never delivers real mail.
+**Fully Implemented** for Admin (`auth/register`) signup.
+
+**Client Portal and Guard accounts are created by admins, not self-registered**, so no OTP applies to them. The client portal's self-signup (`client-auth/register`) was **removed**: it asked a visitor for a company name, used it as the *client's own* name, and then attached the account to whichever tenant happened to have been created most recently — putting uninvited accounts inside paying agencies' workspaces, and moving the destination every time a new agency signed up. Nothing a visitor can type identifies which agency they belong to, so there is no version of that form that resolves the tenant correctly. Client portal accounts come from **Clients → Create portal login** (`POST /clients/:id/create-user`), which scopes the account to the admin's own tenant, marks it active immediately (the agency vouches for the address it typed), and shows a one-time temporary password for the admin to pass on. `client-auth/verify-email` and `client-auth/resend-otp` were removed with it.
+
+Real email delivery depends on the `SMTP_*`/`EMAIL_FROM` environment variables being configured for a real provider (e.g. Resend) — see `backend/.env.example`; without them the app falls back to Ethereal, a fake-SMTP testing inbox that never delivers real mail.
 
 **[Insert Screenshot Here]**
 

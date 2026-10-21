@@ -82,6 +82,7 @@ export default function ClientsPage() {
 
   const [createUserTarget, setCreateUserTarget] = useState<Client | null>(null);
   const [creatingUser, setCreatingUser] = useState(false);
+  const [newPortalLogin, setNewPortalLogin] = useState<{ email: string; password: string } | null>(null);
   const [removeDocTarget, setRemoveDocTarget] = useState<string | null>(null);
   const [removingDoc, setRemovingDoc] = useState(false);
 
@@ -179,7 +180,10 @@ export default function ClientsPage() {
     setCreatingUser(true);
     try {
       const res = await api.post(`clients/${createUserTarget.id}/create-user`, { email: createUserTarget.email });
-      toast.success(`Portal login created. Temporary password: ${res.data.temporaryPassword}`);
+      // Held in a dialog the admin dismisses, not a toast that times out: this
+      // is the only copy of the password and the only way the client gets into
+      // the portal, so losing it off the bottom of the screen strands them.
+      setNewPortalLogin({ email: createUserTarget.email, password: res.data.temporaryPassword });
       fetchClients();
     } catch (err) {
       console.error(err);
@@ -684,6 +688,55 @@ export default function ClientsPage() {
         loading={creatingUser}
         onConfirm={handleCreateUser}
       />
+
+      {/*
+        The portal account is created here and nowhere else -- there is no
+        client self-signup -- so this password is what the client signs in
+        with, shown once and nowhere retrievable afterwards.
+      */}
+      <Dialog open={newPortalLogin !== null} onOpenChange={(o) => !o && setNewPortalLogin(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Portal login created</DialogTitle>
+            <DialogDescription>
+              Send these to {newPortalLogin?.email}. The password is shown only
+              now — it cannot be retrieved later.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-eyebrow">Temporary password</label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 select-all break-all rounded-[var(--radius-sm)] border border-border bg-muted px-3 py-2 font-mono text-sm text-foreground">
+                  {newPortalLogin?.password}
+                </code>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    if (!newPortalLogin) return;
+                    try {
+                      await navigator.clipboard.writeText(newPortalLogin.password);
+                      toast.success('Password copied.');
+                    } catch {
+                      // Clipboard access can be blocked; the code block above
+                      // is selectable, so there is still a way to take it.
+                      toast.error('Could not copy. Select the password to copy it manually.');
+                    }
+                  }}
+                >
+                  Copy
+                </Button>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button type="button" onClick={() => setNewPortalLogin(null)}>
+                Done
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={removeDocTarget !== null}

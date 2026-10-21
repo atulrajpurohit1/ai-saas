@@ -5,10 +5,13 @@ import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { PrismaService } from './../src/prisma/prisma.service';
 import { EmailService } from './../src/email/email.service';
+import { ClientsService } from './../src/clients/clients.service';
+import { ActiveUser } from './../src/auth/interfaces/active-user.interface';
 
 /**
- * End-to-end coverage for signup email validation + OTP verification
- * (admin `auth/*` and client-portal `client-auth/*`). Talks to the real
+ * End-to-end coverage for signup email validation + OTP verification on the
+ * admin `auth/*` routes, plus how a client-portal account is created now that
+ * `client-auth/*` has no signup of its own. Talks to the real
  * database; the outbound email transport is stubbed via
  * `EmailService.sendOtpEmail` so the test can read back the plaintext code
  * that was "sent" without depending on a real mailbox — the code itself is
@@ -436,53 +439,74 @@ describe('Email verification OTP (e2e)', () => {
     });
   });
 
-  describe('client-portal signup → OTP verification → login', () => {
+  /**
+   * The client portal has no signup. It used to, and that endpoint asked a
+   * visitor for a company name, used it as the *client's* own name, and
+   * attached the account to whichever tenant was created most recently -- so
+   * uninvited accounts appeared inside paying agencies' workspaces, and which
+   * agency received them moved every time a new one signed up. Nothing a
+   * visitor can type says which agency they belong to, so the agency creates
+   * the account instead.
+   */
+  describe('client-portal accounts are created by the agency', () => {
     const email = `client-${TAG}@example.com`;
-    const password = 'Password123';
+    let temporaryPassword: string;
 
-    it('registers a client user without issuing tokens', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/client-auth/register')
-        .send({
-          name: 'Client E2E',
-          email,
-          password,
-          tenantSlug: `${TAG}-client-tenant`,
-        });
+    it.each(['register', 'verify-email', 'resend-otp'])(
+      'has no public client-auth/%s endpoint',
+      async (route) => {
+        const res = await request(app.getHttpServer())
+          .post(`/client-auth/${route}`)
+          .send({
+            name: 'Uninvited',
+            email: `uninvited-${TAG}@example.com`,
+            password: 'Password123',
+            tenantSlug: `${TAG}-uninvited`,
+            code: '000000',
+          });
 
-      expect(res.status).toBe(201);
-      expect(res.body.status).toBe('verification_required');
-      expect(res.body.access_token).toBeUndefined();
+        expect(res.status).toBe(404);
+      },
+    );
 
-      const clientUser = await prisma.clientUser.findUnique({
-        where: { email },
+    it('issues a working password for an agency-created client user', async () => {
+      const tenant = await prisma.tenant.create({
+        data: { name: `${TAG} Agency`, slug: `${TAG}-agency` },
       });
-      expect(clientUser).toBeTruthy();
-      expect(clientUser!.emailVerified).toBe(false);
-      tenantIds.push(clientUser!.tenantId);
+      tenantIds.push(tenant.id);
+
+      const client = await prisma.client.create({
+        data: {
+          name: 'Acme Facilities',
+          companyName: 'Acme Facilities',
+          email,
+          tenantId: tenant.id,
+        },
+      });
+
+      const created = await app
+        .get(ClientsService)
+        .createClientUser(
+          { sub: 'admin-e2e', tenantId: tenant.id, isSuperAdmin: true } as ActiveUser,
+          client.id,
+          email,
+        );
+
+      temporaryPassword = created.temporaryPassword;
+      expect(temporaryPassword).toBeTruthy();
+
+      // No OTP is sent: the agency hands the password over itself.
+      expect(latestCodeFor(email)).toBeUndefined();
     });
 
-    it('blocks client login before verification', async () => {
+    it('logs the client in with that password, with nothing to verify', async () => {
       const res = await request(app.getHttpServer())
         .post('/client-auth/login')
-        .send({ email, password });
+        .send({ email, password: temporaryPassword });
 
-      expect(res.status).toBe(403);
-    });
-
-    it('verifies the client OTP and allows login afterward', async () => {
-      const code = latestCodeFor(email);
-      const verifyRes = await request(app.getHttpServer())
-        .post('/client-auth/verify-email')
-        .send({ email, code });
-
-      expect(verifyRes.status).toBe(200);
-      expect(verifyRes.body.access_token).toBeTruthy();
-
-      const loginRes = await request(app.getHttpServer())
-        .post('/client-auth/login')
-        .send({ email, password });
-      expect(loginRes.status).toBe(200);
+      expect(res.status).toBe(200);
+      expect(res.body.access_token).toBeTruthy();
+      expect(res.body.refresh_token).toBeTruthy();
     });
   });
 });

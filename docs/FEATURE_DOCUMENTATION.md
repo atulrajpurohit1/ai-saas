@@ -138,7 +138,7 @@ Every row below links to its full write-up in [Section 5](#5-detailed-feature-do
 | 1 | Admin Authentication (JWT) | ✅ Fully Implemented |
 | 2 | Client Portal Authentication | 🟡 Partially Implemented |
 | 3 | Guard Portal Authentication | 🟡 Partially Implemented |
-| 4 | Email Validation & OTP Verification | ✅ Fully Implemented (Admin + Client Portal signup) |
+| 4 | Email Validation & OTP Verification | ✅ Fully Implemented (Admin signup; client/guard accounts are admin-created) |
 | 5 | Role-Based Access Control (RBAC) | ✅ Fully Implemented |
 | 6 | Field-Level Permissions | 🟡 Partially Implemented (enforcement works; admin config screen removed) |
 | 7 | Session Management | 🟡 Partially Implemented (backend only, no frontend UI) |
