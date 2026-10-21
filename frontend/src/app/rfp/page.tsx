@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
+import AiPlanNotice from '@/components/AiPlanNotice';
 import PageHeader from '@/components/PageHeader';
 import StatusBadge, { type StatusTone } from '@/components/StatusBadge';
 import EmptyState from '@/components/EmptyState';
@@ -120,6 +121,7 @@ export default function RfpListPage() {
 
   return (
     <DashboardLayout requiredModule="LEAD_GEN" requiredPermissions="rfp.view">
+      <AiPlanNotice feature="AI RFP and proposal generation" />
       <PageHeader
         title="RFP Management"
         description="Create, generate, and manage Requests for Proposal."

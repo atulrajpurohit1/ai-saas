@@ -101,12 +101,16 @@ describe('RfpService - Phase 3H security RFP -> proposal', () => {
         // never happens.
         {
           provide: AiMeteringService,
-          useValue: new AiMeteringService({
-            spend: jest.fn().mockResolvedValue({ balance: 100, spent: 40 }),
-            refundSpend: jest.fn().mockResolvedValue({ balance: 140 }),
-            hasCredits: jest.fn().mockResolvedValue(true),
-            getBalance: jest.fn().mockResolvedValue({ balance: 100 }),
-          } as never),
+          useValue: new AiMeteringService(
+            {
+              spend: jest.fn().mockResolvedValue({ balance: 100, spent: 40 }),
+              refundSpend: jest.fn().mockResolvedValue({ balance: 140 }),
+              hasCredits: jest.fn().mockResolvedValue(true),
+              getBalance: jest.fn().mockResolvedValue({ balance: 100 }),
+            } as never,
+            // AI on, so these tests still exercise the metered paths.
+            { isAiEnabled: jest.fn().mockResolvedValue(true) } as never,
+          ),
         },
         { provide: AuditService, useValue: audit },
         {

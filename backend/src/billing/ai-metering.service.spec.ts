@@ -1,10 +1,18 @@
 import { AiFeature } from '@prisma/client';
 import { AiMeteringService } from './ai-metering.service';
 import { CreditsService } from './credits.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 import { InsufficientCreditsException } from './insufficient-credits.exception';
+import { AiNotOnPlanException } from './ai-not-on-plan.exception';
 import { aiCreditCost } from './ai-credit-costs.constants';
 
-function build(options: { spendImpl?: jest.Mock; refundImpl?: jest.Mock } = {}) {
+function build(
+  options: {
+    spendImpl?: jest.Mock;
+    refundImpl?: jest.Mock;
+    aiEnabled?: boolean;
+  } = {},
+) {
   const spend =
     options.spendImpl ?? jest.fn().mockResolvedValue({ balance: 100, spent: 5 });
   const refundSpend =
@@ -16,7 +24,17 @@ function build(options: { spendImpl?: jest.Mock; refundImpl?: jest.Mock } = {}) 
     getBalance: jest.fn().mockResolvedValue({ balance: 0 }),
   } as unknown as CreditsService;
 
-  return { service: new AiMeteringService(credits), spend, refundSpend };
+  const isAiEnabled = jest
+    .fn()
+    .mockResolvedValue(options.aiEnabled ?? true);
+  const entitlements = { isAiEnabled } as unknown as EntitlementsService;
+
+  return {
+    service: new AiMeteringService(credits, entitlements),
+    spend,
+    refundSpend,
+    isAiEnabled,
+  };
 }
 
 const CTX = {
@@ -107,6 +125,32 @@ describe('AiMeteringService.run', () => {
     expect(spend).not.toHaveBeenCalled();
     expect(refundSpend).not.toHaveBeenCalled();
   });
+
+  // The Trial plan: AI is not on the plan, so the call is refused before any
+  // credit is spent and before the work runs.
+  it('refuses with AI_NOT_ON_PLAN when AI is off, charging nothing', async () => {
+    const work = jest.fn();
+    const { service, spend } = build({ aiEnabled: false });
+
+    await expect(service.run(CTX, work)).rejects.toBeInstanceOf(
+      AiNotOnPlanException,
+    );
+    expect(work).not.toHaveBeenCalled();
+    expect(spend).not.toHaveBeenCalled();
+  });
+
+  // Even a free (cost 0) feature is blocked when AI is off: the switch is the
+  // gate, not the price.
+  it('blocks a free feature too when AI is off', async () => {
+    const work = jest.fn();
+    const { service } = build({ aiEnabled: false });
+    jest.spyOn(service, 'costOf').mockReturnValue(0);
+
+    await expect(service.run(CTX, work)).rejects.toBeInstanceOf(
+      AiNotOnPlanException,
+    );
+    expect(work).not.toHaveBeenCalled();
+  });
 });
 
 describe('AiMeteringService.runNullable', () => {
@@ -130,6 +174,31 @@ describe('AiMeteringService.runNullable', () => {
     const { service, refundSpend } = build();
     await service.runNullable(CTX, async () => undefined as unknown as string);
     expect(refundSpend).toHaveBeenCalledTimes(1);
+  });
+
+  // runNullable backs features with a rule-based fallback, so when AI is off it
+  // returns null (let the caller degrade) rather than throwing -- and never
+  // runs the work or charges.
+  it('returns null without running the work when AI is off', async () => {
+    const work = jest.fn();
+    const { service, spend } = build({ aiEnabled: false });
+
+    await expect(service.runNullable(CTX, work)).resolves.toBeNull();
+    expect(work).not.toHaveBeenCalled();
+    expect(spend).not.toHaveBeenCalled();
+  });
+});
+
+describe('AiMeteringService.runChargeableIf when AI is off', () => {
+  it('refuses with AI_NOT_ON_PLAN and charges nothing', async () => {
+    const work = jest.fn();
+    const { service, spend } = build({ aiEnabled: false });
+
+    await expect(
+      service.runChargeableIf(CTX, work, () => true),
+    ).rejects.toBeInstanceOf(AiNotOnPlanException);
+    expect(work).not.toHaveBeenCalled();
+    expect(spend).not.toHaveBeenCalled();
   });
 });
 

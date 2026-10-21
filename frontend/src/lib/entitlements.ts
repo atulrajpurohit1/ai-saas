@@ -10,6 +10,12 @@ export interface EntitlementModule {
 
 export interface Entitlements {
   status: 'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED';
+  /**
+   * Whether AI (Gemini) features are available. False on the AegisLead Trial
+   * plan. Optional because an older session/backend will not send it -- treat
+   * absent as enabled so a working customer is never blanked (see `aiEnabled`).
+   */
+  aiEnabled?: boolean;
   trialEndsAt?: string | null;
   currentPeriodEnd?: string | null;
   cancelAtPeriodEnd?: boolean;
@@ -109,6 +115,17 @@ export function hasModule(
   module: ServiceModuleKey,
 ) {
   return activeModules(entitlements).has(module);
+}
+
+/**
+ * Whether AI (Gemini) features are available to this tenant. False only on the
+ * Trial plan. Absent (older session/backend) is treated as enabled, so an
+ * existing customer is never blanked -- the API enforces the real rule and
+ * returns 403 AI_NOT_ON_PLAN regardless. Use this to hide or disable AI actions
+ * for a Trial tenant rather than letting them click into a refusal.
+ */
+export function aiEnabled(entitlements?: Entitlements | null): boolean {
+  return entitlements?.aiEnabled !== false;
 }
 
 /**

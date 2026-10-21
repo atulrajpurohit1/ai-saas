@@ -5,7 +5,9 @@ import {
 } from '@nestjs/common';
 import { AiService, ProspectCompanyInsight } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
+import { AiNotOnPlanException } from '../billing/ai-not-on-plan.exception';
 import { CreditsService } from '../billing/credits.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 import { UpstreamBudgetService } from './upstream-budget.service';
 import {
   discoveryCreditCost,
@@ -60,6 +62,7 @@ export class ProspectSearchService {
     private readonly blackPearlProspectingProvider: BlackPearlProspectingProvider,
     private readonly creditsService: CreditsService,
     private readonly upstreamBudget: UpstreamBudgetService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   /**
@@ -620,6 +623,18 @@ export class ProspectSearchService {
     dto: CompanyInsightDto,
     user: ActiveUser,
   ): Promise<ProspectCompanyInsight> {
+    // The AI company insight is a Gemini feature, so a plan without AI (the
+    // Trial plan) cannot use it. This is the one AI call that does not pass
+    // through AiMeteringService, so the switch is enforced here directly --
+    // together with the metering service, these are the only two AI chokepoints.
+    // The prospect search itself (the credit-metered data lookup) is unaffected;
+    // only this enrichment is withheld.
+    if (!(await this.entitlements.isAiEnabled(user.tenantId))) {
+      throw new AiNotOnPlanException(
+        'AI company insights are not included in your plan. Upgrade to a paid plan to use them.',
+      );
+    }
+
     const aiStartedAt = Date.now();
     let insight: ProspectCompanyInsight;
     let source: 'blackpearl' | 'gemini' = 'gemini';

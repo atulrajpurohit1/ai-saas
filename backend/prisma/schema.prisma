@@ -49,6 +49,23 @@ enum SubscriptionStatus {
 }
 
 /**
+ * Why a tenant is entitled, as opposed to whether they are.
+ *
+ * STRIPE means a real subscription backs the access and Stripe is the source
+ * of truth for it. COMP means the platform owner granted it by hand: there is
+ * no payment, no provider id, and nothing to reconcile against.
+ *
+ * This has to be stored rather than inferred from a missing provider id,
+ * because the webhook needs to know to keep its hands off a comped tenant.
+ * Without it, one stray subscription event resets a comp's modules and
+ * status, and the only trace is a customer losing access.
+ */
+enum SubscriptionSource {
+  STRIPE
+  COMP
+}
+
+/**
  * Why a credit ledger row exists. The ledger is append-only: a correction is
  * another row, never an edit, so the balance is always the sum of its rows.
  */
@@ -1550,6 +1567,26 @@ model TenantSubscription {
   tenantId             String             @unique @map("tenant_id")
   tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   status               SubscriptionStatus @default(ACTIVE)
+  source               SubscriptionSource @default(STRIPE)
+  /// Whether this tenant may use AI (Gemini) features. Default true, so every
+  /// existing and paying tenant is unaffected. Set false by the Trial plan,
+  /// which grants the whole product EXCEPT the AI features. It is stored on the
+  /// subscription rather than inferred from the plan because AI cuts across all
+  /// modules -- a module list cannot express "everything but the AI" -- and
+  /// because credits (which a Trial tenant may buy for prospect search) would
+  /// otherwise be the only thing standing between them and AI, and credits are
+  /// deliberately not that gate.
+  aiEnabled            Boolean            @default(true) @map("ai_enabled")
+  /// When a comp lapses. Null means it does not. Checked on every entitlement
+  /// read, not only by a scheduled job, so a missed job cannot quietly leave
+  /// free access running.
+  compExpiresAt        DateTime?          @map("comp_expires_at")
+  /// Why the comp was granted, for the record. Required at the API boundary.
+  compReason           String?            @map("comp_reason")
+  /// User id of the platform admin who granted it. Not a relation: the grantor
+  /// belongs to a different tenant than the subscription, and the record must
+  /// survive that account being deleted.
+  compGrantedBy        String?            @map("comp_granted_by")
   trialEndsAt          DateTime?          @map("trial_ends_at")
   currentPeriodEnd     DateTime?          @map("current_period_end")
   cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
@@ -1560,6 +1597,7 @@ model TenantSubscription {
 
   @@index([tenantId])
   @@index([status])
+  @@index([source])
   @@map("TenantSubscription")
 }
 

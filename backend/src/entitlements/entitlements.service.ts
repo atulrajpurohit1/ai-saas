@@ -1,11 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ServiceModule, SubscriptionStatus } from '@prisma/client';
+import {
+  ServiceModule,
+  SubscriptionSource,
+  SubscriptionStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   SERVICE_MODULES,
   SERVICE_MODULE_LABELS,
   serviceForPermissionModule,
 } from './entitlements.constants';
+import { isCompActive } from '../billing/comp.util';
 
 /** Statuses that still grant access. PAST_DUE keeps working -- dunning is a
  *  billing conversation, not a reason to strand a paying customer mid-shift. */
@@ -19,8 +24,77 @@ type CacheEntry = { modules: Set<ServiceModule>; expiresAt: number };
 export class EntitlementsService {
   private readonly logger = new Logger(EntitlementsService.name);
   private readonly cache = new Map<string, CacheEntry>();
+  private readonly aiCache = new Map<
+    string,
+    { enabled: boolean; expiresAt: number }
+  >();
 
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Whether this tenant may use AI (Gemini) features right now.
+   *
+   * This is the gate behind the AegisLead Trial plan, whose whole promise is
+   * "everything except the AI features". It is enforced here, in one place,
+   * because AI features are spread across every module and funnel through two
+   * call sites (the AI metering service and the prospect company-insight
+   * endpoint) -- both consult this, so a single flag governs all of them.
+   *
+   * Fails CLOSED: no subscription, an inactive status, or a lapsed comp all
+   * read as "no AI", the same shape the module read uses, so a broken state
+   * withholds AI rather than leaking it. The 30s cache bounds how long a
+   * just-flipped switch keeps its old answer, matching the module cache.
+   */
+  async isAiEnabled(tenantId: string): Promise<boolean> {
+    if (!tenantId) return false;
+
+    const cached = this.aiCache.get(tenantId);
+    if (cached && cached.expiresAt > Date.now()) return cached.enabled;
+
+    const subscription = await this.prisma.tenantSubscription.findUnique({
+      where: { tenantId },
+      select: {
+        status: true,
+        source: true,
+        compExpiresAt: true,
+        aiEnabled: true,
+      },
+    });
+
+    const enabled = this.computeAiEnabled(subscription);
+    this.aiCache.set(tenantId, {
+      enabled,
+      expiresAt: Date.now() + CACHE_TTL_MS,
+    });
+    return enabled;
+  }
+
+  private computeAiEnabled(
+    subscription: {
+      status: SubscriptionStatus;
+      source: SubscriptionSource;
+      compExpiresAt: Date | null;
+      aiEnabled: boolean;
+    } | null,
+  ): boolean {
+    // AI rides on top of having access at all: a tenant with no live
+    // subscription has no AI either, regardless of the flag's stored value.
+    if (!subscription) return false;
+    if (!ACTIVE_STATUSES.includes(subscription.status)) return false;
+    if (
+      subscription.source === 'COMP' &&
+      !isCompActive({
+        source: subscription.source,
+        status: subscription.status,
+        compExpiresAt: subscription.compExpiresAt,
+      })
+    ) {
+      return false;
+    }
+    // `!== false` rather than a bare read so a column that defaults to true is
+    // treated as enabled even if a caller handed us a row without the field.
+    return subscription.aiEnabled !== false;
+  }
 
   async modulesForTenant(tenantId: string): Promise<Set<ServiceModule>> {
     if (!tenantId) return new Set();
@@ -30,7 +104,7 @@ export class EntitlementsService {
 
     const subscription = await this.prisma.tenantSubscription.findUnique({
       where: { tenantId },
-      select: { status: true },
+      select: { status: true, source: true, compExpiresAt: true },
     });
 
     // No subscription row at all. Signup now creates one inside the same
@@ -54,6 +128,21 @@ export class EntitlementsService {
     }
 
     if (!ACTIVE_STATUSES.includes(subscription.status)) {
+      return this.remember(tenantId, new Set());
+    }
+
+    // A comp whose end date has passed grants nothing, even though its status
+    // still reads ACTIVE. Checking here rather than trusting a job to flip the
+    // status means a job that never ran cannot leave free access running on.
+    // The 30s cache bounds how long a just-lapsed comp keeps working.
+    if (
+      subscription.source === 'COMP' &&
+      !isCompActive({
+        source: subscription.source,
+        status: subscription.status,
+        compExpiresAt: subscription.compExpiresAt,
+      })
+    ) {
       return this.remember(tenantId, new Set());
     }
 
@@ -97,8 +186,35 @@ export class EntitlementsService {
     });
     const granted = await this.modulesForTenant(tenantId);
 
+    const comped = subscription
+      ? isCompActive({
+          source: subscription.source,
+          status: subscription.status,
+          compExpiresAt: subscription.compExpiresAt,
+        })
+      : false;
+
     return {
       status: subscription?.status ?? 'ACTIVE',
+      // Whether AI (Gemini) features are available. The frontend hides or
+      // disables AI actions when this is false (the Trial plan), and shows an
+      // "upgrade to unlock AI" prompt rather than a credit top-up.
+      aiEnabled: this.computeAiEnabled(
+        subscription
+          ? {
+              status: subscription.status,
+              source: subscription.source,
+              compExpiresAt: subscription.compExpiresAt,
+              aiEnabled: subscription.aiEnabled,
+            }
+          : null,
+      ),
+      // The plan page keys off these to show "Complimentary access" instead of
+      // a price and an upgrade button. A comped tenant has no Stripe customer
+      // behind them, so prompting them to manage a subscription would dead-end.
+      comped,
+      compExpiresAt: comped ? (subscription?.compExpiresAt ?? null) : null,
+      compReason: comped ? (subscription?.compReason ?? null) : null,
       trialEndsAt: subscription?.trialEndsAt ?? null,
       currentPeriodEnd: subscription?.currentPeriodEnd ?? null,
       cancelAtPeriodEnd: subscription?.cancelAtPeriodEnd ?? false,
@@ -113,6 +229,7 @@ export class EntitlementsService {
   /** Call after any entitlement write so the next request sees it. */
   invalidate(tenantId: string) {
     this.cache.delete(tenantId);
+    this.aiCache.delete(tenantId);
   }
 
   private remember(tenantId: string, modules: Set<ServiceModule>) {

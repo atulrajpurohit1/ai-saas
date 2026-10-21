@@ -136,4 +136,178 @@ describe('EntitlementsService', () => {
   it('grants nothing to a request with no tenant', async () => {
     expect([...(await service.modulesForTenant(''))]).toEqual([]);
   });
+
+  describe('complimentary access', () => {
+    const withComp = async (compExpiresAt: Date | null, status = 'ACTIVE') => {
+      prisma.tenantSubscription.findUnique.mockResolvedValue({
+        status,
+        source: 'COMP',
+        compExpiresAt,
+      });
+      prisma.tenantModule.findMany.mockResolvedValue([
+        { module: 'LEAD_GEN' },
+        { module: 'GUARD_TOUR' },
+        { module: 'FINANCE' },
+      ]);
+      return service.modulesForTenant(`tenant-${Math.random()}`);
+    };
+
+    it('grants the comped modules while the comp is live', async () => {
+      expect([...(await withComp(null))].sort()).toEqual([
+        'FINANCE',
+        'GUARD_TOUR',
+        'LEAD_GEN',
+      ]);
+    });
+
+    it('still grants them before the end date', async () => {
+      const future = new Date(Date.now() + 86_400_000);
+
+      expect([...(await withComp(future))].length).toBe(3);
+    });
+
+    /**
+     * The point of checking expiry on read. The status still says ACTIVE --
+     * no job has been round to change it -- and the module rows are still
+     * flagged active. Only the date says otherwise, and that has to be
+     * enough, or a job that silently stopped running means indefinite free
+     * access that nobody notices.
+     */
+    it('grants nothing once a lapsed comp is read, even with status ACTIVE', async () => {
+      const past = new Date(Date.now() - 86_400_000);
+
+      expect([...(await withComp(past))]).toEqual([]);
+    });
+
+    it('grants nothing after the comp is revoked', async () => {
+      expect([...(await withComp(null, 'CANCELED'))]).toEqual([]);
+    });
+
+    // A comp must never imply credits: the tenant buys those themselves.
+    // Entitlements has no business reading the ledger, and this pins that.
+    it('never touches the credit ledger', async () => {
+      await withComp(null);
+
+      expect(prisma).not.toHaveProperty('creditLedgerEntry');
+    });
+  });
+
+  describe('isAiEnabled', () => {
+    const withAi = async (
+      row: {
+        status?: string;
+        source?: string;
+        compExpiresAt?: Date | null;
+        aiEnabled?: boolean;
+      } | null,
+    ) => {
+      prisma.tenantSubscription.findUnique.mockResolvedValue(row);
+      return service.isAiEnabled(`tenant-${Math.random()}`);
+    };
+
+    it('is true for an active tenant with AI on', async () => {
+      await expect(
+        withAi({ status: 'ACTIVE', source: 'STRIPE', aiEnabled: true }),
+      ).resolves.toBe(true);
+    });
+
+    // The Trial plan: active and entitled, but AI withheld.
+    it('is false when the flag is off', async () => {
+      await expect(
+        withAi({ status: 'ACTIVE', source: 'COMP', aiEnabled: false }),
+      ).resolves.toBe(false);
+    });
+
+    it('is false when there is no subscription row', async () => {
+      await expect(withAi(null)).resolves.toBe(false);
+    });
+
+    it('is false once CANCELED, whatever the flag says', async () => {
+      await expect(
+        withAi({ status: 'CANCELED', source: 'STRIPE', aiEnabled: true }),
+      ).resolves.toBe(false);
+    });
+
+    // A lapsed comp grants nothing, AI included, even with the flag on.
+    it('is false when a comp has lapsed, even with AI on', async () => {
+      await expect(
+        withAi({
+          status: 'ACTIVE',
+          source: 'COMP',
+          aiEnabled: true,
+          compExpiresAt: new Date(Date.now() - 86_400_000),
+        }),
+      ).resolves.toBe(false);
+    });
+
+    it('grants no AI to a request with no tenant', async () => {
+      await expect(service.isAiEnabled('')).resolves.toBe(false);
+    });
+
+    it('caches per tenant and re-reads after invalidate', async () => {
+      prisma.tenantSubscription.findUnique.mockResolvedValue({
+        status: 'ACTIVE',
+        source: 'STRIPE',
+        aiEnabled: true,
+      });
+
+      await service.isAiEnabled('tenant-ai-cache');
+      await service.isAiEnabled('tenant-ai-cache');
+      expect(prisma.tenantSubscription.findUnique).toHaveBeenCalledTimes(1);
+
+      service.invalidate('tenant-ai-cache');
+      await service.isAiEnabled('tenant-ai-cache');
+      expect(prisma.tenantSubscription.findUnique).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('summaryForTenant', () => {
+    it('reports a live comp so the plan page can suppress the price', async () => {
+      const expiresAt = new Date(Date.now() + 86_400_000);
+      prisma.tenantSubscription.findUnique.mockResolvedValue({
+        status: 'ACTIVE',
+        source: 'COMP',
+        compExpiresAt: expiresAt,
+        compReason: 'Early customer',
+      });
+      prisma.tenantModule.findMany.mockResolvedValue([{ module: 'LEAD_GEN' }]);
+
+      const summary = await service.summaryForTenant('tenant-comped');
+
+      expect(summary.comped).toBe(true);
+      expect(summary.compExpiresAt).toEqual(expiresAt);
+      expect(summary.compReason).toBe('Early customer');
+    });
+
+    it('reports no comp for a Stripe-backed tenant', async () => {
+      prisma.tenantSubscription.findUnique.mockResolvedValue({
+        status: 'ACTIVE',
+        source: 'STRIPE',
+        compExpiresAt: null,
+        compReason: null,
+      });
+      prisma.tenantModule.findMany.mockResolvedValue([{ module: 'LEAD_GEN' }]);
+
+      const summary = await service.summaryForTenant('tenant-paying');
+
+      expect(summary.comped).toBe(false);
+      expect(summary.compExpiresAt).toBeNull();
+    });
+
+    /** A lapsed comp must not still advertise itself as free access. */
+    it('reports no comp once it has lapsed', async () => {
+      prisma.tenantSubscription.findUnique.mockResolvedValue({
+        status: 'ACTIVE',
+        source: 'COMP',
+        compExpiresAt: new Date(Date.now() - 86_400_000),
+        compReason: 'Early customer',
+      });
+      prisma.tenantModule.findMany.mockResolvedValue([]);
+
+      const summary = await service.summaryForTenant('tenant-lapsed');
+
+      expect(summary.comped).toBe(false);
+      expect(summary.compReason).toBeNull();
+    });
+  });
 });

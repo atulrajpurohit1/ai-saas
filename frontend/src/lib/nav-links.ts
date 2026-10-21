@@ -54,6 +54,16 @@ export const DASHBOARD_LINK: NavLink = {
   permissions: ['dashboard.view'],
 };
 
+// Platform-owner area. Gated by the isSuperAdmin flag, not a permission, so it
+// is kept out of NAV_GROUPS (which Sidebar and CommandPalette filter by
+// permission) and rendered separately only for super admins.
+export const SUPER_ADMIN_LINK: NavLink = {
+  href: '/super-admin',
+  label: 'Platform admin',
+  icon: ShieldCheck,
+  permissions: [],
+};
+
 // Grouped to mirror the products a customer buys -- Generation, Guard and
 // Operations -- so the sidebar reads the same way the plan page does. Shared
 // records (clients, sites, branches) sit under Workspace because all three

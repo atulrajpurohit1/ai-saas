@@ -49,6 +49,7 @@ describe('StripeWebhookService', () => {
     cancel: jest.Mock;
     setStatus: jest.Mock;
     tenantForProviderIds: jest.Mock;
+    isComped: jest.Mock;
   };
   let stripe: {
     retrieveSubscription: jest.Mock;
@@ -67,6 +68,7 @@ describe('StripeWebhookService', () => {
       cancel: jest.fn().mockResolvedValue(undefined),
       setStatus: jest.fn().mockResolvedValue(undefined),
       tenantForProviderIds: jest.fn().mockResolvedValue('tenant-1'),
+      isComped: jest.fn().mockResolvedValue(false),
     };
     stripe = {
       retrieveSubscription: jest.fn(),
@@ -540,6 +542,77 @@ describe('StripeWebhookService', () => {
     ).resolves.toEqual({
       handled: false,
       reason: 'unhandled:customer.created',
+    });
+  });
+
+  /**
+   * Complimentary access is not Stripe's to manage.
+   *
+   * These matter more than they look. provision() computes the tenant's FULL
+   * desired state, so a single subscription event naming a comped tenant --
+   * from a stale customer id, a test-mode event reaching live data, or a
+   * tenant comped after once paying -- would strip every module they have.
+   * The customer's first symptom would be being locked out.
+   */
+  describe('comped tenants', () => {
+    const PRICE_CREDITS_PRO = 'price_credits_pro';
+
+    beforeEach(() => {
+      provisioning.isComped.mockResolvedValue(true);
+      process.env.STRIPE_PRICE_CREDITS_PRO = PRICE_CREDITS_PRO;
+    });
+
+    afterEach(() => {
+      delete process.env.STRIPE_PRICE_CREDITS_PRO;
+    });
+
+    it('does not reprovision a comped tenant on a subscription change', async () => {
+      const result = await service.handle(
+        event('customer.subscription.updated', subscription()),
+      );
+
+      expect(provisioning.provision).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ handled: false, reason: 'comped-tenant' });
+    });
+
+    it('does not cancel a comped tenant when a subscription is deleted', async () => {
+      const result = await service.handle(
+        event('customer.subscription.deleted', subscription()),
+      );
+
+      expect(provisioning.cancel).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ handled: false, reason: 'comped-tenant' });
+    });
+
+    it('does not mark a comped tenant PAST_DUE on a failed payment', async () => {
+      const result = await service.handle(
+        event('invoice.payment_failed', { customer: 'cus_123' }),
+      );
+
+      expect(provisioning.setStatus).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ handled: false, reason: 'comped-tenant' });
+    });
+
+    /**
+     * Credits are the other half of the deal: the owner gives the plan away,
+     * the customer still buys their own tokens. If a comp blocked credit
+     * purchases the whole arrangement would fall over, so the comp check must
+     * sit only on the subscription handlers.
+     */
+    it('still grants credits a comped tenant has paid for', async () => {
+      stripe.priceIdsForCheckoutSession.mockResolvedValue([PRICE_CREDITS_PRO]);
+
+      const result = await service.handle(
+        event('checkout.session.completed', {
+          id: 'cs_credits_1',
+          mode: 'payment',
+          payment_status: 'paid',
+          metadata: { tenantId: 'tenant-1', creditPack: 'PRO' },
+        }),
+      );
+
+      expect(credits.grant).toHaveBeenCalled();
+      expect(result).toMatchObject({ handled: true });
     });
   });
 

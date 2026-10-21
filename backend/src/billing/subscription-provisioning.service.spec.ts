@@ -193,6 +193,69 @@ describe('SubscriptionProvisioningService', () => {
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
+  describe('AI access flag', () => {
+    it('leaves AI on by default, so a Stripe provisioning includes it', async () => {
+      await service.provision({
+        tenantId: 't1',
+        modules: ['LEAD_GEN'],
+        status: 'ACTIVE',
+      });
+
+      const call = tx.tenantSubscription.upsert.mock.calls[0][0];
+      expect(call.create).toEqual(expect.objectContaining({ aiEnabled: true }));
+      expect(call.update).toEqual(expect.objectContaining({ aiEnabled: true }));
+    });
+
+    // The Trial plan grants modules but withholds AI.
+    it('writes AI off when provisioned with aiEnabled false', async () => {
+      await service.provision({
+        tenantId: 't1',
+        modules: ['LEAD_GEN', 'GUARD_TOUR', 'FINANCE'],
+        status: 'ACTIVE',
+        source: 'COMP',
+        aiEnabled: false,
+      });
+
+      const call = tx.tenantSubscription.upsert.mock.calls[0][0];
+      expect(call.create.aiEnabled).toBe(false);
+      expect(call.update.aiEnabled).toBe(false);
+    });
+
+    // Converting a Trial tenant to a paid plan turns AI back on by the same
+    // path, because a Stripe provisioning defaults aiEnabled to true.
+    it('turns AI back on when a Trial tenant is upgraded via Stripe', async () => {
+      await service.provision({
+        tenantId: 't1',
+        modules: ['LEAD_GEN'],
+        status: 'ACTIVE',
+        source: 'STRIPE',
+        providerSubscriptionId: 'sub_1',
+      });
+
+      expect(tx.tenantSubscription.upsert.mock.calls[0][0].update.aiEnabled).toBe(
+        true,
+      );
+    });
+
+    // Purchased prospect-search tokens live in a separate balance. Provisioning
+    // (including a Trial -> paid upgrade) must never touch the credit ledger,
+    // so a tenant's tokens survive a plan change untouched. This pins that the
+    // provisioning path references no credit table at all.
+    it('never touches the credit balance or ledger', async () => {
+      await service.provision({
+        tenantId: 't1',
+        modules: ['LEAD_GEN'],
+        status: 'ACTIVE',
+        source: 'STRIPE',
+      });
+
+      expect(prisma).not.toHaveProperty('creditLedgerEntry');
+      expect(prisma).not.toHaveProperty('tenantCreditBalance');
+      expect(tx).not.toHaveProperty('creditLedgerEntry');
+      expect(tx).not.toHaveProperty('tenantCreditBalance');
+    });
+  });
+
   describe('cancel', () => {
     it('marks the subscription cancelled and clears the cache', async () => {
       await service.cancel('t1', 'stripe:evt_1');

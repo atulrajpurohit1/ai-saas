@@ -50,6 +50,7 @@ import { ApiDocsModule } from './api-docs/api-docs.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { BrandingModule } from './branding/branding.module';
 import { BillingModule } from './billing/billing.module';
+import { PlatformModule } from './platform/platform.module';
 import { SalesAcceleratorModule } from './sales-accelerator/sales-accelerator.module';
 import { PatrolsModule } from './patrols/patrols.module';
 import { RfpModule } from './rfp/rfp.module';
@@ -87,6 +88,7 @@ import { ClientComplianceModule } from './client-compliance/client-compliance.mo
     SessionsModule,
     BrandingModule,
     BillingModule,
+    PlatformModule,
     SalesAcceleratorModule,
     ProspectSearchModule,
     UsersModule,

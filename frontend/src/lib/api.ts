@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { toast } from 'sonner';
 
 const getBaseUrl = () => {
   const fallbackUrl = 'https://ai-saas-backend-ulpb.onrender.com/api';
@@ -118,6 +119,24 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (typeof window === 'undefined') {
+      return Promise.reject(error);
+    }
+
+    // The Trial plan allows everything except AI. When a tenant without AI hits
+    // an AI endpoint the backend returns 403 AI_NOT_ON_PLAN -- the single,
+    // app-wide backstop so that reaching an AI action always degrades to a
+    // clear "upgrade" toast rather than a raw error, even on a page that does
+    // not handle the error itself. A fixed toast id dedupes repeat clicks. The
+    // error is still rejected so page logic (spinners, local state) unwinds.
+    if (
+      error.response?.status === 403 &&
+      error.response?.data?.code === 'AI_NOT_ON_PLAN'
+    ) {
+      toast.error(
+        error.response?.data?.message ||
+          'AI features are not included in your plan. Upgrade to a paid plan to use them.',
+        { id: 'ai-not-on-plan' },
+      );
       return Promise.reject(error);
     }
 
