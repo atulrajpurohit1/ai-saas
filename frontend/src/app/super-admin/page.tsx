@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import DashboardLayout from '@/components/DashboardLayout';
+import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -29,6 +29,7 @@ import {
   Coins,
   Gift,
   Loader2,
+  LogOut,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -613,23 +614,65 @@ function SuperAdminContent() {
   );
 }
 
+/**
+ * Standalone shell for the platform-owner area, deliberately NOT the customer
+ * DashboardLayout: no tenant sidebar, no module nav, no app chrome. It is its
+ * own surface living only at this URL and not linked from the customer app.
+ *
+ * Anyone who is not a super admin is hard-redirected to /login and sees
+ * nothing in between -- no content, no chrome, not even an "access denied"
+ * page. The backend (SuperAdminGuard) enforces the same rule on every call, so
+ * this is the UI half of a boundary the API already owns.
+ */
 export default function SuperAdminPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user || !user.isSuperAdmin) {
+      router.replace('/login');
+    }
+  }, [user, loading, router]);
+
+  // Reveal nothing until a super admin is confirmed: a non-admin only ever
+  // sees this blank loader before the redirect fires.
+  if (loading || !user || !user.isSuperAdmin) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-background">
+        <div className="h-10 w-10 animate-spin rounded-full border-t-2 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   return (
-    <DashboardLayout>
-      {loading ? null : user?.isSuperAdmin ? (
-        <SuperAdminContent />
-      ) : (
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-          <ShieldCheck className="mb-3 h-10 w-10 text-muted-foreground" />
-          <h1 className="text-lg font-semibold text-foreground">Platform admin only</h1>
-          <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-            This area is restricted to platform administrators. If you believe
-            you should have access, contact the platform owner.
-          </p>
+    <div className="min-h-dvh bg-background">
+      <header className="sticky top-0 z-30 border-b border-border bg-card/90 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            <span className="text-sm font-semibold text-foreground">
+              AegisLead · Platform Admin
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="hidden text-xs text-muted-foreground sm:inline">
+              {user.email}
+            </span>
+            <button
+              type="button"
+              onClick={logout}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Logout
+            </button>
+          </div>
         </div>
-      )}
-    </DashboardLayout>
+      </header>
+      <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+        <SuperAdminContent />
+      </main>
+    </div>
   );
 }
