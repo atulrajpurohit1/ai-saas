@@ -30,11 +30,22 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${geistMono.variable} antialiased`}>
         <Providers>{children}</Providers>
+        {/*
+          lazyOnload rather than afterInteractive: this is a third-party chat
+          widget on a different origin, and nothing on any page depends on it.
+          afterInteractive starts it as soon as hydration finishes, so it
+          competed for the main thread and a fresh connection during the window
+          that decides LCP and TBT -- on the login screens most of all, where
+          there is almost nothing else to load and the widget was a visible
+          share of the work. lazyOnload holds it until the page is idle. The
+          widget still appears on every page exactly as before; it just stops
+          being on the critical path.
+        */}
         <Script
           src="https://widgets.leadconnectorhq.com/loader.js"
           data-resources-url="https://widgets.leadconnectorhq.com/chat-widget/loader.js"
           data-widget-id="6a6cf83a75ab8940e79a20d5"
-          strategy="afterInteractive"
+          strategy="lazyOnload"
         />
       </body>
     </html>

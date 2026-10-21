@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuditModule } from '../audit/audit.module';
 import { BillingController } from './billing.controller';
+import { CompController } from './comp.controller';
 import { BillingService } from './billing.service';
 import { StripeService } from './stripe.service';
 import { StripeWebhookService } from './stripe-webhook.service';
@@ -26,6 +27,7 @@ import { EmailModule } from '../email/email.module';
   imports: [PrismaModule, AuditModule, EmailModule],
   controllers: [
     BillingController,
+    CompController,
     CreditsController,
     CreditAutoRechargeController,
     StripeWebhookController,

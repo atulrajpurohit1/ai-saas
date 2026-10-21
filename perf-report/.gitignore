@@ -1,0 +1,7 @@
+# Raw Lighthouse JSON: 54 files, ~25 MB. Kept on disk as the evidence behind
+# every number in the report, but deliberately not committed -- this is a
+# public repository and the history would carry that weight permanently.
+# Regenerate with the runners in the report appendix, or commit them
+# deliberately if an auditable trail matters more than repository size.
+before/raw/
+after/raw/

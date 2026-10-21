@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
+import AiPlanNotice from '@/components/AiPlanNotice';
 import TableScroll from '@/components/TableScroll';
 import api from '@/lib/api';
 import { formatEnumLabel, isUnknownValue } from '@/lib/format';
@@ -376,6 +377,7 @@ export default function SalesAcceleratorDashboardPage() {
 
   return (
     <DashboardLayout requiredModule="LEAD_GEN">
+      <AiPlanNotice feature="The Sales Accelerator's AI coaching and drafting" />
       <div className="mb-6 flex flex-col gap-4 sm:mb-8 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-info-wash px-3 py-1 text-xs font-bold uppercase tracking-widest text-info">

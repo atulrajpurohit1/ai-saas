@@ -7,6 +7,11 @@ const WEEKS_OF_TREND = 8;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 
+// How many activity rows the dashboard strip shows. Each of the three tables
+// is asked for this many and the merged list is cut back to it, because the
+// newest five overall could all come from one table.
+const RECENT_ACTIVITY_LIMIT = 5;
+
 type TimestampRecord = { createdAt: Date };
 
 function startOfWeek(date: Date): Date {
@@ -103,5 +108,79 @@ export class DashboardService {
         ...proposalPeriod,
       },
     };
+  }
+
+  /**
+   * The five newest leads, deals and proposals, merged.
+   *
+   * The dashboard used to build this strip on the client by calling GET
+   * /leads, /deals and /proposals -- all three of which return every row the
+   * tenant owns, with /leads additionally running a nested salesAssessments
+   * subquery per lead. Rendering five lines cost three unbounded result sets,
+   * so the dashboard got slower every time the customer added a lead.
+   *
+   * Here the database does the ordering and the limiting, so the work is
+   * bounded by RECENT_ACTIVITY_LIMIT rather than by how long the customer has
+   * been using the product.
+   */
+  async getRecentActivity(tenantId: string) {
+    const [leads, deals, proposals] = await Promise.all([
+      this.prisma.lead.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: 'desc' },
+        take: RECENT_ACTIVITY_LIMIT,
+        select: { id: true, name: true, company: true, createdAt: true },
+      }),
+      this.prisma.deal.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: 'desc' },
+        take: RECENT_ACTIVITY_LIMIT,
+        select: {
+          id: true,
+          name: true,
+          createdAt: true,
+          lead: { select: { company: true } },
+        },
+      }),
+      this.prisma.proposal.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: 'desc' },
+        take: RECENT_ACTIVITY_LIMIT,
+        select: {
+          id: true,
+          title: true,
+          createdAt: true,
+          lead: { select: { company: true } },
+        },
+      }),
+    ]);
+
+    const activities = [
+      ...leads.map((lead) => ({
+        id: `lead-${lead.id}`,
+        kind: 'lead' as const,
+        title: 'New Lead Created',
+        subject: lead.company || lead.name || 'Lead',
+        createdAt: lead.createdAt,
+      })),
+      ...deals.map((deal) => ({
+        id: `deal-${deal.id}`,
+        kind: 'deal' as const,
+        title: 'Deal Started',
+        subject: deal.name || deal.lead?.company || 'Deal',
+        createdAt: deal.createdAt,
+      })),
+      ...proposals.map((proposal) => ({
+        id: `proposal-${proposal.id}`,
+        kind: 'proposal' as const,
+        title: 'Proposal Created',
+        subject: proposal.title || proposal.lead?.company || 'Proposal',
+        createdAt: proposal.createdAt,
+      })),
+    ];
+
+    return activities
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, RECENT_ACTIVITY_LIMIT);
   }
 }

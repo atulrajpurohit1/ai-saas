@@ -1,0 +1,74 @@
+{
+  "/login|mobile": {
+    "score": 93,
+    "lcp": 3177.8014000000003,
+    "fcp": 1061.3844,
+    "tbt": 37.5,
+    "cls": 0,
+    "si": 1061.3844,
+    "ttfb": 3.2,
+    "bytes": 2167435,
+    "requests": 43,
+    "_runs": 3
+  },
+  "/login|desktop": {
+    "score": 100,
+    "lcp": 614.5799999999999,
+    "fcp": 289.17580000000004,
+    "tbt": 0,
+    "cls": 0,
+    "si": 289.17580000000004,
+    "ttfb": 2.456,
+    "bytes": 2124041,
+    "requests": 43,
+    "_runs": 3
+  },
+  "/client/login|mobile": {
+    "score": 94,
+    "lcp": 3093.7441,
+    "fcp": 1061.3989499999998,
+    "tbt": 34.5,
+    "cls": 0,
+    "si": 1061.3989499999998,
+    "ttfb": 2.737,
+    "bytes": 2101422,
+    "requests": 43,
+    "_runs": 3
+  },
+  "/client/login|desktop": {
+    "score": 100,
+    "lcp": 612.4929499999998,
+    "fcp": 288.8523,
+    "tbt": 0,
+    "cls": 0,
+    "si": 288.8523,
+    "ttfb": 1.758,
+    "bytes": 2098989,
+    "requests": 43,
+    "_runs": 3
+  },
+  "/guard/login|mobile": {
+    "score": 79,
+    "lcp": 5843.16775,
+    "fcp": 1059.3893,
+    "tbt": 34,
+    "cls": 0,
+    "si": 1059.3893,
+    "ttfb": 1.8239999999999998,
+    "bytes": 2101365,
+    "requests": 43,
+    "_runs": 3
+  },
+  "/guard/login|desktop": {
+    "score": 100,
+    "lcp": 611.5260249999999,
+    "fcp": 288.22285,
+    "tbt": 0,
+    "cls": 0,
+    "si": 288.22285,
+    "ttfb": 2.1279999999999997,
+    "bytes": 2099294,
+    "requests": 43,
+    "_runs": 3
+  }
+}

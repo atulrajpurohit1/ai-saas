@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import { Loader2, Mail, Lock, ArrowRight, User, Briefcase } from 'lucide-react';
+import { Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
 import BrandMark from '@/components/BrandMark';
 import PasswordInput from '@/components/PasswordInput';
 
@@ -15,19 +15,16 @@ interface ApiError {
   };
 }
 
-const normalizeSlug = (value: string) =>
-  value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
+/**
+ * Client portal sign-in. Sign-in only: a client account belongs to one
+ * security agency, and nothing a visitor can type here identifies which one.
+ * Accounts are created by the agency, which hands over the password it is
+ * given -- so this page's job is to let someone in, and to say who to ask when
+ * it cannot.
+ */
 export default function ClientLoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [tenantSlug, setTenantSlug] = useState('');
-  const [isRegister, setIsRegister] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -44,17 +41,10 @@ export default function ClientLoginPage() {
       localStorage.removeItem('user');
       localStorage.removeItem('guard_token');
 
-      const res = isRegister
-        ? await api.post('client-auth/register', {
-            name,
-            email,
-            password,
-            tenantSlug: normalizeSlug(tenantSlug),
-          })
-        : await api.post('client-auth/login', {
-            email,
-            password,
-          });
+      const res = await api.post('client-auth/login', {
+        email,
+        password,
+      });
 
       localStorage.setItem('client_token', res.data.access_token);
       if (res.data.refresh_token) localStorage.setItem('client_refresh_token', res.data.refresh_token);
@@ -78,36 +68,15 @@ export default function ClientLoginPage() {
           <BrandMark size="lg" showWordmark={false} />
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
-              {isRegister ? 'Create client account' : 'Client Portal'}
+              Client Portal
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {isRegister
-                ? 'Register your client portal account.'
-                : 'Access your proposals, reports, and secure service details.'}
+              Access your proposals, reports, and secure service details.
             </p>
           </div>
         </div>
 
         <form onSubmit={handleLogin} className="surface-card space-y-4 p-5 shadow-md sm:p-8">
-          {isRegister && (
-            <>
-              <div className="space-y-1.5">
-                <label className="text-eyebrow">Full Name</label>
-                <div className="relative">
-                  <User className={iconClass} size={17} />
-                  <input type="text" className={inputClass} placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} required />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-eyebrow">Company Name</label>
-                <div className="relative">
-                  <Briefcase className={iconClass} size={17} />
-                  <input type="text" autoCapitalize="none" spellCheck={false} className={inputClass} placeholder="Acme Security" value={tenantSlug} onChange={(e) => setTenantSlug(e.target.value)} required />
-                </div>
-              </div>
-            </>
-          )}
-
           <div className="space-y-1.5">
             <label className="text-eyebrow">Email Address</label>
             <div className="relative">
@@ -125,7 +94,7 @@ export default function ClientLoginPage() {
               placeholder="••••••••"
               value={password}
               onChange={setPassword}
-              autoComplete={isRegister ? 'new-password' : 'current-password'}
+              autoComplete="current-password"
               required
             />
           </div>
@@ -145,24 +114,16 @@ export default function ClientLoginPage() {
               <Loader2 className="animate-spin" size={18} />
             ) : (
               <>
-                <span>{isRegister ? 'Create Account' : 'Sign In to Portal'}</span>
+                <span>Sign In to Portal</span>
                 <ArrowRight size={17} className="transition-transform group-hover:translate-x-0.5" />
               </>
             )}
           </button>
 
-          <div className="pt-1 text-center">
-            <button
-              type="button"
-              onClick={() => {
-                setIsRegister((current) => !current);
-                setError('');
-              }}
-              className="text-sm font-semibold text-muted-foreground transition hover:text-primary"
-            >
-              {isRegister ? 'Already have an account? Sign in' : "Don't have an account? Register"}
-            </button>
-          </div>
+          <p className="pt-1 text-center text-sm text-muted-foreground">
+            Need access? Your security provider creates your portal account —
+            ask your account manager for an invitation.
+          </p>
         </form>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">

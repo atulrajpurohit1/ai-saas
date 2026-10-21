@@ -4,8 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
-import api from '@/lib/api';
-import { DashboardSummary, getDashboardSummary } from '@/lib/dashboard';
+import { DashboardSummary, getDashboardSummary, getRecentActivity } from '@/lib/dashboard';
 import { DEAL_STAGE_COLORS } from '@/lib/deals';
 import { formatEnumLabel } from '@/lib/format';
 import TrendAreaChart from '@/components/charts/TrendAreaChart';
@@ -28,18 +27,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
 } from 'lucide-react';
-
-interface DashboardEntity {
-  id: string;
-  name?: string | null;
-  company?: string | null;
-  title?: string | null;
-  createdAt?: string | null;
-  lead?: {
-    name?: string | null;
-    company?: string | null;
-  } | null;
-}
 
 interface ActivityItem {
   id: string;
@@ -76,41 +63,6 @@ const formatRelativeTime = (timestamp: number) => {
 const formatWeekLabel = (isoDate: string) => {
   const date = new Date(`${isoDate}T00:00:00Z`);
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
-};
-
-const buildRecentActivities = (
-  leads: DashboardEntity[],
-  deals: DashboardEntity[],
-  proposals: DashboardEntity[],
-) => {
-  const activities: ActivityItem[] = [
-    ...leads.map((lead) => ({
-      id: `lead-${lead.id}`,
-      kind: 'lead' as const,
-      title: 'New Lead Created',
-      subject: lead.company || lead.name || 'Lead',
-      timestamp: getTimestamp(lead.createdAt),
-    })),
-    ...deals.map((deal) => ({
-      id: `deal-${deal.id}`,
-      kind: 'deal' as const,
-      title: 'Deal Started',
-      subject: deal.name || deal.lead?.company || 'Deal',
-      timestamp: getTimestamp(deal.createdAt),
-    })),
-    ...proposals.map((proposal) => ({
-      id: `proposal-${proposal.id}`,
-      kind: 'proposal' as const,
-      title: 'Proposal Created',
-      subject: proposal.title || proposal.lead?.company || 'Proposal',
-      timestamp: getTimestamp(proposal.createdAt),
-    })),
-  ];
-
-  return activities
-    .filter((activity) => activity.timestamp > 0)
-    .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, 5);
 };
 
 const ACTIVITY_ICON: Record<ActivityItem['kind'], React.ComponentType<{ size?: number; className?: string }>> = {
@@ -172,21 +124,28 @@ export default function DashboardPage() {
     const fetchDashboard = async () => {
       setLoading(true);
       try {
-        const [summaryRes, leadsRes, dealsRes, proposalsRes] = await Promise.allSettled([
+        const [summaryRes, activityRes] = await Promise.allSettled([
           getDashboardSummary(),
-          api.get('leads'),
-          api.get('deals'),
-          api.get('proposals'),
+          getRecentActivity(),
         ]);
 
         if (summaryRes.status === 'fulfilled') {
           setSummary(summaryRes.value);
         }
 
-        const leads = leadsRes.status === 'fulfilled' && Array.isArray(leadsRes.value.data) ? leadsRes.value.data : [];
-        const deals = dealsRes.status === 'fulfilled' && Array.isArray(dealsRes.value.data) ? dealsRes.value.data : [];
-        const proposals = proposalsRes.status === 'fulfilled' && Array.isArray(proposalsRes.value.data) ? proposalsRes.value.data : [];
-        setActivities(buildRecentActivities(leads, deals, proposals));
+        if (activityRes.status === 'fulfilled') {
+          setActivities(
+            activityRes.value
+              .map((activity) => ({
+                id: activity.id,
+                kind: activity.kind,
+                title: activity.title,
+                subject: activity.subject,
+                timestamp: getTimestamp(activity.createdAt),
+              }))
+              .filter((activity) => activity.timestamp > 0),
+          );
+        }
 
         if (summaryRes.status === 'rejected') {
           setError('Dashboard analytics could not be loaded. Check that the backend API is running.');

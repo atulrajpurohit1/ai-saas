@@ -8,6 +8,7 @@ import {
   Entitlements,
   ServiceModuleKey,
   activeModules,
+  aiEnabled as aiEnabledForEntitlements,
   serviceForPermission,
 } from '@/lib/entitlements';
 
@@ -38,6 +39,8 @@ interface AuthContextType {
   can: (permission: string | string[]) => boolean;
   canAny: (permissions: string[]) => boolean;
   hasModule: (module: ServiceModuleKey) => boolean;
+  /** Whether AI (Gemini) features are on this tenant's plan (false on Trial). */
+  aiEnabled: boolean;
   entitlements: Entitlements | null;
   loading: boolean;
 }
@@ -203,6 +206,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         can,
         canAny,
         hasModule,
+        aiEnabled: aiEnabledForEntitlements(user?.entitlements),
         entitlements: user?.entitlements ?? null,
         loading,
       }}

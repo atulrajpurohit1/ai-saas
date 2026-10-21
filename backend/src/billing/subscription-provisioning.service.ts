@@ -1,8 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ServiceModule, SubscriptionStatus } from '@prisma/client';
+import {
+  ServiceModule,
+  SubscriptionSource,
+  SubscriptionStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
 import { AuditService } from '../audit/audit.service';
+import { isCompActive } from './comp.util';
 
 export interface ProvisionInput {
   tenantId: string;
@@ -13,6 +18,23 @@ export interface ProvisionInput {
   cancelAtPeriodEnd?: boolean;
   providerCustomerId?: string | null;
   providerSubscriptionId?: string | null;
+  /**
+   * Defaults to STRIPE. Pass COMP for access granted by the platform owner
+   * with no payment behind it; the Stripe webhook then leaves the tenant
+   * alone rather than resetting it on the next event.
+   */
+  source?: SubscriptionSource;
+  /**
+   * Whether this tenant may use AI (Gemini) features. Defaults to true, so a
+   * Stripe provisioning and a comp of a real plan both leave AI on. Only the
+   * Trial plan passes false. Set on every provisioning, so converting a Trial
+   * tenant to a paid plan turns AI back on by the same path.
+   */
+  aiEnabled?: boolean;
+  /** Only meaningful with source COMP. Null means the comp does not lapse. */
+  compExpiresAt?: Date | null;
+  compReason?: string | null;
+  compGrantedBy?: string | null;
   /** Free-text note for the audit trail, e.g. the Stripe event id. */
   reason?: string;
 }
@@ -58,8 +80,22 @@ export class SubscriptionProvisioningService {
       cancelAtPeriodEnd = false,
       providerCustomerId = null,
       providerSubscriptionId = null,
+      source = 'STRIPE',
+      aiEnabled = true,
+      compExpiresAt = null,
+      compReason = null,
+      compGrantedBy = null,
       reason,
     } = input;
+
+    // Comp fields are only written on a COMP provisioning. A STRIPE one
+    // clears them, which is what converting a comped tenant onto a real
+    // subscription should do -- otherwise a stale expiry would sit there
+    // waiting to revoke a paying customer.
+    const compFields =
+      source === 'COMP'
+        ? { compExpiresAt, compReason, compGrantedBy }
+        : { compExpiresAt: null, compReason: null, compGrantedBy: null };
 
     const desired = new Set(modules);
 
@@ -69,17 +105,23 @@ export class SubscriptionProvisioningService {
         create: {
           tenantId,
           status,
+          source,
+          aiEnabled,
           trialEndsAt,
           currentPeriodEnd,
           cancelAtPeriodEnd,
           providerCustomerId,
           providerSubscriptionId,
+          ...compFields,
         },
         update: {
           status,
+          source,
+          aiEnabled,
           trialEndsAt,
           currentPeriodEnd,
           cancelAtPeriodEnd,
+          ...compFields,
           // Never null out an existing provider id with a missing one: a
           // partial event must not orphan the tenant from its Stripe customer.
           ...(providerCustomerId ? { providerCustomerId } : {}),
@@ -121,6 +163,14 @@ export class SubscriptionProvisioningService {
         details: JSON.stringify({
           modules: [...desired].sort(),
           status,
+          source,
+          ...(source === 'COMP'
+            ? {
+                compExpiresAt: compExpiresAt?.toISOString() ?? null,
+                compReason,
+                compGrantedBy,
+              }
+            : {}),
           reason: reason ?? 'manual',
         }),
       })
@@ -172,6 +222,44 @@ export class SubscriptionProvisioningService {
     this.logger.log(
       `Status for ${tenantId} -> ${status}${reason ? ` (${reason})` : ''}`,
     );
+  }
+
+  /**
+   * Is this tenant running on live complimentary access?
+   *
+   * The Stripe webhook calls this before writing anything, so a stray event
+   * cannot reset a comp. It returns false for a lapsed or revoked comp on
+   * purpose: a tenant who was comped and later decides to pay must be able to
+   * have Stripe provision them normally.
+   */
+  async isComped(tenantId: string): Promise<boolean> {
+    const subscription = await this.prisma.tenantSubscription.findUnique({
+      where: { tenantId },
+      select: { source: true, status: true, compExpiresAt: true },
+    });
+
+    return subscription ? isCompActive(subscription) : false;
+  }
+
+  /**
+   * Ends complimentary access.
+   *
+   * Modelled as a provisioning with no modules rather than a status flip, so
+   * it runs through the same converging path as every other entitlement
+   * change. The row stays COMP with its reason intact: the history of who was
+   * given free access, and why, is worth more than a tidy table.
+   */
+  async revokeComp(tenantId: string, revokedBy: string, reason?: string) {
+    return this.provision({
+      tenantId,
+      modules: [],
+      status: 'CANCELED',
+      source: 'COMP',
+      compExpiresAt: new Date(),
+      compReason: reason ?? null,
+      compGrantedBy: revokedBy,
+      reason: `comp-revoked:${revokedBy}`,
+    });
   }
 
   /** Resolves the tenant a Stripe customer/subscription belongs to. */

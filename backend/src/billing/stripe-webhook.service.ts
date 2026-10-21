@@ -267,6 +267,10 @@ export class StripeWebhookService {
     const tenantId = await this.resolveTenant(subscription);
     if (!tenantId) return { handled: false, reason: 'unknown-tenant' };
 
+    if (await this.skipIfComped(tenantId, eventId, 'subscription.deleted')) {
+      return { handled: false, tenantId, reason: 'comped-tenant' };
+    }
+
     await this.provisioning.cancel(tenantId, `stripe:${eventId}`);
     return { handled: true, tenantId };
   }
@@ -279,6 +283,10 @@ export class StripeWebhookService {
 
     const tenantId = await this.provisioning.tenantForProviderIds({ customerId });
     if (!tenantId) return { handled: false, reason: 'unknown-tenant' };
+
+    if (await this.skipIfComped(tenantId, eventId, 'payment.failed')) {
+      return { handled: false, tenantId, reason: 'comped-tenant' };
+    }
 
     // PAST_DUE deliberately keeps access. Dunning is a billing conversation,
     // not a reason to strand a customer mid-shift; Stripe retries the payment
@@ -293,6 +301,10 @@ export class StripeWebhookService {
     subscription: Stripe.Subscription,
     eventId: string,
   ) {
+    if (await this.skipIfComped(tenantId, eventId, 'subscription.changed')) {
+      return { handled: false, tenantId, reason: 'comped-tenant' };
+    }
+
     const modules = this.modulesFor(subscription);
 
     if (!modules.length) {
@@ -323,6 +335,32 @@ export class StripeWebhookService {
     });
 
     return { handled: true, tenantId, modules };
+  }
+
+  /**
+   * Refuses to let Stripe write over complimentary access.
+   *
+   * A comped tenant has no subscription in Stripe, so in the normal case no
+   * event ever names them. But a leftover customer id from a past trial, a
+   * test-mode event hitting live data, or a tenant comped after once paying
+   * can all produce one -- and provision() computes full desired state, so a
+   * single such event would strip their modules outright.
+   *
+   * Logged at warn rather than swallowed: this should be rare, and if it
+   * starts happening regularly something upstream needs looking at.
+   */
+  private async skipIfComped(
+    tenantId: string,
+    eventId: string,
+    handler: string,
+  ): Promise<boolean> {
+    if (!(await this.provisioning.isComped(tenantId))) return false;
+
+    this.logger.warn(
+      `Ignoring ${handler} event ${eventId}: tenant ${tenantId} is on complimentary access, ` +
+        'which Stripe does not own. Revoke the comp first if this tenant should be billed.',
+    );
+    return true;
   }
 
   /**

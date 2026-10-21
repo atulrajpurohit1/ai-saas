@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
+import AiPlanNotice from '@/components/AiPlanNotice';
 import RfpEditor from '@/components/RfpEditor';
 import RfpLogoUploadField from '@/components/RfpLogoUploadField';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -180,6 +181,7 @@ export default function NewRfpPage() {
 
   return (
     <DashboardLayout requiredModule="LEAD_GEN" requiredPermissions="rfp.create">
+      <AiPlanNotice feature="AI RFP generation" />
       <div className="mb-6">
         <Link href="/rfp" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 transition hover:text-foreground">
           <ArrowLeft size={16} />

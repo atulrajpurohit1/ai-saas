@@ -5,7 +5,7 @@ import { LogOut, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getBranding } from '@/lib/branding';
 import { cn } from '@/lib/utils';
-import { DASHBOARD_LINK, NAV_GROUPS, type NavLink } from '@/lib/nav-links';
+import { DASHBOARD_LINK, NAV_GROUPS, SUPER_ADMIN_LINK, type NavLink } from '@/lib/nav-links';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import BrandMark from '@/components/BrandMark';
 import { BRAND_NAME } from '@/lib/brand';
@@ -187,6 +187,18 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
             <div className="space-y-0.5">{group.links.map(renderLink)}</div>
           </div>
         ))}
+
+        {user?.isSuperAdmin && (
+          <div className="mb-2">
+            <p className={cn(
+              'px-3 pb-1.5 pt-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70',
+              collapsed && 'lg:hidden',
+            )}>
+              Platform
+            </p>
+            <div className="space-y-0.5">{renderLink(SUPER_ADMIN_LINK)}</div>
+          </div>
+        )}
       </nav>
 
       <div className="hidden border-t border-border p-2 lg:block">

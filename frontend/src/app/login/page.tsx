@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
-import { Lock, Mail, Building2, User, Shield, Briefcase, Loader2, ShieldCheck, KeyRound, ArrowLeft } from 'lucide-react';
+import { Lock, Mail, Building2, User, Shield, Loader2, ShieldCheck, KeyRound, ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import BrandMark from '@/components/BrandMark';
 import PasswordInput from '@/components/PasswordInput';
@@ -20,13 +20,6 @@ interface ApiError {
     status?: number;
   };
 }
-
-const normalizeSlug = (value: string) =>
-  value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
 
 const errorMessageFrom = (err: unknown, fallback: string) => {
   const apiError = err as ApiError;
@@ -61,15 +54,12 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [tenantName, setTenantName] = useState('');
-  const [tenantSlug, setTenantSlug] = useState('');
   const [role, setRole] = useState<'admin' | 'client'>('admin');
   const [isRegister, setIsRegister] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
-  const slugLabel = 'Company Name';
-  const slugPlaceholder = 'Acme Security';
 
   // Post-signup OTP verification step. `pendingEmail` set means the signup
   // request succeeded and we're now waiting on the 6-digit code.
@@ -282,31 +272,17 @@ export default function LoginPage() {
           await completeAdminLogin(res.data.access_token, res.data.refresh_token, 'Admin User');
         }
       } else {
-        // Client Flow
-        if (isRegister) {
-          const normalizedTenantSlug = normalizeSlug(tenantSlug);
-          setTenantSlug(normalizedTenantSlug);
-          localStorage.removeItem('token');
-          localStorage.removeItem('refresh_token');
-          localStorage.removeItem('user');
-          localStorage.removeItem('guard_token');
-          await api.post('client-auth/register', {
-            name,
-            email,
-            password,
-            tenantSlug: normalizedTenantSlug,
-          });
-          setPendingEmail(email);
-          setResendCooldown(RESEND_COOLDOWN_SECONDS);
-        } else {
-          localStorage.removeItem('token');
-          localStorage.removeItem('refresh_token');
-          localStorage.removeItem('user');
-          localStorage.removeItem('guard_token');
-          const res = await api.post('client-auth/login', { email, password });
-          localStorage.setItem('client_token', res.data.access_token);
-          router.push('/client/dashboard');
-        }
+        // Client flow -- sign-in only. Client accounts are created by the
+        // agency that serves them (Clients -> Create portal user), because
+        // nothing typed on this page identifies which agency a client is with.
+        localStorage.removeItem('token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('guard_token');
+        const res = await api.post('client-auth/login', { email, password });
+        localStorage.setItem('client_token', res.data.access_token);
+        if (res.data.refresh_token) localStorage.setItem('client_refresh_token', res.data.refresh_token);
+        router.push('/client/dashboard');
       }
     } catch (err: unknown) {
       setError(errorMessageFrom(err, 'Authentication failed'));
@@ -315,8 +291,10 @@ export default function LoginPage() {
     }
   };
 
-  const verifyEndpoint = role === 'admin' ? 'auth/verify-email' : 'client-auth/verify-email';
-  const resendEndpoint = role === 'admin' ? 'auth/resend-otp' : 'client-auth/resend-otp';
+  // Only the admin signup issues an OTP: the client portal has no signup to
+  // verify, so `pendingEmail` is never set from the client tab.
+  const verifyEndpoint = 'auth/verify-email';
+  const resendEndpoint = 'auth/resend-otp';
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -329,13 +307,7 @@ export default function LoginPage() {
 
       toast.success('Email verified successfully.');
 
-      if (role === 'admin') {
-        await completeAdminLogin(res.data.access_token, res.data.refresh_token, name || 'Admin', tenantName);
-      } else {
-        localStorage.setItem('client_token', res.data.access_token);
-        if (res.data.refresh_token) localStorage.setItem('client_refresh_token', res.data.refresh_token);
-        router.push('/client/dashboard');
-      }
+      await completeAdminLogin(res.data.access_token, res.data.refresh_token, name || 'Admin', tenantName);
     } catch (err: unknown) {
       const status = (err as ApiError).response?.status;
       setOtpError(
@@ -635,7 +607,7 @@ export default function LoginPage() {
             </button>
             <button
               type="button"
-              onClick={() => { setRole('client'); setError(''); }}
+              onClick={() => { setRole('client'); setIsRegister(false); setError(''); }}
               className={`flex flex-1 items-center justify-center gap-2 rounded-[var(--radius-sm)] py-2.5 text-xs font-bold uppercase tracking-wide transition ${role === 'client' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <User size={14} />
@@ -648,7 +620,7 @@ export default function LoginPage() {
           </h2>
           <p className="mb-6 mt-1 text-sm text-muted-foreground">
             {isRegister
-              ? `Signing up as a ${role === 'admin' ? 'company administrator' : 'client'}`
+              ? 'Signing up as a company administrator'
               : `Sign in to your ${role === 'admin' ? 'admin' : 'client'} dashboard`}
           </p>
 
@@ -663,22 +635,12 @@ export default function LoginPage() {
               </div>
             )}
 
-            {isRegister && role === 'admin' && (
+            {isRegister && (
               <div className="space-y-1.5">
                 <label className="text-eyebrow">Company Name</label>
                 <div className="relative">
                   <Building2 className={iconClass} size={17} />
                   <input type="text" className={inputClass} placeholder="Acme Security" value={tenantName} onChange={(e) => setTenantName(e.target.value)} required />
-                </div>
-              </div>
-            )}
-
-            {isRegister && role === 'client' && (
-              <div className="space-y-1.5">
-                <label className="text-eyebrow">{slugLabel}</label>
-                <div className="relative">
-                  <Briefcase className={iconClass} size={17} />
-                  <input type="text" autoCapitalize="none" spellCheck={false} className={inputClass} placeholder={slugPlaceholder} value={tenantSlug} onChange={(e) => setTenantSlug(e.target.value)} required />
                 </div>
               </div>
             )}
@@ -748,14 +710,27 @@ export default function LoginPage() {
             </button>
           </form>
 
+          {/*
+            Signing up creates an agency workspace, which only an administrator
+            does. A client's account is created for them by the agency they
+            already work with, so the client tab says who to ask instead of
+            offering a form that could not know which agency to join.
+          */}
           <div className="mt-6 text-center">
-            <button
-              type="button"
-              onClick={() => setIsRegister(!isRegister)}
-              className="text-sm font-semibold text-muted-foreground transition hover:text-primary"
-            >
-              {isRegister ? 'Already have an account? Sign in' : "Don't have an account? Register"}
-            </button>
+            {role === 'admin' ? (
+              <button
+                type="button"
+                onClick={() => setIsRegister(!isRegister)}
+                className="text-sm font-semibold text-muted-foreground transition hover:text-primary"
+              >
+                {isRegister ? 'Already have an account? Sign in' : "Don't have an account? Register"}
+              </button>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Need access? Your security provider creates your portal account —
+                ask your account manager for an invitation.
+              </p>
+            )}
           </div>
         </div>
         )}

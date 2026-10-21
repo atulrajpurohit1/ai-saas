@@ -2,6 +2,8 @@ import { ServiceUnavailableException } from '@nestjs/common';
 import { AiService } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
 import { CreditsService } from '../billing/credits.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
+import { AiNotOnPlanException } from '../billing/ai-not-on-plan.exception';
 import { UpstreamBudgetService } from './upstream-budget.service';
 import {
   discoveryCreditCost,
@@ -59,6 +61,7 @@ describe('ProspectSearchService', () => {
     invalidate: jest.Mock;
     getBalanceUsd: jest.Mock;
   };
+  let entitlements: { isAiEnabled: jest.Mock };
 
   const tenantId = 'tenant-1';
   const user: ActiveUser = { sub: 'user-1', tenantId, role: 'admin' };
@@ -177,6 +180,11 @@ describe('ProspectSearchService', () => {
       getBalanceUsd: jest.fn().mockResolvedValue(500),
     };
 
+    // AI on by default, so existing tests exercise the normal insight path.
+    entitlements = {
+      isAiEnabled: jest.fn().mockResolvedValue(true),
+    };
+
     service = new ProspectSearchService(
       aiService as unknown as AiService,
       auditService as unknown as AuditService,
@@ -190,6 +198,7 @@ describe('ProspectSearchService', () => {
       blackPearlProspectingProvider as unknown as BlackPearlProspectingProvider,
       creditsService as unknown as CreditsService,
       upstreamBudget as unknown as UpstreamBudgetService,
+      entitlements as unknown as EntitlementsService,
     );
   });
 
@@ -398,6 +407,22 @@ describe('ProspectSearchService', () => {
         prospectDto,
         'Find security companies in Texas',
       );
+    });
+
+    // The Trial plan: AI company insight is a Gemini feature, so it is refused
+    // outright -- neither BlackPearl nor Gemini is consulted.
+    it('refuses with AI_NOT_ON_PLAN when AI is not on the plan', async () => {
+      entitlements.isAiEnabled.mockResolvedValue(false);
+
+      await expect(
+        service.getCompanyInsight(
+          { company: prospectDto, prompt: 'anything' },
+          user,
+        ),
+      ).rejects.toBeInstanceOf(AiNotOnPlanException);
+
+      expect(blackPearlInsightProvider.getPlaybook).not.toHaveBeenCalled();
+      expect(aiService.generateProspectCompanyInsight).not.toHaveBeenCalled();
     });
   });
 

@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AiFeature } from '@prisma/client';
 import { CreditsService } from './credits.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 import { aiCreditCost } from './ai-credit-costs.constants';
+import { AiNotOnPlanException } from './ai-not-on-plan.exception';
 
 /** What a metered AI call needs to know about who is paying. */
 export interface AiMeterContext {
@@ -39,11 +41,31 @@ export interface AiMeterContext {
 export class AiMeteringService {
   private readonly logger = new Logger(AiMeteringService.name);
 
-  constructor(private readonly credits: CreditsService) {}
+  constructor(
+    private readonly credits: CreditsService,
+    private readonly entitlements: EntitlementsService,
+  ) {}
 
   /** Credit price of one call, after any env override. */
   costOf(feature: AiFeature): number {
     return aiCreditCost(feature);
+  }
+
+  /**
+   * Refuses the call outright when the tenant's plan excludes AI (the Trial
+   * plan). Checked before cost and before any credit spend, so a free (cost 0)
+   * feature is blocked too, and a Trial tenant with credits bought for prospect
+   * search cannot spend them on AI. Raises a 403 AI_NOT_ON_PLAN, distinct from
+   * the 402 a credit shortfall raises.
+   *
+   * This is one of exactly two enforcement points for the AI switch; the other
+   * is the prospect company-insight endpoint, the only AI call that does not
+   * pass through here.
+   */
+  private async assertAiEnabled(tenantId: string): Promise<void> {
+    if (!(await this.entitlements.isAiEnabled(tenantId))) {
+      throw new AiNotOnPlanException();
+    }
   }
 
   /**
@@ -71,6 +93,7 @@ export class AiMeteringService {
    */
   async run<T>(context: AiMeterContext, work: () => Promise<T>): Promise<T> {
     const { tenantId, userId, feature } = context;
+    await this.assertAiEnabled(tenantId);
     const cost = this.costOf(feature);
 
     if (cost === 0) return work();
@@ -106,6 +129,7 @@ export class AiMeteringService {
     chargeable: (result: T) => boolean,
   ): Promise<T> {
     const { tenantId, userId, feature } = context;
+    await this.assertAiEnabled(tenantId);
     const cost = this.costOf(feature);
 
     if (cost === 0) return work();
@@ -151,6 +175,12 @@ export class AiMeteringService {
     work: () => Promise<T | null>,
   ): Promise<T | null> {
     const { tenantId, userId, feature } = context;
+    // runNullable backs features that already degrade to a rule-based answer
+    // when AI produces nothing (daily report summary, guard recommendation).
+    // So when AI is not on the plan, return null and let the caller fall back,
+    // rather than throwing -- that keeps the surrounding non-AI feature working
+    // for a Trial tenant instead of 403-ing it. No Gemini call is made.
+    if (!(await this.entitlements.isAiEnabled(tenantId))) return null;
     const cost = this.costOf(feature);
 
     if (cost === 0) return work();

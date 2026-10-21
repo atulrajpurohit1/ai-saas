@@ -17,3 +17,16 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   const res = await api.get<DashboardSummary>('dashboard/summary');
   return res.data;
 }
+
+export interface RecentActivity {
+  id: string;
+  kind: 'lead' | 'deal' | 'proposal';
+  title: string;
+  subject: string;
+  createdAt: string;
+}
+
+export async function getRecentActivity(): Promise<RecentActivity[]> {
+  const res = await api.get<RecentActivity[]>('dashboard/recent-activity');
+  return Array.isArray(res.data) ? res.data : [];
+}

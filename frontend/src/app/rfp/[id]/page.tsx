@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
+import AiPlanNotice from '@/components/AiPlanNotice';
 import AssignedVendorsPanel from '@/components/AssignedVendorsPanel';
 import VendorSubmissionsPanel from '@/components/VendorSubmissionsPanel';
 import AiEvaluationPanel from '@/components/AiEvaluationPanel';
@@ -106,6 +107,7 @@ export default function RfpViewPage() {
 
   return (
     <DashboardLayout requiredModule="LEAD_GEN" requiredPermissions="rfp.view">
+      <AiPlanNotice feature="AI RFP analysis and proposal generation" />
       <div className="mb-6">
         <Link href="/rfp" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 transition hover:text-foreground">
           <ArrowLeft size={16} />
