@@ -16,4 +16,9 @@ export class DashboardController {
   getSummary(@GetUser() user: ActiveUser) {
     return this.dashboardService.getSummary(user.tenantId);
   }
+
+  @Get('recent-activity')
+  getRecentActivity(@GetUser() user: ActiveUser) {
+    return this.dashboardService.getRecentActivity(user.tenantId);
+  }
 }

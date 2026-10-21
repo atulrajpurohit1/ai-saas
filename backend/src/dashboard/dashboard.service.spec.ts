@@ -102,4 +102,70 @@ describe('DashboardService', () => {
     const total = summary.leads.weeklyTrend.reduce((sum, w) => sum + w.count, 0);
     expect(total).toBe(1);
   });
+
+  describe('getRecentActivity', () => {
+    it('asks the database for only a handful of rows per table, not the whole table', async () => {
+      await service.getRecentActivity('tenant-1');
+
+      // The point of the endpoint: the dashboard used to pull every lead, deal
+      // and proposal the tenant owned in order to render five lines.
+      for (const table of [prisma.lead, prisma.deal, prisma.proposal]) {
+        expect(table.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { tenantId: 'tenant-1' },
+            orderBy: { createdAt: 'desc' },
+            take: 5,
+          }),
+        );
+      }
+    });
+
+    it('merges the three sources into one list ordered newest first', async () => {
+      prisma.lead.findMany.mockResolvedValue([
+        { id: 'l1', name: 'Ada', company: 'Acme', createdAt: daysAgo(1) },
+      ]);
+      prisma.deal.findMany.mockResolvedValue([
+        { id: 'd1', name: 'Renewal', createdAt: daysAgo(3), lead: { company: 'Acme' } },
+      ]);
+      prisma.proposal.findMany.mockResolvedValue([
+        { id: 'p1', title: 'Q4 Proposal', createdAt: daysAgo(2), lead: { company: 'Acme' } },
+      ]);
+
+      const activity = await service.getRecentActivity('tenant-1');
+
+      expect(activity.map((a) => a.id)).toEqual(['lead-l1', 'proposal-p1', 'deal-d1']);
+      expect(activity[0]).toMatchObject({ kind: 'lead', subject: 'Acme' });
+    });
+
+    it('caps the merged list even when every table returns a full page', async () => {
+      const rows = (prefix: string) =>
+        Array.from({ length: 5 }, (_, i) => ({
+          id: `${prefix}${i}`,
+          name: prefix,
+          title: prefix,
+          company: 'Acme',
+          createdAt: daysAgo(i + 1),
+          lead: { company: 'Acme' },
+        }));
+      prisma.lead.findMany.mockResolvedValue(rows('l'));
+      prisma.deal.findMany.mockResolvedValue(rows('d'));
+      prisma.proposal.findMany.mockResolvedValue(rows('p'));
+
+      await expect(service.getRecentActivity('tenant-1')).resolves.toHaveLength(5);
+    });
+
+    it('falls back to the linked company when a deal or proposal has no name of its own', async () => {
+      prisma.deal.findMany.mockResolvedValue([
+        { id: 'd1', name: '', createdAt: daysAgo(1), lead: { company: 'Acme' } },
+      ]);
+      prisma.proposal.findMany.mockResolvedValue([
+        { id: 'p1', title: '', createdAt: daysAgo(2), lead: null },
+      ]);
+
+      const activity = await service.getRecentActivity('tenant-1');
+
+      expect(activity.find((a) => a.id === 'deal-d1')?.subject).toBe('Acme');
+      expect(activity.find((a) => a.id === 'proposal-p1')?.subject).toBe('Proposal');
+    });
+  });
 });
