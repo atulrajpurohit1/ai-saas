@@ -182,6 +182,13 @@ function SuperAdminContent() {
   }, [load]);
 
   const activeComps = useMemo(() => comps.filter((c) => c.active), [comps]);
+  // Grants waiting on a paid plan to run out. Listed apart from the active
+  // ones, because "has free access" and "will have free access" are different
+  // answers to the only question this screen is asked.
+  const scheduledComps = useMemo(
+    () => comps.filter((c) => c.scheduled && !c.active),
+    [comps],
+  );
 
   const submitGrant = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -212,7 +219,7 @@ function SuperAdminContent() {
 
     setGranting(true);
     try {
-      await grantComp({
+      const result = await grantComp({
         tenantId: formTenantId,
         package: formPlan,
         expiresInDays,
@@ -220,7 +227,16 @@ function SuperAdminContent() {
       });
       const tenantName =
         tenants.find((t) => t.tenantId === formTenantId)?.name ?? formTenantId;
-      setFormNotice(`${COMP_PLAN_LABELS[formPlan]} granted to ${tenantName}.`);
+      setFormNotice(
+        result.scheduled
+          ? `${tenantName} is inside a paid period, so ${COMP_PLAN_LABELS[formPlan]} ` +
+            `is queued and starts ${
+              result.startsAt
+                ? `on ${formatDate(result.startsAt)}`
+                : 'when their paid plan ends'
+            }. Their paid plan is untouched until then.`
+          : `${COMP_PLAN_LABELS[formPlan]} granted to ${tenantName}.`,
+      );
       setFormReason('');
       await load();
     } catch (err) {
@@ -231,9 +247,12 @@ function SuperAdminContent() {
   };
 
   const revoke = async (row: CompRow) => {
+    const who = row.tenantName ?? row.tenantId;
     if (
       !window.confirm(
-        `Revoke free access for ${row.tenantName ?? row.tenantId}? They will lose it immediately.`,
+        row.scheduled
+          ? `Cancel the queued free plan for ${who}? Their paid plan is unaffected -- nothing will take over when it ends.`
+          : `Revoke free access for ${who}? They will lose it immediately.`,
       )
     ) {
       return;
@@ -580,6 +599,72 @@ Reason (optional):`,
               </div>
             )}
           </div>
+
+          {/*
+            Grants waiting on a paid plan. Only rendered when there are any:
+            an empty "nothing queued" panel is noise on a screen that already
+            has an empty state above it.
+          */}
+          {scheduledComps.length > 0 && (
+            <div className="rounded-xl border border-border bg-card">
+              <div className="border-b border-border px-5 py-3">
+                <div className="text-sm font-semibold text-foreground">
+                  Starting later ({scheduledComps.length})
+                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  These tenants are inside a paid period. The free plan takes
+                  over when it ends -- their paid plan is untouched until then.
+                </p>
+              </div>
+              <div className="divide-y divide-border">
+                {scheduledComps.map((row) => (
+                  <div
+                    key={row.tenantId}
+                    className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-medium text-foreground">
+                          {row.tenantName ?? row.tenantId}
+                        </span>
+                        <PlanBadge plan={row.plan} />
+                      </div>
+                      <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {row.reason ?? 'No reason recorded'}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <div className="text-sm font-semibold text-foreground">
+                          {row.startsAt
+                            ? `Starts ${formatDate(row.startsAt)}`
+                            : 'Starts when their plan ends'}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {row.days
+                            ? `Then ${row.days} day${row.days === 1 ? '' : 's'}`
+                            : 'Then open-ended'}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => revoke(row)}
+                        disabled={revokingId === row.tenantId}
+                        className="flex items-center gap-1.5 rounded-lg border border-error/30 px-2.5 py-1.5 text-xs font-medium text-error transition hover:bg-error-wash disabled:opacity-60"
+                      >
+                        {revokingId === row.tenantId ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

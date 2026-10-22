@@ -8,6 +8,8 @@ import { StripeService } from './stripe.service';
 import { StripeWebhookService } from './stripe-webhook.service';
 import { StripeWebhookController } from './stripe-webhook.controller';
 import { SubscriptionProvisioningService } from './subscription-provisioning.service';
+import { PendingCompService } from './pending-comp.service';
+import { PendingCompScheduler } from './pending-comp.scheduler';
 import { GuardMeteringService } from './guard-metering.service';
 import { BandDriftService } from './band-drift.service';
 import { BandDriftScheduler } from './band-drift.scheduler';
@@ -41,6 +43,8 @@ import { PlatformAuthModule } from '../platform-auth/platform-auth.module';
     StripeService,
     StripeWebhookService,
     SubscriptionProvisioningService,
+    PendingCompService,
+    PendingCompScheduler,
     GuardMeteringService,
     BandDriftService,
     BandDriftScheduler,
@@ -55,6 +59,7 @@ import { PlatformAuthModule } from '../platform-auth/platform-auth.module';
   exports: [
     BillingService,
     SubscriptionProvisioningService,
+    PendingCompService,
     GuardMeteringService,
     BandDriftService,
     CreditsService,

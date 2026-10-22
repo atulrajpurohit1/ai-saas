@@ -185,7 +185,7 @@ model Tenant {
 model Branch {
   id              String               @id @default(uuid())
   tenantId        String               @map("tenant_id")
-  tenant          Tenant               @relation(fields: [tenantId], references: [id])
+  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name            String
   location        String
   managerId       String?              @map("manager_id")
@@ -225,7 +225,7 @@ model User {
   emailVerifiedAt             DateTime?            @map("email_verified_at")
   createdAt                   DateTime             @default(now())
   updatedAt                   DateTime             @updatedAt
-  tenant                      Tenant               @relation(fields: [tenantId], references: [id])
+  tenant                      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   reviewedIncidents           Incident[]           @relation("IncidentReviewer")
   roleAssignments             UserRoleAssignment[]
   sessions                    UserSession[]
@@ -388,7 +388,7 @@ model Lead {
   email             String?
   phone             String?
   deals             Deal[]
-  tenant            Tenant             @relation(fields: [tenantId], references: [id])
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   proposals         Proposal[]
   notes             Note[]
   discoverySessions DiscoverySession[]
@@ -406,8 +406,8 @@ model Deal {
   leadId            String
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
-  lead              Lead               @relation(fields: [leadId], references: [id])
-  tenant            Tenant             @relation(fields: [tenantId], references: [id])
+  lead              Lead               @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   activities        Activity[]
   notes             Note[]
   proposals         Proposal[]
@@ -430,7 +430,7 @@ model Note {
   dealId    String?
   deal      Deal?    @relation(fields: [dealId], references: [id])
   tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   @@index([tenantId])
@@ -446,7 +446,7 @@ model Activity {
   dealId      String?
   deal        Deal?     @relation(fields: [dealId], references: [id])
   tenantId    String
-  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdAt   DateTime  @default(now())
 
   @@index([tenantId])
@@ -464,7 +464,7 @@ model Proposal {
   updatedAt DateTime          @updatedAt
   lead      Lead?             @relation(fields: [leadId], references: [id])
   deal      Deal?             @relation(fields: [dealId], references: [id])
-  tenant    Tenant            @relation(fields: [tenantId], references: [id])
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   versions  ProposalVersion[]
   clientId  String?
   client    Client?           @relation(fields: [clientId], references: [id])
@@ -479,7 +479,7 @@ model Proposal {
 model ProposalVersion {
   id            String   @id @default(uuid())
   proposalId    String
-  proposal      Proposal @relation(fields: [proposalId], references: [id])
+  proposal      Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
   content       String
   versionNumber Int
   createdAt     DateTime @default(now())
@@ -739,7 +739,7 @@ model SalesAssessment {
 model AuditLog {
   id         String   @id @default(uuid())
   tenantId   String
-  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userId     String?
   action     String
   entityType String
@@ -756,7 +756,7 @@ model Site {
   address             String
   instructions        String?
   tenantId            String
-  tenant              Tenant                  @relation(fields: [tenantId], references: [id])
+  tenant              Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branchId            String?                 @map("branch_id")
   branch              Branch?                 @relation(fields: [branchId], references: [id], onDelete: SetNull)
   clientId            String?                 @map("client_id")
@@ -795,7 +795,7 @@ model Guard {
   documents         String?
   personalNotes     String?           @map("personal_notes")
   tenantId          String
-  tenant            Tenant            @relation(fields: [tenantId], references: [id])
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branchId          String?           @map("branch_id")
   branch            Branch?           @relation(fields: [branchId], references: [id], onDelete: SetNull)
   assignments       Assignment[]
@@ -852,13 +852,13 @@ model GuardCompliance {
 model Shift {
   id               String            @id @default(uuid())
   siteId           String
-  site             Site              @relation(fields: [siteId], references: [id])
+  site             Site              @relation(fields: [siteId], references: [id], onDelete: Cascade)
   startTime        DateTime
   endTime          DateTime
   requiredGuards   Int
   status           String            @default("open")
   tenantId         String
-  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branchId         String?           @map("branch_id")
   branch           Branch?           @relation(fields: [branchId], references: [id], onDelete: SetNull)
   assignments      Assignment[]
@@ -877,9 +877,9 @@ model Shift {
 model Assignment {
   id        String   @id @default(uuid())
   shiftId   String
-  shift     Shift    @relation(fields: [shiftId], references: [id])
+  shift     Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
   guardId   String
-  guard     Guard    @relation(fields: [guardId], references: [id])
+  guard     Guard    @relation(fields: [guardId], references: [id], onDelete: Cascade)
   status    String   @default("pending") // pending, confirmed...
   createdAt DateTime @default(now())
 
@@ -890,12 +890,12 @@ model Assignment {
 model Availability {
   id        String    @id @default(uuid())
   guardId   String    @unique
-  guard     Guard     @relation(fields: [guardId], references: [id])
+  guard     Guard     @relation(fields: [guardId], references: [id], onDelete: Cascade)
   status    String    @default("available") // available, unavailable
   startDate DateTime?
   endDate   DateTime?
   tenantId  String
-  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -906,13 +906,13 @@ model Availability {
 model AttendanceEvent {
   id        String              @id @default(uuid())
   guardId   String
-  guard     Guard               @relation(fields: [guardId], references: [id])
+  guard     Guard               @relation(fields: [guardId], references: [id], onDelete: Cascade)
   shiftId   String
-  shift     Shift               @relation(fields: [shiftId], references: [id])
+  shift     Shift               @relation(fields: [shiftId], references: [id], onDelete: Cascade)
   type      AttendanceEventType
   timestamp DateTime            @default(now())
   tenantId  String
-  tenant    Tenant              @relation(fields: [tenantId], references: [id])
+  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   notes     String?
   source    String              @default("guard_portal")
   createdAt DateTime            @default(now())
@@ -926,15 +926,15 @@ model AttendanceEvent {
 model Incident {
   id            String             @id @default(uuid())
   tenantId      String             @map("tenant_id")
-  tenant        Tenant             @relation(fields: [tenantId], references: [id])
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branchId      String?            @map("branch_id")
   branch        Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
   shiftId       String             @map("shift_id")
-  shift         Shift              @relation(fields: [shiftId], references: [id])
+  shift         Shift              @relation(fields: [shiftId], references: [id], onDelete: Cascade)
   siteId        String             @map("site_id")
-  site          Site               @relation(fields: [siteId], references: [id])
+  site          Site               @relation(fields: [siteId], references: [id], onDelete: Cascade)
   guardId       String             @map("guard_id")
-  guard         Guard              @relation(fields: [guardId], references: [id])
+  guard         Guard              @relation(fields: [guardId], references: [id], onDelete: Cascade)
   title         String
   description   String
   severity      String             @default("low")
@@ -996,7 +996,7 @@ model Client {
   billingNotes        String?                 @map("billing_notes")
   internalNotes       String?                 @map("internal_notes")
   tenantId            String
-  tenant              Tenant                  @relation(fields: [tenantId], references: [id])
+  tenant              Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branchId            String?                 @map("branch_id")
   branch              Branch?                 @relation(fields: [branchId], references: [id], onDelete: SetNull)
   users               ClientUser[]
@@ -1071,13 +1071,13 @@ model ClientInsurancePolicy {
 model DailyServiceReport {
   id          String    @id @default(uuid())
   tenantId    String    @map("tenant_id")
-  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branchId    String?   @map("branch_id")
   branch      Branch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)
   clientId    String    @map("client_id")
-  client      Client    @relation(fields: [clientId], references: [id])
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   siteId      String    @map("site_id")
-  site        Site      @relation(fields: [siteId], references: [id])
+  site        Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
   reportDate  DateTime  @map("report_date")
   summary     String
   status      String    @default("draft")
@@ -1099,13 +1099,13 @@ model DailyServiceReport {
 model Invoice {
   id                  String           @id @default(uuid())
   tenantId            String           @map("tenant_id")
-  tenant              Tenant           @relation(fields: [tenantId], references: [id])
+  tenant              Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branchId            String?          @map("branch_id")
   branch              Branch?          @relation(fields: [branchId], references: [id], onDelete: SetNull)
   clientId            String           @map("client_id")
-  client              Client           @relation(fields: [clientId], references: [id])
+  client              Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
   siteId              String           @map("site_id")
-  site                Site             @relation(fields: [siteId], references: [id])
+  site                Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
   invoiceNumber       String           @map("invoice_number")
   billingStartDate    DateTime         @map("billing_start_date")
   billingEndDate      DateTime         @map("billing_end_date")
@@ -1147,9 +1147,9 @@ model InvoiceDispute {
   invoiceId     String    @map("invoice_id")
   invoice       Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   clientId      String    @map("client_id")
-  client        Client    @relation(fields: [clientId], references: [id])
+  client        Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   tenantId      String    @map("tenant_id")
-  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   reason        String
   description   String
   status        String    @default("open")
@@ -1174,9 +1174,9 @@ model InvoiceItem {
   rateCardId  String?    @map("rate_card_id")
   rateCard    RateCard?  @relation(fields: [rateCardId], references: [id], onDelete: SetNull)
   shiftId     String     @map("shift_id")
-  shift       Shift      @relation(fields: [shiftId], references: [id])
+  shift       Shift      @relation(fields: [shiftId], references: [id], onDelete: Cascade)
   guardId     String     @map("guard_id")
-  guard       Guard      @relation(fields: [guardId], references: [id])
+  guard       Guard      @relation(fields: [guardId], references: [id], onDelete: Cascade)
   workedHours Float      @map("worked_hours")
   hourlyRate  Float      @map("hourly_rate")
   amount      Float
@@ -1193,9 +1193,9 @@ model InvoiceItem {
 model RateCard {
   id            String        @id @default(uuid())
   tenantId      String        @map("tenant_id")
-  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   clientId      String        @map("client_id")
-  client        Client        @relation(fields: [clientId], references: [id])
+  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   siteId        String?       @map("site_id")
   site          Site?         @relation(fields: [siteId], references: [id], onDelete: SetNull)
   roleName      String?       @map("role_name")
@@ -1221,13 +1221,13 @@ model RateCard {
 model Timesheet {
   id              String        @id @default(uuid())
   tenantId        String        @map("tenant_id")
-  tenant          Tenant        @relation(fields: [tenantId], references: [id])
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   guardId         String        @map("guard_id")
-  guard           Guard         @relation(fields: [guardId], references: [id])
+  guard           Guard         @relation(fields: [guardId], references: [id], onDelete: Cascade)
   shiftId         String        @map("shift_id")
-  shift           Shift         @relation(fields: [shiftId], references: [id])
+  shift           Shift         @relation(fields: [shiftId], references: [id], onDelete: Cascade)
   siteId          String        @map("site_id")
-  site            Site          @relation(fields: [siteId], references: [id])
+  site            Site          @relation(fields: [siteId], references: [id], onDelete: Cascade)
   clientId        String?       @map("client_id")
   client          Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
   checkInTime     DateTime      @map("check_in_time")
@@ -1257,9 +1257,9 @@ model ClientUser {
   password        String
   refreshToken    String?
   clientId        String
-  client          Client    @relation(fields: [clientId], references: [id])
+  client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   tenantId        String
-  tenant          Tenant    @relation(fields: [tenantId], references: [id])
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   emailVerified   Boolean   @default(false) @map("email_verified")
   emailVerifiedAt DateTime? @map("email_verified_at")
   createdAt       DateTime  @default(now())
@@ -1273,11 +1273,11 @@ model ProposalComment {
   id           String   @id @default(uuid())
   content      String
   proposalId   String
-  proposal     Proposal @relation(fields: [proposalId], references: [id])
+  proposal     Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
   userId       String? // If commented by admin
   clientUserId String? // If commented by client
   tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
 
   @@index([proposalId])
@@ -1287,9 +1287,9 @@ model ProposalComment {
 model GuardSyncQueue {
   id           String    @id @default(uuid())
   tenantId     String    @map("tenant_id")
-  tenant       Tenant    @relation(fields: [tenantId], references: [id])
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   guardId      String    @map("guard_id")
-  guard        Guard     @relation(fields: [guardId], references: [id])
+  guard        Guard     @relation(fields: [guardId], references: [id], onDelete: Cascade)
   actionType   String    @map("action_type") // check_in, check_out, incident_create, patrol_checkpoint_scan, patrol_run_complete
   payload      Json
   // pending: being processed. synced: applied. failed: transient error, retried
@@ -1313,9 +1313,9 @@ model SharedDocument {
   url         String
   description String?
   clientId    String
-  client      Client   @relation(fields: [clientId], references: [id])
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   uploadedBy  String // Admin user ID
   createdAt   DateTime @default(now())
 
@@ -1326,7 +1326,7 @@ model SharedDocument {
 model RecommendationAction {
   id               String        @id @default(uuid())
   tenantId         String        @map("tenant_id")
-  tenant           Tenant        @relation(fields: [tenantId], references: [id])
+  tenant           Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   aiGenerationId   String?       @map("ai_generation_id")
   aiGeneration     AiGeneration? @relation(fields: [aiGenerationId], references: [id], onDelete: SetNull)
   recommendationId String        @map("recommendation_id")
@@ -1354,7 +1354,7 @@ model RecommendationAction {
 model PromptVersion {
   id          String         @id @default(uuid())
   tenantId    String         @map("tenant_id")
-  tenant      Tenant         @relation(fields: [tenantId], references: [id])
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   moduleName  String         @map("module_name")
   promptKey   String         @map("prompt_key")
   version     String
@@ -1374,7 +1374,7 @@ model PromptVersion {
 model AiGeneration {
   id                  String                 @id @default(uuid())
   tenantId            String                 @map("tenant_id")
-  tenant              Tenant                 @relation(fields: [tenantId], references: [id])
+  tenant              Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   promptVersion       String                 @map("prompt_version")
   promptVersionId     String?                @map("prompt_version_id")
   promptVersionRecord PromptVersion?         @relation(fields: [promptVersionId], references: [id], onDelete: SetNull)
@@ -1410,7 +1410,7 @@ model AiGeneration {
 model AiFeedback {
   id               String                @id @default(uuid())
   tenantId         String                @map("tenant_id")
-  tenant           Tenant                @relation(fields: [tenantId], references: [id])
+  tenant           Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   aiGenerationId   String                @map("ai_generation_id")
   aiGeneration     AiGeneration          @relation(fields: [aiGenerationId], references: [id], onDelete: Cascade)
   recommendationId String?               @map("recommendation_id")
@@ -1434,7 +1434,7 @@ model AiFeedback {
 model AiConversation {
   id              String   @id @default(uuid())
   tenantId        String   @map("tenant_id")
-  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userId          String?  @map("user_id")
   question        String
   answer          String
@@ -1600,6 +1600,29 @@ model TenantSubscription {
   /// only for the audit trail, so mixed values are readable but nothing joins
   /// on them.
   compGrantedBy        String?            @map("comp_granted_by")
+  /// A comp that has been granted but must not start yet, because the tenant is
+  /// still inside a paid subscription they have already been charged for.
+  ///
+  /// Applying a free plan the moment it is granted would downgrade a paying
+  /// customer mid-period -- stripping AI on a Trial grant, detaching them from
+  /// Stripe's writes (the webhook refuses to touch a comped tenant) while
+  /// Stripe keeps billing them. So the grant is parked here and applied when
+  /// the paid plan actually ends.
+  ///
+  /// A comp plan key (see COMP_PLAN_KEYS), not an enum: the plan list is
+  /// product configuration that changes without a migration, and a value that
+  /// stops being a plan is rejected on read rather than silently provisioned.
+  pendingCompPlan      String?            @map("pending_comp_plan")
+  /// When the parked comp becomes due: the paid plan's period end at the time
+  /// of the grant. Null means the end date was not knowable, so the comp waits
+  /// for Stripe to report the cancellation instead of for a date.
+  pendingCompStartsAt  DateTime?          @map("pending_comp_starts_at")
+  /// The comp's own term, in days, counted from when it ACTIVATES rather than
+  /// from when it was granted -- a 30-day free plan queued behind two months of
+  /// paid service is still 30 days of free service. Null means open-ended.
+  pendingCompDays      Int?               @map("pending_comp_days")
+  pendingCompReason    String?            @map("pending_comp_reason")
+  pendingCompGrantedBy String?            @map("pending_comp_granted_by")
   trialEndsAt          DateTime?          @map("trial_ends_at")
   currentPeriodEnd     DateTime?          @map("current_period_end")
   cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
@@ -1611,6 +1634,8 @@ model TenantSubscription {
   @@index([tenantId])
   @@index([status])
   @@index([source])
+  /// The hourly activation sweep scans for comps whose start date has passed.
+  @@index([pendingCompStartsAt])
   @@map("TenantSubscription")
 }
 

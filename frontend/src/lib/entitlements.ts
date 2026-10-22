@@ -19,6 +19,22 @@ export interface Entitlements {
   trialEndsAt?: string | null;
   currentPeriodEnd?: string | null;
   cancelAtPeriodEnd?: boolean;
+  /**
+   * A complimentary plan the platform owner has queued behind this account's
+   * paid one. It grants nothing today -- `modules` is still the paid plan --
+   * and takes over when the paid plan ends.
+   *
+   * Optional: absent on an older session or backend, which is the same as
+   * "nothing queued" for display purposes.
+   */
+  pendingPlan?: {
+    key: string;
+    name: string;
+    /** Null when the start date is not known in advance. */
+    startsAt?: string | null;
+    /** How long it runs once it starts. Null is open-ended. */
+    days?: number | null;
+  } | null;
   modules: EntitlementModule[];
 }
 
@@ -160,4 +176,32 @@ export function moduleSummary(entitlements?: Entitlements | null) {
     blurb: SERVICE_MODULE_BLURBS[key],
     active: active.has(key),
   }));
+}
+
+/**
+ * The package a tenant's active modules add up to, for naming the plan they
+ * are on. All three services is Complete -- a bundle with its own name, not
+ * three separate purchases -- and a single service is that service's package.
+ *
+ * Returns null for no services and for a mix that matches no package (two of
+ * three, which is not sold), because there is no one name to show. Callers
+ * fall back to listing the active services individually.
+ *
+ * Deliberately derived from entitlements rather than from Stripe: a comped or
+ * hand-provisioned tenant is on a plan just as much as a paying one, and this
+ * is only ever used to label what they already have.
+ */
+export function subscribedPackage(
+  entitlements?: Entitlements | null,
+): 'GENERATION' | 'GUARD' | 'OPERATIONS' | 'COMPLETE' | null {
+  const active = activeModules(entitlements);
+  if (active.size === SERVICE_MODULE_KEYS.length) return 'COMPLETE';
+  if (active.size !== 1) return null;
+
+  const [only] = [...active];
+  return only === 'LEAD_GEN'
+    ? 'GENERATION'
+    : only === 'GUARD_TOUR'
+      ? 'GUARD'
+      : 'OPERATIONS';
 }

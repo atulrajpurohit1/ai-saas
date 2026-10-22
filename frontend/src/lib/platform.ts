@@ -37,6 +37,15 @@ export interface CompRow {
   /** 'TRIAL' when AI is off, otherwise 'COMP'. */
   plan: 'TRIAL' | 'COMP';
   expiresAt: string | null;
+  /**
+   * Granted, but queued behind a paid subscription and not started yet. Such a
+   * row is never `active`: the tenant is still on the plan they are paying for.
+   */
+  scheduled?: boolean;
+  /** When a queued grant starts. Null means "when the paid plan ends". */
+  startsAt?: string | null;
+  /** How long a queued grant runs for, counted from when it starts. */
+  days?: number | null;
   reason: string | null;
   grantedBy: string | null;
   updatedAt: string;
@@ -53,7 +62,20 @@ export async function grantComp(input: {
   /** Omit for lifetime (open-ended) access. */
   expiresInDays?: number;
   reason: string;
-}): Promise<{ tenantId: string; package: CompPlanKey; aiEnabled: boolean; expiresAt: string | null }> {
+}): Promise<{
+  tenantId: string;
+  package: CompPlanKey;
+  aiEnabled: boolean;
+  expiresAt: string | null;
+  /**
+   * True when the tenant was inside a paid period, so the grant was queued
+   * instead of applied. The server decides this -- comping over a live paid
+   * plan immediately is not offered, because it would downgrade a customer who
+   * has already been charged.
+   */
+  scheduled?: boolean;
+  startsAt?: string | null;
+}> {
   const res = await platformApi.post('platform/comps/grant', input);
   return res.data;
 }
@@ -61,7 +83,7 @@ export async function grantComp(input: {
 export async function revokeComp(input: {
   tenantId: string;
   reason?: string;
-}): Promise<{ tenantId: string }> {
+}): Promise<{ tenantId: string; wasScheduled?: boolean }> {
   const res = await platformApi.post('platform/comps/revoke', input);
   return res.data;
 }
