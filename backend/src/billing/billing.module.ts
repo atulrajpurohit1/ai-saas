@@ -21,10 +21,14 @@ import { CreditAutoRechargeScheduler } from './credit-auto-recharge.scheduler';
 import { CreditAutoRechargeController } from './credit-auto-recharge.controller';
 import { AiMeteringService } from './ai-metering.service';
 import { EmailModule } from '../email/email.module';
+import { PlatformAuthModule } from '../platform-auth/platform-auth.module';
 
 @Global()
 @Module({
-  imports: [PrismaModule, AuditModule, EmailModule],
+  // PlatformAuthModule is imported for CompController's PlatformAdminGuard:
+  // the guard runs the 'jwt-platform' strategy, which has to be registered in
+  // a module this one can see.
+  imports: [PrismaModule, AuditModule, EmailModule, PlatformAuthModule],
   controllers: [
     BillingController,
     CompController,

@@ -141,10 +141,16 @@ export class AuthService {
             name,
             tenantId: tenant.id,
             emailVerified: false,
-            // Stated explicitly. This is the tenant's founding user and does
-            // need full administration, but the column no longer defaults to
-            // true -- so every other creation path has to make the same
-            // decision out loud instead of inheriting it.
+            // TENANT-SCOPED ONLY: "owner of this tenant, therefore sees every
+            // branch in it". This is the tenant's founding user, so that is
+            // correct and stays.
+            //
+            // It confers nothing on the platform. It used to: the platform
+            // guard read this same flag off the JWT, so every tenant that
+            // ever signed up here held a working platform-admin token and
+            // could open the platform console and comp its own account.
+            // Platform authority now lives in the PlatformAdmin table behind
+            // a separately-signed token, and no column on User grants it.
             isSuperAdmin: true,
           },
         });
@@ -448,6 +454,16 @@ export class AuthService {
     const passwordMatches = await bcrypt.compare(dto.password, user.password);
     if (!passwordMatches)
       throw new UnauthorizedException('Invalid credentials');
+
+    // A suspended tenant cannot sign in at all. Checked after the password
+    // comparison so that a wrong password on a suspended account still answers
+    // "Invalid credentials" -- otherwise this message would confirm that the
+    // address is real to anyone who typed any password at all.
+    if (!user.tenant.isActive) {
+      throw new ForbiddenException(
+        'This account has been suspended. Contact support.',
+      );
+    }
 
     if (!user.emailVerified) {
       throw new ForbiddenException(

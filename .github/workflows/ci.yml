@@ -83,6 +83,13 @@ jobs:
           DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
           JWT_ACCESS_SECRET: ci-access-secret-not-used-for-anything-real-0123456789
           JWT_REFRESH_SECRET: ci-refresh-secret-not-used-for-anything-real-9876543210
+          # The platform console's strategies read these AT CONSTRUCTION and
+          # throw if either is missing, which is exactly the failure mode the
+          # note above describes -- so app-boots.spec.ts needs them present.
+          # Distinct values: the environment check treats a platform secret
+          # that matches a tenant secret as fatal.
+          JWT_PLATFORM_ACCESS_SECRET: ci-platform-access-secret-not-real-abcdefghij
+          JWT_PLATFORM_REFRESH_SECRET: ci-platform-refresh-secret-not-real-klmnopqrst
         run: npx jest --ci --runInBand
 
   frontend:

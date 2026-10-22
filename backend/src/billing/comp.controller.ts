@@ -7,10 +7,9 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { GetUser } from '../auth/decorators/get-user.decorator';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
-import { ActiveUser } from '../auth/interfaces/active-user.interface';
+import { GetPlatformAdmin } from '../platform-auth/decorators/get-platform-admin.decorator';
+import { PlatformAdminGuard } from '../platform-auth/guards/platform-admin.guard';
+import { ActivePlatformAdmin } from '../platform-auth/interfaces/active-platform-admin.interface';
 import { PrismaService } from '../prisma/prisma.service';
 import { GrantCompDto } from './dto/grant-comp.dto';
 import { RevokeCompDto } from './dto/revoke-comp.dto';
@@ -27,7 +26,7 @@ import { isCompActive } from './comp.util';
  *
  * Separate from BillingController because the audience is different: that one
  * serves a tenant looking at their own account, this one serves whoever runs
- * the platform, acting across tenants. Hence SuperAdminGuard rather than the
+ * the platform, acting across tenants. Hence PlatformAdminGuard rather than the
  * tenant-scoped PermissionGuard -- a tenant admin holds `billing.manage` for
  * their own account and must never be able to comp it.
  *
@@ -35,7 +34,7 @@ import { isCompActive } from './comp.util';
  * purchase path, and nothing here touches it: a comped tenant still buys
  * their own credits to run searches.
  */
-@UseGuards(JwtAuthGuard, SuperAdminGuard)
+@UseGuards(PlatformAdminGuard)
 @Controller('platform/comps')
 export class CompController {
   private readonly logger = new Logger(CompController.name);
@@ -84,7 +83,10 @@ export class CompController {
   }
 
   @Post('grant')
-  async grant(@GetUser() user: ActiveUser, @Body() dto: GrantCompDto) {
+  async grant(
+    @GetPlatformAdmin() admin: ActivePlatformAdmin,
+    @Body() dto: GrantCompDto,
+  ) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: dto.tenantId },
       select: { id: true, name: true },
@@ -108,14 +110,14 @@ export class CompController {
       aiEnabled,
       compExpiresAt: expiresAt,
       compReason: dto.reason,
-      compGrantedBy: user.sub,
+      compGrantedBy: admin.adminId,
       reason: `comp:${COMP_PLAN_LABELS[dto.package]}`,
     });
 
     this.logger.log(
       `Comped ${tenant.name ?? tenant.id} onto ${COMP_PLAN_LABELS[dto.package]} ` +
         `(AI ${aiEnabled ? 'on' : 'off'}) ` +
-        `until ${expiresAt?.toISOString() ?? 'further notice'} (by ${user.sub}).`,
+        `until ${expiresAt?.toISOString() ?? 'further notice'} (by ${admin.adminId}).`,
     );
 
     return {
@@ -128,7 +130,10 @@ export class CompController {
   }
 
   @Post('revoke')
-  async revoke(@GetUser() user: ActiveUser, @Body() dto: RevokeCompDto) {
+  async revoke(
+    @GetPlatformAdmin() admin: ActivePlatformAdmin,
+    @Body() dto: RevokeCompDto,
+  ) {
     const subscription = await this.prisma.tenantSubscription.findUnique({
       where: { tenantId: dto.tenantId },
       select: { source: true },
@@ -148,11 +153,11 @@ export class CompController {
 
     const summary = await this.provisioning.revokeComp(
       dto.tenantId,
-      user.sub,
+      admin.adminId,
       dto.reason,
     );
 
-    this.logger.log(`Revoked comp for ${dto.tenantId} (by ${user.sub}).`);
+    this.logger.log(`Revoked comp for ${dto.tenantId} (by ${admin.adminId}).`);
 
     return { tenantId: dto.tenantId, summary };
   }

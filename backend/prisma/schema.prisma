@@ -104,6 +104,14 @@ model Tenant {
   slug                    String                   @unique
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
+  /// Whether this tenant may be used at all. Set false by a platform admin
+  /// suspending the account: every login path checks it, so a suspended tenant
+  /// cannot sign in while all of its data stays intact and restorable. This is
+  /// the reversible half of tenant removal -- the irreversible half is an
+  /// actual row delete, which cascades.
+  isActive                Boolean                  @default(true) @map("is_active")
+  suspendedAt             DateTime?                @map("suspended_at")
+  suspendedReason         String?                  @map("suspended_reason")
   branches                Branch[]
   deals                   Deal[]
   leads                   Lead[]
@@ -2332,4 +2340,58 @@ model ProspectDiscoveryJob {
   @@index([status, createdAt])
   @@index([tenantId, userId])
   @@map("ProspectDiscoveryJob")
+}
+
+/**
+ * Whoever runs AegisLead itself. A different KIND of account from User, not a
+ * User with extra privileges, and that distinction is the whole point.
+ *
+ * Before this model existed, platform access was a boolean column on User
+ * (`User.is_super_admin`). That column had to mean two unrelated things at
+ * once: "owner of this tenant, so sees every branch in it" -- which signup set
+ * to true for every founding user -- and "runs the platform, so may act across
+ * all tenants". Because the tenant JWT carried the flag and the platform guard
+ * read it, the first meaning silently granted the second: every customer who
+ * ever signed up held a valid platform-admin token and could open the platform
+ * console and comp their own account. `is_super_admin` keeps ONLY the
+ * tenant-scoped meaning now; nothing about platform authority is derived from
+ * it, or from any other column on User.
+ *
+ * There is no tenantId here, and that is not an omission. A platform admin
+ * belongs to no tenant, so there is no tenant row whose compromise could mint
+ * one, and no tenant-scoped query that could accidentally return one. Their
+ * tokens are signed with a SEPARATE secret (JWT_PLATFORM_ACCESS_SECRET), so a
+ * tenant token is not a platform token with the wrong claims -- it fails
+ * signature verification at the platform strategy and never reaches a guard.
+ * Forging the claim is not enough; you would need the other secret.
+ *
+ * Accounts are created only by the seed script (prisma/seed-platform-admin.ts)
+ * or by an existing platform admin. There is deliberately no self-service
+ * signup and no public registration route.
+ */
+model PlatformAdmin {
+  id               String    @id @default(uuid())
+  email            String    @unique
+  /// bcrypt hash. Never a plaintext or reversible value.
+  password         String
+  name             String?
+  /// Lets an account be revoked without deleting the audit trail that points
+  /// at it. Checked on every login AND on every request, so disabling an
+  /// admin takes effect immediately rather than when their token expires.
+  isActive         Boolean   @default(true) @map("is_active")
+  /// Hash of the current refresh token, so a refresh token that has been
+  /// rotated or logged out cannot be replayed. Null means no live session.
+  refreshTokenHash String?   @map("refresh_token_hash")
+  lastLoginAt      DateTime? @map("last_login_at")
+  lastLoginIp      String?   @map("last_login_ip")
+  /// Consecutive failed logins, and the time the lockout lifts. Platform
+  /// admin is the highest-value credential in the system and its login is
+  /// reachable from the internet, so it gets its own lockout rather than
+  /// relying on the tenant rate limiter it does not share a code path with.
+  failedAttempts   Int       @default(0) @map("failed_attempts")
+  lockedUntil      DateTime? @map("locked_until")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@map("PlatformAdmin")
 }

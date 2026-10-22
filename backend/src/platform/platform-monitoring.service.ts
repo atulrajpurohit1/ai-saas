@@ -15,7 +15,7 @@ function windowStart(days = USAGE_WINDOW_DAYS): Date {
  *
  * Everything here answers "how is the whole platform doing" -- which tenants
  * are on which plan, who is spending credits, what AI is costing us -- so it is
- * reached only through the SuperAdminGuard, never tenant-scoped. It writes
+ * reached only through the PlatformAdminGuard, never tenant-scoped. It writes
  * nothing; the write actions (granting and revoking access) stay in
  * CompController.
  */
@@ -98,6 +98,11 @@ export class PlatformMonitoringService {
           id: true,
           name: true,
           createdAt: true,
+          isActive: true,
+          suspendedAt: true,
+          suspendedReason: true,
+          slug: true,
+          _count: { select: { users: true } },
           subscription: {
             select: {
               status: true,
@@ -135,6 +140,11 @@ export class PlatformMonitoringService {
         tenantId: tenant.id,
         name: tenant.name,
         createdAt: tenant.createdAt,
+        slug: tenant.slug,
+        isActive: tenant.isActive,
+        suspendedAt: tenant.suspendedAt,
+        suspendedReason: tenant.suspendedReason,
+        userCount: tenant._count.users,
         status: sub?.status ?? null,
         source: sub?.source ?? null,
         // The plan label the screen shows: a live comp with AI off is the
@@ -147,8 +157,8 @@ export class PlatformMonitoringService {
               : 'TRIAL'
             : sub.source,
         aiEnabled: sub?.aiEnabled ?? false,
-        compExpiresAt: liveComp ? sub!.compExpiresAt : null,
-        compReason: liveComp ? sub!.compReason : null,
+        compExpiresAt: liveComp ? sub.compExpiresAt : null,
+        compReason: liveComp ? sub.compReason : null,
         creditBalance: tenant.creditBalance?.balance ?? 0,
         creditsConsumed: tenant.creditBalance?.lifetimeConsumed ?? 0,
         aiCostUsd30d: costByTenant.get(tenant.id) ?? 0,

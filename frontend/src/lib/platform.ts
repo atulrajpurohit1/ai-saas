@@ -1,10 +1,13 @@
-import api from '@/lib/api';
+import platformApi from '@/lib/platform-api';
 
 /**
- * Platform-owner (super admin) API: cross-tenant monitoring plus granting and
- * revoking the AegisLead Trial plan. Every call here is gated server-side by
- * SuperAdminGuard, so a normal tenant admin cannot reach it even if they call
- * the endpoints directly.
+ * Platform-owner API: cross-tenant monitoring, tenant lifecycle, and granting
+ * or revoking the AegisLead Trial plan.
+ *
+ * Every call goes through platformApi, which sends the platform session token
+ * and never a tenant one. Server-side, every endpoint is behind
+ * PlatformAdminGuard and a separately-signed token, so a tenant admin calling
+ * these URLs directly -- with any role, any flags -- gets a 401.
  */
 
 // --- Comp / Trial plans the owner can grant ------------------------------
@@ -40,7 +43,7 @@ export interface CompRow {
 }
 
 export async function listComps(): Promise<CompRow[]> {
-  const res = await api.get<CompRow[]>('platform/comps');
+  const res = await platformApi.get<CompRow[]>('platform/comps');
   return res.data;
 }
 
@@ -51,7 +54,7 @@ export async function grantComp(input: {
   expiresInDays?: number;
   reason: string;
 }): Promise<{ tenantId: string; package: CompPlanKey; aiEnabled: boolean; expiresAt: string | null }> {
-  const res = await api.post('platform/comps/grant', input);
+  const res = await platformApi.post('platform/comps/grant', input);
   return res.data;
 }
 
@@ -59,7 +62,7 @@ export async function revokeComp(input: {
   tenantId: string;
   reason?: string;
 }): Promise<{ tenantId: string }> {
-  const res = await api.post('platform/comps/revoke', input);
+  const res = await platformApi.post('platform/comps/revoke', input);
   return res.data;
 }
 
@@ -73,7 +76,7 @@ export interface PlatformOverview {
 }
 
 export async function getOverview(): Promise<PlatformOverview> {
-  const res = await api.get<PlatformOverview>('platform/overview');
+  const res = await platformApi.get<PlatformOverview>('platform/overview');
   return res.data;
 }
 
@@ -81,6 +84,12 @@ export interface PlatformTenant {
   tenantId: string;
   name: string;
   createdAt: string;
+  slug: string;
+  /** False once a platform admin has suspended the account. */
+  isActive: boolean;
+  suspendedAt: string | null;
+  suspendedReason: string | null;
+  userCount: number;
   status: string | null;
   source: string | null;
   /** 'NONE' | 'TRIAL' | 'COMP' | 'STRIPE' | 'COMP' */
@@ -94,7 +103,7 @@ export interface PlatformTenant {
 }
 
 export async function getTenants(): Promise<PlatformTenant[]> {
-  const res = await api.get<PlatformTenant[]>('platform/tenants');
+  const res = await platformApi.get<PlatformTenant[]>('platform/tenants');
   return res.data;
 }
 
@@ -115,7 +124,7 @@ export interface AiUsageBreakdown {
 }
 
 export async function getAiUsage(days?: number): Promise<AiUsageBreakdown> {
-  const res = await api.get<AiUsageBreakdown>('platform/ai-usage', {
+  const res = await platformApi.get<AiUsageBreakdown>('platform/ai-usage', {
     params: days ? { days } : undefined,
   });
   return res.data;
@@ -135,9 +144,81 @@ export interface RechargeAttempt {
 }
 
 export async function getRecharges(limit = 50): Promise<RechargeAttempt[]> {
-  const res = await api.get<RechargeAttempt[]>('platform/recharges', {
+  const res = await platformApi.get<RechargeAttempt[]>('platform/recharges', {
     params: { limit },
   });
+  return res.data;
+}
+
+// --- Tenant lifecycle ----------------------------------------------------
+
+export interface CreateTenantInput {
+  name: string;
+  ownerEmail: string;
+  ownerName?: string;
+  /** Twelve characters minimum; the server enforces the same floor. */
+  ownerPassword: string;
+}
+
+export interface CreatedTenant {
+  tenantId: string;
+  name: string;
+  slug: string;
+  ownerEmail: string;
+}
+
+/**
+ * Creates a tenant and its first owner account. The owner is an ordinary
+ * tenant user -- full rights inside their own tenant, none over the platform.
+ */
+export async function createTenant(
+  input: CreateTenantInput,
+): Promise<CreatedTenant> {
+  const res = await platformApi.post('platform/tenants', input);
+  return res.data;
+}
+
+/**
+ * Reversible: blocks every login for the tenant (agency, client portal and
+ * guard app alike) and revokes live sessions, while keeping all of its data.
+ */
+export async function suspendTenant(input: {
+  tenantId: string;
+  reason?: string;
+}): Promise<{ tenantId: string; isActive: boolean }> {
+  const res = await platformApi.post(
+    `platform/tenants/${input.tenantId}/suspend`,
+    { reason: input.reason },
+  );
+  return res.data;
+}
+
+export async function reactivateTenant(
+  tenantId: string,
+): Promise<{ tenantId: string; isActive: boolean }> {
+  const res = await platformApi.post(
+    `platform/tenants/${tenantId}/reactivate`,
+    {},
+  );
+  return res.data;
+}
+
+/**
+ * PERMANENT. Cascades to every row the tenant owns -- users, leads, invoices,
+ * shifts, incidents, evidence, credits.
+ *
+ * `confirmName` must equal the tenant's exact name. The server checks it, so
+ * the confirmation is a real precondition rather than a dialog that a direct
+ * API call could skip.
+ */
+export async function deleteTenant(input: {
+  tenantId: string;
+  confirmName: string;
+}): Promise<{ tenantId: string; deleted: boolean; name: string }> {
+  const res = await platformApi.delete(
+    `platform/tenants/${input.tenantId}`,
+    { data: { confirmName: input.confirmName } },
+  );
   return res.data;
 }
 

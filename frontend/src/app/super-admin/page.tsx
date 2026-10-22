@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
-import { useAuth } from '@/context/AuthContext';
+import { usePlatformAuth } from '@/context/PlatformAuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { cn } from '@/lib/utils';
 import {
@@ -15,24 +15,32 @@ import {
   type AiUsageBreakdown,
   type RechargeAttempt,
   daysLeft,
+  createTenant,
+  deleteTenant,
   getAiUsage,
   getOverview,
   getRecharges,
   getTenants,
   grantComp,
   listComps,
+  reactivateTenant,
   revokeComp,
+  suspendTenant,
 } from '@/lib/platform';
 import {
   AlertTriangle,
+  Ban,
   Building2,
   Coins,
   Gift,
   Loader2,
   LogOut,
+  Plus,
+  RotateCcw,
   ShieldCheck,
   Sparkles,
   Trash2,
+  Users,
 } from 'lucide-react';
 
 type Tab = 'trials' | 'tenants' | 'ai' | 'recharges';
@@ -111,7 +119,7 @@ function StatCard({
 }
 
 function SuperAdminContent() {
-  const { user } = useAuth();
+  const { admin } = usePlatformAuth();
   const [tab, setTab] = useState<Tab>('trials');
 
   const [overview, setOverview] = useState<PlatformOverview | null>(null);
@@ -132,6 +140,20 @@ function SuperAdminContent() {
   const [formError, setFormError] = useState('');
   const [formNotice, setFormNotice] = useState('');
   const [revokingId, setRevokingId] = useState<string | null>(null);
+
+  // Tenant management state.
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newOwnerEmail, setNewOwnerEmail] = useState('');
+  const [newOwnerName, setNewOwnerName] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [tenantError, setTenantError] = useState('');
+  const [tenantNotice, setTenantNotice] = useState('');
+  const [busyTenantId, setBusyTenantId] = useState<string | null>(null);
+  /** The tenant a delete confirmation is open for, plus the typed name. */
+  const [deleteTarget, setDeleteTarget] = useState<PlatformTenant | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
 
   const load = useCallback(async () => {
     setError('');
@@ -228,6 +250,96 @@ function SuperAdminContent() {
     }
   };
 
+  const submitCreateTenant = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setTenantError('');
+    setTenantNotice('');
+
+    if (newName.trim().length < 2) {
+      setTenantError('Enter the tenant/company name.');
+      return;
+    }
+    // Mirrors the server's floor (CreateTenantDto). Checked here only so the
+    // operator finds out before the round trip, never instead of it.
+    if (newPassword.length < 12) {
+      setTenantError('The owner password must be at least 12 characters.');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const created = await createTenant({
+        name: newName.trim(),
+        ownerEmail: newOwnerEmail.trim(),
+        ownerName: newOwnerName.trim() || undefined,
+        ownerPassword: newPassword,
+      });
+      setTenantNotice(
+        `Created ${created.name}. The owner signs in at /login as ${created.ownerEmail}.`,
+      );
+      setNewName('');
+      setNewOwnerEmail('');
+      setNewOwnerName('');
+      setNewPassword('');
+      setShowCreate(false);
+      await load();
+    } catch (err) {
+      setTenantError(getApiErrorMessage(err, 'Could not create the tenant.'));
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const toggleSuspend = async (tenant: PlatformTenant) => {
+    setTenantError('');
+    setTenantNotice('');
+    setBusyTenantId(tenant.tenantId);
+    try {
+      if (tenant.isActive) {
+        const reason =
+          window.prompt(
+            `Suspend ${tenant.name}? Every user, client and guard on this account will be signed out and blocked from logging in. Their data is kept.
+
+Reason (optional):`,
+          ) ?? undefined;
+        // prompt() returns null on Cancel, which must not read as an empty
+        // reason and go ahead with the suspension.
+        if (reason === undefined) return;
+        await suspendTenant({ tenantId: tenant.tenantId, reason });
+        setTenantNotice(`${tenant.name} is suspended and cannot sign in.`);
+      } else {
+        await reactivateTenant(tenant.tenantId);
+        setTenantNotice(`${tenant.name} can sign in again.`);
+      }
+      await load();
+    } catch (err) {
+      setTenantError(getApiErrorMessage(err, 'Could not update the tenant.'));
+    } finally {
+      setBusyTenantId(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setTenantError('');
+    setTenantNotice('');
+    setBusyTenantId(deleteTarget.tenantId);
+    try {
+      const result = await deleteTenant({
+        tenantId: deleteTarget.tenantId,
+        confirmName: deleteConfirmName.trim(),
+      });
+      setTenantNotice(`${result.name} and all of its data have been deleted.`);
+      setDeleteTarget(null);
+      setDeleteConfirmName('');
+      await load();
+    } catch (err) {
+      setTenantError(getApiErrorMessage(err, 'Could not delete the tenant.'));
+    } finally {
+      setBusyTenantId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24 text-muted-foreground">
@@ -247,7 +359,7 @@ function SuperAdminContent() {
     <>
       <PageHeader
         title="Platform admin"
-        description={`Signed in as ${user?.email}. Monitor every tenant and grant the AegisLead Trial plan.`}
+        description={`Signed in as ${admin?.email}. Monitor every tenant, manage accounts, and grant the AegisLead Trial plan.`}
         icon={ShieldCheck}
       />
 
@@ -472,35 +584,322 @@ function SuperAdminContent() {
       )}
 
       {tab === 'tenants' && (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
-          <table className="w-full min-w-[720px] text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-4 py-3 font-medium">Tenant</th>
-                <th className="px-4 py-3 font-medium">Plan</th>
-                <th className="px-4 py-3 font-medium">AI</th>
-                <th className="px-4 py-3 font-medium">Credits</th>
-                <th className="px-4 py-3 font-medium">AI cost 30d</th>
-                <th className="px-4 py-3 font-medium">Joined</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {tenants.map((t) => (
-                <tr key={t.tenantId}>
-                  <td className="px-4 py-3 font-medium text-foreground">{t.name}</td>
-                  <td className="px-4 py-3"><PlanBadge plan={t.plan} /></td>
-                  <td className="px-4 py-3">
-                    <span className={t.aiEnabled ? 'text-emerald-600' : 'text-muted-foreground'}>
-                      {t.aiEnabled ? 'On' : 'Off'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-foreground">{t.creditBalance.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-foreground">{usd(t.aiCostUsd30d)}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{formatDate(t.createdAt)}</td>
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm text-muted-foreground">
+              {tenants.length} tenant{tenants.length === 1 ? '' : 's'} ·{' '}
+              {tenants.filter((t) => !t.isActive).length} suspended
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowCreate((open) => !open);
+                setTenantError('');
+                setTenantNotice('');
+              }}
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition hover:opacity-90"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add tenant
+            </button>
+          </div>
+
+          {tenantNotice && (
+            <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-600">
+              {tenantNotice}
+            </p>
+          )}
+          {tenantError && !deleteTarget && (
+            <p
+              role="alert"
+              className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+            >
+              {tenantError}
+            </p>
+          )}
+
+          {showCreate && (
+            <form
+              onSubmit={submitCreateTenant}
+              className="grid gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-2"
+            >
+              <div className="text-xs text-muted-foreground sm:col-span-2">
+                Creates the account and its first owner user. The owner has full
+                rights inside their own tenant and no access to this console.
+              </div>
+              <div>
+                <label
+                  htmlFor="new-tenant-name"
+                  className="mb-1.5 block text-xs font-medium text-muted-foreground"
+                >
+                  Company name
+                </label>
+                <input
+                  id="new-tenant-name"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  required
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="new-owner-name"
+                  className="mb-1.5 block text-xs font-medium text-muted-foreground"
+                >
+                  Owner name{' '}
+                  <span className="text-muted-foreground/60">(optional)</span>
+                </label>
+                <input
+                  id="new-owner-name"
+                  value={newOwnerName}
+                  onChange={(e) => setNewOwnerName(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="new-owner-email"
+                  className="mb-1.5 block text-xs font-medium text-muted-foreground"
+                >
+                  Owner email
+                </label>
+                <input
+                  id="new-owner-email"
+                  type="email"
+                  value={newOwnerEmail}
+                  onChange={(e) => setNewOwnerEmail(e.target.value)}
+                  required
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="new-owner-password"
+                  className="mb-1.5 block text-xs font-medium text-muted-foreground"
+                >
+                  Owner password{' '}
+                  <span className="text-muted-foreground/60">(min 12 chars)</span>
+                </label>
+                <input
+                  id="new-owner-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={12}
+                  autoComplete="new-password"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+                />
+              </div>
+              <div className="flex items-center gap-2 sm:col-span-2">
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+                >
+                  {creating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  Create tenant
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCreate(false)}
+                  className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+
+          <div className="overflow-x-auto rounded-xl border border-border bg-card">
+            <table className="w-full min-w-[880px] text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="px-4 py-3 font-medium">Tenant</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Plan</th>
+                  <th className="px-4 py-3 font-medium">AI</th>
+                  <th className="px-4 py-3 font-medium">Users</th>
+                  <th className="px-4 py-3 font-medium">Credits</th>
+                  <th className="px-4 py-3 font-medium">AI cost 30d</th>
+                  <th className="px-4 py-3 font-medium">Joined</th>
+                  <th className="px-4 py-3 text-right font-medium">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {tenants.map((t) => (
+                  <tr key={t.tenantId} className={cn(!t.isActive && 'opacity-60')}>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-foreground">{t.name}</div>
+                      <div className="text-xs text-muted-foreground">{t.slug}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {t.isActive ? (
+                        <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-600">
+                          Active
+                        </span>
+                      ) : (
+                        <span
+                          className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-600"
+                          title={t.suspendedReason ?? 'No reason recorded'}
+                        >
+                          Suspended
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <PlanBadge plan={t.plan} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={
+                          t.aiEnabled ? 'text-emerald-600' : 'text-muted-foreground'
+                        }
+                      >
+                        {t.aiEnabled ? 'On' : 'Off'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                        {t.userCount}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-foreground">
+                      {t.creditBalance.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-foreground">{usd(t.aiCostUsd30d)}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {formatDate(t.createdAt)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => toggleSuspend(t)}
+                          disabled={busyTenantId === t.tenantId}
+                          title={t.isActive ? 'Suspend (reversible)' : 'Reactivate'}
+                          className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+                        >
+                          {busyTenantId === t.tenantId ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : t.isActive ? (
+                            <Ban className="h-3.5 w-3.5" />
+                          ) : (
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          )}
+                          {t.isActive ? 'Suspend' : 'Reactivate'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeleteTarget(t);
+                            setDeleteConfirmName('');
+                            setTenantError('');
+                            setTenantNotice('');
+                          }}
+                          title="Delete permanently"
+                          className="flex items-center gap-1 rounded-lg border border-destructive/30 px-2 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {tenants.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={9}
+                      className="px-4 py-8 text-center text-muted-foreground"
+                    >
+                      No tenants yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/*
+            Typing the tenant's exact name is the confirmation. The server
+            requires the same value, so this dialog is the humane presentation
+            of a precondition that holds either way -- not the only thing
+            standing between a stray click and a deleted customer.
+          */}
+          {deleteTarget && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+              <div className="w-full max-w-md rounded-xl border border-destructive/40 bg-card p-5">
+                <div className="mb-3 flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="h-5 w-5" />
+                  <h2 className="text-sm font-semibold">
+                    Delete {deleteTarget.name}?
+                  </h2>
+                </div>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  This permanently removes the tenant and everything it owns —{' '}
+                  {deleteTarget.userCount} user
+                  {deleteTarget.userCount === 1 ? '' : 's'}, plus all leads,
+                  invoices, shifts, incidents and evidence. It cannot be undone.
+                  To block access without losing the data, suspend the tenant
+                  instead.
+                </p>
+                <label
+                  htmlFor="delete-confirm"
+                  className="mb-1.5 block text-xs font-medium text-muted-foreground"
+                >
+                  Type{' '}
+                  <span className="font-semibold text-foreground">
+                    {deleteTarget.name}
+                  </span>{' '}
+                  to confirm
+                </label>
+                <input
+                  id="delete-confirm"
+                  value={deleteConfirmName}
+                  onChange={(e) => setDeleteConfirmName(e.target.value)}
+                  autoComplete="off"
+                  className="mb-4 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-destructive"
+                />
+                {tenantError && (
+                  <p
+                    role="alert"
+                    className="mb-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+                  >
+                    {tenantError}
+                  </p>
+                )}
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeleteTarget(null);
+                      setDeleteConfirmName('');
+                    }}
+                    className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmDelete}
+                    disabled={
+                      busyTenantId === deleteTarget.tenantId ||
+                      deleteConfirmName.trim() !== deleteTarget.name.trim()
+                    }
+                    className="flex items-center gap-2 rounded-lg bg-destructive px-3 py-2 text-xs font-semibold text-destructive-foreground transition hover:opacity-90 disabled:opacity-50"
+                  >
+                    {busyTenantId === deleteTarget.tenantId && (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    )}
+                    Delete permanently
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -619,25 +1018,31 @@ function SuperAdminContent() {
  * DashboardLayout: no tenant sidebar, no module nav, no app chrome. It is its
  * own surface living only at this URL and not linked from the customer app.
  *
- * Anyone who is not a super admin is hard-redirected to /login and sees
- * nothing in between -- no content, no chrome, not even an "access denied"
- * page. The backend (SuperAdminGuard) enforces the same rule on every call, so
- * this is the UI half of a boundary the API already owns.
+ * Access rests on a platform session (PlatformAuthContext), which exists only
+ * if `platform-auth/me` succeeded -- a server answer about a PlatformAdmin
+ * row, not a flag on a tenant user. Anyone without one is sent to
+ * /super-admin/login and sees nothing in between.
+ *
+ * What this replaced: the gate used to read `user.isSuperAdmin` off the TENANT
+ * session, a flag signup set for every tenant's founding user, so every
+ * customer reached this console in full. It also redirected to the customer
+ * /login, which both told them the route existed and sent them somewhere that
+ * could sign them straight back into it. Now an unauthenticated visitor lands
+ * on a platform login they cannot pass with tenant credentials, and the API
+ * enforces the same boundary with a separate signing secret.
  */
 export default function SuperAdminPage() {
-  const { user, loading, logout } = useAuth();
+  const { admin, loading, logout } = usePlatformAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (loading) return;
-    if (!user || !user.isSuperAdmin) {
-      router.replace('/login');
-    }
-  }, [user, loading, router]);
+    if (!admin) router.replace('/super-admin/login');
+  }, [admin, loading, router]);
 
-  // Reveal nothing until a super admin is confirmed: a non-admin only ever
+  // Reveal nothing until a platform admin is confirmed: anyone else only ever
   // sees this blank loader before the redirect fires.
-  if (loading || !user || !user.isSuperAdmin) {
+  if (loading || !admin) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background">
         <div className="h-10 w-10 animate-spin rounded-full border-t-2 border-b-2 border-primary" />
@@ -657,11 +1062,14 @@ export default function SuperAdminPage() {
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden text-xs text-muted-foreground sm:inline">
-              {user.email}
+              {admin.email}
             </span>
             <button
               type="button"
-              onClick={logout}
+              onClick={async () => {
+                await logout();
+                router.replace('/super-admin/login');
+              }}
               className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground"
             >
               <LogOut className="h-3.5 w-3.5" />

@@ -51,6 +51,14 @@ export class GuardAuthService {
         );
       }
 
+      // A suspended tenant takes its guard app down with it, same placement
+      // and same reason as the deactivation check above.
+      if (!guard.tenant.isActive) {
+        throw new ForbiddenException(
+          'This account has been suspended. Contact your supervisor.',
+        );
+      }
+
       const tokens = await this.getTokens(guard.id, guard.tenantId, {
         email: guard.email,
         phone: guard.phone,
