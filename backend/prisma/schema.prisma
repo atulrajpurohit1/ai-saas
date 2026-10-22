@@ -1591,9 +1591,14 @@ model TenantSubscription {
   compExpiresAt        DateTime?          @map("comp_expires_at")
   /// Why the comp was granted, for the record. Required at the API boundary.
   compReason           String?            @map("comp_reason")
-  /// User id of the platform admin who granted it. Not a relation: the grantor
-  /// belongs to a different tenant than the subscription, and the record must
-  /// survive that account being deleted.
+  /// PlatformAdmin id of whoever granted it. Not a relation, and deliberately
+  /// not cascading: the record of who comped a tenant must survive that admin
+  /// account being deleted.
+  ///
+  /// This held a User id until platform admins became their own entity. Old
+  /// rows therefore still carry a User id; both are opaque identifiers used
+  /// only for the audit trail, so mixed values are readable but nothing joins
+  /// on them.
   compGrantedBy        String?            @map("comp_granted_by")
   trialEndsAt          DateTime?          @map("trial_ends_at")
   currentPeriodEnd     DateTime?          @map("current_period_end")
