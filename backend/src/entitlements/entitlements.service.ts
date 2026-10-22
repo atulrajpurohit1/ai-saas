@@ -11,6 +11,10 @@ import {
   serviceForPermissionModule,
 } from './entitlements.constants';
 import { isCompActive } from '../billing/comp.util';
+import {
+  COMP_PLAN_LABELS,
+  isCompPlanKey,
+} from '../billing/comp-plan.constants';
 
 /** Statuses that still grant access. PAST_DUE keeps working -- dunning is a
  *  billing conversation, not a reason to strand a paying customer mid-shift. */
@@ -218,11 +222,49 @@ export class EntitlementsService {
       trialEndsAt: subscription?.trialEndsAt ?? null,
       currentPeriodEnd: subscription?.currentPeriodEnd ?? null,
       cancelAtPeriodEnd: subscription?.cancelAtPeriodEnd ?? false,
+      // A complimentary plan the owner has queued behind this tenant's paid
+      // one. It changes nothing about what they can do today -- that is what
+      // `modules` above is for -- but the plan page says what happens when the
+      // paid plan runs out, so "my subscription ended and I still have access"
+      // is answered before it is asked.
+      //
+      // The columns are read straight off the row rather than through
+      // PendingCompService: that service depends on provisioning, which
+      // depends on this one, and a cycle is not worth a shared getter.
+      pendingPlan: this.pendingPlan(subscription),
       modules: SERVICE_MODULES.map((module) => ({
         key: module,
         name: SERVICE_MODULE_LABELS[module],
         active: granted.has(module),
       })),
+    };
+  }
+
+  /**
+   * The queued complimentary plan on a subscription row, named for display.
+   *
+   * An unrecognised plan key reports nothing rather than guessing: the grant
+   * will not be provisioned either (PendingCompService refuses it), so
+   * promising the customer a plan that cannot be applied would be worse than
+   * saying nothing.
+   */
+  private pendingPlan(
+    subscription: {
+      pendingCompPlan: string | null;
+      pendingCompStartsAt: Date | null;
+      pendingCompDays: number | null;
+    } | null,
+  ) {
+    const key = subscription?.pendingCompPlan;
+    if (!key || !isCompPlanKey(key)) return null;
+
+    return {
+      key,
+      name: COMP_PLAN_LABELS[key],
+      // Null means it starts whenever the paid plan ends, on a date not known
+      // in advance.
+      startsAt: subscription?.pendingCompStartsAt ?? null,
+      days: subscription?.pendingCompDays ?? null,
     };
   }
 

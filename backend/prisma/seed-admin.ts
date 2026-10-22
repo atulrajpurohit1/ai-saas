@@ -4,7 +4,13 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 /**
- * Creates (or updates) the first administrator.
+ * Creates (or updates) the first TENANT administrator -- a user inside a
+ * tenant, with full rights over that tenant only.
+ *
+ * This does NOT create a platform administrator. The account that runs
+ * AegisLead itself lives in the PlatformAdmin table and is seeded by
+ * seed-platform-admin.ts; nothing this script creates can reach the platform
+ * console.
  *
  * The email and password MUST be supplied in the environment. This script used
  * to hardcode admin@aisaascrm.com / Admin123!, and because this repository is
@@ -88,9 +94,9 @@ async function main() {
         password,
         name: process.env.ADMIN_NAME?.trim() || 'Super Admin',
         tenantId: tenant.id,
-        // Explicit since is_super_admin stopped defaulting to true. This seed
-        // exists to create an administrator, so omitting it would quietly
-        // produce an account that cannot administer anything.
+        // Tenant-scoped owner rights: full administration of this tenant,
+        // every branch in it, and nothing outside it. NOT platform access --
+        // see seed-platform-admin.ts for the account that runs the platform.
         isSuperAdmin: true,
       },
     });

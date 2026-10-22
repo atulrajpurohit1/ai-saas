@@ -8,6 +8,8 @@ import { StripeService } from './stripe.service';
 import { StripeWebhookService } from './stripe-webhook.service';
 import { StripeWebhookController } from './stripe-webhook.controller';
 import { SubscriptionProvisioningService } from './subscription-provisioning.service';
+import { PendingCompService } from './pending-comp.service';
+import { PendingCompScheduler } from './pending-comp.scheduler';
 import { GuardMeteringService } from './guard-metering.service';
 import { BandDriftService } from './band-drift.service';
 import { BandDriftScheduler } from './band-drift.scheduler';
@@ -21,10 +23,14 @@ import { CreditAutoRechargeScheduler } from './credit-auto-recharge.scheduler';
 import { CreditAutoRechargeController } from './credit-auto-recharge.controller';
 import { AiMeteringService } from './ai-metering.service';
 import { EmailModule } from '../email/email.module';
+import { PlatformAuthModule } from '../platform-auth/platform-auth.module';
 
 @Global()
 @Module({
-  imports: [PrismaModule, AuditModule, EmailModule],
+  // PlatformAuthModule is imported for CompController's PlatformAdminGuard:
+  // the guard runs the 'jwt-platform' strategy, which has to be registered in
+  // a module this one can see.
+  imports: [PrismaModule, AuditModule, EmailModule, PlatformAuthModule],
   controllers: [
     BillingController,
     CompController,
@@ -37,6 +43,8 @@ import { EmailModule } from '../email/email.module';
     StripeService,
     StripeWebhookService,
     SubscriptionProvisioningService,
+    PendingCompService,
+    PendingCompScheduler,
     GuardMeteringService,
     BandDriftService,
     BandDriftScheduler,
@@ -51,6 +59,7 @@ import { EmailModule } from '../email/email.module';
   exports: [
     BillingService,
     SubscriptionProvisioningService,
+    PendingCompService,
     GuardMeteringService,
     BandDriftService,
     CreditsService,

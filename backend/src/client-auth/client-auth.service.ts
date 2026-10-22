@@ -40,7 +40,7 @@ export class ClientAuthService {
     const email = dto.email.trim().toLowerCase();
     const user = await this.prisma.clientUser.findUnique({
       where: { email },
-      include: { client: true },
+      include: { client: true, tenant: true },
     });
 
     // Same constant-time treatment as AuthService.login -- see the note there.
@@ -52,6 +52,14 @@ export class ClientAuthService {
     const passwordMatches = await bcrypt.compare(dto.password, user.password);
     if (!passwordMatches)
       throw new UnauthorizedException('Invalid credentials');
+
+    // A suspended tenant takes its client portal down with it. After the
+    // password check, for the same reason as the agency login.
+    if (!user.tenant.isActive) {
+      throw new ForbiddenException(
+        'This account has been suspended. Please contact your account manager.',
+      );
+    }
 
     /**
      * Agency-created accounts are verified at creation, so this now only

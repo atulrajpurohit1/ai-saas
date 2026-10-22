@@ -101,9 +101,47 @@ export function checkEnvironment(
     else warnings.push(message);
   }
 
+  const platformAccessSecret = env.JWT_PLATFORM_ACCESS_SECRET?.trim();
+  const platformRefreshSecret = env.JWT_PLATFORM_REFRESH_SECRET?.trim();
+
+  // The platform console has its own credential store and its own signing
+  // keys, and that separation IS the boundary between a tenant session and
+  // cross-tenant admin. Reusing a tenant secret here would make any tenant's
+  // own access token forgeable into a platform token -- restoring the exact
+  // hole that let every signed-up tenant open /super-admin. Fatal in every
+  // environment, not just production: a developer who shares the key locally
+  // carries the same .env shape to a deploy.
+  for (const [platformKey, platformValue] of [
+    ['JWT_PLATFORM_ACCESS_SECRET', platformAccessSecret],
+    ['JWT_PLATFORM_REFRESH_SECRET', platformRefreshSecret],
+  ] as const) {
+    if (!platformValue) {
+      fatal.push(`${platformKey} is not set.`);
+      continue;
+    }
+    if (platformValue === accessSecret || platformValue === refreshSecret) {
+      fatal.push(
+        `${platformKey} is identical to a tenant JWT secret. The platform ` +
+          'console must not share a signing key with the tenant app.',
+      );
+    }
+  }
+
+  if (
+    platformAccessSecret &&
+    platformRefreshSecret &&
+    platformAccessSecret === platformRefreshSecret
+  ) {
+    fatal.push(
+      'JWT_PLATFORM_ACCESS_SECRET and JWT_PLATFORM_REFRESH_SECRET are identical; the two token types must not share a signing key.',
+    );
+  }
+
   for (const key of [
     'JWT_ACCESS_SECRET',
     'JWT_REFRESH_SECRET',
+    'JWT_PLATFORM_ACCESS_SECRET',
+    'JWT_PLATFORM_REFRESH_SECRET',
     'CRM_TOKEN_SECRET',
   ]) {
     const value = env[key]?.trim();

@@ -89,12 +89,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const hydrate = async () => {
       const pathname = window.location.pathname;
+      // /super-admin is not a screen of the customer app and has its own
+      // session (PlatformAuthContext). Hydrating here would send the tenant
+      // token to users/me from the platform console -- pointless, and it
+      // would put a tenant user object into a surface that must know
+      // nothing about tenant sessions.
       const isAuthScreen =
         pathname === '/login' ||
         pathname === '/client' ||
         pathname.startsWith('/client/') ||
         pathname === '/guard' ||
-        pathname.startsWith('/guard/');
+        pathname.startsWith('/guard/') ||
+        pathname === '/super-admin' ||
+        pathname.startsWith('/super-admin/');
       if (isAuthScreen) {
         setLoading(false);
         return;

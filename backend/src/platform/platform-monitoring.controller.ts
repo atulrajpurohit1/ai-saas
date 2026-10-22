@@ -1,15 +1,14 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { SuperAdminGuard } from '../auth/guards/super-admin.guard';
+import { PlatformAdminGuard } from '../platform-auth/guards/platform-admin.guard';
 import { PlatformMonitoringService } from './platform-monitoring.service';
 
 /**
  * Cross-tenant monitoring for the platform owner: plans, credit balances, AI
  * spend and recharge history. Read-only -- the owner's write actions (granting
  * and revoking the Trial plan and comps) live in CompController, under the same
- * SuperAdminGuard.
+ * PlatformAdminGuard.
  */
-@UseGuards(JwtAuthGuard, SuperAdminGuard)
+@UseGuards(PlatformAdminGuard)
 @Controller('platform')
 export class PlatformMonitoringController {
   constructor(private readonly monitoring: PlatformMonitoringService) {}

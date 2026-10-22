@@ -54,6 +54,7 @@ describe('ClientAuthService', () => {
         password: await hashOf(PASSWORD),
         tenantId: 'tenant-1',
         clientId: 'client-1',
+        tenant: { isActive: true },
         emailVerified: true,
       });
 
@@ -86,7 +87,24 @@ describe('ClientAuthService', () => {
         password: await hashOf(PASSWORD),
         tenantId: 'tenant-1',
         clientId: 'client-1',
+        tenant: { isActive: true },
         emailVerified: false,
+      });
+
+      await expect(
+        service.login({ email: 'client@example.com', password: PASSWORD }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('refuses a client whose tenant has been suspended', async () => {
+      prisma.clientUser.findUnique.mockResolvedValue({
+        id: 'client-user-1',
+        email: 'client@example.com',
+        password: await hashOf(PASSWORD),
+        tenantId: 'tenant-1',
+        clientId: 'client-1',
+        tenant: { isActive: false },
+        emailVerified: true,
       });
 
       await expect(
@@ -101,6 +119,7 @@ describe('ClientAuthService', () => {
         password: await hashOf(PASSWORD),
         tenantId: 'tenant-1',
         clientId: 'client-1',
+        tenant: { isActive: true },
         emailVerified: true,
       });
 

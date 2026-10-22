@@ -31,13 +31,17 @@ describe('isDevelopmentLike', () => {
 
 const STRONG_A = 'a'.repeat(48);
 const STRONG_B = 'b'.repeat(48);
+const STRONG_C = 'c'.repeat(48);
+const STRONG_D = 'd'.repeat(48);
 
 const validProduction = {
   NODE_ENV: 'production',
   DATABASE_URL: 'postgresql://user:pass@host:5432/db',
   JWT_ACCESS_SECRET: STRONG_A,
   JWT_REFRESH_SECRET: STRONG_B,
-  CRM_TOKEN_SECRET: 'c'.repeat(48),
+  JWT_PLATFORM_ACCESS_SECRET: STRONG_C,
+  JWT_PLATFORM_REFRESH_SECRET: STRONG_D,
+  CRM_TOKEN_SECRET: 'e'.repeat(48),
   RESEND_API_KEY: 're_test',
   EMAIL_FROM: 'noreply@example.com',
   CORS_ORIGINS: 'https://dashboard.example.com',
@@ -55,7 +59,13 @@ describe('checkEnvironment', () => {
     expect(warnings).toEqual([]);
   });
 
-  it.each(['DATABASE_URL', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'])(
+  it.each([
+    'DATABASE_URL',
+    'JWT_ACCESS_SECRET',
+    'JWT_REFRESH_SECRET',
+    'JWT_PLATFORM_ACCESS_SECRET',
+    'JWT_PLATFORM_REFRESH_SECRET',
+  ])(
     'treats a missing %s as fatal',
     (key) => {
       const env = { ...validProduction };
@@ -82,6 +92,52 @@ describe('checkEnvironment', () => {
     const { fatal, warnings } = checkEnvironment(env);
     expect(fatal).toEqual([]);
     expect(warnings).toEqual([expect.stringContaining('identical')]);
+  });
+
+  // The regression these guard: platform access used to be a boolean on a
+  // TENANT token, so every tenant that signed up could open /super-admin.
+  // The fix rests on the platform console using different signing keys, so a
+  // shared key is a fatal misconfiguration rather than a style preference.
+  it.each(['JWT_PLATFORM_ACCESS_SECRET', 'JWT_PLATFORM_REFRESH_SECRET'])(
+    'is fatal when %s reuses the tenant access secret',
+    (key) => {
+      const env = { ...validProduction, [key]: STRONG_A };
+      expect(checkEnvironment(env).fatal).toEqual([
+        expect.stringContaining('identical to a tenant JWT secret'),
+      ]);
+    },
+  );
+
+  it.each(['JWT_PLATFORM_ACCESS_SECRET', 'JWT_PLATFORM_REFRESH_SECRET'])(
+    'is fatal when %s reuses the tenant refresh secret',
+    (key) => {
+      const env = { ...validProduction, [key]: STRONG_B };
+      expect(checkEnvironment(env).fatal).toEqual([
+        expect.stringContaining('identical to a tenant JWT secret'),
+      ]);
+    },
+  );
+
+  it('is fatal when the two platform secrets are the same', () => {
+    const env = {
+      ...validProduction,
+      JWT_PLATFORM_REFRESH_SECRET: STRONG_C,
+    };
+    expect(checkEnvironment(env).fatal).toEqual([
+      expect.stringContaining('identical'),
+    ]);
+  });
+
+  // Unlike the tenant pair, which only warns outside production.
+  it('is fatal outside production too when a platform secret is shared', () => {
+    const env = {
+      ...validProduction,
+      NODE_ENV: 'development',
+      JWT_PLATFORM_ACCESS_SECRET: STRONG_A,
+    };
+    expect(checkEnvironment(env).fatal).toEqual([
+      expect.stringContaining('identical to a tenant JWT secret'),
+    ]);
   });
 
   it('rejects a known placeholder secret in production', () => {
@@ -151,6 +207,10 @@ describe('checkEnvironment', () => {
       DATABASE_URL: 'postgresql://localhost:5432/dev',
       JWT_ACCESS_SECRET: STRONG_A,
       JWT_REFRESH_SECRET: STRONG_B,
+      // Required in every environment: the platform console refuses to run
+      // without its own keys rather than borrowing the tenant app's.
+      JWT_PLATFORM_ACCESS_SECRET: STRONG_C,
+      JWT_PLATFORM_REFRESH_SECRET: STRONG_D,
     } as NodeJS.ProcessEnv;
     const { fatal, warnings } = checkEnvironment(env);
     expect(fatal).toEqual([]);

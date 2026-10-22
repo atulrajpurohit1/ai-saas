@@ -4,6 +4,7 @@ import { StripeService } from './stripe.service';
 import { StripeWebhookService } from './stripe-webhook.service';
 import { SubscriptionProvisioningService } from './subscription-provisioning.service';
 import { CreditsService } from './credits.service';
+import { PendingCompService } from './pending-comp.service';
 
 const PRICE_LEAD_GEN = 'price_lead_gen_monthly';
 const PRICE_GUARD_TOUR = 'price_guard_tour_monthly';
@@ -57,6 +58,7 @@ describe('StripeWebhookService', () => {
     checkoutSessionForPaymentIntent: jest.Mock;
   };
   let credits: { grant: jest.Mock; reversePurchase: jest.Mock };
+  let pendingComps: { activate: jest.Mock };
 
   beforeEach(async () => {
     process.env.STRIPE_PRICE_LEAD_GEN_MONTHLY = PRICE_LEAD_GEN;
@@ -81,6 +83,8 @@ describe('StripeWebhookService', () => {
         .fn()
         .mockResolvedValue({ reversed: 1000, balance: -200 }),
     };
+    // No queued comp by default, which is the ordinary case for every tenant.
+    pendingComps = { activate: jest.fn().mockResolvedValue(null) };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -88,6 +92,7 @@ describe('StripeWebhookService', () => {
         { provide: StripeService, useValue: stripe },
         { provide: SubscriptionProvisioningService, useValue: provisioning },
         { provide: CreditsService, useValue: credits },
+        { provide: PendingCompService, useValue: pendingComps },
       ],
     }).compile();
 
@@ -312,6 +317,32 @@ describe('StripeWebhookService', () => {
         'tenant-1',
         'stripe:evt_1',
       );
+    });
+
+    it('starts a queued free plan the moment the paid plan ends', async () => {
+      pendingComps.activate.mockResolvedValue({ plan: 'TRIAL' });
+
+      const result = await service.handle(
+        event('customer.subscription.deleted', subscription()),
+      );
+
+      expect(pendingComps.activate).toHaveBeenCalledWith(
+        'tenant-1',
+        'stripe:evt_1',
+      );
+      expect(result).toMatchObject({ handled: true, activatedComp: 'TRIAL' });
+    });
+
+    it('still reports the cancellation when the queued plan fails to start', async () => {
+      pendingComps.activate.mockRejectedValue(new Error('db down'));
+
+      const result = await service.handle(
+        event('customer.subscription.deleted', subscription()),
+      );
+
+      // The sweep retries it; throwing would make Stripe replay the event.
+      expect(provisioning.cancel).toHaveBeenCalled();
+      expect(result).toMatchObject({ handled: true, tenantId: 'tenant-1' });
     });
   });
 

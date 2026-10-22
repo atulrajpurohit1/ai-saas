@@ -76,6 +76,7 @@ export class BrandingService {
 
   async updateBranding(user: ActiveUser, dto: UpdateBrandingDto) {
     const before = await this.getForTenant(user.tenantId);
+    const renamedTo = this.nullable(dto.company_name);
     const branding = await this.prisma.tenantBranding.upsert({
       where: { tenantId: user.tenantId },
       update: {
@@ -124,6 +125,35 @@ export class BrandingService {
         supportPhone: this.nullable(dto.support_phone),
       },
     });
+
+    // The company name is the tenant's name, not a display-only overlay.
+    //
+    // It used to live only on TenantBranding, so renaming the company changed
+    // the platform header and nothing else: the billing page, the super-admin
+    // tenant list, the suspend/delete confirmations and the Stripe customer
+    // all read Tenant.name and went on showing whatever was typed at signup.
+    // One name, one place -- so a rename writes through to the tenant.
+    //
+    // Only a non-empty name propagates. Clearing the branding field means
+    // "fall back to the tenant name" (see serializeBranding), not "erase the
+    // tenant name", and Tenant.name is NOT NULL besides.
+    if (renamedTo && renamedTo !== before.company_name) {
+      await this.prisma.tenant.update({
+        where: { id: user.tenantId },
+        data: { name: renamedTo },
+      });
+
+      await this.auditService.log({
+        tenantId: user.tenantId,
+        userId: user.sub,
+        action: 'TENANT_RENAMED',
+        entityType: 'Tenant',
+        entityId: user.tenantId,
+        details:
+          `Company name changed from "${before.company_name}" ` +
+          `to "${renamedTo}"`,
+      });
+    }
 
     const changedLogo = before.logo_url !== branding.logoUrl;
     await this.auditService.log({

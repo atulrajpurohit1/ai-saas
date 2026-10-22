@@ -7,6 +7,7 @@ import { PACKAGE_MODULES, planForLookupKey } from './pricing.constants';
 import { CreditsService } from './credits.service';
 import { StripeService } from './stripe.service';
 import { SubscriptionProvisioningService } from './subscription-provisioning.service';
+import { PendingCompService } from './pending-comp.service';
 
 /**
  * Translates Stripe events into entitlement changes.
@@ -29,6 +30,7 @@ export class StripeWebhookService {
     private readonly stripe: StripeService,
     private readonly provisioning: SubscriptionProvisioningService,
     private readonly credits: CreditsService,
+    private readonly pendingComps: PendingCompService,
   ) {}
 
   async handle(event: Stripe.Event) {
@@ -272,6 +274,34 @@ export class StripeWebhookService {
     }
 
     await this.provisioning.cancel(tenantId, `stripe:${eventId}`);
+
+    // The paid plan has just ended, which is exactly what a queued
+    // complimentary plan was waiting for. Activating here rather than leaving
+    // it to the hourly sweep means the tenant is never locked out in between,
+    // and it catches a cancellation that came early -- before the period end
+    // the grant was parked against.
+    //
+    // Deliberately after cancel(), not instead of it: if activation fails, the
+    // subscription is still correctly cancelled and the sweep retries the comp.
+    // Errors are swallowed because a 500 here makes Stripe retry the whole
+    // event, and the cancellation must not be replayed over a comp that did
+    // succeed.
+    try {
+      const activated = await this.pendingComps.activate(
+        tenantId,
+        `stripe:${eventId}`,
+      );
+      if (activated) {
+        return { handled: true, tenantId, activatedComp: activated.plan };
+      }
+    } catch (error) {
+      this.logger.error(
+        `Cancelled ${tenantId} but could not start their queued comp: ${
+          error instanceof Error ? error.message : String(error)
+        }. The hourly sweep will retry it.`,
+      );
+    }
+
     return { handled: true, tenantId };
   }
 
