@@ -10,10 +10,23 @@ describe('RolesService', () => {
   let service: RolesService;
   let prisma: {
     permission: { findMany: jest.Mock; upsert: jest.Mock };
-    role: { findMany: jest.Mock; upsert: jest.Mock };
+    role: {
+      findMany: jest.Mock;
+      upsert: jest.Mock;
+      findFirst: jest.Mock;
+      count: jest.Mock;
+      update: jest.Mock;
+    };
     rolePermission: { deleteMany: jest.Mock; createMany: jest.Mock };
     user: { findUnique: jest.Mock };
-    userRoleAssignment: { findMany: jest.Mock; create: jest.Mock };
+    tenant: { findUnique: jest.Mock };
+    userRoleAssignment: {
+      findMany: jest.Mock;
+      create: jest.Mock;
+      findFirst: jest.Mock;
+      update: jest.Mock;
+    };
+    $transaction: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -32,13 +45,26 @@ describe('RolesService', () => {
       role: {
         findMany: jest.fn(),
         upsert: jest.fn(),
+        findFirst: jest.fn(),
+        // No retired roles lingering by default; migrateRemovedRoles then
+        // finds nothing to do.
+        count: jest.fn().mockResolvedValue(0),
+        update: jest.fn().mockResolvedValue({}),
       },
       rolePermission: {
         deleteMany: jest.fn().mockResolvedValue({}),
         createMany: jest.fn().mockResolvedValue({}),
       },
       user: { findUnique: jest.fn() },
-      userRoleAssignment: { findMany: jest.fn(), create: jest.fn() },
+      // No owner by default: tests that care about owner protection set it.
+      tenant: { findUnique: jest.fn().mockResolvedValue({ ownerUserId: null }) },
+      userRoleAssignment: {
+        findMany: jest.fn(),
+        create: jest.fn(),
+        findFirst: jest.fn(),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      $transaction: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -291,6 +317,81 @@ describe('RolesService', () => {
         service.createTenantUser({ ...owner, isSuperAdmin: false }, dto),
       ).rejects.toThrow(/Only super admins/);
       expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * The founding user is the owner and must stay a Super Admin. Demoting or
+   * un-assigning them is what locked an account out of its own administration,
+   * so both paths refuse it outright -- not merely hide the button.
+   */
+  describe('owner protection', () => {
+    const actor = {
+      sub: 'admin-1',
+      email: 'admin@tenant.test',
+      tenantId: 'tenant-1',
+      role: 'admin',
+      branchId: null,
+      isSuperAdmin: true,
+    } as ActiveUser;
+
+    beforeEach(() => {
+      jest.spyOn(service, 'ensureTenantSystemRoles').mockResolvedValue(undefined);
+      prisma.tenant.findUnique.mockResolvedValue({ ownerUserId: 'owner-1' });
+    });
+
+    it('refuses to assign the owner any role other than Super Admin', async () => {
+      prisma.user.findFirst = jest
+        .fn()
+        .mockResolvedValue({ id: 'owner-1', tenantId: 'tenant-1' });
+      prisma.role.findFirst.mockResolvedValue({
+        id: 'role-finance',
+        name: 'Finance',
+        tenantId: 'tenant-1',
+        isActive: true,
+        permissions: [{ permission: { key: 'finance.view' } }],
+      });
+
+      await expect(
+        service.assignRole(actor, {
+          user_id: 'owner-1',
+          role_id: 'role-finance',
+        }),
+      ).rejects.toThrow(/owner must stay a Super Admin/i);
+    });
+
+    it('still lets the owner be (re)assigned Super Admin', async () => {
+      prisma.user.findFirst = jest
+        .fn()
+        .mockResolvedValue({ id: 'owner-1', tenantId: 'tenant-1' });
+      prisma.role.findFirst.mockResolvedValue({
+        id: 'role-sa',
+        name: 'Super Admin',
+        tenantId: 'tenant-1',
+        isActive: true,
+        permissions: [],
+      });
+      prisma.userRoleAssignment.findFirst.mockResolvedValue(null);
+      prisma.userRoleAssignment.create.mockResolvedValue({ id: 'a-1' });
+      (prisma as unknown as { user: { update: jest.Mock } }).user.update =
+        jest.fn().mockResolvedValue({});
+
+      await expect(
+        service.assignRole(actor, { user_id: 'owner-1', role_id: 'role-sa' }),
+      ).resolves.toBeDefined();
+    });
+
+    it("refuses to revoke the owner's Super Admin role", async () => {
+      prisma.userRoleAssignment.findFirst.mockResolvedValue({
+        id: 'assign-1',
+        userId: 'owner-1',
+        branchId: null,
+        role: { name: 'Super Admin' },
+      });
+
+      await expect(
+        service.revokeAssignment(actor, 'assign-1'),
+      ).rejects.toThrow(/owner’s Super Admin role cannot be removed/i);
     });
   });
 });

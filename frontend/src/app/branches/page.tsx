@@ -18,10 +18,17 @@ import {
 import { getApiErrorMessage } from '@/lib/api-error';
 import { Branch, createBranch, getBranches, updateBranch } from '@/lib/branches';
 import { useNewIntent } from '@/hooks/useNewIntent';
+import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import { ArrowRight, GitBranch, Loader2, MapPin, Plus, Power, Search } from 'lucide-react';
 
 export default function BranchesPage() {
+  // Creating, renaming and activating branches is an admin action. Everyone
+  // else who can reach this page sees it read-only -- the API enforces the
+  // same with branches.manage, so this only keeps a button off the screen
+  // that would 403 if pressed.
+  const { can } = useAuth();
+  const canManage = can('branches.manage');
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -89,15 +96,17 @@ export default function BranchesPage() {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout requiredPermissions="branches.view">
       <PageHeader
         title="Branches"
         description="Manage regions, locations, and branch-level operating access."
         actions={
-          <Button onClick={() => setShowModal(true)}>
-            <Plus size={16} />
-            Create Branch
-          </Button>
+          canManage ? (
+            <Button onClick={() => setShowModal(true)}>
+              <Plus size={16} />
+              Create Branch
+            </Button>
+          ) : null
         }
       />
 
@@ -122,7 +131,9 @@ export default function BranchesPage() {
             title={branches.length === 0 ? 'No branches yet' : 'No matching branches'}
             description={
               branches.length === 0
-                ? 'Use the "Create Branch" button to add your first branch.'
+                ? canManage
+                  ? 'Use the "Create Branch" button to add your first branch.'
+                  : 'No branches have been set up yet.'
                 : 'Try a different search term.'
             }
           />
@@ -162,15 +173,17 @@ export default function BranchesPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => toggleStatus(branch)}
-                    disabled={togglingId === branch.id}
-                  >
-                    {togglingId === branch.id ? <Loader2 size={16} className="animate-spin" /> : <Power size={16} />}
-                    {branch.status === 'active' ? 'Deactivate' : 'Activate'}
-                  </Button>
+                  {canManage && (
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => toggleStatus(branch)}
+                      disabled={togglingId === branch.id}
+                    >
+                      {togglingId === branch.id ? <Loader2 size={16} className="animate-spin" /> : <Power size={16} />}
+                      {branch.status === 'active' ? 'Deactivate' : 'Activate'}
+                    </Button>
+                  )}
                   <Button asChild variant="secondary" className="flex-1">
                     <Link href={`/branches/${branch.id}`}>
                       Details

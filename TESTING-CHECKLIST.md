@@ -189,4 +189,95 @@ Please re-test:
 - Adding a user with an email that already exists gives a clear error
 - A non-owner cannot create a Super Admin
 
-3.
+3. **[Roles / lockout]** A user can be demoted out of all admin access with no
+   way back — found while testing issue 2.
+
+   What happens: assigning a user any non-"Super Admin" role switches off their
+   Super Admin status and overwrites their role. If the account owner does this
+   to themselves (or their last admin), they lose `users.assign_roles` and
+   `users.manage` and can no longer fix it from inside the app — the account is
+   locked out of its own user/role management.
+
+   This is how the first test account ended up unable to add users: its owner
+   had been switched to "Branch Admin" at some point during testing.
+
+   To fix later:
+   - Stop "Assign role" from removing the last person who can manage roles/users
+   - Warn before demoting a Super Admin
+   - Consider making "assign role" ADD a role rather than REPLACE the user's
+     identity + super-admin flag
+   - Give the platform super-admin console a way to restore a tenant owner's
+     Super Admin (recovery path from outside the tenant)
+
+4. In the roles, i can remove myself from the super admin and that caused the lockoout here. So remove the option of deleting the person with the email the tenant created with. For example - i created nayansuthar969@gmail.com , it is admin. No one should be able to remove the user with this role.
+
+**FIXED.** Each tenant now has a permanent **owner** — the email the account was
+created with. The owner:
+- Cannot have their Super Admin role removed (the × is gone for them, and the
+  server refuses it)
+- Cannot be assigned a lesser role (demotion is blocked)
+- Is marked with an "Owner" badge on the Team page
+Existing accounts were backfilled to their founding user automatically.
+
+Please re-test:
+- Owner shows an "Owner" badge; their Super Admin role has no remove ×
+- The owner is not offered in "Give someone another role"
+
+5. [RBAC — roles see the wrong pages; Finance can create branches; simplify roles]
+
+**FIXED.** Three parts:
+
+(a) Roles now show only their own pages. The bug: the sidebar showed a link if
+you had ANY one of its permissions, and "Sales Accelerator"/"Sales Calls" were
+tied to `ai.view`, which Finance has — so they wrongly appeared. They now
+require Leads/Deals access, which Finance does not have.
+
+(b) The "Create Branch" / activate buttons are gated on branch-management
+rights (admin only). Finance no longer sees them, and the Branches page itself
+is now view-gated.
+
+(c) The roles are replaced with a simpler, job-shaped set (you picked this):
+- **Super Admin** — the owner; everything incl. billing, users, branches
+- **Manager** — runs the business (sales + field + invoicing); NOT billing,
+  users, branches, integrations
+- **Sales** — leads, deals, proposals, RFP, vendors, prospect search, AI sales
+- **Operations** — sites, guards, patrols, incidents, reports, shifts, timesheets
+- **Finance** — invoices, disputes, rate cards, finance reports (NOT branches,
+  NOT the company's own subscription billing)
+- **Guard / Client** — portal roles, unchanged
+Old roles (Branch Admin → Manager, Scheduler/Supervisor → Operations) are
+migrated automatically, so anyone on them moves to the new role on next login.
+
+Please re-test:
+- Create a Finance user → they see only Invoices, Disputes, Rate Cards, Finance
+  (+ Clients/Sites view). No Branches, no Sales Accelerator/Calls, no Billing/Plan.
+- Create a Sales user → only the Generation pages.
+- Create an Operations user → only the field/scheduling pages.
+- No role except Super Admin can create a branch.
+
+
+5. When i created a new user with the Finance role on a branch , and logged in with his credentials, i see tyhese options.
+Branches
+Sites
+Client Insurance
+Sales Accelerator
+Sales Calls
+Your Plan
+Search Credits
+Billing
+
+In the Branches page, i see option to create the branch which the finance person should not get. Only super admin can create the branch.
+
+The finance person should only get the related page access. And this is not just about the finance, every role should have proper relevant access to pages and modules. 
+
+Use you mind here.
+
+Also, remove the existing complex roles and add simple understandable roles with proper role based access controls.
+
+6. While creating a guard, after entering details, i clicked the add guard button 2 times, and the same guard added 2 times. This issue may be at many places in the whole site wherever we have add button. SO this is an issue also. Also give an option to delete the guard while keeping the deativate guard.
+
+7. IN Guard Compliance, there are option to add documents about the guard, but there is a column - Status, that says Valid on adding any doc. Because we arent vverifying it anywhere so it should not be valid, instad it should be ADDED. So there will be only 2 status. - Missing , Added. Do the same with the card also. Instead of valid, it should say Added.
+
+
+
+8. WHen i signed in as a gua

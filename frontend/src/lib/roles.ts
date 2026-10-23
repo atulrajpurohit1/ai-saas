@@ -25,6 +25,8 @@ export interface RoleUser {
   name?: string | null;
   branchId?: string | null;
   isSuperAdmin: boolean;
+  /** The founding user. Their Super Admin role cannot be removed or demoted. */
+  isOwner?: boolean;
   branch?: { id: string; name: string } | null;
   roleAssignments: {
     id: string;

@@ -161,9 +161,10 @@ export default function RolesSettingsPage() {
       const firstAssignable = roleData.find(
         (role) => role.isActive && !PORTAL_ROLES.includes(role.name),
       );
+      const firstAssignableUser = userData.find((item) => !item.isOwner);
       setAssignment((current) => ({
         ...current,
-        userId: current.userId || userData[0]?.id || '',
+        userId: current.userId || firstAssignableUser?.id || '',
         roleId: current.roleId || firstAssignable?.id || '',
       }));
       setNewUser((current) => ({
@@ -496,7 +497,14 @@ export default function RolesSettingsPage() {
                       {users.map((item) => (
                         <TableRow key={item.id}>
                           <TableCell className="px-4 py-4 whitespace-normal" data-label="Person">
-                            <div className="font-semibold text-foreground">{item.name || item.email}</div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-foreground">{item.name || item.email}</span>
+                              {item.isOwner && (
+                                <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                                  Owner
+                                </span>
+                              )}
+                            </div>
                             <div className="text-xs text-muted-foreground">{item.email}</div>
                           </TableCell>
                           <TableCell className="px-4 py-4 text-sm whitespace-normal text-muted-foreground" data-label="Branch">
@@ -513,16 +521,22 @@ export default function RolesSettingsPage() {
                                   {roleAssignment.branch?.name && (
                                     <span className="text-muted-foreground">{roleAssignment.branch.name}</span>
                                   )}
-                                  {canAssignRoles && (
-                                    <button
-                                      type="button"
-                                      onClick={() => revokeAssignment(roleAssignment.id)}
-                                      className="text-muted-foreground transition hover:text-error"
-                                      aria-label={`Remove the ${roleAssignment.role.name} role`}
-                                    >
-                                      <Trash2 size={13} />
-                                    </button>
-                                  )}
+                                  {/* The owner's Super Admin role cannot be
+                                      removed -- it is what keeps the account
+                                      from locking itself out. The server
+                                      refuses it too; this just hides a button
+                                      that would error. */}
+                                  {canAssignRoles &&
+                                    !(item.isOwner && roleAssignment.role.name === 'Super Admin') && (
+                                      <button
+                                        type="button"
+                                        onClick={() => revokeAssignment(roleAssignment.id)}
+                                        className="text-muted-foreground transition hover:text-error"
+                                        aria-label={`Remove the ${roleAssignment.role.name} role`}
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    )}
                                 </span>
                               ))}
                               {item.roleAssignments.length === 0 && (
@@ -552,11 +566,15 @@ export default function RolesSettingsPage() {
                       aria-label="User"
                       className="h-11 rounded-lg border border-input bg-transparent px-3 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                     >
-                      {users.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name || item.email}
-                        </option>
-                      ))}
+                      {/* The owner is left out: they are always Super Admin
+                          and assigning any other role would only be refused. */}
+                      {users
+                        .filter((item) => !item.isOwner)
+                        .map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name || item.email}
+                          </option>
+                        ))}
                     </select>
                     <select
                       value={assignment.roleId}

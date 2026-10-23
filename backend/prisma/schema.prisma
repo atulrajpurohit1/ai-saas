@@ -112,6 +112,14 @@ model Tenant {
   isActive                Boolean                  @default(true) @map("is_active")
   suspendedAt             DateTime?                @map("suspended_at")
   suspendedReason         String?                  @map("suspended_reason")
+  /// The founding user: the account the tenant was created with. This user is
+  /// permanently the owner and cannot be demoted off Super Admin or have that
+  /// role revoked -- it is what stops an account locking itself out of its own
+  /// user and role management (which is exactly what happened once). Set at
+  /// creation; not a formal relation so deleting any other user never disturbs
+  /// it, and null only for the brief window before the owner row exists or for
+  /// a legacy tenant the backfill could not resolve.
+  ownerUserId             String?                  @map("owner_user_id")
   branches                Branch[]
   deals                   Deal[]
   leads                   Lead[]

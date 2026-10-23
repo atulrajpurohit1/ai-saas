@@ -591,15 +591,120 @@ export type SystemRoleDefinition = {
   permissions: string[] | '*';
 };
 
+/**
+ * The built-in roles, kept deliberately few and job-shaped so a non-technical
+ * admin can pick one without reading a permission matrix.
+ *
+ * Super Admin is the only one with account administration -- billing, users,
+ * roles, branches, integrations, branding, audit. The three working roles
+ * (Manager, Sales, Operations) and Finance each see ONLY the pages their job
+ * needs: that is the whole point of the set, and it is why a Finance user no
+ * longer sees Branches or the AI sales tools.
+ *
+ * This replaced an older set (Branch Admin, Scheduler, Supervisor) that had
+ * grown either far too broad -- Branch Admin held almost every permission --
+ * or confusingly narrow. REMOVED_SYSTEM_ROLES maps the old names onto these so
+ * nobody assigned to one is stranded; see RolesService.ensureTenantSystemRoles.
+ */
 export const SYSTEM_ROLES: SystemRoleDefinition[] = [
   {
     name: 'Super Admin',
-    description: 'Full tenant administration across every module.',
+    description:
+      'The account owner. Full access, including billing, users and branches.',
     permissions: '*',
   },
   {
-    name: 'Branch Admin',
-    description: 'Branch-scoped administration for operations teams.',
+    name: 'Manager',
+    description:
+      'Runs the day-to-day business across sales, field operations and ' +
+      'invoicing. Cannot change billing, users, branches or integrations.',
+    permissions: [
+      'dashboard.view',
+      // Generation
+      'leads.view',
+      'leads.create',
+      'leads.update',
+      'leads.delete',
+      'leads.import',
+      'leads.export',
+      'deals.view',
+      'deals.create',
+      'deals.update',
+      'deals.delete',
+      'calls.view',
+      'calls.create',
+      'calls.update',
+      'calls.delete',
+      'proposals.view',
+      'proposals.create',
+      'proposals.update',
+      'proposals.delete',
+      'rfp.view',
+      'rfp.create',
+      'rfp.update',
+      'rfp.delete',
+      'rfp.evaluate',
+      'rfp.award',
+      'vendor.performance',
+      'vendors.view',
+      'vendors.create',
+      'vendors.update',
+      'vendors.delete',
+      'prospect_search.view',
+      'prospect_search.search',
+      'prospect_search.manage',
+      // Shared records
+      'clients.view',
+      'clients.manage',
+      'sites.view',
+      'sites.manage',
+      'branches.view',
+      // Guard
+      'guards.view',
+      'guards.manage',
+      'patrols.view',
+      'patrols.manage',
+      'incidents.view',
+      'incidents.create',
+      'incidents.review',
+      'reports.view',
+      'reports.create',
+      'reports.publish',
+      'reports.export',
+      // Operations
+      'shifts.view',
+      'shifts.create',
+      'shifts.assign',
+      'shifts.delete',
+      'timesheets.view',
+      'timesheets.approve',
+      'timesheets.correct',
+      'rate_cards.view',
+      'rate_cards.manage',
+      'invoices.view',
+      'invoices.generate',
+      'invoices.issue',
+      'invoices.mark_paid',
+      'invoices.cancel',
+      'invoices.export',
+      'invoice_disputes.view',
+      'invoice_disputes.respond',
+      'finance.view',
+      'finance.export',
+      // Cross-cutting
+      'ai.view',
+      'ai.manage',
+      'activities.view',
+      'activities.manage',
+      'notes.manage',
+      'documents.manage',
+    ],
+  },
+  {
+    name: 'Sales',
+    description:
+      'Lead generation and sales: leads, deals, proposals, RFPs, vendors ' +
+      'and the AI sales tools.',
     permissions: [
       'dashboard.view',
       'leads.view',
@@ -631,51 +736,12 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       'vendors.create',
       'vendors.update',
       'vendors.delete',
-      'clients.view',
-      'clients.manage',
-      'sites.view',
-      'sites.manage',
-      'guards.view',
-      'guards.manage',
-      'patrols.view',
-      'patrols.manage',
-      'shifts.view',
-      'shifts.create',
-      'shifts.assign',
-      'shifts.delete',
-      'incidents.view',
-      'incidents.review',
-      'reports.view',
-      'reports.create',
-      'reports.publish',
-      'reports.export',
-      'timesheets.view',
-      'timesheets.approve',
-      'timesheets.correct',
-      'invoices.view',
-      'invoices.generate',
-      'invoices.export',
-      'branches.view',
-      'ai.view',
-      'ai.manage',
-      'billing.view',
-      'rate_cards.view',
-      'audit.view',
-      'roles.view',
-      'users.view',
-      'integrations.view',
-      'integrations.manage',
-      'crm.view',
-      'crm.manage',
       'prospect_search.view',
       'prospect_search.search',
       'prospect_search.manage',
-      'api_keys.view',
-      'api_keys.manage',
-      'webhooks.view',
-      'webhooks.manage',
-      'branding.view',
-      'branding.manage',
+      'clients.view',
+      'clients.manage',
+      'ai.view',
       'activities.view',
       'activities.manage',
       'notes.manage',
@@ -683,50 +749,47 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
     ],
   },
   {
-    name: 'Scheduler',
-    description: 'Shift scheduling and guard assignment.',
+    name: 'Operations',
+    description:
+      'Field operations: sites, guards, patrols, incidents, reports, shifts ' +
+      'and timesheets.',
     permissions: [
       'dashboard.view',
-      'branches.view',
+      'clients.view',
       'sites.view',
+      'sites.manage',
+      'branches.view',
       'guards.view',
+      'guards.manage',
       'patrols.view',
       'patrols.manage',
-      'shifts.view',
-      'shifts.create',
-      'shifts.assign',
-      'shifts.delete',
-      'ai.view',
-    ],
-  },
-  {
-    name: 'Supervisor',
-    description: 'Operational supervision, incidents, reports, and timesheets.',
-    permissions: [
-      'dashboard.view',
-      'branches.view',
-      'sites.view',
-      'guards.view',
-      'patrols.view',
-      'shifts.view',
       'incidents.view',
+      'incidents.create',
       'incidents.review',
       'reports.view',
       'reports.create',
       'reports.publish',
       'reports.export',
+      'shifts.view',
+      'shifts.create',
+      'shifts.assign',
+      'shifts.delete',
       'timesheets.view',
       'timesheets.approve',
       'timesheets.correct',
       'ai.view',
+      'activities.view',
+      'notes.manage',
+      'documents.manage',
     ],
   },
   {
     name: 'Finance',
-    description: 'Finance, invoices, disputes, and rate cards.',
+    description:
+      'Invoicing and money: invoices, disputes, rate cards and finance ' +
+      'reports. Not the company’s own subscription billing.',
     permissions: [
       'dashboard.view',
-      'branches.view',
       'clients.view',
       'sites.view',
       'invoices.view',
@@ -739,11 +802,12 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
       'invoice_disputes.respond',
       'finance.view',
       'finance.export',
-      'billing.view',
-      'billing.manage',
       'rate_cards.view',
       'rate_cards.manage',
       'ai.view',
+      'activities.view',
+      'notes.manage',
+      'documents.manage',
     ],
   },
   {
@@ -763,6 +827,19 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
   },
 ];
 
+/**
+ * Old built-in roles that no longer exist, mapped to the role that replaces
+ * them. A user still assigned one of these is moved to the mapped role, and
+ * the old role is deactivated, the first time the tenant's roles are synced
+ * after this change. Without this, dropping a role from SYSTEM_ROLES would
+ * leave its holders stranded on a role nothing maintains.
+ */
+export const REMOVED_SYSTEM_ROLES: Record<string, string> = {
+  'Branch Admin': 'Manager',
+  Scheduler: 'Operations',
+  Supervisor: 'Operations',
+};
+
 export function systemRolePermissionKeys(roleName: string) {
   const definition = SYSTEM_ROLES.find((role) => role.name === roleName);
   if (!definition) return [];
@@ -773,7 +850,17 @@ export function systemRolePermissionKeys(roleName: string) {
 
 export function roleToPortalRole(roleName: string) {
   const normalized = roleName.toLowerCase();
-  if (normalized === 'super admin' || normalized === 'branch admin')
+  // Staff roles all use the admin portal -- they differ in what they can do
+  // (their permissions), not in which app they log into. 'branch admin',
+  // 'scheduler' and 'supervisor' are the retired roles, kept here so a user
+  // still briefly holding one during the migration window maps sensibly.
+  if (
+    normalized === 'super admin' ||
+    normalized === 'branch admin' ||
+    normalized === 'manager' ||
+    normalized === 'sales' ||
+    normalized === 'operations'
+  )
     return 'admin';
   if (normalized === 'finance') return 'finance';
   if (normalized === 'scheduler') return 'scheduler';

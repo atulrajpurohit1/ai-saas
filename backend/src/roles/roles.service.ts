@@ -19,6 +19,7 @@ import { UpdateRoleDto } from './dto/update-role.dto';
 import {
   ALL_PERMISSION_KEYS,
   PERMISSIONS,
+  REMOVED_SYSTEM_ROLES,
   SYSTEM_ROLES,
   roleToPortalRole,
   systemRolePermissionKeys,
@@ -149,7 +150,19 @@ export class RolesService {
       );
     });
 
-    if (rolesAreCurrent) {
+    // Old built-in roles that have been replaced and are still active here --
+    // their holders need moving onto the new role. Checked alongside
+    // rolesAreCurrent so a tenant whose new roles happen to be current but who
+    // still carries a stale Branch Admin is not skipped.
+    const lingeringRemovedRoles = await this.prisma.role.count({
+      where: {
+        tenantId,
+        name: { in: Object.keys(REMOVED_SYSTEM_ROLES) },
+        isActive: true,
+      },
+    });
+
+    if (rolesAreCurrent && lingeringRemovedRoles === 0) {
       this.tenantSystemRolesReady.add(tenantId);
       return;
     }
@@ -183,7 +196,73 @@ export class RolesService {
       );
     }
 
+    // Must run AFTER the new roles are seeded, since it moves holders onto one
+    // of them.
+    await this.migrateRemovedRoles(tenantId);
+
     this.tenantSystemRolesReady.add(tenantId);
+  }
+
+  /**
+   * Moves anyone still on a retired built-in role onto its replacement, then
+   * deactivates the old role. Idempotent: once the old roles are inactive and
+   * empty, it finds nothing and does nothing.
+   */
+  private async migrateRemovedRoles(tenantId: string) {
+    for (const [oldName, newName] of Object.entries(REMOVED_SYSTEM_ROLES)) {
+      const oldRole = await this.prisma.role.findFirst({
+        where: { tenantId, name: oldName },
+      });
+      if (!oldRole) continue;
+
+      const newRole = await this.prisma.role.findFirst({
+        where: { tenantId, name: newName, isActive: true },
+      });
+
+      if (newRole) {
+        const assignments = await this.prisma.userRoleAssignment.findMany({
+          where: { roleId: oldRole.id, isActive: true },
+        });
+
+        for (const assignment of assignments) {
+          // If the user already holds the replacement in the same branch,
+          // there is nothing to move -- drop the old assignment. Otherwise
+          // re-point it, which keeps its history (assignedAt, assignedBy).
+          const existing = await this.prisma.userRoleAssignment.findFirst({
+            where: {
+              userId: assignment.userId,
+              roleId: newRole.id,
+              branchId: assignment.branchId,
+            },
+          });
+
+          if (existing) {
+            await this.prisma.userRoleAssignment.update({
+              where: { id: existing.id },
+              data: { isActive: true, revokedAt: null },
+            });
+            await this.prisma.userRoleAssignment.update({
+              where: { id: assignment.id },
+              data: { isActive: false, revokedAt: new Date() },
+            });
+          } else {
+            await this.prisma.userRoleAssignment.update({
+              where: { id: assignment.id },
+              data: { roleId: newRole.id },
+            });
+          }
+        }
+      }
+
+      // Retire the old role. Deactivated rather than deleted, so its audit
+      // history and any inactive assignment pointing at it survive.
+      if (oldRole.isActive) {
+        await this.prisma.role.update({
+          where: { id: oldRole.id },
+          data: { isActive: false },
+        });
+      }
+    }
   }
 
   async ensureDefaultAssignmentForUser(userId: string) {
@@ -206,7 +285,7 @@ export class RolesService {
       ? 'Super Admin'
       : user.role === UserRole.FINANCE
         ? 'Finance'
-        : 'Branch Admin';
+        : 'Manager';
 
     const role = await this.prisma.role.findFirst({
       where: {
@@ -317,6 +396,10 @@ export class RolesService {
       role: activeUser.role,
       tenantId: user.tenantId,
       tenantName: user.tenant.name,
+      // The founding user, so the UI can mark the owner and hide controls that
+      // would try to demote or remove them.
+      ownerUserId: user.tenant.ownerUserId,
+      isOwner: user.tenant.ownerUserId === user.id,
       branchId: user.branchId,
       branch: user.branch,
       isSuperAdmin: user.isSuperAdmin,
@@ -523,7 +606,9 @@ export class RolesService {
     }
     await this.ensureTenantSystemRoles(user.tenantId);
 
-    return this.prisma.user.findMany({
+    const ownerId = await this.ownerUserId(user.tenantId);
+
+    const users = await this.prisma.user.findMany({
       where: {
         tenantId: user.tenantId,
         ...(user.isSuperAdmin ? {} : { branchId: user.branchId || '__none__' }),
@@ -547,6 +632,11 @@ export class RolesService {
       },
       orderBy: [{ name: 'asc' }, { email: 'asc' }],
     });
+
+    // Flag the owner so the UI can mark them and hide the controls that would
+    // try to demote or remove them -- the server refuses those anyway, but the
+    // button should not be there to click.
+    return users.map((u) => ({ ...u, isOwner: u.id === ownerId }));
   }
 
   /**
@@ -703,6 +793,17 @@ export class RolesService {
       throw new ForbiddenException('Only super admins can assign Super Admin');
     }
 
+    // Assigning a role REPLACES the user's identity: it rewrites their primary
+    // role and sets isSuperAdmin from whether the role is Super Admin. For the
+    // owner, any role other than Super Admin would therefore demote them and
+    // strip their account-admin access -- the lockout this is here to prevent.
+    const ownerId = await this.ownerUserId(user.tenantId);
+    if (targetUser.id === ownerId && role.name !== 'Super Admin') {
+      throw new ForbiddenException(
+        'The account owner must stay a Super Admin and cannot be given a lesser role.',
+      );
+    }
+
     const rolePermissionKeys = role.permissions.map(
       (item) => item.permission.key,
     );
@@ -769,6 +870,22 @@ export class RolesService {
     return assignment;
   }
 
+  /**
+   * The tenant's founding user, who is the permanent owner.
+   *
+   * Looked up rather than inferred from isSuperAdmin, because an account can
+   * have several super admins and only one of them is the owner that must not
+   * be demotable. Null for a legacy tenant the backfill could not resolve, in
+   * which case no user is specially protected and the old behaviour stands.
+   */
+  private async ownerUserId(tenantId: string): Promise<string | null> {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { ownerUserId: true },
+    });
+    return tenant?.ownerUserId ?? null;
+  }
+
   async revokeAssignment(user: ActiveUser, assignmentId: string) {
     await this.assertHasPermissions(user, ['users.assign_roles']);
 
@@ -778,6 +895,19 @@ export class RolesService {
     });
 
     if (!assignment) throw new NotFoundException('Role assignment not found');
+
+    // The owner keeps their Super Admin role no matter who asks. Revoking it
+    // is what locked an account out of its own administration, and there is no
+    // legitimate reason to strip the founding user of it.
+    const ownerId = await this.ownerUserId(user.tenantId);
+    if (
+      assignment.userId === ownerId &&
+      assignment.role.name === 'Super Admin'
+    ) {
+      throw new ForbiddenException(
+        'The account owner’s Super Admin role cannot be removed.',
+      );
+    }
 
     if (!user.isSuperAdmin && assignment.branchId !== user.branchId) {
       throw new ForbiddenException(
