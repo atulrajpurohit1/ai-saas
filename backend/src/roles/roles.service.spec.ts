@@ -5,6 +5,7 @@ import { RolesService } from './roles.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
 import { SERVICE_MODULES } from '../entitlements/entitlements.constants';
 import { ALL_PERMISSION_KEYS } from './rbac.constants';
+import { ActiveUser } from '../auth/interfaces/active-user.interface';
 
 describe('RolesService', () => {
   let service: RolesService;
@@ -18,7 +19,7 @@ describe('RolesService', () => {
       update: jest.Mock;
     };
     rolePermission: { deleteMany: jest.Mock; createMany: jest.Mock };
-    user: { findUnique: jest.Mock };
+    user: { findUnique: jest.Mock; findFirst: jest.Mock; update: jest.Mock };
     tenant: { findUnique: jest.Mock };
     userRoleAssignment: {
       findMany: jest.Mock;
@@ -55,7 +56,11 @@ describe('RolesService', () => {
         deleteMany: jest.fn().mockResolvedValue({}),
         createMany: jest.fn().mockResolvedValue({}),
       },
-      user: { findUnique: jest.fn() },
+      user: {
+        findUnique: jest.fn(),
+        findFirst: jest.fn(),
+        update: jest.fn().mockResolvedValue({}),
+      },
       // No owner by default: tests that care about owner protection set it.
       tenant: { findUnique: jest.fn().mockResolvedValue({ ownerUserId: null }) },
       userRoleAssignment: {

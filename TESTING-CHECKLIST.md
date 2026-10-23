@@ -334,7 +334,7 @@ Please re-test:
 - A document type with nothing uploaded shows "Missing".
 - The summary cards at the top show Total / Added / Missing.
 
-()
+(stop here. DO the next wwhen i say)
 8. WHen i signed in as a guard, and send an emergency alert, on admin panel, idk where the alert is send.
 
 When i created shift, i got created 2 times also.
