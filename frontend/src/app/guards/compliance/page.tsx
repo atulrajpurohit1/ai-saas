@@ -30,8 +30,6 @@ import {
   Upload,
   Loader2,
   CheckCircle2,
-  AlertTriangle,
-  XCircle,
   FileQuestion,
 } from 'lucide-react';
 
@@ -42,16 +40,14 @@ interface GuardOption {
 
 const STATUS_FILTERS: { key: 'all' | ComplianceStatus; label: string }[] = [
   { key: 'all', label: 'All' },
-  { key: 'VALID', label: 'Valid' },
-  { key: 'EXPIRING_SOON', label: 'Expiring Soon' },
-  { key: 'EXPIRED', label: 'Expired' },
+  { key: 'ADDED', label: 'Added' },
   { key: 'MISSING', label: 'Missing' },
 ];
 
+// Two states only: a document has been Added, or it is Missing. Guard
+// documents are not verified here, so there is no "Valid" or expiry status.
 const STATUS_BADGE: Record<ComplianceStatus, { label: string; className: string; icon: typeof CheckCircle2 }> = {
-  VALID: { label: 'Valid', className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', icon: CheckCircle2 },
-  EXPIRING_SOON: { label: 'Expiring Soon', className: 'bg-amber-500/10 text-amber-400 border-amber-500/20', icon: AlertTriangle },
-  EXPIRED: { label: 'Expired', className: 'bg-rose-500/10 text-rose-400 border-rose-500/20', icon: XCircle },
+  ADDED: { label: 'Added', className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', icon: CheckCircle2 },
   MISSING: { label: 'Missing', className: 'bg-white/5 text-muted-foreground border-white/10', icon: FileQuestion },
 };
 
@@ -120,7 +116,7 @@ function GuardComplianceView() {
   }, []);
 
   const summary = useMemo(() => {
-    const counts = { total: records.length, VALID: 0, EXPIRING_SOON: 0, EXPIRED: 0, MISSING: 0 };
+    const counts = { total: records.length, ADDED: 0, MISSING: 0 };
     records.forEach((r) => { counts[r.status] += 1; });
     return counts;
   }, [records]);
@@ -258,12 +254,10 @@ function GuardComplianceView() {
         </div>
       )}
 
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="mb-6 grid grid-cols-3 gap-3">
         {([
           ['Total', summary.total, 'text-white'],
-          ['Valid', summary.VALID, 'text-emerald-400'],
-          ['Expiring Soon', summary.EXPIRING_SOON, 'text-amber-400'],
-          ['Expired', summary.EXPIRED, 'text-rose-400'],
+          ['Added', summary.ADDED, 'text-emerald-400'],
           ['Missing', summary.MISSING, 'text-slate-400'],
         ] as const).map(([label, value, colorClass]) => (
           <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">

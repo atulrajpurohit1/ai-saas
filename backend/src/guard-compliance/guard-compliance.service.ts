@@ -16,10 +16,7 @@ import {
 import { CreateGuardComplianceDto } from './dto/create-guard-compliance.dto';
 import { UpdateGuardComplianceDto } from './dto/update-guard-compliance.dto';
 import { GUARD_COMPLIANCE_TYPES } from './compliance-types.constants';
-import {
-  ComplianceStatus,
-  calculateRecordStatus,
-} from './compliance-status.util';
+import { ComplianceStatus } from './compliance-status.util';
 
 @Injectable()
 export class GuardComplianceService {
@@ -61,13 +58,15 @@ export class GuardComplianceService {
     }
   }
 
-  private statusOf(expirationDate: Date | null): ComplianceStatus {
-    try {
-      return calculateRecordStatus(expirationDate);
-    } catch {
-      // A malformed stored date must never be presented as VALID.
-      return ComplianceStatus.EXPIRED;
-    }
+  /**
+   * A guard record's status is simply ADDED: the document exists. Guard
+   * documents are not verified here, and there is no expiry workflow acting on
+   * them, so the old VALID/EXPIRING_SOON/EXPIRED computation claimed more than
+   * the system actually knew. Absence is reported as MISSING by the synthesis
+   * in findAllForTenant; a record that exists is ADDED.
+   */
+  private statusOf(): ComplianceStatus {
+    return ComplianceStatus.ADDED;
   }
 
   private serialize(
@@ -92,7 +91,7 @@ export class GuardComplianceService {
       guardId: record.guardId,
       guardName,
       type: record.type,
-      status: this.statusOf(record.expirationDate),
+      status: this.statusOf(),
       documentNumber: record.documentNumber,
       issuingAuthority: record.issuingAuthority,
       issueDate: record.issueDate,

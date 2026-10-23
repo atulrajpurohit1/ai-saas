@@ -86,7 +86,8 @@ describe('GuardComplianceService', () => {
         }),
       );
       expect(result.guardName).toBe('Alex Guard');
-      expect(result.status).toBe(ComplianceStatus.VALID);
+      // Guard documents are not verified, so any present record is simply ADDED.
+      expect(result.status).toBe(ComplianceStatus.ADDED);
     });
 
     it("rejects creating a record for another tenant's guard (guard simply not found in scope)", async () => {
@@ -168,7 +169,7 @@ describe('GuardComplianceService', () => {
   describe('findAllForTenant - status computation and MISSING detection', () => {
     const NOW_TYPES = GUARD_COMPLIANCE_TYPES;
 
-    it('computes VALID / EXPIRING_SOON / EXPIRED correctly for existing records', async () => {
+    it('marks every existing record ADDED regardless of expiry (guard docs are not verified)', async () => {
       prisma.guard.findMany.mockResolvedValue([
         { id: 'guard-1', name: 'Alex Guard' },
       ]);
@@ -220,14 +221,16 @@ describe('GuardComplianceService', () => {
 
       const results = await service.findAllForTenant(adminA);
 
+      // All three exist, so all three are ADDED -- the old expiry-derived
+      // VALID/EXPIRING_SOON/EXPIRED distinctions are gone for guards.
       expect(results.find((r) => r.id === 'valid-rec')?.status).toBe(
-        ComplianceStatus.VALID,
+        ComplianceStatus.ADDED,
       );
       expect(results.find((r) => r.id === 'expiring-rec')?.status).toBe(
-        ComplianceStatus.EXPIRING_SOON,
+        ComplianceStatus.ADDED,
       );
       expect(results.find((r) => r.id === 'expired-rec')?.status).toBe(
-        ComplianceStatus.EXPIRED,
+        ComplianceStatus.ADDED,
       );
     });
 
@@ -271,7 +274,7 @@ describe('GuardComplianceService', () => {
 
       const licenseEntries = results.filter((r) => r.type === 'guard_license');
       expect(licenseEntries).toHaveLength(1);
-      expect(licenseEntries[0].status).toBe(ComplianceStatus.VALID); // real record, no expiry set
+      expect(licenseEntries[0].status).toBe(ComplianceStatus.ADDED); // a real record exists
       expect(results).toHaveLength(NOW_TYPES.length); // one real + (types-1) missing
     });
 
