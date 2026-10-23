@@ -105,9 +105,47 @@ export const INCIDENT_EVIDENCE_ALLOWED_EXTENSIONS =
 
 export type IncidentEvidenceMediaType = 'image' | 'video';
 
+/** Canonical MIME type for each allowed extension, used when the browser sent
+ * none or a generic one. */
+const INCIDENT_EVIDENCE_MIME_BY_EXTENSION: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  heic: 'image/heic',
+  heif: 'image/heif',
+  mp4: 'video/mp4',
+  mov: 'video/quicktime',
+  m4v: 'video/x-m4v',
+  webm: 'video/webm',
+};
+
+/**
+ * The MIME type to classify and store an evidence file with.
+ *
+ * Phone galleries routinely hand a photo/video over as
+ * `application/octet-stream` or with no type at all (Android especially), so
+ * for those, and only those, the extension decides. A declared type that is
+ * something concrete is kept as-is, so the allow-list still rejects a genuinely
+ * wrong type. This is what stopped gallery uploads failing while camera
+ * captures (which always carry a real image/jpeg type) worked.
+ */
+export function resolveIncidentEvidenceMimeType(
+  originalName: string,
+  mimeType: string,
+): string {
+  const normalized = (mimeType || '').toLowerCase().split(';')[0].trim();
+  if (normalized && normalized !== 'application/octet-stream') {
+    return normalized;
+  }
+  const extension = originalName.split('.').pop()?.toLowerCase() ?? '';
+  return INCIDENT_EVIDENCE_MIME_BY_EXTENSION[extension] ?? normalized;
+}
+
 /**
  * Resolves the media category for an upload, requiring the extension and the
- * declared MIME type to agree. Returns null when the file is not an accepted
+ * (resolved) MIME type to agree. Returns null when the file is not an accepted
  * image/video (the caller rejects with a 400).
  */
 export function classifyIncidentEvidence(
@@ -117,7 +155,7 @@ export function classifyIncidentEvidence(
   if (!INCIDENT_EVIDENCE_ALLOWED_EXTENSIONS.test(originalName)) {
     return null;
   }
-  const normalized = (mimeType || '').toLowerCase().split(';')[0].trim();
+  const normalized = resolveIncidentEvidenceMimeType(originalName, mimeType);
   if (INCIDENT_EVIDENCE_IMAGE_MIME_TYPES[normalized]) {
     return 'image';
   }

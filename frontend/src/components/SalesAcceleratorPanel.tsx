@@ -8,6 +8,7 @@ import {
   BrainCircuit,
   Briefcase,
   CalendarPlus,
+  ChevronDown,
   Clock3,
   ClipboardList,
   FileText,
@@ -478,6 +479,37 @@ const severityColor = (severity?: ObjectionPattern['severity']) => {
 const fieldClass =
   'w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-foreground outline-none transition focus:border-indigo-400/60 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-600';
 
+interface StepCardProps {
+  step: number;
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}
+
+// A single numbered step in the guided lead workflow. The title says what the
+// step is, the description says what it produces, and the action button (if any)
+// sits beside it so the user never faces an unlabeled row of buttons.
+function StepCard({ step, title, description, action, children }: StepCardProps) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex gap-3">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-extrabold text-primary">
+            {step}
+          </span>
+          <div>
+            <h3 className="text-base font-bold text-foreground">{title}</h3>
+            <p className="mt-1 text-sm leading-6 text-slate-400">{description}</p>
+          </div>
+        </div>
+        {action && <div className="shrink-0 sm:pl-3">{action}</div>}
+      </div>
+      <div className="mt-4">{children}</div>
+    </div>
+  );
+}
+
 export default function SalesAcceleratorPanel({
   entityType,
   entityId,
@@ -506,6 +538,9 @@ export default function SalesAcceleratorPanel({
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const isLead = entityType === 'lead';
 
   const basePath = useMemo(
     () => `sales-accelerator/${entityType === 'lead' ? 'leads' : 'deals'}/${entityId}`,
@@ -856,9 +891,18 @@ export default function SalesAcceleratorPanel({
             <BrainCircuit size={14} />
             Sales Accelerator
           </div>
-          <h2 className="text-xl font-extrabold text-foreground sm:text-2xl">Discovery and Deal Intelligence</h2>
+          <h2 className="text-xl font-extrabold text-foreground sm:text-2xl">
+            {isLead ? 'Lead Workflow' : 'Discovery and Deal Intelligence'}
+          </h2>
+          {isLead && (
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
+              Work top to bottom: capture what the customer needs, then let AI help you
+              prepare, analyze the call, and score the lead.
+            </p>
+          )}
         </div>
 
+        {!isLead && (
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -948,6 +992,7 @@ export default function SalesAcceleratorPanel({
             </button>
           )}
         </div>
+        )}
       </div>
 
       {loading ? (
@@ -972,6 +1017,441 @@ export default function SalesAcceleratorPanel({
             </div>
           )}
 
+          {isLead && (
+            <div className="space-y-5">
+              {/* Step 1 — capture what the customer needs */}
+              <StepCard
+                step={1}
+                title="Add customer needs"
+                description="Capture what this customer is looking for. Everything the AI does next is based on these details."
+                action={
+                  <button
+                    type="button"
+                    onClick={saveDiscovery}
+                    disabled={!!busy || loading}
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {busy === 'save' ? <Loader2 className="animate-spin" size={15} /> : <Save size={15} />}
+                    Save needs
+                  </button>
+                }
+              >
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <input className={fieldClass} placeholder="Property type" value={form.propertyType} onChange={(e) => updateField('propertyType', e.target.value)} />
+                    <input className={fieldClass} placeholder="Buyer role" value={form.buyerRole} onChange={(e) => updateField('buyerRole', e.target.value)} />
+                    <input className={fieldClass} placeholder="Current provider" value={form.currentProvider} onChange={(e) => updateField('currentProvider', e.target.value)} />
+                    <input className={fieldClass} type="number" min="1" placeholder="Guard count" value={form.guardCount} onChange={(e) => updateField('guardCount', e.target.value)} />
+                    <input className={fieldClass} placeholder="Service hours" value={form.serviceHours} onChange={(e) => updateField('serviceHours', e.target.value)} />
+                    <input className={fieldClass} placeholder="Decision timeline" value={form.decisionTimeline} onChange={(e) => updateField('decisionTimeline', e.target.value)} />
+                    <input className={fieldClass} placeholder="Budget sensitivity" value={form.budgetSensitivity} onChange={(e) => updateField('budgetSensitivity', e.target.value)} />
+                  </div>
+                  <textarea className={`${fieldClass} min-h-24 resize-y`} placeholder="Pain points" value={form.painPoints} onChange={(e) => updateField('painPoints', e.target.value)} />
+                  <textarea className={`${fieldClass} min-h-24 resize-y`} placeholder="Risk concerns" value={form.riskConcerns} onChange={(e) => updateField('riskConcerns', e.target.value)} />
+                  <textarea className={`${fieldClass} min-h-24 resize-y`} placeholder="Objections" value={form.objections} onChange={(e) => updateField('objections', e.target.value)} />
+                  <textarea className={`${fieldClass} min-h-28 resize-y`} placeholder="Notes" value={form.notes} onChange={(e) => updateField('notes', e.target.value)} />
+                </div>
+              </StepCard>
+
+              {/* Step 2 — AI discovery questions */}
+              <StepCard
+                step={2}
+                title="Ask AI for discovery questions"
+                description="Generates smart questions to ask on your next call, plus talking points and follow-up angles."
+                action={
+                  <button
+                    type="button"
+                    onClick={generateGuide}
+                    disabled={!!busy || loading}
+                    className="inline-flex items-center gap-2 rounded-xl border bg-primary/8 px-4 py-2 text-xs font-bold text-primary transition hover:bg-indigo-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {busy === 'guide' ? <Loader2 className="animate-spin" size={15} /> : <Sparkles size={15} />}
+                    Generate questions
+                  </button>
+                }
+              >
+                {guide ? (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Questions To Ask</div>
+                      {renderList(guide.questions)}
+                    </div>
+                    <div>
+                      <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Talking Points</div>
+                      {renderList(guide.talkingPoints)}
+                    </div>
+                    <div>
+                      <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Follow-Up Angles</div>
+                      {renderList(guide.followUpAngles)}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">
+                    Generate an AI question list tailored to the needs above.
+                  </p>
+                )}
+              </StepCard>
+
+              {/* Step 3 — analyze call notes */}
+              <StepCard
+                step={3}
+                title="Analyze call notes"
+                description="Paste notes from a call. AI pulls out needs, buying signals, and risks — then can fill the needs form above for you."
+              >
+                <div className="space-y-4">
+                  <textarea
+                    className={`${fieldClass} min-h-32 resize-y`}
+                    placeholder="Paste call notes or transcript"
+                    value={callTranscript}
+                    onChange={(event) => setCallTranscript(event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={analyzeCall}
+                    disabled={!!busy || loading}
+                    className="inline-flex items-center gap-2 rounded-xl border bg-info-wash px-4 py-2 text-xs font-bold text-info transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {busy === 'call' ? <Loader2 className="animate-spin" size={15} /> : <ClipboardList size={15} />}
+                    Analyze call notes
+                  </button>
+
+                  {callIntelligence && (
+                    <div className="space-y-4">
+                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                        <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Call Summary</div>
+                            <p className="mt-2 text-sm leading-6 text-slate-300">{callIntelligence.summary}</p>
+                          </div>
+                          <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${scoreColor(callIntelligence.confidenceScore)}`}>
+                            {callIntelligence.confidenceScore}% confidence
+                          </span>
+                        </div>
+                        <div className="mt-3 text-xs font-bold uppercase tracking-widest text-slate-500">Next Action</div>
+                        <p className="mt-2 text-sm leading-6 text-slate-300">{callIntelligence.recommendedNextAction}</p>
+                        <button
+                          type="button"
+                          onClick={applyCallDiscovery}
+                          className="mt-3 inline-flex items-center gap-2 rounded-xl border bg-success-wash px-3 py-2 text-xs font-bold text-success transition hover:bg-emerald-400/20"
+                        >
+                          <Save size={15} />
+                          Apply to needs form
+                        </button>
+                      </div>
+
+                      {callDiscoveryHighlights.length > 0 && (
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                          {callDiscoveryHighlights.map((item) => (
+                            <div key={item.label} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{item.label}</div>
+                              <div className="mt-2 text-sm font-bold text-foreground">{item.value}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <div>
+                          <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Buying Signals</div>
+                          {renderList(callIntelligence.buyingSignals)}
+                        </div>
+                        <div>
+                          <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Risk Signals</div>
+                          {renderList(callIntelligence.riskSignals)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </StepCard>
+
+              {/* Step 4 — score the lead */}
+              <StepCard
+                step={4}
+                title="Score this lead"
+                description="Rates fit, discovery quality, and close readiness, and recommends your next move."
+                action={
+                  <button
+                    type="button"
+                    onClick={score}
+                    disabled={!!busy || loading}
+                    className="inline-flex items-center gap-2 rounded-xl border bg-success-wash px-4 py-2 text-xs font-bold text-success transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {busy === 'score' ? <Loader2 className="animate-spin" size={15} /> : <Target size={15} />}
+                    Score lead
+                  </button>
+                }
+              >
+                {assessment ? (
+                  <div className="space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      {[
+                        ['Lead Score', assessment.leadScore],
+                        ['Discovery', assessment.discoveryQualityScore],
+                        ['Readiness', assessment.closeReadinessScore],
+                      ].map(([label, value]) => (
+                        <div key={label as string} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                          <div className="text-xs font-bold uppercase tracking-widest text-slate-500">{label}</div>
+                          <div className={`mt-3 inline-flex rounded-full border px-3 py-1 text-lg font-extrabold ${scoreColor(value as number | null)}`}>
+                            {typeof value === 'number' ? value : '--'}
+                          </div>
+                        </div>
+                      ))}
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                        <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Priority</div>
+                        <div className="mt-3 text-lg font-extrabold uppercase text-foreground">{assessment.priorityTier || '--'}</div>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 lg:grid-cols-3">
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                        <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Risk Profile</div>
+                        <p className="text-sm leading-6 text-slate-300">{assessment.riskProfile || 'No risk profile generated.'}</p>
+                      </div>
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                        <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Proposal Angle</div>
+                        <p className="text-sm leading-6 text-slate-300">{assessment.proposalAngle || 'No proposal angle generated.'}</p>
+                      </div>
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                        <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Next Action</div>
+                        <p className="text-sm leading-6 text-slate-300">{assessment.recommendedNextAction || 'No next action generated.'}</p>
+                      </div>
+                    </div>
+
+                    {assessment.missingQuestions.length > 0 && (
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                        <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                          <ClipboardList size={14} />
+                          Still Worth Asking
+                        </div>
+                        {renderList(assessment.missingQuestions)}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">
+                    Save the customer needs, then score the lead to see fit, readiness, and the recommended next step.
+                  </p>
+                )}
+              </StepCard>
+
+              {/* Everything else stays out of the way until asked for */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced((value) => !value)}
+                  className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-5 py-4 text-left transition hover:bg-white/[0.04]"
+                >
+                  <span>
+                    <span className="block text-sm font-bold text-foreground">Advanced insights</span>
+                    <span className="mt-1 block text-xs text-slate-500">
+                      Market signals, value justification, outreach drafts, live coaching, and objection patterns.
+                    </span>
+                  </span>
+                  <ChevronDown
+                    size={18}
+                    className={`shrink-0 text-slate-400 transition ${showAdvanced ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                {showAdvanced && (
+                  <div className="mt-4 space-y-4">
+                    {marketSignalProfile && (
+                      <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                              <Target size={14} />
+                              Market Signals
+                            </div>
+                            <p className="text-sm leading-6 text-slate-300">{marketSignalProfile.recommendedAction}</p>
+                          </div>
+                          <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${scoreColor(marketSignalProfile.score)}`}>
+                            {isUnknownValue(marketSignalProfile.score) ? 'Score unavailable' : `${marketSignalProfile.score} market`}
+                          </span>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                          {[
+                            ['Segment', marketSignalProfile.segment],
+                            ['Security', marketSignalProfile.existingSecurityLikelihood],
+                            ['Renewal', marketSignalProfile.renewalTimingSignal],
+                            ['Authority', marketSignalProfile.decisionAuthoritySignal],
+                          ].map(([label, value]) => (
+                            <div key={label} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{label}</div>
+                              <div className="mt-2 text-sm font-bold text-foreground">
+                                {isUnknownValue(value) ? (
+                                  <span className="font-normal text-slate-500">Not available</span>
+                                ) : (
+                                  formatEnumLabel(value)
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                          <div>
+                            <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Indicators</div>
+                            {renderList(marketSignalProfile.indicators)}
+                          </div>
+                          <div>
+                            <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Risks</div>
+                            {renderList(marketSignalProfile.risks)}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {valueJustification && (
+                      <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                              <FileText size={14} />
+                              Value Justification
+                            </div>
+                            <p className="text-sm leading-6 text-slate-300">{valueJustification.recommendedAction}</p>
+                          </div>
+                          <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase ${valueJustificationColor(valueJustification.status)}`}>
+                            {formatEnumLabel(valueJustification.status)} {valueJustification.score}
+                          </span>
+                        </div>
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Value Hypothesis</div>
+                            <p className="mt-2 text-sm leading-6 text-slate-300">{valueJustification.valueHypothesis}</p>
+                          </div>
+                          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Cost Of Inaction</div>
+                            <p className="mt-2 text-sm leading-6 text-slate-300">{valueJustification.costOfInaction}</p>
+                          </div>
+                        </div>
+                        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                          <div>
+                            <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Proof Points</div>
+                            {renderList(valueJustification.proofPoints)}
+                          </div>
+                          <div>
+                            <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">Discovery Gaps</div>
+                            {renderList(valueJustification.discoveryGaps)}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                          <PhoneCall size={14} />
+                          Outreach Draft
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={generateOutreach}
+                            disabled={!!busy || loading}
+                            className="inline-flex items-center gap-2 rounded-xl border bg-warning-wash px-3 py-2 text-xs font-bold text-warning transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {busy === 'outreach' ? <Loader2 className="animate-spin" size={15} /> : <PhoneCall size={15} />}
+                            Draft outreach
+                          </button>
+                          <button
+                            type="button"
+                            onClick={coachCall}
+                            disabled={!!busy || loading}
+                            className="inline-flex items-center gap-2 rounded-xl border bg-primary/8 px-3 py-2 text-xs font-bold text-primary transition hover:bg-fuchsia-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {busy === 'coach' ? <Loader2 className="animate-spin" size={15} /> : <BrainCircuit size={15} />}
+                            Live coach
+                          </button>
+                        </div>
+                      </div>
+                      {outreach ? (
+                        <div className="space-y-4 text-sm leading-6 text-slate-300">
+                          <div>
+                            <div className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">Call Opener</div>
+                            <p>{outreach.callOpener}</p>
+                          </div>
+                          <div>
+                            <div className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">Talking Points</div>
+                            {renderList(outreach.talkingPoints)}
+                          </div>
+                          <div>
+                            <div className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">Email</div>
+                            <p className="font-bold text-foreground">{outreach.emailSubject}</p>
+                            <p className="mt-2 whitespace-pre-line">{outreach.emailBody}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-500">No outreach drafted yet.</p>
+                      )}
+
+                      {liveCoach && (
+                        <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                          <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <div className="text-xs font-bold uppercase tracking-widest text-slate-500">Next Best Question</div>
+                              <p className="mt-2 text-sm leading-6 text-foreground">{liveCoach.nextBestQuestion}</p>
+                            </div>
+                            <span className={`inline-flex w-fit shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${scoreColor(liveCoach.completenessScore)}`}>
+                              {liveCoach.completenessScore}% complete
+                            </span>
+                          </div>
+                          <p className="text-sm leading-6 text-slate-300">{liveCoach.coachingNote}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                      <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                        <AlertTriangle size={14} />
+                        Objection Coaching
+                      </div>
+                      {renderList(
+                        assessment?.objectionRisks?.length
+                          ? assessment.objectionRisks
+                          : textToList(form.objections),
+                      )}
+                    </div>
+
+                    {objectionPatterns.length > 0 && (
+                      <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                        <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                          <AlertTriangle size={14} />
+                          Objection Patterns
+                        </div>
+                        <div className="space-y-4">
+                          {objectionPatterns.map((pattern) => (
+                            <div key={pattern.key} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                              <div className="mb-2 flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="font-bold text-foreground">{pattern.label}</div>
+                                  <div className="mt-1 text-xs text-slate-500">{pattern.count} historical mentions</div>
+                                </div>
+                                <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold uppercase ${severityColor(pattern.severity)}`}>
+                                  {pattern.severity}
+                                </span>
+                              </div>
+                              <p className="text-sm leading-6 text-slate-300">{pattern.recommendedResponse}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {discovery && (
+                <div className="text-xs text-slate-500">
+                  Last saved {new Date(discovery.createdAt).toLocaleString()}.
+                </div>
+              )}
+            </div>
+          )}
+
+          {!isLead && (
+          <>
           <div className="grid gap-4 lg:grid-cols-4">
             {[
               ['Lead Score', assessment?.leadScore],
@@ -1922,6 +2402,8 @@ export default function SalesAcceleratorPanel({
             <div className="text-xs text-slate-500">
               Last discovery saved {new Date(discovery.createdAt).toLocaleString()}.
             </div>
+          )}
+          </>
           )}
         </div>
       )}

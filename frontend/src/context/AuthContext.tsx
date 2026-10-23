@@ -34,7 +34,7 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (token: string, userData: User) => void;
+  login: (token: string, userData: User, redirectTo?: string | null) => void;
   logout: () => void;
   can: (permission: string | string[]) => boolean;
   canAny: (permissions: string[]) => boolean;
@@ -158,12 +158,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [loading, user]);
 
-  const login = (token: string, userData: User) => {
+  const login = (token: string, userData: User, redirectTo?: string | null) => {
     const nextUser = normalizeUser(userData);
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(nextUser));
     setUser(nextUser);
-    router.push(getRedirectPath(nextUser));
+    // `redirectTo` lets a caller land the user somewhere specific after auth --
+    // used so a visitor who came from the marketing site's "Select plan"
+    // button (…/login?next=/settings/plan) is taken to the pricing page rather
+    // than the default dashboard. Only internal, same-origin paths are honored;
+    // anything else falls back to the role-based landing page.
+    const safeRedirect =
+      redirectTo &&
+      redirectTo.startsWith('/') &&
+      !redirectTo.startsWith('//')
+        ? redirectTo
+        : null;
+    router.push(safeRedirect ?? getRedirectPath(nextUser));
   };
 
   const logout = () => {

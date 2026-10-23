@@ -19,7 +19,8 @@ import { branchParams, BranchSummary } from '@/lib/branches';
 import { FieldAccessMap, getEffectiveFieldPermissions } from '@/lib/field-permissions';
 import { useNewIntent } from '@/hooks/useNewIntent';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { Plus, Search, ShieldCheck, Edit2, Phone, Mail, KeyRound, FileCheck2, UserX, UserCheck } from 'lucide-react';
+import { sanitizePhone, validateEmail, validatePhone } from '@/lib/validation';
+import { Plus, Search, ShieldCheck, Edit2, Phone, Mail, KeyRound, FileCheck2, UserX, UserCheck, Loader2, Trash2 } from 'lucide-react';
 
 interface Guard {
   id: string;
@@ -56,6 +57,9 @@ export default function GuardsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  // Blocks a second submit while the first is in flight. Double-clicking "Add
+  // Guard" was creating the same guard twice.
+  const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -133,6 +137,23 @@ export default function GuardsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Client-side validation before the round-trip: a clear message beats the
+    // server's generic rejection. Phone is already digit-capped on input, so
+    // this only catches a half-typed number.
+    const emailError = validateEmail(formData.email);
+    if (emailError) {
+      alert(emailError);
+      return;
+    }
+    const phoneError = validatePhone(formData.phone);
+    if (phoneError) {
+      alert(phoneError);
+      return;
+    }
+    // Guard against a double submit (double-click, Enter + click): without it
+    // the POST fired twice and created two identical guards.
+    if (saving) return;
+    setSaving(true);
     try {
       const payload = {
         name: formData.name.trim(),
@@ -165,6 +186,8 @@ export default function GuardsPage() {
     } catch (err) {
       console.error(err);
       alert('An error occurred while saving the guard.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -208,6 +231,29 @@ export default function GuardsPage() {
     } catch (err) {
       console.error('Guard status change error:', err);
       alert(getApiErrorMessage(err, `Failed to ${deactivate ? 'deactivate' : 'reactivate'} guard.`));
+    }
+  };
+
+  const deleteGuard = async (guard: Guard) => {
+    // Delete is for removing a record that should not exist (a duplicate, a
+    // test entry) -- distinct from Deactivate, which off-boards a real guard
+    // while keeping their history. The server refuses to delete a guard with
+    // any activity, so this stays safe even if the warning is ignored.
+    if (
+      !window.confirm(
+        `Permanently delete ${guard.name}? This cannot be undone. ` +
+          `Use Deactivate instead if they actually worked here — delete is ` +
+          `only for duplicates or mistakes.`,
+      )
+    )
+      return;
+
+    try {
+      await api.delete(`v2/guards/${guard.id}`);
+      fetchGuards();
+    } catch (err) {
+      console.error('Guard delete error:', err);
+      alert(getApiErrorMessage(err, 'Failed to delete guard.'));
     }
   };
 
@@ -402,6 +448,16 @@ export default function GuardsPage() {
                           >
                             {guard.deactivatedAt ? <UserCheck size={14} /> : <UserX size={14} />}
                           </Button>
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            onClick={() => deleteGuard(guard)}
+                            aria-label={`Delete ${guard.name}`}
+                            title="Delete guard (duplicates or mistakes only)"
+                            className="border-error/20 text-error hover:bg-error-wash hover:text-error"
+                          >
+                            <Trash2 size={14} />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -435,9 +491,10 @@ export default function GuardsPage() {
               <label className="text-sm font-medium text-muted-foreground">Phone Number</label>
               <Input
                 type="tel"
-                placeholder="e.g. +1 (555) 000-0000"
+                inputMode="numeric"
+                placeholder="e.g. 5550000000"
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, phone: sanitizePhone(e.target.value) })}
               />
             </div>
 
@@ -538,10 +595,13 @@ export default function GuardsPage() {
             )}
 
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
+              <Button type="button" variant="outline" onClick={() => setShowModal(false)} disabled={saving}>
                 Cancel
               </Button>
-              <Button type="submit">{isEditing ? 'Save Changes' : 'Add Guard'}</Button>
+              <Button type="submit" disabled={saving}>
+                {saving && <Loader2 size={16} className="animate-spin" />}
+                {isEditing ? 'Save Changes' : 'Add Guard'}
+              </Button>
             </div>
           </form>
         </DialogContent>

@@ -4,7 +4,6 @@ import { AiService } from '../ai/ai.service';
 import { AiMonitoringService } from '../ai-monitoring/ai-monitoring.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiMeteringService } from '../billing/ai-metering.service';
-import { AiFeature } from '@prisma/client';
 import {
   AiRecommendation,
   GuardRecommendation,
@@ -637,22 +636,23 @@ export class RecommendationService {
         ),
       );
 
-    // runNullable because this method signals failure by returning null and
-    // falling back to the rule-based explanation -- charging for that would
-    // bill the customer for output they did not get.
-    // Fails CLOSED when metering is absent: without it this ran the Gemini
-    // call unmetered, so a wiring mistake would have silently turned a paid
-    // feature free -- the same fail-open shape that once made every tenant
-    // without a subscription row look entitled. The rule-based explanation is
-    // a real answer, so skipping the AI costs the user very little.
-    const aiExplanation = this.aiMetering
-      ? await this.aiMetering.runNullable(
-          {
-            tenantId: input.tenantId,
-            feature: AiFeature.GUARD_RECOMMENDATION_EXPLANATION,
-          },
-          explain,
-        )
+    // This explanation rides on top of assigning a guard to a shift, which is
+    // a scheduling action, not an AI feature the customer opted into -- so it
+    // must never cost credits or block the assignment screen with a credit
+    // wall (it was previously metered as a LIGHT feature, and a tenant at zero
+    // credits got a 402 the moment they opened the recommendations). It is
+    // still gated on the plan's AI switch, so a Trial tenant runs no Gemini
+    // call and falls back to the rule-based sentence; an AI-enabled tenant
+    // gets the richer explanation for free. Fails CLOSED to the fallback when
+    // metering is absent (the plan gate cannot be checked) or the AI call
+    // errors -- the rule-based explanation is a real answer, so this costs the
+    // user very little.
+    const aiEnabled = this.aiMetering
+      ? await this.aiMetering.isAiEnabled(input.tenantId)
+      : false;
+
+    const aiExplanation = aiEnabled
+      ? await explain().catch(() => null)
       : null;
 
     return aiExplanation || fallback;

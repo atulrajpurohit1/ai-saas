@@ -18,6 +18,7 @@ import {
   COMP_PLAN_MODULES,
   TRIAL_PLAN_KEY,
   compPlanAiEnabled,
+  compPlanOf,
   isCompPlanKey,
 } from './comp-plan.constants';
 import { SubscriptionProvisioningService } from './subscription-provisioning.service';
@@ -64,6 +65,7 @@ export class CompController {
         source: true,
         aiEnabled: true,
         compExpiresAt: true,
+        compPlan: true,
         compReason: true,
         compGrantedBy: true,
         pendingCompPlan: true,
@@ -78,6 +80,7 @@ export class CompController {
     });
 
     return rows.map((row) => {
+      const granted = compPlanOf(row);
       const queued = row.pendingCompPlan
         ? (isCompPlanKey(row.pendingCompPlan) ? row.pendingCompPlan : null)
         : null;
@@ -92,6 +95,11 @@ export class CompController {
           status: row.status,
           aiEnabled: compPlanAiEnabled(queued),
           plan: queued === TRIAL_PLAN_KEY ? 'TRIAL' : 'COMP',
+          // The plan actually granted, by name. `plan` above is only the kind
+          // of grant, which is all the screen used to have -- so a queued
+          // Complete and a queued Operations both read as "Comped".
+          planKey: queued,
+          planName: COMP_PLAN_LABELS[queued],
           // The term is counted from activation, so there is no expiry date to
           // report yet -- only how long it will run for once it starts.
           expiresAt: null,
@@ -116,6 +124,12 @@ export class CompController {
         // plan. The screen labels the row from this.
         aiEnabled: row.aiEnabled,
         plan: row.aiEnabled ? 'COMP' : 'TRIAL',
+        // Which plan, by name -- "Comped" alone never said whether the tenant
+        // was given Operations or the whole product. Null for a legacy row
+        // whose plan cannot be recovered; the screen then falls back to the
+        // kind of grant.
+        planKey: granted,
+        planName: granted ? COMP_PLAN_LABELS[granted] : null,
         expiresAt: row.compExpiresAt,
         scheduled: false,
         startsAt: null,
@@ -193,6 +207,7 @@ export class CompController {
       source: 'COMP',
       aiEnabled,
       compExpiresAt: expiresAt,
+      compPlan: dto.package,
       compReason: dto.reason,
       compGrantedBy: admin.adminId,
       reason: `comp:${COMP_PLAN_LABELS[dto.package]}`,

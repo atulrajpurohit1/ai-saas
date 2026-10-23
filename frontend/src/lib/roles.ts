@@ -25,6 +25,8 @@ export interface RoleUser {
   name?: string | null;
   branchId?: string | null;
   isSuperAdmin: boolean;
+  /** The founding user. Their Super Admin role cannot be removed or demoted. */
+  isOwner?: boolean;
   branch?: { id: string; name: string } | null;
   roleAssignments: {
     id: string;
@@ -77,6 +79,29 @@ export async function deactivateRole(id: string) {
 
 export async function getRoleUsers() {
   const res = await api.get<RoleUser[]>('roles/users');
+  return res.data;
+}
+
+/**
+ * Adds a team member to this account.
+ *
+ * The only way a colleague joins an existing account: signing up through the
+ * public form always creates a new company owned by whoever registered.
+ */
+export async function createTenantUser(data: {
+  email: string;
+  name: string;
+  password: string;
+  role_id: string;
+  branch_id?: string | null;
+}) {
+  const res = await api.post<{
+    id: string;
+    email: string;
+    name: string | null;
+    branchId: string | null;
+    role: string;
+  }>('roles/users', data);
   return res.data;
 }
 

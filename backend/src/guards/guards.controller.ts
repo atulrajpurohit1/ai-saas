@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Param,
   UseGuards,
@@ -52,6 +53,12 @@ export class GuardsController {
     @Body() updateGuardDto: UpdateGuardDto,
   ) {
     return this.guardsService.update(user, id, updateGuardDto);
+  }
+
+  @Delete(':id')
+  @RequirePermission('guards.manage')
+  remove(@GetUser() user: ActiveUser, @Param('id') id: string) {
+    return this.guardsService.remove(user, id);
   }
 
   @Post(':id/deactivate')

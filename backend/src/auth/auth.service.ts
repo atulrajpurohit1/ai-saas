@@ -155,6 +155,13 @@ export class AuthService {
           },
         });
 
+        // Record the founding user as the permanent owner, so it can never be
+        // demoted off Super Admin and lock the account out of its own admin.
+        await tx.tenant.update({
+          where: { id: tenant.id },
+          data: { ownerUserId: user.id },
+        });
+
         return { tenant, user };
       });
 

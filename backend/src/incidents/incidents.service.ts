@@ -21,6 +21,7 @@ import {
   incidentEvidenceImageMaxMb,
   incidentEvidenceMaxBytesFor,
   incidentEvidenceVideoMaxMb,
+  resolveIncidentEvidenceMimeType,
 } from '../common/file-storage.util';
 import {
   CreateIncidentDto,
@@ -820,7 +821,10 @@ export class IncidentsService {
         tenantId,
         incidentId: incident.id,
         mediaType,
-        mimeType: file.mimetype.toLowerCase().split(';')[0].trim(),
+        mimeType: resolveIncidentEvidenceMimeType(
+          file.originalname,
+          file.mimetype,
+        ),
         fileName: file.originalname,
         storedFileName: file.filename,
         fileSizeBytes: file.size,
@@ -918,7 +922,10 @@ export class IncidentsService {
         tenantId: user.tenantId,
         incidentId: incident.id,
         mediaType,
-        mimeType: file.mimetype.toLowerCase().split(';')[0].trim(),
+        mimeType: resolveIncidentEvidenceMimeType(
+          file.originalname,
+          file.mimetype,
+        ),
         fileName: file.originalname,
         storedFileName: file.filename,
         fileSizeBytes: file.size,

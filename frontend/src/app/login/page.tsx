@@ -48,6 +48,20 @@ const maskEmail = (email: string) => {
 
 const RESEND_COOLDOWN_SECONDS = 60;
 
+/**
+ * The validated `next` redirect target from the URL (e.g. a visitor arriving
+ * from the marketing site's "Select plan" button at `?next=/settings/plan`).
+ * Only internal same-origin paths are returned, so the parameter can't be used
+ * as an open redirect. Read from the live URL rather than state so it survives
+ * the signup -> OTP -> login steps on this page.
+ */
+const safeNextParam = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  const next = new URLSearchParams(window.location.search).get('next');
+  if (next && next.startsWith('/') && !next.startsWith('//')) return next;
+  return null;
+};
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -77,6 +91,14 @@ export default function LoginPage() {
     }, 1000);
     return () => clearInterval(timer);
   }, [resendCooldown]);
+
+  // Open the signup form directly when linked with ?register=1, so the
+  // marketing site's "Select plan" button can send a new visitor straight to
+  // sign-up (then ?next=/settings/plan lands them on pricing afterward).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('register') === '1') setIsRegister(true);
+  }, []);
 
   // Forgot-password flow (admin only). Kept as its own small state machine,
   // separate from the signup-OTP state above, since the two flows are never
@@ -231,11 +253,18 @@ export default function LoginPage() {
     localStorage.setItem('token', accessToken);
     if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
     const me = await api.get('users/me');
-    login(accessToken, {
-      ...me.data,
-      name: me.data.name || fallbackName,
-      tenantName: me.data.tenantName || fallbackTenantName,
-    });
+    login(
+      accessToken,
+      {
+        ...me.data,
+        name: me.data.name || fallbackName,
+        tenantName: me.data.tenantName || fallbackTenantName,
+      },
+      // Honor a ?next=/path landing target (e.g. a visitor sent from the
+      // marketing site's "Select plan" button to the pricing page). Read at
+      // call time so it survives the signup -> OTP -> login hop on this page.
+      safeNextParam(),
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

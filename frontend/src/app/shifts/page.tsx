@@ -11,6 +11,7 @@ import StatusBadge from '@/components/StatusBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
 import ShiftsCalendar from '@/components/ShiftsCalendar';
+import DateTimeField from '@/components/DateTimeField';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -73,6 +74,7 @@ export default function ShiftsPage() {
   const [guards, setGuards] = useState<Guard[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [creatingShift, setCreatingShift] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedShift, setSelectedShift] = useState<string | null>(null);
   const [selectedGuard, setSelectedGuard] = useState('');
@@ -209,6 +211,14 @@ export default function ShiftsPage() {
   const handleCreateShift = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canCreateShift) return;
+    if (newShift.startTime && newShift.endTime && newShift.endTime <= newShift.startTime) {
+      toast.error('End time must be after the start time.');
+      return;
+    }
+    // Guard against a double-submit (double-click, or Enter + click): without
+    // this, each submit fired its own POST and created a duplicate shift.
+    if (creatingShift) return;
+    setCreatingShift(true);
     try {
       await api.post('v2/shifts', { ...newShift, branch_id: selectedBranchId || null });
       setShowModal(false);
@@ -218,6 +228,8 @@ export default function ShiftsPage() {
     } catch (err) {
       console.error('Failed to create shift:', err);
       toast.error(getApiErrorMessage(err, 'Failed to create shift. Please check your inputs.'));
+    } finally {
+      setCreatingShift(false);
     }
   };
 
@@ -457,24 +469,26 @@ export default function ShiftsPage() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-muted-foreground">Start time</label>
-                <Input
-                  type="datetime-local"
-                  value={newShift.startTime}
-                  onChange={(e) => setNewShift({ ...newShift, startTime: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-muted-foreground">End time</label>
-                <Input
-                  type="datetime-local"
-                  value={newShift.endTime}
-                  onChange={(e) => setNewShift({ ...newShift, endTime: e.target.value })}
-                  required
-                />
-              </div>
+              <DateTimeField
+                label="Start time"
+                value={newShift.startTime}
+                onChange={(value) => setNewShift({ ...newShift, startTime: value })}
+                required
+              />
+              <DateTimeField
+                label="End time"
+                value={newShift.endTime}
+                onChange={(value) => setNewShift({ ...newShift, endTime: value })}
+                min={newShift.startTime || undefined}
+                error={
+                  newShift.startTime &&
+                  newShift.endTime &&
+                  newShift.endTime <= newShift.startTime
+                    ? 'End time must be after the start time.'
+                    : undefined
+                }
+                required
+              />
             </div>
 
             <div className="space-y-1.5">
@@ -495,7 +509,9 @@ export default function ShiftsPage() {
               <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
                 Cancel
               </Button>
-              <Button type="submit">Create Shift</Button>
+              <Button type="submit" disabled={creatingShift}>
+                {creatingShift ? 'Creating...' : 'Create Shift'}
+              </Button>
             </div>
           </form>
         </DialogContent>

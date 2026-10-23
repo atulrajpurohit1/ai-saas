@@ -100,6 +100,13 @@ export class TenantAdminService {
         },
       });
 
+      // The founding user is the permanent owner: protected from demotion so
+      // the account cannot lock itself out of its own user/role management.
+      await tx.tenant.update({
+        where: { id: tenant.id },
+        data: { ownerUserId: owner.id },
+      });
+
       return { tenant, owner };
     });
 

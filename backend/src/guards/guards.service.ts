@@ -300,6 +300,81 @@ export class GuardsService {
     );
   }
 
+  /**
+   * Permanently deletes a guard.
+   *
+   * This is for removing a record that should never have existed -- a
+   * duplicate from a double-submit, a test entry -- NOT for off-boarding
+   * someone, which is what deactivate is for.
+   *
+   * Every guard relation cascades, so the database would happily delete a
+   * guard along with their timesheets, invoice line items and incidents. That
+   * is real history and must not vanish because someone clicked delete, so a
+   * guard with ANY operational or financial record is refused here and must be
+   * deactivated instead. Only guard-specific metadata that is meaningless
+   * without the guard (availability, compliance documents, the offline sync
+   * queue) is allowed to cascade away.
+   */
+  async remove(user: ActiveUser, id: string) {
+    const guard = await this.prisma.guard.findFirst({
+      where: { id, tenantId: user.tenantId, ...branchWhere(user) },
+    });
+
+    if (!guard) {
+      throw new NotFoundException('Guard not found');
+    }
+
+    const [
+      assignments,
+      timesheets,
+      invoiceItems,
+      incidents,
+      attendanceEvents,
+      patrolRuns,
+      patrolEvents,
+      emergencyAlerts,
+    ] = await Promise.all([
+      this.prisma.assignment.count({ where: { guardId: id } }),
+      this.prisma.timesheet.count({ where: { guardId: id } }),
+      this.prisma.invoiceItem.count({ where: { guardId: id } }),
+      this.prisma.incident.count({ where: { guardId: id } }),
+      this.prisma.attendanceEvent.count({ where: { guardId: id } }),
+      this.prisma.patrolRun.count({ where: { guardId: id } }),
+      this.prisma.patrolEvent.count({ where: { guardId: id } }),
+      this.prisma.emergencyAlert.count({ where: { guardId: id } }),
+    ]);
+
+    const history =
+      assignments +
+      timesheets +
+      invoiceItems +
+      incidents +
+      attendanceEvents +
+      patrolRuns +
+      patrolEvents +
+      emergencyAlerts;
+
+    if (history > 0) {
+      throw new BadRequestException(
+        'This guard has activity history (shifts, timesheets, incidents or ' +
+          'invoices) and cannot be deleted. Deactivate them instead.',
+      );
+    }
+
+    await this.prisma.guard.delete({ where: { id } });
+
+    await this.auditService.log({
+      tenantId: user.tenantId,
+      userId: user.sub,
+      action: 'GUARD_DELETED',
+      entityType: 'Guard',
+      entityId: guard.id,
+      details: `Guard "${guard.name}" permanently deleted`,
+    });
+
+    return { id: guard.id, deleted: true };
+  }
+
   async getAvailability(user: ActiveUser, id: string) {
     const guard = await this.prisma.guard.findFirst({
       where: { id, tenantId: user.tenantId, ...branchWhere(user) },

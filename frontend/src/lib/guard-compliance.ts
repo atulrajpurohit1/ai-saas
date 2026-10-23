@@ -21,7 +21,10 @@ export const GUARD_COMPLIANCE_TYPE_LABELS: Record<GuardComplianceType, string> =
   other: 'Other',
 };
 
-export type ComplianceStatus = 'VALID' | 'EXPIRING_SOON' | 'EXPIRED' | 'MISSING';
+// Guard documents are not verified, so a record is simply ADDED (present) or
+// MISSING (absent) -- no "Valid"/expiry statuses, which would overstate what
+// the system knows. (Client insurance, which does track expiry, keeps those.)
+export type ComplianceStatus = 'ADDED' | 'MISSING';
 
 export interface GuardComplianceRecord {
   // null only for a synthesized MISSING entry - no record exists yet.

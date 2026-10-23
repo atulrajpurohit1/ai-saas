@@ -33,6 +33,16 @@ export interface ProvisionInput {
   aiEnabled?: boolean;
   /** Only meaningful with source COMP. Null means the comp does not lapse. */
   compExpiresAt?: Date | null;
+  /**
+   * Which plan the comp granted, as a comp plan key. Only meaningful with
+   * source COMP; a STRIPE provisioning clears it along with the other comp
+   * fields.
+   *
+   * Passed in rather than worked out from `modules` here, because the modules
+   * cannot express it: Trial and Complete grant the same three, and only the
+   * caller knows which one was chosen.
+   */
+  compPlan?: string | null;
   compReason?: string | null;
   compGrantedBy?: string | null;
   /** Free-text note for the audit trail, e.g. the Stripe event id. */
@@ -83,6 +93,7 @@ export class SubscriptionProvisioningService {
       source = 'STRIPE',
       aiEnabled = true,
       compExpiresAt = null,
+      compPlan = null,
       compReason = null,
       compGrantedBy = null,
       reason,
@@ -94,8 +105,13 @@ export class SubscriptionProvisioningService {
     // waiting to revoke a paying customer.
     const compFields =
       source === 'COMP'
-        ? { compExpiresAt, compReason, compGrantedBy }
-        : { compExpiresAt: null, compReason: null, compGrantedBy: null };
+        ? { compExpiresAt, compPlan, compReason, compGrantedBy }
+        : {
+            compExpiresAt: null,
+            compPlan: null,
+            compReason: null,
+            compGrantedBy: null,
+          };
 
     const desired = new Set(modules);
 
@@ -167,6 +183,7 @@ export class SubscriptionProvisioningService {
           ...(source === 'COMP'
             ? {
                 compExpiresAt: compExpiresAt?.toISOString() ?? null,
+                compPlan,
                 compReason,
                 compGrantedBy,
               }
@@ -250,12 +267,22 @@ export class SubscriptionProvisioningService {
    * given free access, and why, is worth more than a tidy table.
    */
   async revokeComp(tenantId: string, revokedBy: string, reason?: string) {
+    // Carried over deliberately: a revoked comp keeps the name of the plan it
+    // granted, for the same reason it keeps its reason. "What did we give this
+    // tenant, and why" is the question the comp list exists to answer, and
+    // revoking is when it starts being asked.
+    const existing = await this.prisma.tenantSubscription.findUnique({
+      where: { tenantId },
+      select: { compPlan: true },
+    });
+
     return this.provision({
       tenantId,
       modules: [],
       status: 'CANCELED',
       source: 'COMP',
       compExpiresAt: new Date(),
+      compPlan: existing?.compPlan ?? null,
       compReason: reason ?? null,
       compGrantedBy: revokedBy,
       reason: `comp-revoked:${revokedBy}`,

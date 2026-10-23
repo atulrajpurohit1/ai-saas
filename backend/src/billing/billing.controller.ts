@@ -36,6 +36,9 @@ import {
   packageForModules,
   planForLookupKey,
 } from './pricing.constants';
+import { PrismaService } from '../prisma/prisma.service';
+import { TRIAL_PLAN_KEY, compPlanOf } from './comp-plan.constants';
+import { isCompActive } from './comp.util';
 
 @UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('billing')
@@ -47,6 +50,7 @@ export class BillingController {
     private readonly stripe: StripeService,
     private readonly metering: GuardMeteringService,
     private readonly entitlements: EntitlementsService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Get()
@@ -226,6 +230,28 @@ export class BillingController {
         if (fromStripe) return fromStripe;
       } catch {
         // Fall through to the entitlement-derived plan below.
+      }
+    }
+
+    // A comp records the plan it granted, so ask it before guessing from
+    // modules. Without this a Trial tenant resolved to COMPLETE -- Trial
+    // unlocks all three services, which is exactly the Complete module set --
+    // and the plan page named their plan "AegisLead Complete".
+    //
+    // Trial itself is not a sellable package and has no band or price, so it
+    // reports null: the page then offers the real packages, which is the right
+    // thing to show someone on a trial.
+    const comped = await this.prisma.tenantSubscription.findUnique({
+      where: { tenantId },
+      select: { source: true, status: true, compExpiresAt: true, compPlan: true, aiEnabled: true },
+    });
+
+    if (comped && isCompActive(comped)) {
+      const plan = compPlanOf(comped);
+      if (plan === TRIAL_PLAN_KEY) return null;
+      if (plan) {
+        const billableGuards = await this.metering.billableGuardCount(tenantId);
+        return { packageKey: plan, band: billableBand(plan, billableGuards) };
       }
     }
 

@@ -66,6 +66,7 @@ export default function GuardShiftDetailPage() {
   const [incidentPhotos, setIncidentPhotos] = useState<IncidentEvidence[]>([]);
   const [photoUploading, setPhotoUploading] = useState(false);
   const incidentPhotoInputRef = React.useRef<HTMLInputElement | null>(null);
+  const incidentGalleryInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const fetchShift = useCallback(async (showFullLoader = true) => {
     if (!id) {
@@ -172,6 +173,18 @@ export default function GuardShiftDetailPage() {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file || !submittedIncidentId) return;
+    // Reject oversize files on the client with a clear message. A large
+    // gallery video in particular used to sail past the picker and only fail
+    // at the server as an opaque error. Caps mirror the backend (15MB image /
+    // 100MB video).
+    const isVideo = file.type.startsWith('video');
+    const maxBytes = (isVideo ? 100 : 15) * 1024 * 1024;
+    if (file.size > maxBytes) {
+      toast.error(
+        `That ${isVideo ? 'video' : 'photo'} is too large (max ${isVideo ? 100 : 15} MB). Pick a smaller file.`,
+      );
+      return;
+    }
     setPhotoUploading(true);
     try {
       const created = await uploadGuardIncidentEvidence(submittedIncidentId, file);
@@ -413,6 +426,10 @@ export default function GuardShiftDetailPage() {
                   </span>
                 </div>
 
+                {/* Two separate pickers: "Take photo" forces the camera
+                    (capture), "Choose from gallery" omits capture so the OS
+                    offers the photo library / files. A single capture input
+                    hid the gallery option on mobile entirely. */}
                 <input
                   ref={incidentPhotoInputRef}
                   type="file"
@@ -421,25 +438,41 @@ export default function GuardShiftDetailPage() {
                   onChange={handleIncidentPhotoPick}
                   className="hidden"
                 />
-                <button
-                  type="button"
-                  onClick={() => incidentPhotoInputRef.current?.click()}
-                  disabled={photoUploading}
-                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-slate-200 transition hover:bg-white/10 disabled:opacity-60"
-                >
-                  {photoUploading ? (
-                    <Loader2 className="animate-spin" size={16} />
-                  ) : incidentPhotos.length > 0 ? (
-                    <ImagePlus size={16} />
-                  ) : (
-                    <Camera size={16} />
-                  )}
-                  {photoUploading
-                    ? 'Uploading…'
-                    : incidentPhotos.length > 0
-                      ? 'Add another photo'
-                      : 'Add photo'}
-                </button>
+                <input
+                  ref={incidentGalleryInputRef}
+                  type="file"
+                  accept="image/*,video/*"
+                  onChange={handleIncidentPhotoPick}
+                  className="hidden"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => incidentPhotoInputRef.current?.click()}
+                    disabled={photoUploading}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-slate-200 transition hover:bg-white/10 disabled:opacity-60"
+                  >
+                    {photoUploading ? (
+                      <Loader2 className="animate-spin" size={16} />
+                    ) : (
+                      <Camera size={16} />
+                    )}
+                    Take photo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => incidentGalleryInputRef.current?.click()}
+                    disabled={photoUploading}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-slate-200 transition hover:bg-white/10 disabled:opacity-60"
+                  >
+                    {photoUploading ? (
+                      <Loader2 className="animate-spin" size={16} />
+                    ) : (
+                      <ImagePlus size={16} />
+                    )}
+                    From gallery
+                  </button>
+                </div>
 
                 {incidentPhotos.length > 0 && (
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">

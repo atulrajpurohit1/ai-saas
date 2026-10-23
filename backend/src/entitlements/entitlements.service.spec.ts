@@ -310,4 +310,97 @@ describe('EntitlementsService', () => {
       expect(summary.compReason).toBeNull();
     });
   });
+
+  /**
+   * The plan page names the plan from this. It used to work the name out from
+   * the active modules, which cannot tell the Trial plan from the Complete
+   * package -- both unlock all three services -- so every tenant comped onto
+   * Trial was shown "AegisLead Complete" as the plan they were on.
+   */
+  describe('summaryForTenant plan name', () => {
+    const ALL_MODULES = [
+      { module: 'LEAD_GEN' },
+      { module: 'GUARD_TOUR' },
+      { module: 'FINANCE' },
+    ];
+
+    it('names a comped Trial tenant Trial, not Complete', async () => {
+      prisma.tenantSubscription.findUnique.mockResolvedValue({
+        status: 'ACTIVE',
+        source: 'COMP',
+        aiEnabled: false,
+        compExpiresAt: null,
+        compPlan: 'TRIAL',
+        compReason: 'pilot',
+      });
+      prisma.tenantModule.findMany.mockResolvedValue(ALL_MODULES);
+
+      const summary = await service.summaryForTenant('tenant-trial');
+
+      expect(summary.plan).toEqual({
+        key: 'TRIAL',
+        name: 'AegisLead Trial Plan',
+      });
+    });
+
+    it('names a tenant comped onto Complete as Complete', async () => {
+      prisma.tenantSubscription.findUnique.mockResolvedValue({
+        status: 'ACTIVE',
+        source: 'COMP',
+        aiEnabled: true,
+        compExpiresAt: null,
+        compPlan: 'COMPLETE',
+        compReason: 'VIP',
+      });
+      prisma.tenantModule.findMany.mockResolvedValue(ALL_MODULES);
+
+      const summary = await service.summaryForTenant('tenant-comp-complete');
+
+      expect(summary.plan).toEqual({
+        key: 'COMPLETE',
+        name: 'AegisLead Complete',
+      });
+    });
+
+    /** A paying tenant records no plan, so the modules are all there is. */
+    it('names a paying tenant from their modules', async () => {
+      prisma.tenantSubscription.findUnique.mockResolvedValue({
+        status: 'ACTIVE',
+        source: 'STRIPE',
+        aiEnabled: true,
+        compExpiresAt: null,
+        compPlan: null,
+        compReason: null,
+      });
+      prisma.tenantModule.findMany.mockResolvedValue([{ module: 'FINANCE' }]);
+
+      const summary = await service.summaryForTenant('tenant-paying');
+
+      expect(summary.plan).toEqual({
+        key: 'OPERATIONS',
+        name: 'AegisLead Operations',
+      });
+    });
+
+    /**
+     * Once a Trial comp lapses the tenant is not on Trial any more, so the
+     * name must stop coming from the grant. They hold nothing, so there is no
+     * name at all.
+     */
+    it('stops naming a lapsed Trial comp', async () => {
+      prisma.tenantSubscription.findUnique.mockResolvedValue({
+        status: 'ACTIVE',
+        source: 'COMP',
+        aiEnabled: false,
+        compExpiresAt: new Date(Date.now() - 86_400_000),
+        compPlan: 'TRIAL',
+        compReason: 'pilot',
+      });
+      prisma.tenantModule.findMany.mockResolvedValue([]);
+
+      const summary = await service.summaryForTenant('tenant-lapsed-trial');
+
+      expect(summary.plan).toBeNull();
+    });
+  });
 });

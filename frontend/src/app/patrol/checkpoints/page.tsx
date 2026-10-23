@@ -345,20 +345,34 @@ export default function CheckpointsPage() {
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-muted-foreground">Associated Site</label>
-                <select
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  value={formData.site_id}
-                  onChange={(e) => setFormData({ ...formData, site_id: e.target.value })}
-                  disabled={!!isEditing}
-                  required
-                >
-                  <option value="" disabled className="bg-[#0e0e1a]">Select Site</option>
-                  {sites.map((site) => (
-                    <option key={site.id} value={site.id} className="bg-[#0e0e1a]">
-                      {site.name}
-                    </option>
-                  ))}
-                </select>
+                {isEditing ? (
+                  // A checkpoint can't move between sites after creation (its
+                  // patrol routes and scan history are tied to the site), so on
+                  // edit this is shown read-only rather than as a disabled
+                  // dropdown that looks broken when you click it.
+                  <>
+                    <div className="w-full rounded-xl border border-white/10 bg-white/[0.03] py-2.5 px-4 text-muted-foreground">
+                      {sites.find((site) => site.id === formData.site_id)?.name ?? 'Unknown site'}
+                    </div>
+                    <p className="text-xs text-muted-foreground/70">
+                      The site can&apos;t be changed after a checkpoint is created.
+                    </p>
+                  </>
+                ) : (
+                  <select
+                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    value={formData.site_id}
+                    onChange={(e) => setFormData({ ...formData, site_id: e.target.value })}
+                    required
+                  >
+                    <option value="" disabled className="bg-[#0e0e1a]">Select Site</option>
+                    {sites.map((site) => (
+                      <option key={site.id} value={site.id} className="bg-[#0e0e1a]">
+                        {site.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div className="space-y-1">

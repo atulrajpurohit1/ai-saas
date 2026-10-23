@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { EmailService } from '../email/email.service';
 import { EmergencyAlertsService } from './emergency-alerts.service';
 import { EmergencyAlertStatus } from './emergency-alert-status.util';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
@@ -17,8 +18,10 @@ describe('EmergencyAlertsService', () => {
       create: jest.Mock;
       update: jest.Mock;
     };
+    user: { findMany: jest.Mock };
   };
   let auditService: { log: jest.Mock };
+  let emailService: { sendEmergencyAlertEmail: jest.Mock };
 
   const TENANT_A = 'tenant-a';
   const GUARD_A = 'guard-a';
@@ -64,14 +67,25 @@ describe('EmergencyAlertsService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
+      user: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ email: 'admin@example.com' }]),
+      },
     };
     auditService = { log: jest.fn() };
+    emailService = {
+      sendEmergencyAlertEmail: jest
+        .fn()
+        .mockResolvedValue({ messageId: 'm1', previewUrl: false }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EmergencyAlertsService,
         { provide: PrismaService, useValue: prisma },
         { provide: AuditService, useValue: auditService },
+        { provide: EmailService, useValue: emailService },
       ],
     }).compile();
 
@@ -191,7 +205,29 @@ describe('EmergencyAlertsService', () => {
       expect(result.location).toBeNull();
     });
 
-    it('is idempotent: returns the existing ACTIVE alert instead of creating a duplicate on a rapid repeat trigger', async () => {
+    it('emails the tenant admins when an alert is first triggered', async () => {
+      prisma.guard.findFirst.mockResolvedValue({
+        id: GUARD_A,
+        name: 'Alex Guard',
+        branchId: null,
+      });
+      prisma.emergencyAlert.findFirst.mockResolvedValue(null);
+      prisma.patrolRun.findFirst.mockResolvedValue(null);
+      prisma.emergencyAlert.create.mockResolvedValue(baseAlertRow);
+
+      await service.triggerForGuard(TENANT_A, GUARD_A);
+
+      expect(emailService.sendEmergencyAlertEmail).toHaveBeenCalledWith(
+        TENANT_A,
+        expect.objectContaining({
+          recipients: ['admin@example.com'],
+          guardName: 'Alex Guard',
+          resent: false,
+        }),
+      );
+    });
+
+    it('does not create a duplicate on a repeat trigger, but re-notifies dispatch (so a guard can press again)', async () => {
       prisma.guard.findFirst.mockResolvedValue({
         id: GUARD_A,
         name: 'Alex Guard',
@@ -203,6 +239,14 @@ describe('EmergencyAlertsService', () => {
 
       expect(prisma.emergencyAlert.create).not.toHaveBeenCalled();
       expect(result.id).toBe('alert-1');
+      // Pressing the panic button again must reach dispatch, not do nothing.
+      expect(emailService.sendEmergencyAlertEmail).toHaveBeenCalledWith(
+        TENANT_A,
+        expect.objectContaining({ resent: true }),
+      );
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'EMERGENCY_ALERT_RESENT' }),
+      );
     });
   });
 

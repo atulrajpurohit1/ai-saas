@@ -70,7 +70,19 @@ export class BranchesService {
         tenantId: user.tenantId,
         ...(user.isSuperAdmin ? {} : { id: user.branchId || '__none__' }),
       },
-      include: this.branchInclude(),
+      include: {
+        ...this.branchInclude(),
+        // The branch cards show Clients/Sites/Guards counts. Without this the
+        // list query returned no counts and every card read 0, while the
+        // detail view (which does include _count) showed the real numbers.
+        _count: {
+          select: {
+            clients: true,
+            sites: true,
+            guards: true,
+          },
+        },
+      },
       orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
     });
   }

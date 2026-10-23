@@ -52,6 +52,21 @@ export class AiMeteringService {
   }
 
   /**
+   * Whether the tenant's plan includes AI, without charging or running
+   * anything.
+   *
+   * For a Gemini enrichment that rides on top of a non-AI workflow -- the
+   * one-line explanation of a rule-based guard recommendation, say -- where
+   * the surrounding feature (assigning a guard to a shift) must never cost
+   * credits. Such a caller runs the AI free when the plan allows it and falls
+   * back to its rule-based text when it does not, so it only needs the plan
+   * gate, not the meter.
+   */
+  async isAiEnabled(tenantId: string): Promise<boolean> {
+    return this.entitlements.isAiEnabled(tenantId);
+  }
+
+  /**
    * Refuses the call outright when the tenant's plan excludes AI (the Trial
    * plan). Checked before cost and before any credit spend, so a free (cost 0)
    * feature is blocked too, and a Trial tenant with credits bought for prospect

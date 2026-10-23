@@ -13,8 +13,13 @@ import {
 import { isCompActive } from '../billing/comp.util';
 import {
   COMP_PLAN_LABELS,
+  compPlanOf,
   isCompPlanKey,
 } from '../billing/comp-plan.constants';
+import {
+  PACKAGE_LABELS,
+  packageForModules,
+} from '../billing/pricing.constants';
 
 /** Statuses that still grant access. PAST_DUE keeps working -- dunning is a
  *  billing conversation, not a reason to strand a paying customer mid-shift. */
@@ -232,6 +237,16 @@ export class EntitlementsService {
       // PendingCompService: that service depends on provisioning, which
       // depends on this one, and a cycle is not worth a shared getter.
       pendingPlan: this.pendingPlan(subscription),
+      // The plan this account is on, by name.
+      //
+      // Authoritative, and that is the point: the frontend used to work the
+      // name out from the active modules, which cannot tell the Trial plan
+      // from the Complete package -- both unlock all three services -- so
+      // every Trial tenant was shown "AegisLead Complete" as their plan.
+      //
+      // Null when there is no single name to show: no services, or a mix that
+      // matches no package. Callers then list the active services instead.
+      plan: this.planName(comped ? subscription : null, granted),
       modules: SERVICE_MODULES.map((module) => ({
         key: module,
         name: SERVICE_MODULE_LABELS[module],
@@ -248,6 +263,32 @@ export class EntitlementsService {
    * promising the customer a plan that cannot be applied would be worse than
    * saying nothing.
    */
+  /**
+   * Names the plan behind a set of granted modules.
+   *
+   * A live comp is named from the plan recorded on the grant, because the
+   * modules cannot identify it: Trial and Complete grant the same three
+   * services. Everyone else is named from their modules, which is unambiguous
+   * once Trial is excluded -- Trial is the collision, and it is always a comp.
+   *
+   * `compedSubscription` is the subscription row only when the comp is LIVE;
+   * pass null otherwise, so a lapsed Trial stops being called a Trial.
+   */
+  private planName(
+    compedSubscription: { compPlan: string | null; aiEnabled: boolean } | null,
+    granted: Set<ServiceModule>,
+  ): { key: string; name: string } | null {
+    if (compedSubscription) {
+      const plan = compPlanOf(compedSubscription);
+      if (plan) return { key: plan, name: COMP_PLAN_LABELS[plan] };
+    }
+
+    const packageKey = packageForModules([...granted]);
+    return packageKey
+      ? { key: packageKey, name: PACKAGE_LABELS[packageKey] }
+      : null;
+  }
+
   private pendingPlan(
     subscription: {
       pendingCompPlan: string | null;

@@ -9,6 +9,7 @@ import TableScroll from '@/components/TableScroll';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { sanitizeDecimal } from '@/lib/validation';
 import { branchParams, BranchSummary } from '@/lib/branches';
 import {
   generateInvoice,
@@ -421,13 +422,12 @@ export default function InvoicesPage() {
             Manual Rate
           </label>
           <input
-            type="number"
-            min="0.01"
-            step="0.01"
+            type="text"
+            inputMode="decimal"
             className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:cursor-not-allowed disabled:opacity-50"
             placeholder="Auto"
             value={formData.hourly_rate}
-            onChange={(event) => setFormData({ ...formData, hourly_rate: event.target.value })}
+            onChange={(event) => setFormData({ ...formData, hourly_rate: sanitizeDecimal(event.target.value) })}
             disabled={!formData.allow_manual_rate}
             required={formData.allow_manual_rate}
           />
@@ -579,12 +579,12 @@ export default function InvoicesPage() {
       </div>
 
       {canGenerateInvoice && clients.length > 0 && selectedClientSites.length === 0 && !loading && (
-        <div className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200">
+        <div className="mt-6 rounded-2xl border border-warning/25 bg-warning-wash p-4 text-sm text-warning">
           <div className="flex items-start gap-3">
             <FileText className="mt-0.5 shrink-0" size={18} />
             <div>
               <div className="font-semibold">No site is linked to {selectedClientName}.</div>
-              <div className="mt-1 text-amber-100/80">Choose a site below, then generate the invoice once it appears in the Site field.</div>
+              <div className="mt-1 text-warning/80">Choose a site below, then generate the invoice once it appears in the Site field.</div>
             </div>
           </div>
 

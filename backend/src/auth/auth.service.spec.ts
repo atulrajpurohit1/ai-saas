@@ -130,7 +130,7 @@ describe('AuthService.verifyEmail', () => {
 describe('AuthService.register welcome credits', () => {
   let service: AuthService;
   let tx: {
-    tenant: { findUnique: jest.Mock; create: jest.Mock };
+    tenant: { findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
     tenantSubscription: { create: jest.Mock };
     tenantCreditBalance: { create: jest.Mock };
     creditLedgerEntry: { create: jest.Mock };
@@ -153,6 +153,7 @@ describe('AuthService.register welcome credits', () => {
       tenant: {
         findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue({ id: 'tenant-1' }),
+        update: jest.fn().mockResolvedValue({}),
       },
       tenantSubscription: { create: jest.fn().mockResolvedValue({}) },
       tenantCreditBalance: { create: jest.fn().mockResolvedValue({}) },

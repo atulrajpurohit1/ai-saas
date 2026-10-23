@@ -20,9 +20,30 @@ describe('GuardsService deactivation', () => {
     guard: {
       findFirst: jest.Mock;
       update: jest.Mock<Promise<unknown>, [GuardUpdate]>;
+      delete: jest.Mock;
     };
+    assignment: { count: jest.Mock };
+    timesheet: { count: jest.Mock };
+    invoiceItem: { count: jest.Mock };
+    incident: { count: jest.Mock };
+    attendanceEvent: { count: jest.Mock };
+    patrolRun: { count: jest.Mock };
+    patrolEvent: { count: jest.Mock };
+    emergencyAlert: { count: jest.Mock };
   };
   let audit: { log: jest.Mock };
+
+  // By default a clean guard with no history, so remove() is allowed.
+  const noHistory = () => ({
+    assignment: { count: jest.fn().mockResolvedValue(0) },
+    timesheet: { count: jest.fn().mockResolvedValue(0) },
+    invoiceItem: { count: jest.fn().mockResolvedValue(0) },
+    incident: { count: jest.fn().mockResolvedValue(0) },
+    attendanceEvent: { count: jest.fn().mockResolvedValue(0) },
+    patrolRun: { count: jest.fn().mockResolvedValue(0) },
+    patrolEvent: { count: jest.fn().mockResolvedValue(0) },
+    emergencyAlert: { count: jest.fn().mockResolvedValue(0) },
+  });
 
   const guard = (overrides: Record<string, unknown> = {}) => ({
     id: 'guard-1',
@@ -41,7 +62,9 @@ describe('GuardsService deactivation', () => {
         update: jest.fn(({ data }: GuardUpdate) =>
           Promise.resolve<unknown>({ ...guard(), ...data }),
         ),
+        delete: jest.fn().mockResolvedValue(guard()),
       },
+      ...noHistory(),
     };
     audit = { log: jest.fn() };
     service = new GuardsService(
@@ -114,5 +137,39 @@ describe('GuardsService deactivation', () => {
         where: expect.objectContaining({ id: 'guard-x', tenantId: 'tenant-1' }),
       }),
     );
+  });
+
+  describe('remove', () => {
+    it('deletes a guard that has no activity history', async () => {
+      const result = await service.remove(user, 'guard-1');
+
+      expect(prisma.guard.delete).toHaveBeenCalledWith({
+        where: { id: 'guard-1' },
+      });
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'GUARD_DELETED' }),
+      );
+      expect(result).toEqual({ id: 'guard-1', deleted: true });
+    });
+
+    it('refuses to delete a guard with history, so records never cascade away', async () => {
+      // One timesheet is enough -- deleting would cascade it (and any invoice
+      // line built from it) out of existence.
+      prisma.timesheet.count.mockResolvedValue(1);
+
+      await expect(service.remove(user, 'guard-1')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.guard.delete).not.toHaveBeenCalled();
+    });
+
+    it('only deletes guards in the caller tenant', async () => {
+      prisma.guard.findFirst.mockResolvedValue(null);
+
+      await expect(service.remove(user, 'guard-x')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.guard.delete).not.toHaveBeenCalled();
+    });
   });
 });
