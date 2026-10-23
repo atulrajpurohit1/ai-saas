@@ -80,6 +80,29 @@ export async function getRoleUsers() {
   return res.data;
 }
 
+/**
+ * Adds a team member to this account.
+ *
+ * The only way a colleague joins an existing account: signing up through the
+ * public form always creates a new company owned by whoever registered.
+ */
+export async function createTenantUser(data: {
+  email: string;
+  name: string;
+  password: string;
+  role_id: string;
+  branch_id?: string | null;
+}) {
+  const res = await api.post<{
+    id: string;
+    email: string;
+    name: string | null;
+    branchId: string | null;
+    role: string;
+  }>('roles/users', data);
+  return res.data;
+}
+
 export async function assignUserRole(data: {
   user_id: string;
   role_id: string;

@@ -18,6 +18,7 @@ import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { AssignUserRoleDto } from './dto/assign-user-role.dto';
 import { CreateRoleDto } from './dto/create-role.dto';
+import { CreateTenantUserDto } from './dto/create-tenant-user.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { RolesService } from './roles.service';
 
@@ -64,6 +65,19 @@ export class RolesController {
   @RequireAnyPermission('users.view', 'users.assign_roles')
   listUsers(@GetUser() user: ActiveUser) {
     return this.rolesService.listUsers(user);
+  }
+
+  /**
+   * Adds a team member to the caller's tenant.
+   *
+   * Sits under /roles because that is the screen it serves and where the role
+   * list and assignments already live; UsersController is a read-only /users/me
+   * for the current session and has no tenant-admin surface to join.
+   */
+  @Post('users')
+  @RequirePermission('users.manage')
+  createUser(@GetUser() user: ActiveUser, @Body() dto: CreateTenantUserDto) {
+    return this.rolesService.createTenantUser(user, dto);
   }
 
   @Post('assignments')

@@ -460,6 +460,12 @@ export const PERMISSIONS: PermissionDefinition[] = [
     module: 'settings',
   },
   {
+    key: 'users.manage',
+    name: 'Add and remove users',
+    description: 'Create team members and deactivate their access.',
+    module: 'settings',
+  },
+  {
     key: 'webhooks.view',
     name: 'View webhooks',
     description: 'Read webhook configuration and delivery history.',
