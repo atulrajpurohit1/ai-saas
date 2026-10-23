@@ -28,6 +28,9 @@ import {
   Umbrella,
   Coins,
   Sparkles,
+  Siren,
+  Contact,
+  Route,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -64,6 +67,7 @@ export const NAV_GROUPS: NavGroup[] = [
     links: [
       { href: '/branches', label: 'Branches', icon: GitBranch, permissions: ['branches.view'] },
       { href: '/sites', label: 'Sites', icon: MapPin, permissions: ['sites.view'] },
+      { href: '/clients', label: 'Clients', icon: Contact, permissions: ['clients.view'] },
       { href: '/clients/insurance', label: 'Client Insurance', icon: Umbrella, permissions: ['clients.view'] },
     ],
   },
@@ -86,8 +90,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/guards', label: 'Guards', icon: ShieldCheck, permissions: ['guards.view'] },
       { href: '/guards/compliance', label: 'Guard Compliance', icon: FileCheck2, permissions: ['guards.view'] },
       { href: '/patrol/checkpoints', label: 'Patrols', icon: Navigation, permissions: ['patrols.view'] },
+      { href: '/patrol/routes', label: 'Patrol Routes', icon: Route, permissions: ['patrols.view'] },
       { href: '/patrol/monitor', label: 'Patrol Monitor', icon: Radar, permissions: ['patrols.view'] },
       { href: '/incidents', label: 'Incidents', icon: FileWarning, permissions: ['incidents.view'] },
+      { href: '/emergency-alerts', label: 'Emergency Alerts', icon: Siren, permissions: ['incidents.view'] },
       { href: '/reports', label: 'Reports', icon: ClipboardList, permissions: ['reports.view'] },
     ],
   },

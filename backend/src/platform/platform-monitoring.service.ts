@@ -37,7 +37,11 @@ export class PlatformMonitoringService {
 
     const [tenantCount, subscriptions, creditTotals, aiSpend] =
       await Promise.all([
-        this.prisma.tenant.count(),
+        // Mirror the tenants() filter: an abandoned signup (no verified user)
+        // is not a real tenant and must not inflate the headline count.
+        this.prisma.tenant.count({
+          where: { users: { some: { emailVerified: true } } },
+        }),
         this.prisma.tenantSubscription.findMany({
           select: {
             status: true,
@@ -99,6 +103,15 @@ export class PlatformMonitoringService {
 
     const [tenants, aiByTenant] = await Promise.all([
       this.prisma.tenant.findMany({
+        // Only tenants that have at least one verified user. A self-service
+        // signup creates the tenant row up front and attaches the OTP to it,
+        // so an abandoned signup -- someone who never entered the code, or
+        // changed their email and started over -- leaves a tenant whose only
+        // user is unverified. Those are not real accounts (an unverified user
+        // cannot even log in), so they must not show up here as tenants. A
+        // platform-created tenant and any completed signup both have a
+        // verified user, so this keeps every genuine account.
+        where: { users: { some: { emailVerified: true } } },
         select: {
           id: true,
           name: true,
@@ -107,7 +120,15 @@ export class PlatformMonitoringService {
           suspendedAt: true,
           suspendedReason: true,
           slug: true,
+          ownerUserId: true,
           _count: { select: { users: true } },
+          // ownerUserId is a plain column, not a relation, so the owner's
+          // email is read from the user list rather than a nested owner
+          // select. Few users per tenant at this scale, so this is cheap.
+          users: {
+            select: { id: true, email: true, emailVerified: true },
+            orderBy: { createdAt: 'asc' },
+          },
           subscription: {
             select: {
               status: true,
@@ -146,9 +167,19 @@ export class PlatformMonitoringService {
           compExpiresAt: sub.compExpiresAt,
         });
 
+      // The account's email, for the Tenants table. Prefer the founding
+      // owner; fall back to the first verified user, then the first user, so
+      // a legacy tenant with no recorded owner still shows something.
+      const ownerEmail =
+        tenant.users.find((u) => u.id === tenant.ownerUserId)?.email ??
+        tenant.users.find((u) => u.emailVerified)?.email ??
+        tenant.users[0]?.email ??
+        null;
+
       return {
         tenantId: tenant.id,
         name: tenant.name,
+        email: ownerEmail,
         createdAt: tenant.createdAt,
         slug: tenant.slug,
         isActive: tenant.isActive,

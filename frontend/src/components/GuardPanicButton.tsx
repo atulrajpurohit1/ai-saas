@@ -27,6 +27,7 @@ export default function GuardPanicButton() {
   const [checkedActive, setCheckedActive] = useState(false);
   const [buttonState, setButtonState] = useState<ButtonState>('idle');
   const [holdProgress, setHoldProgress] = useState(0);
+  const [resending, setResending] = useState(false);
 
   const holdStartRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -68,6 +69,23 @@ export default function GuardPanicButton() {
     } catch (err) {
       setButtonState('error');
       toast.error(getApiErrorMessage(err, 'Could not confirm the alert was sent.'));
+    }
+  }, []);
+
+  // Re-sending an alert that is already active: the backend keeps the single
+  // live alert but re-notifies dispatch, so a guard whose first alert has gone
+  // unanswered can press again rather than being stuck watching a static
+  // banner.
+  const resendAlert = useCallback(async () => {
+    setResending(true);
+    try {
+      const alert = await triggerEmergencyAlert();
+      setActiveAlert(alert);
+      toast.success('Alert re-sent to dispatch.');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Could not re-send the alert.'));
+    } finally {
+      setResending(false);
     }
   }, []);
 
@@ -129,6 +147,15 @@ export default function GuardPanicButton() {
             ? `Dispatch acknowledged your alert${activeAlert.acknowledgedBy?.name ? ` (${activeAlert.acknowledgedBy.name})` : ''} - help is on the way.`
             : 'Emergency alert sent - dispatch has been notified.'}
         </div>
+        <button
+          type="button"
+          onClick={resendAlert}
+          disabled={resending}
+          className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-current/40 px-2.5 py-1 text-xs font-bold disabled:opacity-60"
+        >
+          <RotateCcw size={13} className={resending ? 'animate-spin' : ''} />
+          {resending ? 'Re-sending...' : 'Re-send'}
+        </button>
         <span className="shrink-0 text-xs opacity-75">{relativeTime(activeAlert.triggeredAt)}</span>
       </div>
     );

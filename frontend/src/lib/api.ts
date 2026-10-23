@@ -153,6 +153,23 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // A guard whose account was deactivated mid-session: the backend rejects
+    // their token with this code. Don't try to refresh (a new token would be
+    // rejected too) - end the session immediately and tell them why.
+    if (
+      error.response?.status === 401 &&
+      error.response?.data?.code === 'GUARD_DEACTIVATED'
+    ) {
+      toast.error(
+        error.response?.data?.message ||
+          'Your guard account has been deactivated by an administrator.',
+        { id: 'guard-deactivated' },
+      );
+      clearPortalSession('guard');
+      redirectToLogin('guard');
+      return Promise.reject(error);
+    }
+
     if (error.response?.status !== 401) {
       return Promise.reject(error);
     }

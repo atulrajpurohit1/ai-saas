@@ -120,7 +120,11 @@ describe('PlatformMonitoringService.tenants', () => {
     isActive: true,
     suspendedAt: null,
     suspendedReason: null,
+    ownerUserId: `${id}-owner`,
     _count: { users: 3 },
+    users: [
+      { id: `${id}-owner`, email: `${id}@example.com`, emailVerified: true },
+    ],
     subscription: sub,
     modules: modules.map((module) => ({ module })),
     creditBalance: { balance: 42, lifetimeConsumed: 10 },
@@ -197,5 +201,7 @@ describe('PlatformMonitoringService.tenants', () => {
     expect(byId['t-pay'].isActive).toBe(true);
     expect(byId['t-pay'].userCount).toBe(3);
     expect(byId['t-pay'].slug).toBe('t-pay');
+    // The account email now shows in the Tenants table, read from the owner.
+    expect(byId['t-pay'].email).toBe('t-pay@example.com');
   });
 });

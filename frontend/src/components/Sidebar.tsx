@@ -51,6 +51,19 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
     ...visibleNavGroups.flatMap((group) => group.links),
   ];
 
+  // Exactly one link is highlighted: the most specific one whose path the
+  // current URL falls under. A plain `startsWith` lit up every ancestor too,
+  // so visiting /guards/compliance highlighted both "Guards" and "Guard
+  // Compliance" (and /clients/insurance would light up "Clients"). Picking the
+  // longest matching href leaves only the deepest match active.
+  const activeHref = links.reduce<string | null>((best, link) => {
+    const matches =
+      pathname === link.href || pathname.startsWith(`${link.href}/`);
+    if (!matches) return best;
+    if (!best || link.href.length > best.length) return link.href;
+    return best;
+  }, null);
+
   const saveScrollPosition = () => {
     if (typeof window === 'undefined' || !navRef.current) return;
     sessionStorage.setItem(SIDEBAR_SCROLL_KEY, String(navRef.current.scrollTop));
@@ -73,7 +86,7 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
   }, [links.length, pathname]);
 
   const renderLink = (link: NavLink) => {
-    const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+    const isActive = link.href === activeHref;
     const Icon = link.icon;
 
     return (

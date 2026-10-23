@@ -18,6 +18,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { sanitizePhoneIntl, validateEmail } from '@/lib/validation';
 import { useNewIntent } from '@/hooks/useNewIntent';
 import { Plus, Search, User, Upload, Loader2, Users, Trash2, FileUp } from 'lucide-react';
 import LeadImportDialog from '@/components/LeadImportDialog';
@@ -144,6 +145,11 @@ export default function LeadsPage() {
 
   const handleAddLead = async (e: React.FormEvent) => {
     e.preventDefault();
+    const emailError = validateEmail(newLead.email);
+    if (emailError) {
+      alert(emailError);
+      return;
+    }
     try {
       await api.post('leads', newLead);
       setShowModal(false);
@@ -415,7 +421,7 @@ export default function LeadsPage() {
                 inputMode="tel"
                 placeholder="+14155551234"
                 value={newLead.phone}
-                onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })}
+                onChange={(e) => setNewLead({ ...newLead, phone: sanitizePhoneIntl(e.target.value) })}
               />
               <p className="text-xs text-muted-foreground">
                 Include the country code so the number can be dialed from Sales Calls.

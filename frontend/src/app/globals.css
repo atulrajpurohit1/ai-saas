@@ -367,6 +367,42 @@ select.text-white {
   }
 }
 
+/* App-wide scrollbar theming. On Windows the browser's default scrollbar is a
+   wide, high-contrast dark bar with arrow buttons that looked especially out
+   of place inside modals/dialogs (which scroll their own content). This themes
+   every scroll area to a thin, rounded, muted thumb on a transparent track, so
+   dialogs and panels no longer show the raw OS scrollbar. More specific rules
+   below (e.g. .sidebar-scroll) still override this where needed. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-button {
+  display: none;
+}
+
 /* Sidebar nav scroll area: the browser's default scrollbar (a dark, full
    height track with arrow buttons on Windows) dominated the narrow sidebar.
    Keep a thin, track-less thumb that only shows while the nav is hovered or

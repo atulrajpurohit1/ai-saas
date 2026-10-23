@@ -92,7 +92,7 @@ function PlanBadge({ plan, planName }: { plan: string; planName?: string | null 
         ? 'Comped'
         : plan === 'TRIAL'
           ? 'Trial'
-          : 'None';
+          : 'No Plan';
   const label = planName
     ? planName.replace(/^AegisLead\s+/, '').replace(/\s+Plan$/, '')
     : fallback;
@@ -817,7 +817,6 @@ Reason (optional):`,
                   <th className="px-4 py-3 font-medium">Tenant</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Plan</th>
-                  <th className="px-4 py-3 font-medium">AI</th>
                   <th className="px-4 py-3 font-medium">Users</th>
                   <th className="px-4 py-3 font-medium">Credits</th>
                   <th className="px-4 py-3 font-medium">AI cost 30d</th>
@@ -830,7 +829,9 @@ Reason (optional):`,
                   <tr key={t.tenantId} className={cn(!t.isActive && 'opacity-60')}>
                     <td className="px-4 py-3">
                       <div className="font-medium text-foreground">{t.name}</div>
-                      <div className="text-xs text-muted-foreground">{t.slug}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {t.email ?? t.slug}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       {t.isActive ? (
@@ -848,15 +849,6 @@ Reason (optional):`,
                     </td>
                     <td className="px-4 py-3">
                       <PlanBadge plan={t.plan} planName={t.planName} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={
-                          t.aiEnabled ? 'text-emerald-600' : 'text-muted-foreground'
-                        }
-                      >
-                        {t.aiEnabled ? 'On' : 'Off'}
-                      </span>
                     </td>
                     <td className="px-4 py-3 text-foreground">
                       <span className="inline-flex items-center gap-1">
@@ -910,7 +902,7 @@ Reason (optional):`,
                 {tenants.length === 0 && (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={8}
                       className="px-4 py-8 text-center text-muted-foreground"
                     >
                       No tenants yet.

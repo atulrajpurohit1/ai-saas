@@ -42,8 +42,24 @@ describe('classifyIncidentEvidence', () => {
     ).toBeNull();
   });
 
-  it('rejects an empty / missing MIME type', () => {
-    expect(classifyIncidentEvidence('scene.jpg', '')).toBeNull();
+  it('accepts a phone-gallery upload that sends no / a generic MIME type by trusting the extension', () => {
+    // Android galleries routinely hand images/videos over as
+    // application/octet-stream or with no type at all; rejecting those was
+    // what made "upload from gallery" fail. The extension is the fallback.
+    expect(classifyIncidentEvidence('scene.jpg', '')).toBe('image');
+    expect(
+      classifyIncidentEvidence('scene.jpg', 'application/octet-stream'),
+    ).toBe('image');
+    expect(
+      classifyIncidentEvidence('clip.mp4', 'application/octet-stream'),
+    ).toBe('video');
+  });
+
+  it('still rejects a generic MIME type when the extension is not allowed', () => {
+    expect(classifyIncidentEvidence('payload.svg', '')).toBeNull();
+    expect(
+      classifyIncidentEvidence('notes.docx', 'application/octet-stream'),
+    ).toBeNull();
   });
 });
 

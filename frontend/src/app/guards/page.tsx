@@ -19,6 +19,7 @@ import { branchParams, BranchSummary } from '@/lib/branches';
 import { FieldAccessMap, getEffectiveFieldPermissions } from '@/lib/field-permissions';
 import { useNewIntent } from '@/hooks/useNewIntent';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { sanitizePhone, validateEmail, validatePhone } from '@/lib/validation';
 import { Plus, Search, ShieldCheck, Edit2, Phone, Mail, KeyRound, FileCheck2, UserX, UserCheck, Loader2, Trash2 } from 'lucide-react';
 
 interface Guard {
@@ -136,6 +137,19 @@ export default function GuardsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Client-side validation before the round-trip: a clear message beats the
+    // server's generic rejection. Phone is already digit-capped on input, so
+    // this only catches a half-typed number.
+    const emailError = validateEmail(formData.email);
+    if (emailError) {
+      alert(emailError);
+      return;
+    }
+    const phoneError = validatePhone(formData.phone);
+    if (phoneError) {
+      alert(phoneError);
+      return;
+    }
     // Guard against a double submit (double-click, Enter + click): without it
     // the POST fired twice and created two identical guards.
     if (saving) return;
@@ -477,9 +491,10 @@ export default function GuardsPage() {
               <label className="text-sm font-medium text-muted-foreground">Phone Number</label>
               <Input
                 type="tel"
-                placeholder="e.g. +1 (555) 000-0000"
+                inputMode="numeric"
+                placeholder="e.g. 5550000000"
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, phone: sanitizePhone(e.target.value) })}
               />
             </div>
 

@@ -115,6 +115,8 @@ export async function getOverview(): Promise<PlatformOverview> {
 export interface PlatformTenant {
   tenantId: string;
   name: string;
+  /** The account owner's email, or null for a legacy tenant with no owner. */
+  email: string | null;
   createdAt: string;
   slug: string;
   /** False once a platform admin has suspended the account. */

@@ -705,6 +705,106 @@ You are receiving this because you are a billing contact for ${companyName}.`;
   }
 
   /**
+   * Notifies a tenant's admins/dispatchers that a guard has triggered a
+   * panic/duress alert. Sent on the initial trigger and on every re-send, so a
+   * guard who presses the button again actually re-reaches dispatch.
+   *
+   * Best-effort by contract: the caller records the alert in the database
+   * regardless and must not let a mail failure swallow a safety event, so this
+   * throws only on a bad call (no recipients), never silently.
+   */
+  async sendEmergencyAlertEmail(
+    tenantId: string,
+    params: {
+      recipients: string[];
+      guardName: string;
+      triggeredAt: Date;
+      siteName?: string | null;
+      branchName?: string | null;
+      location?: { latitude: number; longitude: number } | null;
+      resent?: boolean;
+    },
+  ) {
+    if (params.recipients.length === 0) {
+      throw new Error(
+        'sendEmergencyAlertEmail requires at least one recipient.',
+      );
+    }
+
+    const branding = await this.brandingService.brandingSnapshot(tenantId);
+    const companyName = branding?.company_name || 'AegisLead';
+
+    const where =
+      [params.siteName, params.branchName].filter(Boolean).join(' - ') ||
+      'an unspecified location';
+    const when = params.triggeredAt.toLocaleString();
+    const mapsUrl = params.location
+      ? `https://www.google.com/maps/search/?api=1&query=${params.location.latitude},${params.location.longitude}`
+      : null;
+
+    const base = (process.env.FRONTEND_URL || '').trim().replace(/\/+$/, '');
+    const alertsUrl = base ? `${base}/emergency-alerts` : null;
+
+    const headline = params.resent
+      ? `STILL ACTIVE: ${params.guardName} re-sent an emergency alert`
+      : `EMERGENCY: ${params.guardName} triggered an alert`;
+
+    const lines = [
+      `${params.guardName} ${params.resent ? 're-sent' : 'triggered'} a panic/duress alert.`,
+      `Location: ${where}`,
+      `Time: ${when}`,
+      ...(mapsUrl ? [`Last known position: ${mapsUrl}`] : []),
+      ...(alertsUrl ? ['', `Open the alert: ${alertsUrl}`] : []),
+      '',
+      `Acknowledge and resolve this from the Emergency Alerts screen in ${companyName}.`,
+    ];
+    const text = `${headline}\n\n${lines.join('\n')}`;
+
+    const bodyHtml = `
+      <p style="margin:0 0 16px;font-weight:600;">${params.guardName} ${
+        params.resent ? 're-sent' : 'triggered'
+      } a panic/duress alert.</p>
+      <p style="margin:0 0 8px;"><strong>Location:</strong> ${where}</p>
+      <p style="margin:0 0 8px;"><strong>Time:</strong> ${when}</p>
+      ${
+        mapsUrl
+          ? `<p style="margin:0 0 16px;"><a href="${mapsUrl}">View last known position on the map</a></p>`
+          : ''
+      }
+      ${
+        alertsUrl
+          ? `<p style="margin:16px 0 24px;">
+               <a href="${alertsUrl}"
+                  style="display:inline-block;padding:12px 20px;border-radius:6px;background:#b91c1c;color:#ffffff;text-decoration:none;font-weight:600;">
+                 Open the alert
+               </a>
+             </p>`
+          : ''
+      }
+      <p style="margin:0;color:#6b7280;font-size:13px;">
+        You are receiving this because you handle safety alerts for ${companyName}.
+      </p>
+    `;
+
+    const info = await this.transporter.sendMail({
+      ...this.senderFor(companyName, branding?.support_email),
+      // Dispatchers are peers responding to the same event; a shared send
+      // keeps them on one thread.
+      to: params.recipients.join(', '),
+      subject: headline,
+      text,
+      html: branding
+        ? this.brandingService.emailShell(branding, headline, bodyHtml)
+        : `<!DOCTYPE html><html><body style="font-family: sans-serif; color: #111827;"><h2>${headline}</h2>${bodyHtml}</body></html>`,
+    });
+
+    return {
+      messageId: info.messageId,
+      previewUrl: this.previewUrlFor(info),
+    };
+  }
+
+  /**
    * Internal digest of customers who have outgrown the guard band they pay
    * for. Goes to whoever owns pricing, never to the customer: an underbilled
    * account is a repricing conversation, and this email is the prompt to have

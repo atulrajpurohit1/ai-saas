@@ -57,18 +57,25 @@ export default function GuardDashboardPage() {
 
   const { todayShifts, upcomingShifts } = useMemo(() => {
     const now = new Date();
-    const isToday = (value: string) => {
-      const date = new Date(value);
-      return (
-        date.getFullYear() === now.getFullYear() &&
-        date.getMonth() === now.getMonth() &&
-        date.getDate() === now.getDate()
-      );
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(now);
+    endOfToday.setHours(23, 59, 59, 999);
+
+    // "Today" means the shift is active at any point today, not just one that
+    // starts today - a multi-day shift (e.g. Fri 10pm -> Mon 4am) is on duty
+    // today even though it started on a previous day. It was previously keyed
+    // off startTime alone, so such a shift showed under neither Today nor
+    // Upcoming and the guard saw "No shifts today".
+    const overlapsToday = (shift: { startTime: string; endTime: string }) => {
+      const start = new Date(shift.startTime);
+      const end = new Date(shift.endTime);
+      return start <= endOfToday && end >= startOfToday;
     };
     return {
-      todayShifts: shifts.filter((shift) => isToday(shift.startTime)),
+      todayShifts: shifts.filter(overlapsToday),
       upcomingShifts: shifts
-        .filter((shift) => new Date(shift.startTime) >= now && !isToday(shift.startTime))
+        .filter((shift) => new Date(shift.startTime) > endOfToday)
         .slice(0, 5),
     };
   }, [shifts]);

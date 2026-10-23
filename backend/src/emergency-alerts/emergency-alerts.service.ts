@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { EmailService } from '../email/email.service';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { branchWhere } from '../branches/branch-scope';
 import {
@@ -37,10 +38,68 @@ type AlertWithRelations = Prisma.EmergencyAlertGetPayload<{
 
 @Injectable()
 export class EmergencyAlertsService {
+  private readonly logger = new Logger(EmergencyAlertsService.name);
+
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
+    private emailService: EmailService,
   ) {}
+
+  /**
+   * Verified admin addresses for a tenant -- who a safety alert is emailed to.
+   * ADMIN is the legacy owner/admin role (the founding user defaults to it),
+   * which is the right audience for "the admin should be notified". Unverified
+   * addresses are skipped: an unverified user cannot log in to act on the
+   * alert anyway.
+   */
+  private async adminRecipients(tenantId: string): Promise<string[]> {
+    const users = await this.prisma.user.findMany({
+      where: { tenantId, role: UserRole.ADMIN, emailVerified: true },
+      select: { email: true },
+    });
+    return users
+      .map((u) => u.email?.trim())
+      .filter((email): email is string => !!email);
+  }
+
+  /**
+   * Emails the tenant's admins about an alert. Best-effort: a mail failure is
+   * logged but never thrown, because the alert itself is already recorded and
+   * a dropped email must not look to the guard like the alert failed to send.
+   */
+  private async notifyAdmins(
+    alert: AlertWithRelations,
+    resent: boolean,
+  ): Promise<void> {
+    try {
+      const recipients = await this.adminRecipients(alert.tenantId);
+      if (recipients.length === 0) {
+        this.logger.warn(
+          `Emergency alert ${alert.id} for tenant ${alert.tenantId} has no verified admin recipient to email.`,
+        );
+        return;
+      }
+      await this.emailService.sendEmergencyAlertEmail(alert.tenantId, {
+        recipients,
+        guardName: alert.guard?.name ?? 'A guard',
+        triggeredAt: alert.triggeredAt,
+        siteName: alert.patrolRun?.shift?.site?.name ?? null,
+        branchName: alert.branch?.name ?? null,
+        location:
+          alert.lastLatitude !== null && alert.lastLongitude !== null
+            ? { latitude: alert.lastLatitude, longitude: alert.lastLongitude }
+            : null,
+        resent,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to email admins about emergency alert ${alert.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
 
   private serialize(alert: AlertWithRelations) {
     return {
@@ -73,10 +132,12 @@ export class EmergencyAlertsService {
 
   // Guard trigger - identity, tenant, and patrol context are ALL derived
   // server-side from the authenticated guard's JWT, never from the request
-  // body. Idempotent: a guard with an existing ACTIVE alert gets that same
-  // alert back instead of creating a duplicate (this is what prevents a
-  // rapid double-tap, or a retried request after a flaky response, from
-  // creating two live alerts for one emergency).
+  // body. One live alert per guard: a guard with an existing ACTIVE alert does
+  // not create a duplicate (this is what prevents a rapid double-tap, or a
+  // retried request after a flaky response, from creating two live alerts for
+  // one emergency). Pressing the button again instead RE-NOTIFIES dispatch --
+  // a panic button that does nothing on the second press would be dangerous,
+  // and this is how a guard escalates when no one has responded yet.
   async triggerForGuard(tenantId: string, guardId: string) {
     const guard = await this.prisma.guard.findFirst({
       where: { id: guardId, tenantId },
@@ -96,6 +157,15 @@ export class EmergencyAlertsService {
       orderBy: { triggeredAt: 'desc' },
     });
     if (existingActive) {
+      await this.auditService.log({
+        tenantId,
+        userId: guardId,
+        action: 'EMERGENCY_ALERT_RESENT',
+        entityType: 'EmergencyAlert',
+        entityId: existingActive.id,
+        details: `Guard "${guard.name}" re-sent an active panic/duress alert`,
+      });
+      await this.notifyAdmins(existingActive, true);
       return this.serialize(existingActive);
     }
 
@@ -137,6 +207,8 @@ export class EmergencyAlertsService {
       entityId: created.id,
       details: `Guard "${guard.name}" triggered a panic/duress alert${activeRun ? ' during an active patrol' : ''}`,
     });
+
+    await this.notifyAdmins(created, false);
 
     return this.serialize(created);
   }

@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import SearchField from '@/components/SearchField';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { sanitizePhone, validateEmail, validatePhone } from '@/lib/validation';
 import { branchParams, BranchSummary } from '@/lib/branches';
 import { FieldAccessMap, getEffectiveFieldPermissions } from '@/lib/field-permissions';
 import { useNewIntent } from '@/hooks/useNewIntent';
@@ -149,6 +150,16 @@ export default function ClientsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const emailError = validateEmail(formData.email);
+    if (emailError) {
+      toast.error(emailError);
+      return;
+    }
+    const phoneError = validatePhone(formData.phone);
+    if (phoneError) {
+      toast.error(phoneError);
+      return;
+    }
     try {
       const payload = {
         name: formData.name,
@@ -552,9 +563,10 @@ export default function ClientsPage() {
                 <label className="text-sm font-medium text-muted-foreground">Phone number</label>
                 <Input
                   type="tel"
-                  placeholder="+1 (555) 000-0000"
+                  inputMode="numeric"
+                  placeholder="5550000000"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, phone: sanitizePhone(e.target.value) })}
                 />
               </div>
             </div>
@@ -699,11 +711,18 @@ export default function ClientsPage() {
           <DialogHeader>
             <DialogTitle>Portal login created</DialogTitle>
             <DialogDescription>
-              Send these to {newPortalLogin?.email}. The password is shown only
-              now — it cannot be retrieved later.
+              These are the client&apos;s portal credentials — you set them up
+              here and share them with the client. The password is shown only
+              now; it cannot be retrieved later.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-eyebrow">Email (login)</label>
+              <code className="block select-all break-all rounded-[var(--radius-sm)] border border-border bg-muted px-3 py-2 font-mono text-sm text-foreground">
+                {newPortalLogin?.email}
+              </code>
+            </div>
             <div className="space-y-1.5">
               <label className="text-eyebrow">Temporary password</label>
               <div className="flex items-center gap-2">
@@ -729,6 +748,11 @@ export default function ClientsPage() {
                 </Button>
               </div>
             </div>
+            <p className="text-xs text-muted-foreground">
+              The client signs in at{' '}
+              <span className="font-medium text-foreground">/client/login</span>{' '}
+              with the email and password above.
+            </p>
             <div className="flex justify-end">
               <Button type="button" onClick={() => setNewPortalLogin(null)}>
                 Done

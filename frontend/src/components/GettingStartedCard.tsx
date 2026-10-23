@@ -77,6 +77,15 @@ export default function GettingStartedCard() {
           result.status === 'fulfilled' && Array.isArray(result.value.data) && result.value.data.length > 0;
       });
       setCompleted(next);
+
+      // Once every step is actually done, there is nothing left to get
+      // started on - so dismiss it for good rather than making the user close
+      // "5 of 5 done" on every login. Persisted, so it does not reappear (or
+      // even flash) next time.
+      if (steps.every((step) => next[step.href])) {
+        localStorage.setItem(DISMISS_KEY, 'true');
+        setDismissed(true);
+      }
     });
 
     return () => {
