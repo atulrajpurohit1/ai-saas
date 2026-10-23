@@ -2,6 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiUsageService } from '../ai/ai-usage.service';
 import { isCompActive } from '../billing/comp.util';
+import {
+  COMP_PLAN_LABELS,
+  compPlanOf,
+} from '../billing/comp-plan.constants';
+import { PACKAGE_LABELS, packageForModules } from '../billing/pricing.constants';
 
 /** How far back the usage figures on the overview look, in days. */
 const USAGE_WINDOW_DAYS = 30;
@@ -109,9 +114,14 @@ export class PlatformMonitoringService {
               source: true,
               aiEnabled: true,
               compExpiresAt: true,
+              compPlan: true,
               compReason: true,
             },
           },
+          // Needed to name a PAYING tenant's package, which has nowhere else
+          // to come from here -- a comp records its plan on the subscription,
+          // a Stripe one does not.
+          modules: { where: { isActive: true }, select: { module: true } },
           creditBalance: {
             select: { balance: true, lifetimeConsumed: true },
           },
@@ -147,8 +157,9 @@ export class PlatformMonitoringService {
         userCount: tenant._count.users,
         status: sub?.status ?? null,
         source: sub?.source ?? null,
-        // The plan label the screen shows: a live comp with AI off is the
-        // Trial plan; everything else follows the subscription source.
+        // How the tenant came by their access -- paying, comped, or nothing.
+        // Kept because the screen colours the row by it, but it is no longer
+        // what the badge says: see planName.
         plan: !sub
           ? 'NONE'
           : liveComp
@@ -156,6 +167,28 @@ export class PlatformMonitoringService {
               ? 'COMP'
               : 'TRIAL'
             : sub.source,
+        // WHICH plan, by name. The screen used to show the line above, so
+        // every comped tenant read "Comped" whether they had been given
+        // Operations or the entire product.
+        //
+        // A live comp is named from the plan recorded on the grant; anyone
+        // else is named from the modules they hold, which is unambiguous once
+        // Trial is off the table (it is the collision, and it is always a
+        // comp). Null when there is no plan to name, and the screen falls back
+        // to the kind of access.
+        planName: !sub
+          ? null
+          : liveComp
+            ? (() => {
+                const granted = compPlanOf(sub);
+                return granted ? COMP_PLAN_LABELS[granted] : null;
+              })()
+            : (() => {
+                const packageKey = packageForModules(
+                  (tenant.modules ?? []).map((row) => row.module),
+                );
+                return packageKey ? PACKAGE_LABELS[packageKey] : null;
+              })(),
         aiEnabled: sub?.aiEnabled ?? false,
         compExpiresAt: liveComp ? sub.compExpiresAt : null,
         compReason: liveComp ? sub.compReason : null,

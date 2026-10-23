@@ -8,6 +8,7 @@ import PageHeader from '@/components/PageHeader';
 import { useAuth } from '@/context/AuthContext';
 import {
   COMPLETE_PACKAGE_LABEL,
+  TRIAL_PLAN_LABEL,
   COMPLETE_PACKAGE_TAGLINE,
   SERVICE_MODULE_LABELS,
   ServiceModuleKey,
@@ -175,7 +176,31 @@ function PlanContent() {
       module: module.key,
     });
 
-    if (subscribedPackage(entitlements) === 'COMPLETE') {
+    const plan = subscribedPackage(entitlements);
+
+    // The Trial plan grants all three services, so it reaches this page
+    // looking exactly like Complete. It is named separately because it is NOT
+    // Complete -- it withholds the AI features, and calling it Complete told
+    // trial customers they were on the top package.
+    if (plan === 'TRIAL') {
+      return [
+        {
+          key: 'TRIAL',
+          name: TRIAL_PLAN_LABEL,
+          tagline: COMPLETE_PACKAGE_TAGLINE,
+          blurb:
+            'Every AegisLead service on one account, except the AI features: ' +
+            'lead generation, field operations and the finance that follows ' +
+            'them.',
+          highlights: COMPLETE_HIGHLIGHTS,
+          icon: Layers,
+          active: true,
+          module: null,
+        },
+      ];
+    }
+
+    if (plan === 'COMPLETE') {
       return [
         {
           key: 'COMPLETE',

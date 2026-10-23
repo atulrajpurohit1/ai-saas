@@ -67,15 +67,25 @@ function usd(value: number) {
   })}`;
 }
 
-/** A coloured pill for a tenant's plan. */
-function PlanBadge({ plan }: { plan: string }) {
+/**
+ * A coloured pill for a tenant's plan.
+ *
+ * `plan` is how they came by it (paying, comped, nothing) and sets the colour;
+ * `planName` is WHICH plan and sets the text. Showing only the former meant
+ * every comped tenant read "Comped" -- the one thing the screen is for is
+ * seeing who is on what, and the plan name was missing from it.
+ *
+ * The "AegisLead " prefix is dropped: every plan has it, so it is noise in a
+ * table column this narrow.
+ */
+function PlanBadge({ plan, planName }: { plan: string; planName?: string | null }) {
   const styles: Record<string, string> = {
     TRIAL: 'bg-amber-500/15 text-amber-600 border-amber-500/30',
     COMP: 'bg-violet-500/15 text-violet-600 border-violet-500/30',
     STRIPE: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
     NONE: 'bg-muted text-muted-foreground border-border',
   };
-  const label =
+  const fallback =
     plan === 'STRIPE'
       ? 'Paying'
       : plan === 'COMP'
@@ -83,6 +93,9 @@ function PlanBadge({ plan }: { plan: string }) {
         : plan === 'TRIAL'
           ? 'Trial'
           : 'None';
+  const label = planName
+    ? planName.replace(/^AegisLead\s+/, '').replace(/\s+Plan$/, '')
+    : fallback;
   return (
     <span
       className={cn(
@@ -564,7 +577,7 @@ Reason (optional):`,
                           <span className="truncate text-sm font-medium text-foreground">
                             {row.tenantName ?? row.tenantId}
                           </span>
-                          <PlanBadge plan={row.plan} />
+                          <PlanBadge plan={row.plan} planName={row.planName} />
                         </div>
                         <div className="mt-0.5 truncate text-xs text-muted-foreground">
                           {row.reason ?? 'No reason recorded'}
@@ -627,7 +640,7 @@ Reason (optional):`,
                         <span className="truncate text-sm font-medium text-foreground">
                           {row.tenantName ?? row.tenantId}
                         </span>
-                        <PlanBadge plan={row.plan} />
+                        <PlanBadge plan={row.plan} planName={row.planName} />
                       </div>
                       <div className="mt-0.5 truncate text-xs text-muted-foreground">
                         {row.reason ?? 'No reason recorded'}
@@ -834,7 +847,7 @@ Reason (optional):`,
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <PlanBadge plan={t.plan} />
+                      <PlanBadge plan={t.plan} planName={t.planName} />
                     </td>
                     <td className="px-4 py-3">
                       <span

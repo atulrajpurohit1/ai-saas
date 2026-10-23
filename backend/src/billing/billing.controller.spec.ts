@@ -5,6 +5,7 @@ import { BillingService } from './billing.service';
 import { GuardMeteringService } from './guard-metering.service';
 import { StripeService } from './stripe.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 /**
  * The plan page lets a customer pick their guard band, so the server has to
@@ -22,6 +23,7 @@ describe('BillingController plan checkout', () => {
   let stripe: { createPlanCheckoutSession: jest.Mock };
   let metering: { billableGuardCount: jest.Mock };
   let entitlements: { modulesForTenant: jest.Mock };
+  let prisma: { tenantSubscription: { findUnique: jest.Mock } };
 
   beforeEach(() => {
     stripe = {
@@ -34,11 +36,19 @@ describe('BillingController plan checkout', () => {
       modulesForTenant: jest.fn().mockResolvedValue(new Set<string>()),
     };
 
+    // No subscription row: these cases are about band validation, not about
+    // naming a plan, and a tenant with nothing provisioned is the simplest
+    // state that gets there.
+    prisma = {
+      tenantSubscription: { findUnique: jest.fn().mockResolvedValue(null) },
+    };
+
     controller = new BillingController(
       {} as BillingService,
       stripe as unknown as StripeService,
       metering as unknown as GuardMeteringService,
       entitlements as unknown as EntitlementsService,
+      prisma as unknown as PrismaService,
     );
   });
 

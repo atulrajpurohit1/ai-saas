@@ -220,6 +220,7 @@ export class PendingCompService {
       source: 'COMP',
       aiEnabled: compPlanAiEnabled(pending.plan),
       compExpiresAt: expiresAt,
+      compPlan: pending.plan,
       compReason: pending.reason,
       compGrantedBy: pending.grantedBy,
       reason: `comp-activated:${trigger}`,

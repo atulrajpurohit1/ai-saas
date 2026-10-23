@@ -34,8 +34,18 @@ export interface CompRow {
   active: boolean;
   status: string;
   aiEnabled: boolean;
-  /** 'TRIAL' when AI is off, otherwise 'COMP'. */
+  /**
+   * The kind of grant: 'TRIAL' when AI is off, otherwise 'COMP'. Sets the
+   * badge colour, not its text -- see `planName`.
+   */
   plan: 'TRIAL' | 'COMP';
+  /** Which plan was granted, as a comp plan key. Null on a legacy row. */
+  planKey?: string | null;
+  /**
+   * Which plan was granted, by name. Null on a legacy row whose plan cannot be
+   * recovered, and the badge then falls back to the kind of grant.
+   */
+  planName?: string | null;
   expiresAt: string | null;
   /**
    * Granted, but queued behind a paid subscription and not started yet. Such a
@@ -114,8 +124,16 @@ export interface PlatformTenant {
   userCount: number;
   status: string | null;
   source: string | null;
-  /** 'NONE' | 'TRIAL' | 'COMP' | 'STRIPE' | 'COMP' */
+  /**
+   * How the tenant came by their access: 'NONE' | 'TRIAL' | 'COMP' | 'STRIPE'.
+   * Used for the badge colour, not its text -- see `planName`.
+   */
   plan: string;
+  /**
+   * WHICH plan, by name ("AegisLead Trial Plan", "AegisLead Operations", ...).
+   * Null when there is no plan to name, and the badge falls back to `plan`.
+   */
+  planName?: string | null;
   aiEnabled: boolean;
   compExpiresAt: string | null;
   compReason: string | null;

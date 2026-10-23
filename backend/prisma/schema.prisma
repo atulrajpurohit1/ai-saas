@@ -1589,6 +1589,20 @@ model TenantSubscription {
   /// read, not only by a scheduled job, so a missed job cannot quietly leave
   /// free access running.
   compExpiresAt        DateTime?          @map("comp_expires_at")
+  /// Which plan the comp granted, as a comp plan key (see COMP_PLAN_KEYS).
+  ///
+  /// Stored rather than inferred from the module rows, because the module set
+  /// does not identify the plan: the Trial plan and the Complete package both
+  /// grant all three modules, so reverse-mapping modules to a package reported
+  /// a Trial tenant as "AegisLead Complete" on their own billing page and as a
+  /// bare "Comped" in the admin list. `aiEnabled` distinguishes those two
+  /// cases today, but only by accident of Trial being the one plan without AI
+  /// -- it would stop telling them apart the moment a second non-AI plan
+  /// existed. The granted plan is the fact worth keeping.
+  ///
+  /// Null on a paying tenant, and on comps granted before this column existed;
+  /// readers fall back to deriving the name and must tolerate both.
+  compPlan             String?            @map("comp_plan")
   /// Why the comp was granted, for the record. Required at the API boundary.
   compReason           String?            @map("comp_reason")
   /// PlatformAdmin id of whoever granted it. Not a relation, and deliberately

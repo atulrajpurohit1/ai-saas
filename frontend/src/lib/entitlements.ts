@@ -27,6 +27,18 @@ export interface Entitlements {
    * Optional: absent on an older session or backend, which is the same as
    * "nothing queued" for display purposes.
    */
+  /**
+   * The plan this account is on, named by the server.
+   *
+   * Trust this over working it out from `modules`: the modules cannot tell the
+   * Trial plan from the Complete package, because both unlock all three
+   * services, so deriving the name showed Trial customers a plan called
+   * "AegisLead Complete".
+   *
+   * Optional: absent on an older backend, and null when there is no single
+   * name to show (no services, or a mix that is not a package).
+   */
+  plan?: { key: string; name: string } | null;
   pendingPlan?: {
     key: string;
     name: string;
@@ -178,22 +190,36 @@ export function moduleSummary(entitlements?: Entitlements | null) {
   }));
 }
 
+/** Comp-only plan that grants every module but withholds the AI features. */
+export const TRIAL_PLAN_LABEL = 'AegisLead Trial Plan';
+
 /**
- * The package a tenant's active modules add up to, for naming the plan they
- * are on. All three services is Complete -- a bundle with its own name, not
- * three separate purchases -- and a single service is that service's package.
+ * The plan a tenant is on, for naming it.
+ *
+ * Prefers the name the server sends, which is the only thing that actually
+ * knows. The fallback below -- all three services means Complete -- cannot
+ * tell Complete from the Trial plan, which also unlocks all three; that is
+ * exactly how Trial customers came to see "AegisLead Complete" as their plan.
+ * The fallback is kept only for an older backend that sends no `plan`.
  *
  * Returns null for no services and for a mix that matches no package (two of
  * three, which is not sold), because there is no one name to show. Callers
  * fall back to listing the active services individually.
- *
- * Deliberately derived from entitlements rather than from Stripe: a comped or
- * hand-provisioned tenant is on a plan just as much as a paying one, and this
- * is only ever used to label what they already have.
  */
 export function subscribedPackage(
   entitlements?: Entitlements | null,
-): 'GENERATION' | 'GUARD' | 'OPERATIONS' | 'COMPLETE' | null {
+): 'GENERATION' | 'GUARD' | 'OPERATIONS' | 'COMPLETE' | 'TRIAL' | null {
+  const named = entitlements?.plan?.key;
+  if (
+    named === 'GENERATION' ||
+    named === 'GUARD' ||
+    named === 'OPERATIONS' ||
+    named === 'COMPLETE' ||
+    named === 'TRIAL'
+  ) {
+    return named;
+  }
+
   const active = activeModules(entitlements);
   if (active.size === SERVICE_MODULE_KEYS.length) return 'COMPLETE';
   if (active.size !== 1) return null;
