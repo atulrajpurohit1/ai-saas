@@ -6,7 +6,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
 import { Search, Eye, Calendar, Clock, CheckCircle2, AlertCircle, XCircle, Plus, MapPin, MapPinOff, Radar, ExternalLink, BellRing, Siren } from 'lucide-react';
 import { PatrolRun, getPatrolRuns, getPatrolRun } from '@/lib/patrols';
-import { formatEnumLabel } from '@/lib/format';
+import { formatEnumLabel, formatDate as fmtDate, formatDateTime as fmtDateTime } from '@/lib/format';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { ADMIN_LOCATION_POLL_INTERVAL_MS, LOCATION_STALE_THRESHOLD_MS, EMERGENCY_ALERT_POLL_INTERVAL_MS } from '@/lib/guard-tracking.constants';
 import { EmergencyAlert, getEmergencyAlerts, acknowledgeEmergencyAlert, resolveEmergencyAlert } from '@/lib/emergency-alerts';
@@ -485,7 +485,7 @@ export default function PatrolRunsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 align-middle text-sm text-muted-foreground" data-label="Started">
-                      {run.startedAt ? new Date(run.startedAt).toLocaleString() : 'Not started'}
+                      {run.startedAt ? fmtDateTime(run.startedAt) : 'Not started'}
                     </td>
                     <td className="px-6 py-4 align-middle text-sm text-muted-foreground" data-label="Duration">
                       {formatDuration(run.startedAt, run.completedAt)}
@@ -551,7 +551,7 @@ export default function PatrolRunsPage() {
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
                       <Calendar size={12} />
                       <span>
-                        {selectedRunDetail.startedAt ? new Date(selectedRunDetail.startedAt).toLocaleDateString() : 'N/A'}
+                        {selectedRunDetail.startedAt ? fmtDate(selectedRunDetail.startedAt) : 'N/A'}
                       </span>
                       <Clock size={12} className="ml-1" />
                       <span>

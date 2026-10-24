@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as fmtDate } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -25,11 +26,7 @@ function formatMoney(value: number) {
 
 function formatDate(value: string | null) {
   if (!value) return 'N/A';
-  return new Date(value).toLocaleDateString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return fmtDate(value);
 }
 
 function clientName(row: OutstandingReportRow) {

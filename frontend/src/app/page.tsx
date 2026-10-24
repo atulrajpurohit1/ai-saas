@@ -6,7 +6,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
 import { DashboardSummary, getDashboardSummary, getRecentActivity } from '@/lib/dashboard';
 import { DEAL_STAGE_COLORS } from '@/lib/deals';
-import { formatEnumLabel } from '@/lib/format';
+import { formatEnumLabel, formatDate as fmtDate } from '@/lib/format';
 import TrendAreaChart from '@/components/charts/TrendAreaChart';
 import CategoryBarChart from '@/components/charts/CategoryBarChart';
 import StatDelta from '@/components/charts/StatDelta';
@@ -57,12 +57,12 @@ const formatRelativeTime = (timestamp: number) => {
   const days = Math.floor(hours / 24);
   if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`;
 
-  return new Date(timestamp).toLocaleDateString();
+  return fmtDate(timestamp);
 };
 
 const formatWeekLabel = (isoDate: string) => {
   const date = new Date(`${isoDate}T00:00:00Z`);
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  return fmtDate(date);
 };
 
 const ACTIVITY_ICON: Record<ActivityItem['kind'], React.ComponentType<{ size?: number; className?: string }>> = {

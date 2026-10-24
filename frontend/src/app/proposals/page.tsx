@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as fmtDate } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
@@ -25,6 +26,9 @@ import {
   Download,
   UserPlus,
   Trash2,
+  Pencil,
+  Save,
+  X,
 } from 'lucide-react';
 
 interface Lead {
@@ -86,6 +90,9 @@ export default function ProposalsPage() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareProposalId, setShareProposalId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
 
   const fetchClients = async () => {
@@ -252,6 +259,42 @@ export default function ProposalsPage() {
     }
   };
 
+  const startEditing = () => {
+    if (!selectedProposal) return;
+    setEditContent(selectedProposal.content);
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditContent('');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedProposal) return;
+    const trimmed = editContent.trim();
+    if (!trimmed) {
+      toast.error('Proposal content cannot be empty.');
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const res = await api.put(`proposals/${selectedProposal.id}`, { content: trimmed });
+      const updatedContent = res.data?.content ?? trimmed;
+      setSelectedProposal((prev) => (prev ? { ...prev, content: updatedContent } : prev));
+      setProposals((prev) =>
+        prev.map((p) => (p.id === selectedProposal.id ? { ...p, content: updatedContent } : p)),
+      );
+      setIsEditing(false);
+      toast.success('Proposal updated.');
+    } catch (err) {
+      console.error(err);
+      toast.error(getApiErrorMessage(err, 'Failed to save changes.'));
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   const handleDownload = async (proposalId: string) => {
     try {
       const response = await api.get(`proposals/${proposalId}/export`, { responseType: 'blob' });
@@ -401,7 +444,7 @@ export default function ProposalsPage() {
                       {deletingId === p.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                     </Button>
                   </div>
-                  <span className="text-[10px] text-muted-foreground">{new Date(p.createdAt).toLocaleDateString()}</span>
+                  <span className="text-[10px] text-muted-foreground">{fmtDate(p.createdAt)}</span>
                 </div>
               </div>
             );
@@ -526,7 +569,13 @@ export default function ProposalsPage() {
       </Dialog>
 
       {/* View dialog */}
-      <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
+      <Dialog
+        open={showViewModal}
+        onOpenChange={(open) => {
+          setShowViewModal(open);
+          if (!open) cancelEditing();
+        }}
+      >
         <DialogContent className="flex max-h-[90vh] w-full flex-col overflow-hidden p-0 sm:max-w-5xl">
           {selectedProposal && (
             <>
@@ -537,6 +586,16 @@ export default function ProposalsPage() {
                     <DialogDescription>Document and client communication</DialogDescription>
                   </div>
                   <div className="mr-8 flex shrink-0 gap-1">
+                    {!isEditing && (
+                      <Button
+                        variant="outline"
+                        size="icon-sm"
+                        onClick={startEditing}
+                        aria-label="Edit proposal"
+                      >
+                        <Pencil size={16} />
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="icon-sm"
@@ -565,9 +624,35 @@ export default function ProposalsPage() {
 
               <div className="grid flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-3 lg:overflow-hidden">
                 <div className="border-b border-border p-5 sm:p-6 lg:col-span-2 lg:border-b-0 lg:border-r lg:overflow-y-auto">
-                  <div className="rfp-document rounded-lg border border-border bg-muted">
-                    <ReactMarkdown>{selectedProposal.content}</ReactMarkdown>
-                  </div>
+                  {isEditing ? (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs text-muted-foreground">
+                          Edit the proposal content (Markdown supported).
+                        </p>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={cancelEditing} disabled={savingEdit}>
+                            <X size={14} />
+                            Cancel
+                          </Button>
+                          <Button size="sm" onClick={handleSaveEdit} disabled={savingEdit}>
+                            {savingEdit ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                      <textarea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        className="min-h-[55vh] w-full resize-y rounded-lg border border-input bg-transparent p-4 font-mono text-xs leading-relaxed text-foreground outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                        spellCheck
+                      />
+                    </div>
+                  ) : (
+                    <div className="rfp-document rounded-lg border border-border bg-muted">
+                      <ReactMarkdown>{selectedProposal.content}</ReactMarkdown>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex h-full flex-col bg-background">
@@ -586,7 +671,7 @@ export default function ProposalsPage() {
                           <div className="mb-1 flex justify-between">
                             <span className="text-[10px] font-bold text-primary">{c.userId ? 'Admin' : 'Client'}</span>
                             <span className="text-[10px] text-muted-foreground">
-                              {new Date(c.createdAt).toLocaleDateString()}
+                              {fmtDate(c.createdAt)}
                             </span>
                           </div>
                           <p className="text-xs text-foreground">{c.content}</p>

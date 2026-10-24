@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime as fmtDateTime } from '@/lib/format';
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -28,10 +29,7 @@ const ENTRY_LABELS: Record<CreditLedgerEntry['type'], string> = {
 };
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+  return fmtDateTime(value);
 }
 
 function CreditsContent() {

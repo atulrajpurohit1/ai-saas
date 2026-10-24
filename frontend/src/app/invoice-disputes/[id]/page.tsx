@@ -12,7 +12,7 @@ import {
   resolveInvoiceDispute,
   respondToInvoiceDispute,
 } from '@/lib/invoice-disputes';
-import { formatEnumLabel } from '@/lib/format';
+import { formatEnumLabel, formatDateTime as fmtDateTime } from '@/lib/format';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -43,13 +43,7 @@ const invoiceStatusClass: Record<string, string> = {
 
 function formatDate(value: string | null) {
   if (!value) return 'N/A';
-  return new Date(value).toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return fmtDateTime(value);
 }
 
 function formatMoney(value: number) {

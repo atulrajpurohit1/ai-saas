@@ -9,7 +9,7 @@ import ErrorState from '@/components/ErrorState';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { formatEnumLabel } from '@/lib/format';
+import { formatEnumLabel, formatDateTime as fmtDateTime } from '@/lib/format';
 import { Clock, ScrollText } from 'lucide-react';
 
 interface AuditLog {
@@ -110,7 +110,7 @@ export default function AuditLogsPage() {
                     <TableCell className="px-6 py-3.5" data-label="Timestamp">
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Clock size={12} aria-hidden="true" />
-                        {new Date(log.createdAt).toLocaleString()}
+                        {fmtDateTime(log.createdAt)}
                       </div>
                     </TableCell>
                   </TableRow>

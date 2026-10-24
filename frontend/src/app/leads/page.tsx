@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as fmtDate } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -311,7 +312,7 @@ export default function LeadsPage() {
                         )}
                       </TableCell>
                       <TableCell className="px-6 py-3.5 text-sm whitespace-normal text-muted-foreground" data-label="Created">
-                        {new Date(lead.createdAt).toLocaleDateString()}
+                        {fmtDate(lead.createdAt)}
                       </TableCell>
                       <TableCell className="px-6 py-3.5 text-right whitespace-normal" data-label="Actions">
                         <div className="flex items-center justify-end gap-2">

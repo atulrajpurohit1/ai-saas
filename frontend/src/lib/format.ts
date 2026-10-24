@@ -3,6 +3,29 @@
 // of ad hoc `.replace('_', ' ')` calls or rendering raw enum/placeholder
 // values directly.
 
+// App-wide display date format: DD-MM-YYYY (e.g. 25-10-2026). Use this instead
+// of `new Date(x).toLocaleDateString()`, whose output varies by the viewer's
+// locale, so the whole dashboard reads dates the same way.
+export function formatDate(value?: string | number | Date | null): string {
+  if (value === null || value === undefined || value === '') return '';
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+}
+
+// DD-MM-YYYY HH:MM (24-hour) for timestamps that need a time component.
+export function formatDateTime(value?: string | number | Date | null): string {
+  if (value === null || value === undefined || value === '') return '';
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const hh = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${formatDate(d)} ${hh}:${min}`;
+}
+
 export function formatEnumLabel(value?: string | null): string {
   if (!value) return '';
   return value

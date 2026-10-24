@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as fmtDate } from '@/lib/format';
 import React, { useCallback, useEffect, useState } from 'react';
 import ClientLayout from '@/components/ClientLayout';
 import api from '@/lib/api';
@@ -110,7 +111,7 @@ export default function ClientDocumentsPage() {
 
                   <div className="mt-auto flex items-center gap-1.5 text-eyebrow">
                     <Clock size={12} />
-                    Shared {new Date(doc.createdAt).toLocaleDateString()}
+                    Shared {fmtDate(doc.createdAt)}
                   </div>
                 </div>
               ))}

@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime as fmtDateTime } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -60,14 +61,7 @@ export default function IncidentDetailPage() {
     fetchIncident();
   }, [incidentId]);
 
-  const formatDate = (value: string) => new Date(value).toLocaleString([], {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const formatDate = (value: string) => fmtDateTime(value);
 
   return (
     <DashboardLayout requiredModule="GUARD_TOUR">

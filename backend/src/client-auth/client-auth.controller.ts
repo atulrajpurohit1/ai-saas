@@ -6,11 +6,17 @@ import {
   HttpStatus,
   Req,
   UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { ClientAuthService } from './client-auth.service';
 import { AuthRateLimitService } from '../auth/auth-rate-limit.service';
 import { ClientLoginDto } from './dto/client-login.dto';
+import { ClientChangePasswordDto } from './dto/change-password.dto';
+import { ClientSetInitialPasswordDto } from './dto/set-initial-password.dto';
+import { ForgotPasswordDto } from '../auth/dto/forgot-password.dto';
+import { ResetPasswordDto } from '../auth/dto/reset-password.dto';
+import { VerifyOtpDto } from '../email-verification/dto/verify-otp.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtRefreshGuard } from '../auth/guards/jwt-refresh.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
@@ -39,6 +45,57 @@ export class ClientAuthController {
     return this.clientAuthService.login(dto);
   }
 
+  /**
+   * First-login password set, done while signed in with the temporary
+   * password. No current password is re-entered here (the login just proved
+   * it); the service only honours this while the account is still flagged
+   * mustChangePassword.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('set-initial-password')
+  @HttpCode(HttpStatus.OK)
+  setInitialPassword(
+    @GetUser() user: ActiveUser,
+    @Body() dto: ClientSetInitialPasswordDto,
+  ) {
+    this.assertClient(user);
+    return this.clientAuthService.setInitialPassword(user.sub, dto);
+  }
+
+  /** Change password from inside the portal (requires the current password). */
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  changePassword(
+    @GetUser() user: ActiveUser,
+    @Body() dto: ClientChangePasswordDto,
+  ) {
+    this.assertClient(user);
+    return this.clientAuthService.changePassword(user.sub, dto);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
+    this.throttle(req, 'forgot-password', dto.email, 10, 3600);
+    return this.clientAuthService.forgotPassword(dto);
+  }
+
+  @Post('verify-reset-otp')
+  @HttpCode(HttpStatus.OK)
+  verifyResetOtp(@Body() dto: VerifyOtpDto, @Req() req: Request) {
+    this.throttle(req, 'verify-reset-otp', dto.email, 10, 900);
+    return this.clientAuthService.verifyResetOtp(dto);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  resetPassword(@Body() dto: ResetPasswordDto, @Req() req: Request) {
+    // Keyed on IP only -- the request carries a reset token, not an email.
+    this.throttle(req, 'reset-password', null, 10, 900);
+    return this.clientAuthService.resetPassword(dto);
+  }
+
   @UseGuards(JwtRefreshGuard)
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
@@ -52,6 +109,17 @@ export class ClientAuthController {
   @HttpCode(HttpStatus.OK)
   logout(@GetUser('sub') userId: string) {
     return this.clientAuthService.logout(userId);
+  }
+
+  /**
+   * A valid JWT alone is not enough for the password endpoints: a staff token
+   * also passes JwtAuthGuard. These routes only make sense for a client-portal
+   * session, so reject anything else before it reaches the service.
+   */
+  private assertClient(user: ActiveUser) {
+    if (user.role !== 'client' || !user.clientId) {
+      throw new ForbiddenException('Access denied');
+    }
   }
 
   /** See AuthController.throttle -- same keys, so the buckets are shared. */

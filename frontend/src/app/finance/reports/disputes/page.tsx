@@ -8,7 +8,7 @@ import TableScroll from '@/components/TableScroll';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { buildCsv, downloadTextFile } from '@/lib/csv';
-import { formatEnumLabel } from '@/lib/format';
+import { formatEnumLabel, formatDate as fmtDate } from '@/lib/format';
 import {
   DisputeReportRow,
   disputeStatuses,
@@ -43,11 +43,7 @@ function formatMoney(value: number) {
 
 function formatDate(value: string | null) {
   if (!value) return 'N/A';
-  return new Date(value).toLocaleDateString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return fmtDate(value);
 }
 
 function clientName(row: DisputeReportRow) {

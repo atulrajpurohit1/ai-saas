@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as fmtDate } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -15,7 +16,7 @@ import { AlertTriangle, ClipboardList, FilePenLine, Loader2, Plus, Star, X } fro
 
 function formatDate(value: string | null) {
   if (!value) return 'Not set';
-  return new Date(value).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+  return fmtDate(value);
 }
 
 function localDateInputValue(value = new Date()) {

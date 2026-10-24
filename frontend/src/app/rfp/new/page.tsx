@@ -7,6 +7,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import AiPlanNotice from '@/components/AiPlanNotice';
 import RfpEditor from '@/components/RfpEditor';
 import RfpLogoUploadField from '@/components/RfpLogoUploadField';
+import DateField from '@/components/DateField';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
   createRfp,
@@ -109,9 +110,17 @@ export default function NewRfpPage() {
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof RfpFormState, string>>>({});
 
   const update = <K extends keyof RfpFormState>(key: K, value: RfpFormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
+    // Clear a field's error as soon as the user edits it.
+    setFieldErrors((current) => {
+      if (!current[key]) return current;
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
   };
 
   const toggleSecurityType = (type: string) => {
@@ -132,9 +141,42 @@ export default function NewRfpPage() {
     }));
   };
 
-  const validateBasics = () => {
-    if (!form.title.trim() || !form.clientName.trim()) {
-      setError('RFP Title and Client Name are required.');
+  // Full client-side validation across every field that carries a constraint.
+  // Required fields, numeric fields (non-negative; counts must be whole
+  // numbers), and date ordering (end must not precede start) are all checked,
+  // with a message pinned to each offending field.
+  const validate = () => {
+    const errors: Partial<Record<keyof RfpFormState, string>> = {};
+
+    if (!form.title.trim()) errors.title = 'RFP Title is required.';
+    if (!form.clientName.trim()) errors.clientName = 'Client Name is required.';
+
+    const budget = form.estimatedBudget.trim();
+    if (budget) {
+      const n = Number(budget);
+      if (!Number.isFinite(n) || n < 0) {
+        errors.estimatedBudget = 'Enter a valid amount (0 or more).';
+      }
+    }
+
+    const wholeNonNegative = (raw: string) => {
+      const n = Number(raw);
+      return Number.isInteger(n) && n >= 0;
+    };
+    if (form.numberOfLocations.trim() && !wholeNonNegative(form.numberOfLocations)) {
+      errors.numberOfLocations = 'Enter a whole number (0 or more).';
+    }
+    if (form.guardsRequired.trim() && !wholeNonNegative(form.guardsRequired)) {
+      errors.guardsRequired = 'Enter a whole number (0 or more).';
+    }
+
+    if (form.startDate && form.endDate && form.endDate < form.startDate) {
+      errors.endDate = 'End date cannot be before the start date.';
+    }
+
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setError('Please fix the highlighted fields before continuing.');
       return false;
     }
     setError('');
@@ -142,7 +184,7 @@ export default function NewRfpPage() {
   };
 
   const handleGenerate = async () => {
-    if (!validateBasics()) return;
+    if (!validate()) return;
     setGenerating(true);
     setError('');
     try {
@@ -162,7 +204,7 @@ export default function NewRfpPage() {
   };
 
   const handleSave = async (status: 'DRAFT' | 'GENERATED') => {
-    if (!validateBasics()) return;
+    if (!validate()) return;
     setSaving(true);
     setError('');
     try {
@@ -178,6 +220,13 @@ export default function NewRfpPage() {
       setSaving(false);
     }
   };
+
+  const fieldClass = (key: keyof RfpFormState) =>
+    `${inputClass} ${fieldErrors[key] ? '!border-error focus:ring-error/40' : ''}`;
+  const renderError = (key: keyof RfpFormState) =>
+    fieldErrors[key] ? (
+      <p className="text-xs font-semibold text-error">{fieldErrors[key]}</p>
+    ) : null;
 
   return (
     <DashboardLayout requiredModule="LEAD_GEN" requiredPermissions="rfp.create">
@@ -207,11 +256,13 @@ export default function NewRfpPage() {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <div className="space-y-2 xl:col-span-2">
               <label className={labelClass}>RFP Title *</label>
-              <input className={inputClass} value={form.title} onChange={(e) => update('title', e.target.value)} required />
+              <input className={fieldClass('title')} value={form.title} onChange={(e) => update('title', e.target.value)} required aria-invalid={!!fieldErrors.title} />
+              {renderError('title')}
             </div>
             <div className="space-y-2">
               <label className={labelClass}>Client Name *</label>
-              <input className={inputClass} value={form.clientName} onChange={(e) => update('clientName', e.target.value)} required />
+              <input className={fieldClass('clientName')} value={form.clientName} onChange={(e) => update('clientName', e.target.value)} required aria-invalid={!!fieldErrors.clientName} />
+              {renderError('clientName')}
             </div>
             <div className="space-y-2">
               <label className={labelClass}>Company Name</label>
@@ -227,7 +278,7 @@ export default function NewRfpPage() {
             </div>
             <div className="space-y-2">
               <label className={labelClass}>Due Date</label>
-              <input type="date" className={inputClass} value={form.dueDate} onChange={(e) => update('dueDate', e.target.value)} />
+              <DateField className={fieldClass('dueDate')} value={form.dueDate} onChange={(v) => update('dueDate', v)} />
             </div>
             <div className="space-y-2">
               <label className={labelClass}>Estimated Budget ($)</label>
@@ -235,18 +286,21 @@ export default function NewRfpPage() {
                 type="number"
                 min="0"
                 step="0.01"
-                className={inputClass}
+                className={fieldClass('estimatedBudget')}
                 value={form.estimatedBudget}
                 onChange={(e) => update('estimatedBudget', e.target.value)}
+                aria-invalid={!!fieldErrors.estimatedBudget}
               />
+              {renderError('estimatedBudget')}
             </div>
             <div className="space-y-2">
               <label className={labelClass}>Start Date</label>
-              <input type="date" className={inputClass} value={form.startDate} onChange={(e) => update('startDate', e.target.value)} />
+              <DateField className={fieldClass('startDate')} value={form.startDate} onChange={(v) => update('startDate', v)} />
             </div>
             <div className="space-y-2">
               <label className={labelClass}>End Date</label>
-              <input type="date" className={inputClass} value={form.endDate} onChange={(e) => update('endDate', e.target.value)} />
+              <DateField className={fieldClass('endDate')} value={form.endDate} onChange={(v) => update('endDate', v)} aria-invalid={!!fieldErrors.endDate} />
+              {renderError('endDate')}
             </div>
           </div>
         </section>
@@ -301,10 +355,13 @@ export default function NewRfpPage() {
               <input
                 type="number"
                 min="0"
-                className={inputClass}
+                step="1"
+                className={fieldClass('numberOfLocations')}
                 value={form.numberOfLocations}
                 onChange={(e) => update('numberOfLocations', e.target.value)}
+                aria-invalid={!!fieldErrors.numberOfLocations}
               />
+              {renderError('numberOfLocations')}
             </div>
             <div className="space-y-2 xl:col-span-2">
               <label className={labelClass}>Address</label>
@@ -324,10 +381,13 @@ export default function NewRfpPage() {
               <input
                 type="number"
                 min="0"
-                className={inputClass}
+                step="1"
+                className={fieldClass('guardsRequired')}
                 value={form.guardsRequired}
                 onChange={(e) => update('guardsRequired', e.target.value)}
+                aria-invalid={!!fieldErrors.guardsRequired}
               />
+              {renderError('guardsRequired')}
             </div>
           </div>
         </section>

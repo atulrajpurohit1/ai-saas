@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime as fmtDateTime } from '@/lib/format';
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
@@ -34,13 +35,7 @@ const importanceBadge: Record<SecurityRfpImportance, string> = {
 };
 
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return fmtDateTime(value);
 }
 
 export default function SecurityRfpAnalysisPanel({ rfpId }: Props) {

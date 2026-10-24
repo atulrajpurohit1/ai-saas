@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime as fmtDateTime } from '@/lib/format';
 import React, { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import api from '@/lib/api';
@@ -414,7 +415,7 @@ function RecordingsPanel({
                   <p className="text-xs text-muted-foreground">
                     {call.phoneNumber}
                     {call.recordingDurationSec !== null && ` - ${formatDuration(call.recordingDurationSec)}`}
-                    {` - ${new Date(call.recordedAt || call.createdAt).toLocaleString()}`}
+                    {` - ${fmtDateTime(call.recordedAt || call.createdAt)}`}
                   </p>
                 </div>
                 <button

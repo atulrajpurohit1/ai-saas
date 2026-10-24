@@ -20,7 +20,7 @@ import {
   updateBranding,
   verifyCustomDomain,
 } from '@/lib/branding';
-import { formatPhoneNumber, isValidPhoneNumber } from '@/lib/format';
+import { formatPhoneNumber, isValidPhoneNumber, formatDateTime as fmtDateTime } from '@/lib/format';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 import { Check, Copy, Globe2, Loader2, Plus, Save, ShieldCheck } from 'lucide-react';
@@ -40,7 +40,7 @@ const defaultBranding: BrandingSnapshot = {
 
 function formatDate(value?: string | null) {
   if (!value) return 'Not verified';
-  return new Date(value).toLocaleString();
+  return fmtDateTime(value);
 }
 
 function normalizePayload(form: BrandingSnapshot): BrandingUpdatePayload {

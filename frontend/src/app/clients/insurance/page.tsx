@@ -8,7 +8,8 @@ import TableScroll from '@/components/TableScroll';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { formatEnumLabel } from '@/lib/format';
+import { formatEnumLabel, formatDate as formatDateDDMMYYYY } from '@/lib/format';
+import DateField from '@/components/DateField';
 import {
   ComplianceStatus,
   CLIENT_INSURANCE_TYPES,
@@ -66,7 +67,7 @@ const STATUS_BADGE: Record<ComplianceStatus, { label: string; className: string;
 
 function formatDate(value: string | null): string {
   if (!value) return '—';
-  return new Date(value).toLocaleDateString();
+  return formatDateDDMMYYYY(value) || '—';
 }
 
 function formatMoney(value: number | null): string {
@@ -115,6 +116,17 @@ function ClientInsuranceView() {
   const [saving, setSaving] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const setField = (key: keyof typeof emptyForm, value: string) => {
+    setFormData((f) => ({ ...f, [key]: value }));
+    setFieldErrors((current) => {
+      if (!current[key]) return current;
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -166,6 +178,7 @@ function ClientInsuranceView() {
     setFormData(emptyForm);
     setEditingId(null);
     setPendingFile(null);
+    setFieldErrors({});
   };
 
   const openCreateModal = (prefill?: { clientId: string; type: string }) => {
@@ -192,17 +205,48 @@ function ClientInsuranceView() {
     setShowModal(true);
   };
 
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!formData.client_id) errors.client_id = 'Select a client.';
+    if (!formData.type) errors.type = 'Select an insurance type.';
+    if (!formData.policy_number.trim()) errors.policy_number = 'Policy number is required.';
+    if (!formData.insurer.trim()) errors.insurer = 'Insurer is required.';
+
+    const coverageRaw = formData.coverage_amount.trim();
+    if (!coverageRaw) {
+      errors.coverage_amount = 'Coverage amount is required.';
+    } else {
+      const coverage = Number(coverageRaw);
+      if (!Number.isFinite(coverage) || coverage <= 0) {
+        errors.coverage_amount = 'Enter a coverage amount greater than 0.';
+      } else if (coverage % 100 !== 0) {
+        // Coverage is only ever quoted in round hundreds (must end in "00").
+        errors.coverage_amount = 'Coverage amount must end in 00 (a multiple of 100).';
+      }
+    }
+
+    if (!formData.effective_date) errors.effective_date = 'Effective date is required.';
+    if (!formData.expiration_date) errors.expiration_date = 'Expiration date is required.';
+    if (
+      formData.effective_date &&
+      formData.expiration_date &&
+      formData.expiration_date < formData.effective_date
+    ) {
+      errors.expiration_date = 'Expiration date cannot be before the effective date.';
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.client_id) {
-      toast.error('Select a client.');
+    if (!validateForm()) {
+      toast.error('Please fix the highlighted fields.');
       return;
     }
     const coverage = formData.coverage_amount.trim() ? Number(formData.coverage_amount) : undefined;
-    if (coverage !== undefined && (!Number.isFinite(coverage) || coverage < 0)) {
-      toast.error('Coverage amount must be a positive number.');
-      return;
-    }
     setSaving(true);
     try {
       const payload = {
@@ -273,6 +317,15 @@ function ClientInsuranceView() {
       setUploadingFor(null);
     }
   };
+
+  const modalInputClass =
+    'w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50';
+  const fieldClass = (key: string) =>
+    `${modalInputClass} ${fieldErrors[key] ? '!border-error' : ''}`;
+  const renderFieldError = (key: string) =>
+    fieldErrors[key] ? (
+      <p className="text-xs font-semibold text-error">{fieldErrors[key]}</p>
+    ) : null;
 
   return (
     <DashboardLayout>
@@ -491,17 +544,27 @@ function ClientInsuranceView() {
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-muted-foreground">Client</label>
                   <select
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60"
+                    className={`${fieldClass('client_id')} disabled:opacity-60`}
                     value={formData.client_id}
-                    onChange={(e) => setFormData({ ...formData, client_id: e.target.value, site_id: '' })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, client_id: e.target.value, site_id: '' });
+                      setFieldErrors((cur) => {
+                        if (!cur.client_id) return cur;
+                        const next = { ...cur };
+                        delete next.client_id;
+                        return next;
+                      });
+                    }}
                     disabled={!!editingId}
                     required
+                    aria-invalid={!!fieldErrors.client_id}
                   >
                     <option value="" disabled className="bg-[#0e0e1a]">Select Client</option>
                     {clients.map((c) => (
                       <option key={c.id} value={c.id} className="bg-[#0e0e1a]">{c.companyName || c.name}</option>
                     ))}
                   </select>
+                  {renderFieldError('client_id')}
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-muted-foreground">Scope</label>
@@ -523,24 +586,28 @@ function ClientInsuranceView() {
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-muted-foreground">Insurance Type</label>
                   <select
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className={fieldClass('type')}
                     value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    onChange={(e) => setField('type', e.target.value)}
                     required
+                    aria-invalid={!!fieldErrors.type}
                   >
                     {CLIENT_INSURANCE_TYPES.map((t) => (
                       <option key={t} value={t} className="bg-[#0e0e1a]">{CLIENT_INSURANCE_TYPE_LABELS[t]}</option>
                     ))}
                   </select>
+                  {renderFieldError('type')}
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-muted-foreground">Policy Number</label>
                   <input
                     type="text"
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className={fieldClass('policy_number')}
                     value={formData.policy_number}
-                    onChange={(e) => setFormData({ ...formData, policy_number: e.target.value })}
+                    onChange={(e) => setField('policy_number', e.target.value)}
+                    aria-invalid={!!fieldErrors.policy_number}
                   />
+                  {renderFieldError('policy_number')}
                 </div>
               </div>
 
@@ -549,42 +616,51 @@ function ClientInsuranceView() {
                   <label className="text-sm font-medium text-muted-foreground">Insurer</label>
                   <input
                     type="text"
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className={fieldClass('insurer')}
                     value={formData.insurer}
-                    onChange={(e) => setFormData({ ...formData, insurer: e.target.value })}
+                    onChange={(e) => setField('insurer', e.target.value)}
+                    aria-invalid={!!fieldErrors.insurer}
                   />
+                  {renderFieldError('insurer')}
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-muted-foreground">Coverage Amount (USD)</label>
                   <input
                     type="number"
                     min="0"
-                    step="1000"
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    step="100"
+                    placeholder="e.g. 1000000"
+                    className={fieldClass('coverage_amount')}
                     value={formData.coverage_amount}
-                    onChange={(e) => setFormData({ ...formData, coverage_amount: e.target.value })}
+                    onChange={(e) => setField('coverage_amount', e.target.value)}
+                    aria-invalid={!!fieldErrors.coverage_amount}
                   />
+                  {renderFieldError('coverage_amount') || (
+                    <p className="text-xs text-muted-foreground">Must end in 00 (a multiple of 100).</p>
+                  )}
                 </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-muted-foreground">Effective Date</label>
-                  <input
-                    type="date"
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  <DateField
+                    className={fieldClass('effective_date')}
                     value={formData.effective_date}
-                    onChange={(e) => setFormData({ ...formData, effective_date: e.target.value })}
+                    onChange={(v) => setField('effective_date', v)}
+                    aria-invalid={!!fieldErrors.effective_date}
                   />
+                  {renderFieldError('effective_date')}
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-muted-foreground">Expiration Date</label>
-                  <input
-                    type="date"
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  <DateField
+                    className={fieldClass('expiration_date')}
                     value={formData.expiration_date}
-                    onChange={(e) => setFormData({ ...formData, expiration_date: e.target.value })}
+                    onChange={(v) => setField('expiration_date', v)}
+                    aria-invalid={!!fieldErrors.expiration_date}
                   />
+                  {renderFieldError('expiration_date')}
                 </div>
               </div>
 

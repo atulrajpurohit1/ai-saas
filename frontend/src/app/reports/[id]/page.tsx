@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as fmtDate, formatDateTime as fmtDateTime } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -39,21 +40,11 @@ const attendanceClass: Record<string, string> = {
 
 function formatDate(value: string | null) {
   if (!value) return 'N/A';
-  return new Date(value).toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return fmtDateTime(value);
 }
 
 function formatDateOnly(value: string) {
-  return new Date(value).toLocaleDateString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return fmtDate(value);
 }
 
 export default function ReportDetailPage() {

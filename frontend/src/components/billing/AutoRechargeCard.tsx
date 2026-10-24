@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime as fmtDateTime } from '@/lib/format';
 import React, { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import {
@@ -45,10 +46,7 @@ const PAUSE_REASONS: Record<string, string> = {
 };
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+  return fmtDateTime(value);
 }
 
 export default function AutoRechargeCard({

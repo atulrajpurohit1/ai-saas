@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as fmtDate } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -42,7 +43,7 @@ const emptyFiles: FileFields = {
 
 function formatDate(value: string | null) {
   if (!value) return 'Not specified';
-  return new Date(value).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  return fmtDate(value);
 }
 
 export default function VendorInvitationPage() {

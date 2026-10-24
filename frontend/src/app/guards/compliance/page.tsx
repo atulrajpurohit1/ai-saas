@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as fmtDate } from '@/lib/format';
 import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
@@ -53,7 +54,7 @@ const STATUS_BADGE: Record<ComplianceStatus, { label: string; className: string;
 
 function formatDate(value: string | null): string {
   if (!value) return '—';
-  return new Date(value).toLocaleDateString();
+  return fmtDate(value);
 }
 
 const emptyForm = {

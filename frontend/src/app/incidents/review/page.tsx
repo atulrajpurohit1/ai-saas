@@ -11,7 +11,7 @@ import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { formatEnumLabel } from '@/lib/format';
+import { formatEnumLabel, formatDateTime as fmtDateTime } from '@/lib/format';
 import { getIncidentReviewQueue, Incident } from '@/lib/incidents';
 import { ArrowLeft, ArrowRight, CalendarDays, ClipboardCheck, FileWarning, MapPin, ShieldCheck } from 'lucide-react';
 
@@ -45,13 +45,7 @@ export default function IncidentReviewQueuePage() {
   }, []);
 
   const formatDate = (value: string) =>
-    new Date(value).toLocaleString([], {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    fmtDateTime(value);
 
   return (
     <DashboardLayout requiredModule="GUARD_TOUR">

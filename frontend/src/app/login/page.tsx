@@ -311,7 +311,10 @@ export default function LoginPage() {
         const res = await api.post('client-auth/login', { email, password });
         localStorage.setItem('client_token', res.data.access_token);
         if (res.data.refresh_token) localStorage.setItem('client_refresh_token', res.data.refresh_token);
-        router.push('/client/dashboard');
+        // First sign-in on an agency-issued temporary password: force the
+        // client to set their own before the portal (same page the dedicated
+        // /client/login uses).
+        router.push(res.data.mustChangePassword ? '/client/change-password' : '/client/dashboard');
       }
     } catch (err: unknown) {
       setError(errorMessageFrom(err, 'Authentication failed'));

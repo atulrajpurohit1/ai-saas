@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime as fmtDateTime } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -234,12 +235,7 @@ export default function ShiftsPage() {
   };
 
   const formatDateTime = (dateStr: string) =>
-    new Date(dateStr).toLocaleString([], {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    fmtDateTime(dateStr);
 
   const formatAttendanceStatus = (status?: Shift['attendanceStatus']) => {
     if (status === 'checked_in') return 'Checked in';
