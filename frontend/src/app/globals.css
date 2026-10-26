@@ -661,7 +661,62 @@ option.bg-\[\#0f172a\] {
   border-radius: var(--radius);
 }
 
-/* 5. Border-radius normalization. Corners across the app were noticeably
+/* 5. Tables use a compact data-grid treatment rather than individually rounded
+ * cards. This applies both to the shared Table primitive and the older pages
+ * that use a hand-written `.responsive-table`: quiet header band, readable
+ * sentence-case labels, clear row dividers, and a restrained hover state. */
+.responsive-table,
+[data-slot='table'] {
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--foreground);
+}
+
+.responsive-table thead,
+[data-slot='table'] thead {
+  background: var(--muted);
+}
+
+.responsive-table thead th,
+[data-slot='table'] thead th {
+  height: 2.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground) !important;
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.015em !important;
+  line-height: 1.2;
+  text-transform: none !important;
+}
+
+.responsive-table tbody td,
+[data-slot='table'] tbody td {
+  border-bottom: 1px solid var(--border);
+}
+
+.responsive-table tbody tr:last-child td,
+[data-slot='table'] tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.responsive-table tbody tr:hover,
+[data-slot='table'] tbody tr:hover {
+  background: color-mix(in srgb, var(--muted) 65%, var(--card));
+}
+
+/* Most legacy action controls are hand-rolled buttons. Normalising only their
+ * geometry here keeps intentional semantic colours (delete/approve/export)
+ * intact while replacing the oversized rounded look with a professional,
+ * compact action style. */
+.responsive-table button,
+[data-slot='table'] button {
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* 6. Border-radius normalization. Corners across the app were noticeably
  *    round - pages hand-picked Tailwind's rounded-xl/2xl/3xl for card shells,
  *    panels and controls, which read softer than intended and made dense
  *    tables and filter bars look bubbly. Rather than touch ~900 call sites,

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -17,6 +17,7 @@ import {
   PRICING_MODEL_OPTIONS,
   RfpFormInput,
   SECURITY_TYPE_OPTIONS,
+  updateRfp,
 } from '@/lib/rfp';
 import { AlertTriangle, ArrowLeft, Loader2, Save, Sparkles } from 'lucide-react';
 
@@ -106,11 +107,24 @@ export default function NewRfpPage() {
   const [form, setForm] = useState<RfpFormState>(emptyForm);
   const [generatedHtml, setGeneratedHtml] = useState('');
   const [hasGenerated, setHasGenerated] = useState(false);
+  const [savedRfpId, setSavedRfpId] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof RfpFormState, string>>>({});
+  const generatedSectionRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!hasGenerated) return;
+    const timer = window.setTimeout(() => {
+      generatedSectionRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [hasGenerated, revision]);
 
   const update = <K extends keyof RfpFormState>(key: K, value: RfpFormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -187,17 +201,48 @@ export default function NewRfpPage() {
     if (!validate()) return;
     setGenerating(true);
     setError('');
+    let draftWasSaved = false;
     try {
+      const formInput = toFormInput(form);
+
+      // Persist before asking AI to do any work. A long-running generation can
+      // outlive a browser refresh or an expired session, and previously that
+      // meant the complete RFP was lost because no record existed yet.
+      let rfpId = savedRfpId;
+      if (rfpId) {
+        await updateRfp(rfpId, { ...formInput, status: 'DRAFT' });
+      } else {
+        const draft = await createRfp({ ...formInput, status: 'DRAFT' });
+        rfpId = draft.id;
+        setSavedRfpId(draft.id);
+      }
+      draftWasSaved = true;
+
       const { content } = await generateRfp({
-        ...toFormInput(form),
+        ...formInput,
         issuerLogoUrl: undefined,
         recipientLogoUrl: undefined,
       });
-      setGeneratedHtml(markdownToHtml(content));
+      const html = markdownToHtml(content);
+
+      // Save the generated document immediately as well. From this point the
+      // draft is recoverable from RFP Management even if the browser closes
+      // before the user makes further edits.
+      await updateRfp(rfpId, {
+        ...formInput,
+        generatedContent: html,
+        status: 'GENERATED',
+      });
+      setGeneratedHtml(html);
       setHasGenerated(true);
       setRevision((current) => current + 1);
     } catch (err) {
-      setError(getApiErrorMessage(err, 'AI generation failed. Check your Gemini API key configuration.'));
+      setError(getApiErrorMessage(
+        err,
+        draftWasSaved
+          ? 'Your RFP draft is saved, but the generated document could not be completed or saved. Reopen it from RFP Management and try again.'
+          : 'Could not save the RFP draft. Please try again.',
+      ));
     } finally {
       setGenerating(false);
     }
@@ -208,12 +253,16 @@ export default function NewRfpPage() {
     setSaving(true);
     setError('');
     try {
-      const created = await createRfp({
+      const input = {
         ...toFormInput(form),
         generatedContent: generatedHtml || undefined,
         status,
-      });
-      router.push(`/rfp/${created.id}`);
+      };
+      const saved = savedRfpId
+        ? await updateRfp(savedRfpId, input)
+        : await createRfp(input);
+      setSavedRfpId(saved.id);
+      router.push(`/rfp/${saved.id}`);
     } catch (err) {
       setError(getApiErrorMessage(err, 'Could not save this RFP.'));
     } finally {
@@ -498,10 +547,10 @@ export default function NewRfpPage() {
         </div>
 
         {hasGenerated && (
-          <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
+          <section ref={generatedSectionRef} tabIndex={-1} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-6">
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="text-lg font-bold text-white">Generated RFP Document</h3>
-              <p className="text-xs text-muted-foreground">Review and edit the AI-generated draft below before saving.</p>
+              <p className="text-xs text-muted-foreground">Saved automatically. Review and edit this draft, then save your changes when ready.</p>
             </div>
             <RfpEditor content={generatedHtml} onChange={setGeneratedHtml} revision={revision} />
             <div className="mt-6 flex flex-col-reverse gap-3 border-t border-white/5 pt-6 sm:flex-row sm:justify-end">

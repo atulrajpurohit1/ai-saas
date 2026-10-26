@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 
 interface DateFieldProps {
   /** ISO date (yyyy-mm-dd) or '' — the shape the backend expects. */
@@ -60,12 +60,30 @@ export default function DateField({
   'aria-invalid': ariaInvalid,
 }: DateFieldProps) {
   const [text, setText] = useState(isoToDisplay(value));
+  const [validationMessage, setValidationMessage] = useState('');
+  const isFocused = useRef(false);
+  const errorId = useId();
 
   // Keep the visible text in sync when the ISO value changes from outside
   // (e.g. editing an existing record, or a form reset).
   useEffect(() => {
-    setText(isoToDisplay(value));
+    // Do not wipe an invalid value while the user is correcting it. The parent
+    // receives an empty ISO value until the field becomes valid, but the typed
+    // DD-MM-YYYY text and its error remain visible.
+    if (!isFocused.current) {
+      setText(isoToDisplay(value));
+      setValidationMessage('');
+    }
   }, [value]);
+
+  const dateMessage = (formatted: string) => {
+    if (!formatted) return '';
+    const digits = formatted.replace(/\D/g, '');
+    if (digits.length < 8) return 'Enter the full date as DD-MM-YYYY.';
+    return displayToIso(formatted)
+      ? ''
+      : 'Enter a real date: day 01-31 and month 01-12.';
+  };
 
   const handleChange = (raw: string) => {
     const digits = raw.replace(/\D/g, '').slice(0, 8);
@@ -77,28 +95,52 @@ export default function DateField({
     }
     setText(formatted);
 
-    if (formatted === '') {
-      onChange('');
+    const message = dateMessage(formatted);
+    setValidationMessage(message);
+
+    if (!message) {
+      const iso = displayToIso(formatted);
+      onChange(iso ?? '');
       return;
     }
-    const iso = displayToIso(formatted);
-    if (iso) onChange(iso);
+
+    // Never leave the previous valid date in form state when the field now
+    // contains an incomplete or impossible date. This prevents a stale value
+    // from being submitted while the visible input is invalid.
+    if (formatted === '') {
+      onChange('');
+    }
+    if (formatted !== '') onChange('');
   };
 
   return (
-    <input
-      id={id}
-      type="text"
-      inputMode="numeric"
-      autoComplete="off"
-      placeholder="DD-MM-YYYY"
-      maxLength={10}
-      className={className}
-      value={text}
-      onChange={(e) => handleChange(e.target.value)}
-      required={required}
-      disabled={disabled}
-      aria-invalid={ariaInvalid}
-    />
+    <>
+      <input
+        id={id}
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        placeholder="DD-MM-YYYY"
+        maxLength={10}
+        className={className}
+        value={text}
+        onFocus={() => {
+          isFocused.current = true;
+        }}
+        onBlur={() => {
+          isFocused.current = false;
+        }}
+        onChange={(e) => handleChange(e.target.value)}
+        required={required}
+        disabled={disabled}
+        aria-invalid={ariaInvalid || Boolean(validationMessage)}
+        aria-describedby={validationMessage ? errorId : undefined}
+      />
+      {validationMessage && (
+        <p id={errorId} className="mt-1 text-xs font-medium text-error" role="alert">
+          {validationMessage}
+        </p>
+      )}
+    </>
   );
 }
