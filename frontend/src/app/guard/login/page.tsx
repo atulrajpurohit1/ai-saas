@@ -6,14 +6,7 @@ import api from '@/lib/api';
 import { ArrowRight, KeyRound, Loader2, Phone } from 'lucide-react';
 import BrandMark from '@/components/BrandMark';
 import PasswordInput from '@/components/PasswordInput';
-
-interface ApiError {
-  response?: {
-    data?: {
-      message?: string;
-    };
-  };
-}
+import { getApiErrorMessage } from '@/lib/api-error';
 
 export default function GuardLoginPage() {
   const router = useRouter();
@@ -40,7 +33,7 @@ export default function GuardLoginPage() {
       localStorage.setItem('guard_user', JSON.stringify(response.data.guard));
       router.push('/guard/dashboard');
     } catch (err: unknown) {
-      setError((err as ApiError).response?.data?.message || 'Unable to sign in. Check your credentials.');
+      setError(getApiErrorMessage(err, 'Unable to sign in. Check your credentials.'));
     } finally {
       setLoading(false);
     }

@@ -16,27 +16,13 @@ import { toast } from 'sonner';
 import BrandMark from '@/components/BrandMark';
 import PasswordInput from '@/components/PasswordInput';
 import OtpInput from '@/components/OtpInput';
+import { getApiErrorMessage } from '@/lib/api-error';
 
-interface ApiError {
-  response?: {
-    data?: {
-      message?: string | string[];
-    };
-    status?: number;
-  };
-  request?: unknown;
-}
-
-const errorMessageFrom = (err: unknown, fallback: string) => {
-  const apiError = err as ApiError;
-  const message = apiError.response?.data?.message;
-  if (Array.isArray(message)) return message[0] || fallback;
-  if (message) return message;
-  if (apiError.request && !apiError.response) {
-    return 'Could not reach the server. Please check your connection and try again.';
-  }
-  return fallback;
-};
+// Delegates to the shared helper so this page shows the same friendly, filtered
+// messages as everywhere else -- never a raw framework diagnostic such as
+// "Cannot POST /api/...". The helper handles the no-response case too.
+const errorMessageFrom = (err: unknown, fallback: string) =>
+  getApiErrorMessage(err, fallback);
 
 /** Masks an email for display during OTP verification, e.g. "j***@gmail.com". */
 const maskEmail = (email: string) => {

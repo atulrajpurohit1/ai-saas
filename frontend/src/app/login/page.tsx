@@ -9,34 +9,14 @@ import BrandMark from '@/components/BrandMark';
 import PasswordInput from '@/components/PasswordInput';
 import OtpInput from '@/components/OtpInput';
 import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/api-error';
 
-interface ApiError {
-  message?: string;
-  request?: unknown;
-  response?: {
-    data?: {
-      message?: string | string[];
-    };
-    status?: number;
-  };
-}
-
-const errorMessageFrom = (err: unknown, fallback: string) => {
-  const apiError = err as ApiError;
-  const message = apiError.response?.data?.message;
-  if (Array.isArray(message)) return message[0] || fallback;
-  if (message) return message;
-
-  // Axios sets `request` but leaves `response` undefined when the request
-  // never got a response at all (network failure, CORS preflight block,
-  // DNS/timeout, etc). Surface that distinctly instead of the generic
-  // fallback, which otherwise misleadingly reads like a credentials error.
-  if (apiError.request && !apiError.response) {
-    return 'Could not reach the server. This may be a network issue or the server rejecting requests from this site (CORS). Please try again or contact support.';
-  }
-
-  return fallback;
-};
+// Delegates to the shared helper so this page shows the same friendly, filtered
+// messages as everywhere else -- never a raw framework diagnostic such as
+// "Cannot POST /api/...". The helper already handles the no-response case
+// (network failure, CORS, timeout) with its own message.
+const errorMessageFrom = (err: unknown, fallback: string) =>
+  getApiErrorMessage(err, fallback);
 
 /** Masks an email for display during OTP verification, e.g. "j***@gmail.com". */
 const maskEmail = (email: string) => {
