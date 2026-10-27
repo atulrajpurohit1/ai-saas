@@ -123,7 +123,7 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
         isOpen ? 'translate-x-0' : '-translate-x-full',
       )}
     >
-      <div className={cn('flex items-start justify-between gap-4 p-4 sm:p-5', collapsed && 'lg:justify-center lg:px-3')}>
+      <div className={cn('flex items-start justify-between gap-4 px-4 pb-3 pt-4 sm:px-5 sm:pt-5', collapsed && 'lg:justify-center lg:px-3')}>
         {/* Collapsed rail has no room for the lockup, so show a square icon:
             the tenant's own logo where one is set, otherwise the AegisLead mark. */}
         {collapsed && (
@@ -155,16 +155,20 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
             <img
               src={logoUrl}
               alt={companyName || user?.tenantName || 'Company logo'}
-              className="mb-1.5 max-h-14 w-full object-contain object-left"
+              className="max-h-14 w-full object-contain object-left"
             />
           ) : (
             <BrandMark
               variant="lockup"
               lockupWidth={208}
-              className="mb-1.5 h-auto w-full"
+              className="h-auto w-full"
             />
           )}
-          <p className="truncate text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {/* The tenant name sits between the brand lockup (which already
+              carries its own tagline) and the nav. A clear gap above, plus a
+              hairline divider, keeps it from reading as crammed under the logo
+              while staying visually distinct from the first menu item below. */}
+          <p className="mt-3 truncate border-t border-border pt-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             {companyName || user?.tenantName || 'Management'}
           </p>
         </div>
