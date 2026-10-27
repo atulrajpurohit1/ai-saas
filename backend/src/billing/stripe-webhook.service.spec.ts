@@ -606,6 +606,55 @@ describe('StripeWebhookService', () => {
       expect(result).toMatchObject({ handled: false, reason: 'comped-tenant' });
     });
 
+    /**
+     * The tenant actually paying is the one case that overrides a comp. A
+     * completed checkout for a live paid subscription provisions through the
+     * normal STRIPE path, which clears every comp field -- so a Trial comp
+     * expires the moment the paid plan is bought rather than silently blocking
+     * it (which would charge the customer while leaving them on Trial).
+     */
+    it('ends a comp when the tenant completes a real checkout', async () => {
+      stripe.retrieveSubscription.mockResolvedValue(
+        subscription({ priceIds: [PRICE_LEAD_GEN], status: 'active' }),
+      );
+
+      const result = await service.handle(
+        event('checkout.session.completed', {
+          id: 'cs_paid_1',
+          subscription: 'sub_123',
+          metadata: { tenantId: 'tenant-1' },
+        }),
+      );
+
+      expect(provisioning.provision).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant-1',
+          modules: ['LEAD_GEN'],
+          status: 'ACTIVE',
+        }),
+      );
+      expect(result).toMatchObject({ handled: true, modules: ['LEAD_GEN'] });
+    });
+
+    // A checkout that never went live (payment incomplete) is not the tenant
+    // paying, so it must NOT strip their comp.
+    it('keeps a comp when a checkout did not produce a live subscription', async () => {
+      stripe.retrieveSubscription.mockResolvedValue(
+        subscription({ priceIds: [PRICE_LEAD_GEN], status: 'incomplete' }),
+      );
+
+      const result = await service.handle(
+        event('checkout.session.completed', {
+          id: 'cs_unpaid_1',
+          subscription: 'sub_123',
+          metadata: { tenantId: 'tenant-1' },
+        }),
+      );
+
+      expect(provisioning.provision).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ handled: false, reason: 'comped-tenant' });
+    });
+
     it('does not cancel a comped tenant when a subscription is deleted', async () => {
       const result = await service.handle(
         event('customer.subscription.deleted', subscription()),

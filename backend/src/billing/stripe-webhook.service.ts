@@ -103,7 +103,12 @@ export class StripeWebhookService {
     // authoritative record of what was actually bought, and it carries the
     // period and trial dates the session does not.
     const subscription = await this.stripe.retrieveSubscription(subscriptionId);
-    return this.applySubscription(tenantId, subscription, eventId);
+    // A completed checkout is the tenant deliberately paying. If they were on a
+    // complimentary plan (e.g. a Trial comp), that choice ends it: see the
+    // `fromCheckout` handling in applySubscription.
+    return this.applySubscription(tenantId, subscription, eventId, {
+      fromCheckout: true,
+    });
   }
 
   /**
@@ -330,9 +335,27 @@ export class StripeWebhookService {
     tenantId: string,
     subscription: Stripe.Subscription,
     eventId: string,
+    opts: { fromCheckout?: boolean } = {},
   ) {
-    if (await this.skipIfComped(tenantId, eventId, 'subscription.changed')) {
-      return { handled: false, tenantId, reason: 'comped-tenant' };
+    const status = this.statusFor(subscription.status);
+
+    // Normally a comped tenant is off-limits to Stripe (see skipIfComped). The
+    // one exception is the tenant buying for real: a completed checkout that
+    // produced a LIVE paid subscription (active or trialing) means they have
+    // chosen to pay, so their complimentary plan must end immediately rather
+    // than block the purchase. provision() below writes the row as STRIPE and
+    // clears every comp field, so a Trial comp cannot sit in front of a plan
+    // they are now paying for. Anything that is NOT such a purchase -- a
+    // subscription.* change, or a checkout that did not go live (incomplete,
+    // cancelled) -- keeps the guard that stops a stray event from stripping a
+    // comped tenant's modules.
+    const endsComp =
+      !!opts.fromCheckout && (status === 'ACTIVE' || status === 'TRIALING');
+
+    if (!endsComp) {
+      if (await this.skipIfComped(tenantId, eventId, 'subscription.changed')) {
+        return { handled: false, tenantId, reason: 'comped-tenant' };
+      }
     }
 
     const modules = this.modulesFor(subscription);
@@ -352,7 +375,7 @@ export class StripeWebhookService {
     await this.provisioning.provision({
       tenantId,
       modules,
-      status: this.statusFor(subscription.status),
+      status,
       trialEndsAt: toDate(subscription.trial_end),
       currentPeriodEnd: currentPeriodEnd(subscription),
       cancelAtPeriodEnd: subscription.cancel_at_period_end ?? false,
