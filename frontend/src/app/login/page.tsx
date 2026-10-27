@@ -11,6 +11,17 @@ import OtpInput from '@/components/OtpInput';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/api-error';
 
+interface ApiError {
+  message?: string;
+  request?: unknown;
+  response?: {
+    data?: {
+      message?: string | string[];
+    };
+    status?: number;
+  };
+}
+
 // Delegates to the shared helper so this page shows the same friendly, filtered
 // messages as everywhere else -- never a raw framework diagnostic such as
 // "Cannot POST /api/...". The helper already handles the no-response case
