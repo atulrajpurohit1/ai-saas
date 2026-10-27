@@ -10,7 +10,7 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import ErrorState from '@/components/ErrorState';
 import StatusBadge from '@/components/StatusBadge';
-import { formatEnumLabel } from '@/lib/format';
+import { formatEnumLabel, formatDateTime as fmtDateTime } from '@/lib/format';
 
 interface GuardShift {
   id: string;
@@ -46,13 +46,7 @@ export default function GuardShiftsPage() {
   }, [fetchShifts]);
 
   const formatTime = (value: string) =>
-    new Date(value).toLocaleString([], {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    fmtDateTime(value);
 
   return (
     <GuardLayout>

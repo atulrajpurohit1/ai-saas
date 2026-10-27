@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime as fmtDateTime } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -9,7 +10,7 @@ import { Award, AlertTriangle, Ban, Loader2, Trophy, X } from 'lucide-react';
 
 function formatDateTime(value: string | null) {
   if (!value) return 'Not set';
-  return new Date(value).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return fmtDateTime(value);
 }
 
 interface ContractAwardPanelProps {

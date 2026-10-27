@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as fmtDate } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -397,7 +398,7 @@ export default function GuardsPage() {
                         {guard.deactivatedAt ? (
                           <span
                             className="inline-flex w-fit items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground"
-                            title={`Deactivated ${new Date(guard.deactivatedAt).toLocaleDateString()}`}
+                            title={`Deactivated ${fmtDate(guard.deactivatedAt)}`}
                           >
                             Deactivated
                           </span>
@@ -417,7 +418,7 @@ export default function GuardsPage() {
                         )}
                       </TableCell>
                       <TableCell className="px-6 py-3.5 text-sm text-muted-foreground whitespace-normal" data-label="Date Added">
-                        {new Date(guard.createdAt).toLocaleDateString()}
+                        {fmtDate(guard.createdAt)}
                       </TableCell>
                       <TableCell className="px-6 py-3.5 text-right whitespace-normal" data-label="Actions">
                         <div className="flex items-center justify-end gap-2">

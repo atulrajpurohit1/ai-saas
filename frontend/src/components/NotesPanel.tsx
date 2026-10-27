@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime as fmtDateTime } from '@/lib/format';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
@@ -125,13 +126,7 @@ export default function NotesPanel({
   };
 
   const formatDate = (value: string) =>
-    new Date(value).toLocaleString([], {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    fmtDateTime(value);
 
   const getCreatorLabel = (note: NoteItem) => {
     if (!note.createdBy) return 'Unknown admin';

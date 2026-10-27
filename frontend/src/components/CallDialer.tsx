@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as fmtDate } from '@/lib/format';
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import {
   CALL_OUTCOMES,
@@ -427,7 +428,7 @@ export default function CallDialer({
                     <span className="shrink-0 text-xs text-muted-foreground">
                       {CALL_OUTCOME_LABELS[call.outcome] || call.outcome}
                       {call.durationSec !== null && ` - ${formatDuration(call.durationSec)}`}
-                      {` - ${new Date(call.createdAt).toLocaleDateString()}`}
+                      {` - ${fmtDate(call.createdAt)}`}
                     </span>
                   </div>
                   {call.hasRecording ? (

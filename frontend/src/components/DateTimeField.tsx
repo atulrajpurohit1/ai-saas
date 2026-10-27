@@ -4,6 +4,7 @@ import React from 'react';
 import { CalendarDays } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { formatDate, formatDateTime } from '@/lib/format';
 
 export interface DateTimeFieldProps {
   label: string;
@@ -28,10 +29,10 @@ export interface DateTimeFieldProps {
  * It still uses the browser's native picker (so the calendar and, where
  * supported, the clock are one tap away and there is no extra dependency), but
  * adds the two things the bare input was missing: a clear label, and a
- * human-readable echo of what is currently selected ("Fri, Oct 24, 2026,
- * 10:06 PM") underneath. The empty native control shows only a "mm/dd/yyyy"
- * mask, which testers found confusing; the readable line removes the doubt
- * about what was actually entered.
+ * human-readable echo of what is currently selected ("24-10-2026 22:06") in the
+ * app-wide DD-MM-YYYY format underneath. The empty native control shows only a
+ * "mm/dd/yyyy" mask, which testers found confusing; the readable line removes
+ * the doubt about what was actually entered.
  */
 export default function DateTimeField({
   label,
@@ -52,15 +53,9 @@ export default function DateTimeField({
     if (!value) return '';
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return '';
-    return parsed.toLocaleString([], {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      ...(mode === 'datetime'
-        ? { hour: '2-digit', minute: '2-digit' }
-        : {}),
-    });
+    // Echo the selection in the app-wide DD-MM-YYYY format (with 24h time for
+    // datetime mode), rather than the browser's locale string.
+    return mode === 'datetime' ? formatDateTime(parsed) : formatDate(parsed);
   }, [value, mode]);
 
   return (

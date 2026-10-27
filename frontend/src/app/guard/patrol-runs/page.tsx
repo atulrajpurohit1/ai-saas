@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as fmtDate } from '@/lib/format';
 import React, { useCallback, useEffect, useState } from 'react';
 import GuardLayout from '@/components/GuardLayout';
 import { getGuardPatrolRuns, PatrolRun } from '@/lib/patrols';
@@ -68,7 +69,7 @@ export default function GuardPatrolRunsPage() {
                   <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Calendar size={12} />
-                      {run.startedAt ? new Date(run.startedAt).toLocaleDateString() : 'N/A'}
+                      {run.startedAt ? fmtDate(run.startedAt) : 'N/A'}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock size={12} />

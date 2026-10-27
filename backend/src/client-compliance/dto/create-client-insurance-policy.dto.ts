@@ -9,6 +9,7 @@ import {
   Min,
 } from 'class-validator';
 import { CLIENT_INSURANCE_TYPES } from '../client-insurance-types.constants';
+import { IsMultipleOf } from '../../common/validators/is-multiple-of.validator';
 
 export class CreateClientInsurancePolicyDto {
   @IsString()
@@ -34,9 +35,12 @@ export class CreateClientInsurancePolicyDto {
   @MaxLength(160)
   insurer?: string;
 
+  // Coverage is only ever quoted in round hundreds, so it must end in "00"
+  // (a multiple of 100). Mirrors the client-side rule on the insurance form.
   @IsOptional()
   @IsNumber()
   @Min(0)
+  @IsMultipleOf(100)
   coverage_amount?: number;
 
   @IsOptional()

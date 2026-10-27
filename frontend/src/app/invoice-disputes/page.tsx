@@ -6,7 +6,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import TableScroll from '@/components/TableScroll';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { AdminInvoiceDispute, getInvoiceDisputes } from '@/lib/invoice-disputes';
-import { formatEnumLabel } from '@/lib/format';
+import { formatEnumLabel, formatDateTime as fmtDateTime } from '@/lib/format';
 import {
   AlertTriangle,
   ArrowRight,
@@ -37,13 +37,7 @@ type StatusFilter = 'active' | 'all' | 'open' | 'under_review' | 'resolved' | 'r
 
 function formatDate(value: string | null) {
   if (!value) return 'N/A';
-  return new Date(value).toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return fmtDateTime(value);
 }
 
 function formatMoney(value: number) {

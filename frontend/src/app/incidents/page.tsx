@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { formatEnumLabel } from '@/lib/format';
+import { formatEnumLabel, formatDateTime as fmtDateTime } from '@/lib/format';
 import { getAdminIncidents, Incident } from '@/lib/incidents';
 import { ArrowRight, CalendarDays, ClipboardCheck, FileWarning, MapPin, ShieldCheck } from 'lucide-react';
 
@@ -48,13 +48,7 @@ export default function IncidentsPage() {
   }, [selectedBranchId]);
 
   const formatDate = (value: string) =>
-    new Date(value).toLocaleString([], {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    fmtDateTime(value);
 
   return (
     <DashboardLayout requiredModule="GUARD_TOUR">

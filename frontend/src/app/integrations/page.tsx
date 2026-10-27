@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime as fmtDateTime } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
@@ -48,7 +49,7 @@ import {
 
 function formatDate(value?: string | null) {
   if (!value) return 'Never';
-  return new Date(value).toLocaleString();
+  return fmtDateTime(value);
 }
 
 export default function IntegrationsPage() {

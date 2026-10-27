@@ -52,8 +52,8 @@ export default function InsuranceAdvisoryBanner({ clientId, className = '' }: Pr
       href={clientId ? `/clients/insurance?client_id=${clientId}` : '/clients/insurance'}
       className={`mb-6 flex items-center justify-between gap-3 rounded-2xl border px-5 py-4 text-sm font-semibold transition hover:brightness-110 ${
         severe
-          ? 'border-rose-500/20 bg-rose-500/10 text-rose-300'
-          : 'border-amber-500/20 bg-amber-500/10 text-amber-300'
+          ? 'border-rose-600/30 bg-rose-500/10 text-rose-700'
+          : 'border-amber-600/30 bg-amber-500/10 text-amber-800'
       } ${className}`}
     >
       <span className="flex items-center gap-3">

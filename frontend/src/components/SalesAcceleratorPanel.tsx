@@ -19,7 +19,7 @@ import {
   Target,
 } from 'lucide-react';
 import api from '@/lib/api';
-import { formatEnumLabel, isUnknownValue } from '@/lib/format';
+import { formatEnumLabel, isUnknownValue, formatDateTime as fmtDateTime } from '@/lib/format';
 
 type EntityType = 'lead' | 'deal';
 
@@ -1444,7 +1444,7 @@ export default function SalesAcceleratorPanel({
 
               {discovery && (
                 <div className="text-xs text-slate-500">
-                  Last saved {new Date(discovery.createdAt).toLocaleString()}.
+                  Last saved {fmtDateTime(discovery.createdAt)}.
                 </div>
               )}
             </div>
@@ -1721,7 +1721,7 @@ export default function SalesAcceleratorPanel({
                   <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Latest Proposal</div>
                   <div className="mt-2 text-sm font-bold text-foreground">{proposalEngagement.latestProposal.title}</div>
                   <div className="mt-1 text-xs text-slate-500">
-                    Updated {new Date(proposalEngagement.latestProposal.updatedAt).toLocaleString()}
+                    Updated {fmtDateTime(proposalEngagement.latestProposal.updatedAt)}
                   </div>
                 </div>
               )}
@@ -1795,7 +1795,7 @@ export default function SalesAcceleratorPanel({
                       <div>
                         <div className="text-sm font-bold text-foreground">{step.subject}</div>
                         <div className="mt-1 text-xs capitalize text-slate-500">
-                          {step.channel} - day {step.dayOffset} - {new Date(step.dueDate).toLocaleString()}
+                          {step.channel} - day {step.dayOffset} - {fmtDateTime(step.dueDate)}
                         </div>
                       </div>
                       <span className={`inline-flex w-fit rounded-full border px-2 py-1 text-[10px] font-bold uppercase ${severityColor(step.priority === 'high' ? 'high' : step.priority === 'medium' ? 'medium' : 'low')}`}>
@@ -1871,7 +1871,7 @@ export default function SalesAcceleratorPanel({
                   </div>
                   <div className="mt-1 text-xs text-slate-500">
                     {followUpSequenceProgress.nextStep.dueDate
-                      ? new Date(followUpSequenceProgress.nextStep.dueDate).toLocaleString()
+                      ? fmtDateTime(followUpSequenceProgress.nextStep.dueDate)
                       : 'No due date'}
                   </div>
                 </div>
@@ -2059,7 +2059,7 @@ export default function SalesAcceleratorPanel({
                       <div className="font-bold text-foreground">{momentum.nextActivity.subject}</div>
                       <div className="mt-1 text-xs text-slate-500">
                         {momentum.nextActivity.dueDate
-                          ? new Date(momentum.nextActivity.dueDate).toLocaleString()
+                          ? fmtDateTime(momentum.nextActivity.dueDate)
                           : 'No due date'}
                       </div>
                     </div>
@@ -2400,7 +2400,7 @@ export default function SalesAcceleratorPanel({
 
           {discovery && (
             <div className="text-xs text-slate-500">
-              Last discovery saved {new Date(discovery.createdAt).toLocaleString()}.
+              Last discovery saved {fmtDateTime(discovery.createdAt)}.
             </div>
           )}
           </>

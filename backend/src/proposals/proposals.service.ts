@@ -12,6 +12,14 @@ import { BrandingService } from '../branding/branding.service';
 import { AiMeteringService } from '../billing/ai-metering.service';
 import { AiFeature } from '@prisma/client';
 
+/** App-wide display date format: DD-MM-YYYY (e.g. 25-10-2026). */
+function formatDateDDMMYYYY(date: Date): string {
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+}
+
 @Injectable()
 export class ProposalsService {
   constructor(
@@ -86,20 +94,20 @@ export class ProposalsService {
       doc.on('error', reject);
 
       this.brandingService.addPdfHeader(doc, proposal.title, branding);
-      doc.moveDown();
+      doc.moveDown(0.5);
       doc
-        .fontSize(12)
+        .font('Helvetica')
+        .fontSize(10)
         .fillColor(branding.secondary_color)
-        .text(`Generated on: ${new Date().toLocaleDateString()}`, {
+        .text(`Generated on: ${formatDateDDMMYYYY(new Date())}`, {
           align: 'right',
         });
-      doc.moveDown();
-      doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
-      doc.moveDown();
+      doc.moveDown(0.75);
 
-      doc.fontSize(14).text(proposal.content, {
-        align: 'justify',
-        lineGap: 5,
+      // Render the proposal's Markdown as formatted PDF content (headings,
+      // bold, lists, tables) instead of printing the raw Markdown source.
+      this.brandingService.renderMarkdownBody(doc, proposal.content, {
+        primary: branding.primary_color,
       });
 
       doc.end();
@@ -368,21 +376,96 @@ export class ProposalsService {
     await this.ensureClientBelongsToTenant(tenantId, clientId);
 
     const pricing = await this.pricingForLead(tenantId, lead, clientId);
+
+    // The issuing agency's own identity, so the generated proposal reads as
+    // coming from them rather than leaving "[Your Company Name]" style blanks
+    // the AI has no way to fill on its own.
+    const branding = await this.brandingService.brandingSnapshot(tenantId);
+    const author = userId
+      ? await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { name: true },
+        })
+      : null;
+    const issuer = {
+      companyName: branding.company_name,
+      representativeName: author?.name || branding.company_name,
+    };
+
     const content = await this.aiMetering.run(
       { tenantId, userId, feature: AiFeature.LEAD_GENERATION },
-      () => this.aiService.generateForLead(lead, pricing),
+      () => this.aiService.generateForLead(lead, pricing, issuer),
     );
+
+    // Deterministic safety net: whatever the model (or the offline fallback)
+    // emitted, replace any remaining identity placeholders with real values so
+    // a client never receives a proposal still addressed from "[Your Name]".
+    const filledContent = this.fillIdentityPlaceholders(content, {
+      companyName: issuer.companyName,
+      representativeName: issuer.representativeName,
+      representativeTitle: 'Authorized Representative',
+      clientCompany: lead.company,
+    });
 
     return this.create(
       tenantId,
       {
         title: `Security Services Proposal - ${lead.company}`,
-        content,
+        content: filledContent,
         status: 'draft',
         leadId,
         clientId,
       },
       userId,
+    );
+  }
+
+  /**
+   * Replaces the bracketed identity placeholders the AI leaves in a generated
+   * proposal (it is told who the lead is, but never who the issuing agency is)
+   * with the real issuer/client values. Case-insensitive and tolerant of extra
+   * spacing. Only substitutes well-known identity tokens — any other bracketed
+   * placeholder (e.g. "[bracketed rate]") is left intact for the admin to fill.
+   */
+  private fillIdentityPlaceholders(
+    content: string,
+    ctx: {
+      companyName: string;
+      representativeName: string;
+      representativeTitle: string;
+      clientCompany?: string | null;
+    },
+  ): string {
+    if (!content) return content;
+
+    const replacements: Array<[RegExp, string]> = [
+      [/\[\s*Your Company Name\s*\]/gi, ctx.companyName],
+      [/\[\s*Company Name\s*\]/gi, ctx.companyName],
+      [/\[\s*Your Company\s*\]/gi, ctx.companyName],
+      [
+        /\[\s*Your Name\s*\/\s*Your Company Representative\s*\]/gi,
+        ctx.representativeName,
+      ],
+      [/\[\s*Your Name\s*\]/gi, ctx.representativeName],
+      [/\[\s*Your Company Representative\s*\]/gi, ctx.representativeName],
+      [/\[\s*Representative Name\s*\]/gi, ctx.representativeName],
+      [/\[\s*Your Title\s*\]/gi, ctx.representativeTitle],
+      [/\[\s*Title\s*\]/gi, ctx.representativeTitle],
+      [/\[\s*Date\s*\]/gi, formatDateDDMMYYYY(new Date())],
+      [/\[\s*Today'?s Date\s*\]/gi, formatDateDDMMYYYY(new Date())],
+    ];
+
+    if (ctx.clientCompany) {
+      replacements.push(
+        [/\[\s*Client Company Name\s*\]/gi, ctx.clientCompany],
+        [/\[\s*Client Name\s*\]/gi, ctx.clientCompany],
+        [/\[\s*Client\s*\]/gi, ctx.clientCompany],
+      );
+    }
+
+    return replacements.reduce(
+      (text, [pattern, value]) => text.replace(pattern, value),
+      content,
     );
   }
 

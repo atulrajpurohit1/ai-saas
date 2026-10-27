@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toneForStatus } from '@/components/StatusBadge';
-import { formatEnumLabel } from '@/lib/format';
+import { formatEnumLabel, formatDate as fmtDate } from '@/lib/format';
 
 // Minimal shape this calendar needs. The Shifts page's richer Shift type is
 // structurally compatible, so it can be passed straight through.
@@ -85,10 +85,7 @@ export default function ShiftsCalendar({ shifts, onSelectShift }: ShiftsCalendar
     return map;
   }, [shifts]);
 
-  const monthLabel = monthAnchor.toLocaleDateString([], {
-    month: 'long',
-    year: 'numeric',
-  });
+  const monthLabel = fmtDate(monthAnchor);
 
   const shiftMonth = (delta: number) =>
     setMonthAnchor(

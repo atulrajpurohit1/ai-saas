@@ -260,6 +260,13 @@ export class ClientsService {
            */
           emailVerified: true,
           emailVerifiedAt: new Date(),
+          /**
+           * The password handed back below is a temporary one the admin reads
+           * out to the client, not a secret the client chose. Flag the account
+           * so the portal forces a password change on first sign-in and the
+           * admin-known value can never stay in use.
+           */
+          mustChangePassword: true,
         },
       });
 

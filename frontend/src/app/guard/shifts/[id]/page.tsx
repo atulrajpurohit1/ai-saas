@@ -14,7 +14,7 @@ import {
   uploadGuardIncidentEvidence,
 } from '@/lib/incidents';
 import { OfflineSync } from '@/lib/offline-sync';
-import { formatEnumLabel } from '@/lib/format';
+import { formatEnumLabel, formatDateTime as fmtDateTime } from '@/lib/format';
 import { AlertTriangle, ArrowLeft, CalendarDays, Camera, CheckCircle2, Clock, FileWarning, ImagePlus, Loader2, LogIn, LogOut, MapPin, Navigation, Send, ShieldCheck, X } from 'lucide-react';
 
 interface GuardShiftDetail {
@@ -98,14 +98,7 @@ export default function GuardShiftDetailPage() {
     fetchShift();
   }, [fetchShift]);
 
-  const formatTime = (value: string) => new Date(value).toLocaleString([], {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const formatTime = (value: string) => fmtDateTime(value);
 
   const formatAttendanceTime = (value?: string | null) => value ? formatTime(value) : 'Not recorded';
 

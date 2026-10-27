@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as fmtDate } from '@/lib/format';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
@@ -57,7 +58,7 @@ type ExpiryChoice = (typeof EXPIRY_CHOICES)[number]['key'];
 
 function formatDate(value: string | null) {
   if (!value) return '—';
-  return new Date(value).toLocaleDateString(undefined, { dateStyle: 'medium' });
+  return fmtDate(value);
 }
 
 function usd(value: number) {

@@ -1270,6 +1270,11 @@ model ClientUser {
   tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   emailVerified   Boolean   @default(false) @map("email_verified")
   emailVerifiedAt DateTime? @map("email_verified_at")
+  // True while the account still holds the temporary password the agency
+  // generated at creation. The portal forces a password change on first
+  // sign-in and clears this once the client sets their own password, so an
+  // admin-chosen temporary secret never becomes the client's standing password.
+  mustChangePassword Boolean @default(false) @map("must_change_password")
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

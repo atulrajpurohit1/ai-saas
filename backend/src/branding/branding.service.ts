@@ -268,44 +268,364 @@ export class BrandingService {
     const secondary = this.safeHex(branding.secondary_color, '#4b5563');
     const accent = this.safeHex(branding.accent_color, primary);
     const startY = doc.y;
+    const leftX = 50;
+    const rightX = 200;
+    const rightW = 362; // leftX..562 content area, right block starts at 200
 
-    this.tryAddPdfLogo(
+    // Left: the logo image, or — when none is set — the company name as a
+    // bold text wordmark, never the old literal "LOGO" placeholder.
+    const hasLogo = this.tryAddPdfLogo(
       doc,
       issuerLogoUrl ?? branding.logo_url,
-      50,
+      leftX,
       startY,
-      72,
-      36,
+      140,
+      40,
     );
+    let leftBottom = startY + (hasLogo ? 40 : 0);
+    if (!hasLogo) {
+      doc.font('Helvetica-Bold').fontSize(16).fillColor(primary);
+      const nameH = doc.heightOfString(branding.company_name, { width: 140 });
+      doc.text(branding.company_name, leftX, startY + 2, { width: 140 });
+      leftBottom = startY + 2 + nameH;
+    }
+
+    // Right: the document title, then (only when a logo replaced the wordmark)
+    // the company name, then contact details — each measured and stacked below
+    // the last so a long, wrapping title can never sit on top of the line below
+    // it (the old fixed +27/+42 offsets caused exactly that overlap).
+    doc.font('Helvetica-Bold').fontSize(20).fillColor(primary);
+    const titleH = doc.heightOfString(title, { width: rightW, align: 'right' });
+    doc.text(title, rightX, startY, { align: 'right', width: rightW });
+    let cursorY = startY + titleH + 3;
+
+    if (hasLogo) {
+      doc.font('Helvetica').fontSize(11).fillColor(secondary);
+      const cnH = doc.heightOfString(branding.company_name, { width: rightW });
+      doc.text(branding.company_name, rightX, cursorY, {
+        align: 'right',
+        width: rightW,
+      });
+      cursorY += cnH + 2;
+    }
+
+    if (branding.support_email || branding.support_phone) {
+      const contact = [branding.support_email, branding.support_phone]
+        .filter(Boolean)
+        .join(' | ');
+      doc.font('Helvetica').fontSize(9).fillColor(secondary);
+      const contactH = doc.heightOfString(contact, { width: rightW });
+      doc.text(contact, rightX, cursorY, { align: 'right', width: rightW });
+      cursorY += contactH;
+    }
+
+    // Accent rule sits below whichever side is taller, with a little breathing
+    // room, so it never cuts through the title or the wordmark.
+    const ruleY = Math.max(leftBottom, cursorY, startY + 40) + 8;
     doc
-      .rect(50, startY + 45, 512, 3)
+      .rect(leftX, ruleY, 512, 3)
       .fillColor(accent)
       .fill();
-    doc
-      .fillColor(primary)
-      .fontSize(22)
-      .text(title, 132, startY, { align: 'right', width: 430 });
-    doc
-      .fillColor(secondary)
-      .fontSize(11)
-      .text(branding.company_name, 132, startY + 27, {
-        align: 'right',
-        width: 430,
-      });
-    if (branding.support_email || branding.support_phone) {
-      doc
-        .fillColor(secondary)
-        .fontSize(9)
-        .text(
-          [branding.support_email, branding.support_phone]
-            .filter(Boolean)
-            .join(' | '),
-          132,
-          startY + 42,
-          { align: 'right', width: 430 },
-        );
+
+    doc.font('Helvetica').fillColor('#1f2937');
+    doc.x = leftX;
+    doc.y = ruleY + 14;
+  }
+
+  /**
+   * Renders a Markdown proposal/report body into a PDFKit document: headings,
+   * bold/italic inline runs, bullet and numbered lists, tables, and horizontal
+   * rules. Without this, callers dumped the raw Markdown string straight into
+   * doc.text(), so clients saw literal "**", "#" and "|" characters in the PDF.
+   */
+  renderMarkdownBody(doc: any, markdown: string, opts?: { primary?: string }) {
+    const primary = this.safeHex(opts?.primary, '#111827');
+    const bodyColor = '#1f2937';
+    const left = doc.page.margins.left;
+    const contentWidth =
+      doc.page.width - doc.page.margins.left - doc.page.margins.right;
+
+    if (!markdown?.trim()) {
+      doc.font('Helvetica').fontSize(11).fillColor('#6b7280').text('');
+      return;
     }
-    doc.y = startY + 68;
+
+    const lines = markdown.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    let i = 0;
+
+    const isTableRow = (l: string) => l.includes('|') && l.trim().length > 0;
+    const isTableSeparator = (l: string) =>
+      /^\s*\|?[\s:|-]+\|?\s*$/.test(l) && l.includes('-') && l.includes('|');
+
+    while (i < lines.length) {
+      const raw = lines[i];
+      const trimmed = raw.trim();
+
+      if (!trimmed) {
+        doc.moveDown(0.4);
+        i++;
+        continue;
+      }
+
+      // Horizontal rule.
+      if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+        doc.moveDown(0.25);
+        doc
+          .moveTo(left, doc.y)
+          .lineTo(left + contentWidth, doc.y)
+          .strokeColor('#d1d5db')
+          .stroke();
+        doc.moveDown(0.5);
+        i++;
+        continue;
+      }
+
+      // Table: a row followed by a |---|---| separator.
+      if (
+        isTableRow(raw) &&
+        i + 1 < lines.length &&
+        isTableSeparator(lines[i + 1])
+      ) {
+        const tableLines: string[] = [];
+        while (i < lines.length && isTableRow(lines[i]) && lines[i].trim()) {
+          tableLines.push(lines[i]);
+          i++;
+        }
+        this.renderMarkdownTable(doc, tableLines, left, contentWidth, primary, bodyColor);
+        continue;
+      }
+
+      // Headings.
+      const heading = /^(#{1,6})\s+(.*)$/.exec(trimmed);
+      if (heading) {
+        const level = heading[1].length;
+        const size = level === 1 ? 18 : level === 2 ? 15 : level === 3 ? 13 : 12;
+        doc.moveDown(level <= 2 ? 0.5 : 0.35);
+        this.writeInlineMarkdown(doc, heading[2], {
+          baseBold: true,
+          size,
+          color: primary,
+          width: contentWidth,
+        });
+        doc.moveDown(0.2);
+        i++;
+        continue;
+      }
+
+      // Bullet list.
+      const bullet = /^[-*+]\s+(.*)$/.exec(trimmed);
+      if (bullet) {
+        this.writeInlineMarkdown(doc, `•  ${bullet[1]}`, {
+          size: 11,
+          color: bodyColor,
+          width: contentWidth,
+          indent: 14,
+          lineGap: 2,
+        });
+        i++;
+        continue;
+      }
+
+      // Numbered list.
+      const numbered = /^(\d+)\.\s+(.*)$/.exec(trimmed);
+      if (numbered) {
+        this.writeInlineMarkdown(doc, `${numbered[1]}.  ${numbered[2]}`, {
+          size: 11,
+          color: bodyColor,
+          width: contentWidth,
+          indent: 14,
+          lineGap: 2,
+        });
+        i++;
+        continue;
+      }
+
+      // Paragraph.
+      doc.moveDown(0.15);
+      this.writeInlineMarkdown(doc, trimmed, {
+        size: 11,
+        color: bodyColor,
+        width: contentWidth,
+        lineGap: 3,
+      });
+      i++;
+    }
+
+    doc.font('Helvetica').fontSize(11).fillColor(bodyColor);
+    doc.x = left;
+  }
+
+  /**
+   * Writes one line of Markdown inline content, switching PDFKit fonts for
+   * **bold** / *italic* runs and flattening links/images/`code` to plain text.
+   */
+  private writeInlineMarkdown(
+    doc: any,
+    text: string,
+    opts: {
+      baseBold?: boolean;
+      size: number;
+      color: string;
+      width: number;
+      indent?: number;
+      lineGap?: number;
+    },
+  ) {
+    // Drop images, reduce links to their label.
+    let s = text.replace(/!\[[^\]]*\]\([^)]*\)/g, '');
+    s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1');
+
+    const runs = this.tokenizeInline(s);
+    doc.fontSize(opts.size).fillColor(opts.color);
+
+    const fontFor = (bold: boolean, italic: boolean) => {
+      const isBold = bold || opts.baseBold;
+      if (isBold && italic) return 'Helvetica-BoldOblique';
+      if (isBold) return 'Helvetica-Bold';
+      if (italic) return 'Helvetica-Oblique';
+      return 'Helvetica';
+    };
+
+    if (runs.length === 0) {
+      doc.font(fontFor(false, false)).text(s, {
+        width: opts.width,
+        lineGap: opts.lineGap,
+        indent: opts.indent,
+        align: 'left',
+      });
+      return;
+    }
+
+    runs.forEach((run, idx) => {
+      const isLast = idx === runs.length - 1;
+      doc.font(fontFor(run.bold, run.italic)).text(run.text, {
+        continued: !isLast,
+        width: opts.width,
+        lineGap: opts.lineGap,
+        indent: idx === 0 ? opts.indent : undefined,
+        align: 'left',
+      });
+    });
+  }
+
+  private tokenizeInline(
+    s: string,
+  ): Array<{ text: string; bold: boolean; italic: boolean }> {
+    const runs: Array<{ text: string; bold: boolean; italic: boolean }> = [];
+    let bold = false;
+    let italic = false;
+    let buf = '';
+    const flush = () => {
+      if (buf) {
+        runs.push({ text: buf, bold, italic });
+        buf = '';
+      }
+    };
+
+    for (let i = 0; i < s.length; ) {
+      if (s.startsWith('**', i) || s.startsWith('__', i)) {
+        flush();
+        bold = !bold;
+        i += 2;
+        continue;
+      }
+      const ch = s[i];
+      if (ch === '*') {
+        flush();
+        italic = !italic;
+        i += 1;
+        continue;
+      }
+      if (ch === '`') {
+        // Inline code: keep the text, drop the backticks.
+        i += 1;
+        continue;
+      }
+      buf += ch;
+      i += 1;
+    }
+    flush();
+    return runs;
+  }
+
+  private renderMarkdownTable(
+    doc: any,
+    tableLines: string[],
+    left: number,
+    totalWidth: number,
+    headerColor: string,
+    bodyColor: string,
+  ) {
+    const rows = tableLines
+      .map((l) =>
+        l
+          .trim()
+          .replace(/^\|/, '')
+          .replace(/\|$/, '')
+          .split('|')
+          .map((c) => c.trim()),
+      )
+      // Drop the |---|---| separator row.
+      .filter(
+        (cells) =>
+          !cells.every((c) => c === '' || /^:?-{1,}:?$/.test(c)),
+      );
+
+    if (rows.length === 0) return;
+
+    const cols = Math.max(...rows.map((r) => r.length));
+    const colW = totalWidth / cols;
+    const cellPad = 4;
+    const bottomMargin = doc.page.height - doc.page.margins.bottom;
+
+    doc.moveDown(0.3);
+
+    rows.forEach((cells, rowIdx) => {
+      const isHeader = rowIdx === 0;
+      const font = isHeader ? 'Helvetica-Bold' : 'Helvetica';
+      const color = isHeader ? headerColor : bodyColor;
+      doc.font(font).fontSize(10).fillColor(color);
+
+      const padded: string[] = [];
+      for (let c = 0; c < cols; c++) padded.push(cells[c] ?? '');
+
+      const rowH =
+        Math.max(
+          ...padded.map((t) =>
+            doc.heightOfString(t || ' ', { width: colW - cellPad * 2 }),
+          ),
+          12,
+        ) + 8;
+
+      if (doc.y + rowH > bottomMargin) doc.addPage();
+
+      const yStart = doc.y;
+      if (isHeader) {
+        doc.rect(left, yStart, totalWidth, rowH).fillColor('#f3f4f6').fill();
+        doc.font(font).fontSize(10).fillColor(color);
+      }
+
+      padded.forEach((t, c) => {
+        doc
+          .font(font)
+          .fontSize(10)
+          .fillColor(color)
+          .text(t, left + c * colW + cellPad, yStart + 4, {
+            width: colW - cellPad * 2,
+          });
+      });
+
+      doc.y = yStart + rowH;
+      doc
+        .moveTo(left, doc.y)
+        .lineTo(left + totalWidth, doc.y)
+        .strokeColor('#e5e7eb')
+        .stroke();
+    });
+
+    doc.moveDown(0.4);
+    doc.font('Helvetica').fillColor(bodyColor);
+    doc.x = left;
   }
 
   emailShell(branding: BrandingSnapshot, title: string, bodyHtml: string) {
@@ -404,6 +724,12 @@ export class BrandingService {
     return trimmed || null;
   }
 
+  /**
+   * Draws the logo image when one is configured. When there is none (or it
+   * cannot be decoded) it draws NOTHING and returns false, so the caller can
+   * fall back to a text wordmark. It used to stamp a literal "LOGO" into the
+   * page, which shipped in every PDF a tenant without a logo generated.
+   */
   tryAddPdfLogo(
     doc: any,
     logoUrl: string | null,
@@ -411,24 +737,18 @@ export class BrandingService {
     y: number,
     width: number,
     height: number,
-  ) {
+  ): boolean {
     if (!logoUrl?.startsWith('data:image/')) {
-      doc
-        .fontSize(15)
-        .fillColor('#111827')
-        .text('LOGO', x, y + 10, { width });
-      return;
+      return false;
     }
 
     try {
       const base64 = logoUrl.split(',')[1];
       if (!base64) throw new Error('Missing logo data');
       doc.image(Buffer.from(base64, 'base64'), x, y, { fit: [width, height] });
+      return true;
     } catch {
-      doc
-        .fontSize(15)
-        .fillColor('#111827')
-        .text('LOGO', x, y + 10, { width });
+      return false;
     }
   }
 

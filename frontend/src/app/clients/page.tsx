@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as fmtDate } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -443,7 +444,7 @@ export default function ClientsPage() {
                           <div>
                             <div className="text-sm font-semibold text-foreground">{doc.name}</div>
                             <div className="text-[10px] text-muted-foreground">
-                              {new Date(doc.createdAt).toLocaleDateString()}
+                              {fmtDate(doc.createdAt)}
                             </div>
                           </div>
                         </div>

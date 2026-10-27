@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime as fmtDateTime } from '@/lib/format';
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -73,12 +74,7 @@ export default function EmergencyAlertsPage() {
   }, [fetchAlerts]);
 
   const formatDate = (value: string) =>
-    new Date(value).toLocaleString([], {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    fmtDateTime(value);
 
   const handleAcknowledge = async (alert: EmergencyAlert) => {
     setBusyId(alert.id);

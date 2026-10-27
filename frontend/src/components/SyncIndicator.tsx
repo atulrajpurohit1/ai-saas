@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime as fmtDateTime } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import { useNetwork } from '@/context/NetworkContext';
 import { OfflineSync, RejectedAction, offlineActionLabel } from '@/lib/offline-sync';
@@ -59,7 +60,7 @@ export function SyncIndicator() {
           <ul className="flex flex-col gap-1 text-muted-foreground">
             {rejected.map((action) => (
               <li key={action.id}>
-                {offlineActionLabel(action.actionType)} ({new Date(action.createdAt).toLocaleString()}):{' '}
+                {offlineActionLabel(action.actionType)} ({fmtDateTime(action.createdAt)}):{' '}
                 {action.errorMessage}
               </li>
             ))}

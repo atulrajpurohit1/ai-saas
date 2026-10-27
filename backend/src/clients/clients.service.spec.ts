@@ -64,6 +64,9 @@ describe('ClientsService.createClientUser', () => {
         tenantId: 'tenant-1',
         emailVerified: true,
         emailVerifiedAt: expect.any(Date),
+        // Flagged so the portal forces the client off this admin-known
+        // temporary password on first sign-in.
+        mustChangePassword: true,
       }),
     });
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as fmtDate } from '@/lib/format';
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -52,11 +53,7 @@ function localDateInputValue(value = new Date()) {
 
 function formatDate(value: string | null) {
   if (!value) return 'Open ended';
-  return new Date(value).toLocaleDateString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return fmtDate(value);
 }
 
 function formatMoney(value: number | null) {

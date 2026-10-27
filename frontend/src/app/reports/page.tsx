@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as fmtDate, formatDateTime as fmtDateTime } from '@/lib/format';
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -53,22 +54,12 @@ function localDateInputValue() {
 }
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleDateString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return fmtDate(value);
 }
 
 function formatDateTime(value: string | null) {
   if (!value) return 'Not published';
-  return new Date(value).toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return fmtDateTime(value);
 }
 
 function getSiteClientId(site: SiteOption) {

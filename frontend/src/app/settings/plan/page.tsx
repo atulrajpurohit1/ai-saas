@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as fmtDate } from '@/lib/format';
 import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -37,11 +38,7 @@ import {
 
 /** Dates here are plan boundaries, so the day is all that matters. */
 function formatDate(value: string) {
-  return new Date(value).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  return fmtDate(value);
 }
 
 const MODULE_ICONS: Record<ServiceModuleKey, typeof BrainCircuit> = {

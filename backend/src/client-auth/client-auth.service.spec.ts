@@ -1,4 +1,8 @@
-import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -23,6 +27,12 @@ describe('ClientAuthService', () => {
       updateMany: jest.Mock;
     };
   };
+  let emailVerification: {
+    issueOtp: jest.Mock;
+    verifyOtp: jest.Mock;
+    issuePasswordResetToken: jest.Mock;
+    consumePasswordResetToken: jest.Mock;
+  };
 
   /** Cheap rounds: bcrypt.compare reads the cost from the hash itself. */
   const hashOf = (plain: string) => bcrypt.hash(plain, 4);
@@ -36,6 +46,15 @@ describe('ClientAuthService', () => {
       },
     };
 
+    emailVerification = {
+      issueOtp: jest.fn().mockResolvedValue({}),
+      verifyOtp: jest.fn().mockResolvedValue(true),
+      issuePasswordResetToken: jest
+        .fn()
+        .mockResolvedValue({ token: 'reset-token', expiresAt: new Date() }),
+      consumePasswordResetToken: jest.fn(),
+    };
+
     const jwtService = { signAsync: jest.fn().mockResolvedValue('token') };
     const configService = { get: jest.fn().mockReturnValue('secret') };
 
@@ -43,6 +62,7 @@ describe('ClientAuthService', () => {
       prisma as unknown as PrismaService,
       jwtService as unknown as JwtService,
       configService as unknown as ConfigService,
+      emailVerification as unknown as import('../email-verification/email-verification.service').EmailVerificationService,
     );
   });
 
@@ -146,6 +166,207 @@ describe('ClientAuthService', () => {
       expect(prisma.clientUser.findUnique).toHaveBeenCalledWith(
         expect.objectContaining({ where: { email: 'client@example.com' } }),
       );
+    });
+  });
+
+  describe('login mustChangePassword passthrough', () => {
+    it.each([true, false])(
+      'surfaces mustChangePassword=%s from the account',
+      async (flag) => {
+        prisma.clientUser.findUnique.mockResolvedValue({
+          id: 'client-user-1',
+          email: 'client@example.com',
+          password: await hashOf(PASSWORD),
+          tenantId: 'tenant-1',
+          clientId: 'client-1',
+          tenant: { isActive: true },
+          emailVerified: true,
+          mustChangePassword: flag,
+        });
+
+        const result = await service.login({
+          email: 'client@example.com',
+          password: PASSWORD,
+        });
+
+        expect(result.mustChangePassword).toBe(flag);
+      },
+    );
+  });
+
+  describe('setInitialPassword', () => {
+    const account = () => ({
+      id: 'client-user-1',
+      email: 'client@example.com',
+      tenantId: 'tenant-1',
+      clientId: 'client-1',
+      mustChangePassword: true,
+    });
+
+    it('sets the password and clears the first-login flag', async () => {
+      prisma.clientUser.findUnique.mockResolvedValue(account());
+
+      const tokens = await service.setInitialPassword('client-user-1', {
+        newPassword: 'BrandNewPass1',
+        confirmPassword: 'BrandNewPass1',
+      });
+
+      expect(tokens.access_token).toBeTruthy();
+      expect(prisma.clientUser.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'client-user-1' },
+          data: expect.objectContaining({ mustChangePassword: false }),
+        }),
+      );
+    });
+
+    it('rejects a mismatched confirmation', async () => {
+      prisma.clientUser.findUnique.mockResolvedValue(account());
+
+      await expect(
+        service.setInitialPassword('client-user-1', {
+          newPassword: 'BrandNewPass1',
+          confirmPassword: 'different',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('refuses once the account is no longer on a temporary password', async () => {
+      prisma.clientUser.findUnique.mockResolvedValue({
+        ...account(),
+        mustChangePassword: false,
+      });
+
+      await expect(
+        service.setInitialPassword('client-user-1', {
+          newPassword: 'BrandNewPass1',
+          confirmPassword: 'BrandNewPass1',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('changePassword', () => {
+    const account = async () => ({
+      id: 'client-user-1',
+      email: 'client@example.com',
+      tenantId: 'tenant-1',
+      clientId: 'client-1',
+      password: await hashOf(PASSWORD),
+      mustChangePassword: false,
+    });
+
+    it('changes the password when the current one is correct', async () => {
+      prisma.clientUser.findUnique.mockResolvedValue(await account());
+
+      const tokens = await service.changePassword('client-user-1', {
+        currentPassword: PASSWORD,
+        newPassword: 'BrandNewPass1',
+        confirmPassword: 'BrandNewPass1',
+      });
+
+      expect(tokens.access_token).toBeTruthy();
+      expect(prisma.clientUser.update).toHaveBeenCalled();
+    });
+
+    it('rejects a wrong current password', async () => {
+      prisma.clientUser.findUnique.mockResolvedValue(await account());
+
+      await expect(
+        service.changePassword('client-user-1', {
+          currentPassword: 'wrong',
+          newPassword: 'BrandNewPass1',
+          confirmPassword: 'BrandNewPass1',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.clientUser.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses reusing the current password as the new one', async () => {
+      prisma.clientUser.findUnique.mockResolvedValue(await account());
+
+      await expect(
+        service.changePassword('client-user-1', {
+          currentPassword: PASSWORD,
+          newPassword: PASSWORD,
+          confirmPassword: PASSWORD,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('forgot-password flow', () => {
+    it('issues a CLIENT_USER reset OTP for a verified account, generically', async () => {
+      prisma.clientUser.findUnique.mockResolvedValue({
+        id: 'client-user-1',
+        email: 'client@example.com',
+        tenantId: 'tenant-1',
+        emailVerified: true,
+        client: { name: 'Acme Corp' },
+      });
+
+      const res = await service.forgotPassword({ email: 'client@example.com' });
+
+      expect(res.message).toBeTruthy();
+      expect(emailVerification.issueOtp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountType: 'CLIENT_USER',
+          accountId: 'client-user-1',
+          tenantId: 'tenant-1',
+        }),
+      );
+    });
+
+    it('stays silent (no OTP, same message) for an unknown email', async () => {
+      prisma.clientUser.findUnique.mockResolvedValue(null);
+
+      const res = await service.forgotPassword({ email: 'nobody@example.com' });
+
+      expect(res.message).toBeTruthy();
+      expect(emailVerification.issueOtp).not.toHaveBeenCalled();
+    });
+
+    it('resets the password after a valid reset token, scoped to the client', async () => {
+      emailVerification.consumePasswordResetToken.mockResolvedValue({
+        accountId: 'client-user-1',
+        tenantId: 'tenant-1',
+        email: 'client@example.com',
+      });
+      prisma.clientUser.findUnique.mockResolvedValue({
+        id: 'client-user-1',
+        tenantId: 'tenant-1',
+      });
+
+      const res = await service.resetPassword({
+        resetToken: 'reset-token',
+        newPassword: 'BrandNewPass1',
+        confirmPassword: 'BrandNewPass1',
+      });
+
+      expect(res.message).toContain('reset');
+      expect(prisma.clientUser.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'client-user-1' },
+          data: expect.objectContaining({ mustChangePassword: false }),
+        }),
+      );
+    });
+
+    it('rejects a reset token that resolves to no client account', async () => {
+      emailVerification.consumePasswordResetToken.mockResolvedValue({
+        accountId: 'staff-user-1',
+        tenantId: 'tenant-1',
+        email: 'staff@example.com',
+      });
+      prisma.clientUser.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.resetPassword({
+          resetToken: 'reset-token',
+          newPassword: 'BrandNewPass1',
+          confirmPassword: 'BrandNewPass1',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 

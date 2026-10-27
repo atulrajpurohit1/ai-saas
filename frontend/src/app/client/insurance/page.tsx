@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import ClientLayout from '@/components/ClientLayout';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { formatEnumLabel } from '@/lib/format';
+import { formatEnumLabel, formatDate as fmtDate } from '@/lib/format';
 import {
   ComplianceStatus,
   CLIENT_INSURANCE_TYPE_LABELS,
@@ -28,7 +28,7 @@ const STATUS_META: Record<ComplianceStatus, { label: string; tone: StatusTone }>
 
 function formatDate(value: string | null): string {
   if (!value) return '—';
-  return new Date(value).toLocaleDateString();
+  return fmtDate(value);
 }
 
 function formatMoney(value: number | null): string {

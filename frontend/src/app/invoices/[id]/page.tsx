@@ -8,7 +8,7 @@ import TableScroll from '@/components/TableScroll';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { cancelInvoice, getAdminInvoice, Invoice, issueInvoice, markInvoicePaid } from '@/lib/invoices';
-import { formatEnumLabel } from '@/lib/format';
+import { formatEnumLabel, formatDate as fmtDate, formatDateTime as fmtDateTime } from '@/lib/format';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -43,22 +43,12 @@ const disputeStatusClass: Record<string, string> = {
 
 function formatDate(value: string | null) {
   if (!value) return 'N/A';
-  return new Date(value).toLocaleDateString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return fmtDate(value);
 }
 
 function formatDateTime(value: string | null) {
   if (!value) return 'N/A';
-  return new Date(value).toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return fmtDateTime(value);
 }
 
 function formatMoney(value: number) {

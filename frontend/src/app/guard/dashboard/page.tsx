@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime as fmtDateTime } from '@/lib/format';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import GuardLayout from '@/components/GuardLayout';
@@ -81,12 +82,7 @@ export default function GuardDashboardPage() {
   }, [shifts]);
 
   const formatTime = (value: string) =>
-    new Date(value).toLocaleString([], {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    fmtDateTime(value);
 
   return (
     <GuardLayout>

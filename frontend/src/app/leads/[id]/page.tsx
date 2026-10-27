@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as fmtDate } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -57,11 +58,7 @@ export default function LeadDetailsPage() {
 
   const formatDate = (value?: string) =>
     value
-      ? new Date(value).toLocaleDateString([], {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-        })
+      ? fmtDate(value)
       : 'Not recorded';
 
   return (

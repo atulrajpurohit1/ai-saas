@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as fmtDate } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import PageHeader from '@/components/PageHeader';
@@ -217,7 +218,7 @@ export default function SitesPage() {
                       <BranchBadge branch={site.branch} />
                     </TableCell>
                     <TableCell className="px-6 py-3.5 text-sm text-muted-foreground whitespace-normal" data-label="Created">
-                      {new Date(site.createdAt).toLocaleDateString()}
+                      {fmtDate(site.createdAt)}
                     </TableCell>
                     <TableCell className="px-6 py-3.5 text-right whitespace-normal" data-label="Actions">
                       <Button variant="outline" size="sm" onClick={() => handleEdit(site)}>

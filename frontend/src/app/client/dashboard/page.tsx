@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDate as fmtDate } from '@/lib/format';
 import React, { useCallback, useEffect, useState } from 'react';
 import ClientLayout from '@/components/ClientLayout';
 import Link from 'next/link';
@@ -170,7 +171,7 @@ export default function ClientDashboard() {
                 </div>
                 <h3 className="mb-1 text-base font-bold leading-tight text-foreground">{p.title}</h3>
                 <p className="mb-6 text-sm text-muted-foreground">
-                  Created {new Date(p.createdAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+                  Created {fmtDate(p.createdAt)}
                 </p>
                 <div className="mt-auto flex items-center justify-between border-t border-border pt-4 text-sm font-semibold text-primary">
                   View proposal

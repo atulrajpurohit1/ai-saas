@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime as fmtDateTime } from '@/lib/format';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FileImage, Loader2, X } from 'lucide-react';
 import {
@@ -85,7 +86,7 @@ export default function CheckpointEvidenceViewer({
               type="button"
               onClick={() => thumb && setLightbox(thumb)}
               className="h-16 w-16 overflow-hidden rounded-lg border border-white/10 bg-black/40"
-              title={`${item.fileName} · ${new Date(item.createdAt).toLocaleString()}`}
+              title={`${item.fileName} · ${fmtDateTime(item.createdAt)}`}
             >
               {thumb ? (
                 // eslint-disable-next-line @next/next/no-img-element

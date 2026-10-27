@@ -1807,6 +1807,7 @@ _This draft was generated without AI (AI was unavailable). Every bracketed field
   async generateForLead(
     lead: Lead & { notes?: any[]; deals?: any[] },
     pricing?: LeadProposalPricing | null,
+    issuer?: { companyName: string; representativeName: string } | null,
   ): Promise<string> {
     const context = `
       Lead Name: ${lead.name}
@@ -1816,12 +1817,26 @@ _This draft was generated without AI (AI was unavailable). Every bracketed field
       Related Deals: ${lead.deals?.map((d) => d.name).join(', ') || 'No specific deals'}
     `;
 
+    // Tell the model who is sending the proposal so it writes the company name
+    // and the representative's sign-off directly, instead of emitting
+    // "[Your Company Name]" / "[Your Name]" placeholders for the sender.
+    const issuerPrompt = issuer
+      ? `
+      ISSUING COMPANY (the sender of this proposal — use these exact values, never a placeholder):
+      Company Name: ${issuer.companyName}
+      Representative / Sign-off Name: ${issuer.representativeName}
+      Write the company name wherever the sender is referred to, and sign off as
+      the representative above. Do NOT output bracketed placeholders such as
+      [Your Company Name], [Your Name] or [Your Title] for the sender's identity.
+`
+      : '';
+
     const prompt = `
       Generate a professional security services proposal for a new lead.
-      
+
       CONTEXT:
       ${context}
-${this.leadPricingPrompt(pricing)}
+${issuerPrompt}${this.leadPricingPrompt(pricing)}
       STRUCTURE:
       1. Executive Introduction
       2. Threat Landscape & Risk Analysis (specific to ${lead.company})
