@@ -18,6 +18,12 @@ dist/
 coverage/
 *.log
 
+# Local scratch/debug scripts -- never meant to ship. Several embedded
+# plaintext admin/guard/demo credentials and were tracked on a public repo.
+scratch/
+backend/scratch/
+backend/db.js
+
 # OS and editor noise
 .DS_Store
 Thumbs.db
