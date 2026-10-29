@@ -17,7 +17,13 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
     <div
       ref={ref}
       data-slot="table-container"
-      className={cn("relative w-full overflow-x-auto", overflowing && "table-scroll-x")}
+      role={overflowing ? "region" : undefined}
+      aria-label={overflowing ? "Table, scroll horizontally to see more" : undefined}
+      tabIndex={overflowing ? 0 : undefined}
+      className={cn(
+        "relative w-full overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+        overflowing && "table-scroll-x"
+      )}
     >
       <table
         data-slot="table"

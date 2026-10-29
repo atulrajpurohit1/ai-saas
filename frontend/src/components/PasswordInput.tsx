@@ -40,7 +40,7 @@ export default function PasswordInput({
 
   return (
     <div className="relative">
-      <Icon className={iconClassName} size={iconSize} />
+      <Icon className={iconClassName} size={iconSize} aria-hidden="true" />
       <input
         id={inputId}
         type={visible ? 'text' : 'password'}

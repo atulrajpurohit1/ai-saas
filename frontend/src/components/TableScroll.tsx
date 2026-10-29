@@ -20,7 +20,17 @@ export default function TableScroll({
   const { ref, overflowing } = useOverflowX<HTMLDivElement>();
 
   return (
-    <div ref={ref} className={cn('relative w-full overflow-x-auto', overflowing && 'table-scroll-x', className)}>
+    <div
+      ref={ref}
+      role={overflowing ? 'region' : undefined}
+      aria-label={overflowing ? 'Table, scroll horizontally to see more' : undefined}
+      tabIndex={overflowing ? 0 : undefined}
+      className={cn(
+        'relative w-full overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+        overflowing && 'table-scroll-x',
+        className,
+      )}
+    >
       {children}
     </div>
   );

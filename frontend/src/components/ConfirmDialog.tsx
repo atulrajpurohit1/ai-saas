@@ -50,6 +50,7 @@ export default function ConfirmDialog({
             variant={destructive ? 'destructive' : 'default'}
             onClick={() => void onConfirm()}
             disabled={loading}
+            aria-busy={loading}
           >
             {loading && <Loader2 size={15} className="animate-spin" aria-hidden="true" />}
             {confirmLabel}
