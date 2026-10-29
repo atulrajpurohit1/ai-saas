@@ -99,9 +99,14 @@ describe('isAllowedClientInsuranceDocument', () => {
     expect(
       isAllowedClientInsuranceDocument('malware.pdf', 'application/x-msdownload'),
     ).toBe(false);
+  });
+
+  it('accepts an allowed extension sent as application/octet-stream', () => {
+    // Some browsers send octet-stream for a real PDF/image; we fall back to the
+    // extension in that one ambiguous case. The extension allow-list still gates.
     expect(
       isAllowedClientInsuranceDocument('policy.png', 'application/octet-stream'),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('rejects an empty MIME type', () => {

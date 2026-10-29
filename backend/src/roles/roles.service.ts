@@ -804,6 +804,16 @@ export class RolesService {
       );
     }
 
+    // Never let an administrator remove their own account-management access.
+    // The founding owner is protected above, but legacy tenants may not yet
+    // have an ownerUserId and a non-owner admin could otherwise lock out the
+    // only remaining role manager with one click.
+    if (targetUser.id === user.sub && role.name !== 'Super Admin') {
+      throw new ForbiddenException(
+        'You cannot demote yourself from Super Admin. Ask another Super Admin to change your role.',
+      );
+    }
+
     const rolePermissionKeys = role.permissions.map(
       (item) => item.permission.key,
     );
@@ -906,6 +916,12 @@ export class RolesService {
     ) {
       throw new ForbiddenException(
         'The account owner’s Super Admin role cannot be removed.',
+      );
+    }
+
+    if (assignment.userId === user.sub && assignment.role.name === 'Super Admin') {
+      throw new ForbiddenException(
+        'You cannot remove your own Super Admin role. Ask another Super Admin to change your role.',
       );
     }
 

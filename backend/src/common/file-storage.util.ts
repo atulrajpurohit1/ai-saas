@@ -286,6 +286,22 @@ export const CLIENT_INSURANCE_ALLOWED_MIME_TYPES: Record<string, true> = {
   'image/webp': true,
 };
 
+const CLIENT_INSURANCE_MIME_BY_EXTENSION: Record<string, string> = {
+  pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+  png: 'image/png', webp: 'image/webp',
+};
+
+export function resolveClientInsuranceMimeType(originalName: string, mimeType: string): string {
+  const normalized = (mimeType || '').toLowerCase().split(';')[0].trim();
+  // Only an explicit application/octet-stream falls back to the extension --
+  // that is what some browsers genuinely send for a real PDF/image. An empty
+  // or mismatched Content-Type is treated as a true mismatch and left to fail
+  // the allow-list below, so it is not a disguise bypass.
+  if (normalized !== 'application/octet-stream') return normalized;
+  const extension = originalName.split('.').pop()?.toLowerCase() ?? '';
+  return CLIENT_INSURANCE_MIME_BY_EXTENSION[extension] ?? normalized;
+}
+
 /** True only when the extension and the declared MIME type both pass the
  * allow-list. Caller rejects with a 400 otherwise. */
 export function isAllowedClientInsuranceDocument(
@@ -295,8 +311,9 @@ export function isAllowedClientInsuranceDocument(
   if (!CLIENT_INSURANCE_UPLOAD_ALLOWED_EXTENSIONS.test(originalName)) {
     return false;
   }
-  const normalized = (mimeType || '').toLowerCase().split(';')[0].trim();
-  return Boolean(CLIENT_INSURANCE_ALLOWED_MIME_TYPES[normalized]);
+  return Boolean(CLIENT_INSURANCE_ALLOWED_MIME_TYPES[
+    resolveClientInsuranceMimeType(originalName, mimeType)
+  ]);
 }
 
 export function clientInsuranceUploadMaxMb(): number {
