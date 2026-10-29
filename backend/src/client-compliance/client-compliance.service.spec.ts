@@ -107,7 +107,10 @@ describe('ClientComplianceService (Phase 3G)', () => {
         }),
       );
       expect(result.scope).toBe('client_wide');
-      expect(result.status).toBe(ComplianceStatus.VALID);
+      // Status now reflects document presence, not dates. A freshly created
+      // policy has no uploaded document yet, so it is MISSING until one is
+      // attached.
+      expect(result.status).toBe(ComplianceStatus.MISSING);
       expect(result).not.toHaveProperty('storedFileName');
       expect(audit.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'CLIENT_INSURANCE_POLICY_CREATED' }),
@@ -222,19 +225,21 @@ describe('ClientComplianceService (Phase 3G)', () => {
       site: null,
     };
 
-    it('derives VALID / EXPIRING_SOON / EXPIRED for real policies', async () => {
+    it('marks any policy with a stored document as ADDED regardless of dates', async () => {
       prisma.client.findMany.mockResolvedValue([{ id: 'client-1', name: 'Acme' }]);
       prisma.clientInsurancePolicy.findMany.mockResolvedValue([
-        { ...basePolicy, id: 'p-valid', type: 'general_liability', expirationDate: new Date(Date.now() + 200 * DAY) },
+        { ...basePolicy, id: 'p-future', type: 'general_liability', expirationDate: new Date(Date.now() + 200 * DAY) },
         { ...basePolicy, id: 'p-soon', type: 'workers_comp', expirationDate: new Date(Date.now() + 10 * DAY) },
-        { ...basePolicy, id: 'p-exp', type: 'certificate_of_insurance', expirationDate: new Date(Date.now() - DAY) },
+        { ...basePolicy, id: 'p-past', type: 'certificate_of_insurance', expirationDate: new Date(Date.now() - DAY) },
       ]);
 
       const rows = await service.findAll(superAdminA);
 
-      expect(rows.find((r) => r.id === 'p-valid')?.status).toBe(ComplianceStatus.VALID);
-      expect(rows.find((r) => r.id === 'p-soon')?.status).toBe(ComplianceStatus.EXPIRING_SOON);
-      expect(rows.find((r) => r.id === 'p-exp')?.status).toBe(ComplianceStatus.EXPIRED);
+      // Client insurance no longer tracks expiry: a stored document is ADDED
+      // whatever the expiration date says.
+      expect(rows.find((r) => r.id === 'p-future')?.status).toBe(ComplianceStatus.ADDED);
+      expect(rows.find((r) => r.id === 'p-soon')?.status).toBe(ComplianceStatus.ADDED);
+      expect(rows.find((r) => r.id === 'p-past')?.status).toBe(ComplianceStatus.ADDED);
       // storedFileName never serialized
       rows.forEach((r) => expect(r).not.toHaveProperty('storedFileName'));
     });

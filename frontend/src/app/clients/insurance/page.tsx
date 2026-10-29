@@ -31,10 +31,6 @@ import {
   Download,
   Upload,
   Loader2,
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  FileQuestion,
   MapPin,
 } from 'lucide-react';
 
@@ -52,18 +48,9 @@ interface SiteOption {
 
 const STATUS_FILTERS: { key: 'all' | ComplianceStatus; label: string }[] = [
   { key: 'all', label: 'All' },
-  { key: 'VALID', label: 'Valid' },
-  { key: 'EXPIRING_SOON', label: 'Expiring Soon' },
-  { key: 'EXPIRED', label: 'Expired' },
+  { key: 'ADDED', label: 'Added' },
   { key: 'MISSING', label: 'Missing' },
 ];
-
-const STATUS_BADGE: Record<ComplianceStatus, { label: string; className: string; icon: typeof CheckCircle2 }> = {
-  VALID: { label: 'Valid', className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', icon: CheckCircle2 },
-  EXPIRING_SOON: { label: 'Expiring Soon', className: 'bg-amber-500/10 text-amber-400 border-amber-500/20', icon: AlertTriangle },
-  EXPIRED: { label: 'Expired', className: 'bg-rose-500/10 text-rose-400 border-rose-500/20', icon: XCircle },
-  MISSING: { label: 'Missing', className: 'bg-white/5 text-muted-foreground border-white/10', icon: FileQuestion },
-};
 
 function formatDate(value: string | null): string {
   if (!value) return '—';
@@ -157,7 +144,7 @@ function ClientInsuranceView() {
   }, []);
 
   const summary = useMemo(() => {
-    const counts = { total: records.length, VALID: 0, EXPIRING_SOON: 0, EXPIRED: 0, MISSING: 0 };
+    const counts = { total: records.length, ADDED: 0, MISSING: 0 };
     records.forEach((r) => { counts[r.status] += 1; });
     return counts;
   }, [records]);
@@ -356,9 +343,7 @@ function ClientInsuranceView() {
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
         {([
           ['Total', summary.total, 'text-white'],
-          ['Valid', summary.VALID, 'text-emerald-400'],
-          ['Expiring Soon', summary.EXPIRING_SOON, 'text-amber-400'],
-          ['Expired', summary.EXPIRED, 'text-rose-400'],
+          ['Added', summary.ADDED, 'text-emerald-400'],
           ['Missing', summary.MISSING, 'text-slate-400'],
         ] as const).map(([label, value, colorClass]) => (
           <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
@@ -422,7 +407,6 @@ function ClientInsuranceView() {
                 <th className="px-6 py-4 font-semibold">Client</th>
                 <th className="px-6 py-4 font-semibold">Scope</th>
                 <th className="px-6 py-4 font-semibold">Type</th>
-                <th className="px-6 py-4 font-semibold">Status</th>
                 <th className="px-6 py-4 font-semibold">Expiration</th>
                 <th className="px-6 py-4 font-semibold">Coverage</th>
                 <th className="px-6 py-4 font-semibold">Document</th>
@@ -431,15 +415,13 @@ function ClientInsuranceView() {
             </thead>
             <tbody className="divide-y divide-white/5">
               {loading ? (
-                <tr><td colSpan={8} className="px-6 py-10 text-center text-muted-foreground">Loading insurance policies...</td></tr>
+                <tr><td colSpan={7} className="px-6 py-10 text-center text-muted-foreground">Loading insurance policies...</td></tr>
               ) : filteredRecords.length === 0 ? (
-                <tr><td colSpan={8} className="px-6 py-10 text-center text-muted-foreground">
+                <tr><td colSpan={7} className="px-6 py-10 text-center text-muted-foreground">
                   {records.length === 0 ? 'No insurance policies yet.' : 'No policies match your filters.'}
                 </td></tr>
               ) : (
                 filteredRecords.map((record) => {
-                  const badge = STATUS_BADGE[record.status];
-                  const Icon = badge.icon;
                   const key = record.id || `${record.clientId}-${record.type}`;
                   return (
                     <tr key={key} className="group transition-colors hover:bg-white/5">
@@ -458,12 +440,6 @@ function ClientInsuranceView() {
                       </td>
                       <td className="px-6 py-4 align-middle text-sm" data-label="Type">
                         {CLIENT_INSURANCE_TYPE_LABELS[record.type as keyof typeof CLIENT_INSURANCE_TYPE_LABELS] || formatEnumLabel(record.type)}
-                      </td>
-                      <td className="px-6 py-4 align-middle" data-label="Status">
-                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${badge.className}`}>
-                          <Icon size={12} />
-                          {badge.label}
-                        </span>
                       </td>
                       <td className="px-6 py-4 align-middle text-sm text-muted-foreground" data-label="Expiration">
                         {formatDate(record.expirationDate)}

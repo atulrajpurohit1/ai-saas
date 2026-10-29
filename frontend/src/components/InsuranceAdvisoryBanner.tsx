@@ -16,7 +16,7 @@ interface Props {
 }
 
 // Phase 3G: READ-ONLY advisory. Never blocks any action - it only surfaces
-// expiring / expired / missing client insurance where it is naturally
+// missing client insurance where it is naturally
 // visible. Renders nothing when there is nothing to flag, or when the caller
 // lacks permission to read the summary (the request 403s and is swallowed).
 export default function InsuranceAdvisoryBanner({ clientId, className = '' }: Props) {
@@ -37,15 +37,13 @@ export default function InsuranceAdvisoryBanner({ clientId, className = '' }: Pr
   }, [clientId]);
 
   if (!summary) return null;
-  const flagged = summary.expired + summary.expiringSoon + summary.missing;
+  const flagged = summary.missing;
   if (flagged === 0) return null;
 
   const parts: string[] = [];
-  if (summary.expired > 0) parts.push(`${summary.expired} expired`);
-  if (summary.expiringSoon > 0) parts.push(`${summary.expiringSoon} expiring soon`);
   if (summary.missing > 0) parts.push(`${summary.missing} missing`);
 
-  const severe = summary.expired > 0;
+  const severe = false;
 
   return (
     <Link

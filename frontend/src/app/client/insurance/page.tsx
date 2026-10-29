@@ -20,9 +20,7 @@ import ErrorState from '@/components/ErrorState';
 import StatusBadge, { type StatusTone } from '@/components/StatusBadge';
 
 const STATUS_META: Record<ComplianceStatus, { label: string; tone: StatusTone }> = {
-  VALID: { label: 'Valid', tone: 'success' },
-  EXPIRING_SOON: { label: 'Expiring Soon', tone: 'warning' },
-  EXPIRED: { label: 'Expired', tone: 'error' },
+  ADDED: { label: 'Added', tone: 'success' },
   MISSING: { label: 'Not On File', tone: 'neutral' },
 };
 
@@ -60,7 +58,7 @@ export default function ClientInsurancePortalPage() {
   }, [fetchPolicies]);
 
   const summary = useMemo(() => {
-    const counts = { VALID: 0, EXPIRING_SOON: 0, EXPIRED: 0, MISSING: 0 };
+    const counts = { ADDED: 0, MISSING: 0 };
     policies.forEach((p) => { counts[p.status] += 1; });
     return counts;
   }, [policies]);
@@ -91,9 +89,7 @@ export default function ClientInsurancePortalPage() {
       {!loading && !error && policies.length > 0 && (
         <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {([
-            ['Valid', summary.VALID, 'text-success'],
-            ['Expiring Soon', summary.EXPIRING_SOON, 'text-warning'],
-            ['Expired', summary.EXPIRED, 'text-error'],
+            ['Added', summary.ADDED, 'text-success'],
             ['Not On File', summary.MISSING, 'text-muted-foreground'],
           ] as const).map(([label, value, colorClass]) => (
             <div key={label} className="surface-muted p-4">
