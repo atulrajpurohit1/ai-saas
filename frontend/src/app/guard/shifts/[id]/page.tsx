@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import GuardLayout from '@/components/GuardLayout';
+import DateTimeField from '@/components/DateTimeField';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { toast } from 'sonner';
@@ -532,16 +533,12 @@ export default function GuardShiftDetailPage() {
                   </select>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-slate-300">Occurred At</label>
-                  <input
-                    type="datetime-local"
-                    value={incidentForm.occurredAt}
-                    onChange={(event) => setIncidentForm({ ...incidentForm, occurredAt: event.target.value })}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:border-amber-300/50 focus:ring-2 focus:ring-amber-300/20"
-                    required
-                  />
-                </div>
+                <DateTimeField
+                  label="Occurred At"
+                  value={incidentForm.occurredAt}
+                  onChange={(value) => setIncidentForm({ ...incidentForm, occurredAt: value })}
+                  required
+                />
               </div>
 
               <div className="space-y-1">

@@ -5,6 +5,7 @@ import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
+import DateField from '@/components/DateField';
 import TableScroll from '@/components/TableScroll';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
@@ -479,21 +480,11 @@ function GuardComplianceView() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-muted-foreground">Issue Date</label>
-                  <input
-                    type="date"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    value={formData.issue_date}
-                    onChange={(e) => setFormData({ ...formData, issue_date: e.target.value })}
-                  />
+                  <DateField className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50" value={formData.issue_date} onChange={(value) => setFormData({ ...formData, issue_date: value })} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-muted-foreground">Expiration Date</label>
-                  <input
-                    type="date"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    value={formData.expiration_date}
-                    onChange={(e) => setFormData({ ...formData, expiration_date: e.target.value })}
-                  />
+                  <DateField className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-primary/50" value={formData.expiration_date} onChange={(value) => setFormData({ ...formData, expiration_date: value })} />
                 </div>
               </div>
 

@@ -23,8 +23,8 @@ export default function EmptyState({ icon: Icon, title, description, action, cla
         className,
       )}
     >
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-        <Icon size={22} aria-hidden="true" />
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground shadow-sm ring-1 ring-inset ring-border">
+        <Icon size={24} aria-hidden="true" />
       </span>
       <div className="max-w-sm space-y-1">
         <p className="text-section-title">{title}</p>

@@ -21,13 +21,20 @@ export default function Pagination({ page, pageCount, onPageChange, summary, cla
   if (pageCount <= 1) return null;
 
   return (
-    <div
+    <nav
+      aria-label="Pagination"
       className={cn(
         'flex flex-col-reverse items-center justify-between gap-3 border-t border-border px-4 py-3 sm:flex-row',
         className,
       )}
     >
-      <p className="text-xs text-muted-foreground">{summary ?? `Page ${page} of ${pageCount}`}</p>
+      <p className="text-xs text-muted-foreground" aria-live="polite">
+        {summary ?? (
+          <>
+            Page <span className="font-semibold text-foreground">{page}</span> of {pageCount}
+          </>
+        )}
+      </p>
       <div className="flex items-center gap-2">
         <Button
           type="button"
@@ -52,6 +59,6 @@ export default function Pagination({ page, pageCount, onPageChange, summary, cla
           <ChevronRight size={14} />
         </Button>
       </div>
-    </div>
+    </nav>
   );
 }

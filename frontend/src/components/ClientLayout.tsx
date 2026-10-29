@@ -168,7 +168,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       </nav>
 
       <main className="px-3 pb-28 pt-4 sm:px-6 sm:pb-16 sm:pt-7 lg:ml-64 lg:px-8 lg:py-8">
-        <div className="mx-auto w-full max-w-6xl">{children}</div>
+        <div className="mx-auto w-full max-w-7xl">{children}</div>
       </main>
     </div>
   );

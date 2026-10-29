@@ -39,8 +39,8 @@ export default function StatDelta({ deltaPct, hasActivity }: StatDeltaProps) {
   const isUp = deltaPct > 0;
   return (
     <div
-      className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold ${
-        isUp ? 'bg-success-wash text-success' : 'bg-error-wash text-error'
+      className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold ring-1 ring-inset ${
+        isUp ? 'bg-success-wash text-success ring-success/20' : 'bg-error-wash text-error ring-error/20'
       }`}
     >
       {isUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}

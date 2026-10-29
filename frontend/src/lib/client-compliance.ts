@@ -21,7 +21,7 @@ export const CLIENT_INSURANCE_TYPE_LABELS: Record<ClientInsuranceType, string> =
   other: 'Other',
 };
 
-export type ComplianceStatus = 'VALID' | 'EXPIRING_SOON' | 'EXPIRED' | 'MISSING';
+export type ComplianceStatus = 'ADDED' | 'MISSING';
 
 export interface ClientInsurancePolicy {
   // null only for a synthesized MISSING row - no policy exists yet.
@@ -47,9 +47,7 @@ export interface ClientInsurancePolicy {
 
 export interface ClientInsuranceSummary {
   total: number;
-  valid: number;
-  expiringSoon: number;
-  expired: number;
+  added: number;
   missing: number;
 }
 

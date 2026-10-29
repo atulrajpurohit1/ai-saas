@@ -4,6 +4,7 @@ import { formatDate as fmtDate, formatDateTime as fmtDateTime } from '@/lib/form
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
+import DateField from '@/components/DateField';
 import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
 import TableScroll from '@/components/TableScroll';
 import api from '@/lib/api';
@@ -204,13 +205,7 @@ export default function ReportsPage() {
 
         <div className="space-y-2">
           <label className="text-sm font-semibold text-slate-300">Report Date</label>
-          <input
-            type="date"
-            className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
-            value={formData.report_date}
-            onChange={(event) => setFormData({ ...formData, report_date: event.target.value })}
-            required
-          />
+          <DateField className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50" value={formData.report_date} onChange={(value) => setFormData({ ...formData, report_date: value })} required />
         </div>
 
         <button

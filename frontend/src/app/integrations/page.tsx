@@ -3,6 +3,7 @@
 import { formatDateTime as fmtDateTime } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import DateField from '@/components/DateField';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
@@ -593,12 +594,7 @@ export default function IntegrationsPage() {
                     </label>
                     <label className="block">
                       <span className="mb-2 block text-sm font-bold text-white">Expires</span>
-                      <input
-                        value={apiKeyForm.expiresAt}
-                        onChange={(event) => setApiKeyForm({ ...apiKeyForm, expiresAt: event.target.value })}
-                        type="date"
-                        className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
-                      />
+                      <DateField className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50" value={apiKeyForm.expiresAt} onChange={(value) => setApiKeyForm({ ...apiKeyForm, expiresAt: value })} />
                       <span className="mt-1.5 block text-xs text-slate-500">
                         Optional. Blank means it never expires.
                       </span>

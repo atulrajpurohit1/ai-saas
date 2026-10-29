@@ -20,7 +20,6 @@ import {
 } from '../common/object-storage.util';
 import {
   ComplianceStatus,
-  calculateRecordStatus,
 } from '../guard-compliance/compliance-status.util';
 import {
   CLIENT_INSURANCE_REQUIRED_TYPES,
@@ -117,13 +116,8 @@ export class ClientComplianceService {
 
   // --- serialization -----------------------------------------------------
 
-  private statusOf(expirationDate: Date | null): ComplianceStatus {
-    try {
-      return calculateRecordStatus(expirationDate);
-    } catch {
-      // A malformed stored date must never be presented as VALID.
-      return ComplianceStatus.EXPIRED;
-    }
+  private statusOf(storedFileName: string | null): ComplianceStatus {
+    return storedFileName ? ComplianceStatus.ADDED : ComplianceStatus.MISSING;
   }
 
   private assertDateOrder(
@@ -156,7 +150,7 @@ export class ClientComplianceService {
       siteName: siteName ?? null,
       scope: record.siteId ? ('site' as const) : ('client_wide' as const),
       type: record.type,
-      status: this.statusOf(record.expirationDate),
+      status: this.statusOf(record.storedFileName),
       policyNumber: record.policyNumber,
       insurer: record.insurer,
       coverageAmount: record.coverageAmount,
@@ -451,19 +445,10 @@ export class ClientComplianceService {
 
   async getSummary(user: ActiveUser, clientId?: string) {
     const rows = await this.findAll(user, clientId ? { clientId } : {});
-    const summary = {
-      total: rows.length,
-      valid: 0,
-      expiringSoon: 0,
-      expired: 0,
-      missing: 0,
-    };
+    const summary = { total: rows.length, added: 0, missing: 0 };
     for (const row of rows) {
-      if (row.status === ComplianceStatus.VALID) summary.valid += 1;
-      else if (row.status === ComplianceStatus.EXPIRING_SOON)
-        summary.expiringSoon += 1;
-      else if (row.status === ComplianceStatus.EXPIRED) summary.expired += 1;
-      else if (row.status === ComplianceStatus.MISSING) summary.missing += 1;
+      if (row.status === ComplianceStatus.ADDED) summary.added += 1;
+      else summary.missing += 1;
     }
     return summary;
   }

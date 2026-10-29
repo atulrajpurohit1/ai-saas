@@ -10,12 +10,11 @@ export enum ComplianceStatus {
   // returned by calculateRecordStatus, which always operates on a record
   // that exists. See GuardComplianceService.findAllForTenant.
   MISSING = 'MISSING',
-  // A document has been uploaded, nothing more. GUARD compliance uses this
-  // instead of VALID/EXPIRING_SOON/EXPIRED because nobody verifies a guard's
-  // document here -- calling an unverified upload "Valid" overstated it. So a
-  // guard record is simply ADDED (present) or MISSING (absent). Client
-  // insurance still uses the expiry-based statuses, where the dates are
-  // genuinely tracked.
+  // A document has been uploaded, nothing more. Both guard compliance and
+  // client insurance use this instead of VALID/EXPIRING_SOON/EXPIRED because
+  // nobody verifies the uploaded document here -- calling an unverified upload
+  // "Valid" overstated it. So a record is simply ADDED (present) or MISSING
+  // (absent); the expiry-based statuses above remain only for legacy callers.
   ADDED = 'ADDED',
 }
 

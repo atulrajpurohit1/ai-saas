@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Search } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
@@ -30,7 +30,7 @@ export default function SearchField({
 }) {
   return (
     <label className={cn('block space-y-1', className)}>
-      <span className="text-xs font-bold uppercase tracking-widest text-slate-500">{label}</span>
+      <span className="text-eyebrow">{label}</span>
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
         <Input
@@ -38,8 +38,24 @@ export default function SearchField({
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-10 pl-10"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && value) {
+              e.preventDefault();
+              onChange('');
+            }
+          }}
+          className={cn('h-10 pl-10', value && 'pr-10')}
         />
+        {value && (
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            aria-label="Clear search"
+            className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground outline-none transition hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+          >
+            <X size={14} aria-hidden="true" />
+          </button>
+        )}
       </div>
     </label>
   );

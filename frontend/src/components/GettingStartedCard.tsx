@@ -137,6 +137,13 @@ export default function GettingStartedCard() {
         </button>
       </div>
 
+      <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-primary/10">
+        <div
+          className="h-full rounded-full bg-primary transition-all duration-500"
+          style={{ width: `${(doneCount / steps.length) * 100}%` }}
+        />
+      </div>
+
       <ol className="space-y-2">
         {steps.map((step, index) => {
           const isDone = Boolean(completed[step.href]);
