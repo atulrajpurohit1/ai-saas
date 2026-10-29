@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import RfpEditor from '@/components/RfpEditor';
 import RfpLogoUploadField from '@/components/RfpLogoUploadField';
+import DateField from '@/components/DateField';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
   generateRfp,
@@ -171,6 +172,20 @@ export default function EditRfpPage() {
       setError('RFP Title and Client Name are required.');
       return false;
     }
+    if (form.startDate && form.endDate && form.endDate < form.startDate) {
+      setError('End date cannot be before the start date.');
+      return false;
+    }
+    for (const [label, value] of [
+      ['estimated budget', form.estimatedBudget],
+      ['number of locations', form.numberOfLocations],
+      ['number of guards', form.guardsRequired],
+    ] as const) {
+      if (value && (!Number.isFinite(Number(value)) || Number(value) < 0)) {
+        setError(`Enter a valid non-negative ${label}.`);
+        return false;
+      }
+    }
     setError('');
     return true;
   };
@@ -266,7 +281,7 @@ export default function EditRfpPage() {
               </div>
               <div className="space-y-2">
                 <label className={labelClass}>Due Date</label>
-                <input type="date" className={inputClass} value={form.dueDate} onChange={(e) => update('dueDate', e.target.value)} />
+                <DateField className={inputClass} value={form.dueDate} onChange={(value) => update('dueDate', value)} />
               </div>
               <div className="space-y-2">
                 <label className={labelClass}>Estimated Budget ($)</label>
@@ -281,11 +296,11 @@ export default function EditRfpPage() {
               </div>
               <div className="space-y-2">
                 <label className={labelClass}>Start Date</label>
-                <input type="date" className={inputClass} value={form.startDate} onChange={(e) => update('startDate', e.target.value)} />
+                <DateField className={inputClass} value={form.startDate} onChange={(value) => update('startDate', value)} />
               </div>
               <div className="space-y-2">
                 <label className={labelClass}>End Date</label>
-                <input type="date" className={inputClass} value={form.endDate} onChange={(e) => update('endDate', e.target.value)} />
+                <DateField className={inputClass} value={form.endDate} onChange={(value) => update('endDate', value)} />
               </div>
             </div>
           </section>

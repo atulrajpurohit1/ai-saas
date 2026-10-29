@@ -30,7 +30,7 @@ export default function SearchField({
 }) {
   return (
     <label className={cn('block space-y-1', className)}>
-      <span className="text-xs font-bold uppercase tracking-widest text-slate-500">{label}</span>
+      <span className="text-eyebrow">{label}</span>
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
         <Input

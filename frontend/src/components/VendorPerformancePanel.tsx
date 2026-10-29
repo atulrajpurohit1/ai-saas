@@ -4,6 +4,7 @@ import { formatDate as fmtDate } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
+import DateField from '@/components/DateField';
 import {
   createPerformanceReview,
   getPerformanceReviews,
@@ -252,13 +253,7 @@ export default function VendorPerformancePanel({ rfpId, rfp }: VendorPerformance
             <form onSubmit={handleSave} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Review Date</label>
-                <input
-                  type="date"
-                  required
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-ring/50"
-                  value={form.reviewDate}
-                  onChange={(e) => setForm({ ...form, reviewDate: e.target.value })}
-                />
+                <DateField required className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-ring/50" value={form.reviewDate || ''} onChange={(value) => setForm({ ...form, reviewDate: value })} />
               </div>
 
               <div className="space-y-1">

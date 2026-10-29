@@ -187,7 +187,7 @@ export default function ClientProposalView() {
 
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
         {/* Main column: document + comments */}
-        <div className="space-y-5 lg:col-span-8">
+        <div className="space-y-5 lg:col-span-9">
           <div className="surface-card p-5 sm:p-6">
             <div className="mb-4 flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-primary/10 text-primary">
@@ -199,7 +199,7 @@ export default function ClientProposalView() {
             </div>
             {/* Bounded height with internal scroll so the comments below stay
                 reachable without scrolling past the entire document. */}
-            <div className="rfp-document rounded-[var(--radius)] border border-border bg-muted lg:max-h-[62vh] lg:overflow-y-auto">
+            <div className="rfp-document rounded-[var(--radius)] border border-border bg-muted lg:max-h-[68vh] lg:overflow-y-auto">
               <ReactMarkdown>{proposal.content}</ReactMarkdown>
             </div>
           </div>
@@ -262,7 +262,7 @@ export default function ClientProposalView() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-5 lg:col-span-4 lg:sticky lg:top-6">
+        <div className="space-y-5 lg:col-span-3 lg:sticky lg:top-6">
           <div className="surface-card p-5 sm:p-6">
             <h3 className="mb-4 flex items-center gap-2 text-section-title">
               <ShieldCheck className="text-primary" size={18} />

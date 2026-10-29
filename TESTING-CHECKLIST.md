@@ -334,7 +334,7 @@ Please re-test:
 - A document type with nothing uploaded shows "Missing".
 - The summary cards at the top show Total / Added / Missing.
 
-**(start here)**
+
 8. WHen i signed in as a guard, and send an emergency alert, on admin panel, idk where the alert is send.
 
 When i created shift, i got created 2 times also.
@@ -652,7 +652,65 @@ Please re-test:
 - Branch cards show the real Clients/Sites/Guards counts, matching each branch's
   detail page.
 
-**(stop here)**
 
 
-26. IN the lead details page, i dont understand any single thing here. I cant even determine are they ai features or not. I dont know what i have made. Can you explain me this in short and simple languagae? ( idk there are bugs here or not because i dont even know how to test this page, i am just pressing reandom buttons here)
+
+26. When the admin generates a proposal for a client, in that proposal all the parameters like  [Your Company Name]. [Your Name/Your Company Representative]
+[Your Title]
+[Your Company Name] etc are written as it is instead of their values. SO fix this also.  
+Also the admin should be able to change the text after generating the proposal. 
+Also the proposal generated in pdf form has many issue -
+1. If the logo is not given, i see the test "logo". It should not be there.
+2. All the bold text in the proposal, in the pdf is messed up, it is not in the bold , instead i see * * around  the text in the whole pdf. Also # at many places.
+3. also, in the pdf, the client company name and my compnay name also overlapses. Fix this issue also.
+
+
+27. In the client portal , at the /client/proposals/{id} page, the UI of the this page is too bad. I have to scroll too much to read comments and reach the end of the document whereas i see too much emppty space in left and right on my screen.
+SO make the UI proper of this screen.
+
+28. In the create RFP , apply the client side validation in all the fielsd and chagne the date format to dd-mm-yyyy instad od dd----yyyyy
+
+29. in Add Insurance Policy, add client side validation also in the fields. 
+
+30. Everywhere in the site wherever is there a coverage amount or something, it cant take random value, it only takes the value ending with 00. So fix this also. 
+
+31. Everyehre in this dashboard, the date format should by DDMMYYYY. 
+
+32. at Client Insurance & COI, when i try to uplaod the document, i get internal server error, this error might come on everywhere we can upload items. So check that also.
+
+32. in Client Insurance & COI, whenever a policy is added by admin , it shows Valid . There is no source of validation. So remove this valid thing from here and remove the Status column from the table too that showws valid, and remove the "Valide" from the clietn portal also. 
+
+33.  The client portal and guard portal should show same logo of aegislead as we see at the admin portal.
+
+   
+
+---
+
+## Final implementation audit — 25 Oct 2026
+
+All actionable issues recorded above have been addressed in the codebase.
+
+- Issue 3: self-demotion and self-revocation can no longer remove an
+  administrator's own Super Admin access.
+- Issue 22: the remaining date-entry forms now use the shared DD-MM-YYYY or
+  readable date-time controls, with validation retained on save.
+- Issues 26–33: proposal rendering/editing, client proposal layout, RFP and
+  insurance validation, coverage amount rules, date formatting, uploads,  
+  insurance Added/Missing status, and portal branding are implemented.
+
+The unchecked items in sections 1–17 are execution checklist rows, not newly
+reported bugs; they still require manual end-to-end testing in the deployed
+application.
+
+
+
+34. in all the date fields  , all are already DD-MM-YYYY format, which is good, but i can enter the date like 53-25-6424 which is not good so apply the cleint side validation here. The date should be less than 31 , month less than 12 , you know use some logic here. The month cant be 53 and the date cant be 85 etc.
+
+35. in all the pages with a table, enhance the overall UI. I just see rounded corner vibecoded design. I mostly see all the txt in uppercase. I see text with matching backgound color. Fix that also.
+
+36. Fix the button ui in those pages also. The UI should look more professional.
+
+37.  in the RFP page, after creating the rfp , the screen should scroll to generated the rfp. 
+when i generated an rfp and saved it, i got logged out and and when i logged in again , the rfp generated was gone already. So i basically lost my token. So i want that on generation the rfp should automatically saved and can be edited and saved again later.
+
+38. 

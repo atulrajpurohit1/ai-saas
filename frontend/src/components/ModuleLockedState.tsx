@@ -24,7 +24,7 @@ export default function ModuleLockedState({ module }: ModuleLockedStateProps) {
 
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card px-6 py-16 text-center">
-      <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+      <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground shadow-sm ring-1 ring-inset ring-border">
         <Lock className="h-5 w-5" />
       </span>
       <h2 className="text-lg font-semibold text-foreground">

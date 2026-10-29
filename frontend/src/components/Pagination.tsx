@@ -27,7 +27,13 @@ export default function Pagination({ page, pageCount, onPageChange, summary, cla
         className,
       )}
     >
-      <p className="text-xs text-muted-foreground">{summary ?? `Page ${page} of ${pageCount}`}</p>
+      <p className="text-xs text-muted-foreground">
+        {summary ?? (
+          <>
+            Page <span className="font-semibold text-foreground">{page}</span> of {pageCount}
+          </>
+        )}
+      </p>
       <div className="flex items-center gap-2">
         <Button
           type="button"

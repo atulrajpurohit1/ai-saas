@@ -4,6 +4,7 @@ import React from 'react';
 import { CalendarDays, Filter, RotateCcw } from 'lucide-react';
 import { FinanceClient, FinanceFilters } from '@/lib/finance';
 import { formatEnumLabel } from '@/lib/format';
+import DateField from '@/components/DateField';
 
 interface FinanceFiltersProps {
   filters: FinanceFilters;
@@ -31,12 +32,7 @@ export default function FinanceFiltersBar({
           <CalendarDays size={15} className="text-indigo-300" />
           Start
         </span>
-        <input
-          type="date"
-          value={filters.start_date || ''}
-          onChange={(event) => onChange({ ...filters, start_date: event.target.value })}
-          className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
-        />
+        <DateField value={filters.start_date || ''} onChange={(value) => onChange({ ...filters, start_date: value })} className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-white outline-none focus:ring-2 focus:ring-indigo-500/50" />
       </label>
 
       <label className="space-y-2">
@@ -44,12 +40,7 @@ export default function FinanceFiltersBar({
           <CalendarDays size={15} className="text-indigo-300" />
           End
         </span>
-        <input
-          type="date"
-          value={filters.end_date || ''}
-          onChange={(event) => onChange({ ...filters, end_date: event.target.value })}
-          className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
-        />
+        <DateField value={filters.end_date || ''} onChange={(value) => onChange({ ...filters, end_date: value })} className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-white outline-none focus:ring-2 focus:ring-indigo-500/50" />
       </label>
 
       <label className="space-y-2">

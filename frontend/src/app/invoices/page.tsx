@@ -6,6 +6,7 @@ import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
 import InsuranceAdvisoryBanner from '@/components/InsuranceAdvisoryBanner';
+import DateField from '@/components/DateField';
 import TableScroll from '@/components/TableScroll';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
@@ -388,24 +389,12 @@ export default function InvoicesPage() {
 
         <div className="space-y-2">
           <label className="text-sm font-semibold text-slate-300">Start</label>
-          <input
-            type="date"
-            className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
-            value={formData.billing_start_date}
-            onChange={(event) => setFormData({ ...formData, billing_start_date: event.target.value })}
-            required
-          />
+          <DateField className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50" value={formData.billing_start_date} onChange={(value) => setFormData({ ...formData, billing_start_date: value })} required />
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-semibold text-slate-300">End</label>
-          <input
-            type="date"
-            className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
-            value={formData.billing_end_date}
-            onChange={(event) => setFormData({ ...formData, billing_end_date: event.target.value })}
-            required
-          />
+          <DateField className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50" value={formData.billing_end_date} onChange={(value) => setFormData({ ...formData, billing_end_date: value })} required />
         </div>
 
         <div className="space-y-2">

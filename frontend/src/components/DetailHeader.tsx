@@ -35,7 +35,7 @@ export default function DetailHeader({
       <div className="mb-4 flex items-center justify-between gap-4">
         <Link
           href={backHref}
-          className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground transition hover:text-foreground"
+          className="-ml-2 inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
         >
           <ArrowLeft size={16} aria-hidden="true" />
           {backLabel}

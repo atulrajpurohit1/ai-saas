@@ -5,12 +5,12 @@ import { formatEnumLabel } from '@/lib/format';
 export type StatusTone = 'success' | 'warning' | 'error' | 'info' | 'primary' | 'neutral';
 
 const TONE_CLASSES: Record<StatusTone, string> = {
-  success: 'bg-success-wash text-success',
-  warning: 'bg-warning-wash text-warning',
-  error: 'bg-error-wash text-error',
-  info: 'bg-info-wash text-info',
-  primary: 'bg-primary/8 text-primary',
-  neutral: 'bg-muted text-muted-foreground',
+  success: 'bg-success-wash text-success ring-success/20',
+  warning: 'bg-warning-wash text-warning ring-warning/20',
+  error: 'bg-error-wash text-error ring-error/20',
+  info: 'bg-info-wash text-info ring-info/20',
+  primary: 'bg-primary/8 text-primary ring-primary/20',
+  neutral: 'bg-muted text-muted-foreground ring-border',
 };
 
 // Shared mapping from the string statuses used across the app to a tone, so
@@ -52,7 +52,7 @@ export default function StatusBadge({ label, status, tone, className }: StatusBa
   return (
     <span
       className={cn(
-        'inline-flex w-fit items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold',
+        'inline-flex w-fit items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset',
         TONE_CLASSES[resolvedTone],
         className,
       )}

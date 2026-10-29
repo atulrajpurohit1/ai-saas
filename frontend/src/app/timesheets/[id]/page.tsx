@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
+import DateTimeField from '@/components/DateTimeField';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
   approveTimesheet,
@@ -296,22 +297,10 @@ export default function TimesheetDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-300">Check In</label>
-                  <input
-                    type="datetime-local"
-                    className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
-                    value={correction.check_in_time}
-                    onChange={(event) => setCorrection({ ...correction, check_in_time: event.target.value })}
-                  />
+                  <DateTimeField label="Check In" value={correction.check_in_time} onChange={(value) => setCorrection({ ...correction, check_in_time: value })} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-300">Check Out</label>
-                  <input
-                    type="datetime-local"
-                    className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
-                    value={correction.check_out_time}
-                    onChange={(event) => setCorrection({ ...correction, check_out_time: event.target.value })}
-                  />
+                  <DateTimeField label="Check Out" value={correction.check_out_time} onChange={(value) => setCorrection({ ...correction, check_out_time: value })} />
                 </div>
               </div>
               <div className="mt-4 space-y-2">

@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
+import DateField from '@/components/DateField';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { deactivateRateCard, getRateCard, RateCard, updateRateCard } from '@/lib/rate-cards';
@@ -299,23 +300,12 @@ export default function RateCardDetailPage() {
 
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-300">Effective From</label>
-                <input
-                  type="date"
-                  className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
-                  value={formData.effective_from}
-                  onChange={(event) => setFormData({ ...formData, effective_from: event.target.value })}
-                  required
-                />
+                <DateField className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50" value={formData.effective_from} onChange={(value) => setFormData({ ...formData, effective_from: value })} required />
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-300">Effective To</label>
-                <input
-                  type="date"
-                  className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50"
-                  value={formData.effective_to}
-                  onChange={(event) => setFormData({ ...formData, effective_to: event.target.value })}
-                />
+                <DateField className="min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none focus:ring-2 focus:ring-indigo-500/50" value={formData.effective_to} onChange={(value) => setFormData({ ...formData, effective_to: value })} />
               </div>
             </div>
 
