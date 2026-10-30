@@ -62,6 +62,10 @@ export default function LoginPage() {
   const [role, setRole] = useState<'admin' | 'client'>('admin');
   const [isRegister, setIsRegister] = useState(false);
   const [error, setError] = useState('');
+  // A one-time flash shown after a forced logout (e.g. the account signed in
+  // on another device), read from sessionStorage on mount — see the effect
+  // below and lib/api.ts.
+  const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
@@ -89,6 +93,18 @@ export default function LoginPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('register') === '1') setIsRegister(true);
+
+    // Surface (once) the reason a forced logout sent the user back here, then
+    // clear it so it doesn't reappear on a later manual visit to /login.
+    try {
+      const reason = sessionStorage.getItem('auth_logout_reason');
+      if (reason) {
+        setNotice(reason);
+        sessionStorage.removeItem('auth_logout_reason');
+      }
+    } catch {
+      // sessionStorage unavailable; no flash to show.
+    }
   }, []);
 
   // Forgot-password flow (admin only). Kept as its own small state machine,
@@ -646,6 +662,15 @@ export default function LoginPage() {
               ? 'Signing up as a company administrator'
               : `Sign in to your ${role === 'admin' ? 'admin' : 'client'} dashboard`}
           </p>
+
+          {notice && !isRegister && (
+            <p
+              className="mb-4 rounded-[var(--radius-sm)] border border-amber-500/30 bg-amber-50 p-3 text-xs font-semibold text-amber-700"
+              role="status"
+            >
+              {notice}
+            </p>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {isRegister && (
