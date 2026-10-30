@@ -28,6 +28,7 @@ import {
 import { VerifyOtpDto } from '../email-verification/dto/verify-otp.dto';
 import { ResendOtpDto } from '../email-verification/dto/resend-otp.dto';
 import { signupCreditGrant } from '../billing/credit-packs.constants';
+import { EmailService } from '../email/email.service';
 
 type AdminPortalRole = string;
 
@@ -40,6 +41,7 @@ export class AuthService {
     private rolesService: RolesService,
     private sessionsService: SessionsService,
     private emailVerification: EmailVerificationService,
+    private emailService: EmailService,
   ) {}
 
   private mapUserRole(role: string): AdminPortalRole {
@@ -240,7 +242,10 @@ export class AuthService {
     context?: { ipAddress?: string | null; userAgent?: string | null },
   ) {
     const email = dto.email.trim().toLowerCase();
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { tenant: true },
+    });
 
     if (!user) {
       throw new UnauthorizedException('Invalid verification code.');
@@ -265,6 +270,17 @@ export class AuthService {
     await this.prisma.user.update({
       where: { id: user.id },
       data: { emailVerified: true, emailVerifiedAt: new Date() },
+    });
+
+    // A self-service signup only becomes a real account once the owner's email
+    // is verified, so the internal "new signup" alert fires here rather than at
+    // register() -- that keeps abandoned/typo registrations out of the inbox.
+    // Fire-and-forget: it must never delay or fail completing the signup.
+    void this.emailService.sendNewSignupNotification({
+      companyName: user.tenant.name,
+      ownerName: user.name,
+      ownerEmail: user.email,
+      source: 'self-service signup',
     });
 
     await this.rolesService.ensureDefaultAssignmentForUser(user.id);

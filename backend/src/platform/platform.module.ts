@@ -3,6 +3,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { AiModule } from '../ai/ai.module';
 import { RolesModule } from '../roles/roles.module';
 import { PlatformAuthModule } from '../platform-auth/platform-auth.module';
+import { EmailModule } from '../email/email.module';
 import { PlatformMonitoringController } from './platform-monitoring.controller';
 import { PlatformMonitoringService } from './platform-monitoring.service';
 import { TenantAdminController } from './tenant-admin.controller';
@@ -20,7 +21,7 @@ import { TenantAdminService } from './tenant-admin.service';
  * figures (AiUsageService).
  */
 @Module({
-  imports: [PrismaModule, AiModule, RolesModule, PlatformAuthModule],
+  imports: [PrismaModule, AiModule, RolesModule, PlatformAuthModule, EmailModule],
   controllers: [PlatformMonitoringController, TenantAdminController],
   providers: [PlatformMonitoringService, TenantAdminService],
 })

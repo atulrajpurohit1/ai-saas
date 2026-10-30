@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { RolesService } from '../roles/roles.service';
+import { EmailService } from '../email/email.service';
 import { TenantAdminService } from './tenant-admin.service';
 
 /**
@@ -89,9 +90,14 @@ describe('TenantAdminService', () => {
       ensureDefaultAssignmentForUser: jest.fn().mockResolvedValue(undefined),
     };
 
+    const email = {
+      sendNewSignupNotification: jest.fn().mockResolvedValue({ sent: true }),
+    };
+
     service = new TenantAdminService(
       prisma as unknown as PrismaService,
       roles as unknown as RolesService,
+      email as unknown as EmailService,
     );
   });
 

@@ -8,6 +8,7 @@ import {
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { RolesService } from '../roles/roles.service';
+import { EmailService } from '../email/email.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { DeleteTenantDto } from './dto/delete-tenant.dto';
 import { SuspendTenantDto } from './dto/suspend-tenant.dto';
@@ -38,6 +39,7 @@ export class TenantAdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly roles: RolesService,
+    private readonly email: EmailService,
   ) {}
 
   /**
@@ -119,6 +121,16 @@ export class TenantAdminService {
     this.logger.log(
       `Platform admin ${actorId} created tenant ${created.tenant.id} (${slug}) with owner ${email}`,
     );
+
+    // Same internal "new signup" alert as the self-service path. A super-admin
+    // created tenant is already email-verified, so this is the signup event for
+    // it. Fire-and-forget: a notification failure must not fail tenant creation.
+    void this.email.sendNewSignupNotification({
+      companyName: created.tenant.name,
+      ownerName: created.owner.name,
+      ownerEmail: email,
+      source: 'super admin',
+    });
 
     return {
       tenantId: created.tenant.id,

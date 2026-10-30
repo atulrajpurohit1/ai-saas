@@ -11,6 +11,7 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { RolesModule } from '../roles/roles.module';
 import { SessionsModule } from '../sessions/sessions.module';
 import { EmailVerificationModule } from '../email-verification/email-verification.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { EmailVerificationModule } from '../email-verification/email-verificatio
     RolesModule,
     SessionsModule,
     EmailVerificationModule,
+    EmailModule,
   ],
   controllers: [AuthController],
   providers: [

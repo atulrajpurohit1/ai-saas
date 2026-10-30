@@ -22,6 +22,19 @@ const PLATFORM_NAME = 'AegisLead';
 /** Matches --primary in the app's own stylesheet. */
 const PLATFORM_BRAND_COLOR = '#e0221f';
 
+/**
+ * Minimal HTML escaping for untrusted values interpolated into email bodies
+ * (e.g. a signup's company/owner name, which is whatever the user typed).
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /** A file to send alongside the message, e.g. a report PDF. */
 export interface MailAttachment {
   filename: string;
@@ -892,6 +905,83 @@ Total monthly shortfall against list price: ${params.monthlyShortfall}`;
       messageId: info.messageId,
       previewUrl: this.previewUrlFor(info),
     };
+  }
+
+  /**
+   * Internal heads-up to the AegisLead team that a new account has signed up.
+   * Fires for both signup paths -- self-service registration (once the owner
+   * verifies their email) and a tenant a platform admin creates by hand.
+   *
+   * Goes to SIGNUP_ALERT_EMAIL (a single internal inbox), never to the
+   * customer, so it is deliberately unbranded and uses the platform shell.
+   * Best-effort by contract: it catches its own errors and returns a result
+   * rather than throwing, because a notification failure must never roll back
+   * or fail the signup it is reporting. Callers fire it without awaiting.
+   */
+  async sendNewSignupNotification(params: {
+    companyName: string;
+    ownerName?: string | null;
+    ownerEmail: string;
+    source: 'self-service signup' | 'super admin';
+  }): Promise<{ sent: boolean; error?: string }> {
+    const recipient = (
+      process.env.SIGNUP_ALERT_EMAIL || 'atul@hybridmonks.com'
+    ).trim();
+
+    const companyName = params.companyName?.trim() || '(no company name)';
+    const ownerName = params.ownerName?.trim() || '(not provided)';
+    const ownerEmail = params.ownerEmail?.trim() || '(not provided)';
+
+    const subject = `New AegisLead signup: ${companyName}`;
+    const text = `A new account has just signed up for AegisLead.
+
+Company name: ${companyName}
+Owner name: ${ownerName}
+Email address: ${ownerEmail}
+
+Created via: ${params.source}`;
+
+    const row = (label: string, value: string) => `
+      <tr>
+        <td style="padding:10px 16px; font-size:13px; color:#64748b; border-bottom:1px solid #e2e8f0; white-space:nowrap;">${label}</td>
+        <td style="padding:10px 16px; font-size:15px; color:#0f172a; font-weight:600; border-bottom:1px solid #e2e8f0;">${escapeHtml(value)}</td>
+      </tr>`;
+
+    const bodyHtml = `
+      <p style="margin:0 0 20px; font-size:15px; line-height:24px; color:#1f2937;">
+        A new account has just signed up for ${PLATFORM_NAME}.
+      </p>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; margin:0 0 20px;">
+        ${row('Company name', companyName)}
+        ${row('Owner name', ownerName)}
+        ${row('Email address', ownerEmail)}
+      </table>
+      <p style="margin:0; font-size:13px; line-height:20px; color:#94a3b8;">
+        Created via ${escapeHtml(params.source)}.
+      </p>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        ...this.senderFor(PLATFORM_NAME),
+        to: recipient,
+        subject,
+        text,
+        html: this.platformEmailShell({
+          title: 'New signup',
+          preheader: `${companyName} just signed up for ${PLATFORM_NAME}.`,
+          bodyHtml,
+        }),
+      });
+      return { sent: true };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown mail error';
+      this.logger.error(
+        `New-signup notification to ${recipient} failed: ${message}`,
+      );
+      return { sent: false, error: message };
+    }
   }
 
   private otpEmailBody(

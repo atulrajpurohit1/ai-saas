@@ -5,7 +5,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RolesService } from '../roles/roles.service';
 import { SessionsService } from '../sessions/sessions.service';
 import { EmailVerificationService } from '../email-verification/email-verification.service';
+import { EmailService } from '../email/email.service';
 import { AuthService } from './auth.service';
+
+const emailServiceStub = () =>
+  ({
+    sendNewSignupNotification: jest.fn().mockResolvedValue({ sent: true }),
+  }) as unknown as EmailService;
 
 describe('AuthService.verifyEmail', () => {
   let service: AuthService;
@@ -49,6 +55,7 @@ describe('AuthService.verifyEmail', () => {
       rolesService as unknown as RolesService,
       sessionsService as unknown as SessionsService,
       emailVerification as unknown as EmailVerificationService,
+      emailServiceStub(),
     );
   });
 
@@ -105,7 +112,9 @@ describe('AuthService.verifyEmail', () => {
     prisma.user.findUnique.mockResolvedValue({
       id: 'user-1',
       email: 'pending@example.com',
+      name: 'Pending Owner',
       tenantId: 'tenant-1',
+      tenant: { id: 'tenant-1', name: 'Pending Co' },
       emailVerified: false,
     });
 
@@ -183,6 +192,7 @@ describe('AuthService.register welcome credits', () => {
       rolesService as unknown as RolesService,
       {} as SessionsService,
       emailVerification as unknown as EmailVerificationService,
+      emailServiceStub(),
     );
   });
 
