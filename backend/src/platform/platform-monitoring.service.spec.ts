@@ -64,6 +64,17 @@ describe('PlatformMonitoringService.overview', () => {
           source: 'STRIPE',
           aiEnabled: true,
           compExpiresAt: null,
+          // A real payer carries the Stripe subscription id.
+          providerSubscriptionId: 'sub_live',
+        },
+        // Fresh self-signup: source defaults to STRIPE but nothing has been
+        // paid, so there is no provider id. Must NOT count as paying.
+        {
+          status: 'ACTIVE',
+          source: 'STRIPE',
+          aiEnabled: true,
+          compExpiresAt: null,
+          providerSubscriptionId: null,
         },
         // Trial: live comp, AI off.
         {
@@ -144,9 +155,21 @@ describe('PlatformMonitoringService.tenants', () => {
             compExpiresAt: null,
             compPlan: null,
             compReason: null,
+            providerSubscriptionId: 'sub_live',
           },
           ALL_MODULES,
         ),
+        // Fresh self-signup: source defaults to STRIPE, but no payment has been
+        // made (no provider id, no modules). Must read as NONE, not "Paying".
+        tenantRow('t-free', {
+          status: 'ACTIVE',
+          source: 'STRIPE',
+          aiEnabled: true,
+          compExpiresAt: null,
+          compPlan: null,
+          compReason: null,
+          providerSubscriptionId: null,
+        }),
         // The case the plan name exists for: Trial unlocks all three modules,
         // exactly like Complete, so naming it from the modules called it
         // "AegisLead Complete".
@@ -187,6 +210,9 @@ describe('PlatformMonitoringService.tenants', () => {
     expect(byId['t-trial'].aiCostUsd30d).toBe(3.5);
     expect(byId['t-comp'].plan).toBe('COMP');
     expect(byId['t-none'].plan).toBe('NONE');
+    // A self-signup that has never paid reads as NONE ("No Plan"), not STRIPE.
+    expect(byId['t-free'].plan).toBe('NONE');
+    expect(byId['t-free'].planName).toBeNull();
 
     // WHICH plan, which is what the screen shows. A Trial tenant holds all
     // three modules, so this must come from the recorded grant and not from
