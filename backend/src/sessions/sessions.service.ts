@@ -39,7 +39,7 @@ export class SessionsService {
       data.refreshToken,
       BCRYPT_TOKEN_ROUNDS,
     );
-    return this.prisma.userSession.create({
+    const session = await this.prisma.userSession.create({
       data: {
         id: data.id,
         tenantId: data.tenantId,
@@ -53,6 +53,46 @@ export class SessionsService {
         expiresAt: this.absoluteExpiry(),
       },
     });
+
+    // One active session per user: the newest login wins. Any other active
+    // session for this user is revoked, so a shared credential cannot stay
+    // signed in on a second device -- that device's next request (and its
+    // refresh) is rejected once its session is no longer active.
+    await this.revokeOtherActiveSessions(data.userId, session.id, data.tenantId);
+
+    return session;
+  }
+
+  /**
+   * Revokes every OTHER active session belonging to a user, keeping only the
+   * one just created. This is what enforces the single-active-session limit;
+   * it is deliberately per user (not per tenant), since a company has many
+   * users who are each allowed their own one session.
+   */
+  private async revokeOtherActiveSessions(
+    userId: string,
+    keepSessionId: string,
+    tenantId: string,
+  ) {
+    const { count } = await this.prisma.userSession.updateMany({
+      where: { userId, status: 'active', id: { not: keepSessionId } },
+      data: {
+        status: 'revoked',
+        refreshTokenHash: null,
+        revokedAt: new Date(),
+      },
+    });
+
+    if (count > 0) {
+      await this.auditService.log({
+        tenantId,
+        userId,
+        action: 'SESSION_SUPERSEDED',
+        entityType: 'UserSession',
+        entityId: keepSessionId,
+        details: `Signed out ${count} other active session(s) on a new login (one active session per user).`,
+      });
+    }
   }
 
   async validateRefreshSession(sessionId: string, refreshToken: string) {

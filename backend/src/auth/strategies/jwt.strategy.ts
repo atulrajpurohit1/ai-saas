@@ -64,6 +64,25 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       }
     }
 
+    // One active session per user: when the same user signs in elsewhere, this
+    // session is revoked (see SessionsService.createSession). Reject the token
+    // the moment that happens, rather than letting the old device keep working
+    // until the access token expires. Only user logins carry a sessionId --
+    // client-portal and guard tokens do not, so they skip this entirely.
+    if (sessionId) {
+      const session = await this.prisma.userSession.findUnique({
+        where: { id: sessionId },
+        select: { status: true },
+      });
+      if (!session || session.status !== 'active') {
+        throw new UnauthorizedException({
+          code: 'SESSION_REVOKED',
+          message:
+            'You have been signed out because this account was used to sign in on another device.',
+        });
+      }
+    }
+
     return {
       sub: payload.sub,
       email: payload.email,
