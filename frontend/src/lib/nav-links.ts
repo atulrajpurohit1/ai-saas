@@ -31,6 +31,7 @@ import {
   Siren,
   Contact,
   Route,
+  Lock,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -117,6 +118,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/settings/credits', label: 'Search Credits', icon: Coins, permissions: ['billing.view'] },
       { href: '/settings/billing', label: 'Billing', icon: CreditCard, permissions: ['billing.view'] },
       { href: '/settings/roles', label: 'Roles', icon: Settings, permissions: ['roles.view'] },
+      // Self-service account security (password, recovery email, 2FA). No
+      // permission gate: every signed-in user manages their own account, so an
+      // empty `permissions` makes can([]) true for all of them.
+      { href: '/settings/security', label: 'Security', icon: Lock, permissions: [] },
       { href: '/audit', label: 'Audit Logs', icon: Activity, permissions: ['audit.view'] },
     ],
   },

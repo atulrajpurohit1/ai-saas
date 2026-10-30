@@ -1034,6 +1034,168 @@ Created via: ${params.source}`;
   }
 
   /**
+   * One OTP email for every account-security action (recovery-email
+   * verification, enabling 2FA, the login second step, and confirming a
+   * password change). Always AegisLead-branded — these are about the user's
+   * own platform account, never a tenant speaking to its customers — so
+   * `tenantId` is accepted for signature symmetry with the other OTP senders
+   * but is expected to be null. The `kind` only selects copy; the code box and
+   * delivery mechanics are identical to the signup/reset OTP emails.
+   */
+  async sendSecurityOtpEmail(
+    tenantId: string | null,
+    params: {
+      email: string;
+      name?: string | null;
+      code: string;
+      expiresInMinutes: number;
+      kind:
+        | 'recovery-email'
+        | 'two-factor-setup'
+        | 'two-factor-login'
+        | 'password-change';
+    },
+  ) {
+    void tenantId;
+    const greetingName = params.name?.trim() || 'there';
+
+    const copy: Record<
+      typeof params.kind,
+      { title: string; subject: string; intro: string }
+    > = {
+      'recovery-email': {
+        title: 'Verify your recovery email',
+        subject: `Your ${PLATFORM_NAME} recovery email code`,
+        intro:
+          'Use this code to confirm this address as the recovery email for your account.',
+      },
+      'two-factor-setup': {
+        title: 'Turn on two-step verification',
+        subject: `Your ${PLATFORM_NAME} two-step verification code`,
+        intro:
+          'Use this code to turn on two-step verification for your account.',
+      },
+      'two-factor-login': {
+        title: 'Your sign-in code',
+        subject: `Your ${PLATFORM_NAME} sign-in code`,
+        intro: 'Use this code to finish signing in to your account.',
+      },
+      'password-change': {
+        title: 'Confirm your password change',
+        subject: `Your ${PLATFORM_NAME} password change code`,
+        intro: 'Use this code to confirm changing your account password.',
+      },
+    };
+    const { title, subject, intro } = copy[params.kind];
+
+    const info = await this.transporter.sendMail({
+      ...this.senderFor(PLATFORM_NAME),
+      to: params.email,
+      subject,
+      text: `${intro}\n\nYour verification code is: ${params.code}\n\nThis code expires in ${params.expiresInMinutes} minutes.\n\nIf you did not request this, you can safely ignore this email and your account will not change.`,
+      html: this.platformEmailShell({
+        title,
+        preheader: `Your ${PLATFORM_NAME} code is ${params.code}. It expires in ${params.expiresInMinutes} minutes.`,
+        bodyHtml: `
+          <p style="margin:0 0 16px; font-size:15px; line-height:24px; color:#1f2937;">Hi ${escapeHtml(greetingName)},</p>
+          <p style="margin:0 0 24px; font-size:15px; line-height:24px; color:#1f2937;">${intro}</p>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 24px;">
+            <tr>
+              <td align="center" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:24px 16px;">
+                <div style="font-family:'SF Mono',Consolas,Menlo,monospace; font-size:34px; font-weight:700; letter-spacing:10px; color:#0f172a; line-height:1;">${params.code}</div>
+                <div style="margin-top:12px; font-size:13px; color:#64748b;">Expires in ${params.expiresInMinutes} minutes</div>
+              </td>
+            </tr>
+          </table>
+          <p style="margin:0 0 8px; font-size:14px; line-height:22px; color:#475569;">
+            For your security, never share this code with anyone. ${PLATFORM_NAME} will never ask you for it.
+          </p>
+          <p style="margin:0; font-size:14px; line-height:22px; color:#64748b;">
+            If you didn't request this, you can safely ignore this email - your account will not change.
+          </p>
+        `,
+      }),
+    });
+
+    return {
+      messageId: info.messageId,
+      previewUrl: this.previewUrlFor(info),
+    };
+  }
+
+  /**
+   * Notifies a user that something security-sensitive changed on their account
+   * (password changed, recovery email added/removed, two-step verification
+   * turned on/off). Sent to one recipient; the caller sends it to BOTH the
+   * primary and recovery email so a change is visible even if one mailbox is
+   * compromised. Fire-and-forget: returns a result and never throws, so a mail
+   * outage can never roll back or block the change the user just made (same
+   * contract as sendNewSignupNotification).
+   */
+  async sendSecurityAlertEmail(
+    recipient: string,
+    params: {
+      name?: string | null;
+      event: string;
+      detail?: string | null;
+      ipAddress?: string | null;
+      when?: Date;
+    },
+  ): Promise<{ sent: boolean; error?: string }> {
+    const greetingName = params.name?.trim() || 'there';
+    const when = (params.when || new Date()).toUTCString();
+
+    const row = (label: string, value: string) => `
+      <tr>
+        <td style="padding:10px 16px; font-size:13px; color:#64748b; border-bottom:1px solid #e2e8f0; white-space:nowrap;">${label}</td>
+        <td style="padding:10px 16px; font-size:15px; color:#0f172a; font-weight:600; border-bottom:1px solid #e2e8f0;">${escapeHtml(value)}</td>
+      </tr>`;
+
+    const bodyHtml = `
+      <p style="margin:0 0 16px; font-size:15px; line-height:24px; color:#1f2937;">Hi ${escapeHtml(greetingName)},</p>
+      <p style="margin:0 0 20px; font-size:15px; line-height:24px; color:#1f2937;">
+        We're letting you know about a change to your ${PLATFORM_NAME} account.
+      </p>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; margin:0 0 20px;">
+        ${row('Change', params.event)}
+        ${params.detail ? row('Details', params.detail) : ''}
+        ${row('When', when)}
+        ${params.ipAddress ? row('IP address', params.ipAddress) : ''}
+      </table>
+      <p style="margin:0; font-size:14px; line-height:22px; color:#64748b;">
+        If this was you, no action is needed. If you don't recognise this, reset your password immediately and contact support.
+      </p>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        ...this.senderFor(PLATFORM_NAME),
+        to: recipient,
+        subject: `Security alert: ${params.event}`,
+        text:
+          `Hi ${greetingName},\n\n` +
+          `A change was made to your ${PLATFORM_NAME} account.\n\n` +
+          `Change: ${params.event}\n` +
+          (params.detail ? `Details: ${params.detail}\n` : '') +
+          `When: ${when}\n` +
+          (params.ipAddress ? `IP address: ${params.ipAddress}\n` : '') +
+          `\nIf this wasn't you, reset your password immediately and contact support.`,
+        html: this.platformEmailShell({
+          title: 'Security alert',
+          preheader: `${params.event} on your ${PLATFORM_NAME} account.`,
+          bodyHtml,
+        }),
+      });
+      return { sent: true };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown mail error';
+      this.logger.error(`Security alert to ${recipient} failed: ${message}`);
+      return { sent: false, error: message };
+    }
+  }
+
+  /**
    * The product's own email frame, for mail AegisLead sends as itself:
    * account verification, password resets and anything else that is not a
    * tenant speaking to their own customers. Tenant mail keeps going through

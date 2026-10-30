@@ -24,11 +24,19 @@ import { SessionsService } from '../sessions/sessions.service';
 import {
   EmailVerificationService,
   PASSWORD_RESET_PURPOSE,
+  TWO_FACTOR_LOGIN_PURPOSE,
+  PASSWORD_CHANGE_PURPOSE,
 } from '../email-verification/email-verification.service';
 import { VerifyOtpDto } from '../email-verification/dto/verify-otp.dto';
 import { ResendOtpDto } from '../email-verification/dto/resend-otp.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { signupCreditGrant } from '../billing/credit-packs.constants';
 import { EmailService } from '../email/email.service';
+import {
+  codeTargetEmail,
+  securityNotifyTargets,
+  maskEmail,
+} from '../common/account-security.util';
 
 type AdminPortalRole = string;
 
@@ -283,6 +291,19 @@ export class AuthService {
       source: 'self-service signup',
     });
 
+    return this.issueSession(user, context);
+  }
+
+  /**
+   * The shared tail of every successful authentication (signup verification,
+   * password login, and the login 2FA second step): ensure the user's role
+   * assignment, mint access/refresh tokens, persist the refresh hash, and open
+   * a session row. Pulled out so all three paths stay byte-for-byte identical.
+   */
+  private async issueSession(
+    user: { id: string; email: string; tenantId: string },
+    context?: { ipAddress?: string | null; userAgent?: string | null },
+  ) {
     await this.rolesService.ensureDefaultAssignmentForUser(user.id);
     const profile = await this.rolesService.getUserAccessProfile(user.id);
     const sessionId = this.sessionsService.generateSessionId();
@@ -494,34 +515,167 @@ export class AuthService {
       );
     }
 
-    await this.rolesService.ensureDefaultAssignmentForUser(user.id);
-    const profile = await this.rolesService.getUserAccessProfile(user.id);
-    const sessionId = this.sessionsService.generateSessionId();
-    const tokens = await this.getTokens(
-      user.id,
-      user.email,
-      user.tenantId,
-      profile.role,
-      profile.branchId,
-      profile.isSuperAdmin,
-      sessionId,
+    // Two-step verification: the password was correct, but when 2FA is on we
+    // do NOT issue tokens here. Instead we email a 6-digit code (to the
+    // verified recovery email if set, else the primary email) and tell the
+    // client to collect it and call verifyLoginTwoFactor. The code channel is
+    // a real second factor only when it's the recovery email; with no recovery
+    // email it still enforces control of the primary mailbox.
+    if (user.twoFactorEnabled) {
+      const target = codeTargetEmail(user);
+      await this.emailVerification.issueOtp({
+        accountType: 'USER',
+        accountId: user.id,
+        tenantId: user.tenantId,
+        email: target,
+        name: user.name,
+        purpose: TWO_FACTOR_LOGIN_PURPOSE,
+      });
+      return {
+        status: 'two_factor_required' as const,
+        email: user.email,
+        target: maskEmail(target),
+      };
+    }
+
+    return this.issueSession(user, context);
+  }
+
+  /**
+   * Completes a login that returned `two_factor_required`: validates the code
+   * emailed by login() for this account, then issues the session exactly as a
+   * password-only login would. A wrong email, a wrong code, an unverified
+   * account or a suspended tenant all fail here the same way.
+   */
+  async verifyLoginTwoFactor(
+    dto: VerifyOtpDto,
+    context?: { ipAddress?: string | null; userAgent?: string | null },
+  ) {
+    const email = dto.email.trim().toLowerCase();
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { tenant: true },
+    });
+
+    if (!user || !user.emailVerified || !user.twoFactorEnabled) {
+      throw new UnauthorizedException('Invalid verification code.');
+    }
+
+    if (!user.tenant.isActive) {
+      throw new ForbiddenException(
+        'This account has been suspended. Contact support.',
+      );
+    }
+
+    await this.emailVerification.verifyOtp({
+      accountType: 'USER',
+      accountId: user.id,
+      code: dto.code,
+      purpose: TWO_FACTOR_LOGIN_PURPOSE,
+    });
+
+    return this.issueSession(user, context);
+  }
+
+  /**
+   * Changes the password of an already-authenticated user. Distinct from the
+   * logged-out forgot/reset flow: here the current password is the primary
+   * check. When 2FA is on, a first call (no code) emails a confirmation code
+   * and returns `otp_required`; the client calls again with the code. On
+   * success every OTHER session is revoked (a password change should log out
+   * other devices) while the caller's current session is kept, and a security
+   * alert is sent to the primary and recovery emails.
+   */
+  async changePassword(
+    userId: string,
+    currentSessionId: string | undefined,
+    dto: ChangePasswordDto,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('Account not found.');
+    }
+
+    const currentMatches = await bcrypt.compare(
+      dto.currentPassword,
+      user.password,
+    );
+    if (!currentMatches) {
+      throw new BadRequestException('Your current password is incorrect.');
+    }
+
+    if (dto.newPassword !== dto.confirmPassword) {
+      throw new BadRequestException('New passwords do not match.');
+    }
+
+    const sameAsOld = await bcrypt.compare(dto.newPassword, user.password);
+    if (sameAsOld) {
+      throw new BadRequestException(
+        'Your new password must be different from your current password.',
+      );
+    }
+
+    // Second step when 2FA is on. Without a code, issue one and stop; the
+    // password is not touched until the returned code comes back.
+    if (user.twoFactorEnabled) {
+      if (!dto.code) {
+        const target = codeTargetEmail(user);
+        await this.emailVerification.issueOtp({
+          accountType: 'USER',
+          accountId: user.id,
+          tenantId: user.tenantId,
+          email: target,
+          name: user.name,
+          purpose: PASSWORD_CHANGE_PURPOSE,
+        });
+        return {
+          status: 'otp_required' as const,
+          target: maskEmail(target),
+        };
+      }
+
+      await this.emailVerification.verifyOtp({
+        accountType: 'USER',
+        accountId: user.id,
+        code: dto.code,
+        purpose: PASSWORD_CHANGE_PURPOSE,
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(
+      dto.newPassword,
+      BCRYPT_PASSWORD_ROUNDS,
     );
 
-    await this.updateRefreshTokenHash(
-      user.id,
-      tokens.refresh_token,
-      profile.role,
-    );
-    await this.sessionsService.createSession({
-      id: sessionId,
-      tenantId: user.tenantId,
-      userId: user.id,
-      refreshToken: tokens.refresh_token,
-      source: 'password',
-      ipAddress: context?.ipAddress,
-      userAgent: context?.userAgent,
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword, refreshToken: null },
     });
-    return tokens;
+
+    // Log out every OTHER device. The caller's own session is kept so the
+    // change doesn't bounce them back to the login screen mid-action.
+    await this.prisma.userSession.updateMany({
+      where: {
+        userId: user.id,
+        status: 'active',
+        ...(currentSessionId ? { id: { not: currentSessionId } } : {}),
+      },
+      data: {
+        status: 'revoked',
+        refreshTokenHash: null,
+        revokedAt: new Date(),
+      },
+    });
+
+    for (const recipient of securityNotifyTargets(user)) {
+      void this.emailService.sendSecurityAlertEmail(recipient, {
+        name: user.name,
+        event: 'Your password was changed',
+        detail: 'Other signed-in devices have been signed out.',
+      });
+    }
+
+    return { status: 'ok' as const, message: 'Password changed successfully.' };
   }
 
   async logout(userId: string, tenantId?: string, sessionId?: string) {

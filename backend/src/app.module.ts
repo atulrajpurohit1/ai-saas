@@ -63,6 +63,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { GuardComplianceModule } from './guard-compliance/guard-compliance.module';
 import { EmergencyAlertsModule } from './emergency-alerts/emergency-alerts.module';
 import { ClientComplianceModule } from './client-compliance/client-compliance.module';
+import { AccountSecurityModule } from './account-security/account-security.module';
 
 @Module({
   imports: [
@@ -95,6 +96,7 @@ import { ClientComplianceModule } from './client-compliance/client-compliance.mo
     ProspectSearchModule,
     UsersModule,
     AuthModule,
+    AccountSecurityModule,
     ClientAuthModule,
     ClientPortalModule,
     GuardAuthModule,

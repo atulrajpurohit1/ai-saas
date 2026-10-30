@@ -62,6 +62,10 @@ export default function LoginPage() {
   const [role, setRole] = useState<'admin' | 'client'>('admin');
   const [isRegister, setIsRegister] = useState(false);
   const [error, setError] = useState('');
+  // A one-time flash shown after a forced logout (e.g. the account signed in
+  // on another device), read from sessionStorage on mount — see the effect
+  // below and lib/api.ts.
+  const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
@@ -75,6 +79,18 @@ export default function LoginPage() {
   const [resending, setResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
+  // Login two-step verification. `twoFactorEmail` is set when a correct
+  // password returns `two_factor_required`: the account has 2FA on, so a code
+  // was emailed and we collect it here before any token is issued. The typed
+  // `password` is kept in state so "Resend code" can re-issue by calling login
+  // again.
+  const [twoFactorEmail, setTwoFactorEmail] = useState('');
+  const [twoFactorTarget, setTwoFactorTarget] = useState('');
+  const [twoFactorOtp, setTwoFactorOtp] = useState('');
+  const [twoFactorError, setTwoFactorError] = useState('');
+  const [twoFactorVerifying, setTwoFactorVerifying] = useState(false);
+  const [twoFactorResendCooldown, setTwoFactorResendCooldown] = useState(0);
+
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const timer = setInterval(() => {
@@ -83,12 +99,32 @@ export default function LoginPage() {
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
+  useEffect(() => {
+    if (twoFactorResendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setTwoFactorResendCooldown((s) => (s > 0 ? s - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [twoFactorResendCooldown]);
+
   // Open the signup form directly when linked with ?register=1, so the
   // marketing site's "Select plan" button can send a new visitor straight to
   // sign-up (then ?next=/settings/plan lands them on pricing afterward).
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('register') === '1') setIsRegister(true);
+
+    // Surface (once) the reason a forced logout sent the user back here, then
+    // clear it so it doesn't reappear on a later manual visit to /login.
+    try {
+      const reason = sessionStorage.getItem('auth_logout_reason');
+      if (reason) {
+        setNotice(reason);
+        sessionStorage.removeItem('auth_logout_reason');
+      }
+    } catch {
+      // sessionStorage unavailable; no flash to show.
+    }
   }, []);
 
   // Forgot-password flow (admin only). Kept as its own small state machine,
@@ -289,7 +325,17 @@ export default function LoginPage() {
           localStorage.removeItem('client_refresh_token');
           localStorage.removeItem('guard_token');
           const res = await api.post('auth/login', { email, password });
-          await completeAdminLogin(res.data.access_token, res.data.refresh_token, 'Admin User');
+          if (res.data?.status === 'two_factor_required') {
+            // Password was correct but 2FA is on: collect the emailed code
+            // before any token exists. No session is created until verify.
+            setTwoFactorEmail(res.data.email || email);
+            setTwoFactorTarget(res.data.target || '');
+            setTwoFactorOtp('');
+            setTwoFactorError('');
+            setTwoFactorResendCooldown(RESEND_COOLDOWN_SECONDS);
+          } else {
+            await completeAdminLogin(res.data.access_token, res.data.refresh_token, 'Admin User');
+          }
         }
       } else {
         // Client flow -- sign-in only. Client accounts are created by the
@@ -364,6 +410,59 @@ export default function LoginPage() {
     } finally {
       setResending(false);
     }
+  };
+
+  const handleVerifyTwoFactor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (twoFactorVerifying || twoFactorOtp.length !== 6) return;
+    setTwoFactorError('');
+    setTwoFactorVerifying(true);
+
+    try {
+      const res = await api.post('auth/login/verify-2fa', {
+        email: twoFactorEmail,
+        code: twoFactorOtp,
+      });
+      await completeAdminLogin(res.data.access_token, res.data.refresh_token, 'Admin User');
+    } catch (err: unknown) {
+      const status = (err as ApiError).response?.status;
+      setTwoFactorError(
+        errorMessageFrom(
+          err,
+          status === 429 ? 'Too many attempts. Please try again later.' : 'Invalid verification code.',
+        ),
+      );
+    } finally {
+      setTwoFactorVerifying(false);
+    }
+  };
+
+  const handleResendTwoFactor = async () => {
+    if (twoFactorVerifying || twoFactorResendCooldown > 0) return;
+    setTwoFactorError('');
+    // Re-running login re-issues the code (the password is still in state).
+    try {
+      await api.post('auth/login', { email: twoFactorEmail, password });
+      setTwoFactorOtp('');
+      setTwoFactorResendCooldown(RESEND_COOLDOWN_SECONDS);
+      toast.success('A new sign-in code has been sent.');
+    } catch (err: unknown) {
+      const status = (err as ApiError).response?.status;
+      if (status === 429) {
+        setTwoFactorError(errorMessageFrom(err, 'Please wait before requesting another code.'));
+      } else {
+        toast.error(errorMessageFrom(err, 'Could not resend the code. Please try again.'));
+      }
+    }
+  };
+
+  const cancelTwoFactor = () => {
+    setTwoFactorEmail('');
+    setTwoFactorTarget('');
+    setTwoFactorOtp('');
+    setTwoFactorError('');
+    setTwoFactorResendCooldown(0);
+    setPassword('');
   };
 
   const inputClass =
@@ -550,6 +649,65 @@ export default function LoginPage() {
               </button>
             </form>
           </div>
+        ) : twoFactorEmail ? (
+          <div className="surface-card p-5 shadow-md sm:p-8">
+            <div className="mb-6 flex flex-col items-center text-center">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <ShieldCheck size={24} />
+              </div>
+              <h2 className="text-xl font-bold text-foreground sm:text-2xl">Two-step verification</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Enter the 6-digit code we sent to
+                <br />
+                <span className="font-semibold text-foreground">{twoFactorTarget || maskEmail(twoFactorEmail)}</span>
+              </p>
+            </div>
+
+            <form onSubmit={handleVerifyTwoFactor} className="space-y-5">
+              <OtpInput value={twoFactorOtp} onChange={setTwoFactorOtp} disabled={twoFactorVerifying} autoFocus />
+
+              {twoFactorError && (
+                <p
+                  className="rounded-[var(--radius-sm)] border border-error/20 bg-error-wash p-3 text-center text-xs font-semibold text-error"
+                  role="alert"
+                >
+                  {twoFactorError}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={twoFactorVerifying || twoFactorOtp.length !== 6}
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--radius)] bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {twoFactorVerifying && <Loader2 className="animate-spin" size={18} />}
+                Verify &amp; sign in
+              </button>
+            </form>
+
+            <div className="mt-6 text-center text-sm">
+              <span className="text-muted-foreground">Didn&apos;t receive the code? </span>
+              <button
+                type="button"
+                onClick={handleResendTwoFactor}
+                disabled={twoFactorVerifying || twoFactorResendCooldown > 0}
+                className="font-semibold text-primary transition hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline"
+              >
+                {twoFactorResendCooldown > 0 ? `Resend code in ${twoFactorResendCooldown}s` : 'Resend Code'}
+              </button>
+            </div>
+
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={cancelTwoFactor}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition hover:text-foreground"
+              >
+                <ArrowLeft size={14} />
+                Back to login
+              </button>
+            </div>
+          </div>
         ) : pendingEmail ? (
           <div className="surface-card p-5 shadow-md sm:p-8">
             <div className="mb-6 flex flex-col items-center text-center">
@@ -646,6 +804,15 @@ export default function LoginPage() {
               ? 'Signing up as a company administrator'
               : `Sign in to your ${role === 'admin' ? 'admin' : 'client'} dashboard`}
           </p>
+
+          {notice && !isRegister && (
+            <p
+              className="mb-4 rounded-[var(--radius-sm)] border border-amber-500/30 bg-amber-50 p-3 text-xs font-semibold text-amber-700"
+              role="status"
+            >
+              {notice}
+            </p>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {isRegister && (

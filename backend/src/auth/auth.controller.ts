@@ -19,6 +19,7 @@ import { VerifyOtpDto } from '../email-verification/dto/verify-otp.dto';
 import { ResendOtpDto } from '../email-verification/dto/resend-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -53,6 +54,13 @@ export class AuthController {
   login(@Body() dto: LoginDto, @Req() req: Request) {
     this.throttle(req, 'login', dto.email, 10, 900);
     return this.authService.login(dto, this.requestContext(req));
+  }
+
+  @Post('login/verify-2fa')
+  @HttpCode(HttpStatus.OK)
+  verifyLoginTwoFactor(@Body() dto: VerifyOtpDto, @Req() req: Request) {
+    this.throttle(req, 'login-2fa', dto.email, 10, 900);
+    return this.authService.verifyLoginTwoFactor(dto, this.requestContext(req));
   }
 
   @Post('forgot-password')
@@ -121,6 +129,16 @@ export class AuthController {
   logout(@Req() req: Request) {
     const user = req.user as unknown as ActiveUser;
     return this.authService.logout(user.sub, user.tenantId, user.sessionId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  changePassword(@Body() dto: ChangePasswordDto, @Req() req: Request) {
+    const user = req.user as unknown as ActiveUser;
+    // Keyed on the authenticated user id, not an email from the body.
+    this.throttle(req, 'change-password', user.sub, 10, 900);
+    return this.authService.changePassword(user.sub, user.sessionId, dto);
   }
 
   @UseGuards(JwtRefreshGuard)

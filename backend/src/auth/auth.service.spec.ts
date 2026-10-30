@@ -1,17 +1,37 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { RolesService } from '../roles/roles.service';
 import { SessionsService } from '../sessions/sessions.service';
-import { EmailVerificationService } from '../email-verification/email-verification.service';
+import {
+  EmailVerificationService,
+  PASSWORD_CHANGE_PURPOSE,
+  TWO_FACTOR_LOGIN_PURPOSE,
+} from '../email-verification/email-verification.service';
 import { EmailService } from '../email/email.service';
 import { AuthService } from './auth.service';
+
+// bcrypt's native exports are non-configurable, so jest.spyOn can't wrap them;
+// auto-mock the module and set compare/hash per test instead.
+jest.mock('bcrypt');
 
 const emailServiceStub = () =>
   ({
     sendNewSignupNotification: jest.fn().mockResolvedValue({ sent: true }),
+    sendSecurityAlertEmail: jest.fn().mockResolvedValue({ sent: true }),
   }) as unknown as EmailService;
+
+const rolesServiceStub = () =>
+  ({
+    ensureDefaultAssignmentForUser: jest.fn().mockResolvedValue(undefined),
+    getUserAccessProfile: jest.fn().mockResolvedValue({
+      role: 'admin',
+      branchId: null,
+      isSuperAdmin: false,
+    }),
+  }) as unknown as RolesService;
 
 describe('AuthService.verifyEmail', () => {
   let service: AuthService;
@@ -222,5 +242,213 @@ describe('AuthService.register welcome credits', () => {
 
     expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(tx.tenantCreditBalance.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('AuthService two-step verification at login', () => {
+  let service: AuthService;
+  let prisma: { user: { findUnique: jest.Mock; update: jest.Mock } };
+  let emailVerification: { issueOtp: jest.Mock; verifyOtp: jest.Mock };
+  let sessionsService: {
+    generateSessionId: jest.Mock;
+    createSession: jest.Mock;
+  };
+
+  const twoFactorUser = {
+    id: 'user-1',
+    email: 'owner@example.com',
+    name: 'Owner',
+    password: 'hashed',
+    tenantId: 'tenant-1',
+    tenant: { id: 'tenant-1', isActive: true },
+    emailVerified: true,
+    twoFactorEnabled: true,
+    recoveryEmail: null,
+    recoveryEmailVerified: false,
+  };
+
+  beforeEach(() => {
+    prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue(twoFactorUser),
+        update: jest.fn().mockResolvedValue({}),
+      },
+    };
+    emailVerification = {
+      issueOtp: jest.fn().mockResolvedValue(undefined),
+      verifyOtp: jest.fn().mockResolvedValue(true),
+    };
+    sessionsService = {
+      generateSessionId: jest.fn().mockReturnValue('session-1'),
+      createSession: jest.fn().mockResolvedValue({}),
+    };
+
+    service = new AuthService(
+      prisma as unknown as PrismaService,
+      { signAsync: jest.fn().mockResolvedValue('token') } as unknown as JwtService,
+      { get: jest.fn().mockReturnValue('secret') } as unknown as ConfigService,
+      rolesServiceStub(),
+      sessionsService as unknown as SessionsService,
+      emailVerification as unknown as EmailVerificationService,
+      emailServiceStub(),
+    );
+    (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+  });
+
+  it('emails a code and withholds tokens when 2FA is on', async () => {
+    const result = await service.login({
+      email: 'owner@example.com',
+      password: 'correct',
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({ status: 'two_factor_required', email: 'owner@example.com' }),
+    );
+    expect(emailVerification.issueOtp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        purpose: TWO_FACTOR_LOGIN_PURPOSE,
+        // No verified recovery email -> code goes to the primary address.
+        email: 'owner@example.com',
+      }),
+    );
+    expect(sessionsService.createSession).not.toHaveBeenCalled();
+  });
+
+  it('sends the code to the verified recovery email when one exists', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      ...twoFactorUser,
+      recoveryEmail: 'backup@example.com',
+      recoveryEmailVerified: true,
+    });
+
+    await service.login({ email: 'owner@example.com', password: 'correct' });
+
+    expect(emailVerification.issueOtp).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'backup@example.com' }),
+    );
+  });
+
+  it('issues tokens only after the login code is verified', async () => {
+    const tokens = await service.verifyLoginTwoFactor({
+      email: 'owner@example.com',
+      code: '123456',
+    });
+
+    expect(emailVerification.verifyOtp).toHaveBeenCalledWith(
+      expect.objectContaining({ purpose: TWO_FACTOR_LOGIN_PURPOSE, code: '123456' }),
+    );
+    expect(tokens).toEqual({ access_token: 'token', refresh_token: 'token' });
+    expect(sessionsService.createSession).toHaveBeenCalled();
+  });
+});
+
+describe('AuthService.changePassword', () => {
+  let service: AuthService;
+  let prisma: {
+    user: { findUnique: jest.Mock; update: jest.Mock };
+    userSession: { updateMany: jest.Mock };
+  };
+  let emailVerification: { issueOtp: jest.Mock; verifyOtp: jest.Mock };
+  let emailService: EmailService;
+
+  const makeUser = (overrides: Record<string, unknown> = {}) => ({
+    id: 'user-1',
+    email: 'owner@example.com',
+    name: 'Owner',
+    password: 'current-hash',
+    tenantId: 'tenant-1',
+    twoFactorEnabled: false,
+    recoveryEmail: null,
+    recoveryEmailVerified: false,
+    ...overrides,
+  });
+
+  beforeEach(() => {
+    prisma = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue(makeUser()),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      userSession: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+    };
+    emailVerification = {
+      issueOtp: jest.fn().mockResolvedValue(undefined),
+      verifyOtp: jest.fn().mockResolvedValue(true),
+    };
+    emailService = emailServiceStub();
+
+    service = new AuthService(
+      prisma as unknown as PrismaService,
+      {} as JwtService,
+      { get: jest.fn() } as unknown as ConfigService,
+      rolesServiceStub(),
+      {} as SessionsService,
+      emailVerification as unknown as EmailVerificationService,
+      emailService,
+    );
+    // current password matches, new password differs from the old hash.
+    (bcrypt.compare as jest.Mock).mockImplementation((plain: string) =>
+      Promise.resolve(plain === 'current-pass'),
+    );
+    (bcrypt.hash as jest.Mock).mockResolvedValue('new-hash');
+  });
+
+  const dto = {
+    currentPassword: 'current-pass',
+    newPassword: 'brand-new-pass',
+    confirmPassword: 'brand-new-pass',
+  };
+
+  it('rejects a wrong current password', async () => {
+    await expect(
+      service.changePassword('user-1', 'session-1', {
+        ...dto,
+        currentPassword: 'wrong',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('changes the password directly when 2FA is off, keeping the current session', async () => {
+    const result = await service.changePassword('user-1', 'session-1', dto);
+
+    expect(result).toEqual(expect.objectContaining({ status: 'ok' }));
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ password: 'new-hash' }) }),
+    );
+    // Other sessions revoked, current one spared.
+    expect(prisma.userSession.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: { not: 'session-1' } }),
+      }),
+    );
+    expect(emailService.sendSecurityAlertEmail).toHaveBeenCalled();
+  });
+
+  it('requires a code first when 2FA is on, without touching the password', async () => {
+    prisma.user.findUnique.mockResolvedValue(makeUser({ twoFactorEnabled: true }));
+
+    const result = await service.changePassword('user-1', 'session-1', dto);
+
+    expect(result).toEqual(expect.objectContaining({ status: 'otp_required' }));
+    expect(emailVerification.issueOtp).toHaveBeenCalledWith(
+      expect.objectContaining({ purpose: PASSWORD_CHANGE_PURPOSE }),
+    );
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('changes the password when 2FA is on and a valid code is supplied', async () => {
+    prisma.user.findUnique.mockResolvedValue(makeUser({ twoFactorEnabled: true }));
+
+    const result = await service.changePassword('user-1', 'session-1', {
+      ...dto,
+      code: '123456',
+    });
+
+    expect(emailVerification.verifyOtp).toHaveBeenCalledWith(
+      expect.objectContaining({ purpose: PASSWORD_CHANGE_PURPOSE, code: '123456' }),
+    );
+    expect(result).toEqual(expect.objectContaining({ status: 'ok' }));
+    expect(prisma.user.update).toHaveBeenCalled();
   });
 });

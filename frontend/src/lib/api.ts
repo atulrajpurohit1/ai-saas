@@ -153,6 +153,30 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // The user signed in on another device, so this (older) session was
+    // revoked server-side: one active session per user. Don't try to refresh
+    // (the refresh would be rejected too) - end the session and stash the
+    // reason so the login screen can show it as a flash after the redirect, a
+    // plain toast would be lost on the full page navigation.
+    if (
+      error.response?.status === 401 &&
+      error.response?.data?.code === 'SESSION_REVOKED'
+    ) {
+      const portal = getPortalForPath(window.location.pathname);
+      try {
+        sessionStorage.setItem(
+          'auth_logout_reason',
+          error.response?.data?.message ||
+            'You were signed out because this account was used to sign in on another device.',
+        );
+      } catch {
+        // sessionStorage can be unavailable (private mode, blocked storage);
+        // the logout still proceeds, just without the flash message.
+      }
+      redirectToLogin(portal);
+      return Promise.reject(error);
+    }
+
     // A guard whose account was deactivated mid-session: the backend rejects
     // their token with this code. Don't try to refresh (a new token would be
     // rejected too) - end the session immediately and tell them why.

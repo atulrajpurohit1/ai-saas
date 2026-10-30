@@ -48,6 +48,11 @@ export class PlatformMonitoringService {
             source: true,
             aiEnabled: true,
             compExpiresAt: true,
+            // A real paying tenant carries the Stripe subscription id the
+            // webhook records. Every tenant's subscription defaults to
+            // source=STRIPE at signup, so source alone counts fresh self-serve
+            // signups (no payment, no provider id) as paying -- hence this.
+            providerSubscriptionId: true,
           },
         }),
         this.prisma.tenantCreditBalance.aggregate({
@@ -73,7 +78,12 @@ export class PlatformMonitoringService {
           status: sub.status,
           compExpiresAt: sub.compExpiresAt,
         });
-      if (sub.source === 'STRIPE' && sub.status !== 'CANCELED') paying += 1;
+      if (
+        sub.source === 'STRIPE' &&
+        sub.status !== 'CANCELED' &&
+        sub.providerSubscriptionId
+      )
+        paying += 1;
       else if (liveComp && sub.aiEnabled) compedPaid += 1;
       else if (liveComp && !sub.aiEnabled) trial += 1;
     }
@@ -137,6 +147,10 @@ export class PlatformMonitoringService {
               compExpiresAt: true,
               compPlan: true,
               compReason: true,
+              // Distinguishes a real Stripe payer from a fresh self-signup:
+              // both default to source=STRIPE, but only a paid subscription
+              // carries the provider id the webhook records. See `plan` below.
+              providerSubscriptionId: true,
             },
           },
           // Needed to name a PAYING tenant's package, which has nowhere else
@@ -197,7 +211,13 @@ export class PlatformMonitoringService {
             ? sub.aiEnabled
               ? 'COMP'
               : 'TRIAL'
-            : sub.source,
+            : // source defaults to STRIPE for every tenant at signup, so a
+              // self-serve account that has never paid would otherwise read as
+              // 'STRIPE' ("Paying"). It is only really paying once Stripe has
+              // recorded a subscription id; without one it has no plan.
+              sub.source === 'STRIPE' && !sub.providerSubscriptionId
+              ? 'NONE'
+              : sub.source,
         // WHICH plan, by name. The screen used to show the line above, so
         // every comped tenant read "Comped" whether they had been given
         // Operations or the entire product.
