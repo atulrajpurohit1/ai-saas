@@ -20,6 +20,26 @@ const SIGNUP_PURPOSE = 'SIGNUP_VERIFICATION';
 export const PASSWORD_RESET_PURPOSE = 'PASSWORD_RESET';
 const RESET_TOKEN_TTL_MINUTES = 10;
 
+// Account-security OTP purposes (logged-in admin users only). Each is its own
+// purpose so a code issued for one action can never be replayed to complete a
+// different one — the EmailOtp store is keyed on (accountType, accountId,
+// purpose). The matching email copy is chosen by SECURITY_OTP_KIND below.
+export const RECOVERY_EMAIL_PURPOSE = 'RECOVERY_EMAIL_VERIFICATION';
+export const TWO_FACTOR_SETUP_PURPOSE = 'TWO_FACTOR_SETUP';
+export const TWO_FACTOR_LOGIN_PURPOSE = 'TWO_FACTOR_LOGIN';
+export const PASSWORD_CHANGE_PURPOSE = 'PASSWORD_CHANGE';
+
+// Maps each security purpose to the copy variant EmailService renders.
+const SECURITY_OTP_KIND: Record<
+  string,
+  'recovery-email' | 'two-factor-setup' | 'two-factor-login' | 'password-change'
+> = {
+  [RECOVERY_EMAIL_PURPOSE]: 'recovery-email',
+  [TWO_FACTOR_SETUP_PURPOSE]: 'two-factor-setup',
+  [TWO_FACTOR_LOGIN_PURPOSE]: 'two-factor-login',
+  [PASSWORD_CHANGE_PURPOSE]: 'password-change',
+};
+
 // Generic, user-safe copy. Never leaks which specific check failed
 // internally (syntax vs. disposable vs. unresolvable domain) — that detail
 // stays in logs/telemetry only, never the HTTP response.
@@ -89,9 +109,13 @@ export class EmailVerificationService {
         );
       }
 
-      // Abuse guard: cap total sends per pending signup regardless of
-      // cooldown compliance (e.g. a script waiting exactly 60s each time).
-      if (existing.sendCount >= 10) {
+      // Abuse guard: cap total sends within ONE unconsumed cycle, regardless
+      // of cooldown compliance (e.g. a script waiting exactly the cooldown
+      // each time). The cap is skipped once the previous code was consumed,
+      // because sendCount is reset to 1 on the next issue below — otherwise a
+      // recurring purpose (login 2FA, password-change) would lock out a user
+      // permanently after their 10th successful use.
+      if (!existing.consumedAt && existing.sendCount >= 10) {
         throw new HttpException(
           {
             message:
@@ -132,7 +156,9 @@ export class EmailVerificationService {
         expiresAt,
         attempts: 0,
         consumedAt: null,
-        sendCount: { increment: 1 },
+        // A fresh cycle (the prior code was already used) resets the counter;
+        // otherwise count up within the current unconsumed cycle.
+        sendCount: existing?.consumedAt ? { set: 1 } : { increment: 1 },
         lastSentAt: new Date(),
       },
     });
@@ -174,7 +200,19 @@ export class EmailVerificationService {
       params.accountType === 'CLIENT_USER' ? params.tenantId : null;
 
     try {
-      if (purpose === PASSWORD_RESET_PURPOSE) {
+      const securityKind = SECURITY_OTP_KIND[purpose];
+      if (securityKind) {
+        // Account-security codes are always AegisLead-branded (null tenant):
+        // they go to a logged-in admin about their own AegisLead account, not
+        // to a tenant's customer, so tenant white-labelling must not apply.
+        await this.emailService.sendSecurityOtpEmail(null, {
+          email: params.email,
+          name: params.name,
+          code,
+          expiresInMinutes: OTP_TTL_MINUTES,
+          kind: securityKind,
+        });
+      } else if (purpose === PASSWORD_RESET_PURPOSE) {
         await this.emailService.sendPasswordResetOtpEmail(brandingTenantId, {
           email: params.email,
           name: params.name,
@@ -365,6 +403,31 @@ export class EmailVerificationService {
       tenantId: record.tenantId,
       email: record.email,
     };
+  }
+
+  /**
+   * Returns the email address a pending (not-yet-consumed) OTP was sent to,
+   * for a given account + purpose, or null if there is none. Used by the
+   * recovery-email flow to learn which address the just-verified code belonged
+   * to without threading that address through the client request (where it
+   * could be tampered with).
+   */
+  async getPendingOtpEmail(params: {
+    accountType: VerifiableAccountType;
+    accountId: string;
+    purpose: string;
+  }): Promise<string | null> {
+    const record = await this.prisma.emailOtp.findUnique({
+      where: {
+        accountType_accountId_purpose: {
+          accountType: params.accountType as EmailOtpAccountType,
+          accountId: params.accountId,
+          purpose: params.purpose,
+        },
+      },
+    });
+    if (!record || record.consumedAt) return null;
+    return record.email;
   }
 
   private generateCode(): string {

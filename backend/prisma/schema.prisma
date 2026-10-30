@@ -231,6 +231,15 @@ model User {
   isSuperAdmin                Boolean              @default(false) @map("is_super_admin")
   emailVerified               Boolean              @default(false) @map("email_verified")
   emailVerifiedAt             DateTime?            @map("email_verified_at")
+  // A second, user-owned address that acts as the true second factor: 2FA /
+  // sensitive-action codes are sent here when verified, and every security
+  // notification is sent here as well as to the primary email. Verified only
+  // after an OTP round-trip to the address itself (recoveryEmailVerified).
+  recoveryEmail               String?              @map("recovery_email")
+  recoveryEmailVerified       Boolean              @default(false) @map("recovery_email_verified")
+  // When true, a sign-in requires an emailed 6-digit code as a second step,
+  // and so do password/recovery-email/2FA changes.
+  twoFactorEnabled            Boolean              @default(false) @map("two_factor_enabled")
   createdAt                   DateTime             @default(now())
   updatedAt                   DateTime             @updatedAt
   tenant                      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
