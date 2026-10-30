@@ -92,7 +92,7 @@ export default function CommandPalette({ open, onOpenChange }: CommandPalettePro
 
     for (const group of NAV_GROUPS) {
       const items = group.links
-        .filter((link: NavLink) => canAny(link.permissions) && matches(link.label))
+        .filter((link: NavLink) => (link.permissions.length === 0 || canAny(link.permissions)) && matches(link.label))
         .map((link) => ({ key: link.href, label: link.label, href: link.href, icon: link.icon }));
       if (items.length === 0) continue;
       const existing = groups.find((g) => g.label === group.label);

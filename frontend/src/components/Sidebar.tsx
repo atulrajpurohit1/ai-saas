@@ -44,7 +44,9 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
 
   const visibleDashboardLink = canAny(DASHBOARD_LINK.permissions) ? DASHBOARD_LINK : null;
   const visibleNavGroups = NAV_GROUPS
-    .map((group) => ({ ...group, links: group.links.filter((link) => canAny(link.permissions)) }))
+    // A link with no permissions is self-service (e.g. account Security): show
+    // it to every signed-in user. canAny([]) is false, so it needs this guard.
+    .map((group) => ({ ...group, links: group.links.filter((link) => link.permissions.length === 0 || canAny(link.permissions)) }))
     .filter((group) => group.links.length > 0);
   const links = [
     ...(visibleDashboardLink ? [visibleDashboardLink] : []),
