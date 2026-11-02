@@ -35,7 +35,7 @@ export default function DetailHeader({
       <div className="mb-4 flex items-center justify-between gap-4">
         <Link
           href={backHref}
-          className="-ml-2 inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm font-semibold text-muted-foreground outline-none transition hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+          className="-ml-2 inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm font-semibold text-muted-foreground outline-none transition hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100 [&>svg]:transition-transform hover:[&>svg]:-translate-x-0.5"
         >
           <ArrowLeft size={16} aria-hidden="true" />
           {backLabel}

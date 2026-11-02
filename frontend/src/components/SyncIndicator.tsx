@@ -30,7 +30,7 @@ export function SyncIndicator() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-2">
-            <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-success' : 'bg-error'}`} />
+            <div className={`h-2 w-2 animate-pulse rounded-full motion-reduce:animate-none ${isOnline ? 'bg-success' : 'bg-error'}`} />
             <span className="font-semibold text-foreground">{isOnline ? 'Online' : 'Offline'}</span>
           </div>
           {pendingCount > 0 && (
@@ -45,7 +45,7 @@ export function SyncIndicator() {
         {isOnline && pendingCount > 0 && !syncPending && (
           <button
             onClick={triggerSync}
-            className="min-h-9 rounded-[var(--radius-sm)] bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90"
+            className="min-h-9 cursor-pointer rounded-[var(--radius-sm)] bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100"
           >
             Retry Sync
           </button>
@@ -68,7 +68,7 @@ export function SyncIndicator() {
           <span className="text-muted-foreground">Tell your supervisor if any of these still need recording.</span>
           <button
             onClick={() => OfflineSync.clearRejectedActions()}
-            className="min-h-9 w-fit rounded-[var(--radius-sm)] border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-muted"
+            className="min-h-9 w-fit cursor-pointer rounded-[var(--radius-sm)] border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-muted active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100"
           >
             Dismiss
           </button>

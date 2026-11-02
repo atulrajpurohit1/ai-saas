@@ -20,7 +20,7 @@ export default function ErrorState({ message, onRetry }: ErrorStateProps) {
         <button
           type="button"
           onClick={onRetry}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-error/30 bg-card/60 px-3 py-1 text-xs font-semibold outline-none transition hover:bg-card focus-visible:ring-2 focus-visible:ring-error/40"
+          className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-error/30 bg-card/60 px-3 py-1 text-xs font-semibold outline-none transition hover:bg-card focus-visible:ring-2 focus-visible:ring-error/40 active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100"
         >
           <RefreshCw size={13} aria-hidden="true" />
           Retry

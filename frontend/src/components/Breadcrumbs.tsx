@@ -33,7 +33,7 @@ export default function Breadcrumbs({ items, className }: BreadcrumbsProps) {
               {item.href && !isLast ? (
                 <Link
                   href={item.href}
-                  className="max-w-[12rem] truncate font-medium transition-colors hover:text-foreground"
+                  className="max-w-[12rem] truncate rounded-sm font-medium outline-none transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 motion-reduce:transition-none"
                 >
                   {item.label}
                 </Link>

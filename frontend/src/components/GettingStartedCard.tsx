@@ -131,7 +131,7 @@ export default function GettingStartedCard() {
           type="button"
           onClick={dismiss}
           aria-label="Dismiss getting started"
-          className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          className="cursor-pointer rounded-lg p-1.5 text-muted-foreground outline-none transition hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100"
         >
           <X size={15} />
         </button>
@@ -151,7 +151,7 @@ export default function GettingStartedCard() {
             <li key={step.href}>
               <Link
                 href={step.href}
-                className="group flex items-start gap-3 rounded-xl border border-border bg-card p-3 transition hover:border-primary/30"
+                className="group flex items-start gap-3 rounded-xl border border-border bg-card p-3 transition hover:border-primary/30 hover:shadow-sm active:scale-[0.99] motion-reduce:transition-none motion-reduce:active:scale-100"
               >
                 <span
                   className={cn(

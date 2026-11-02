@@ -19,11 +19,15 @@ export default function PageHeader({ title, description, icon: Icon, actions }: 
   return (
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <h1 className="flex items-center gap-2.5 text-page-title">
-          {Icon && <Icon className="shrink-0 text-primary" size={26} aria-hidden="true" />}
+        <h1 className="flex items-center gap-3 text-page-title break-words">
+          {Icon && (
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
+              <Icon size={20} aria-hidden="true" />
+            </span>
+          )}
           {title}
         </h1>
-        {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+        {description && <p className="mt-1 text-sm text-pretty text-muted-foreground">{description}</p>}
       </div>
       {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
     </div>

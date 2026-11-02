@@ -83,7 +83,9 @@ export default function OtpInput({
           onKeyDown={(e) => handleKeyDown(index, e)}
           onPaste={handlePaste}
           aria-label={`Digit ${index + 1}`}
-          className="h-12 w-10 rounded-[var(--radius-sm)] border border-border bg-card text-center text-lg font-bold text-foreground outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-ring/50 disabled:opacity-60 sm:h-14 sm:w-12 sm:text-xl"
+          className={`h-12 w-10 rounded-[var(--radius-sm)] border text-center text-lg font-bold text-foreground outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-ring/50 disabled:opacity-60 motion-reduce:transition-none sm:h-14 sm:w-12 sm:text-xl ${
+            digit ? 'border-primary/50 bg-primary/[0.04]' : 'border-border bg-card'
+          }`}
         />
       ))}
     </div>

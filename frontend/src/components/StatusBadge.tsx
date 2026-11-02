@@ -52,11 +52,12 @@ export default function StatusBadge({ label, status, tone, className }: StatusBa
   return (
     <span
       className={cn(
-        'inline-flex w-fit items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset',
+        'inline-flex w-fit items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset',
         TONE_CLASSES[resolvedTone],
         className,
       )}
     >
+      <span className="size-1.5 shrink-0 rounded-full bg-current opacity-70" aria-hidden="true" />
       {resolvedLabel}
     </span>
   );

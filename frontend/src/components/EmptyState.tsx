@@ -27,8 +27,8 @@ export default function EmptyState({ icon: Icon, title, description, action, cla
         <Icon size={24} aria-hidden="true" />
       </span>
       <div className="max-w-sm space-y-1">
-        <p className="text-section-title">{title}</p>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+        <p className="text-section-title text-balance">{title}</p>
+        {description && <p className="text-sm text-balance text-muted-foreground">{description}</p>}
       </div>
       {action && <div className="mt-1">{action}</div>}
     </div>
