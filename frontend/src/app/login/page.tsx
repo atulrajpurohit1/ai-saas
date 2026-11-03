@@ -466,7 +466,7 @@ export default function LoginPage() {
   };
 
   const inputClass =
-    'w-full rounded-[var(--radius)] border border-border bg-card py-3 pl-11 pr-4 text-sm text-foreground outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-ring/50';
+    'w-full rounded-[var(--radius)] border border-border bg-card py-3 pl-11 pr-4 text-sm text-foreground outline-none transition hover:border-primary/30 focus:border-primary/40 focus:ring-2 focus:ring-ring/50';
   const iconClass =
     'pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground';
 
@@ -807,7 +807,7 @@ export default function LoginPage() {
 
           {notice && !isRegister && (
             <p
-              className="mb-4 rounded-[var(--radius-sm)] border border-amber-500/30 bg-amber-50 p-3 text-xs font-semibold text-amber-700"
+              className="mb-4 rounded-[var(--radius-sm)] border border-warning/30 bg-warning-wash p-3 text-xs font-semibold text-warning"
               role="status"
             >
               {notice}
@@ -893,9 +893,9 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--radius)] bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+              className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--radius)] bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 hover:shadow-md active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70 motion-reduce:active:scale-100"
             >
-              {loading && <Loader2 className="animate-spin" size={18} />}
+              {loading && <Loader2 className="animate-spin motion-reduce:animate-none" size={18} />}
               {isRegister ? 'Create Account' : 'Sign In'}
             </button>
           </form>

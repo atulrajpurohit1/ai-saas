@@ -19,11 +19,11 @@ export default function EmptyState({ icon: Icon, title, description, action, cla
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center gap-3 rounded-[var(--radius-lg)] border border-dashed border-border bg-card px-6 py-16 text-center',
+        'flex animate-in fade-in-0 flex-col items-center justify-center gap-3 rounded-[var(--radius-lg)] border border-dashed border-border bg-card px-6 py-16 text-center',
         className,
       )}
     >
-      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground shadow-sm ring-1 ring-inset ring-border">
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/8 text-primary shadow-sm ring-1 ring-inset ring-primary/15">
         <Icon size={24} aria-hidden="true" />
       </span>
       <div className="max-w-sm space-y-1">

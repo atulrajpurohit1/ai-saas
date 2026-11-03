@@ -58,7 +58,7 @@ export default function PasswordInput({
         aria-pressed={visible}
         aria-controls={inputId}
         tabIndex={0}
-        className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 motion-reduce:transition-none"
+        className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 motion-reduce:transition-none"
       >
         {visible ? <EyeOff size={18} /> : <Eye size={18} />}
       </button>

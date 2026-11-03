@@ -101,15 +101,15 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
         }}
         title={collapsed ? link.label : undefined}
         className={cn(
-          'group relative flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors duration-150',
+          'group relative flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-[color,background-color,transform] duration-150 motion-reduce:transition-none',
           collapsed && 'lg:justify-center lg:px-2',
           isActive
             ? 'bg-primary/8 font-semibold text-primary'
-            : 'font-medium text-muted-foreground hover:bg-black/[0.03] hover:text-foreground',
+            : 'font-medium text-muted-foreground hover:translate-x-0.5 hover:bg-black/[0.03] hover:text-foreground motion-reduce:hover:translate-x-0',
         )}
       >
         {isActive && (
-          <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-primary" aria-hidden="true" />
+          <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-primary animate-in fade-in-0 slide-in-from-left-1" aria-hidden="true" />
         )}
         <Icon size={18} className={cn('shrink-0', isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')} />
         <span className={cn('truncate', collapsed && 'lg:hidden')}>{link.label}</span>
@@ -215,7 +215,7 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
               <button
                 type="button"
                 onClick={toggleCollapsed}
-                className="flex w-full items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold text-muted-foreground transition hover:bg-black/[0.03] hover:text-foreground"
+                className="flex w-full items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold text-muted-foreground transition hover:bg-black/[0.03] hover:text-foreground active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100"
                 aria-label="Expand sidebar"
               >
                 <PanelLeftOpen size={17} />
@@ -227,7 +227,7 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
           <button
             type="button"
             onClick={toggleCollapsed}
-            className="flex w-full items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold text-muted-foreground transition hover:bg-black/[0.03] hover:text-foreground"
+            className="flex w-full items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold text-muted-foreground transition hover:bg-black/[0.03] hover:text-foreground active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100"
             aria-label="Collapse sidebar"
           >
             <PanelLeftClose size={17} />
@@ -252,7 +252,7 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
           onClick={logout}
           title={collapsed ? 'Logout' : undefined}
           className={cn(
-            'flex w-full items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium text-error transition-colors hover:bg-error-wash',
+            'flex w-full items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium text-error transition-colors hover:bg-error-wash active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100',
             collapsed && 'lg:justify-center',
           )}
         >

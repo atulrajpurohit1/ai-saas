@@ -17,7 +17,10 @@ export default function SectionHeader({ title, description, actions, className }
   return (
     <div className={cn('mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between', className)}>
       <div className="min-w-0">
-        <h2 className="text-section-title">{title}</h2>
+        <h2 className="flex items-center gap-2 text-section-title">
+          <span aria-hidden="true" className="h-4 w-1 shrink-0 rounded-full bg-primary" />
+          {title}
+        </h2>
         {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
       </div>
       {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}

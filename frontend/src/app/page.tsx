@@ -11,6 +11,7 @@ import TrendAreaChart from '@/components/charts/TrendAreaChart';
 import CategoryBarChart from '@/components/charts/CategoryBarChart';
 import StatDelta from '@/components/charts/StatDelta';
 import GettingStartedCard from '@/components/GettingStartedCard';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Users,
   Briefcase,
@@ -230,10 +231,10 @@ export default function DashboardPage() {
       {loading ? (
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="animate-pulse rounded-2xl border border-border bg-card p-5">
-              <div className="mb-3 h-9 w-9 rounded-lg bg-muted" />
-              <div className="mb-2 h-3 w-20 rounded bg-muted" />
-              <div className="h-7 w-14 rounded bg-muted" />
+            <div key={i} className="rounded-2xl border border-border bg-card p-5">
+              <Skeleton className="mb-3 h-9 w-9 rounded-lg" />
+              <Skeleton className="mb-2 h-3 w-20" />
+              <Skeleton className="h-7 w-14" />
             </div>
           ))}
         </div>
@@ -242,7 +243,7 @@ export default function DashboardPage() {
           {statCards.map((stat) => {
             const Icon = stat.icon;
             return (
-              <div key={stat.label} className="rounded-2xl border border-border bg-card p-5 shadow-sm transition-shadow hover:shadow-md">
+              <div key={stat.label} className="rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:border-primary/30 hover:shadow-md">
                 <div className="mb-3 flex items-center justify-between">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/8 text-primary">
                     <Icon size={18} />
@@ -283,9 +284,9 @@ export default function DashboardPage() {
             <Link
               key={action.href}
               href={action.href}
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3.5 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:border-primary/30 hover:text-primary"
+              className="group inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3.5 py-2 text-sm font-medium text-foreground shadow-sm transition hover:border-primary/30 hover:text-primary hover:shadow-md active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100"
             >
-              <Icon size={15} className="text-muted-foreground" />
+              <Icon size={15} className="text-muted-foreground transition-colors group-hover:text-primary" />
               {action.label}
             </Link>
           );

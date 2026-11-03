@@ -8,7 +8,7 @@ import { getBranding } from '@/lib/branding';
 import BrandMark from '@/components/BrandMark';
 import { BRAND_NAME } from '@/lib/brand';
 import { useRouter } from 'next/navigation';
-import { Menu, Search, LogOut, ChevronDown } from 'lucide-react';
+import { Menu, Search, LogOut, ChevronDown, Loader2 } from 'lucide-react';
 import ModuleLockedState from '@/components/ModuleLockedState';
 import { ServiceModuleKey } from '@/lib/entitlements';
 
@@ -50,18 +50,26 @@ function UserMenu() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-lg py-1.5 pl-1.5 pr-2 transition hover:bg-black/[0.03]"
+        className="group flex items-center gap-2 rounded-lg py-1.5 pl-1.5 pr-2 transition hover:bg-black/[0.03] active:scale-95 motion-reduce:active:scale-100"
       >
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary ring-1 ring-inset ring-primary/15 transition-shadow group-hover:ring-primary/40">
           {user?.name?.charAt(0) || 'U'}
         </div>
-        <ChevronDown size={14} className="text-muted-foreground" />
+        <ChevronDown
+          size={14}
+          className={`text-muted-foreground transition-transform duration-200 motion-reduce:transition-none ${open ? 'rotate-180' : ''}`}
+        />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-40 mt-2 w-56 rounded-lg border border-border bg-card p-1.5 shadow-md">
+        <div className="absolute right-0 top-full z-40 mt-2 w-56 origin-top-right animate-in fade-in-0 zoom-in-95 rounded-lg border border-border bg-card p-1.5 shadow-md">
           <div className="border-b border-border px-2.5 py-2">
             <p className="truncate text-sm font-semibold text-foreground">{user?.name}</p>
             <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+            {user?.role && (
+              <span className="mt-1.5 inline-block rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {user.role}
+              </span>
+            )}
           </div>
           <button
             type="button"
@@ -147,8 +155,15 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
 
   if (loading) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      <div
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+        className="flex h-dvh w-full flex-col items-center justify-center gap-4 bg-background"
+      >
+        <BrandMark size="md" showWordmark={false} className="animate-pulse opacity-90 motion-reduce:animate-none" />
+        <Loader2 className="animate-spin text-primary motion-reduce:animate-none" size={22} aria-hidden="true" />
+        <span className="sr-only">Loading your workspace…</span>
       </div>
     );
   }
@@ -156,6 +171,10 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
   if (!user || isBlocked) return null;
 
   const firstName = user.name?.split(' ')[0] || user.email;
+  const headerSubtitle =
+    user.role === 'finance'
+      ? "Here's the latest across billing and collections."
+      : "Here's what's happening across your sales pipeline today.";
 
   return (
     <div className="min-h-dvh bg-background">
@@ -169,15 +188,25 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
           />
         )}
         <header className="sticky top-0 z-30 border-b border-border bg-card/95 px-3 py-3 backdrop-blur sm:px-4">
-          <div className="flex items-center justify-between gap-4">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(true)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-card text-foreground"
-              aria-label="Open navigation"
-            >
-              <Menu size={22} />
-            </button>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(true)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-card text-foreground transition hover:bg-muted active:scale-95 motion-reduce:active:scale-100"
+                aria-label="Open navigation"
+              >
+                <Menu size={22} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaletteOpen(true)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition hover:bg-muted hover:text-foreground active:scale-95 motion-reduce:active:scale-100"
+                aria-label="Search"
+              >
+                <Search size={20} />
+              </button>
+            </div>
             {logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={logoUrl} alt={companyName || BRAND_NAME} className="h-7 max-w-[120px] shrink-0 object-contain" />
@@ -206,19 +235,17 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
               <h1 className="truncate text-base font-semibold text-foreground">
                 {greeting()}, {firstName}
               </h1>
-              <p className="truncate text-xs text-muted-foreground">
-                Here&apos;s what&apos;s happening across your sales pipeline today.
-              </p>
+              <p className="truncate text-xs text-muted-foreground">{headerSubtitle}</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <button
                 type="button"
                 onClick={() => setPaletteOpen(true)}
-                className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-muted-foreground transition hover:border-primary/30 hover:text-foreground"
+                className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-muted-foreground transition hover:border-primary/30 hover:bg-muted hover:text-foreground active:scale-[0.98] motion-reduce:active:scale-100"
               >
                 <Search size={14} />
                 <span className="hidden sm:inline">Search</span>
-                <kbd className="ml-1 hidden rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-semibold sm:inline">
+                <kbd className="ml-1 hidden rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground shadow-sm sm:inline">
                   ⌘K
                 </kbd>
               </button>

@@ -101,6 +101,25 @@ body {
   font-family: var(--font-inter), sans-serif;
 }
 
+/* Brand-tinted text selection, so highlighting anywhere in the app reads as
+   part of the same system instead of the browser's default blue. */
+::selection {
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  color: var(--foreground);
+}
+
+/* Smooth in-page scrolling for anchor jumps / "scroll to" actions, with a
+   scroll margin so content targeted by an anchor isn't hidden under the
+   sticky header. Honoured only when the viewer hasn't asked to reduce motion. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+:target {
+  scroll-margin-top: 5rem;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -798,5 +817,98 @@ option.bg-\[\#0f172a\] {
     width: 1.5rem;
     pointer-events: none;
     background: linear-gradient(to right, transparent, color-mix(in srgb, var(--foreground) 10%, transparent));
+  }
+}
+
+/* ==========================================================================
+ * Enter/exit animation utilities.
+ *
+ * The shared Dialog and Tooltip primitives already carry Radix
+ * `data-[state]:animate-in / animate-out` + `fade-*` / `zoom-*` / `slide-*`
+ * class names, but the library that defines those utilities was never part of
+ * this build, so every dialog and tooltip simply snapped in with no motion.
+ * These compact definitions (same CSS-variable technique as tailwindcss-animate)
+ * make the existing class names do what they always read as if they did:
+ * overlays fade, dialogs fade + zoom, tooltips fade + zoom + slide from their
+ * side. Disabled under prefers-reduced-motion.
+ * ========================================================================== */
+@keyframes aegis-enter {
+  from {
+    opacity: var(--tw-enter-opacity, 1);
+    transform: translate3d(var(--tw-enter-translate-x, 0), var(--tw-enter-translate-y, 0), 0)
+      scale3d(var(--tw-enter-scale, 1), var(--tw-enter-scale, 1), 1);
+  }
+}
+@keyframes aegis-exit {
+  to {
+    opacity: var(--tw-exit-opacity, 1);
+    transform: translate3d(var(--tw-exit-translate-x, 0), var(--tw-exit-translate-y, 0), 0)
+      scale3d(var(--tw-exit-scale, 1), var(--tw-exit-scale, 1), 1);
+  }
+}
+
+/* Registered as real Tailwind v4 utilities (not plain classes) so the Radix
+   `data-[state=open]:animate-in` / `data-[side=top]:slide-in-from-bottom-1`
+   variants on the Dialog and Tooltip primitives generate correctly - a plain
+   class would cover only the bare, unprefixed usage. */
+@utility animate-in {
+  animation-name: aegis-enter;
+  animation-duration: 0.16s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: both;
+}
+@utility animate-out {
+  animation-name: aegis-exit;
+  animation-duration: 0.12s;
+  animation-timing-function: ease-in;
+  animation-fill-mode: both;
+}
+@utility fade-in-0 { --tw-enter-opacity: 0; }
+@utility fade-out-0 { --tw-exit-opacity: 0; }
+@utility zoom-in-95 { --tw-enter-scale: 0.95; }
+@utility zoom-out-95 { --tw-exit-scale: 0.95; }
+@utility slide-in-from-top-1 { --tw-enter-translate-y: -0.25rem; }
+@utility slide-in-from-bottom-1 { --tw-enter-translate-y: 0.25rem; }
+@utility slide-in-from-left-1 { --tw-enter-translate-x: -0.25rem; }
+@utility slide-in-from-right-1 { --tw-enter-translate-x: 0.25rem; }
+
+/* Substring match so this disables both the bare `animate-in` and the
+   variant-prefixed `data-[state=open]:animate-in` class tokens. */
+@media (prefers-reduced-motion: reduce) {
+  [class*='animate-in'],
+  [class*='animate-out'] {
+    animation: none !important;
+  }
+}
+
+/* Skeleton shimmer. The shared <Skeleton> used a flat pulse; a soft light
+   sweep over the muted base reads more clearly as "content loading" and keeps
+   long lists of placeholders from looking inert. Falls back to the base tint
+   under reduced motion (the sweep is switched off below). */
+@keyframes aegis-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--card) 70%, transparent),
+    transparent
+  );
+  animation: aegis-shimmer 1.6s infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer::after {
+    display: none;
   }
 }

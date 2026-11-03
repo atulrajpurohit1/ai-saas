@@ -31,8 +31,8 @@ export default function SearchField({
   return (
     <label className={cn('block space-y-1', className)}>
       <span className="text-eyebrow">{label}</span>
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+      <div className="group relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" size={16} />
         <Input
           type="text"
           placeholder={placeholder}

@@ -12,8 +12,10 @@ export default function ErrorState({ message, onRetry }: ErrorStateProps) {
       role="alert"
       className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-error/20 bg-error-wash px-4 py-3 text-sm text-error shadow-sm"
     >
-      <span className="flex items-center gap-2">
-        <AlertTriangle size={16} className="shrink-0" aria-hidden="true" />
+      <span className="flex items-center gap-2.5">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-error/10 ring-1 ring-inset ring-error/20">
+          <AlertTriangle size={15} aria-hidden="true" />
+        </span>
         {message}
       </span>
       {onRetry && (

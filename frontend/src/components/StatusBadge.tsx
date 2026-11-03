@@ -57,7 +57,7 @@ export default function StatusBadge({ label, status, tone, className }: StatusBa
         className,
       )}
     >
-      <span className="size-1.5 shrink-0 rounded-full bg-current opacity-70" aria-hidden="true" />
+      <span className="size-1.5 shrink-0 rounded-full bg-current ring-2 ring-current/20" aria-hidden="true" />
       {resolvedLabel}
     </span>
   );
