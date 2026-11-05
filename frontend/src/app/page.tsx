@@ -19,7 +19,6 @@ import {
   Clock,
   TrendingUp,
   GitBranch,
-  Loader2,
   UserPlus,
   Radar,
   FilePlus2,
@@ -251,7 +250,7 @@ export default function DashboardPage() {
                   <StatDelta deltaPct={stat.deltaPct} hasActivity={stat.hasActivity} />
                 </div>
                 <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
-                <h3 className="mt-0.5 text-3xl font-semibold tracking-tight text-foreground">{stat.value}</h3>
+                <h3 className="mt-0.5 text-3xl font-semibold tracking-tight text-foreground tabular-nums">{stat.value}</h3>
                 <p className="mt-1 text-[11px] text-muted-foreground">vs. previous 7 days</p>
               </div>
             );
@@ -316,8 +315,10 @@ export default function DashboardPage() {
             )}
           </div>
           {loading ? (
-            <div className="flex h-[220px] items-center justify-center text-muted-foreground">
-              <Loader2 className="animate-spin" size={20} />
+            <div className="flex h-[220px] items-end gap-2" aria-hidden="true">
+              {[55, 40, 70, 48, 85, 62, 78, 50].map((h, i) => (
+                <Skeleton key={i} className="flex-1 rounded-md" style={{ height: `${h}%` }} />
+              ))}
             </div>
           ) : (
             <TrendAreaChart
@@ -334,8 +335,13 @@ export default function DashboardPage() {
             <h3 className="text-base font-semibold text-foreground">Deals by Stage</h3>
           </div>
           {loading ? (
-            <div className="flex h-32 items-center justify-center text-muted-foreground">
-              <Loader2 className="animate-spin" size={20} />
+            <div className="space-y-3" aria-hidden="true">
+              {[80, 60, 45, 30].map((w, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <Skeleton className="h-3 w-20 shrink-0" />
+                  <Skeleton className="h-3 rounded-full" style={{ width: `${w}%` }} />
+                </div>
+              ))}
             </div>
           ) : (
             <CategoryBarChart data={dealStageData} emptyMessage="No deals in the pipeline yet." />

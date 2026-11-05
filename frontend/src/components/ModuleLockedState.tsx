@@ -8,6 +8,7 @@ import {
   ServiceModuleKey,
 } from '@/lib/entitlements';
 import { Lock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface ModuleLockedStateProps {
   module: ServiceModuleKey;
@@ -33,12 +34,9 @@ export default function ModuleLockedState({ module }: ModuleLockedStateProps) {
       <p className="mt-2 max-w-md text-sm text-muted-foreground">
         {SERVICE_MODULE_BLURBS[module]}
       </p>
-      <Link
-        href={`/settings/plan?module=${module}`}
-        className="mt-6 inline-flex items-center justify-center rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-      >
-        See plan options
-      </Link>
+      <Button asChild size="lg" className="mt-6">
+        <Link href={`/settings/plan?module=${module}`}>See plan options</Link>
+      </Button>
     </div>
   );
 }

@@ -101,6 +101,21 @@ body {
   font-family: var(--font-inter), sans-serif;
 }
 
+/* Native form controls (checkboxes, radios, range sliders, progress bars that
+   aren't the custom Radix primitives) default to the browser's blue. Tint them
+   with the brand accent so a stray native control reads as part of the app. */
+:root {
+  accent-color: var(--primary);
+}
+
+/* Placeholders varied between the shadcn inputs (which set this explicitly) and
+   the hand-rolled native inputs (browser default grey). One muted tone keeps
+   every empty field reading the same across auth screens and forms. */
+::placeholder {
+  color: var(--muted-foreground);
+  opacity: 1;
+}
+
 /* Brand-tinted text selection, so highlighting anywhere in the app reads as
    part of the same system instead of the browser's default blue. */
 ::selection {
@@ -637,6 +652,7 @@ option.bg-\[\#0f172a\] {
   line-height: 1.2;
   font-weight: 800;
   letter-spacing: -0.01em;
+  text-wrap: balance;
   color: var(--foreground);
 }
 @media (min-width: 640px) {
@@ -648,6 +664,7 @@ option.bg-\[\#0f172a\] {
   font-size: 1.05rem;
   line-height: 1.3;
   font-weight: 700;
+  text-wrap: balance;
   color: var(--foreground);
 }
 .text-card-title {
@@ -712,6 +729,10 @@ option.bg-\[\#0f172a\] {
 .responsive-table tbody td,
 [data-slot='table'] tbody td {
   border-bottom: 1px solid var(--border);
+  /* Tabular figures so numeric columns (amounts, counts, dates) line up digit
+     for digit and don't jitter as values change. Only affects digits, so mixed
+     text cells are unaffected. */
+  font-variant-numeric: tabular-nums;
 }
 
 .responsive-table tbody tr:last-child td,

@@ -19,7 +19,7 @@ export default function EmptyState({ icon: Icon, title, description, action, cla
   return (
     <div
       className={cn(
-        'flex animate-in fade-in-0 flex-col items-center justify-center gap-3 rounded-[var(--radius-lg)] border border-dashed border-border bg-card px-6 py-16 text-center',
+        'flex animate-in fade-in-0 zoom-in-95 flex-col items-center justify-center gap-3 rounded-[var(--radius-lg)] border border-dashed border-border bg-card px-6 py-16 text-center',
         className,
       )}
     >

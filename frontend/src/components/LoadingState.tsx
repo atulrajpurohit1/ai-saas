@@ -12,7 +12,7 @@ export default function LoadingState({ label = 'Loading...', className }: Loadin
     <div
       role="status"
       aria-live="polite"
-      className={cn('flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground', className)}
+      className={cn('flex animate-in fade-in-0 items-center justify-center gap-2 py-16 text-sm text-muted-foreground', className)}
     >
       <Loader2 className="animate-spin text-primary motion-reduce:animate-none" size={20} aria-hidden="true" />
       {label}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -55,6 +55,20 @@ export default function Pagination({ page, pageCount, onPageChange, summary, cla
         )}
       </p>
       <div className="flex items-center gap-2">
+        {/* Jump to the first page - reaches the start in one click when the
+            numbered jumps are hidden (narrow screens) or far away. */}
+        {pageCount > 2 && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            onClick={() => onPageChange(1)}
+            disabled={page <= 1}
+            aria-label="First page"
+          >
+            <ChevronsLeft size={14} />
+          </Button>
+        )}
         <Button
           type="button"
           variant="outline"
@@ -106,6 +120,19 @@ export default function Pagination({ page, pageCount, onPageChange, summary, cla
           Next
           <ChevronRight size={14} />
         </Button>
+        {/* Jump to the last page. */}
+        {pageCount > 2 && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            onClick={() => onPageChange(pageCount)}
+            disabled={page >= pageCount}
+            aria-label="Last page"
+          >
+            <ChevronsRight size={14} />
+          </Button>
+        )}
       </div>
     </nav>
   );

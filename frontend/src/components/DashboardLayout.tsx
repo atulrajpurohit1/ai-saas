@@ -41,8 +41,15 @@ function UserMenu() {
     const onClick = (event: MouseEvent) => {
       if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
     };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
     document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKeyDown);
+    };
   }, [open]);
 
   return (
@@ -50,6 +57,9 @@ function UserMenu() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Account menu"
         className="group flex items-center gap-2 rounded-lg py-1.5 pl-1.5 pr-2 transition hover:bg-black/[0.03] active:scale-95 motion-reduce:active:scale-100"
       >
         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary ring-1 ring-inset ring-primary/15 transition-shadow group-hover:ring-primary/40">
@@ -95,10 +105,16 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  // Mirrors the (⌘K | Ctrl+K) binding in CommandPalette. Resolved after mount
+  // from the real platform so the hint matches the key the viewer presses,
+  // rather than always showing the Mac glyph. Defaults to the Ctrl form so
+  // SSR and the first paint agree (no hydration mismatch).
+  const [isMac, setIsMac] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     setSidebarCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1');
+    setIsMac(/mac|iphone|ipad|ipod/i.test(navigator.userAgent));
   }, []);
 
   const toggleSidebarCollapsed = () => {
@@ -246,7 +262,7 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
                 <Search size={14} />
                 <span className="hidden sm:inline">Search</span>
                 <kbd className="ml-1 hidden rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground shadow-sm sm:inline">
-                  ⌘K
+                  {isMac ? '⌘K' : 'Ctrl K'}
                 </kbd>
               </button>
               <UserMenu />

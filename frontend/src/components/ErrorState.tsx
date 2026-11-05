@@ -10,7 +10,7 @@ export default function ErrorState({ message, onRetry }: ErrorStateProps) {
   return (
     <div
       role="alert"
-      className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-error/20 bg-error-wash px-4 py-3 text-sm text-error shadow-sm"
+      className="flex animate-in fade-in-0 slide-in-from-top-1 flex-wrap items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-error/20 bg-error-wash px-4 py-3 text-sm text-error shadow-sm"
     >
       <span className="flex items-center gap-2.5">
         <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-error/10 ring-1 ring-inset ring-error/20">
