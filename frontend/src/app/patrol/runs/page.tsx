@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
-import { Search, Eye, Calendar, Clock, CheckCircle2, AlertCircle, XCircle, Plus, MapPin, MapPinOff, Radar, ExternalLink, BellRing, Siren } from 'lucide-react';
+import { Search, Eye, Calendar, Clock, CheckCircle2, AlertCircle, XCircle, Plus, MapPin, MapPinOff, ScanLine, Radar, ExternalLink, BellRing, Siren } from 'lucide-react';
 import { PatrolRun, getPatrolRuns, getPatrolRun } from '@/lib/patrols';
 import { formatEnumLabel, formatDate as fmtDate, formatDateTime as fmtDateTime } from '@/lib/format';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -124,6 +124,30 @@ function geofenceBadge(status: string | null | undefined, distanceMeters: number
     case 'INVALID_LOCATION':
       return { label: 'Invalid location', className: 'bg-amber-500/10 text-amber-400', icon: MapPinOff };
     case 'NO_GEOFENCE_CONFIGURED':
+    default:
+      return null;
+  }
+}
+
+// QR checkpoint-identity verdict, shown alongside the geofence badge. The
+// two are independent: a scan can be inside the geofence with the wrong
+// sticker (someone carried a code), or carry the right sticker with no GPS
+// fix. A MISMATCH is the strongest "this checkpoint may not have been
+// visited" signal the system produces, so it reads as an error, not a
+// warning.
+function qrBadge(status: string | null | undefined, submittedValue: string | null | undefined) {
+  switch (status) {
+    case 'SUCCESS':
+      return { label: 'QR verified', className: 'bg-emerald-500/10 text-emerald-400', icon: ScanLine };
+    case 'MISMATCH':
+      return {
+        label: `Wrong QR code${submittedValue ? `: ${submittedValue}` : ''}`,
+        className: 'bg-rose-500/10 text-rose-400',
+        icon: ScanLine,
+      };
+    case 'NOT_PROVIDED':
+      return { label: 'QR not scanned', className: 'bg-amber-500/10 text-amber-400', icon: ScanLine };
+    case 'NO_QR_CONFIGURED':
     default:
       return null;
   }
@@ -627,17 +651,22 @@ export default function PatrolRunsPage() {
                                 }`}>
                                   {event.status}
                                 </span>
-                                {(() => {
-                                  const badge = geofenceBadge(event.verificationStatus, event.distanceMeters);
+                                {[
+                                  geofenceBadge(event.verificationStatus, event.distanceMeters),
+                                  qrBadge(event.qrVerificationStatus, event.submittedQrValue),
+                                ].map((badge, badgeIdx) => {
                                   if (!badge) return null;
                                   const Icon = badge.icon;
                                   return (
-                                    <span className={`inline-flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.25 rounded-md ${badge.className}`}>
+                                    <span
+                                      key={badgeIdx}
+                                      className={`inline-flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.25 rounded-md ${badge.className}`}
+                                    >
                                       <Icon size={10} />
                                       {badge.label}
                                     </span>
                                   );
-                                })()}
+                                })}
                               </div>
                             </div>
                           </div>

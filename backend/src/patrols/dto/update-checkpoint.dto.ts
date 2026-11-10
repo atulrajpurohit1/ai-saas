@@ -8,10 +8,12 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 import {
   MAX_GEOFENCE_RADIUS_METERS,
+  MAX_QR_CODE_VALUE_LENGTH,
   MIN_GEOFENCE_RADIUS_METERS,
 } from '../checkpoint-verification.constants';
 
@@ -30,6 +32,7 @@ export class UpdateCheckpointDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(MAX_QR_CODE_VALUE_LENGTH)
   qr_code_value?: string;
 
   @IsOptional()

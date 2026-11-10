@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   Footprints,
   Users,
+  ScanLine,
 } from 'lucide-react';
 
 function relativeTime(iso: string | null): string {
@@ -96,6 +97,32 @@ function LocationCell({ run }: { run: PatrolOverviewRun }) {
   );
 }
 
+// A run's verification problems, in one cell. A wrong QR code is listed
+// first and in the danger tone because, unlike a missed checkpoint or a weak
+// GPS fix, it means a checkpoint was logged against the wrong identity -
+// the one outcome that warrants looking at the patrol log itself.
+function RunIssues({ run }: { run: PatrolOverviewRun }) {
+  const problems: string[] = [];
+  if (run.qrMismatches > 0) problems.push(`${run.qrMismatches} wrong QR`);
+  if (run.checkpoints.missed > 0) problems.push(`${run.checkpoints.missed} missed`);
+  if (run.geofenceFailures > 0) problems.push(`${run.geofenceFailures} geofence`);
+
+  if (problems.length === 0) {
+    return <span className="text-xs font-semibold text-success">Clean</span>;
+  }
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 text-xs font-semibold ${
+        run.qrMismatches > 0 ? 'text-destructive' : 'text-warning'
+      }`}
+    >
+      {run.qrMismatches > 0 && <ScanLine size={12} />}
+      {problems.join(', ')}
+    </span>
+  );
+}
+
 export default function PatrolMonitorPage() {
   const [overview, setOverview] = useState<PatrolOverview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -133,13 +160,14 @@ export default function PatrolMonitorPage() {
         <ErrorState message={error} onRetry={() => load(true)} />
       ) : overview ? (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:grid-cols-7">
             <StatCard icon={Radar} label="Active patrols" value={overview.summary.activeRuns} tone="primary" />
             <StatCard icon={Users} label="Guards on patrol" value={overview.summary.guardsOnPatrol} tone="primary" />
             <StatCard icon={CheckCircle2} label="Completed today" value={overview.summary.completedToday} tone="success" />
             <StatCard icon={Footprints} label="Checkpoints today" value={overview.summary.checkpointsScannedToday} />
             <StatCard icon={ShieldAlert} label="Missed today" value={overview.summary.missedCheckpointsToday} tone="warning" />
             <StatCard icon={MapPinOff} label="Geofence fails" value={overview.summary.geofenceFailuresToday} tone="warning" />
+            <StatCard icon={ScanLine} label="Wrong QR scans" value={overview.summary.qrMismatchesToday} tone="warning" />
           </div>
 
           <section>
@@ -156,6 +184,10 @@ export default function PatrolMonitorPage() {
                       <th className="px-4 py-3 font-semibold">Checkpoints</th>
                       <th className="px-4 py-3 font-semibold">Started</th>
                       <th className="px-4 py-3 font-semibold">Location</th>
+                      {/* Surfaced while the patrol is still running, so a
+                          supervisor can intervene rather than read about it
+                          afterwards. */}
+                      <th className="px-4 py-3 font-semibold">Issues</th>
                       <th className="px-4 py-3 font-semibold">Status</th>
                     </tr>
                   </thead>
@@ -177,6 +209,7 @@ export default function PatrolMonitorPage() {
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">{relativeTime(run.startedAt)}</td>
                         <td className="px-4 py-3"><LocationCell run={run} /></td>
+                        <td className="px-4 py-3"><RunIssues run={run} /></td>
                         <td className="px-4 py-3"><StatusBadge status={run.status} /></td>
                       </tr>
                     ))}
@@ -212,17 +245,7 @@ export default function PatrolMonitorPage() {
                           {run.checkpoints.scanned}/{run.checkpoints.total}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">{relativeTime(run.completedAt)}</td>
-                        <td className="px-4 py-3">
-                          {run.checkpoints.missed === 0 && run.geofenceFailures === 0 ? (
-                            <span className="text-xs font-semibold text-success">Clean</span>
-                          ) : (
-                            <span className="text-xs font-semibold text-warning">
-                              {run.checkpoints.missed > 0 && `${run.checkpoints.missed} missed`}
-                              {run.checkpoints.missed > 0 && run.geofenceFailures > 0 && ', '}
-                              {run.geofenceFailures > 0 && `${run.geofenceFailures} geofence`}
-                            </span>
-                          )}
-                        </td>
+                        <td className="px-4 py-3"><RunIssues run={run} /></td>
                       </tr>
                     ))}
                   </tbody>

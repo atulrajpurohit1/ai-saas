@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
 import TableScroll from '@/components/TableScroll';
 import api from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/api-error';
 import { Plus, Search, Navigation, Edit2, ListOrdered, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 import { PatrolRoute, getPatrolRoutes, createPatrolRoute, updatePatrolRoute, getPatrolRoute, attachRouteCheckpoints, Checkpoint, getCheckpoints } from '@/lib/patrols';
 
@@ -185,9 +187,14 @@ export default function PatrolRoutesPage() {
       });
       setSelectedRouteForCheckpoints(null);
       fetchData();
+      toast.success('Route checkpoints saved.');
     } catch (err) {
       console.error(err);
-      alert('Failed to save route checkpoints.');
+      // The server names the actual problem - a checkpoint that has since
+      // been deactivated, a duplicated position - so the message is shown
+      // verbatim instead of the old generic alert, which left the admin with
+      // no idea which checkpoint to fix.
+      toast.error(getApiErrorMessage(err, 'Failed to save route checkpoints.'));
     } finally {
       setSavingCheckpoints(false);
     }

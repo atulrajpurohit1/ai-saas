@@ -1846,6 +1846,15 @@ model PatrolEvent {
   distanceMeters     Float?     @map("distance_meters")
   submittedLatitude  Float?     @map("submitted_latitude")
   submittedLongitude Float?     @map("submitted_longitude")
+  // QR checkpoint-identity verification. Independent of the geofence columns
+  // above: a scan can be inside the geofence but carry the wrong sticker, or
+  // carry the right sticker with no GPS fix, so the two verdicts are stored
+  // separately. Both nullable, so every pre-existing PatrolEvent row stays
+  // valid and reads back as "not QR-verified". submittedQrValue holds the raw
+  // decoded string, kept only so a supervisor can see WHICH code was actually
+  // scanned when qrVerificationStatus is MISMATCH.
+  qrVerificationStatus String?  @map("qr_verification_status")
+  submittedQrValue     String?  @map("submitted_qr_value")
   createdAt          DateTime   @default(now()) @map("created_at")
 
   evidence PatrolEvidence[]

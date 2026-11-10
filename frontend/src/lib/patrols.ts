@@ -31,6 +31,17 @@ export type CheckpointVerificationStatus =
   | 'NO_GEOFENCE_CONFIGURED'
   | 'INVALID_LOCATION';
 
+// QR checkpoint-identity verification. Mirrors
+// CheckpointQrVerificationStatus in
+// backend/src/patrols/checkpoint-verification.constants.ts exactly. Computed
+// server-side from the raw decoded string the device submits - the client
+// never supplies the verdict, and a MISMATCH never blocks the scan.
+export type CheckpointQrVerificationStatus =
+  | 'SUCCESS'
+  | 'MISMATCH'
+  | 'NOT_PROVIDED'
+  | 'NO_QR_CONFIGURED';
+
 export interface PatrolRouteCheckpoint {
   id: string;
   patrolRouteId: string;
@@ -107,6 +118,14 @@ export interface PatrolEvent {
   distanceMeters: number | null;
   submittedLatitude: number | null;
   submittedLongitude: number | null;
+  // QR checkpoint-identity verification. Independent of the geofence verdict
+  // above - a scan can be in the right place with the wrong sticker, or the
+  // right sticker with no GPS fix. null on patrol events recorded before QR
+  // verification existed.
+  qrVerificationStatus: CheckpointQrVerificationStatus | null;
+  // The value actually decoded, kept only so a supervisor can see WHICH code
+  // was scanned on a MISMATCH.
+  submittedQrValue: string | null;
   checkpoint?: Checkpoint;
   // Phase 3H: photo evidence the guard attached to this checkpoint scan.
   // Metadata only - the image bytes are streamed on demand through the
@@ -187,6 +206,9 @@ export interface ScanCheckpointInput {
   // result itself, it never accepts a verdict from the client.
   latitude?: number;
   longitude?: number;
+  // The raw string decoded from the checkpoint's QR sticker (or typed as a
+  // fallback). Same contract as the coordinates: evidence, not a verdict.
+  qr_code_value?: string;
 }
 
 export interface UpdateLocationInput {
@@ -266,6 +288,7 @@ export interface PatrolOverviewRun {
   shift: { id: string; startTime: string; endTime: string } | null;
   checkpoints: { scanned: number; total: number; missed: number };
   geofenceFailures: number;
+  qrMismatches: number;
   lastScanAt: string | null;
   location: {
     latitude: number | null;
@@ -284,6 +307,7 @@ export interface PatrolOverview {
     checkpointsScannedToday: number;
     missedCheckpointsToday: number;
     geofenceFailuresToday: number;
+    qrMismatchesToday: number;
   };
   activeRuns: PatrolOverviewRun[];
   completedToday: PatrolOverviewRun[];

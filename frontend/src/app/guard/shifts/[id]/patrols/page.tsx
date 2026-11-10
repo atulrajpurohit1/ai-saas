@@ -21,12 +21,14 @@ import { GeolocationResult, geolocationErrorMessage, requestCurrentLocation } fr
 import { LOCATION_UPDATE_INTERVAL_MS } from '@/lib/guard-tracking.constants';
 import { OfflineSync } from '@/lib/offline-sync';
 import CheckpointPhotoCapture from '@/components/CheckpointPhotoCapture';
+import CheckpointQrScanner from '@/components/CheckpointQrScanner';
 import {
   ArrowLeft,
   Navigation,
   CheckCircle2,
   Play,
   QrCode,
+  ScanLine,
   MapPin,
   MapPinOff,
   Radar,
@@ -52,6 +54,25 @@ function verificationBadge(status: string | null | undefined, distanceMeters: nu
     case 'INVALID_LOCATION':
       return { label: 'Location could not be verified', className: 'text-amber-400', icon: MapPinOff };
     case 'NO_GEOFENCE_CONFIGURED':
+    default:
+      return null;
+  }
+}
+
+// QR checkpoint-identity outcome, shown next to the geofence badge because
+// the two answer different questions: "were you at the right place" vs "did
+// you scan the right checkpoint". NOT_PROVIDED is surfaced rather than
+// hidden - a checkpoint that has a code but wasn't scanned is exactly what
+// a supervisor needs to see.
+function qrBadge(status: string | null | undefined) {
+  switch (status) {
+    case 'SUCCESS':
+      return { label: 'QR verified', className: 'text-emerald-400', icon: ScanLine };
+    case 'MISMATCH':
+      return { label: 'Wrong QR code scanned', className: 'text-rose-400', icon: ScanLine };
+    case 'NOT_PROVIDED':
+      return { label: 'QR not scanned', className: 'text-amber-400', icon: ScanLine };
+    case 'NO_QR_CONFIGURED':
     default:
       return null;
   }
@@ -102,6 +123,14 @@ export default function GuardPatrolPage() {
   const [scanNotes, setScanNotes] = useState('');
   const [scanStatus, setScanStatus] = useState<'completed' | 'skipped'>('completed');
   const [submittingScan, setSubmittingScan] = useState(false);
+  // The QR value decoded from (or typed off) the checkpoint sticker. Sent as
+  // raw evidence - the server decides whether it identifies this checkpoint.
+  const [scanQrValue, setScanQrValue] = useState<string | null>(null);
+
+  // Completing a patrol is irreversible (every unscanned checkpoint is
+  // recorded as missed), so it is confirmed in-app rather than with a
+  // browser confirm() a guard can dismiss by reflex on a phone.
+  const [confirmingComplete, setConfirmingComplete] = useState(false);
 
   // Device location for the checkpoint currently being scanned - a single
   // one-shot reading captured when the scan modal opens, never continuous
@@ -221,8 +250,14 @@ export default function GuardPatrolPage() {
       setLoading(true);
       const run = await startPatrolRun(id, { patrol_route_id: routeId });
       setActiveRun(run);
+      toast.success(`Patrol started: ${run.patrolRoute?.name ?? routeId}`);
     } catch (err) {
-      alert(getApiErrorMessage(err, 'Failed to start patrol run.'));
+      // The server refuses an empty route and a second concurrent run on the
+      // same shift; both come back with a message the guard can act on, so
+      // it is surfaced verbatim. A refused start may mean a run already
+      // exists, so reload to pick it up.
+      toast.error(getApiErrorMessage(err, 'Failed to start patrol run.'));
+      await fetchPatrolContext();
     } finally {
       setLoading(false);
     }
@@ -232,6 +267,7 @@ export default function GuardPatrolPage() {
     setScanningCheckpointId(checkpointId);
     setScanNotes('');
     setScanStatus('completed');
+    setScanQrValue(null);
     setLocationStatus('locating');
     setLocationResult(null);
 
@@ -254,6 +290,7 @@ export default function GuardPatrolPage() {
         ...(locationResult?.status === 'success'
           ? { latitude: locationResult.latitude, longitude: locationResult.longitude }
           : {}),
+        ...(scanQrValue ? { qr_code_value: scanQrValue } : {}),
       };
 
       if (!navigator.onLine) {
@@ -277,11 +314,15 @@ export default function GuardPatrolPage() {
               scannedAt: new Date().toISOString(),
               verificationStatus: null,
               distanceMeters: null,
+              // Both verdicts are resolved server-side on sync; the QR value
+              // itself is already queued in the action payload above.
+              qrVerificationStatus: null,
+              submittedQrValue: null,
             } as any
           ]
         } : prev);
         setScanningCheckpointId(null);
-        toast.info('Saved offline. This checkpoint will be location-verified once it syncs.');
+        toast.info('Saved offline. This checkpoint will be verified once it syncs.');
       } else {
         const event = await scanPatrolCheckpoint(activeRun.id, scanningCheckpointId, dto);
 
@@ -290,23 +331,40 @@ export default function GuardPatrolPage() {
         setActiveRun(fullRun.data);
         setScanningCheckpointId(null);
 
-        switch (event.verificationStatus) {
-          case 'SUCCESS':
-            toast.success('Checkpoint verified.');
-            break;
-          case 'OUTSIDE_GEOFENCE':
-            toast.warning(
-              `You are outside the checkpoint area${typeof event.distanceMeters === 'number' ? ` (${event.distanceMeters}m away)` : ''}.`,
-            );
-            break;
-          case 'LOCATION_UNAVAILABLE':
-            toast.warning(geolocationErrorMessage('unavailable'));
-            break;
-          case 'INVALID_LOCATION':
-            toast.warning("Your location couldn't be verified, but the checkpoint was recorded.");
-            break;
-          default:
-            toast.success('Checkpoint recorded.');
+        // A wrong QR code is the strongest signal available that the guard
+        // is not at the checkpoint they think they are, so it takes
+        // precedence over the geofence result in what they're told.
+        if (event.qrVerificationStatus === 'MISMATCH') {
+          toast.warning(
+            "That QR code belongs to a different checkpoint. The scan was recorded and flagged for your supervisor.",
+          );
+        } else {
+          switch (event.verificationStatus) {
+            case 'SUCCESS':
+              toast.success(
+                event.qrVerificationStatus === 'SUCCESS'
+                  ? 'Checkpoint verified by QR code and location.'
+                  : 'Checkpoint verified.',
+              );
+              break;
+            case 'OUTSIDE_GEOFENCE':
+              toast.warning(
+                `You are outside the checkpoint area${typeof event.distanceMeters === 'number' ? ` (${event.distanceMeters}m away)` : ''}.`,
+              );
+              break;
+            case 'LOCATION_UNAVAILABLE':
+              toast.warning(geolocationErrorMessage('unavailable'));
+              break;
+            case 'INVALID_LOCATION':
+              toast.warning("Your location couldn't be verified, but the checkpoint was recorded.");
+              break;
+            default:
+              toast.success(
+                event.qrVerificationStatus === 'SUCCESS'
+                  ? 'Checkpoint verified by QR code.'
+                  : 'Checkpoint recorded.',
+              );
+          }
         }
       }
     } catch (err) {
@@ -318,29 +376,45 @@ export default function GuardPatrolPage() {
 
   const handleCompletePatrol = async () => {
     if (!activeRun) return;
-    if (!confirm('Are you sure you want to finish this patrol run? Any unscanned checkpoints will be marked as missed.')) {
-      return;
-    }
+    setConfirmingComplete(false);
 
     try {
       setLoading(true);
       if (!navigator.onLine) {
         OfflineSync.enqueueAction('patrol_run_complete', { runId: activeRun.id });
         setActiveRun(null);
-        alert('Saved offline, will sync later. (Patrol Run Complete)');
+        toast.info('Patrol finished offline. It will sync when you reconnect.');
         router.push(`/guard/shifts/${id}`);
       } else {
-        await completePatrolRun(activeRun.id);
+        const completed = await completePatrolRun(activeRun.id);
+        // The server marks every unscanned checkpoint as missed on
+        // completion, so the returned event set - not the local checklist -
+        // is what the guard is told they walked.
+        const events = completed.events ?? [];
+        const scanned = events.filter((e) => e.status === 'completed').length;
+        const missed = events.filter((e) => e.status === 'missed').length;
         setActiveRun(null);
-        alert('Patrol run completed successfully.');
+        if (missed > 0) {
+          toast.warning(
+            `Patrol finished — ${scanned} scanned, ${missed} missed.`,
+          );
+        } else {
+          toast.success(`Patrol finished — all ${scanned} checkpoints scanned.`);
+        }
         router.push(`/guard/shifts/${id}`);
       }
     } catch (err) {
-      alert(getApiErrorMessage(err, 'Failed to complete patrol run.'));
+      toast.error(getApiErrorMessage(err, 'Failed to complete patrol run.'));
     } finally {
       setLoading(false);
     }
   };
+
+  // The route checkpoint currently open in the scan modal - needed so the
+  // QR control knows whether this checkpoint even has a code to verify.
+  const scanningCheckpoint = activeRun?.patrolRoute?.checkpoints?.find(
+    (rcp) => rcp.checkpointId === scanningCheckpointId,
+  );
 
   // Calculate stats
   const totalCheckpoints = activeRun?.patrolRoute?.checkpoints?.length || 0;
@@ -516,17 +590,22 @@ export default function GuardPatrolPage() {
                           <CheckCircle2 size={16} />
                           <span>Scanned</span>
                         </div>
-                        {(() => {
-                          const badge = verificationBadge(scannedEvent?.verificationStatus, scannedEvent?.distanceMeters);
+                        {[
+                          verificationBadge(scannedEvent?.verificationStatus, scannedEvent?.distanceMeters),
+                          qrBadge(scannedEvent?.qrVerificationStatus),
+                        ].map((badge, badgeIdx) => {
                           if (!badge) return null;
                           const Icon = badge.icon;
                           return (
-                            <div className={`mt-1 flex items-center justify-end gap-1 text-[10px] font-semibold ${badge.className}`}>
+                            <div
+                              key={badgeIdx}
+                              className={`mt-1 flex items-center justify-end gap-1 text-[10px] font-semibold ${badge.className}`}
+                            >
                               <Icon size={11} />
                               <span>{badge.label}</span>
                             </div>
                           );
-                        })()}
+                        })}
                       </>
                     ) : (
                       <button
@@ -564,12 +643,55 @@ export default function GuardPatrolPage() {
           {/* ACTION BUTTONS */}
           <div className="pt-4 border-t border-white/5 flex gap-4">
             <button
-              onClick={handleCompletePatrol}
+              onClick={() => setConfirmingComplete(true)}
               className="w-full inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold transition-all shadow-lg shadow-emerald-500/10"
             >
               <CheckCircle2 size={18} />
               <span>Complete Patrol Run</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* COMPLETE-PATROL CONFIRMATION */}
+      {confirmingComplete && activeRun && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 text-left backdrop-blur-sm sm:items-center">
+          <div className="w-full max-w-md rounded-[var(--radius-lg)] border border-border bg-card p-5 shadow-3xl animate-in zoom-in-95 duration-200 sm:p-8">
+            <h3 className="mb-2 flex items-center gap-2 text-xl font-bold text-white">
+              <CheckCircle2 className="text-emerald-400" size={20} />
+              <span>Finish this patrol?</span>
+            </h3>
+            <p className="text-sm text-slate-400">
+              You have scanned {completedCheckpoints} of {totalCheckpoints} checkpoints on{' '}
+              <span className="font-semibold text-slate-200">{activeRun.patrolRoute?.name}</span>.
+            </p>
+            {totalCheckpoints - completedCheckpoints > 0 && (
+              <div className="mt-4 flex items-start gap-2 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs font-semibold text-amber-300">
+                <AlertTriangle className="mt-0.5 shrink-0" size={14} />
+                <span>
+                  {totalCheckpoints - completedCheckpoints} checkpoint
+                  {totalCheckpoints - completedCheckpoints === 1 ? '' : 's'} will be recorded as
+                  missed. This cannot be undone.
+                </span>
+              </div>
+            )}
+            <div className="flex gap-4 pt-5">
+              <button
+                type="button"
+                onClick={() => setConfirmingComplete(false)}
+                className="flex-1 rounded-2xl border border-white/10 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/5"
+              >
+                Keep patrolling
+              </button>
+              <button
+                type="button"
+                onClick={handleCompletePatrol}
+                disabled={loading}
+                className="flex-1 rounded-2xl bg-emerald-500 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400 disabled:opacity-50"
+              >
+                Finish patrol
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -617,6 +739,19 @@ export default function GuardPatrolPage() {
             </div>
 
             <form onSubmit={handleConfirmScan} className="space-y-4">
+              {/* QR checkpoint identity. Separate from the location badge
+                  above: location answers "were you there", the QR code
+                  answers "was it THIS checkpoint". */}
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-300">Checkpoint QR Code</label>
+                <CheckpointQrScanner
+                  value={scanQrValue}
+                  onChange={setScanQrValue}
+                  checkpointHasQrCode={!!scanningCheckpoint?.checkpoint?.qrCodeValue}
+                  disabled={submittingScan}
+                />
+              </div>
+
               <div className="space-y-1">
                 <label className="text-sm font-semibold text-slate-300">Scan Status</label>
                 <select

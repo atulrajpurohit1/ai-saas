@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
   ForbiddenException,
@@ -30,9 +31,16 @@ import { StartPatrolRunDto } from './dto/start-patrol-run.dto';
 import { ScanCheckpointDto } from './dto/scan-checkpoint.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
 import {
+  CheckpointQrVerificationStatus,
   CheckpointVerificationStatus,
   DEFAULT_GEOFENCE_RADIUS_METERS,
+  normalizeQrCodeValue,
+  qrCodeValuesMatch,
 } from './checkpoint-verification.constants';
+import {
+  PATROL_RUN_STATUSES,
+  isPatrolRunStatus,
+} from './patrol-run-status.constants';
 
 @Injectable()
 export class PatrolsService {
@@ -54,6 +62,8 @@ export class PatrolsService {
     }
 
     const geofence = this.resolveGeofenceForCreate(dto);
+    const qrCodeValue = normalizeQrCodeValue(dto.qr_code_value);
+    await this.assertQrCodeValueIsUnique(user.tenantId, qrCodeValue, null);
 
     const checkpoint = await this.prisma.checkpoint.create({
       data: {
@@ -62,7 +72,7 @@ export class PatrolsService {
         name: dto.name,
         description: dto.description,
         locationNote: dto.location_note,
-        qrCodeValue: dto.qr_code_value,
+        qrCodeValue,
         status: 'active',
         latitude: geofence.latitude,
         longitude: geofence.longitude,
@@ -116,6 +126,14 @@ export class PatrolsService {
 
     const geofenceUpdate = this.resolveGeofenceForUpdate(checkpoint, dto);
 
+    if (dto.qr_code_value !== undefined) {
+      await this.assertQrCodeValueIsUnique(
+        user.tenantId,
+        normalizeQrCodeValue(dto.qr_code_value),
+        checkpoint.id,
+      );
+    }
+
     const updated = await this.prisma.checkpoint.update({
       where: { id },
       data: {
@@ -127,7 +145,7 @@ export class PatrolsService {
           ? { locationNote: dto.location_note }
           : {}),
         ...(dto.qr_code_value !== undefined
-          ? { qrCodeValue: dto.qr_code_value }
+          ? { qrCodeValue: normalizeQrCodeValue(dto.qr_code_value) }
           : {}),
         ...(dto.status !== undefined ? { status: dto.status } : {}),
         ...geofenceUpdate,
@@ -147,6 +165,42 @@ export class PatrolsService {
     });
 
     return updated;
+  }
+
+  // A QR value is the checkpoint's identity at scan time: when a guard scans
+  // a sticker, the decoded string is all the server has to decide WHICH
+  // checkpoint was physically visited. Two checkpoints sharing a value makes
+  // that verdict ambiguous and silently defeats QR verification, so the
+  // collision is rejected at configuration time - where an admin can fix
+  // it - rather than discovered later on a patrol log.
+  //
+  // Scoped tenant-wide (not per-site) because a guard can physically carry a
+  // sticker between sites, and compared case-insensitively to match
+  // verifyCheckpointQr. A cleared/absent value is always allowed: an
+  // unlimited number of checkpoints may have no QR code at all.
+  private async assertQrCodeValueIsUnique(
+    tenantId: string,
+    qrCodeValue: string | null,
+    excludeCheckpointId: string | null,
+  ) {
+    if (qrCodeValue === null) return;
+
+    const clash = await this.prisma.checkpoint.findFirst({
+      where: {
+        tenantId,
+        qrCodeValue: { equals: qrCodeValue, mode: 'insensitive' },
+        ...(excludeCheckpointId ? { id: { not: excludeCheckpointId } } : {}),
+      },
+      select: { id: true, name: true, site: { select: { name: true } } },
+    });
+
+    if (clash) {
+      throw new ConflictException(
+        `QR code value is already used by checkpoint "${clash.name}"${
+          clash.site?.name ? ` at ${clash.site.name}` : ''
+        }. Each checkpoint needs its own QR code so scans can be verified.`,
+      );
+    }
   }
 
   // Requires both latitude and longitude together (a checkpoint can't have
@@ -340,17 +394,58 @@ export class PatrolsService {
     }
 
     const checkpointIds = dto.checkpoints.map((cp) => cp.checkpoint_id);
+
+    // Reject a duplicated checkpoint before it reaches the database: the
+    // PatrolRouteCheckpoint @@unique([patrolRouteId, checkpointId]) would
+    // otherwise surface as an opaque 500 from createMany, with the whole
+    // transaction rolled back and the route left with no checkpoints at all.
+    const duplicateIds = checkpointIds.filter(
+      (id, index) => checkpointIds.indexOf(id) !== index,
+    );
+    if (duplicateIds.length > 0) {
+      throw new BadRequestException(
+        'A checkpoint can only appear once on a patrol route',
+      );
+    }
+
+    // Two checkpoints sharing a sequence number leaves the visit order
+    // undefined - every read of the route orders by sequenceOrder, so the
+    // guard's checklist would shuffle arbitrarily between loads.
+    const sequenceOrders = dto.checkpoints.map((cp) => cp.sequence_order);
+    const duplicateOrders = sequenceOrders.filter(
+      (order, index) => sequenceOrders.indexOf(order) !== index,
+    );
+    if (duplicateOrders.length > 0) {
+      throw new BadRequestException(
+        `Each checkpoint needs its own position in the route order (duplicated position: ${duplicateOrders[0]})`,
+      );
+    }
+
     const validCheckpoints = await this.prisma.checkpoint.findMany({
       where: {
         id: { in: checkpointIds },
         tenantId: user.tenantId,
         siteId: route.siteId,
       },
+      select: { id: true, name: true, status: true },
     });
 
     if (validCheckpoints.length !== checkpointIds.length) {
       throw new BadRequestException(
         'Some checkpoints do not exist or do not belong to this site',
+      );
+    }
+
+    // An inactive checkpoint is one an admin has deliberately retired. It
+    // must not be attached to a route a guard will be asked to walk, where
+    // it would count toward the route total and be auto-marked "missed" on
+    // completion.
+    const inactive = validCheckpoints.filter((cp) => cp.status !== 'active');
+    if (inactive.length > 0) {
+      throw new BadRequestException(
+        `Inactive checkpoints cannot be added to a patrol route: ${inactive
+          .map((cp) => cp.name)
+          .join(', ')}`,
       );
     }
 
@@ -393,6 +488,16 @@ export class PatrolsService {
   }
 
   async findAllPatrolRuns(user: ActiveUser, status?: string) {
+    // An unrecognised status used to be passed straight through to the
+    // query, which matched nothing and rendered as a legitimately empty
+    // patrol list - indistinguishable from "no patrols ran". A typo in the
+    // filter now fails loudly instead of silently hiding every run.
+    if (status !== undefined && !isPatrolRunStatus(status)) {
+      throw new BadRequestException(
+        `Unknown patrol run status "${status}". Valid values: ${PATROL_RUN_STATUSES.join(', ')}`,
+      );
+    }
+
     return this.prisma.patrolRun.findMany({
       where: {
         tenantId: user.tenantId,
@@ -512,6 +617,7 @@ export class PatrolsService {
             id: true,
             status: true,
             verificationStatus: true,
+            qrVerificationStatus: true,
             scannedAt: true,
           },
         },
@@ -522,12 +628,24 @@ export class PatrolsService {
     const isActive = (status: string) =>
       status === 'in_progress' || status === 'active';
 
+    // Every "...Today" figure below counts the EVENT's own timestamp, not the
+    // run's. A run that started before midnight and is still in progress
+    // contributes only the checkpoints it actually scanned today, and a run
+    // completed today contributes only today's scans - previously these
+    // totals keyed off the run's completedAt, so scans from in-progress
+    // patrols were omitted from "checkpoints today" entirely while missed
+    // and geofence counts leaked in from yesterday's unfinished runs.
+    const isToday = (at: Date | null) => !!at && at >= startOfToday;
+
     const rows = runs.map((run) => {
       const totalCheckpoints = run.patrolRoute?._count.checkpoints ?? 0;
       const scanned = run.events.filter((e) => e.status === 'completed').length;
       const missed = run.events.filter((e) => e.status === 'missed').length;
       const geofenceFailures = run.events.filter(
         (e) => e.verificationStatus === 'OUTSIDE_GEOFENCE',
+      ).length;
+      const qrMismatches = run.events.filter(
+        (e) => e.qrVerificationStatus === 'MISMATCH',
       ).length;
       const lastScanAt = run.events.reduce<Date | null>((latest, e) => {
         if (!e.scannedAt) return latest;
@@ -554,6 +672,7 @@ export class PatrolsService {
           : null,
         checkpoints: { scanned, total: totalCheckpoints, missed },
         geofenceFailures,
+        qrMismatches,
         lastScanAt,
         location: isActive(run.status)
           ? {
@@ -571,6 +690,12 @@ export class PatrolsService {
       (r) => !r.active && r.completedAt && r.completedAt >= startOfToday,
     );
 
+    // Tallied straight off today's events, independent of which run they
+    // belong to or whether that run has finished.
+    const todayEvents = runs
+      .flatMap((run) => run.events)
+      .filter((e) => isToday(e.scannedAt));
+
     return {
       generatedAt: new Date(),
       summary: {
@@ -579,22 +704,17 @@ export class PatrolsService {
           activeRows.map((r) => r.guard?.id).filter(Boolean),
         ).size,
         completedToday: completedTodayRows.length,
-        checkpointsScannedToday: rows.reduce(
-          (sum, r) =>
-            sum +
-            (r.completedAt && r.completedAt >= startOfToday
-              ? r.checkpoints.scanned
-              : 0),
-          0,
-        ),
-        missedCheckpointsToday: rows.reduce(
-          (sum, r) => sum + r.checkpoints.missed,
-          0,
-        ),
-        geofenceFailuresToday: rows.reduce(
-          (sum, r) => sum + r.geofenceFailures,
-          0,
-        ),
+        checkpointsScannedToday: todayEvents.filter(
+          (e) => e.status === 'completed',
+        ).length,
+        missedCheckpointsToday: todayEvents.filter((e) => e.status === 'missed')
+          .length,
+        geofenceFailuresToday: todayEvents.filter(
+          (e) => e.verificationStatus === 'OUTSIDE_GEOFENCE',
+        ).length,
+        qrMismatchesToday: todayEvents.filter(
+          (e) => e.qrVerificationStatus === 'MISMATCH',
+        ).length,
       },
       activeRuns: activeRows,
       completedToday: completedTodayRows,
@@ -666,6 +786,7 @@ export class PatrolsService {
         siteId: assignment.shift.siteId,
         status: 'active',
       },
+      include: { _count: { select: { checkpoints: true } } },
     });
     if (!route) {
       throw new NotFoundException(
@@ -673,7 +794,34 @@ export class PatrolsService {
       );
     }
 
-    return this.prisma.patrolRun.create({
+    // A route with no checkpoints produces a run that can be "completed"
+    // immediately with nothing walked and nothing missed - a clean patrol
+    // record for a patrol that never happened. Refuse it at the start,
+    // where the guard can pick a real route, instead of recording it.
+    if (route._count.checkpoints === 0) {
+      throw new BadRequestException(
+        `Patrol route "${route.name}" has no checkpoints yet. Ask your supervisor to add checkpoints before starting it.`,
+      );
+    }
+
+    // One in-progress run per guard per shift. A guard walks one patrol at a
+    // time, and the guard app resolves "my current patrol" by taking the
+    // first in_progress run on the shift - so a second run created by a
+    // double tap, a retried request or a second device became invisible to
+    // the guard while still counting as an unfinished patrol against them.
+    // Scoped to this shift deliberately: a stale in_progress run left on an
+    // earlier shift must not lock the guard out of patrolling today.
+    const existingRun = await this.prisma.patrolRun.findFirst({
+      where: { tenantId, guardId, shiftId, status: 'in_progress' },
+      select: { id: true, patrolRoute: { select: { name: true } } },
+    });
+    if (existingRun) {
+      throw new ConflictException(
+        `You already have a patrol in progress on this shift ("${existingRun.patrolRoute?.name ?? 'patrol'}"). Finish it before starting another.`,
+      );
+    }
+
+    const run = await this.prisma.patrolRun.create({
       data: {
         tenantId,
         shiftId,
@@ -693,6 +841,22 @@ export class PatrolsService {
         },
       },
     });
+
+    // Guard-side patrol activity was previously absent from the audit trail
+    // even though every admin-side configuration change was logged, so an
+    // after-the-fact review could see the route a patrol used but not who
+    // started it or when. userId is the JWT-derived guardId, as with
+    // PATROL_EVIDENCE_UPLOADED.
+    await this.auditService.log({
+      tenantId,
+      userId: guardId,
+      action: 'PATROL_RUN_STARTED',
+      entityType: 'PatrolRun',
+      entityId: run.id,
+      details: `Guard started patrol route "${route.name}" (${route._count.checkpoints} checkpoints)`,
+    });
+
+    return run;
   }
 
   async scanCheckpoint(
@@ -739,6 +903,10 @@ export class PatrolsService {
       checkpointOnRoute.checkpoint,
       dto,
     );
+    const qrVerification = this.verifyCheckpointQr(
+      checkpointOnRoute.checkpoint,
+      dto,
+    );
 
     const eventData = {
       scannedAt: new Date(),
@@ -748,6 +916,8 @@ export class PatrolsService {
       distanceMeters: verification.distanceMeters,
       submittedLatitude: verification.submittedLatitude,
       submittedLongitude: verification.submittedLongitude,
+      qrVerificationStatus: qrVerification.status,
+      submittedQrValue: qrVerification.submittedQrValue,
     };
 
     const existingEvent = await this.prisma.patrolEvent.findFirst({
@@ -757,28 +927,116 @@ export class PatrolsService {
       },
     });
 
-    if (existingEvent) {
-      return this.prisma.patrolEvent.update({
-        where: { id: existingEvent.id },
-        data: eventData,
-        include: {
-          checkpoint: true,
-        },
-      });
+    const event = existingEvent
+      ? await this.prisma.patrolEvent.update({
+          where: { id: existingEvent.id },
+          data: eventData,
+          include: {
+            checkpoint: true,
+          },
+        })
+      : await this.prisma.patrolEvent.create({
+          data: {
+            tenantId,
+            patrolRunId: runId,
+            checkpointId,
+            guardId,
+            ...eventData,
+          },
+          include: {
+            checkpoint: true,
+          },
+        });
+
+    await this.logFlaggedScan(
+      tenantId,
+      guardId,
+      checkpointOnRoute.checkpoint.name,
+      event.id,
+      verification.status,
+      verification.distanceMeters,
+      qrVerification.status,
+    );
+
+    return event;
+  }
+
+  // A scan that positively contradicts the guard's presence is the single
+  // most review-worthy thing a guard tour produces, so it gets its own audit
+  // entry rather than only living on the patrol log.
+  //
+  // Only the two verdicts that mean "the guard may not have been at this
+  // checkpoint" are logged: a position outside the geofence, and a QR code
+  // belonging to a different checkpoint. The soft outcomes - no GPS fix, an
+  // unreadable position, a QR code the guard didn't scan - mean verification
+  // did not happen rather than that it failed, and are already visible per
+  // checkpoint on the patrol log. Logging those would add one audit row per
+  // checkpoint per patrol for any site with poor GPS or no QR rollout yet,
+  // burying the entries that matter.
+  private async logFlaggedScan(
+    tenantId: string,
+    guardId: string,
+    checkpointName: string,
+    eventId: string,
+    locationStatus: CheckpointVerificationStatus,
+    distanceMeters: number | null,
+    qrStatus: CheckpointQrVerificationStatus,
+  ) {
+    const reasons: string[] = [];
+
+    if (locationStatus === CheckpointVerificationStatus.OUTSIDE_GEOFENCE) {
+      reasons.push(
+        `outside the checkpoint geofence${
+          distanceMeters !== null ? ` (${distanceMeters}m away)` : ''
+        }`,
+      );
     }
 
-    return this.prisma.patrolEvent.create({
-      data: {
-        tenantId,
-        patrolRunId: runId,
-        checkpointId,
-        guardId,
-        ...eventData,
-      },
-      include: {
-        checkpoint: true,
-      },
+    if (qrStatus === CheckpointQrVerificationStatus.MISMATCH) {
+      reasons.push('QR code did not match this checkpoint');
+    }
+
+    if (reasons.length === 0) return;
+
+    await this.auditService.log({
+      tenantId,
+      userId: guardId,
+      action: 'PATROL_CHECKPOINT_SCAN_FLAGGED',
+      entityType: 'PatrolEvent',
+      entityId: eventId,
+      details: `Checkpoint "${checkpointName}" scan flagged: ${reasons.join('; ')}`,
     });
+  }
+
+  // The server is the sole source of truth for QR verification, exactly as
+  // with the geofence: it receives only the raw decoded string and decides
+  // the verdict itself. A wrong or missing code never rejects the scan - it
+  // is recorded and flagged, so a damaged sticker can't strand a guard
+  // mid-patrol while the discrepancy still reaches the supervisor.
+  private verifyCheckpointQr(checkpoint: Checkpoint, dto?: ScanCheckpointDto) {
+    const expected = normalizeQrCodeValue(checkpoint.qrCodeValue);
+    const submitted = normalizeQrCodeValue(dto?.qr_code_value);
+
+    if (expected === null) {
+      return {
+        status: CheckpointQrVerificationStatus.NO_QR_CONFIGURED,
+        submittedQrValue: submitted,
+      };
+    }
+
+    if (submitted === null) {
+      return {
+        status: CheckpointQrVerificationStatus.NOT_PROVIDED,
+        submittedQrValue: null,
+      };
+    }
+
+    return {
+      status: qrCodeValuesMatch(expected, submitted)
+        ? CheckpointQrVerificationStatus.SUCCESS
+        : CheckpointQrVerificationStatus.MISMATCH,
+      submittedQrValue: submitted,
+    };
   }
 
   // The server is the sole source of truth for geofence verification - it
@@ -881,7 +1139,7 @@ export class PatrolsService {
       });
     }
 
-    return this.prisma.patrolRun.update({
+    const completed = await this.prisma.patrolRun.update({
       where: { id: runId },
       data: {
         status: 'completed',
@@ -893,6 +1151,33 @@ export class PatrolsService {
         },
       },
     });
+
+    // The completion summary is computed from the run's final event set, so
+    // it includes the checkpoints just auto-marked missed above. Logged as
+    // one audit entry per patrol: the single line a reviewer needs to judge
+    // whether a patrol was walked properly, without opening the run.
+    const scannedCount = completed.events.filter(
+      (e) => e.status === 'completed',
+    ).length;
+    const skippedCount = completed.events.filter(
+      (e) => e.status === 'skipped',
+    ).length;
+    const summary = [
+      `${scannedCount}/${run.patrolRoute.checkpoints.length} checkpoints scanned`,
+      `${missingCheckpoints.length} missed`,
+      `${skippedCount} skipped`,
+    ].join(', ');
+
+    await this.auditService.log({
+      tenantId,
+      userId: guardId,
+      action: 'PATROL_RUN_COMPLETED',
+      entityType: 'PatrolRun',
+      entityId: runId,
+      details: `Guard completed patrol route "${run.patrolRoute.name}": ${summary}`,
+    });
+
+    return completed;
   }
 
   // Phase 3B: live location tracking, scoped to an active patrol run only.

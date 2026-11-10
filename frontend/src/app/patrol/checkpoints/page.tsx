@@ -86,7 +86,12 @@ export default function CheckpointsPage() {
           name: formData.name,
           description: formData.description || undefined,
           location_note: formData.location_note || undefined,
-          qr_code_value: formData.qr_code_value || undefined,
+          // Sent even when empty, unlike the fields above: an omitted
+          // qr_code_value leaves the stored value untouched, so clearing the
+          // input could never actually remove a QR code. The empty string is
+          // normalized to "no QR code" server-side - which is also how an
+          // admin frees a value that collided with another checkpoint.
+          qr_code_value: formData.qr_code_value,
           status: formData.status,
           ...(hasLat ? geofenceFields : { clear_geofence: true }),
         });
@@ -460,6 +465,11 @@ export default function CheckpointsPage() {
                   value={formData.qr_code_value}
                   onChange={(e) => setFormData({ ...formData, qr_code_value: e.target.value })}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Must be unique across your checkpoints — a guard&apos;s scan is matched against
+                  this value to confirm which checkpoint was visited. Leave blank to skip QR
+                  verification for this checkpoint.
+                </p>
               </div>
 
               {isEditing && (
