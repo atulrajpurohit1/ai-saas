@@ -3,6 +3,8 @@ export const SUPPORTED_WEBHOOK_EVENTS = [
   'guard.created',
   'shift.created',
   'shift.assigned',
+  'shift.updated',
+  'shift.deleted',
   'incident.created',
   'incident.approved',
   'invoice.generated',

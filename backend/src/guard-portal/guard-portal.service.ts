@@ -11,6 +11,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { IncidentsService } from '../incidents/incidents.service';
 import { PatrolsService } from '../patrols/patrols.service';
 import { SyncOfflineActionsDto } from './dto/sync-offline-actions.dto';
+import { attendanceStatusAfterCheckOut } from '../shifts/shift-staffing';
+import {
+  checkInWindow,
+  checkInWindowMessage,
+  isLateCheckOut,
+  isWithinCheckInWindow,
+  LATE_CHECK_OUT_NOTE,
+} from './attendance.constants';
 
 // How many times a transiently-failing offline action is tried before it is
 // given up on and reported back to the guard as rejected.
@@ -19,6 +27,9 @@ const MAX_SYNC_ATTEMPTS = 5;
 // A row still 'pending' after this long was left behind by a request that
 // died mid-way, and may be claimed again.
 const STALE_PENDING_MS = 10 * 60 * 1000;
+
+// How far back the guard's shift list reaches before they ask for more.
+const GUARD_SHIFT_HISTORY_DAYS = 7;
 
 function isClientError(error: unknown) {
   if (!(error instanceof HttpException)) return false;
@@ -163,13 +174,33 @@ export class GuardPortalService {
     };
   }
 
-  async getAssignedShifts(tenantId: string, guardId: string) {
+  /**
+   * The guard's shifts, newest first.
+   *
+   * Bounded by default to the last week plus everything ahead: this returned
+   * every assignment the guard had ever had, oldest first, so after a few
+   * months today's shift sat somewhere in the middle of a wall of completed
+   * ones. `includeHistory` restores the full list behind a "show older"
+   * action, which is the only place the long list is actually wanted.
+   */
+  async getAssignedShifts(
+    tenantId: string,
+    guardId: string,
+    includeHistory = false,
+  ) {
     await this.getProfile(tenantId, guardId);
+
+    const recentSince = new Date(
+      Date.now() - GUARD_SHIFT_HISTORY_DAYS * 24 * 60 * 60 * 1000,
+    );
 
     const assignments = await this.prisma.assignment.findMany({
       where: {
         guardId,
-        shift: { tenantId },
+        shift: {
+          tenantId,
+          ...(includeHistory ? {} : { endTime: { gte: recentSince } }),
+        },
       },
       include: {
         shift: {
@@ -187,7 +218,7 @@ export class GuardPortalService {
     return assignments
       .sort(
         (left, right) =>
-          left.shift.startTime.getTime() - right.shift.startTime.getTime(),
+          right.shift.startTime.getTime() - left.shift.startTime.getTime(),
       )
       .map((assignment) => {
         const attendance = this.summarizeAttendance(
@@ -202,7 +233,6 @@ export class GuardPortalService {
           startTime: assignment.shift.startTime,
           endTime: assignment.shift.endTime,
           status: assignment.shift.status,
-          assignmentStatus: assignment.status,
           attendanceStatus: attendance.attendanceStatus,
           checkInTime: attendance.checkInTime,
           checkOutTime: attendance.checkOutTime,
@@ -233,10 +263,12 @@ export class GuardPortalService {
       startTime: shift.startTime,
       endTime: shift.endTime,
       status: shift.status,
-      assignmentStatus: assignment.status,
       attendanceStatus: attendance.attendanceStatus,
       checkInTime: attendance.checkInTime,
       checkOutTime: attendance.checkOutTime,
+      // So the app can disable Check In with "Opens at ..." instead of letting
+      // the guard tap it and read a rejection.
+      ...checkInWindow(shift),
       site: {
         id: shift.site.id,
         name: shift.site.name,
@@ -252,7 +284,23 @@ export class GuardPortalService {
     };
   }
 
-  async checkIn(tenantId: string, guardId: string, shiftId: string) {
+  /**
+   * Records a guard's arrival.
+   *
+   * `occurredAt` is when the guard actually pressed the button. It is only
+   * passed by the offline replay, where the request can arrive long after the
+   * action: validating a queued check-in against the moment it finally syncs
+   * would punish a guard who had no signal on site. It is bounded to no later
+   * than now, so a device clock running fast cannot open the window early,
+   * and the event is stamped with the same moment the window was checked
+   * against, so the record and the rule agree.
+   */
+  async checkIn(
+    tenantId: string,
+    guardId: string,
+    shiftId: string,
+    occurredAt?: Date,
+  ) {
     const { shift, assignment } = await this.getAssignedShiftContext(
       tenantId,
       guardId,
@@ -260,6 +308,10 @@ export class GuardPortalService {
       'CHECK_IN',
     );
     const attendance = this.summarizeAttendance(shift.attendanceEvents);
+
+    const now = new Date();
+    const at =
+      occurredAt && occurredAt.getTime() < now.getTime() ? occurredAt : now;
 
     if (attendance.checkInTime) {
       await this.logInvalidAttendanceAttempt({
@@ -287,6 +339,18 @@ export class GuardPortalService {
       );
     }
 
+    if (!isWithinCheckInWindow(shift, at)) {
+      const reason = checkInWindowMessage(shift);
+      await this.logInvalidAttendanceAttempt({
+        tenantId,
+        guardId,
+        shiftId,
+        action: 'CHECK_IN',
+        reason,
+      });
+      throw new BadRequestException(reason);
+    }
+
     try {
       const event = await this.prisma.$transaction(async (tx) => {
         const attendanceEvent = await tx.attendanceEvent.create({
@@ -296,6 +360,7 @@ export class GuardPortalService {
             shiftId,
             type: 'CHECK_IN',
             source: 'guard_portal',
+            timestamp: at,
           },
         });
 
@@ -392,6 +457,13 @@ export class GuardPortalService {
       );
     }
 
+    // Check-out is never refused for being late -- that would leave the shift
+    // open and produce no timesheet - but a late one is flagged on the event
+    // so whoever reviews the timesheet sees it.
+    const lateNote = isLateCheckOut(shift, new Date())
+      ? LATE_CHECK_OUT_NOTE
+      : null;
+
     try {
       const result = await this.prisma.$transaction(async (tx) => {
         const attendanceEvent = await tx.attendanceEvent.create({
@@ -401,12 +473,24 @@ export class GuardPortalService {
             shiftId,
             type: 'CHECK_OUT',
             source: 'guard_portal',
+            ...(lateNote ? { notes: lateNote } : {}),
           },
         });
 
+        // With several guards on one shift, this guard leaving does not end
+        // the shift while a colleague is still on duty. See shift-staffing.ts.
+        const [checkInCount, checkOutCount] = await Promise.all([
+          tx.attendanceEvent.count({ where: { shiftId, type: 'CHECK_IN' } }),
+          tx.attendanceEvent.count({ where: { shiftId, type: 'CHECK_OUT' } }),
+        ]);
+        const shiftStatus = attendanceStatusAfterCheckOut(
+          checkInCount,
+          checkOutCount,
+        );
+
         await tx.shift.update({
           where: { id: shiftId },
-          data: { status: 'completed' },
+          data: { status: shiftStatus },
         });
 
         const totalHours = this.roundHours(
@@ -449,7 +533,7 @@ export class GuardPortalService {
           },
         });
 
-        return { attendanceEvent, timesheet };
+        return { attendanceEvent, timesheet, shiftStatus };
       });
 
       await this.auditService.log({
@@ -463,7 +547,7 @@ export class GuardPortalService {
 
       return {
         message: 'Checked out successfully',
-        shiftStatus: 'completed',
+        shiftStatus: result.shiftStatus,
         attendanceStatus: 'completed',
         checkInTime,
         checkOutTime: result.attendanceEvent.timestamp,
@@ -597,7 +681,14 @@ export class GuardPortalService {
       try {
         if (action.actionType === 'check_in') {
           try {
-            await this.checkIn(tenantId, guardId, action.payload.shiftId);
+            // Replayed against the moment the guard pressed the button, not
+            // the moment the queue drained; see checkIn.
+            await this.checkIn(
+              tenantId,
+              guardId,
+              action.payload.shiftId,
+              new Date(action.createdAt),
+            );
           } catch (error) {
             if (
               error.message === 'Guard has already checked in for this shift'

@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   UseGuards,
   ForbiddenException,
 } from '@nestjs/common';
@@ -58,9 +59,13 @@ export class GuardPortalController {
 
   @Get('shifts')
   @RequireModule('GUARD_TOUR', 'FINANCE')
-  shifts(@GetUser() user: ActiveUser) {
+  shifts(@GetUser() user: ActiveUser, @Query('history') history?: string) {
     const { tenantId, guardId } = this.getGuardContext(user);
-    return this.guardPortalService.getAssignedShifts(tenantId, guardId);
+    return this.guardPortalService.getAssignedShifts(
+      tenantId,
+      guardId,
+      history === '1' || history === 'true',
+    );
   }
 
   @Get('shifts/:id')

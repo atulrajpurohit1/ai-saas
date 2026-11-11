@@ -2,6 +2,7 @@
 
 import { formatDate as fmtDate } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import PageHeader from '@/components/PageHeader';
 import LoadingState from '@/components/LoadingState';
@@ -15,7 +16,7 @@ import SearchField from '@/components/SearchField';
 import api from '@/lib/api';
 import { branchParams, BranchSummary } from '@/lib/branches';
 import { useNewIntent } from '@/hooks/useNewIntent';
-import { Plus, Search, MapPin, Edit2 } from 'lucide-react';
+import { Plus, Search, MapPin, Edit2, AlertTriangle } from 'lucide-react';
 
 interface Site {
   id: string;
@@ -31,6 +32,13 @@ interface Site {
     companyName: string | null;
   } | null;
   createdAt: string;
+  counts?: {
+    checkpoints: number;
+    routes: number;
+    shifts: number;
+  };
+  /** False when the site has no route, or a route with no checkpoints. */
+  patrolReady?: boolean;
 }
 
 interface Client {
@@ -183,6 +191,7 @@ export default function SitesPage() {
                   <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Site</TableHead>
                   <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Location</TableHead>
                   <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Client</TableHead>
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Set up</TableHead>
                   <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Branch</TableHead>
                   <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Created</TableHead>
                   <TableHead className="px-6 py-3" />
@@ -212,6 +221,47 @@ export default function SitesPage() {
                         </span>
                       ) : (
                         <span className="text-sm text-muted-foreground">Unlinked</span>
+                      )}
+                    </TableCell>
+                    {/* The site's own checkpoints, routes and shifts, each a
+                        link to that page already filtered to this site. */}
+                    <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Set up">
+                      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
+                        <Link
+                          href={`/patrol/checkpoints?site_id=${encodeURIComponent(site.id)}`}
+                          className="font-medium text-foreground hover:text-primary hover:underline"
+                        >
+                          Checkpoints ({site.counts?.checkpoints ?? 0})
+                        </Link>
+                        <span className="text-muted-foreground" aria-hidden="true">
+                          &middot;
+                        </span>
+                        <Link
+                          href={`/patrol/routes?site_id=${encodeURIComponent(site.id)}`}
+                          className="font-medium text-foreground hover:text-primary hover:underline"
+                        >
+                          Routes ({site.counts?.routes ?? 0})
+                        </Link>
+                        <span className="text-muted-foreground" aria-hidden="true">
+                          &middot;
+                        </span>
+                        <Link
+                          href={`/shifts?site_id=${encodeURIComponent(site.id)}`}
+                          className="font-medium text-foreground hover:text-primary hover:underline"
+                        >
+                          Shifts ({site.counts?.shifts ?? 0})
+                        </Link>
+                      </div>
+                      {site.patrolReady === false && (
+                        <Link
+                          href={`/patrol/routes?site_id=${encodeURIComponent(site.id)}`}
+                          className="mt-1.5 inline-flex w-fit items-center gap-1.5 rounded-full bg-warning-wash px-2.5 py-0.5 text-xs font-semibold text-warning hover:brightness-95"
+                        >
+                          <AlertTriangle size={12} aria-hidden="true" />
+                          {(site.counts?.routes ?? 0) === 0
+                            ? 'Not ready for patrols - add a route'
+                            : 'A route has no checkpoints'}
+                        </Link>
                       )}
                     </TableCell>
                     <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Branch">

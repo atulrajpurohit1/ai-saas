@@ -35,6 +35,24 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
+/**
+ * DD-MM-YYYY HH:mm, the date format the product uses everywhere, for shift
+ * times a guard reads in an email. Rendered in the server's timezone, which
+ * is the timezone the shift was scheduled in.
+ */
+function formatShiftWindow(start: Date, end: Date): string {
+  const pad = (part: number) => String(part).padStart(2, '0');
+  const date = (value: Date) =>
+    `${pad(value.getDate())}-${pad(value.getMonth() + 1)}-${value.getFullYear()}`;
+  const time = (value: Date) =>
+    `${pad(value.getHours())}:${pad(value.getMinutes())}`;
+
+  // A shift that ends on the day it starts needs the date said only once.
+  return date(start) === date(end)
+    ? `${date(start)} ${time(start)} to ${time(end)}`
+    : `${date(start)} ${time(start)} to ${date(end)} ${time(end)}`;
+}
+
 /** A file to send alongside the message, e.g. a report PDF. */
 export interface MailAttachment {
   filename: string;
@@ -809,6 +827,108 @@ You are receiving this because you are a billing contact for ${companyName}.`;
       html: branding
         ? this.brandingService.emailShell(branding, headline, bodyHtml)
         : `<!DOCTYPE html><html><body style="font-family: sans-serif; color: #111827;"><h2>${headline}</h2>${bodyHtml}</body></html>`,
+    });
+
+    return {
+      messageId: info.messageId,
+      previewUrl: this.previewUrlFor(info),
+    };
+  }
+
+  /**
+   * Tells a guard they have been put on, taken off, or moved on a shift.
+   *
+   * This is the most important message a scheduling system sends: before it,
+   * assignment "notification" was a console.log, so a guard had to log in on
+   * their own and notice. Callers treat it as fire-and-forget -- the roster
+   * change is already saved and must not fail because mail is down.
+   */
+  async sendShiftAssignmentEmail(
+    tenantId: string,
+    params: {
+      email: string;
+      guardName: string;
+      siteName: string;
+      siteAddress?: string | null;
+      startTime: Date;
+      endTime: Date;
+      change: 'assigned' | 'unassigned' | 'updated';
+    },
+  ) {
+    const branding = await this.brandingService.brandingSnapshot(tenantId);
+    const companyName = branding?.company_name || PLATFORM_NAME;
+    const guardName = params.guardName.trim() || 'there';
+
+    const base = (process.env.FRONTEND_URL || '').trim().replace(/\/+$/, '');
+    const portalUrl = base ? `${base}/guard/login` : null;
+
+    const when = `${formatShiftWindow(params.startTime, params.endTime)}`;
+    const headline =
+      params.change === 'assigned'
+        ? `New shift: ${params.siteName}`
+        : params.change === 'updated'
+          ? `Shift changed: ${params.siteName}`
+          : `Shift cancelled: ${params.siteName}`;
+
+    const opening =
+      params.change === 'assigned'
+        ? `You have been assigned to a shift at ${params.siteName}.`
+        : params.change === 'updated'
+          ? `The times of your shift at ${params.siteName} have changed.`
+          : `You have been taken off the shift at ${params.siteName}.`;
+
+    const closing =
+      params.change === 'unassigned'
+        ? 'You do not need to attend. Contact your supervisor if this is unexpected.'
+        : 'Sign in to the guard app to check in when you arrive.';
+
+    const lines = [
+      `Hello ${guardName},`,
+      '',
+      opening,
+      '',
+      `Site: ${params.siteName}`,
+      ...(params.siteAddress ? [`Address: ${params.siteAddress}`] : []),
+      `When: ${when}`,
+      '',
+      closing,
+      ...(portalUrl && params.change !== 'unassigned'
+        ? ['', `Guard app: ${portalUrl}`]
+        : []),
+    ];
+
+    const bodyHtml = `
+      <p style="margin:0 0 16px;">Hello ${escapeHtml(guardName)},</p>
+      <p style="margin:0 0 16px;font-weight:600;">${escapeHtml(opening)}</p>
+      <p style="margin:0 0 8px;"><strong>Site:</strong> ${escapeHtml(params.siteName)}</p>
+      ${
+        params.siteAddress
+          ? `<p style="margin:0 0 8px;"><strong>Address:</strong> ${escapeHtml(params.siteAddress)}</p>`
+          : ''
+      }
+      <p style="margin:0 0 16px;"><strong>When:</strong> ${escapeHtml(when)}</p>
+      <p style="margin:0 0 24px;">${escapeHtml(closing)}</p>
+      ${
+        portalUrl && params.change !== 'unassigned'
+          ? `<p style="margin:0 0 8px;">
+               <a href="${portalUrl}"
+                  style="display:inline-block;padding:12px 20px;border-radius:6px;background:${PLATFORM_BRAND_COLOR};color:#ffffff;text-decoration:none;font-weight:600;">
+                 Open the guard app
+               </a></p>`
+          : ''
+      }
+    `;
+
+    const info = await this.transporter.sendMail({
+      ...this.senderFor(companyName, branding?.support_email),
+      to: params.email,
+      subject: headline,
+      text: lines.join('\n'),
+      html: branding
+        ? this.brandingService.emailShell(branding, headline, bodyHtml)
+        : `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#1f2937;">
+             <h2 style="margin:0 0 16px;">${escapeHtml(headline)}</h2>${bodyHtml}
+           </div>`,
     });
 
     return {

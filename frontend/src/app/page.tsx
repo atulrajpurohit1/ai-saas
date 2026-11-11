@@ -26,6 +26,7 @@ import {
   PhoneCall,
   ArrowUpRight,
   ArrowDownRight,
+  UserX,
 } from 'lucide-react';
 
 interface ActivityItem {
@@ -113,7 +114,7 @@ function buildInsights(summary: DashboardSummary | null) {
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, hasModule } = useAuth();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -256,6 +257,29 @@ export default function DashboardPage() {
             );
           })}
         </div>
+      )}
+
+      {/* No-shows. Rendered as an alert rather than a stat tile: the tiles
+          carry a 7-day delta that means nothing here, and a guard company
+          needs this the moment it is true, not as another number to read.
+          Hidden entirely at zero, and for tenants without the shifts module. */}
+      {!loading && hasModule('FINANCE') && (summary?.noShowsToday ?? 0) > 0 && (
+        <Link
+          href="/shifts"
+          className="mb-6 flex items-center gap-3 rounded-2xl border border-error/30 bg-error-wash p-4 transition hover:border-error/50"
+        >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-error/10 text-error">
+            <UserX size={18} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-error">
+              {summary?.noShowsToday} no-show{summary?.noShowsToday === 1 ? '' : 's'} today
+            </p>
+            <p className="text-xs text-muted-foreground">
+              An assigned guard has not checked in. Open Shifts to see who.
+            </p>
+          </div>
+        </Link>
       )}
 
       {/* Insights strip - real deltaPct-derived copy only, never shown empty-handed */}

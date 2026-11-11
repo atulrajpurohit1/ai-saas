@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
 import TableScroll from '@/components/TableScroll';
@@ -21,12 +23,24 @@ interface AttachedCheckpointState {
 }
 
 export default function PatrolRoutesPage() {
+  return (
+    <Suspense fallback={null}>
+      <PatrolRoutesView />
+    </Suspense>
+  );
+}
+
+function PatrolRoutesView() {
   const [routes, setRoutes] = useState<PatrolRoute[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
-  const [selectedSiteFilter, setSelectedSiteFilter] = useState('');
+  // The Sites list links here already filtered to one site.
+  const searchParams = useSearchParams();
+  const [selectedSiteFilter, setSelectedSiteFilter] = useState(
+    searchParams.get('site_id') || '',
+  );
   const [searchQuery, setSearchQuery] = useState('');
   
   // Route details form
@@ -284,8 +298,23 @@ export default function PatrolRoutesPage() {
                 </tr>
               ) : filteredRoutes.length === 0 ? (
                 <tr>
+                  {/* A route is nothing without checkpoints to sequence, so
+                      point there rather than leaving a dead end. */}
                   <td colSpan={5} className="px-6 py-10 text-center text-muted-foreground">
-                    No routes found.
+                    <p className="font-semibold text-foreground">No routes yet</p>
+                    <p className="mt-1 text-sm">
+                      A route is an ordered walk between this site&apos;s checkpoints.
+                    </p>
+                    <Link
+                      href={
+                        selectedSiteFilter
+                          ? `/patrol/checkpoints?site_id=${encodeURIComponent(selectedSiteFilter)}`
+                          : '/patrol/checkpoints'
+                      }
+                      className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+                    >
+                      Set up checkpoints first
+                    </Link>
                   </td>
                 </tr>
               ) : (

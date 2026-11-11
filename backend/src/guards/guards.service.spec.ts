@@ -93,6 +93,16 @@ describe('GuardsService deactivation', () => {
     expect(result).not.toHaveProperty('refreshToken');
   });
 
+  it('says whether the guard can sign in without exposing the hash', async () => {
+    const ready = await service.findOne(user, 'guard-1');
+    expect(ready).toEqual(expect.objectContaining({ canSignIn: true }));
+    expect(ready).not.toHaveProperty('passwordHash');
+
+    prisma.guard.findFirst.mockResolvedValue(guard({ passwordHash: null }));
+    const noPassword = await service.findOne(user, 'guard-1');
+    expect(noPassword).toEqual(expect.objectContaining({ canSignIn: false }));
+  });
+
   it('refuses to deactivate a guard twice', async () => {
     prisma.guard.findFirst.mockResolvedValue(
       guard({ deactivatedAt: new Date() }),

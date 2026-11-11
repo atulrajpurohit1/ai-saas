@@ -8,6 +8,7 @@ import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApiKeyContext } from '../api-keys/api-keys.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import { staffingStatus } from '../shifts/shift-staffing';
 
 const INCIDENT_SEVERITIES = ['low', 'medium', 'high', 'critical'];
 
@@ -275,8 +276,15 @@ export class PublicApiService {
       include: { assignments: true },
     });
     if (!shift) throw new NotFoundException('Shift not found');
-    if (shift.assignments.length > 0) {
-      throw new BadRequestException('Shift already has an assignment');
+    // Same staffing rules as ShiftsService.assign: up to `requiredGuards`
+    // distinct guards per shift.
+    if (shift.assignments.some((a) => a.guardId === guardId)) {
+      throw new BadRequestException('Guard is already assigned to this shift');
+    }
+    if (shift.assignments.length >= shift.requiredGuards) {
+      throw new BadRequestException(
+        `Shift is fully staffed (${shift.assignments.length} of ${shift.requiredGuards} guards assigned)`,
+      );
     }
 
     const guard = await this.prisma.guard.findFirst({
@@ -295,11 +303,18 @@ export class PublicApiService {
 
     const assignment = await this.prisma.$transaction(async (tx) => {
       const created = await tx.assignment.create({
-        data: { shiftId, guardId, status: 'pending' },
+        data: { shiftId, guardId, status: 'confirmed' },
       });
+      const assignedCount = await tx.assignment.count({ where: { shiftId } });
       await tx.shift.update({
         where: { id: shiftId },
-        data: { status: 'assigned' },
+        data: {
+          status: staffingStatus(
+            shift.status,
+            assignedCount,
+            shift.requiredGuards,
+          ),
+        },
       });
       return created;
     });

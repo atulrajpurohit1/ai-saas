@@ -1,7 +1,8 @@
 'use client';
 
 import { formatDateTime as fmtDateTime } from '@/lib/format';
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
 import PageHeader from '@/components/PageHeader';
@@ -25,7 +26,8 @@ import { getApiErrorMessage } from '@/lib/api-error';
 import { GuardRecommendation } from '@/lib/ai-insights';
 import { branchParams, BranchSummary } from '@/lib/branches';
 import { cn } from '@/lib/utils';
-import { Plus, Search, Calendar, CalendarClock, Clock, Users, MapPin, Sparkles, Loader2, CalendarDays, List } from 'lucide-react';
+import { Plus, Search, Calendar, CalendarClock, Clock, Users, MapPin, Sparkles, Loader2, CalendarDays, List, X, AlertTriangle, Pencil, Trash2, UserX } from 'lucide-react';
+import Link from 'next/link';
 
 const VIEW_STORAGE_KEY = 'ai-saas-shifts-view';
 
@@ -41,7 +43,26 @@ interface Site {
 interface Guard {
   id: string;
   name: string;
+  email?: string | null;
   deactivatedAt?: string | null;
+  /** False when the guard has no portal password and so cannot log in. */
+  canSignIn?: boolean;
+}
+
+type AttendanceStatus = 'not_started' | 'checked_in' | 'completed';
+
+interface ShiftAssignment {
+  id: string;
+  guardId: string;
+  guard: {
+    id: string;
+    name: string;
+  };
+  attendanceStatus?: AttendanceStatus;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+  /** Derived server-side: assigned, overdue, and still no check-in. */
+  noShow?: boolean;
 }
 
 interface Shift {
@@ -54,22 +75,62 @@ interface Shift {
   endTime: string;
   requiredGuards: number;
   status: string;
-  attendanceStatus?: 'not_started' | 'checked_in' | 'completed';
-  checkInTime?: string | null;
-  checkOutTime?: string | null;
   createdAt: string;
-  assignments: {
-    id: string;
-    guard: {
-      name: string;
-    };
-  }[];
+  assignments: ShiftAssignment[];
 }
 
+interface UnassignTarget {
+  shiftId: string;
+  guardId: string;
+  guardName: string;
+}
+
+const isFullyStaffed = (shift: Shift) =>
+  (shift.assignments?.length ?? 0) >= shift.requiredGuards;
+
+const hasAttendance = (shift: Shift) =>
+  shift.assignments?.some((assignment) => Boolean(assignment.checkInTime)) ?? false;
+
+const noShowCount = (shift: Shift) =>
+  shift.assignments?.filter((assignment) => assignment.noShow).length ?? 0;
+
+const startsToday = (shift: Shift) => {
+  const start = new Date(shift.startTime);
+  const now = new Date();
+  return (
+    start.getFullYear() === now.getFullYear() &&
+    start.getMonth() === now.getMonth() &&
+    start.getDate() === now.getDate()
+  );
+};
+
+/** ISO timestamp -> the 'YYYY-MM-DDTHH:mm' local value DateTimeField takes. */
+const toLocalInputValue = (iso: string) => {
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return '';
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return (
+    `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}` +
+    `T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`
+  );
+};
+
 export default function ShiftsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ShiftsView />
+    </Suspense>
+  );
+}
+
+function ShiftsView() {
+  // The Sites list links here filtered to one site.
+  const searchParams = useSearchParams();
+  const siteIdFilter = searchParams.get('site_id');
   const { can } = useAuth();
   const canCreateShift = can('shifts.create');
   const canAssignShift = can('shifts.assign');
+  const canDeleteShift = can('shifts.delete');
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [guards, setGuards] = useState<Guard[]>([]);
@@ -85,7 +146,12 @@ export default function ShiftsPage() {
   const [selectedBranchId, setSelectedBranchId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [view, setView] = useState<'list' | 'calendar'>('list');
-  const [unassignTarget, setUnassignTarget] = useState<string | null>(null);
+  const [unassignTarget, setUnassignTarget] = useState<UnassignTarget | null>(null);
+  // Set while editing: the create dialog doubles as the edit dialog.
+  const [noShowOnly, setNoShowOnly] = useState(false);
+  const [editingShift, setEditingShift] = useState<Shift | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Shift | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [unassigning, setUnassigning] = useState(false);
 
   useEffect(() => {
@@ -197,19 +263,37 @@ export default function ShiftsPage() {
     if (!unassignTarget) return;
     setUnassigning(true);
     try {
-      await api.delete(`v2/shifts/${unassignTarget}/unassign`);
+      await api.delete(`v2/shifts/${unassignTarget.shiftId}/unassign/${unassignTarget.guardId}`);
       fetchShifts();
-      toast.success('Guard unassigned.');
+      toast.success(`${unassignTarget.guardName} unassigned.`);
     } catch (err) {
       console.error('Failed to unassign guard:', err);
-      toast.error('Failed to unassign guard.');
+      toast.error(getApiErrorMessage(err, 'Failed to unassign guard.'));
     } finally {
       setUnassigning(false);
       setUnassignTarget(null);
     }
   };
 
-  const handleCreateShift = async (e: React.FormEvent) => {
+  const openEditModal = (shift: Shift) => {
+    if (!canCreateShift) return;
+    setEditingShift(shift);
+    setNewShift({
+      siteId: shift.siteId,
+      startTime: toLocalInputValue(shift.startTime),
+      endTime: toLocalInputValue(shift.endTime),
+      requiredGuards: shift.requiredGuards,
+    });
+    setShowModal(true);
+  };
+
+  const closeShiftModal = () => {
+    setShowModal(false);
+    setEditingShift(null);
+    setNewShift({ siteId: '', startTime: '', endTime: '', requiredGuards: 1 });
+  };
+
+  const handleSaveShift = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canCreateShift) return;
     if (newShift.startTime && newShift.endTime && newShift.endTime <= newShift.startTime) {
@@ -221,33 +305,91 @@ export default function ShiftsPage() {
     if (creatingShift) return;
     setCreatingShift(true);
     try {
-      await api.post('v2/shifts', { ...newShift, branch_id: selectedBranchId || null });
-      setShowModal(false);
-      setNewShift({ siteId: '', startTime: '', endTime: '', requiredGuards: 1 });
+      if (editingShift) {
+        // Once a guard has checked in the backend accepts only the headcount,
+        // so don't send times it would reject.
+        const payload = hasAttendance(editingShift)
+          ? { requiredGuards: newShift.requiredGuards }
+          : newShift;
+        await api.put(`v2/shifts/${editingShift.id}`, payload);
+        toast.success('Shift updated.');
+      } else {
+        await api.post('v2/shifts', { ...newShift, branch_id: selectedBranchId || null });
+        toast.success('Shift created.');
+      }
+      closeShiftModal();
       fetchShifts();
-      toast.success('Shift created.');
     } catch (err) {
-      console.error('Failed to create shift:', err);
-      toast.error(getApiErrorMessage(err, 'Failed to create shift. Please check your inputs.'));
+      console.error('Failed to save shift:', err);
+      toast.error(
+        getApiErrorMessage(
+          err,
+          editingShift ? 'Failed to update shift.' : 'Failed to create shift. Please check your inputs.',
+        ),
+      );
     } finally {
       setCreatingShift(false);
+    }
+  };
+
+  const handleDeleteShift = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await api.delete(`v2/shifts/${deleteTarget.id}`);
+      fetchShifts();
+      toast.success('Shift deleted.');
+      setDeleteTarget(null);
+    } catch (err) {
+      console.error('Failed to delete shift:', err);
+      toast.error(getApiErrorMessage(err, 'Failed to delete shift.'));
+    } finally {
+      setDeleting(false);
     }
   };
 
   const formatDateTime = (dateStr: string) =>
     fmtDateTime(dateStr);
 
-  const formatAttendanceStatus = (status?: Shift['attendanceStatus']) => {
+  const formatAttendanceStatus = (status?: AttendanceStatus) => {
     if (status === 'checked_in') return 'Checked in';
     if (status === 'completed') return 'Completed';
     return 'Not started';
   };
 
-  const attendanceTone = (status?: Shift['attendanceStatus']): 'info' | 'success' | 'neutral' => {
+  const attendanceTone = (status?: AttendanceStatus): 'info' | 'success' | 'neutral' => {
     if (status === 'checked_in') return 'info';
     if (status === 'completed') return 'success';
     return 'neutral';
   };
+
+  // Attendance arrives per guard; this is the one-line roll-up for the row.
+  const staffingSummary = (
+    shift: Shift,
+  ): { label: string; tone: 'info' | 'success' | 'neutral' | 'error' } | null => {
+    const total = shift.assignments?.length ?? 0;
+    if (total === 0) return null;
+    const missing = noShowCount(shift);
+    if (missing > 0) {
+      return {
+        label: missing === total ? 'No-show' : `${missing} of ${total} no-show`,
+        tone: 'error',
+      };
+    }
+    const arrived = shift.assignments.filter(
+      (a) => a.attendanceStatus === 'checked_in' || a.attendanceStatus === 'completed',
+    ).length;
+    const done = shift.assignments.filter((a) => a.attendanceStatus === 'completed').length;
+    if (done === total) return { label: total === 1 ? 'Completed' : 'All checked out', tone: 'success' };
+    if (arrived === 0) return { label: 'Not started', tone: 'neutral' };
+    return { label: total === 1 ? 'Checked in' : `${arrived} of ${total} checked in`, tone: 'info' };
+  };
+
+  const selectedShiftRecord = selectedShift ? shifts.find((s) => s.id === selectedShift) ?? null : null;
+  const alreadyAssignedIds = new Set(selectedShiftRecord?.assignments.map((a) => a.guardId) ?? []);
+  const assignableGuards = guards.filter((guard) => !alreadyAssignedIds.has(guard.id));
+  const visibleRecommendations = recommendations.filter((r) => !alreadyAssignedIds.has(r.guard_id));
+  const selectedGuardRecord = guards.find((guard) => guard.id === selectedGuard) ?? null;
 
   const matchesSearch = (shift: Shift) => {
     if (!searchQuery) return true;
@@ -257,7 +399,22 @@ export default function ShiftsPage() {
     return Boolean(siteNameMatch || guardNameMatch);
   };
 
-  const filteredShifts = shifts.filter(matchesSearch);
+  const filteredShifts = shifts.filter(
+    (shift) =>
+      matchesSearch(shift) &&
+      (!noShowOnly || noShowCount(shift) > 0) &&
+      (!siteIdFilter || shift.siteId === siteIdFilter),
+  );
+
+  const filteredSiteName = siteIdFilter
+    ? shifts.find((shift) => shift.siteId === siteIdFilter)?.site?.name ?? null
+    : null;
+
+  // Today's no-shows are the number a supervisor acts on; an unchecked-in
+  // shift from last month is history, not an alert.
+  const todaysNoShows = shifts
+    .filter(startsToday)
+    .reduce((total, shift) => total + noShowCount(shift), 0);
 
   const scoreTone = (score: number): 'success' | 'info' | 'warning' | 'error' => {
     if (score >= 80) return 'success';
@@ -319,6 +476,48 @@ export default function ShiftsPage() {
           />
           <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Filter Branch" />
         </div>
+
+        {siteIdFilter && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/8 px-3 py-1 text-xs font-semibold text-primary">
+              <MapPin size={13} aria-hidden="true" />
+              {filteredSiteName ?? 'One site'}
+            </span>
+            <Link href="/shifts" className="text-xs font-semibold text-muted-foreground hover:text-foreground">
+              Show all sites
+            </Link>
+          </div>
+        )}
+
+        {/* No-shows are the thing a guard company most needs to see, so the
+            count sits above the list and doubles as the filter. */}
+        {(todaysNoShows > 0 || noShowOnly) && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+            <button
+              type="button"
+              onClick={() => setNoShowOnly((current) => !current)}
+              aria-pressed={noShowOnly}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold transition',
+                noShowOnly
+                  ? 'bg-error text-white'
+                  : 'bg-error-wash text-error hover:brightness-95',
+              )}
+            >
+              <UserX size={13} aria-hidden="true" />
+              {todaysNoShows} no-show{todaysNoShows === 1 ? '' : 's'} today
+            </button>
+            {noShowOnly && (
+              <button
+                type="button"
+                onClick={() => setNoShowOnly(false)}
+                className="text-xs font-semibold text-muted-foreground hover:text-foreground"
+              >
+                Show all shifts
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {view === 'calendar' ? (
@@ -327,7 +526,7 @@ export default function ShiftsPage() {
           onSelectShift={(shiftId) => {
             const shift = shifts.find((s) => s.id === shiftId);
             if (!shift) return;
-            if ((shift.assignments?.length ?? 0) === 0) openAssignModal(shiftId);
+            if (!isFullyStaffed(shift)) openAssignModal(shiftId);
           }}
         />
       ) : (
@@ -349,7 +548,17 @@ export default function ShiftsPage() {
               }
             />
           ) : filteredShifts.length === 0 ? (
-            <EmptyState icon={Search} title="No matching shifts" description="Try a different site or guard name." />
+            <EmptyState
+              icon={noShowOnly ? UserX : Search}
+              title={noShowOnly ? 'No no-shows' : 'No matching shifts'}
+              description={
+                noShowOnly
+                  ? 'Every assigned guard has checked in.'
+                  : siteIdFilter
+                    ? 'This site has no shifts matching your search.'
+                    : 'Try a different site or guard name.'
+              }
+            />
           ) : (
             <div>
               <Table className="responsive-table">
@@ -365,6 +574,8 @@ export default function ShiftsPage() {
                 <TableBody>
                   {filteredShifts.map((shift) => {
                     const assigned = shift.assignments && shift.assignments.length > 0;
+                    const summary = staffingSummary(shift);
+                    const full = isFullyStaffed(shift);
                     return (
                       <TableRow key={shift.id}>
                         <TableCell className="min-w-[15rem] px-6 py-3.5 whitespace-normal" data-label="Site">
@@ -391,10 +602,55 @@ export default function ShiftsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="px-6 py-3.5 whitespace-nowrap" data-label="Staffing">
-                          <span className={assigned ? 'font-medium text-foreground' : 'text-muted-foreground'}>
-                            {assigned ? shift.assignments[0].guard.name : 'Unassigned'}
-                          </span>
-                          <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                          {assigned ? (
+                            <ul className="space-y-1.5">
+                              {shift.assignments.map((assignment) => (
+                                <li key={assignment.id} className="flex items-center gap-2">
+                                  <span className="font-medium text-foreground">{assignment.guard.name}</span>
+                                  <span
+                                    title={
+                                      assignment.checkInTime
+                                        ? `In ${formatDateTime(assignment.checkInTime)}${
+                                            assignment.checkOutTime ? ` \u00b7 Out ${formatDateTime(assignment.checkOutTime)}` : ''
+                                          }`
+                                        : assignment.noShow
+                                          ? 'Assigned but never checked in'
+                                          : undefined
+                                    }
+                                  >
+                                    {assignment.noShow ? (
+                                      <StatusBadge label="No-show" tone="error" />
+                                    ) : (
+                                      <StatusBadge
+                                        label={formatAttendanceStatus(assignment.attendanceStatus)}
+                                        tone={attendanceTone(assignment.attendanceStatus)}
+                                      />
+                                    )}
+                                  </span>
+                                  {canAssignShift && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setUnassignTarget({
+                                          shiftId: shift.id,
+                                          guardId: assignment.guardId,
+                                          guardName: assignment.guard.name,
+                                        })
+                                      }
+                                      aria-label={`Unassign ${assignment.guard.name}`}
+                                      title={`Unassign ${assignment.guard.name}`}
+                                      className="rounded-md p-1 text-muted-foreground transition hover:bg-error-wash hover:text-error focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                      <X size={14} />
+                                    </button>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <span className="text-muted-foreground">Unassigned</span>
+                          )}
+                          <div className={cn('mt-1.5 flex items-center gap-1.5 text-xs', full ? 'text-muted-foreground' : 'font-semibold text-warning')}>
                             <Users size={13} aria-hidden="true" />
                             {shift.assignments?.length ?? 0} of {shift.requiredGuards} assigned
                           </div>
@@ -402,31 +658,46 @@ export default function ShiftsPage() {
                         <TableCell className="px-6 py-3.5 whitespace-nowrap" data-label="Status">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <StatusBadge status={shift.status} />
-                            <StatusBadge
-                              label={formatAttendanceStatus(shift.attendanceStatus)}
-                              tone={attendanceTone(shift.attendanceStatus)}
-                            />
+                            {summary && <StatusBadge label={summary.label} tone={summary.tone} />}
                           </div>
-                          {(shift.checkInTime || shift.checkOutTime) && (
-                            <div className="mt-1 text-xs text-muted-foreground">
-                              {shift.checkInTime ? `In ${formatDateTime(shift.checkInTime)}` : ''}
-                              {shift.checkInTime && shift.checkOutTime ? ' \u00b7 ' : ''}
-                              {shift.checkOutTime ? `Out ${formatDateTime(shift.checkOutTime)}` : ''}
-                            </div>
-                          )}
                         </TableCell>
                         <TableCell className="px-6 py-3.5 text-right whitespace-nowrap" data-label="Action">
-                          {!canAssignShift ? (
-                            <span className="text-xs text-muted-foreground">No actions</span>
-                          ) : assigned ? (
-                            <Button variant="outline" size="sm" onClick={() => setUnassignTarget(shift.id)}>
-                              Unassign
-                            </Button>
-                          ) : (
-                            <Button size="sm" onClick={() => openAssignModal(shift.id)}>
-                              Assign Guard
-                            </Button>
-                          )}
+                          <div className="flex items-center justify-end gap-2">
+                            {canAssignShift && !full && (
+                              <Button size="sm" onClick={() => openAssignModal(shift.id)}>
+                                Assign Guard
+                              </Button>
+                            )}
+                            {canAssignShift && full && (
+                              <span className="text-xs text-muted-foreground">Fully staffed</span>
+                            )}
+                            {canCreateShift && (
+                              <Button
+                                variant="outline"
+                                size="icon-sm"
+                                onClick={() => openEditModal(shift)}
+                                aria-label="Edit shift"
+                                title="Edit shift"
+                              >
+                                <Pencil size={14} />
+                              </Button>
+                            )}
+                            {canDeleteShift && (
+                              <Button
+                                variant="outline"
+                                size="icon-sm"
+                                onClick={() => setDeleteTarget(shift)}
+                                aria-label="Delete shift"
+                                title="Delete shift"
+                                className="border-error/20 text-error hover:bg-error-wash hover:text-error"
+                              >
+                                <Trash2 size={14} />
+                              </Button>
+                            )}
+                            {!canAssignShift && !canCreateShift && !canDeleteShift && (
+                              <span className="text-xs text-muted-foreground">No actions</span>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -438,14 +709,25 @@ export default function ShiftsPage() {
         </div>
       )}
 
-      {/* Create shift */}
-      <Dialog open={showModal} onOpenChange={setShowModal}>
+      {/* Create / edit shift */}
+      <Dialog open={showModal} onOpenChange={(open) => (open ? setShowModal(true) : closeShiftModal())}>
         <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Create new shift</DialogTitle>
+            <DialogTitle>{editingShift ? 'Edit shift' : 'Create new shift'}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleCreateShift} className="space-y-4">
-            <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Branch" />
+          <form onSubmit={handleSaveShift} className="space-y-4">
+            {editingShift && hasAttendance(editingShift) && (
+              <div className="flex items-start gap-3 rounded-lg border border-warning/30 bg-warning-wash p-3 text-sm text-warning">
+                <AlertTriangle size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <span>
+                  A guard has already checked in, so the site and times are fixed. You can still change how many
+                  guards this shift needs.
+                </span>
+              </div>
+            )}
+            {!editingShift && (
+              <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Branch" />
+            )}
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-muted-foreground">Select site</label>
@@ -453,9 +735,15 @@ export default function ShiftsPage() {
                 className={selectClass}
                 value={newShift.siteId}
                 onChange={(e) => setNewShift({ ...newShift, siteId: e.target.value })}
+                disabled={Boolean(editingShift && hasAttendance(editingShift))}
                 required
               >
                 <option value="">Choose a site...</option>
+                {/* An edited shift's own site may sit outside the current
+                    branch filter, so make sure it is always offered. */}
+                {editingShift && !sites.some((site) => site.id === editingShift.siteId) && (
+                  <option value={editingShift.siteId}>{editingShift.site?.name ?? 'Current site'}</option>
+                )}
                 {sites.map((site) => (
                   <option key={site.id} value={site.id}>
                     {site.name}
@@ -469,6 +757,7 @@ export default function ShiftsPage() {
                 label="Start time"
                 value={newShift.startTime}
                 onChange={(value) => setNewShift({ ...newShift, startTime: value })}
+                disabled={Boolean(editingShift && hasAttendance(editingShift))}
                 required
               />
               <DateTimeField
@@ -476,6 +765,7 @@ export default function ShiftsPage() {
                 value={newShift.endTime}
                 onChange={(value) => setNewShift({ ...newShift, endTime: value })}
                 min={newShift.startTime || undefined}
+                disabled={Boolean(editingShift && hasAttendance(editingShift))}
                 error={
                   newShift.startTime &&
                   newShift.endTime &&
@@ -491,7 +781,7 @@ export default function ShiftsPage() {
               <label className="text-sm font-medium text-muted-foreground">Required guards</label>
               <Input
                 type="number"
-                min="1"
+                min={editingShift ? Math.max(1, editingShift.assignments?.length ?? 1) : 1}
                 value={Number.isNaN(newShift.requiredGuards) ? '' : newShift.requiredGuards}
                 onChange={(e) => {
                   const val = parseInt(e.target.value, 10);
@@ -499,14 +789,25 @@ export default function ShiftsPage() {
                 }}
                 required
               />
+              {editingShift && (editingShift.assignments?.length ?? 0) > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {editingShift.assignments.length} already assigned. Unassign someone before lowering this.
+                </p>
+              )}
             </div>
 
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
+              <Button type="button" variant="outline" onClick={closeShiftModal}>
                 Cancel
               </Button>
               <Button type="submit" disabled={creatingShift}>
-                {creatingShift ? 'Creating...' : 'Create Shift'}
+                {creatingShift
+                  ? editingShift
+                    ? 'Saving...'
+                    : 'Creating...'
+                  : editingShift
+                    ? 'Save Changes'
+                    : 'Create Shift'}
               </Button>
             </div>
           </form>
@@ -518,6 +819,15 @@ export default function ShiftsPage() {
         <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Assign guard to shift</DialogTitle>
+            {selectedShiftRecord && (
+              <p className="text-sm text-muted-foreground">
+                {selectedShiftRecord.site?.name} &middot; {selectedShiftRecord.assignments.length} of{' '}
+                {selectedShiftRecord.requiredGuards} guards assigned
+                {selectedShiftRecord.assignments.length > 0 && (
+                  <> ({selectedShiftRecord.assignments.map((a) => a.guard.name).join(', ')})</>
+                )}
+              </p>
+            )}
           </DialogHeader>
           <form onSubmit={handleAssign} className="space-y-4">
             <div className="space-y-3">
@@ -546,13 +856,13 @@ export default function ShiftsPage() {
                 </div>
               ) : recommendationsError ? (
                 <ErrorState message={recommendationsError} onRetry={selectedShift ? () => fetchRecommendations(selectedShift) : undefined} />
-              ) : recommendations.length === 0 ? (
+              ) : visibleRecommendations.length === 0 ? (
                 <div className="rounded-lg border border-border bg-muted px-4 py-5 text-center text-sm text-muted-foreground">
                   No recommended guards. Use manual selection below.
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {recommendations.slice(0, 5).map((recommendation) => (
+                  {visibleRecommendations.slice(0, 5).map((recommendation) => (
                     <button
                       key={recommendation.guard_id}
                       type="button"
@@ -604,13 +914,37 @@ export default function ShiftsPage() {
                 required
               >
                 <option value="">Choose a guard...</option>
-                {guards.map((guard) => (
+                {assignableGuards.map((guard) => (
                   <option key={guard.id} value={guard.id}>
                     {guard.name}
+                    {guard.canSignIn === false ? ' (no portal password)' : ''}
                   </option>
                 ))}
               </select>
             </div>
+
+            {selectedGuardRecord && !selectedGuardRecord.email?.trim() && (
+              <div className="rounded-lg border border-border bg-muted p-3 text-sm text-muted-foreground">
+                <span className="font-semibold text-foreground">No email on file.</span> {selectedGuardRecord.name} will
+                not be emailed about this shift. Tell them directly.
+              </div>
+            )}
+
+            {selectedGuardRecord?.canSignIn === false && (
+              <div className="flex items-start gap-3 rounded-lg border border-warning/30 bg-warning-wash p-3 text-sm text-warning">
+                <AlertTriangle size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <div>
+                  <div className="font-semibold">{selectedGuardRecord.name} can&apos;t sign in yet.</div>
+                  <div className="mt-0.5">
+                    They can still be assigned, but won&apos;t be able to check in until a portal password is set on{' '}
+                    <Link href="/guards" className="font-semibold underline">
+                      their profile
+                    </Link>
+                    .
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" onClick={resetAssignModal}>
@@ -625,12 +959,29 @@ export default function ShiftsPage() {
       <ConfirmDialog
         open={unassignTarget !== null}
         onOpenChange={(o) => !o && setUnassignTarget(null)}
-        title="Unassign guard?"
-        description="The guard will be removed from this shift and it will return to unassigned."
+        title={`Unassign ${unassignTarget?.guardName ?? 'guard'}?`}
+        description="They will be removed from this shift and the slot will open up again."
         confirmLabel="Unassign"
         destructive
         loading={unassigning}
         onConfirm={handleUnassign}
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        title="Delete this shift?"
+        description={
+          deleteTarget
+            ? `${deleteTarget.site?.name ?? 'This shift'} on ${formatDateTime(deleteTarget.startTime)} will be removed` +
+              `${(deleteTarget.assignments?.length ?? 0) > 0 ? ', along with its guard assignments' : ''}. ` +
+              'A shift with attendance or timesheets recorded cannot be deleted.'
+            : ''
+        }
+        confirmLabel="Delete"
+        destructive
+        loading={deleting}
+        onConfirm={handleDeleteShift}
       />
     </DashboardLayout>
   );

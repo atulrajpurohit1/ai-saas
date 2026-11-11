@@ -40,8 +40,10 @@ export class GuardsService {
     T extends { passwordHash?: string | null; refreshToken?: string | null },
   >(guard: T) {
     // Strip both credential hashes - neither should ever reach an API response.
+    // `canSignIn` carries the one fact admins need: a guard with no portal
+    // password gets "Invalid credentials" forever, and nothing else exposed it.
     const { passwordHash, refreshToken, ...safeGuard } = guard;
-    return safeGuard;
+    return { ...safeGuard, canSignIn: Boolean(passwordHash) };
   }
 
   private optionalText(value?: string | null) {

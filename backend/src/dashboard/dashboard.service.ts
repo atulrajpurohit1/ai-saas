@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { isNoShow, NO_SHOW_GRACE_MINUTES } from '../shifts/shift-staffing';
 
 const CLOSED_DEAL_STAGES = new Set(['won', 'lost']);
 const OPEN_PROPOSAL_EXCLUDED_STATUSES = new Set(['draft']);
@@ -91,6 +92,7 @@ export class DashboardService {
     }
 
     return {
+      noShowsToday: await this.countNoShowsToday(tenantId, now),
       leads: {
         total: leads.length,
         ...leadPeriod,
@@ -108,6 +110,52 @@ export class DashboardService {
         ...proposalPeriod,
       },
     };
+  }
+
+  /**
+   * How many assigned guards have failed to turn up for a shift that started
+   * today. For a guard company this is the number they most need to see.
+   *
+   * Derived from attendance rather than stored (see shift-staffing.isNoShow),
+   * so a guard who finally arrives stops counting with no job to run. Only
+   * shifts whose start is already past the grace period are considered, which
+   * keeps the query to today's roster rather than the whole history.
+   */
+  private async countNoShowsToday(tenantId: string, now: Date) {
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const overdueBefore = new Date(
+      now.getTime() - NO_SHOW_GRACE_MINUTES * 60 * 1000,
+    );
+    if (overdueBefore <= startOfToday) return 0;
+
+    const shifts = await this.prisma.shift.findMany({
+      where: {
+        tenantId,
+        startTime: { gte: startOfToday, lt: overdueBefore },
+      },
+      select: {
+        startTime: true,
+        assignments: { select: { guardId: true } },
+        attendanceEvents: {
+          where: { type: 'CHECK_IN' },
+          select: { guardId: true },
+        },
+      },
+    });
+
+    return shifts.reduce((total, shift) => {
+      const checkedIn = new Set(
+        shift.attendanceEvents.map((event) => event.guardId),
+      );
+      return (
+        total +
+        shift.assignments.filter((assignment) =>
+          isNoShow(shift, checkedIn.has(assignment.guardId), now),
+        ).length
+      );
+    }, 0);
   }
 
   /**

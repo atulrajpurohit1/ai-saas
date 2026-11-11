@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
 import TableScroll from '@/components/TableScroll';
@@ -17,12 +18,25 @@ interface Site {
 }
 
 export default function CheckpointsPage() {
+  return (
+    <Suspense fallback={null}>
+      <CheckpointsView />
+    </Suspense>
+  );
+}
+
+function CheckpointsView() {
+  // The Sites list links here already filtered to one site, so the page
+  // starts on whatever ?site_id= it was opened with.
+  const searchParams = useSearchParams();
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
-  const [selectedSiteFilter, setSelectedSiteFilter] = useState('');
+  const [selectedSiteFilter, setSelectedSiteFilter] = useState(
+    searchParams.get('site_id') || '',
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     name: '',
@@ -257,8 +271,19 @@ export default function CheckpointsPage() {
                 </tr>
               ) : filteredCheckpoints.length === 0 ? (
                 <tr>
+                  {/* A checkpoint belongs to a site, so a tenant with no
+                      sites has to start there. */}
                   <td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">
-                    No checkpoints found.
+                    <p className="font-semibold text-foreground">No checkpoints yet</p>
+                    <p className="mt-1 text-sm">
+                      A checkpoint is a place a guard scans on patrol.
+                    </p>
+                    <Link
+                      href={sites.length === 0 ? '/sites' : '/patrol/routes'}
+                      className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+                    >
+                      {sites.length === 0 ? 'Create a site first' : 'Then group them into a route'}
+                    </Link>
                   </td>
                 </tr>
               ) : (

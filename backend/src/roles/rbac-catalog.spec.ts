@@ -3,6 +3,7 @@ import { join } from 'path';
 import {
   ALL_PERMISSION_KEYS,
   PERMISSIONS,
+  REMOVED_SYSTEM_ROLES,
   SYSTEM_ROLES,
   systemRolePermissionKeys,
 } from './rbac.constants';
@@ -79,6 +80,58 @@ describe('RBAC catalog', () => {
     });
 
     expect(duplicates).toEqual([]);
+  });
+
+  // A name in both SYSTEM_ROLES and REMOVED_SYSTEM_ROLES is seeded by
+  // ensureTenantSystemRoles and then deactivated by migrateRemovedRoles in the
+  // same pass, so the role can never exist. Supervisor hit exactly this: it
+  // was retired into Operations before being reinstated as its own role.
+  it('never both seeds and retires the same role name', () => {
+    const retired = new Set(Object.keys(REMOVED_SYSTEM_ROLES));
+    expect(
+      SYSTEM_ROLES.map((role) => role.name).filter((name) => retired.has(name)),
+    ).toEqual([]);
+  });
+
+  describe('Supervisor', () => {
+    const permissions = () => systemRolePermissionKeys('Supervisor');
+
+    it('exists as a built-in role', () => {
+      expect(SYSTEM_ROLES.map((role) => role.name)).toContain('Supervisor');
+      expect(permissions().length).toBeGreaterThan(0);
+    });
+
+    it('can watch patrols and review flags', () => {
+      expect(permissions()).toEqual(
+        expect.arrayContaining([
+          'patrols.view',
+          'incidents.view',
+          'incidents.review',
+          'shifts.view',
+          'guards.view',
+        ]),
+      );
+    });
+
+    it('cannot schedule, edit guards, or see finance', () => {
+      expect(permissions()).not.toEqual(
+        expect.arrayContaining(['shifts.create']),
+      );
+      expect(permissions()).not.toEqual(
+        expect.arrayContaining(['shifts.assign']),
+      );
+      expect(permissions()).not.toEqual(
+        expect.arrayContaining(['guards.manage']),
+      );
+      expect(
+        permissions().filter(
+          (key) =>
+            key.startsWith('finance.') ||
+            key.startsWith('invoices.') ||
+            key.startsWith('rate_cards.'),
+        ),
+      ).toEqual([]);
+    });
   });
 
   it('gives every permission a module', () => {

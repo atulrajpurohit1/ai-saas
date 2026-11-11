@@ -8,6 +8,7 @@ describe('DashboardService', () => {
     lead: { findMany: jest.Mock };
     deal: { findMany: jest.Mock };
     proposal: { findMany: jest.Mock };
+    shift: { findMany: jest.Mock };
   };
 
   const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000);
@@ -17,6 +18,7 @@ describe('DashboardService', () => {
       lead: { findMany: jest.fn().mockResolvedValue([]) },
       deal: { findMany: jest.fn().mockResolvedValue([]) },
       proposal: { findMany: jest.fn().mockResolvedValue([]) },
+      shift: { findMany: jest.fn().mockResolvedValue([]) },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -166,6 +168,47 @@ describe('DashboardService', () => {
 
       expect(activity.find((a) => a.id === 'deal-d1')?.subject).toBe('Acme');
       expect(activity.find((a) => a.id === 'proposal-p1')?.subject).toBe('Proposal');
+    });
+  });
+
+  // For a guard company this is the number they most need on the dashboard.
+  describe('no-shows today', () => {
+    const hoursAgo = (n: number) => new Date(Date.now() - n * 60 * 60 * 1000);
+
+    it('counts each assigned guard who never checked in', async () => {
+      prisma.shift.findMany.mockResolvedValue([
+        {
+          startTime: hoursAgo(2),
+          assignments: [{ guardId: 'g1' }, { guardId: 'g2' }],
+          attendanceEvents: [{ guardId: 'g1' }],
+        },
+      ]);
+
+      const summary = await service.getSummary('tenant-1');
+
+      expect(summary.noShowsToday).toBe(1);
+    });
+
+    it('is zero when everyone turned up', async () => {
+      prisma.shift.findMany.mockResolvedValue([
+        {
+          startTime: hoursAgo(2),
+          assignments: [{ guardId: 'g1' }],
+          attendanceEvents: [{ guardId: 'g1' }],
+        },
+      ]);
+
+      const summary = await service.getSummary('tenant-1');
+
+      expect(summary.noShowsToday).toBe(0);
+    });
+
+    it('only looks at shifts that are already past the grace period', async () => {
+      await service.getSummary('tenant-1');
+
+      const where = prisma.shift.findMany.mock.calls[0][0].where;
+      expect(where.startTime.lt.getTime()).toBeLessThan(Date.now());
+      expect(where.startTime.gte.getHours()).toBe(0);
     });
   });
 });

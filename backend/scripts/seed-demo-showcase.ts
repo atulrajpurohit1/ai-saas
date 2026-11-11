@@ -1350,8 +1350,9 @@ async function seedOperations(
         assignmentRows.push({
           shiftId,
           guardId: guardIds[guardKey],
-          // Today and tomorrow are confirmed; later in the week is pending.
-          status: dayAhead <= 1 ? 'confirmed' : 'pending',
+          // Assignments are confirmed as soon as the scheduler makes them;
+          // there is no accept/decline step for the guard.
+          status: 'confirmed',
           createdAt: daysAgo(3),
         });
       }
@@ -2170,9 +2171,18 @@ async function seedCreditLedger(
     createdAt: daysAgo(14, 15, 20),
   });
 
-  await prisma.tenantCreditBalance.update({
+  // upsert, not update: a freshly created tenant may have no balance row yet
+  // (the dry run shows credits 0 via the `?? 0` fallback). update() would fail
+  // with P2025; upsert provisions the row the first time.
+  await prisma.tenantCreditBalance.upsert({
     where: { tenantId },
-    data: {
+    update: {
+      balance: running,
+      lifetimePurchased: purchased,
+      lifetimeConsumed: consumed,
+    },
+    create: {
+      tenantId,
       balance: running,
       lifetimePurchased: purchased,
       lifetimeConsumed: consumed,

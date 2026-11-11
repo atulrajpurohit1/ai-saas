@@ -24,7 +24,8 @@ interface CheckpointQrScannerProps {
 // Captures the checkpoint's QR code during a patrol scan. Two paths, both
 // producing the same string for the server to verify:
 //
-//   1. Camera decode, where the browser supports it (BarcodeDetector).
+//   1. Camera decode (BarcodeDetector where the browser has it, jsQR
+//      otherwise - see qr-scan.ts; iPhones take the second path).
 //   2. Typing the code printed on the sticker.
 //
 // The manual path is always available, never hidden behind a failure: a
@@ -44,8 +45,8 @@ export default function CheckpointQrScanner({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Checked on the client only: BarcodeDetector is never present during SSR,
-  // so probing it at render time would mark every device unsupported.
+  // Checked on the client only: navigator is absent during SSR, so probing
+  // it at render time would mark every device unsupported.
   useEffect(() => {
     setCameraSupported(isQrCameraScanSupported());
   }, []);

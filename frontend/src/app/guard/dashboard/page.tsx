@@ -25,7 +25,7 @@ interface GuardShift {
   startTime: string;
   endTime: string;
   status: string;
-  assignmentStatus: string;
+  attendanceStatus?: 'not_started' | 'checked_in' | 'completed';
 }
 
 export default function GuardDashboardPage() {

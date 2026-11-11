@@ -73,6 +73,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (nextUser.role === 'client') return '/client/dashboard';
     if (nextUser.role === 'finance' && modules.has('FINANCE')) return '/finance';
+    // A supervisor's job is the live patrol board, so start them there rather
+    // than on the sales-shaped dashboard.
+    if (nextUser.role === 'supervisor' && entitled('patrols.view')) {
+      return '/patrol/monitor';
+    }
     if (!permissions.has('dashboard.view')) {
       if (entitled('shifts.view')) return '/shifts';
       if (entitled('finance.view')) return '/finance';

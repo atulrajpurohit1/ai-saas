@@ -165,7 +165,10 @@ export default function PatrolMonitorPage() {
             <StatCard icon={Users} label="Guards on patrol" value={overview.summary.guardsOnPatrol} tone="primary" />
             <StatCard icon={CheckCircle2} label="Completed today" value={overview.summary.completedToday} tone="success" />
             <StatCard icon={Footprints} label="Checkpoints today" value={overview.summary.checkpointsScannedToday} />
-            <StatCard icon={ShieldAlert} label="Missed today" value={overview.summary.missedCheckpointsToday} tone="warning" />
+            {/* "Missed today" read as missed patrols. It counts checkpoints
+                skipped inside completed patrols; patrols themselves are
+                voluntary and unscheduled, so there is nothing to miss. */}
+            <StatCard icon={ShieldAlert} label="Checkpoints missed today" value={overview.summary.missedCheckpointsToday} tone="warning" />
             <StatCard icon={MapPinOff} label="Geofence fails" value={overview.summary.geofenceFailuresToday} tone="warning" />
             <StatCard icon={ScanLine} label="Wrong QR scans" value={overview.summary.qrMismatchesToday} tone="warning" />
           </div>

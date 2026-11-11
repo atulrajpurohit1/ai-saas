@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import GuardLayout from '@/components/GuardLayout';
@@ -15,7 +15,7 @@ import {
   uploadGuardIncidentEvidence,
 } from '@/lib/incidents';
 import { OfflineSync } from '@/lib/offline-sync';
-import { formatEnumLabel, formatDateTime as fmtDateTime } from '@/lib/format';
+import { formatDateTime as fmtDateTime } from '@/lib/format';
 import { AlertTriangle, ArrowLeft, CalendarDays, Camera, CheckCircle2, Clock, FileWarning, ImagePlus, Loader2, LogIn, LogOut, MapPin, Navigation, Send, ShieldCheck, X } from 'lucide-react';
 
 interface GuardShiftDetail {
@@ -23,10 +23,12 @@ interface GuardShiftDetail {
   startTime: string;
   endTime: string;
   status: string;
-  assignmentStatus: string;
   attendanceStatus: 'not_started' | 'checked_in' | 'completed';
   checkInTime?: string | null;
   checkOutTime?: string | null;
+  /** Check-in opens an hour before the shift starts and closes when it ends. */
+  opensAt?: string | null;
+  closesAt?: string | null;
   site: {
     id: string;
     name: string;
@@ -99,6 +101,14 @@ export default function GuardShiftDetailPage() {
     fetchShift();
   }, [fetchShift]);
 
+  // Drives the check-in window below. Half a minute is close enough for a
+  // window measured in hours, and cheap enough to leave running.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+
   const formatTime = (value: string) => fmtDateTime(value);
 
   const formatAttendanceTime = (value?: string | null) => value ? formatTime(value) : 'Not recorded';
@@ -113,6 +123,23 @@ export default function GuardShiftDetailPage() {
     if (status === 'completed') return 'Completed';
     return 'Not started';
   };
+
+  // Check-in is refused outside its window, so say so on the button rather
+  // than letting the guard tap it and read an error. The clock ticks so a
+  // guard who arrives early sees the button enable itself at the hour,
+  // instead of having to reload the page.
+  const checkInWindow = useMemo(() => {
+    if (!shift?.opensAt || !shift?.closesAt) return { open: true, note: '' };
+    const opensAt = new Date(shift.opensAt).getTime();
+    const closesAt = new Date(shift.closesAt).getTime();
+    if (now < opensAt) {
+      return { open: false, note: `Check-in opens ${formatTime(shift.opensAt)}` };
+    }
+    if (now > closesAt) {
+      return { open: false, note: 'This shift has ended. Tell your supervisor you could not check in.' };
+    }
+    return { open: true, note: '' };
+  }, [shift?.opensAt, shift?.closesAt, now]);
 
   const handleAttendanceAction = async (action: 'check-in' | 'check-out') => {
     if (!id || actionLoading) return;
@@ -132,7 +159,6 @@ export default function GuardShiftDetailPage() {
           attendanceStatus: action === 'check-in' ? 'checked_in' : 'completed',
           checkInTime: action === 'check-in' ? new Date().toISOString() : prev.checkInTime,
           checkOutTime: action === 'check-out' ? new Date().toISOString() : prev.checkOutTime,
-          status: action === 'check-in' ? 'in_progress' : 'completed',
         } : prev);
       } else {
         await api.post(`guard/shifts/${id}/${action}`);
@@ -246,11 +272,16 @@ export default function GuardShiftDetailPage() {
         <div className="space-y-6">
           <section className="rounded-[var(--radius-lg)] border border-white/10 bg-white/[0.04] p-6 sm:p-8">
             <div className="mb-4 flex flex-wrap items-center gap-3">
-              <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-emerald-300">
-                Schedule: {formatEnumLabel(shift.status)}
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold uppercase tracking-widest text-slate-300">
-                My Status: {formatEnumLabel(shift.assignmentStatus)}
+              <span
+                className={
+                  shift.attendanceStatus === 'checked_in'
+                    ? 'rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-sky-300'
+                    : shift.attendanceStatus === 'completed'
+                      ? 'rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-emerald-300'
+                      : 'rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold uppercase tracking-widest text-slate-300'
+                }
+              >
+                {getAttendanceLabel(shift.attendanceStatus)}
               </span>
             </div>
 
@@ -280,7 +311,8 @@ export default function GuardShiftDetailPage() {
                   <button
                     type="button"
                     onClick={() => handleAttendanceAction('check-in')}
-                    disabled={actionLoading !== null}
+                    disabled={actionLoading !== null || !checkInWindow.open}
+                    title={checkInWindow.open ? undefined : checkInWindow.note}
                     className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {actionLoading === 'check-in' ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />}
@@ -320,6 +352,7 @@ export default function GuardShiftDetailPage() {
                   type="button"
                   onClick={openIncidentModal}
                   disabled={shift.attendanceStatus === 'not_started'}
+                  title={shift.attendanceStatus === 'not_started' ? 'Check in first' : undefined}
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-5 py-3 text-sm font-bold text-amber-200 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <FileWarning size={18} />
@@ -327,6 +360,12 @@ export default function GuardShiftDetailPage() {
                 </button>
               </div>
             </div>
+
+            {shift.attendanceStatus === 'not_started' && !checkInWindow.open && (
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm font-medium text-slate-300">
+                {checkInWindow.note}
+              </div>
+            )}
 
             {actionMessage && (
               <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm font-medium text-emerald-200">

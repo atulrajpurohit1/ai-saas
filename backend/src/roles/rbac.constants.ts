@@ -245,7 +245,10 @@ export const PERMISSIONS: PermissionDefinition[] = [
   {
     key: 'shifts.create',
     name: 'Create shifts',
-    description: 'Create shifts.',
+    // Editing is covered here rather than by a separate shifts.update: a
+    // scheduler who can create a shift is the person who fixes a typo in one,
+    // and deleting (the destructive half) has its own key.
+    description: 'Create and edit shifts.',
     module: 'shifts',
   },
   {
@@ -605,6 +608,11 @@ export type SystemRoleDefinition = {
  * grown either far too broad -- Branch Admin held almost every permission --
  * or confusingly narrow. REMOVED_SYSTEM_ROLES maps the old names onto these so
  * nobody assigned to one is stranded; see RolesService.ensureTenantSystemRoles.
+ *
+ * Supervisor was later reinstated, deliberately narrow this time: the owner
+ * runs supervisors as a separate job from scheduling, so it watches patrols
+ * and reviews flags without touching the roster or finance. Anyone moved from
+ * the old Supervisor onto Operations stays there; they are not moved back.
  */
 export const SYSTEM_ROLES: SystemRoleDefinition[] = [
   {
@@ -784,6 +792,25 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
     ],
   },
   {
+    name: 'Supervisor',
+    description:
+      'Watches live patrols, reviews flagged scans and incidents, sees ' +
+      'guards and shifts. Cannot schedule, edit guards, or see finance.',
+    // Deliberately read-only apart from incidents.review: a supervisor
+    // watches and signs off, the scheduler rosters. The only write is the
+    // review of a flagged scan or incident, which is the job.
+    permissions: [
+      'dashboard.view',
+      'guards.view',
+      'shifts.view',
+      'patrols.view',
+      'incidents.view',
+      'incidents.review',
+      'reports.view',
+      'timesheets.view',
+    ],
+  },
+  {
     name: 'Finance',
     description:
       'Invoicing and money: invoices, disputes, rate cards and finance ' +
@@ -837,7 +864,11 @@ export const SYSTEM_ROLES: SystemRoleDefinition[] = [
 export const REMOVED_SYSTEM_ROLES: Record<string, string> = {
   'Branch Admin': 'Manager',
   Scheduler: 'Operations',
-  Supervisor: 'Operations',
+  // Supervisor is NOT listed here. It was retired into Operations once, and is
+  // now a built-in role again (a supervisor watches patrols but does not
+  // roster or bill). A name in both lists would be seeded by
+  // ensureTenantSystemRoles and then immediately deactivated by
+  // migrateRemovedRoles, so the role could never exist.
 };
 
 export function systemRolePermissionKeys(roleName: string) {
@@ -851,9 +882,11 @@ export function systemRolePermissionKeys(roleName: string) {
 export function roleToPortalRole(roleName: string) {
   const normalized = roleName.toLowerCase();
   // Staff roles all use the admin portal -- they differ in what they can do
-  // (their permissions), not in which app they log into. 'branch admin',
-  // 'scheduler' and 'supervisor' are the retired roles, kept here so a user
-  // still briefly holding one during the migration window maps sensibly.
+  // (their permissions), not in which app they log into. 'branch admin' and
+  // 'scheduler' are the retired roles, kept here so a user still briefly
+  // holding one during the migration window maps sensibly. 'supervisor' keeps
+  // its own portal role so the app can land it on the patrol monitor; every
+  // screen it reaches is permission-gated, not role-gated.
   if (
     normalized === 'super admin' ||
     normalized === 'branch admin' ||

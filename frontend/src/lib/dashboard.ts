@@ -8,6 +8,8 @@ export interface PeriodMetric {
 }
 
 export interface DashboardSummary {
+  /** Assigned guards who have not checked in to a shift that started today. */
+  noShowsToday: number;
   leads: PeriodMetric & { weeklyTrend: { weekStart: string; count: number }[] };
   deals: PeriodMetric & { active: number; byStage: { stage: string; count: number }[] };
   proposals: PeriodMetric & { sent: number };

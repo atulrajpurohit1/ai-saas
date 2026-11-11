@@ -36,6 +36,8 @@ interface Guard {
   branch?: BranchSummary | null;
   createdAt: string;
   deactivatedAt?: string | null;
+  /** False when no portal password has been set, so the guard cannot log in. */
+  canSignIn?: boolean;
   availability?: {
     status: string;
   };
@@ -346,6 +348,7 @@ export default function GuardsPage() {
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Guard</TableHead>
                   <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Contact</TableHead>
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Portal access</TableHead>
                   {showSalary && (
                     <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Salary</TableHead>
                   )}
@@ -378,6 +381,27 @@ export default function GuardsPage() {
                             <Mail size={14} aria-hidden="true" />
                             <span>{guard.email}</span>
                           </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Portal access">
+                        {guard.canSignIn ? (
+                          <span
+                            className="inline-flex w-fit items-center gap-1.5 rounded-full bg-success-wash px-2.5 py-0.5 text-xs font-semibold text-success"
+                            title="A portal password is set. The guard can sign in to the guard app."
+                          >
+                            <KeyRound size={12} aria-hidden="true" />
+                            Ready
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleEdit(guard)}
+                            className="inline-flex w-fit items-center gap-1.5 rounded-full bg-warning-wash px-2.5 py-0.5 text-xs font-semibold text-warning transition hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring"
+                            title="This guard cannot sign in. Click to set a portal password."
+                          >
+                            <KeyRound size={12} aria-hidden="true" />
+                            No password set
+                          </button>
                         )}
                       </TableCell>
                       {showSalary && (
@@ -524,8 +548,14 @@ export default function GuardsPage() {
                   placeholder={isEditing ? 'Leave blank to keep current password' : 'Set guard portal password'}
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  required={!isEditing}
                 />
               </div>
+              <p className="text-xs text-muted-foreground">
+                Required for the guard to sign in to the guard portal (at least 6 characters). Share it with them
+                directly.
+                {isEditing && ' Leave blank to keep the current one.'}
+              </p>
             </div>
 
             <BranchSelect
