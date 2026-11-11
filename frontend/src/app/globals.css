@@ -933,3 +933,103 @@ option.bg-\[\#0f172a\] {
     display: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Checkpoint QR sticker sheet - /patrol/checkpoints/print
+ *
+ * Every rule here sets its colours literally (#000 on #fff) instead of using
+ * the app's tokens or Tailwind utilities. The override block further up this
+ * file re-skins the old dark-theme utilities to the light theme, and a
+ * sticker must not inherit any of that: these are cut out, laminated and
+ * mounted on a gate, so the QR has to print as true black on true white at
+ * full contrast whatever the screen theme is doing. It also means a future
+ * theme change cannot quietly ruin a printed sticker.
+ */
+.qr-sheet {
+  /* Overridden per sticker size by the page's inline custom properties. */
+  --qr-cols: 2;
+  --qr-sticker-height: 93mm;
+  display: grid;
+  grid-template-columns: repeat(var(--qr-cols), minmax(0, 1fr));
+  gap: 0;
+  background: #fff;
+}
+.qr-sticker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2mm;
+  height: var(--qr-sticker-height);
+  padding: 4mm;
+  /* Dashed so the sheet doubles as its own cutting guide. */
+  border: 1px dashed #9ca3af;
+  background: #fff;
+  color: #000;
+  text-align: center;
+  /* A sticker split across two pages is waste paper. */
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.qr-sticker-site {
+  font-size: 2.6mm;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4b5563;
+}
+.qr-sticker-code-svg {
+  display: block;
+  width: auto;
+  /* The QR is the one element that must never be squeezed: it takes the
+     slack left by the labels, and shape-rendering keeps module edges hard
+     at small print sizes rather than anti-aliased into grey. */
+  height: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  aspect-ratio: 1 / 1;
+  /* The square derives its width from the height flex gives it, so on an
+     unusually narrow sticker (a non-A4 paper size, a browser that lays flex
+     out differently) that width could exceed the sticker. Capped so the code
+     shrinks to fit rather than printing with its edge cropped off - a
+     clipped QR is an unscannable QR. */
+  max-width: 100%;
+  shape-rendering: crispEdges;
+}
+.qr-sticker-name {
+  font-size: 4mm;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #000;
+}
+.qr-sticker-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 3mm;
+  letter-spacing: 0.04em;
+  color: #1f2937;
+  /* Printed in plain text under every code on purpose: lib/qr-scan.ts can
+     always fall back to typing the code by hand, and that fallback is only
+     usable if the guard standing at a scuffed sticker can still read it. */
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 8mm;
+  }
+  /* The toolbar, warnings and app chrome are screen-only furniture. */
+  .qr-noprint {
+    display: none !important;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  .qr-print-root {
+    /* Lifts the sheet out of the page's centred, padded screen container so
+       it starts at the corner of the paper and uses the full width. */
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+}

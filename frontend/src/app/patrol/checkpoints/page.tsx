@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
 import TableScroll from '@/components/TableScroll';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { Plus, Search, MapPin, MapPinOff, Edit2, QrCode, Crosshair, Loader2 } from 'lucide-react';
+import { Plus, Printer, Search, MapPin, MapPinOff, Edit2, QrCode, Crosshair, Loader2 } from 'lucide-react';
 import { Checkpoint, getCheckpoints, createCheckpoint, updateCheckpoint } from '@/lib/patrols';
 import { requestCurrentLocation, geolocationErrorMessage } from '@/lib/geolocation';
 
@@ -177,16 +178,31 @@ export default function CheckpointsPage() {
           <h2 className="text-2xl font-bold sm:text-3xl">Checkpoints</h2>
           <p className="text-muted-foreground">Manage physical checkpoints that guards scan during patrols.</p>
         </div>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowModal(true);
-          }}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-indigo-500 sm:w-auto"
-        >
-          <Plus size={20} />
-          <span>Create Checkpoint</span>
-        </button>
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+          {/* Carries the site filter through, so "print" means the same set
+              of checkpoints the user is currently looking at. */}
+          <Link
+            href={
+              selectedSiteFilter
+                ? `/patrol/checkpoints/print?site_id=${encodeURIComponent(selectedSiteFilter)}`
+                : '/patrol/checkpoints/print'
+            }
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-6 py-3 font-bold transition-all hover:bg-white/10 sm:w-auto"
+          >
+            <Printer size={18} />
+            <span>Print QR Codes</span>
+          </Link>
+          <button
+            onClick={() => {
+              resetForm();
+              setShowModal(true);
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 font-bold text-white shadow-lg transition-all hover:bg-indigo-500 sm:w-auto"
+          >
+            <Plus size={20} />
+            <span>Create Checkpoint</span>
+          </button>
+        </div>
       </div>
 
       <div className="glass-card rounded-3xl overflow-hidden border border-white/5">
