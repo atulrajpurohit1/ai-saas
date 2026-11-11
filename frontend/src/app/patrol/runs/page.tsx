@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
@@ -11,6 +11,7 @@ import { getApiErrorMessage } from '@/lib/api-error';
 import { ADMIN_LOCATION_POLL_INTERVAL_MS, LOCATION_STALE_THRESHOLD_MS, EMERGENCY_ALERT_POLL_INTERVAL_MS } from '@/lib/guard-tracking.constants';
 import { EmergencyAlert, getEmergencyAlerts, acknowledgeEmergencyAlert, resolveEmergencyAlert } from '@/lib/emergency-alerts';
 import CheckpointEvidenceViewer from '@/components/CheckpointEvidenceViewer';
+import PatrolRunMap, { checkpointPointId } from '@/components/PatrolRunMap';
 import TableScroll from '@/components/TableScroll';
 
 function isLocationStale(lastLocationAt: string | null): boolean {
@@ -172,6 +173,19 @@ export default function PatrolRunsPage() {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [selectedRunDetail, setSelectedRunDetail] = useState<PatrolRun | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  // Which checkpoint the route map is centred on. The nonce lets the same
+  // timeline row be clicked twice to re-centre after the user pans away.
+  const [mapFocusId, setMapFocusId] = useState<string | null>(null);
+  const [mapFocusNonce, setMapFocusNonce] = useState(0);
+  const runMapRef = useRef<HTMLDivElement | null>(null);
+
+  // The map sits above a long timeline inside a scrolling modal, so opening
+  // a checkpoint has to bring the map back into view as well as centre it.
+  const focusCheckpointOnMap = useCallback((eventId: string) => {
+    setMapFocusId(checkpointPointId(eventId));
+    setMapFocusNonce((n) => n + 1);
+    runMapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, []);
 
   // Phase 3B: currently-active guards, polled independently of the full
   // (potentially large, historical) runs list below.
@@ -257,6 +271,8 @@ export default function PatrolRunsPage() {
 
   const handleViewDetails = async (runId: string) => {
     setSelectedRunId(runId);
+    // A pin id from the previously-opened run must not survive into this one.
+    setMapFocusId(null);
     setLoadingDetail(true);
     try {
       const details = await getPatrolRun(runId);
@@ -599,6 +615,20 @@ export default function PatrolRunsPage() {
                   </div>
                 )}
 
+                {/* ROUTE MAP - the checkpoints on this patrol and the path
+                    the guard's device reported between them, above the
+                    timeline that lists the same scans in words. */}
+                <div ref={runMapRef} className="scroll-mt-4">
+                  <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3">
+                    Patrol Route Map
+                  </h4>
+                  <PatrolRunMap
+                    run={selectedRunDetail}
+                    focusId={mapFocusId}
+                    focusNonce={mapFocusNonce}
+                  />
+                </div>
+
                 {/* TIMELINE LIST */}
                 <div>
                   <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">Checkpoint Scan Checklist</h4>
@@ -622,7 +652,29 @@ export default function PatrolRunsPage() {
 
                             <div>
                               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                                <span className="font-semibold text-sm">{event.checkpoint?.name || 'Unknown Checkpoint'}</span>
+                                {/* Clicking the checkpoint opens it on the
+                                    route map above rather than navigating
+                                    away from the log. */}
+                                {event.checkpoint &&
+                                event.checkpoint.latitude !== null &&
+                                event.checkpoint.longitude !== null ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => focusCheckpointOnMap(event.id)}
+                                    className="group/map inline-flex items-center gap-1.5 text-left text-sm font-semibold hover:text-primary"
+                                    title="Open this checkpoint on the map"
+                                  >
+                                    {event.checkpoint.name}
+                                    <MapPin
+                                      size={12}
+                                      className="shrink-0 opacity-40 transition-opacity group-hover/map:opacity-100"
+                                    />
+                                  </button>
+                                ) : (
+                                  <span className="font-semibold text-sm">
+                                    {event.checkpoint?.name || 'Unknown Checkpoint'}
+                                  </span>
+                                )}
                                 <span className="text-xs text-muted-foreground font-mono">
                                   {new Date(event.scannedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                                 </span>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
@@ -8,9 +8,23 @@ import DashboardLayout from '@/components/DashboardLayout';
 import TableScroll from '@/components/TableScroll';
 import api from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { Plus, Printer, Search, MapPin, MapPinOff, Edit2, QrCode, Crosshair, Loader2 } from 'lucide-react';
+import {
+  Plus,
+  Printer,
+  Search,
+  MapPin,
+  MapPinOff,
+  Edit2,
+  QrCode,
+  Crosshair,
+  Loader2,
+  List,
+  Map as MapIcon,
+  Navigation,
+} from 'lucide-react';
 import { Checkpoint, getCheckpoints, createCheckpoint, updateCheckpoint } from '@/lib/patrols';
 import { requestCurrentLocation, geolocationErrorMessage } from '@/lib/geolocation';
+import PatrolMap, { MapPoint, PatrolMapLegend } from '@/components/PatrolMap';
 
 interface Site {
   id: string;
@@ -38,6 +52,12 @@ function CheckpointsView() {
     searchParams.get('site_id') || '',
   );
   const [searchQuery, setSearchQuery] = useState('');
+  // The same filtered set of checkpoints, shown either as the table or on a
+  // map. "Show on map" from a row flips the view and flies to that pin; the
+  // nonce lets a second click on the same row re-centre it.
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [focusCheckpointId, setFocusCheckpointId] = useState<string | null>(null);
+  const [focusNonce, setFocusNonce] = useState(0);
   const [formData, setFormData] = useState({
     name: '',
     site_id: '',
@@ -185,6 +205,35 @@ function CheckpointsView() {
     return matchesSearch;
   });
 
+  const hasCoordinates = (cp: Checkpoint) => cp.latitude !== null && cp.longitude !== null;
+
+  const mapPoints: MapPoint[] = useMemo(
+    () =>
+      filteredCheckpoints.filter(hasCoordinates).map((cp) => ({
+        id: cp.id,
+        latitude: cp.latitude as number,
+        longitude: cp.longitude as number,
+        label: cp.name,
+        // Everything the table row says about where this is, in one line.
+        sublabel: [cp.site?.name, cp.locationNote || cp.description].filter(Boolean).join(' · ') || null,
+        // An inactive checkpoint still belongs on the map - guards just
+        // aren't scanning it - so it is drawn in the muted "issue" tone
+        // instead of being hidden.
+        tone: cp.status === 'active' ? 'checkpoint' : 'issue',
+        radiusMeters: cp.geofenceRadiusMeters,
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [checkpoints, searchQuery],
+  );
+
+  const missingCoordinates = filteredCheckpoints.length - mapPoints.length;
+
+  const showOnMap = (checkpointId: string) => {
+    setViewMode('map');
+    setFocusCheckpointId(checkpointId);
+    setFocusNonce((n) => n + 1);
+  };
+
   return (
     <DashboardLayout requiredModule="GUARD_TOUR">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
@@ -232,40 +281,101 @@ function CheckpointsView() {
                 className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-muted-foreground shrink-0">Filter Site:</label>
-              <select
-                value={selectedSiteFilter}
-                onChange={(e) => setSelectedSiteFilter(e.target.value)}
-                className="bg-white/5 border border-white/10 rounded-xl py-2 px-3 focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="" className="bg-[#0e0e1a]">All Sites</option>
-                {sites.map((site) => (
-                  <option key={site.id} value={site.id} className="bg-[#0e0e1a]">
-                    {site.name}
-                  </option>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-muted-foreground shrink-0">Filter Site:</label>
+                <select
+                  value={selectedSiteFilter}
+                  onChange={(e) => setSelectedSiteFilter(e.target.value)}
+                  className="bg-white/5 border border-white/10 rounded-xl py-2 px-3 focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="" className="bg-[#0e0e1a]">All Sites</option>
+                  {sites.map((site) => (
+                    <option key={site.id} value={site.id} className="bg-[#0e0e1a]">
+                      {site.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* List / map switch. Both views show exactly the set the
+                  search + site filter above produced. */}
+              <div className="flex items-center rounded-xl border border-white/10 bg-white/5 p-1">
+                {([
+                  { key: 'list' as const, label: 'List', icon: List },
+                  { key: 'map' as const, label: 'Map', icon: MapIcon },
+                ]).map(({ key, label, icon: Icon }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setViewMode(key)}
+                    aria-pressed={viewMode === key}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
+                      viewMode === key
+                        ? 'bg-primary text-white shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Icon size={14} />
+                    {label}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
           </div>
         </div>
 
+        {viewMode === 'map' && (
+          <div className="p-4 sm:p-6">
+            {loading ? (
+              <div className="flex h-[420px] items-center justify-center gap-2 rounded-[var(--radius-lg)] border border-border bg-muted text-sm text-muted-foreground">
+                <Loader2 className="animate-spin" size={16} />
+                Loading checkpoints…
+              </div>
+            ) : (
+              <>
+                <PatrolMap
+                  points={mapPoints}
+                  focusId={focusCheckpointId}
+                  focusNonce={focusNonce}
+                  missingCoordinatesCount={missingCoordinates}
+                  heightClassName="h-[480px]"
+                  emptyTitle="No checkpoint has GPS coordinates yet"
+                  emptyHint="Open a checkpoint, set its latitude and longitude (or use “Use my location” while standing at it), and it will appear here."
+                />
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                  <PatrolMapLegend
+                    items={[
+                      { tone: 'checkpoint', label: 'Active checkpoint' },
+                      { tone: 'issue', label: 'Inactive checkpoint' },
+                    ]}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    Shaded circles are geofences. Click a pin for its details.
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {viewMode === 'list' && (
         <TableScroll>
           <table className="responsive-table w-full text-left">
             <thead>
               <tr className="text-muted-foreground text-sm uppercase tracking-wider">
-                <th className="px-6 py-4 font-semibold">Checkpoint</th>
-                <th className="px-6 py-4 font-semibold">Site</th>
-                <th className="px-6 py-4 font-semibold">QR Code</th>
-                <th className="px-6 py-4 font-semibold">Location Details</th>
-                <th className="px-6 py-4 font-semibold">Status</th>
-                <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                <th className="px-4 py-3.5 font-semibold">Checkpoint</th>
+                <th className="px-4 py-3.5 font-semibold">Site</th>
+                <th className="px-4 py-3.5 font-semibold">QR Code</th>
+                <th className="px-4 py-3.5 font-semibold">Location Details</th>
+                <th className="px-4 py-3.5 font-semibold">Status</th>
+                <th className="px-4 py-3.5 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                     Loading checkpoints...
                   </td>
                 </tr>
@@ -273,7 +383,7 @@ function CheckpointsView() {
                 <tr>
                   {/* A checkpoint belongs to a site, so a tenant with no
                       sites has to start there. */}
-                  <td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                     <p className="font-semibold text-foreground">No checkpoints yet</p>
                     <p className="mt-1 text-sm">
                       A checkpoint is a place a guard scans on patrol.
@@ -289,7 +399,7 @@ function CheckpointsView() {
               ) : (
                 filteredCheckpoints.map((cp) => (
                   <tr key={cp.id} className="hover:bg-white/5 transition-colors group">
-                    <td className="px-6 py-4" data-label="Checkpoint">
+                    <td className="px-4 py-3.5" data-label="Checkpoint">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400">
                           <MapPin size={18} />
@@ -297,17 +407,17 @@ function CheckpointsView() {
                         <div>
                           <span className="font-semibold block">{cp.name}</span>
                           {cp.description && (
-                            <span className="text-xs text-muted-foreground block max-w-xs truncate">
+                            <span className="text-xs text-muted-foreground block max-w-[200px] truncate">
                               {cp.description}
                             </span>
                           )}
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 align-middle" data-label="Site">
+                    <td className="px-4 py-3.5 align-middle" data-label="Site">
                       <span className="text-sm font-medium">{cp.site?.name || 'Unknown'}</span>
                     </td>
-                    <td className="px-6 py-4 align-middle" data-label="QR Code">
+                    <td className="px-4 py-3.5 align-middle" data-label="QR Code">
                       {cp.qrCodeValue ? (
                         <div className="flex items-center gap-1.5 text-xs font-mono bg-white/5 border border-white/10 px-2 py-1 rounded-lg w-fit text-emerald-400">
                           <QrCode size={12} />
@@ -317,15 +427,20 @@ function CheckpointsView() {
                         <span className="text-xs text-muted-foreground font-mono">None</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 align-middle" data-label="Location Details">
+                    <td className="px-4 py-3.5 align-middle" data-label="Location Details">
                       <span className="text-sm text-muted-foreground block">
                         {cp.locationNote || 'No location notes'}
                       </span>
                       {cp.latitude !== null && cp.longitude !== null ? (
-                        <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-emerald-400">
+                        <button
+                          type="button"
+                          onClick={() => showOnMap(cp.id)}
+                          className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-emerald-400 hover:underline"
+                          title="Show this checkpoint on the map"
+                        >
                           <MapPin size={11} />
                           GPS geofence ({cp.geofenceRadiusMeters}m)
-                        </span>
+                        </button>
                       ) : (
                         <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
                           <MapPinOff size={11} />
@@ -333,7 +448,7 @@ function CheckpointsView() {
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 align-middle" data-label="Status">
+                    <td className="px-4 py-3.5 align-middle" data-label="Status">
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
                           cp.status === 'active'
@@ -344,14 +459,35 @@ function CheckpointsView() {
                         {cp.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right align-middle" data-label="Actions">
-                      <button
-                        onClick={() => handleEdit(cp)}
-                        className="p-2 hover:bg-white/10 rounded-lg transition-colors text-indigo-400 hover:text-indigo-300"
-                        title="Edit checkpoint"
-                      >
-                        <Edit2 size={18} />
-                      </button>
+                    <td className="px-4 py-3.5 align-middle" data-label="Actions">
+                      <div className="flex items-center justify-end gap-2">
+                        {/* Disabled rather than hidden, so it's obvious that
+                            a checkpoint without GPS is the reason it can't
+                            be opened on the map. */}
+                        <button
+                          type="button"
+                          onClick={() => showOnMap(cp.id)}
+                          disabled={!hasCoordinates(cp)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius)] border border-border bg-card text-primary transition-colors hover:bg-muted hover:text-primary disabled:cursor-not-allowed disabled:border-transparent disabled:bg-transparent disabled:text-muted-foreground disabled:opacity-40"
+                          title={
+                            hasCoordinates(cp)
+                              ? 'Show on map'
+                              : 'Add GPS coordinates to show this checkpoint on the map'
+                          }
+                          aria-label={hasCoordinates(cp) ? 'Show on map' : 'No GPS coordinates'}
+                        >
+                          <Navigation size={17} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(cp)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius)] border border-border bg-card text-foreground transition-colors hover:bg-muted hover:text-primary"
+                          title="Edit checkpoint"
+                          aria-label="Edit checkpoint"
+                        >
+                          <Edit2 size={17} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -359,6 +495,7 @@ function CheckpointsView() {
             </tbody>
           </table>
         </TableScroll>
+        )}
       </div>
 
       {showModal && (
