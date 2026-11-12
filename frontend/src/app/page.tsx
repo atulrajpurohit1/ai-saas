@@ -26,6 +26,7 @@ import {
   PhoneCall,
   ArrowUpRight,
   ArrowDownRight,
+  ChevronRight,
   UserX,
 } from 'lucide-react';
 
@@ -70,6 +71,12 @@ const ACTIVITY_ICON: Record<ActivityItem['kind'], React.ComponentType<{ size?: n
   lead: UserPlus,
   deal: Briefcase,
   proposal: FileText,
+};
+
+const ACTIVITY_BASE_PATH: Record<ActivityItem['kind'], string> = {
+  lead: '/leads',
+  deal: '/deals',
+  proposal: '/proposals',
 };
 
 const QUICK_ACTIONS = [
@@ -169,6 +176,7 @@ export default function DashboardPage() {
           label: 'Total Leads',
           value: summary.leads.total,
           icon: Users,
+          href: '/leads',
           deltaPct: summary.leads.deltaPct,
           hasActivity: summary.leads.last7Days > 0,
         },
@@ -176,6 +184,7 @@ export default function DashboardPage() {
           label: 'Active Deals',
           value: summary.deals.active,
           icon: Briefcase,
+          href: '/deals',
           deltaPct: summary.deals.deltaPct,
           hasActivity: summary.deals.last7Days > 0,
         },
@@ -183,6 +192,7 @@ export default function DashboardPage() {
           label: 'Proposals Sent',
           value: summary.proposals.sent,
           icon: FileText,
+          href: '/proposals',
           deltaPct: summary.proposals.deltaPct,
           hasActivity: summary.proposals.last7Days > 0,
         },
@@ -243,17 +253,28 @@ export default function DashboardPage() {
           {statCards.map((stat) => {
             const Icon = stat.icon;
             return (
-              <div key={stat.label} className="rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:border-primary/30 hover:shadow-md">
+              <Link
+                key={stat.label}
+                href={stat.href}
+                className="group rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:border-primary/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.99] motion-reduce:active:scale-100"
+              >
                 <div className="mb-3 flex items-center justify-between">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/8 text-primary">
                     <Icon size={18} />
                   </div>
                   <StatDelta deltaPct={stat.deltaPct} hasActivity={stat.hasActivity} />
                 </div>
-                <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
+                <div className="flex items-center gap-1">
+                  <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
+                  <ArrowUpRight
+                    size={13}
+                    className="-translate-x-1 text-muted-foreground opacity-0 transition group-hover:translate-x-0 group-hover:text-primary group-hover:opacity-100 motion-reduce:transition-none motion-reduce:translate-x-0"
+                    aria-hidden="true"
+                  />
+                </div>
                 <h3 className="mt-0.5 text-3xl font-semibold tracking-tight text-foreground tabular-nums">{stat.value}</h3>
                 <p className="mt-1 text-[11px] text-muted-foreground">vs. previous 7 days</p>
-              </div>
+              </Link>
             );
           })}
         </div>
@@ -382,23 +403,36 @@ export default function DashboardPage() {
         </div>
         <div className="space-y-1">
           {activities.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
-              No recent activity yet.
+            <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border px-5 py-10 text-center">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <Clock size={18} aria-hidden="true" />
+              </span>
+              <p className="text-sm font-medium text-foreground">No recent activity yet</p>
+              <p className="text-xs text-muted-foreground">New leads, deals, and proposals will appear here as they come in.</p>
             </div>
           ) : (
             activities.map((activity) => {
               const Icon = ACTIVITY_ICON[activity.kind];
               return (
-                <div key={activity.id} className="flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-muted">
+                <Link
+                  key={activity.id}
+                  href={`${ACTIVITY_BASE_PATH[activity.kind]}/${activity.id}`}
+                  className="group flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                >
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary">
                     <Icon size={15} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{activity.title}</p>
+                    <p className="truncate text-sm font-medium text-foreground group-hover:text-primary">{activity.title}</p>
                     <p className="truncate text-xs text-muted-foreground">{activity.subject}</p>
                   </div>
                   <span className="shrink-0 text-xs text-muted-foreground">{formatRelativeTime(activity.timestamp)}</span>
-                </div>
+                  <ChevronRight
+                    size={15}
+                    className="shrink-0 -translate-x-1 text-muted-foreground opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100 motion-reduce:transition-none motion-reduce:translate-x-0"
+                    aria-hidden="true"
+                  />
+                </Link>
               );
             })
           )}

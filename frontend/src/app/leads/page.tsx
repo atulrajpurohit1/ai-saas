@@ -21,7 +21,7 @@ import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { sanitizePhoneIntl, validateEmail } from '@/lib/validation';
 import { useNewIntent } from '@/hooks/useNewIntent';
-import { Plus, Search, User, Upload, Loader2, Users, Trash2, FileUp } from 'lucide-react';
+import { Plus, Search, User, Upload, Loader2, Users, Trash2, FileUp, X, ChevronDown } from 'lucide-react';
 import LeadImportDialog from '@/components/LeadImportDialog';
 
 interface Lead {
@@ -198,15 +198,31 @@ export default function LeadsPage() {
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
         <div className="border-b border-border p-4">
-          <div className="relative w-full sm:max-w-sm">
-            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+          <div className="group relative w-full sm:max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" size={16} />
             <Input
               type="text"
               placeholder="Search leads..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
+              onKeyDown={(e) => {
+                if (e.key === 'Escape' && searchQuery) {
+                  e.preventDefault();
+                  setSearchQuery('');
+                }
+              }}
+              className={cn('pl-9', searchQuery && 'pr-9')}
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100"
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -237,7 +253,17 @@ export default function LeadsPage() {
             }
           />
         ) : filteredLeads.length === 0 ? (
-          <EmptyState icon={Search} title="No matching leads" description="Try a different search term." />
+          <EmptyState
+            icon={Search}
+            title="No matching leads"
+            description={`No leads match "${searchQuery}". Try a different name, company, or email.`}
+            action={
+              <Button variant="outline" onClick={() => setSearchQuery('')}>
+                <X size={16} />
+                Clear search
+              </Button>
+            }
+          />
         ) : (
           <div className="overflow-x-auto">
             <Table className="responsive-table">
@@ -278,26 +304,41 @@ export default function LeadsPage() {
                       </TableCell>
                       <TableCell className="px-6 py-3.5 text-sm whitespace-normal" data-label="Email">
                         {lead.email ? (
-                          <span className="text-foreground">{lead.email}</span>
+                          <a
+                            href={`mailto:${lead.email}`}
+                            className="text-foreground underline-offset-2 transition-colors hover:text-primary hover:underline"
+                          >
+                            {lead.email}
+                          </a>
                         ) : (
                           <span className="text-muted-foreground">Not provided</span>
                         )}
                       </TableCell>
                       <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Status">
-                        <select
-                          value={lead.status}
-                          onChange={(e) => handleStatusChange(lead.id, e.target.value)}
+                        <div
                           className={cn(
-                            'cursor-pointer appearance-none rounded-full border-0 px-3 py-1 text-xs font-semibold uppercase tracking-tight outline-none transition hover:brightness-95 focus-visible:ring-2 focus-visible:ring-ring',
+                            'relative inline-flex items-center rounded-full transition hover:brightness-95',
                             statusToneClass(lead.status),
                           )}
                         >
-                          <option value="new">New</option>
-                          <option value="contacted">Contacted</option>
-                          <option value="proposal_sent">Proposal Sent</option>
-                          <option value="responded">Responded</option>
-                          <option value="closed">Closed</option>
-                        </select>
+                          <select
+                            value={lead.status}
+                            onChange={(e) => handleStatusChange(lead.id, e.target.value)}
+                            aria-label={`Change status for ${lead.name}`}
+                            className="cursor-pointer appearance-none rounded-full border-0 bg-transparent py-1 pl-3 pr-7 text-xs font-semibold uppercase tracking-tight text-inherit outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            <option value="new">New</option>
+                            <option value="contacted">Contacted</option>
+                            <option value="proposal_sent">Proposal Sent</option>
+                            <option value="responded">Responded</option>
+                            <option value="closed">Closed</option>
+                          </select>
+                          <ChevronDown
+                            size={12}
+                            aria-hidden="true"
+                            className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 opacity-70"
+                          />
+                        </div>
                       </TableCell>
                       <TableCell className="px-6 py-3.5 whitespace-normal" data-label="AI Score">
                         {typeof assessment?.leadScore === 'number' ? (

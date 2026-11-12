@@ -91,7 +91,7 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
     const isActive = link.href === activeHref;
     const Icon = link.icon;
 
-    return (
+    const linkEl = (
       <Link
         key={link.href}
         href={link.href}
@@ -99,7 +99,7 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
           saveScrollPosition();
           onClose?.();
         }}
-        title={collapsed ? link.label : undefined}
+        aria-current={isActive ? 'page' : undefined}
         className={cn(
           'group relative flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-[color,background-color,transform] duration-150 motion-reduce:transition-none',
           collapsed && 'lg:justify-center lg:px-2',
@@ -115,6 +115,24 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
         <span className={cn('truncate', collapsed && 'lg:hidden')}>{link.label}</span>
       </Link>
     );
+
+    // On the collapsed desktop rail the label is hidden, so a hover tooltip is
+    // the only way to read a destination. Uses the shared styled Tooltip (same
+    // as the collapse button below) rather than the browser's slow, unstyled
+    // native title. Guarded to the lg rail so it never doubles up with the
+    // always-visible labels in the mobile drawer.
+    if (collapsed) {
+      return (
+        <Tooltip key={link.href}>
+          <TooltipTrigger asChild>{linkEl}</TooltipTrigger>
+          <TooltipContent side="right" className="hidden lg:block">
+            {link.label}
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    return linkEl;
   };
 
   return (

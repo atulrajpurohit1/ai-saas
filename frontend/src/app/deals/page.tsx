@@ -19,7 +19,7 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { Deal, getDeals } from '@/lib/deals';
 import { cn } from '@/lib/utils';
-import { Plus, Search, DollarSign, Target, Briefcase, LayoutGrid, List } from 'lucide-react';
+import { Plus, Search, DollarSign, Target, Briefcase, LayoutGrid, List, X } from 'lucide-react';
 
 const VIEW_STORAGE_KEY = 'ai-saas-deals-view';
 
@@ -196,15 +196,31 @@ export default function DealsPage() {
       ) : (
         <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           <div className="border-b border-border p-4">
-            <div className="relative w-full sm:max-w-sm">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+            <div className="group relative w-full sm:max-w-sm">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" size={16} />
               <Input
                 type="text"
                 placeholder="Filter deals..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape' && searchQuery) {
+                    e.preventDefault();
+                    setSearchQuery('');
+                  }
+                }}
+                className={cn('pl-9', searchQuery && 'pr-9')}
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Clear filter"
+                  className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100"
+                >
+                  <X size={14} aria-hidden="true" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -226,7 +242,17 @@ export default function DealsPage() {
               }
             />
           ) : filteredDeals.length === 0 ? (
-            <EmptyState icon={Search} title="No matching deals" description="Try a different search term." />
+            <EmptyState
+              icon={Search}
+              title="No matching deals"
+              description={`No deals match "${searchQuery}". Try a different deal or company name.`}
+              action={
+                <Button variant="outline" onClick={() => setSearchQuery('')}>
+                  <X size={16} />
+                  Clear filter
+                </Button>
+              }
+            />
           ) : (
             <div className="grid grid-cols-1 gap-4 p-4 sm:p-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-5">
               {filteredDeals.map((deal) => {
