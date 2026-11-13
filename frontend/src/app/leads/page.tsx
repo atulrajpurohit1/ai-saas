@@ -43,10 +43,10 @@ interface Lead {
 }
 
 const scoreClass = (score?: number | null) => {
-  if ((score || 0) >= 75) return 'bg-success-wash text-success';
-  if ((score || 0) >= 50) return 'bg-warning-wash text-warning';
-  if (typeof score === 'number') return 'bg-error-wash text-error';
-  return 'bg-muted text-muted-foreground';
+  if ((score || 0) >= 75) return 'bg-success-wash text-success ring-success/20';
+  if ((score || 0) >= 50) return 'bg-warning-wash text-warning ring-warning/20';
+  if (typeof score === 'number') return 'bg-error-wash text-error ring-error/20';
+  return 'bg-muted text-muted-foreground ring-border';
 };
 
 const priorityLabel = (value?: string | null) => (value ? value.toUpperCase() : 'UNSCORED');
@@ -227,7 +227,7 @@ export default function LeadsPage() {
         </div>
 
         {loading ? (
-          <LoadingState label="Loading leads..." />
+          <LoadingState label="Loading leads…" />
         ) : loadError ? (
           <div className="p-4">
             <ErrorState message={loadError} onRetry={fetchLeads} />
@@ -342,7 +342,7 @@ export default function LeadsPage() {
                       </TableCell>
                       <TableCell className="px-6 py-3.5 whitespace-normal" data-label="AI Score">
                         {typeof assessment?.leadScore === 'number' ? (
-                          <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold', scoreClass(assessment.leadScore))}>
+                          <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset', scoreClass(assessment.leadScore))}>
                             {assessment.leadScore}
                             {assessment.priorityTier && (
                               <span className="opacity-70">&middot; {priorityLabel(assessment.priorityTier)}</span>

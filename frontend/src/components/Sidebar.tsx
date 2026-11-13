@@ -256,7 +256,7 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
 
       <div className="mt-auto border-t border-border p-3">
         <div className={cn('mb-1 flex items-center gap-3 rounded-lg px-2 py-2', collapsed && 'lg:justify-center')}>
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary ring-1 ring-inset ring-primary/15">
             {user?.name?.charAt(0) || 'U'}
           </div>
           <div className={cn('min-w-0 flex-1', collapsed && 'lg:hidden')}>

@@ -174,7 +174,7 @@ export default function GettingStartedCard() {
                   </span>
                   <span className="block text-xs text-muted-foreground">{step.description}</span>
                 </span>
-                <ArrowRight size={15} className="mt-1 shrink-0 text-muted-foreground group-hover:text-primary" />
+                <ArrowRight size={15} className="mt-1 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary motion-reduce:transition-none motion-reduce:group-hover:translate-x-0" />
               </Link>
             </li>
           );

@@ -256,10 +256,10 @@ export default function DashboardPage() {
               <Link
                 key={stat.label}
                 href={stat.href}
-                className="group rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:border-primary/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.99] motion-reduce:active:scale-100"
+                className="group rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.99] motion-reduce:translate-y-0 motion-reduce:active:scale-100"
               >
                 <div className="mb-3 flex items-center justify-between">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/8 text-primary">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/8 text-primary ring-1 ring-inset ring-primary/15">
                     <Icon size={18} />
                   </div>
                   <StatDelta deltaPct={stat.deltaPct} hasActivity={stat.hasActivity} />
@@ -287,9 +287,9 @@ export default function DashboardPage() {
       {!loading && hasModule('FINANCE') && (summary?.noShowsToday ?? 0) > 0 && (
         <Link
           href="/shifts"
-          className="mb-6 flex items-center gap-3 rounded-2xl border border-error/30 bg-error-wash p-4 transition hover:border-error/50"
+          className="group mb-6 flex items-center gap-3 rounded-2xl border border-error/30 bg-error-wash p-4 transition hover:border-error/50 hover:shadow-md active:scale-[0.99] motion-reduce:transition-none motion-reduce:active:scale-100"
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-error/10 text-error">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-error/10 text-error ring-1 ring-inset ring-error/20">
             <UserX size={18} />
           </div>
           <div className="min-w-0">
@@ -300,6 +300,11 @@ export default function DashboardPage() {
               An assigned guard has not checked in. Open Shifts to see who.
             </p>
           </div>
+          <ChevronRight
+            size={18}
+            className="ml-auto shrink-0 -translate-x-1 text-error opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100 motion-reduce:transition-none motion-reduce:translate-x-0"
+            aria-hidden="true"
+          />
         </Link>
       )}
 
@@ -328,7 +333,7 @@ export default function DashboardPage() {
             <Link
               key={action.href}
               href={action.href}
-              className="group inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3.5 py-2 text-sm font-medium text-foreground shadow-sm transition hover:border-primary/30 hover:text-primary hover:shadow-md active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100"
+              className="group inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3.5 py-2 text-sm font-medium text-foreground shadow-sm transition hover:-translate-y-px hover:border-primary/30 hover:text-primary hover:shadow-md active:scale-[0.98] motion-reduce:translate-y-0 motion-reduce:transition-none motion-reduce:active:scale-100"
             >
               <Icon size={15} className="text-muted-foreground transition-colors group-hover:text-primary" />
               {action.label}
@@ -426,7 +431,12 @@ export default function DashboardPage() {
                     <p className="truncate text-sm font-medium text-foreground group-hover:text-primary">{activity.title}</p>
                     <p className="truncate text-xs text-muted-foreground">{activity.subject}</p>
                   </div>
-                  <span className="shrink-0 text-xs text-muted-foreground">{formatRelativeTime(activity.timestamp)}</span>
+                  <span
+                    className="shrink-0 text-xs text-muted-foreground"
+                    title={activity.timestamp ? new Date(activity.timestamp).toLocaleString() : undefined}
+                  >
+                    {formatRelativeTime(activity.timestamp)}
+                  </span>
                   <ChevronRight
                     size={15}
                     className="shrink-0 -translate-x-1 text-muted-foreground opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100 motion-reduce:transition-none motion-reduce:translate-x-0"
