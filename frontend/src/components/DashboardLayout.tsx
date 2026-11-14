@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import CommandPalette from '@/components/CommandPalette';
 import { useAuth, type User } from '@/context/AuthContext';
@@ -334,7 +334,10 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
 
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <ModuleWelcomeDialog module={welcomeModule} />
-      <PlanRequiredDialog />
+      {/* useSearchParams suspends on statically prerendered pages. */}
+      <Suspense fallback={null}>
+        <PlanRequiredDialog />
+      </Suspense>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Sparkles } from 'lucide-react';
 import {
   Dialog,
@@ -23,15 +23,23 @@ import {
  * The "choose a plan to unlock this" prompt, shown on the plan page after a
  * locked part of the app sent someone here.
  *
- * Opens off a query flag rather than off `hasPlan`, so it appears when they
- * reached for something -- clicking Leads, or opening a bookmark -- and not
- * every time they simply visit the plan page to read the pricing. The flag is
- * stripped from the URL as soon as the dialog is up, so a refresh or a shared
- * link does not reopen it.
+ * Driven by `useSearchParams`, not `usePathname`: a locked sidebar entry on
+ * the plan page navigates plan -> plan?upgrade=1, which changes only the query
+ * string. An effect keyed on the pathname would never re-run, so the dialog
+ * opened only on a refresh -- the bug this replaces. The query is reactive, so
+ * each click reopens it, even without leaving the page.
+ *
+ * Opens off the flag rather than off `hasPlan`, so it appears when they
+ * reached for something, not every time they visit the plan page to read the
+ * pricing. The flag is stripped as soon as the dialog is up, so a refresh or a
+ * shared link does not reopen it.
  *
  * It explains; it does not enforce. PlanGuard already refuses the API, and the
  * nav already routes here. Dismissing it leaves them on the plan page, which
  * is exactly where they can act.
+ *
+ * `useSearchParams` suspends on a statically prerendered page, so the one
+ * render of this component is wrapped in a <Suspense> boundary by its caller.
  */
 function isServiceKey(value: string | null): value is ServiceModuleKey {
   return value === 'LEAD_GEN' || value === 'GUARD_TOUR' || value === 'FINANCE';
@@ -40,37 +48,39 @@ function isServiceKey(value: string | null): value is ServiceModuleKey {
 export default function PlanRequiredDialog() {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
   const [feature, setFeature] = useState<string | null>(null);
   const [service, setService] = useState<ServiceModuleKey | null>(null);
 
-  // Read straight from the URL instead of useSearchParams: this renders inside
-  // DashboardLayout, which wraps every screen, and useSearchParams would push
-  // the nearest Suspense boundary's whole subtree into client rendering on
-  // prerendered routes.
+  const upgrade = searchParams.get(PLAN_UPGRADE_PARAM);
+
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!upgrade) return;
 
-    const params = new URLSearchParams(window.location.search);
-    if (!params.get(PLAN_UPGRADE_PARAM)) return;
-
-    const askedFor = params.get('feature');
-    const askedService = params.get('service');
+    const askedFor = searchParams.get('feature');
+    const askedService = searchParams.get('service');
     setFeature(askedFor);
     setService(isServiceKey(askedService) ? askedService : null);
     setOpen(true);
 
     // Drop the flag so the prompt does not come back on refresh or on a link
     // someone pastes to a colleague. replace() keeps it out of history too, so
-    // Back does not land on the same prompt.
-    params.delete(PLAN_UPGRADE_PARAM);
-    params.delete('feature');
-    params.delete('service');
-    const query = params.toString();
+    // Back does not land on the same prompt. The other params (the plan page's
+    // own Stripe-return status, etc.) are preserved.
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete(PLAN_UPGRADE_PARAM);
+    next.delete('feature');
+    next.delete('service');
+    const query = next.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, {
       scroll: false,
     });
-  }, [pathname, router]);
+    // Re-run whenever a fresh upgrade flag arrives (clicking another locked
+    // link reopens with its feature). searchParams is a new object per
+    // navigation, so `upgrade` is the honest trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [upgrade]);
 
   const close = useCallback(() => setOpen(false), []);
 
