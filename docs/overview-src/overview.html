@@ -1,0 +1,1625 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AegisLead — Complete Platform Overview</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 16mm 20mm 16mm;
+    @bottom-center { content: counter(page); }
+  }
+  @page :first { margin: 0; }
+
+  :root{
+    --red:#D21B22;
+    --red-dark:#9E1218;
+    --ink:#16181C;
+    --body:#2C3137;
+    --muted:#6B727B;
+    --line:#DFE3E8;
+    --soft:#F6F7F9;
+    --soft2:#FBF3F3;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    font-family:"Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size:9.6pt;
+    line-height:1.52;
+    color:var(--body);
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+
+  h1,h2,h3,h4{ color:var(--ink); margin:0; font-weight:650; }
+  p{ margin:0 0 7pt 0; }
+  ul,ol{ margin:0 0 8pt 0; padding-left:15pt; }
+  li{ margin:0 0 3pt 0; }
+  strong{ color:var(--ink); font-weight:650; }
+  em{ color:var(--muted); font-style:normal; }
+  code{ font-family:"Consolas","Courier New",monospace; font-size:8.4pt; background:var(--soft); padding:0.5pt 3pt; border-radius:2px; color:var(--red-dark); }
+
+  /* ---------- Cover ---------- */
+  .cover{
+    height:297mm; width:210mm;
+    page-break-after:always;
+    position:relative;
+    display:flex; flex-direction:column;
+    padding:0;
+    overflow:hidden;
+  }
+  .cover-top{
+    flex:1;
+    background:
+      radial-gradient(900px 500px at 78% -10%, rgba(210,27,34,.16), transparent 60%),
+      linear-gradient(160deg,#111418 0%, #1A1E24 55%, #22272E 100%);
+    padding:32mm 22mm 0 22mm;
+    color:#fff;
+    position:relative;
+  }
+  .cover-top:after{
+    content:"";
+    position:absolute; left:0; right:0; bottom:0; height:3mm;
+    background:linear-gradient(90deg, var(--red) 0%, var(--red-dark) 100%);
+  }
+  .cover-logo{ height:17mm; margin-bottom:24mm; }
+  .cover-eyebrow{
+    font-size:9pt; letter-spacing:.26em; text-transform:uppercase;
+    color:#E8A9AC; margin-bottom:7mm; font-weight:600;
+  }
+  .cover h1{
+    color:#fff; font-size:33pt; line-height:1.1; font-weight:300; letter-spacing:-.6pt;
+    margin-bottom:6mm; max-width:150mm;
+  }
+  .cover h1 b{ font-weight:650; }
+  .cover-sub{
+    font-size:11.5pt; line-height:1.55; color:#B9C0C9; max-width:135mm; font-weight:300;
+  }
+  .cover-bottom{
+    height:72mm; background:#fff; padding:14mm 22mm 0 22mm;
+  }
+  .cover-meta{
+    display:flex; gap:14mm; border-top:1px solid var(--line); padding-top:7mm;
+  }
+  .cover-meta div{ flex:1; }
+  .cover-meta .k{
+    font-size:7.6pt; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--muted); margin-bottom:2.5mm; font-weight:650;
+  }
+  .cover-meta .v{ font-size:10pt; color:var(--ink); font-weight:600; }
+  .cover-note{
+    margin-top:9mm; font-size:8.6pt; color:var(--muted); line-height:1.5; max-width:150mm;
+  }
+
+  /* ---------- Section structure ---------- */
+  .section{ page-break-before:always; }
+  .sec-head{
+    border-bottom:2.5px solid var(--red);
+    padding-bottom:3mm; margin-bottom:6mm;
+    display:flex; align-items:baseline; gap:5mm;
+  }
+  .sec-num{
+    font-size:22pt; font-weight:700; color:var(--red); line-height:1;
+    letter-spacing:-1pt;
+  }
+  .sec-title{ font-size:17pt; font-weight:650; color:var(--ink); letter-spacing:-.3pt; }
+  .sec-kicker{ margin-left:auto; font-size:8pt; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+
+  h2.block{
+    font-size:12.5pt; margin:8mm 0 3mm 0; color:var(--ink);
+    padding-bottom:1.5mm; border-bottom:1px solid var(--line);
+  }
+  h3.sub{
+    font-size:10.4pt; margin:6mm 0 2mm 0; color:var(--ink);
+  }
+  h3.sub:before{
+    content:""; display:inline-block; width:3px; height:9pt;
+    background:var(--red); margin-right:4pt; vertical-align:-1pt; border-radius:2px;
+  }
+  .lede{
+    font-size:10.6pt; line-height:1.6; color:var(--body); margin-bottom:6mm;
+  }
+
+  /* ---------- Tables ---------- */
+  table{ width:100%; border-collapse:collapse; margin:3mm 0 6mm 0; font-size:8.9pt; }
+  thead th{
+    background:var(--ink); color:#fff; text-align:left;
+    padding:2.6mm 3mm; font-weight:600; font-size:8.2pt;
+    letter-spacing:.04em;
+  }
+  tbody td{
+    padding:2.4mm 3mm; border-bottom:1px solid var(--line); vertical-align:top;
+  }
+  tbody tr:nth-child(even) td{ background:var(--soft); }
+  td.lead{ font-weight:600; color:var(--ink); white-space:nowrap; }
+  table.price td.num{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  table.price th.num{ text-align:right; }
+  table.compact{ font-size:8.4pt; }
+  table.compact tbody td{ padding:1.9mm 2.6mm; }
+
+  /* ---------- Cards / callouts ---------- */
+  .grid{ display:flex; flex-wrap:wrap; gap:4mm; margin:4mm 0 6mm 0; }
+  .card{
+    flex:1 1 calc(50% - 2mm); min-width:72mm;
+    border:1px solid var(--line); border-left:3px solid var(--red);
+    border-radius:3px; padding:3.5mm 4mm; background:#fff;
+    page-break-inside:avoid;
+  }
+  .card h4{ font-size:9.8pt; margin-bottom:1.5mm; }
+  .card p{ margin:0; font-size:8.8pt; color:var(--body); }
+  .card .who{
+    margin-top:2.5mm; font-size:7.6pt; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--muted); font-weight:650;
+  }
+
+  .callout{
+    background:var(--soft2); border:1px solid #F0D8D9; border-radius:3px;
+    padding:4mm 4.5mm; margin:4mm 0 6mm 0; page-break-inside:avoid;
+  }
+  .callout h4{ font-size:9.6pt; color:var(--red-dark); margin-bottom:2mm; }
+  .callout p:last-child{ margin-bottom:0; }
+
+  .note{
+    background:var(--soft); border-left:3px solid var(--muted);
+    padding:3.5mm 4mm; margin:4mm 0; font-size:8.8pt; page-break-inside:avoid;
+  }
+  .note p:last-child{ margin-bottom:0; }
+
+  .stats{ display:flex; gap:4mm; margin:4mm 0 7mm 0; }
+  .stat{
+    flex:1; border:1px solid var(--line); border-radius:3px;
+    padding:3.5mm 3mm; text-align:center; background:#fff;
+  }
+  .stat .n{ font-size:19pt; font-weight:700; color:var(--red); line-height:1.05; letter-spacing:-.5pt; }
+  .stat .l{ font-size:7.6pt; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-top:1.5mm; font-weight:650; }
+
+  /* ---------- Flow diagram ---------- */
+  .flow{
+    display:flex; align-items:stretch; gap:0; margin:4mm 0 6mm 0;
+    page-break-inside:avoid;
+  }
+  .flow .step{
+    flex:1; border:1px solid var(--line); background:#fff;
+    padding:3mm 3mm; position:relative; border-radius:3px; margin-right:5mm;
+  }
+  .flow .step:last-child{ margin-right:0; }
+  .flow .step:after{
+    content:"›"; position:absolute; right:-4.4mm; top:50%; transform:translateY(-55%);
+    color:var(--red); font-size:15pt; font-weight:700;
+  }
+  .flow .step:last-child:after{ content:""; }
+  .flow .n{ font-size:7.4pt; color:var(--red); font-weight:700; letter-spacing:.1em; }
+  .flow .t{ font-size:8.8pt; font-weight:650; color:var(--ink); margin:1mm 0 .8mm 0; }
+  .flow .d{ font-size:7.8pt; color:var(--muted); line-height:1.4; }
+
+  .steps{ counter-reset:stp; margin:3mm 0 6mm 0; }
+  .steps .s{
+    display:flex; gap:3.5mm; margin-bottom:3mm; page-break-inside:avoid;
+  }
+  .steps .s .num{
+    flex:0 0 7mm; height:7mm; border-radius:50%;
+    background:var(--red); color:#fff; font-size:8.4pt; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .steps .s .txt{ flex:1; padding-top:.6mm; }
+  .steps .s .txt b{ color:var(--ink); }
+
+  .pill{
+    display:inline-block; font-size:7.4pt; font-weight:650; letter-spacing:.06em;
+    padding:.8mm 2mm; border-radius:2px; text-transform:uppercase; margin-right:1.5mm;
+  }
+  .pill.gen{ background:#FDEAEA; color:#A3161B; }
+  .pill.grd{ background:#E8F0FB; color:#1C4E8A; }
+  .pill.ops{ background:#E9F5EC; color:#1F6B37; }
+  .pill.core{ background:#F1F0F4; color:#4A4752; }
+
+  .toc{ margin-top:4mm; }
+  .toc a{ text-decoration:none; color:var(--body); }
+  .toc .row{
+    display:flex; align-items:baseline; gap:3mm;
+    padding:2.2mm 0; border-bottom:1px solid var(--line); font-size:9.4pt;
+  }
+  .toc .row .n{ color:var(--red); font-weight:700; width:7mm; }
+  .toc .row .t{ color:var(--ink); font-weight:600; }
+  .toc .row .d{ margin-left:auto; color:var(--muted); font-size:8.4pt; text-align:right; max-width:95mm; }
+
+  .avoid{ page-break-inside:avoid; }
+  .footer-note{
+    margin-top:8mm; padding-top:4mm; border-top:1px solid var(--line);
+    font-size:8.2pt; color:var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<div class="cover">
+  <div class="cover-top">
+    <img class="cover-logo" src="aegislead-logo-dark.png" alt="AegisLead">
+    <div class="cover-eyebrow">Complete Platform Overview</div>
+    <h1>Everything <b>AegisLead</b> does,<br>in one document.</h1>
+    <div class="cover-sub">
+      The operating system for a physical security company — lead generation, guard tour
+      and patrol verification, scheduling, timesheets, invoicing, client and vendor portals,
+      and an AI layer across all of it.
+    </div>
+  </div>
+  <div class="cover-bottom">
+    <div class="cover-meta">
+      <div>
+        <div class="k">Document</div>
+        <div class="v">Functional Overview</div>
+      </div>
+      <div>
+        <div class="k">Prepared for</div>
+        <div class="v">Explainer video production</div>
+      </div>
+      <div>
+        <div class="k">Version</div>
+        <div class="v">11 November 2026</div>
+      </div>
+    </div>
+    <div class="cover-note">
+      This document describes the platform as it exists in the production build on
+      11-11-2026. Every feature listed here is implemented and shipped. Where something is
+      partially built or deliberately out of scope, it is marked as such rather than omitted.
+    </div>
+  </div>
+</div>
+
+<!-- ============ CONTENTS ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-title">Contents</div>
+    <div class="sec-kicker">AegisLead Platform Overview</div>
+  </div>
+
+  <div class="toc">
+    <div class="row"><span class="n">1</span><span class="t">What AegisLead Is</span><span class="d">The problem, the solution, who uses it</span></div>
+    <div class="row"><span class="n">2</span><span class="t">The Four Experiences</span><span class="d">Admin app, guard app, client portal, vendor portal</span></div>
+    <div class="row"><span class="n">3</span><span class="t">How It Is Packaged &amp; Priced</span><span class="d">Three products, four packages, guard-band pricing</span></div>
+    <div class="row"><span class="n">4</span><span class="t">AegisLead Generation</span><span class="d">Leads, deals, prospect research, calls, proposals, RFP, vendors</span></div>
+    <div class="row"><span class="n">5</span><span class="t">AegisLead Guard</span><span class="d">Sites, guards, QR patrols, incidents, emergencies, reports</span></div>
+    <div class="row"><span class="n">6</span><span class="t">The Guard Mobile Experience</span><span class="d">Check in, patrol, report, check out — from the phone</span></div>
+    <div class="row"><span class="n">7</span><span class="t">AegisLead Operations</span><span class="d">Shifts, timesheets, rate cards, invoices, disputes, finance</span></div>
+    <div class="row"><span class="n">8</span><span class="t">The Client Portal</span><span class="d">What your customer sees and signs off</span></div>
+    <div class="row"><span class="n">9</span><span class="t">The Vendor Portal &amp; Procurement</span><span class="d">Subcontractor bidding, AI evaluation, award</span></div>
+    <div class="row"><span class="n">10</span><span class="t">The AI Layer</span><span class="d">Every AI feature and what it costs to run</span></div>
+    <div class="row"><span class="n">11</span><span class="t">Users, Roles &amp; Account Security</span><span class="d">Eight roles, 2FA, session control, audit trail</span></div>
+    <div class="row"><span class="n">12</span><span class="t">Integrations &amp; Open API</span><span class="d">Eight CRMs, CSV import, webhooks, public API</span></div>
+    <div class="row"><span class="n">13</span><span class="t">Billing, Credits &amp; Self-Service</span><span class="d">Stripe checkout, credit packs, auto top-up</span></div>
+    <div class="row"><span class="n">14</span><span class="t">The Platform Admin Console</span><span class="d">How AegisLead itself runs its customers</span></div>
+    <div class="row"><span class="n">15</span><span class="t">Architecture, Security &amp; Reliability</span><span class="d">How it is built, hosted, protected and backed up</span></div>
+    <div class="row"><span class="n">16</span><span class="t">What Changed in the Last Two Months</span><span class="d">September–November 2026 release highlights</span></div>
+    <div class="row"><span class="n">17</span><span class="t">Suggested Video Walkthrough</span><span class="d">A shot-by-shot running order for the explainer</span></div>
+    <div class="row"><span class="n">18</span><span class="t">Known Limits &amp; Roadmap</span><span class="d">What is deliberately not built yet</span></div>
+  </div>
+
+  <div class="note" style="margin-top:10mm">
+    <p><strong>How to read this document.</strong> Sections 4, 5 and 7 map one-to-one onto the
+    three products a customer can buy. Sections 6, 8 and 9 cover the three audiences outside
+    the office — guards, clients and subcontractors. If you are scripting a video, section 17
+    turns all of it into a running order.</p>
+  </div>
+</div>
+
+<!-- ============ 1. WHAT IT IS ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-num">01</div>
+    <div class="sec-title">What AegisLead Is</div>
+    <div class="sec-kicker">Positioning</div>
+  </div>
+
+  <p class="lede">
+    AegisLead is a single platform that runs a physical security guarding company end to end —
+    from winning the contract, to putting guards on site and proving they were there, to
+    getting the invoice paid.
+  </p>
+
+  <h2 class="block">The problem it solves</h2>
+  <p>
+    A typical guarding company runs on four or five disconnected systems: a CRM for sales, a
+    scheduling tool for rosters, a separate guard-tour app with its own hardware, an accounting
+    package for invoices, and a large quantity of spreadsheets and WhatsApp groups holding it
+    all together. Nothing talks to anything else. Hours are re-keyed from a patrol app into a
+    timesheet and again into an invoice. When a client asks "was your guard actually at the
+    loading bay at 2am?", the answer takes someone half a day to assemble.
+  </p>
+  <p>
+    AegisLead replaces that stack with one system where the data only gets entered once and
+    then flows: <strong>a lead becomes a client, a client gets sites, sites get shifts, shifts
+    get guards, guards produce verified patrol evidence and attendance, attendance becomes an
+    approved timesheet, and the timesheet becomes the invoice.</strong>
+  </p>
+
+  <div class="flow">
+    <div class="step"><div class="n">01</div><div class="t">Win the work</div><div class="d">Find the prospect, research it, call, propose, close.</div></div>
+    <div class="step"><div class="n">02</div><div class="t">Staff the work</div><div class="d">Set up the site, roster guards onto shifts.</div></div>
+    <div class="step"><div class="n">03</div><div class="t">Prove the work</div><div class="d">QR and GPS-verified patrols, incidents, daily reports.</div></div>
+    <div class="step"><div class="n">04</div><div class="t">Bill the work</div><div class="d">Attendance to timesheet to invoice to payment.</div></div>
+  </div>
+
+  <h2 class="block">What makes it different</h2>
+  <div class="grid">
+    <div class="card">
+      <h4>One record, four uses</h4>
+      <p>A guard's check-in is simultaneously an attendance record, a shift status change, a
+      line on the client's daily report, and the basis for a billable timesheet line. It is
+      entered once, by the guard, on their phone.</p>
+    </div>
+    <div class="card">
+      <h4>Evidence, not assertions</h4>
+      <p>Patrol checkpoints are verified two independent ways — a scanned QR code fixed to the
+      physical checkpoint, and a GPS geofence. Both results are stored separately, so a dispute
+      is settled with data rather than memory.</p>
+    </div>
+    <div class="card">
+      <h4>The client is inside the system</h4>
+      <p>Customers get their own login to approve proposals, read approved incident reports,
+      download daily service reports, see invoices and raise disputes — instead of being
+      emailed PDFs.</p>
+    </div>
+    <div class="card">
+      <h4>AI where it removes real work</h4>
+      <p>Not a chatbot bolted on. AI drafts the proposal, researches the prospect, transcribes
+      and coaches the sales call, writes the daily report summary, scores the lead, evaluates
+      subcontractor bids and recommends which guard to put on an open shift.</p>
+    </div>
+  </div>
+
+  <h2 class="block">Who it is for</h2>
+  <p>
+    Security contractors running anywhere from a handful of guards to several hundred.
+    The platform is multi-tenant: every company's data is completely separate, and the product
+    is sold in three parts so a company that only wants the sales engine, or only wants guard
+    tour, can buy exactly that.
+  </p>
+
+  <div class="stats">
+    <div class="stat"><div class="n">4</div><div class="l">User experiences</div></div>
+    <div class="stat"><div class="n">3</div><div class="l">Sellable products</div></div>
+    <div class="stat"><div class="n">8</div><div class="l">Built-in roles</div></div>
+    <div class="stat"><div class="n">70+</div><div class="l">Feature modules</div></div>
+    <div class="stat"><div class="n">24</div><div class="l">AI capabilities</div></div>
+  </div>
+</div>
+
+<!-- ============ 2. FOUR EXPERIENCES ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-num">02</div>
+    <div class="sec-title">The Four Experiences</div>
+    <div class="sec-kicker">Who logs in where</div>
+  </div>
+
+  <p class="lede">
+    One platform, four distinct front doors. Each audience sees only what belongs to them,
+    and three of the four never see the main application at all.
+  </p>
+
+  <table>
+    <thead>
+      <tr><th style="width:26%">Experience</th><th style="width:20%">Who uses it</th><th>What they do there</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="lead">Admin application</td>
+        <td>Owners, managers, schedulers, supervisors, finance and sales staff</td>
+        <td>The full product. Sales pipeline, site and guard setup, rostering, patrol
+        configuration and monitoring, incident review, timesheets, invoicing, procurement,
+        integrations, billing and user administration — each person seeing only the pages their
+        role allows.</td>
+      </tr>
+      <tr>
+        <td class="lead">Guard portal</td>
+        <td>Field guards, on their own phone</td>
+        <td>A mobile-first app: today's shifts, check in and out, walk a patrol route scanning
+        QR checkpoints, file an incident with photo or video evidence, and raise a panic
+        alert.</td>
+      </tr>
+      <tr>
+        <td class="lead">Client portal</td>
+        <td>The security company's own paying customers</td>
+        <td>Review and approve or reject proposals with comments, read approved incident
+        reports, download published daily service reports, view and dispute invoices, download
+        shared documents and see their insurance status.</td>
+      </tr>
+      <tr>
+        <td class="lead">Vendor portal</td>
+        <td>Subcontracted security vendors invited to bid</td>
+        <td>A single-use secure link — no account, no password. The vendor sees exactly the one
+        RFP they were invited to and submits a priced bid with supporting documents.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <h4>Why this matters on camera</h4>
+    <p>The strongest demonstration of the product is the hand-off between these four surfaces:
+    a proposal drafted by AI in the admin app, approved by the client in the client portal, a
+    shift created from it, a guard checking in on a phone, and the resulting invoice appearing
+    back in the client portal. That single chain is the whole value proposition.</p>
+  </div>
+
+  <h2 class="block">Separation and isolation</h2>
+  <p>
+    Each experience authenticates separately and carries its own token type. A guard's
+    credentials cannot open the admin application; a client's cannot see another client's
+    invoices; and every query the system runs is scoped to the tenant that owns the data. A
+    second layer, <strong>branch scoping</strong>, further restricts staff to their own regional
+    office where a company is organised that way.
+  </p>
+
+  <h2 class="block">The platform console — a fifth, internal surface</h2>
+  <p>
+    Separate from all of the above, AegisLead itself operates a <strong>Platform Admin
+    console</strong> used only by the AegisLead team to see customer accounts, trials, AI spend
+    and credit balances. It is a fully separate identity with its own credentials — a customer
+    administrator, however senior, has no path into it. Covered in section 14.
+  </p>
+</div>
+
+<!-- ============ 3. PACKAGING ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-num">03</div>
+    <div class="sec-title">How It Is Packaged &amp; Priced</div>
+    <div class="sec-kicker">Commercial model</div>
+  </div>
+
+  <p class="lede">
+    The platform is sold as three products that can be bought individually or together. The
+    navigation in the app is grouped the same way the price list is, so what a customer bought
+    is what they see.
+  </p>
+
+  <div class="grid">
+    <div class="card">
+      <h4><span class="pill gen">Generation</span></h4>
+      <p>The sales engine. Leads, deals and pipeline, AI prospect research, click-to-dial with
+      call recording and transcription, AI proposals, RFP management and vendor procurement.</p>
+      <div class="who">For companies that want to win more contracts</div>
+    </div>
+    <div class="card">
+      <h4><span class="pill grd">Guard</span></h4>
+      <p>Field execution and accountability. Guard roster and compliance, QR and GPS patrol
+      verification, patrol monitoring, incident reporting with evidence, emergency alerts and
+      daily service reports.</p>
+      <div class="who">For companies that must prove service delivery</div>
+    </div>
+    <div class="card">
+      <h4><span class="pill ops">Operations</span></h4>
+      <p>Scheduling, workforce management, finance and profitability. Shifts and rostering,
+      timesheets, contracted rate cards, invoicing, dispute handling and financial reporting.</p>
+      <div class="who">For companies that want to stop re-keying hours</div>
+    </div>
+    <div class="card">
+      <h4><span class="pill core">Always included</span></h4>
+      <p>Whatever is bought, every account gets clients, sites, branches, the dashboard, shared
+      documents, notes and activities, integrations, user and role administration, account
+      security and the audit log.</p>
+      <div class="who">The shared foundation</div>
+    </div>
+  </div>
+
+  <h2 class="block">The price table</h2>
+  <p>
+    Every package except Generation is priced by <strong>active guard count</strong>, so the
+    price grows with the customer rather than being renegotiated. Generation is a flat
+    $299/month regardless of headcount, because a Generation-only customer may not track guards
+    in the system at all.
+  </p>
+
+  <table class="price">
+    <thead>
+      <tr>
+        <th>Active guards</th>
+        <th class="num">Generation</th>
+        <th class="num">Guard</th>
+        <th class="num">Operations</th>
+        <th class="num">Complete</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td class="lead">1 – 25</td><td class="num">$299</td><td class="num">$99</td><td class="num">$199</td><td class="num">$499</td></tr>
+      <tr><td class="lead">26 – 50</td><td class="num">$299</td><td class="num">$149</td><td class="num">$299</td><td class="num">$649</td></tr>
+      <tr><td class="lead">51 – 100</td><td class="num">$299</td><td class="num">$249</td><td class="num">$449</td><td class="num">$849</td></tr>
+      <tr><td class="lead">101 – 250</td><td class="num">$299</td><td class="num">$399</td><td class="num">$699</td><td class="num">$1,199</td></tr>
+      <tr><td class="lead">251 – 500</td><td class="num">$299</td><td class="num">$599</td><td class="num">$999</td><td class="num">$1,699</td></tr>
+      <tr><td class="lead">500+</td><td class="num">Custom</td><td class="num">Custom</td><td class="num">Custom</td><td class="num">Custom</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:8.4pt;color:var(--muted);margin-top:-3mm">
+    List prices in USD per month. The 500+ band is quoted by sales rather than sold through
+    self-service checkout. <strong>AegisLead Complete</strong> bundles all three products.
+  </p>
+
+  <h2 class="block">How the guard band is kept honest</h2>
+  <p>
+    The system meters the <strong>active guard count</strong> continuously and bills every guard
+    for the full month they were active in. A background process watches for
+    <strong>band drift</strong> — a customer who has quietly grown past the band they are paying
+    for — and sends a digest to the billing contact rather than silently over- or under-charging.
+  </p>
+
+  <h2 class="block">Trials and comped accounts</h2>
+  <p>
+    AegisLead can grant a <strong>Trial Plan</strong> that unlocks the entire product — all three
+    products, every module — with the AI features switched off. It can also comp any specific
+    package for a fixed window (7, 15, 30 days, a custom period, or lifetime). A comp expires
+    immediately and automatically the moment the tenant buys a paid plan, so nobody ends up
+    holding both.
+  </p>
+
+  <h2 class="block">Search credits — the one metered item</h2>
+  <p>
+    Everything in the subscription is unlimited except work that costs AegisLead money per
+    use: AI generation and external prospect research. These run on a prepaid
+    <strong>credit balance</strong>, bought in one-off packs. Full detail in section 13.
+  </p>
+
+  <table class="price compact">
+    <thead><tr><th>Credit pack</th><th class="num">Credits</th><th class="num">Price</th><th>Typical usage</th></tr></thead>
+    <tbody>
+      <tr><td class="lead">Starter Pack</td><td class="num">3,000</td><td class="num">$149</td><td>15 full prospect searches, or 200 AI proposal drafts</td></tr>
+      <tr><td class="lead">Pro Pack</td><td class="num">13,000</td><td class="num">$249</td><td>65 full prospect searches, or 866 AI proposal drafts</td></tr>
+      <tr><td class="lead">Elite Pack</td><td class="num">23,000</td><td class="num">$349</td><td>115 full prospect searches, or 1,533 AI proposal drafts</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:8.4pt;color:var(--muted);margin-top:-3mm">
+    Every new account starts with a free credit balance so the AI features can be tried before
+    anything is purchased.
+  </p>
+</div>
+
+<!-- ============ 4. GENERATION ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-num">04</div>
+    <div class="sec-title">AegisLead Generation</div>
+    <div class="sec-kicker">Win the work</div>
+  </div>
+
+  <p class="lede">
+    A complete sales system built specifically for security contracts — not a generic CRM. It
+    knows what a guarding proposal looks like, prices it from your own rate cards, and
+    understands that the biggest deals arrive as formal RFPs.
+  </p>
+
+  <h2 class="block">Leads</h2>
+  <p>
+    Capture and qualify prospective customers. The lead page is a <strong>guided, step-by-step
+    workflow</strong> rather than a blank form — it walks a rep from first contact through
+    qualification to a proposal, showing what to do next at each stage.
+  </p>
+  <ul>
+    <li><strong>AI lead scoring</strong> — each lead is assessed and ranked so reps work the right ones first.</li>
+    <li><strong>Click-to-dial</strong> — call a lead straight from the record; the call is logged, timed, and the outcome recorded.</li>
+    <li><strong>Automatic call recording</strong> — calls placed through the app are recorded and attached to the lead; recordings from an external phone dialer can also be uploaded and attached.</li>
+    <li><strong>Notes and activities</strong> — a running history on every lead and deal.</li>
+    <li><strong>Import from anywhere</strong> — CSV import with field mapping, so a list from any CRM or spreadsheet loads without reformatting, plus direct connectors to eight CRM platforms.</li>
+    <li><strong>Export</strong> — leads export to CSV for reporting or hand-off.</li>
+  </ul>
+
+  <h2 class="block">Deals and pipeline</h2>
+  <p>
+    Qualified leads convert to deals and move through pipeline stages. Deals can be worked in a
+    list or on a <strong>drag-and-drop Kanban board</strong>, where moving a card between columns
+    advances the deal stage.
+  </p>
+
+  <h2 class="block">AI Prospect Search</h2>
+  <p>
+    Type a company name and AegisLead produces a complete <strong>sales playbook</strong> for it:
+    a business summary, the value propositions that apply, concrete sales angles, the personas
+    to approach, and the objections to expect. The result can be imported straight in as a lead.
+  </p>
+  <ul>
+    <li><strong>Two modes</strong> — a cheap <em>Preview</em> for a quick look, and a <em>Full</em> search for a complete set of results.</li>
+    <li><strong>Saved searches and history</strong> — every search is kept; reopening a saved search shows the stored result rather than re-running and re-charging it.</li>
+    <li><strong>Shared cache</strong> — if the same company has been researched recently, the cached result is returned instantly and free of charge.</li>
+    <li><strong>Server-side completion</strong> — research jobs can take minutes; the server finishes them even if the user closes the tab, and the result is waiting when they return.</li>
+  </ul>
+
+  <h2 class="block">Sales Accelerator</h2>
+  <p>
+    An AI coaching workspace that sits over the pipeline. It is the difference between a CRM
+    that records what happened and one that tells a rep what to do next.
+  </p>
+  <table class="compact">
+    <thead><tr><th style="width:34%">Capability</th><th>What it produces</th></tr></thead>
+    <tbody>
+      <tr><td class="lead">Discovery guide</td><td>A tailored question set to take into a first call with this specific prospect.</td></tr>
+      <tr><td class="lead">Live call coaching</td><td>Prompts and suggestions generated during the call itself.</td></tr>
+      <tr><td class="lead">Call intelligence</td><td>Structured analysis of the discovery call once it is finished — what was learned, what was missed.</td></tr>
+      <tr><td class="lead">Lead and deal scoring</td><td>An AI assessment of how likely this is to close, and why.</td></tr>
+      <tr><td class="lead">Outreach plan &amp; follow-up sequences</td><td>A drafted multi-step outreach plan and follow-up messages.</td></tr>
+      <tr><td class="lead">Proposal from discovery</td><td>Turns the discovery notes straight into a drafted proposal.</td></tr>
+      <tr><td class="lead">Focus queue &amp; alerts</td><td>A prioritised daily list of deals needing attention, with the recommended next action.</td></tr>
+      <tr><td class="lead">Forecast &amp; coaching analytics</td><td>Pipeline forecast reporting and analysis of how coaching is landing across the team.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="block">Sales Calls</h2>
+  <p>
+    Every call placed from the app, plus any recording uploaded from an external dialer, can be
+    <strong>transcribed automatically</strong> and analysed. Reps get a searchable transcript,
+    structured discovery analysis and coaching feedback. Recordings can be deleted individually
+    when they are no longer needed.
+  </p>
+
+  <h2 class="block">Proposals</h2>
+  <p>
+    AegisLead drafts the security services proposal itself. The draft is priced from the
+    company's own <strong>rate cards</strong>, so the numbers in the document are the numbers
+    that will be invoiced.
+  </p>
+  <ul>
+    <li><strong>Versioning</strong> — every revision is kept and comparable.</li>
+    <li><strong>Client comments</strong> — the customer comments directly on the proposal in their portal; the thread stays attached to the document.</li>
+    <li><strong>Approve / reject with a timeline</strong> — the client's decision is recorded with a full timeline of who did what and when.</li>
+    <li><strong>Bulk generation</strong> — draft proposals across many leads at once.</li>
+    <li><strong>PDF export and email delivery</strong> — send it, or hand over a PDF.</li>
+    <li><strong>Placeholder validation</strong> — the system refuses to send a proposal that still contains unfilled placeholder blocks.</li>
+  </ul>
+
+  <h2 class="block">RFP management and vendor procurement</h2>
+  <p>
+    The other half of the sales story: when the company needs to <em>subcontract</em> work, it
+    runs a formal procurement from inside AegisLead. This is covered in full in section 9.
+  </p>
+</div>
+
+<!-- ============ 5. GUARD ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-num">05</div>
+    <div class="sec-title">AegisLead Guard</div>
+    <div class="sec-kicker">Prove the work</div>
+  </div>
+
+  <p class="lede">
+    Everything needed to put guards on the ground and produce defensible evidence that the
+    service was delivered — the part of the business a client will eventually audit.
+  </p>
+
+  <h2 class="block">Sites</h2>
+  <p>
+    The client locations that need guarding. A site carries its address and geographic
+    coordinates, the client it belongs to, and the branch responsible for it. Sites are the
+    anchor for everything downstream: checkpoints, routes, shifts, incidents and reports all
+    hang off a site.
+  </p>
+
+  <h2 class="block">Guards and compliance</h2>
+  <ul>
+    <li><strong>Guard roster</strong> — the workforce, with contact details, branch, skills and portal credentials. Guards can be deactivated rather than deleted, so their history stays intact.</li>
+    <li><strong>Duplicate prevention</strong> — the system blocks the same guard being created twice.</li>
+    <li><strong>Guard compliance</strong> — licences, certifications and training with expiry dates and uploaded documents. Status is shown plainly so a scheduler can see at a glance who is current and who is not.</li>
+    <li><strong>Availability</strong> — guards' availability is recorded and used when rostering.</li>
+  </ul>
+
+  <h2 class="block">Patrols — checkpoints, routes and verification</h2>
+  <p>
+    This is the heart of the Guard product, and the part that was rebuilt most recently.
+  </p>
+
+  <h3 class="sub">Checkpoints</h3>
+  <p>
+    A checkpoint is a physical point on a site a guard must visit — a fire door, a loading bay,
+    a server room. Each one carries a <strong>QR code value</strong> and optionally a
+    <strong>GPS geofence</strong> with a configurable radius (default 50 metres, adjustable from
+    5 metres to 2 kilometres).
+  </p>
+
+  <h3 class="sub">Printable QR sticker sheets</h3>
+  <p>
+    AegisLead generates <strong>print-ready QR sticker sheets</strong> for a site's checkpoints
+    directly from the app. The sheets are laid out for standard label stock — print them, stick
+    them to the physical checkpoints, and the site is live. No proprietary hardware, no NFC
+    tags to source, no per-device licensing.
+  </p>
+
+  <h3 class="sub">Routes</h3>
+  <p>
+    Checkpoints are assembled into an <strong>ordered patrol route</strong>. A site can have
+    several routes — a perimeter round, an internal round, a night round.
+  </p>
+
+  <h3 class="sub">Dual verification</h3>
+  <p>
+    When a guard reaches a checkpoint they scan its QR code with their phone camera. AegisLead
+    records <strong>two independent verification results</strong>, and stores both:
+  </p>
+  <table class="compact">
+    <thead><tr><th style="width:30%">Check</th><th>Possible outcomes recorded</th></tr></thead>
+    <tbody>
+      <tr><td class="lead">QR verification</td><td>Matched · Mismatched (wrong checkpoint scanned) · Not provided · No QR configured</td></tr>
+      <tr><td class="lead">Geofence verification</td><td>Inside the fence · Outside the fence · Location unavailable · Invalid location · No geofence configured</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Keeping them separate matters: a guard whose phone GPS failed indoors but who scanned the
+    correct QR code is a different situation from a guard who scanned the right code from the
+    car park. The record shows which it was.
+  </p>
+
+  <h3 class="sub">Patrol runs</h3>
+  <p>
+    A patrol run is one walk of one route by one guard. The system prevents a guard starting
+    two runs at once, tracks <strong>live location</strong> during the run, and on completion
+    automatically marks any checkpoint that was never scanned as <strong>missed</strong> — no
+    manual reconciliation, and no way to quietly skip a point.
+  </p>
+
+  <h3 class="sub">Patrol Monitor</h3>
+  <p>
+    An aggregate live dashboard for supervisors: which patrols are running right now, across
+    which sites, how far through the route each guard is, and which checkpoints have been
+    missed or failed verification.
+  </p>
+
+  <h2 class="block">Incidents</h2>
+  <p>
+    Guards file incident reports from the field. Each report can carry
+    <strong>photo and video evidence</strong> attached directly from the phone.
+  </p>
+  <div class="flow">
+    <div class="step"><div class="n">01</div><div class="t">Guard files</div><div class="d">Report plus photo or video evidence, from the site.</div></div>
+    <div class="step"><div class="n">02</div><div class="t">Office reviews</div><div class="d">A dedicated review queue; approve, amend or reject.</div></div>
+    <div class="step"><div class="n">03</div><div class="t">Client sees</div><div class="d">Only approved reports appear in the client portal.</div></div>
+  </div>
+  <p>
+    Nothing reaches the client un-reviewed. That one rule is what makes the client portal safe
+    to give out.
+  </p>
+
+  <h2 class="block">Emergency alerts</h2>
+  <p>
+    A <strong>panic button</strong> in the guard app. Pressing it raises an immediate alert that
+    surfaces on the admin dispatch screen and <strong>sends an email to the responsible
+    contacts</strong>. Dispatch acknowledges the alert and then resolves it, and both actions are
+    timestamped — so response time is measurable rather than anecdotal.
+  </p>
+
+  <h2 class="block">Daily service reports</h2>
+  <p>
+    The report the client actually reads. Staff compile a daily service report for a site,
+    <strong>AI writes the summary</strong>, and the report is published to the client portal and
+    <strong>emailed to the client</strong> automatically. This is typically the single most
+    visible deliverable a guarding contract produces, and it is generated rather than typed.
+  </p>
+
+  <h2 class="block">AI guard recommendations</h2>
+  <p>
+    When a shift has an unfilled slot, AegisLead suggests which guards to put in it — based on
+    availability, site familiarity, compliance status and branch — and explains in plain language
+    why each one was suggested.
+  </p>
+</div>
+
+<!-- ============ 6. GUARD PORTAL ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-num">06</div>
+    <div class="sec-title">The Guard Mobile Experience</div>
+    <div class="sec-kicker">The phone in the field</div>
+  </div>
+
+  <p class="lede">
+    The guard app is the surface the business depends on most and controls least — it runs on
+    the guard's own phone, in the field, and it has to be simple enough to use one-handed at
+    two in the morning.
+  </p>
+
+  <h2 class="block">A shift, start to finish</h2>
+  <div class="steps">
+    <div class="s"><div class="num">1</div><div class="txt"><b>Sign in.</b> The guard opens the guard portal on their phone and signs in with credentials the office issued them.</div></div>
+    <div class="s"><div class="num">2</div><div class="txt"><b>See today's work.</b> The dashboard shows the shifts assigned to them, with site, times and what still needs doing.</div></div>
+    <div class="s"><div class="num">3</div><div class="txt"><b>Check in.</b> One tap on arrival. This starts the shift, moves it to <em>in progress</em> for the office, and begins the clock that will produce the timesheet.</div></div>
+    <div class="s"><div class="num">4</div><div class="txt"><b>Walk a patrol.</b> The guard picks one of the site's routes and starts a run. Each checkpoint is scanned with the camera; QR and GPS are verified and recorded.</div></div>
+    <div class="s"><div class="num">5</div><div class="txt"><b>Complete the run.</b> Any checkpoint not scanned is automatically marked missed. The run is closed and visible on the Patrol Monitor.</div></div>
+    <div class="s"><div class="num">6</div><div class="txt"><b>Report anything that happened.</b> Incidents are filed from the phone with photos or video attached.</div></div>
+    <div class="s"><div class="num">7</div><div class="txt"><b>Raise an emergency if needed.</b> The panic button is always available and alerts dispatch immediately.</div></div>
+    <div class="s"><div class="num">8</div><div class="txt"><b>Check out.</b> One tap on leaving. This closes the shift and <b>creates the timesheet</b> — the single action that connects the field to the invoice.</div></div>
+  </div>
+
+  <div class="callout">
+    <h4>Eight taps, and the office knows everything</h4>
+    <p>That sequence is the entire guard-facing product. There is no training course, no
+    separate device and no paperwork — and by the time the guard has checked out, the office
+    already holds the attendance record, the verified patrol evidence, the incident report and
+    the timesheet that will be invoiced.</p>
+  </div>
+
+  <h2 class="block">Guard-side guard rails</h2>
+  <ul>
+    <li><strong>Check-in gates everything.</strong> Patrols cannot be started before the guard has checked in — the sequence is enforced, not suggested.</li>
+    <li><strong>Check-out is validated.</strong> A clock-skew guard prevents a phone with a wrong system time producing a nonsense timesheet.</li>
+    <li><strong>No double-starting.</strong> A guard cannot have two patrol runs open at the same time.</li>
+    <li><strong>Patrol history.</strong> Guards can see their own completed runs.</li>
+    <li><strong>Session handling.</strong> The guard app refreshes its own session so a guard is not thrown out mid-shift.</li>
+  </ul>
+
+  <h2 class="block">What the office sees in return</h2>
+  <p>
+    Every guard action lands in the admin app immediately: shift status changes from
+    <em>assigned</em> to <em>in progress</em> to <em>completed</em>; attendance events appear
+    against the shift; patrol runs appear on the monitor with their verification results;
+    incidents arrive in the review queue; and a guard who has not checked in by
+    <strong>fifteen minutes</strong> past their shift start is flagged as a
+    <strong>no-show</strong> on the dashboard — automatically, and the flag clears itself the
+    moment they arrive.
+  </p>
+</div>
+
+<!-- ============ 7. OPERATIONS ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-num">07</div>
+    <div class="sec-title">AegisLead Operations</div>
+    <div class="sec-kicker">Schedule it, bill it</div>
+  </div>
+
+  <p class="lede">
+    Rostering, hours and money. This is where field activity becomes revenue, and it is the
+    product that removes the most manual re-keying from a guarding business.
+  </p>
+
+  <h2 class="block">Shifts and rostering</h2>
+  <p>
+    Shifts are created against a site with a start, an end and a
+    <strong>required number of guards</strong>. Multi-guard shifts are fully supported: a shift
+    stays <em>open</em> until every required slot is filled, then becomes <em>assigned</em>.
+  </p>
+
+  <table class="compact">
+    <thead><tr><th style="width:26%">Shift status</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="lead">Open</td><td>Fewer guards assigned than the shift requires.</td></tr>
+      <tr><td class="lead">Assigned</td><td>Every required slot is filled; nobody has arrived yet.</td></tr>
+      <tr><td class="lead">In progress</td><td>At least one assigned guard is currently checked in and on duty.</td></tr>
+      <tr><td class="lead">Completed</td><td>Every guard who checked in has checked out — not merely the first one.</td></tr>
+    </tbody>
+  </table>
+  <p>
+    A late guard checking in after the others have left correctly flips the shift back to
+    <em>in progress</em>. Status is computed from what actually happened, never stored as a
+    guess.
+  </p>
+
+  <ul>
+    <li><strong>Calendar view</strong> — the roster as a calendar, not only a table.</li>
+    <li><strong>AI guard recommendations</strong> — suggested guards for every open slot, with reasons.</li>
+    <li><strong>No-show detection</strong> — derived live from attendance, with a 15-minute grace period.</li>
+    <li><strong>Shift assignment emails</strong> — guards are emailed when they are put on a shift.</li>
+    <li><strong>Branch scoping</strong> — schedulers see their own branch's roster.</li>
+  </ul>
+
+  <h2 class="block">Timesheets</h2>
+  <p>
+    A timesheet is created <strong>automatically when a guard checks out</strong> — one per guard
+    per shift, built from the real check-in and check-out times. Office staff review and
+    <strong>approve</strong> it. Nothing becomes billable without that approval, and nothing has
+    to be typed in from a paper sheet.
+  </p>
+
+  <h2 class="block">Rate cards</h2>
+  <p>
+    The contracted commercial terms per client and site: standard hourly rate, overtime rate and
+    holiday rate. Rate cards are the single source of pricing truth — they price the AI-drafted
+    proposal at the start of the relationship and the invoice at the end of every month, which
+    is what stops the two from disagreeing.
+  </p>
+
+  <h2 class="block">Invoices</h2>
+  <div class="flow">
+    <div class="step"><div class="n">01</div><div class="t">Generate</div><div class="d">Built from approved timesheets at the contracted rates.</div></div>
+    <div class="step"><div class="n">02</div><div class="t">Issue</div><div class="d">Sent to the client and visible in their portal.</div></div>
+    <div class="step"><div class="n">03</div><div class="t">Settle</div><div class="d">Marked paid, cancelled, or disputed and resolved.</div></div>
+  </div>
+  <p>
+    Invoices export to <strong>PDF</strong> for sending and <strong>CSV</strong> for the
+    accounts package. Every line traces back to an approved timesheet, which traces back to a
+    guard's verified check-in and check-out.
+  </p>
+
+  <h2 class="block">Invoice disputes</h2>
+  <p>
+    Clients raise a dispute against a specific invoice from their own portal, stating what they
+    disagree with. Staff see the dispute in a queue, respond to it, and resolve it. The whole
+    exchange is recorded against the invoice — so a billing argument has a paper trail instead
+    of living in an email thread.
+  </p>
+
+  <h2 class="block">Finance reporting</h2>
+  <ul>
+    <li><strong>Finance dashboard</strong> — totals and status breakdown with charts.</li>
+    <li><strong>Outstanding report</strong> — what is owed and how old it is.</li>
+    <li><strong>Payments report</strong> — what has been collected.</li>
+    <li><strong>Disputes report</strong> — what is contested and where it stands.</li>
+    <li><strong>CSV export</strong> — on every report, for the accountant.</li>
+  </ul>
+
+  <h2 class="block">Client insurance and compliance</h2>
+  <p>
+    Each client's Certificate of Insurance is tracked, with the document itself stored against
+    the record. The system tracks whether the document is <strong>present or missing</strong>,
+    shows an advisory banner where it is missing, and exposes the status to the client in their
+    own portal so they can fix it themselves. Uploads are validated by file type on the way in.
+  </p>
+</div>
+
+<!-- ============ 8. CLIENT PORTAL ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-num">08</div>
+    <div class="sec-title">The Client Portal</div>
+    <div class="sec-kicker">What your customer sees</div>
+  </div>
+
+  <p class="lede">
+    A branded, self-service portal for the security company's own customers. It replaces the
+    emailed PDF, the "can you resend that report" phone call, and the invoice query that nobody
+    can find the history of.
+  </p>
+
+  <table>
+    <thead><tr><th style="width:26%">Area</th><th>What the client can do</th></tr></thead>
+    <tbody>
+      <tr><td class="lead">Dashboard</td><td>A summary of their account — current activity, recent reports and anything awaiting their attention.</td></tr>
+      <tr><td class="lead">Proposals</td><td>Read a proposal, comment on specific points, and formally <strong>approve or reject</strong> it. A timeline records every step. The proposal can be exported as a PDF.</td></tr>
+      <tr><td class="lead">Incident reports</td><td>Read incident reports that the security company has reviewed and approved — never raw, un-reviewed field reports.</td></tr>
+      <tr><td class="lead">Daily service reports</td><td>Read and download published daily reports, including the AI-written summary. These also arrive by email.</td></tr>
+      <tr><td class="lead">Invoices</td><td>View every invoice with its full detail, and <strong>raise a dispute</strong> on any of them.</td></tr>
+      <tr><td class="lead">Insurance</td><td>See their own Certificate of Insurance status and what is outstanding.</td></tr>
+      <tr><td class="lead">Documents</td><td>Download documents the security company has shared with them.</td></tr>
+      <tr><td class="lead">Profile &amp; security</td><td>Manage their own profile, set their initial password, change it, and recover it by email with a verification code.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <p><strong>Access is controlled by the security company, not self-service.</strong> Client
+    portal users are created by the security company's staff from the client record — there is
+    no public sign-up, so a stranger cannot put themselves inside a paying customer's account.
+    New users set their own password through a one-time secure flow.</p>
+  </div>
+
+  <h2 class="block">Why this sells the product</h2>
+  <p>
+    For a guarding company, the client portal is a competitive weapon rather than a convenience.
+    It changes the monthly conversation from "here is an invoice, trust us" to "here is the
+    invoice, here are the verified patrol records behind every hour on it, and here are the
+    incident reports you have already read." Contract renewals are won on exactly that
+    difference.
+  </p>
+</div>
+
+<!-- ============ 9. VENDOR / RFP ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-num">09</div>
+    <div class="sec-title">The Vendor Portal &amp; Procurement</div>
+    <div class="sec-kicker">Subcontracting, run properly</div>
+  </div>
+
+  <p class="lede">
+    When a contract needs capacity the company does not have — another city, a specialist
+    skill, a short-term surge — AegisLead runs the whole subcontractor procurement as a formal
+    process rather than three phone calls and a forwarded email.
+  </p>
+
+  <h2 class="block">The procurement flow</h2>
+  <div class="steps">
+    <div class="s"><div class="num">1</div><div class="txt"><b>Draft the RFP.</b> Create a Request for Proposal, or have <b>AI generate the whole document</b> from a brief.</div></div>
+    <div class="s"><div class="num">2</div><div class="txt"><b>Analyse the requirements.</b> AI reviews the security requirements in the RFP and flags what the document actually demands of a bidder.</div></div>
+    <div class="s"><div class="num">3</div><div class="txt"><b>Invite vendors.</b> Select vendors from the directory. Each receives an <b>emailed, single-use secure link</b> — no account to create, no password to forget.</div></div>
+    <div class="s"><div class="num">4</div><div class="txt"><b>Collect bids.</b> Vendors open their link, see only their own RFP, and submit a priced proposal with supporting documents. Access closes at the due date.</div></div>
+    <div class="s"><div class="num">5</div><div class="txt"><b>Evaluate with AI.</b> AegisLead produces a structured <b>evaluation report</b> comparing every bid on the same criteria — so the decision is comparable, not impressionistic.</div></div>
+    <div class="s"><div class="num">6</div><div class="txt"><b>Award or reject.</b> Award the contract to the winner and reject the rest. Both outcomes send the vendor an automatic email, and both are written to the audit log.</div></div>
+    <div class="s"><div class="num">7</div><div class="txt"><b>Track performance.</b> The awarded vendor gets performance reviews recorded against them, building a history for the next procurement round.</div></div>
+  </div>
+
+  <h2 class="block">Related capabilities</h2>
+  <ul>
+    <li><strong>Generate a proposal from an RFP</strong> — when the company is the one <em>bidding</em>, AegisLead turns an incoming RFP into a drafted response.</li>
+    <li><strong>Dual logos</strong> — RFP documents carry both the issuing company's and the recipient's branding.</li>
+    <li><strong>Vendor directory</strong> — a managed list of subcontractors with their details and performance history.</li>
+  </ul>
+
+  <div class="callout">
+    <h4>Security of the vendor link</h4>
+    <p>The vendor portal has no login at all. Access is gated by a cryptographically random,
+    single-purpose invitation token that opens exactly one RFP and expires at that RFP's due
+    date. A vendor cannot see another vendor's bid, the other invitees, or anything else in the
+    system.</p>
+  </div>
+</div>
+
+<!-- ============ 10. AI ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-num">10</div>
+    <div class="sec-title">The AI Layer</div>
+    <div class="sec-kicker">Where the AI actually works</div>
+  </div>
+
+  <p class="lede">
+    AI in AegisLead is not a chat window. It is embedded at the specific points where a human
+    would otherwise spend an hour on a blank page, and every use is metered so a customer can
+    see exactly what it costs.
+  </p>
+
+  <h2 class="block">Every AI capability, and what it costs</h2>
+  <p>
+    Costs are in credits. A light task costs 5, a standard generation 15, and a heavy document
+    or transcription 40. Live call coaching is 1 per prompt, because it fires repeatedly during
+    a call.
+  </p>
+
+  <table class="price compact">
+    <thead><tr><th style="width:38%">Capability</th><th>What it does</th><th class="num">Credits</th></tr></thead>
+    <tbody>
+      <tr><td class="lead">Proposal draft</td><td>Writes a full security-services proposal, priced from your rate cards</td><td class="num">15</td></tr>
+      <tr><td class="lead">Proposal from discovery</td><td>Turns discovery-call notes directly into a draft proposal</td><td class="num">15</td></tr>
+      <tr><td class="lead">RFP generation</td><td>Writes a complete Request for Proposal from a brief</td><td class="num">40</td></tr>
+      <tr><td class="lead">Security RFP analysis</td><td>Analyses the security requirements inside an RFP</td><td class="num">40</td></tr>
+      <tr><td class="lead">Proposal from RFP</td><td>Drafts a bid response to an incoming RFP</td><td class="num">40</td></tr>
+      <tr><td class="lead">Evaluation report</td><td>Compares every vendor bid against the same criteria</td><td class="num">40</td></tr>
+      <tr><td class="lead">Call transcription</td><td>Transcribes a recorded sales call</td><td class="num">40</td></tr>
+      <tr><td class="lead">Discovery guide</td><td>Builds a tailored question set for a specific prospect</td><td class="num">15</td></tr>
+      <tr><td class="lead">Discovery call intelligence</td><td>Structured analysis of what the call revealed</td><td class="num">15</td></tr>
+      <tr><td class="lead">Live call coach</td><td>Real-time prompts during a live call</td><td class="num">1</td></tr>
+      <tr><td class="lead">Sales assessment</td><td>Scores and explains a lead or deal</td><td class="num">15</td></tr>
+      <tr><td class="lead">Lead generation</td><td>Generates qualified lead candidates</td><td class="num">15</td></tr>
+      <tr><td class="lead">Outreach plan</td><td>Drafts a multi-step outreach sequence</td><td class="num">15</td></tr>
+      <tr><td class="lead">Business insight recommendations</td><td>Recommended actions from account activity</td><td class="num">15</td></tr>
+      <tr><td class="lead">Revenue intelligence &amp; financial recommendations</td><td>Revenue summaries and financial guidance</td><td class="num">15</td></tr>
+      <tr><td class="lead">Daily report summary</td><td>Writes the summary on the client's daily service report</td><td class="num">5</td></tr>
+      <tr><td class="lead">Incident risk summary</td><td>Summarises the risk profile of an incident</td><td class="num">5</td></tr>
+      <tr><td class="lead">Guard recommendation explanation</td><td>Explains in plain language why a guard was suggested for a shift</td><td class="num">5</td></tr>
+      <tr><td class="lead">Email draft</td><td>Drafts an outbound email</td><td class="num">5</td></tr>
+      <tr><td class="lead">Note summary</td><td>Condenses a long note thread</td><td class="num">5</td></tr>
+      <tr><td class="lead">Lead extraction</td><td>Pulls structured lead data out of unstructured text</td><td class="num">5</td></tr>
+      <tr><td class="lead">Prospect company insight</td><td>Company-level insight attached to a prospect</td><td class="num">5</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="block">Prospect research pricing</h2>
+  <table class="price compact">
+    <thead><tr><th style="width:40%">Research type</th><th>What you get</th><th class="num">Credits</th></tr></thead>
+    <tbody>
+      <tr><td class="lead">Company playbook</td><td>A full sales playbook for one named company</td><td class="num">50</td></tr>
+      <tr><td class="lead">Preview discovery search</td><td>A quick look — up to 5 prospects</td><td class="num">50</td></tr>
+      <tr><td class="lead">Full discovery search</td><td>A complete prospect discovery run</td><td class="num">200</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:8.4pt;color:var(--muted);margin-top:-3mm">
+    Discovery is priced per search, not per result, so the price is known before the button is
+    pressed. A search that fails is refunded in full; a cached result costs nothing.
+  </p>
+
+  <h2 class="block">How the AI is governed</h2>
+  <ul>
+    <li><strong>Safety screening</strong> — AI output is screened for personal data and unsafe language before anything is marked client-visible.</li>
+    <li><strong>Full generation logging</strong> — every AI call is logged with what it cost, so a customer's AI spend is answerable and the pricing can be tuned from measured data rather than guesswork.</li>
+    <li><strong>Prompt versioning</strong> — prompts are versioned centrally, so behaviour can be improved without redeploying the application.</li>
+    <li><strong>Graceful degradation</strong> — most AI features have a deterministic fallback if the AI provider is unavailable, so the app keeps working rather than erroring.</li>
+    <li><strong>Entitlement enforcement</strong> — AI is only available to plans that include it, and that is enforced on every route into the system, not only the web app.</li>
+  </ul>
+
+  <div class="note">
+    <p><strong>A single AI engine.</strong> AegisLead consolidated onto one AI provider —
+    including call transcription, which previously required a second vendor and a second API
+    key. One key now powers every AI feature in the product, which simplifies both operation and
+    cost control. External company research runs on a dedicated research provider.</p>
+  </div>
+</div>
+
+<!-- ============ 11. ROLES / SECURITY ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-num">11</div>
+    <div class="sec-title">Users, Roles &amp; Account Security</div>
+    <div class="sec-kicker">Who can do what</div>
+  </div>
+
+  <p class="lede">
+    Permissions are job-shaped. A non-technical owner picks a role from a short list and gets a
+    sensible result, without reading a permission matrix — but a company that wants fine control
+    can build custom roles from individual permission keys.
+  </p>
+
+  <h2 class="block">The eight built-in roles</h2>
+  <table>
+    <thead><tr><th style="width:22%">Role</th><th>What they see</th></tr></thead>
+    <tbody>
+      <tr><td class="lead">Super Admin</td><td>The account owner. Everything, including billing, users, branches, integrations, branding and the audit log. The only role with account administration.</td></tr>
+      <tr><td class="lead">Manager</td><td>Runs the day-to-day business across sales, field operations and invoicing. Cannot change billing, users, branches or integrations.</td></tr>
+      <tr><td class="lead">Sales</td><td>The Generation product only — leads, deals, calls, proposals, RFPs and vendors.</td></tr>
+      <tr><td class="lead">Operations</td><td>Scheduling and field operations — sites, guards, shifts, patrols, incidents and reports.</td></tr>
+      <tr><td class="lead">Supervisor</td><td>Deliberately narrow: watches patrols and reviews what is flagged, without touching the roster or any financial data.</td></tr>
+      <tr><td class="lead">Finance</td><td>Timesheets, rate cards, invoices, disputes and financial reporting. Does not see the AI sales tools or branches.</td></tr>
+      <tr><td class="lead">Guard</td><td>The guard mobile portal only.</td></tr>
+      <tr><td class="lead">Client</td><td>The client portal only.</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Beyond these, <strong>custom roles</strong> can be assembled from a catalogue of roughly 100
+    fine-grained permission keys across 30 functional areas. A safeguard prevents anyone granting
+    a permission they do not themselves hold, so a role cannot be used to quietly escalate
+    privileges.
+  </p>
+
+  <h2 class="block">Owner protection</h2>
+  <p>
+    The account owner is protected at the system level — they cannot be deleted, demoted or
+    locked out by another administrator, and an administrator cannot remove their own access and
+    strand the account.
+  </p>
+
+  <h2 class="block">Account security</h2>
+  <div class="grid">
+    <div class="card">
+      <h4>Two-step verification</h4>
+      <p>Email-based two-factor authentication, enabled and disabled by the user themselves from
+      their own security settings with a verification step at each end.</p>
+    </div>
+    <div class="card">
+      <h4>Recovery email</h4>
+      <p>A separate, verified recovery address so a user who loses access to their primary inbox
+      is not locked out permanently.</p>
+    </div>
+    <div class="card">
+      <h4>Security alert emails</h4>
+      <p>The account is notified by email when sensitive security settings change, so an
+      unauthorised change is visible immediately.</p>
+    </div>
+    <div class="card">
+      <h4>One active session</h4>
+      <p>Each user is limited to a single active login — the newest wins. A shared password
+      becomes obvious instantly, and the displaced session is told clearly why it ended rather
+      than failing silently.</p>
+    </div>
+  </div>
+
+  <h2 class="block">Audit trail</h2>
+  <p>
+    Security-sensitive actions are written to a tenant-scoped audit log: logins, role changes,
+    forced logouts, denied access to restricted fields, and contract awards and rejections. It is
+    readable from the admin app by anyone with audit permission.
+  </p>
+
+  <h2 class="block">Field-level permissions</h2>
+  <p>
+    A further layer can hide or lock specific sensitive fields — a guard's pay rate, a client's
+    billing notes — from roles that should not see them, even on a record they otherwise have
+    access to. Enforcement runs on every request.
+  </p>
+
+  <h2 class="block">Branches</h2>
+  <p>
+    Companies operating in several regions model those as branches. Staff, sites, guards and
+    shifts belong to a branch, and non-owner staff are scoped to their own — so a regional
+    manager sees their region, and only their region.
+  </p>
+</div>
+
+<!-- ============ 12. INTEGRATIONS ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-num">12</div>
+    <div class="sec-title">Integrations &amp; Open API</div>
+    <div class="sec-kicker">Connecting to everything else</div>
+  </div>
+
+  <p class="lede">
+    AegisLead is not a closed box. Existing CRM data comes in, platform events go out, and
+    anything the interface does can be done programmatically.
+  </p>
+
+  <h2 class="block">CRM connectors</h2>
+  <p>
+    Import contacts and leads directly from eight CRM platforms. Where a provider supports it,
+    the connection is made by secure OAuth and the stored credentials are encrypted at rest.
+  </p>
+  <table class="compact">
+    <thead><tr><th>Supported platforms</th></tr></thead>
+    <tbody>
+      <tr><td><strong>HubSpot &nbsp;·&nbsp; Salesforce &nbsp;·&nbsp; Pipedrive &nbsp;·&nbsp; Zoho &nbsp;·&nbsp; GoHighLevel &nbsp;·&nbsp; Close &nbsp;·&nbsp; Copper &nbsp;·&nbsp; Freshsales</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="block">Universal CSV import</h2>
+  <p>
+    For anything not on that list, leads import from a CSV with <strong>field mapping</strong> —
+    the user matches their spreadsheet's columns to AegisLead's fields on screen, so a list from
+    any system loads without being reformatted first.
+  </p>
+
+  <h2 class="block">Outbound webhooks</h2>
+  <p>
+    AegisLead notifies other systems the moment something happens. Every outbound payload is
+    cryptographically signed so the receiver can verify it genuinely came from AegisLead, and
+    every delivery attempt is logged.
+  </p>
+  <table class="compact">
+    <thead><tr><th style="width:34%">Event</th><th>Fires when</th></tr></thead>
+    <tbody>
+      <tr><td class="lead">client.created</td><td>A new client is added</td></tr>
+      <tr><td class="lead">guard.created</td><td>A new guard joins the roster</td></tr>
+      <tr><td class="lead">shift.created / updated / deleted</td><td>The roster changes</td></tr>
+      <tr><td class="lead">shift.assigned</td><td>A guard is put on a shift</td></tr>
+      <tr><td class="lead">incident.created</td><td>A guard files an incident</td></tr>
+      <tr><td class="lead">incident.approved</td><td>An incident is approved and becomes client-visible</td></tr>
+      <tr><td class="lead">invoice.generated</td><td>An invoice is raised</td></tr>
+      <tr><td class="lead">invoice.paid</td><td>An invoice is settled</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="block">Public API and API keys</h2>
+  <ul>
+    <li><strong>API keys</strong> — generated in the app, shown once, and stored only as a hash. A leaked database does not leak usable keys.</li>
+    <li><strong>Scoped permissions</strong> — each key is limited to exactly what it needs.</li>
+    <li><strong>Per-key rate limiting</strong> — one integration cannot affect anyone else.</li>
+    <li><strong>Full request logging</strong> — every API call is recorded.</li>
+    <li><strong>Entitlement enforcement</strong> — the API respects the plan, so a module that was not purchased is not reachable through the back door.</li>
+    <li><strong>Public documentation</strong> — a developer documentation page is published with the product.</li>
+  </ul>
+
+  <h2 class="block">Email delivery</h2>
+  <p>
+    AegisLead sends on the order of sixteen distinct notification types, all delivered over a
+    transactional email service rather than raw SMTP — including proposal delivery, daily service
+    reports, shift assignments, emergency alerts, vendor invitations and contract awards,
+    verification and password-reset codes, security alerts, credit balance warnings and billing
+    digests.
+  </p>
+
+  <h2 class="block">Shared documents and branding</h2>
+  <ul>
+    <li><strong>Shared documents</strong> — share files with a client through their portal, with controlled access.</li>
+    <li><strong>Branding</strong> — the product carries AegisLead branding consistently across the admin app, guard portal, client portal and every email and PDF it generates.</li>
+    <li><strong>Support chat</strong> — a live support chat widget is embedded across the application, loaded only after the page is idle so it never slows the app down.</li>
+  </ul>
+</div>
+
+<!-- ============ 13. BILLING ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-num">13</div>
+    <div class="sec-title">Billing, Credits &amp; Self-Service</div>
+    <div class="sec-kicker">Getting paid</div>
+  </div>
+
+  <p class="lede">
+    AegisLead sells itself. A customer can sign up, choose a package, pay by card and be
+    provisioned without anyone at AegisLead touching the account.
+  </p>
+
+  <h2 class="block">Subscriptions</h2>
+  <div class="steps">
+    <div class="s"><div class="num">1</div><div class="txt"><b>Choose a package and band.</b> The plan page shows exactly what is included and what it costs at the customer's current guard count.</div></div>
+    <div class="s"><div class="num">2</div><div class="txt"><b>Pay by card.</b> Checkout runs through Stripe; AegisLead never touches card details.</div></div>
+    <div class="s"><div class="num">3</div><div class="txt"><b>Get provisioned automatically.</b> The subscription confirmation unlocks exactly the modules that were paid for — resolved from the purchased price itself, never from editable metadata.</div></div>
+    <div class="s"><div class="num">4</div><div class="txt"><b>Manage it themselves.</b> Customers update their card, view invoices and manage the subscription through a self-service billing portal.</div></div>
+  </div>
+
+  <h2 class="block">Entitlements</h2>
+  <p>
+    What a customer paid for is enforced everywhere — the web app, the public API and every
+    background process. The sidebar, the command palette and the API all agree, so a module that
+    was not bought is not visible and not reachable. Attempting to use a feature outside the plan
+    returns a clear, distinct response that lets the interface offer an upgrade rather than show
+    an error.
+  </p>
+
+  <h2 class="block">How the credit system works</h2>
+  <div class="grid">
+    <div class="card">
+      <h4>Reserve, then settle</h4>
+      <p>A job's true cost is not known until it finishes. The system holds the maximum up
+      front, then charges the actual amount and returns the rest. A failed job is refunded in
+      full; a cached result costs nothing.</p>
+    </div>
+    <div class="card">
+      <h4>An append-only ledger</h4>
+      <p>Every credit movement is a permanent ledger row. Corrections are new rows, never edits,
+      and the ledger total must always equal the balance. A customer can see exactly where every
+      credit went.</p>
+    </div>
+    <div class="card">
+      <h4>Low-balance warnings</h4>
+      <p>Billing contacts are emailed before credits run out, rather than discovering it when a
+      search fails.</p>
+    </div>
+    <div class="card">
+      <h4>Automatic top-up</h4>
+      <p>Customers can opt in to have a pack purchased automatically when the balance runs low —
+      and control the thresholds themselves. Entirely optional.</p>
+    </div>
+    <div class="card">
+      <h4>Abandoned holds released</h4>
+      <p>A hold left behind by a closed tab or a restart is swept automatically after an hour, so
+      credits can never be frozen permanently.</p>
+    </div>
+    <div class="card">
+      <h4>Refund and chargeback handling</h4>
+      <p>Credits are clawed back automatically on a refund or chargeback, so a customer cannot
+      buy, spend, refund and keep the usage. Partial refunds are escalated to a human rather than
+      guessed at.</p>
+    </div>
+  </div>
+
+  <h2 class="block">What the customer sees</h2>
+  <ul>
+    <li><strong>Your Plan</strong> — current package, guard band, what is included, and what an upgrade would cost.</li>
+    <li><strong>Search Credits</strong> — balance, the full ledger of what was spent on what, pack purchase and auto top-up settings.</li>
+    <li><strong>Billing</strong> — card management, invoices and subscription controls.</li>
+  </ul>
+</div>
+
+<!-- ============ 14. PLATFORM ADMIN ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-num">14</div>
+    <div class="sec-title">The Platform Admin Console</div>
+    <div class="sec-kicker">How AegisLead runs AegisLead</div>
+  </div>
+
+  <p class="lede">
+    A separate internal console, used only by the AegisLead team, for running the business side
+    of the platform. It is a completely separate identity from any customer account.
+  </p>
+
+  <h2 class="block">What it shows</h2>
+  <div class="stats">
+    <div class="stat"><div class="n">Tenants</div><div class="l">Every customer account</div></div>
+    <div class="stat"><div class="n">Paying</div><div class="l">Live subscriptions</div></div>
+    <div class="stat"><div class="n">On trial</div><div class="l">Trials and comps</div></div>
+    <div class="stat"><div class="n">Credits out</div><div class="l">Outstanding balances</div></div>
+    <div class="stat"><div class="n">AI cost</div><div class="l">30-day spend</div></div>
+  </div>
+
+  <ul>
+    <li><strong>Tenant management</strong> — view every customer account, its plan, its usage and its state; and permanently delete an account when asked to.</li>
+    <li><strong>Comp and trial grants</strong> — grant any package, or the full Trial Plan, for 7, 15 or 30 days, a custom period, or lifetime — and revoke it.</li>
+    <li><strong>Accurate plan reporting</strong> — an unpaid self-signup is never counted as a paying customer, and the comped plan is recorded explicitly rather than inferred.</li>
+    <li><strong>AI usage and cost monitoring</strong> — what AI is costing per tenant and across the platform.</li>
+    <li><strong>Credit recharge monitoring</strong> — who is topping up and how often.</li>
+    <li><strong>New signup alerts</strong> — an internal email on every new signup.</li>
+  </ul>
+
+  <div class="callout">
+    <h4>Separation of duties</h4>
+    <p>The platform console was deliberately detached from customer accounts: it has its own
+    credentials and its own authentication entirely. No customer administrator, however senior
+    within their own company, has any path into it — and platform staff do not hold customer
+    logins.</p>
+  </div>
+</div>
+
+<!-- ============ 15. ARCHITECTURE ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-num">15</div>
+    <div class="sec-title">Architecture, Security &amp; Reliability</div>
+    <div class="sec-kicker">How it is built</div>
+  </div>
+
+  <h2 class="block">The stack</h2>
+  <table class="compact">
+    <thead><tr><th style="width:24%">Layer</th><th>Technology</th></tr></thead>
+    <tbody>
+      <tr><td class="lead">Front end</td><td>Next.js with React and TypeScript. One application serves all four experiences, separated by route.</td></tr>
+      <tr><td class="lead">Back end</td><td>NestJS with TypeScript — around seventy feature modules, each with the same consistent structure.</td></tr>
+      <tr><td class="lead">Database</td><td>PostgreSQL, accessed through the Prisma ORM, with versioned migrations.</td></tr>
+      <tr><td class="lead">File storage</td><td>Backblaze B2 object storage — evidence photos, compliance documents, call recordings and logos live off the application host.</td></tr>
+      <tr><td class="lead">Payments</td><td>Stripe for subscriptions and one-off credit purchases.</td></tr>
+      <tr><td class="lead">Email</td><td>A transactional email API rather than SMTP, for deliverability.</td></tr>
+      <tr><td class="lead">Hosting</td><td>Containerised deployment to a dedicated production server, with a separate staging environment.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="block">Security measures in place</h2>
+  <ul>
+    <li><strong>Tenant isolation</strong> — every query is scoped to the owning tenant, enforced throughout the application.</li>
+    <li><strong>Token-based authentication</strong> with separate token types for admin, client and guard, and tracked sessions.</li>
+    <li><strong>Role-based access control</strong> on every administrative route, with self-escalation prevented.</li>
+    <li><strong>Hashed API keys</strong> — the plaintext is shown once and never stored.</li>
+    <li><strong>Signed webhooks</strong> — every outbound payload is cryptographically signed.</li>
+    <li><strong>Encrypted third-party credentials</strong> — connector tokens are encrypted at rest.</li>
+    <li><strong>Outbound request protection</strong> — customer-supplied webhook URLs are validated to prevent them being used to reach internal systems.</li>
+    <li><strong>Upload validation</strong> — uploaded documents are checked by file type on the way in.</li>
+    <li><strong>Single active session per user</strong>, with a clear message when a session is superseded.</li>
+    <li><strong>Email two-step verification</strong>, verified recovery addresses, and security alert emails.</li>
+    <li><strong>Audit logging</strong> of security-sensitive actions.</li>
+  </ul>
+
+  <h2 class="block">Reliability</h2>
+  <ul>
+    <li><strong>Encrypted nightly database backups</strong> held off-site in separate object storage.</li>
+    <li><strong>Automated uptime monitoring</strong> with health probes on every deployment.</li>
+    <li><strong>Continuous integration</strong> — the full test suite runs on every change before it can ship.</li>
+    <li><strong>Separate staging environment</strong> configured identically to production.</li>
+    <li><strong>Shared caching and rate limiting</strong> across application instances, so the platform scales horizontally without duplicated work or duplicated charges.</li>
+  </ul>
+
+  <h2 class="block">Performance</h2>
+  <p>
+    A dedicated performance pass removed the heaviest costs in the application: the dashboard no
+    longer loads every lead, deal and proposal in order to render a handful of summary lines; an
+    unused animation library was removed entirely; and the support chat widget is held back until
+    the page is idle so it cannot delay the first view.
+  </p>
+</div>
+
+<!-- ============ 16. CHANGELOG ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-num">16</div>
+    <div class="sec-title">What Changed in the Last Two Months</div>
+    <div class="sec-kicker">September – November 2026</div>
+  </div>
+
+  <p class="lede">
+    The platform moved from a feature-complete application to a commercially operable product in
+    this period. These are the changes a returning viewer would notice.
+  </p>
+
+  <h2 class="block">It became a product you can buy</h2>
+  <ul>
+    <li>Full <strong>Stripe checkout and automatic provisioning</strong> — a customer can subscribe and be set up without manual intervention.</li>
+    <li>The published <strong>AegisLead price table</strong> implemented in full: four packages across six guard bands, with active-guard metering and automatic band-drift detection.</li>
+    <li><strong>Per-service entitlements</strong>, so Generation, Guard and Operations can be sold separately and are enforced on every route in.</li>
+    <li><strong>Credit packs</strong>, low-balance warnings, opt-in automatic top-up, and full refund and chargeback handling.</li>
+    <li><strong>AI metering</strong> — every AI call now records what it cost, and AI that was previously running free is charged for.</li>
+    <li>A <strong>Trial Plan</strong> giving the full product minus AI, plus flexible comped plans.</li>
+  </ul>
+
+  <h2 class="block">The Guard product was rebuilt</h2>
+  <ul>
+    <li><strong>QR checkpoint verification</strong> — scan-to-verify at every checkpoint, recorded independently of GPS.</li>
+    <li><strong>Printable QR sticker sheets</strong> generated from the app — no special hardware to buy.</li>
+    <li><strong>Guard tour hardening</strong> — automatic detection of missed checkpoints, double-start prevention, clearer run status.</li>
+    <li><strong>The shift workflow made usable end to end</strong> — genuine multi-guard shifts, correct status across several guards, automatic no-show detection with a grace period, and a connected path from site to shift to patrol to timesheet.</li>
+    <li><strong>Patrol Monitor</strong> — a live aggregate view of every patrol in progress.</li>
+    <li><strong>Shift calendar view</strong> and shift assignment emails to guards.</li>
+    <li><strong>Emergency alert emails</strong> to the responsible contacts, not just an on-screen notification.</li>
+  </ul>
+
+  <h2 class="block">The sales product got sharper</h2>
+  <ul>
+    <li><strong>Click-to-dial with automatic call recording</strong>, plus the ability to attach recordings from an external dialer.</li>
+    <li><strong>Call transcription consolidated onto a single AI provider</strong>, removing a second vendor and a second API key.</li>
+    <li><strong>Six further CRM connectors</strong> added alongside HubSpot and GoHighLevel — eight in total.</li>
+    <li><strong>Field-mapped CSV import</strong> for leads from any system at all.</li>
+    <li><strong>Prospect Search reliability</strong> — results are no longer lost if the user navigates away, saved searches reopen stored results rather than re-charging, and the cache is shared across servers.</li>
+    <li><strong>A guided, step-by-step lead workflow</strong> replacing the blank-form page.</li>
+    <li><strong>Proposals priced from rate cards</strong>, so the quoted number and the invoiced number are the same number.</li>
+  </ul>
+
+  <h2 class="block">Security and account control</h2>
+  <ul>
+    <li><strong>Email two-step verification, verified recovery email and security alert emails.</strong></li>
+    <li><strong>One active login per user</strong>, newest wins, with a clear explanation on the displaced session.</li>
+    <li><strong>Platform Admin fully separated</strong> from customer accounts, with its own credentials.</li>
+    <li><strong>Account owner protection</strong> — owners cannot be deleted or demoted, and administrators cannot lock themselves out.</li>
+    <li><strong>A security hardening pass</strong> — an authentication bypass in email verification closed, outbound request protection against customer-supplied URLs, dependency vulnerabilities patched, a published credential fallback removed, and client self-signup removed so strangers cannot land inside a paying account.</li>
+    <li><strong>A rebuilt role set</strong> — eight job-shaped roles replacing a broader, more confusing set, with a deliberately narrow Supervisor role reinstated.</li>
+  </ul>
+
+  <h2 class="block">Operations and polish</h2>
+  <ul>
+    <li><strong>Production infrastructure</strong> — containerised deployment pipeline, health probes, uptime monitoring, encrypted nightly off-site database backups, and object storage for all uploaded files.</li>
+    <li><strong>Daily service reports emailed to clients</strong> with an AI-written summary.</li>
+    <li><strong>A sustained UI consistency programme</strong> — design-system primitives, accessibility refinements, consistent DD-MM-YYYY dates, friendly error messages in place of raw diagnostics, table and form fixes, and a measured performance pass.</li>
+    <li><strong>Client insurance tracking simplified</strong> to document present or missing, which is what the business actually acts on.</li>
+  </ul>
+</div>
+
+<!-- ============ 17. VIDEO ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-num">17</div>
+    <div class="sec-title">Suggested Video Walkthrough</div>
+    <div class="sec-kicker">A running order</div>
+  </div>
+
+  <p class="lede">
+    A proposed structure for the explainer video. It follows one contract from first contact to
+    paid invoice, because that single chain demonstrates every product at once and needs no
+    narration to explain why the parts belong together.
+  </p>
+
+  <table>
+    <thead><tr><th style="width:8%">#</th><th style="width:26%">Scene</th><th>What to show on screen</th></tr></thead>
+    <tbody>
+      <tr><td class="lead">1</td><td class="lead">The problem</td><td>No screen. State the stack a guarding company runs today — CRM, scheduler, guard-tour app, accounts package, spreadsheets — and that nothing connects.</td></tr>
+      <tr><td class="lead">2</td><td class="lead">The dashboard</td><td>Open the admin app. The overview: today's shifts, no-shows, pipeline, recent activity. Establish that this is one system.</td></tr>
+      <tr><td class="lead">3</td><td class="lead">Find the prospect</td><td>Prospect Search. Type a company name, show the generated playbook — summary, value props, angles, personas, objections — and import it as a lead in one click.</td></tr>
+      <tr><td class="lead">4</td><td class="lead">Work the lead</td><td>The guided lead workflow. Click to dial, the call recording appearing on the record, the AI transcript and the coaching analysis.</td></tr>
+      <tr><td class="lead">5</td><td class="lead">Move the deal</td><td>The Kanban board. Drag a card between stages.</td></tr>
+      <tr><td class="lead">6</td><td class="lead">Draft the proposal</td><td>Generate the proposal with AI. Highlight that the pricing comes from the company's own rate cards.</td></tr>
+      <tr><td class="lead">7</td><td class="lead">Client approves it</td><td><b>Switch to the client portal.</b> The client reads the proposal, leaves a comment, approves it. This hand-off is the most important cut in the video.</td></tr>
+      <tr><td class="lead">8</td><td class="lead">Set up the site</td><td>Create the site. Create checkpoints. <b>Print the QR sticker sheet</b> — a strong visual: software producing something physical.</td></tr>
+      <tr><td class="lead">9</td><td class="lead">Build the route</td><td>Assemble checkpoints into an ordered patrol route.</td></tr>
+      <tr><td class="lead">10</td><td class="lead">Roster the shift</td><td>Create a shift needing two guards. Show the AI guard recommendation and its explanation. Assign.</td></tr>
+      <tr><td class="lead">11</td><td class="lead">The guard arrives</td><td><b>Switch to a phone.</b> Guard signs in, sees the shift, checks in. Cut back to the admin screen showing the shift flip to <i>in progress</i>.</td></tr>
+      <tr><td class="lead">12</td><td class="lead">The patrol</td><td>On the phone: start the run, walk up to a checkpoint, scan the QR sticker from scene 8. Show both verifications confirming.</td></tr>
+      <tr><td class="lead">13</td><td class="lead">Something happens</td><td>File an incident with a photo. Optionally show the panic button and the alert landing on the dispatch screen.</td></tr>
+      <tr><td class="lead">14</td><td class="lead">Supervision</td><td>The Patrol Monitor, live — who is patrolling where, and what has been missed.</td></tr>
+      <tr><td class="lead">15</td><td class="lead">Check out</td><td>The guard checks out. Cut to the <b>timesheet that was just created automatically</b>. Approve it.</td></tr>
+      <tr><td class="lead">16</td><td class="lead">Review and publish</td><td>Approve the incident report. Publish the daily service report with its AI summary.</td></tr>
+      <tr><td class="lead">17</td><td class="lead">Invoice</td><td>Generate the invoice from approved timesheets. Issue it. Show the PDF.</td></tr>
+      <tr><td class="lead">18</td><td class="lead">Close the loop</td><td><b>Back to the client portal.</b> The client sees the invoice, the incident report they have already read, and the daily reports. State plainly: every hour on this invoice is backed by a verified scan.</td></tr>
+      <tr><td class="lead">19</td><td class="lead">Subcontracting</td><td>Short segment: create an RFP with AI, invite vendors, show the AI bid comparison, award the contract.</td></tr>
+      <tr><td class="lead">20</td><td class="lead">Control</td><td>Fast montage — roles, two-factor authentication, audit log, integrations, webhooks, plan and credits.</td></tr>
+      <tr><td class="lead">21</td><td class="lead">Close</td><td>The three products and the price table. One line: one platform, from the first call to the paid invoice.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <h4>Three moments to protect in the edit</h4>
+    <p><strong>Scene 7</strong> — the client approving a proposal in their own portal proves this
+    is not just internal software. <strong>Scene 12</strong> — scanning a sticker the software
+    printed four scenes earlier closes a loop the viewer can see. <strong>Scene 15</strong> — a
+    timesheet creating itself from a guard's check-out is the moment the audience understands
+    why the parts belong in one system.</p>
+  </div>
+
+  <div class="note">
+    <p><strong>Practical note for the shoot.</strong> A demonstration account with realistic
+    seeded data — clients, sites, guards, shifts, patrol history, invoices — exists and should be
+    used rather than an empty account. Several screens are considerably less convincing when
+    empty.</p>
+  </div>
+</div>
+
+<!-- ============ 18. LIMITS ============ -->
+<div class="section">
+  <div class="sec-head">
+    <div class="sec-num">18</div>
+    <div class="sec-title">Known Limits &amp; Roadmap</div>
+    <div class="sec-kicker">Stated honestly</div>
+  </div>
+
+  <p class="lede">
+    Included so that nothing in the video over-claims. None of these affect the workflows
+    described above; they are either deliberate scope decisions or acknowledged next steps.
+  </p>
+
+  <h2 class="block">Deliberately out of scope</h2>
+  <table class="compact">
+    <thead><tr><th style="width:34%">Not built</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td class="lead">Recurring / template shifts</td><td>Confirmed with the owner: shifts are created ad hoc, one at a time. Recurring rosters were explicitly not wanted.</td></tr>
+      <tr><td class="lead">Scheduled patrols</td><td>Guards walk a route when they choose. "Patrol missed" as a concept applies only to checkpoints inside a started patrol, which is detected automatically.</td></tr>
+      <tr><td class="lead">Guard self-onboarding</td><td>By design, an administrator sets the guard's portal password on the guard form and hands it over.</td></tr>
+      <tr><td class="lead">Tenant re-branding</td><td>Removed deliberately so the product cannot be restyled away from AegisLead.</td></tr>
+      <tr><td class="lead">Client self-signup</td><td>Removed for security — it allowed strangers to place themselves inside a paying account.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="block">Acknowledged next steps</h2>
+  <ul>
+    <li><strong>Visual unification across portals</strong> — the admin app, client portal and guard portal have each had a design pass, but a single shared visual language across all three is still in progress.</li>
+    <li><strong>Prospect Search list polish</strong> — pagination, bulk actions and a persistent filter sidebar.</li>
+    <li><strong>Custom domains</strong> — ownership verification exists; automatic certificate issuance and routing do not.</li>
+    <li><strong>Audit log search</strong> — the log is readable but has no filtering or search yet.</li>
+    <li><strong>Credit pack economics</strong> — pack sizes and prices are set, but the true upstream cost per research job is still being measured from live usage before the margin is confirmed.</li>
+  </ul>
+
+  <div class="footer-note">
+    <p><strong>AegisLead — Complete Platform Overview.</strong> Prepared 11 November 2026 against
+    the production build. Every capability described in sections 1 to 15 is implemented and
+    shipped. Figures in section 3 are the published list prices; Stripe remains the source of
+    truth for what is actually charged.</p>
+  </div>
+</div>
+
+</body>
+</html>
