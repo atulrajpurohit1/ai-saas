@@ -1,12 +1,14 @@
 import {
   Injectable,
+  Logger,
   UnauthorizedException,
   ForbiddenException,
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreditEntryType, Prisma } from '@prisma/client';
+import { fireAndForget } from '../common/fire-and-forget.util';
+import { Prisma } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -30,7 +32,6 @@ import {
 import { VerifyOtpDto } from '../email-verification/dto/verify-otp.dto';
 import { ResendOtpDto } from '../email-verification/dto/resend-otp.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { signupCreditGrant } from '../billing/credit-packs.constants';
 import { EmailService } from '../email/email.service';
 import {
   codeTargetEmail,
@@ -42,6 +43,8 @@ type AdminPortalRole = string;
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -123,26 +126,15 @@ export class AuthService {
           },
         });
 
-        // Welcome credits, written in the same transaction so a tenant can
-        // never exist without them. A retried signup reuses the pending
-        // tenant above and never reaches here, so this cannot stack.
-        const welcomeCredits = signupCreditGrant();
-        await tx.tenantCreditBalance.create({
-          data: {
-            tenantId: tenant.id,
-            balance: welcomeCredits,
-            lifetimePurchased: welcomeCredits,
-          },
-        });
-        await tx.creditLedgerEntry.create({
-          data: {
-            tenantId: tenant.id,
-            type: CreditEntryType.PURCHASE,
-            amount: welcomeCredits,
-            balanceAfter: welcomeCredits,
-            description: 'Welcome credits for a new account',
-          },
-        });
+        // No credits here, deliberately. Signing up grants nothing: credits
+        // come with the Trial plan (SubscriptionProvisioningService.provision)
+        // or are bought as a pack, so an account that never becomes a customer
+        // never receives any.
+        //
+        // No TenantCreditBalance row is created either. CreditsService.grant
+        // upserts it, getBalance reads a missing row as 0, and reserve()
+        // refuses when there is no row to decrement -- so the row appearing
+        // only when credits first arrive is the correct shape, not a gap.
 
         const user = await tx.user.create({
           data: {
@@ -284,12 +276,33 @@ export class AuthService {
     // is verified, so the internal "new signup" alert fires here rather than at
     // register() -- that keeps abandoned/typo registrations out of the inbox.
     // Fire-and-forget: it must never delay or fail completing the signup.
-    void this.emailService.sendNewSignupNotification({
-      companyName: user.tenant.name,
-      ownerName: user.name,
-      ownerEmail: user.email,
-      source: 'self-service signup',
-    });
+    fireAndForget(
+      () =>
+        this.emailService.sendNewSignupNotification({
+          companyName: user.tenant.name,
+          ownerName: user.name,
+          ownerEmail: user.email,
+          source: 'self-service signup',
+        }),
+      this.logger,
+      `Signup alert for ${user.tenant.name}`,
+    );
+
+    // The customer's own welcome, fired at the same point and for the same
+    // reason: the account is only real once the address is verified, and
+    // welcoming someone who mistyped their email just bounces. Fire-and-forget
+    // like the alert above -- a welcome that fails must not cost them the
+    // signup they just completed.
+    fireAndForget(
+      () =>
+        this.emailService.sendWelcomeEmail({
+          email: user.email,
+          name: user.name,
+          companyName: user.tenant.name,
+        }),
+      this.logger,
+      `Welcome email to ${user.email}`,
+    );
 
     return this.issueSession(user, context);
   }
@@ -668,11 +681,16 @@ export class AuthService {
     });
 
     for (const recipient of securityNotifyTargets(user)) {
-      void this.emailService.sendSecurityAlertEmail(recipient, {
-        name: user.name,
-        event: 'Your password was changed',
-        detail: 'Other signed-in devices have been signed out.',
-      });
+      fireAndForget(
+        () =>
+          this.emailService.sendSecurityAlertEmail(recipient, {
+            name: user.name,
+            event: 'Your password was changed',
+            detail: 'Other signed-in devices have been signed out.',
+          }),
+        this.logger,
+        `Password-change alert to ${recipient}`,
+      );
     }
 
     return { status: 'ok' as const, message: 'Password changed successfully.' };

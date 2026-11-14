@@ -10,6 +10,7 @@ import { Response } from 'express';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { ClientComplianceService } from './client-compliance.service';
@@ -18,7 +19,7 @@ import { ClientComplianceService } from './client-compliance.service';
 // the authenticated client's JWT - never from a route param or body - so a
 // client can only ever reach their own client-wide and own-site policies.
 @Controller('client/insurance')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, RolesGuard)
 @Roles('client')
 export class ClientPortalInsuranceController {
   constructor(

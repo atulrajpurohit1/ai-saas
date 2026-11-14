@@ -12,6 +12,7 @@ import {
 import { Response } from 'express';
 import { PatrolsService } from './patrols.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
@@ -28,7 +29,7 @@ import { UpdatePatrolRouteDto } from './dto/update-patrol-route.dto';
 import { AttachCheckpointsDto } from './dto/attach-checkpoints.dto';
 
 @Controller('')
-@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard, ModuleGuard)
 @RequireModule('GUARD_TOUR')
 export class PatrolsController {
   constructor(private readonly patrolsService: PatrolsService) {}

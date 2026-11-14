@@ -14,6 +14,7 @@ import {
   RequirePermission,
 } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CreateWebhookDto } from './dto/create-webhook.dto';
@@ -21,7 +22,7 @@ import { UpdateWebhookDto } from './dto/update-webhook.dto';
 import { WebhooksService } from './webhooks.service';
 
 @Controller('webhooks')
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard)
 export class WebhooksController {
   constructor(private readonly webhooksService: WebhooksService) {}
 

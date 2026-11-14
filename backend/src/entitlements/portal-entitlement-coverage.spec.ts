@@ -29,7 +29,7 @@ describe('portal entitlement coverage', () => {
     const source = read('client-portal/client-portal.controller.ts');
 
     it('wires ModuleGuard', () => {
-      expect(source).toMatch(/@UseGuards\(JwtAuthGuard, ModuleGuard\)/);
+      expect(source).toMatch(/@UseGuards\(JwtAuthGuard, PlanGuard, ModuleGuard\)/);
     });
 
     it('gates every proposal route on LEAD_GEN', () => {
@@ -55,7 +55,7 @@ describe('portal entitlement coverage', () => {
 
     it('wires ModuleGuard', () => {
       expect(source).toMatch(
-        /@UseGuards\(JwtAuthGuard, RolesGuard, ModuleGuard\)/,
+        /@UseGuards\(JwtAuthGuard, PlanGuard, RolesGuard, ModuleGuard\)/,
       );
     });
 

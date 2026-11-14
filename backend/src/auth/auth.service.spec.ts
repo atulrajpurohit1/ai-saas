@@ -21,6 +21,7 @@ const emailServiceStub = () =>
   ({
     sendNewSignupNotification: jest.fn().mockResolvedValue({ sent: true }),
     sendSecurityAlertEmail: jest.fn().mockResolvedValue({ sent: true }),
+    sendWelcomeEmail: jest.fn().mockResolvedValue({ sent: true }),
   }) as unknown as EmailService;
 
 const rolesServiceStub = () =>
@@ -156,7 +157,7 @@ describe('AuthService.verifyEmail', () => {
   });
 });
 
-describe('AuthService.register welcome credits', () => {
+describe('AuthService.register credits', () => {
   let service: AuthService;
   let tx: {
     tenant: { findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
@@ -216,19 +217,32 @@ describe('AuthService.register welcome credits', () => {
     );
   });
 
-  it('starts a new tenant with 50 credits and a matching ledger entry', async () => {
+  /**
+   * Signing up grants no credits.
+   *
+   * It used to grant 50, which meant every registration -- including the ones
+   * that never became customers, and anyone who signed up repeatedly -- was
+   * handed free prospect-search budget. Credits now ride with the Trial plan
+   * (SubscriptionProvisioningService) or are bought as a pack.
+   */
+  it('grants no credits and writes no balance row', async () => {
     await service.register(dto);
 
-    expect(tx.tenantCreditBalance.create).toHaveBeenCalledWith({
-      data: { tenantId: 'tenant-1', balance: 50, lifetimePurchased: 50 },
+    expect(tx.tenantCreditBalance.create).not.toHaveBeenCalled();
+    expect(tx.creditLedgerEntry.create).not.toHaveBeenCalled();
+  });
+
+  // The absent balance row is the correct shape, not a gap: CreditsService
+  // upserts it when credits first arrive, getBalance reads a missing row as 0,
+  // and reserve() refuses when there is no row to decrement.
+  it('still creates the tenant, subscription and owner', async () => {
+    await service.register(dto);
+
+    expect(tx.tenant.create).toHaveBeenCalled();
+    expect(tx.tenantSubscription.create).toHaveBeenCalledWith({
+      data: { tenantId: 'tenant-1', status: 'ACTIVE' },
     });
-    expect(tx.creditLedgerEntry.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        tenantId: 'tenant-1',
-        amount: 50,
-        balanceAfter: 50,
-      }) as unknown,
-    });
+    expect(tx.user.create).toHaveBeenCalled();
   });
 
   it('does not grant again when a pending signup is retried', async () => {
@@ -285,7 +299,9 @@ describe('AuthService two-step verification at login', () => {
 
     service = new AuthService(
       prisma as unknown as PrismaService,
-      { signAsync: jest.fn().mockResolvedValue('token') } as unknown as JwtService,
+      {
+        signAsync: jest.fn().mockResolvedValue('token'),
+      } as unknown as JwtService,
       { get: jest.fn().mockReturnValue('secret') } as unknown as ConfigService,
       rolesServiceStub(),
       sessionsService as unknown as SessionsService,
@@ -302,7 +318,10 @@ describe('AuthService two-step verification at login', () => {
     });
 
     expect(result).toEqual(
-      expect.objectContaining({ status: 'two_factor_required', email: 'owner@example.com' }),
+      expect.objectContaining({
+        status: 'two_factor_required',
+        email: 'owner@example.com',
+      }),
     );
     expect(emailVerification.issueOtp).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -335,7 +354,10 @@ describe('AuthService two-step verification at login', () => {
     });
 
     expect(emailVerification.verifyOtp).toHaveBeenCalledWith(
-      expect.objectContaining({ purpose: TWO_FACTOR_LOGIN_PURPOSE, code: '123456' }),
+      expect.objectContaining({
+        purpose: TWO_FACTOR_LOGIN_PURPOSE,
+        code: '123456',
+      }),
     );
     expect(tokens).toEqual({ access_token: 'token', refresh_token: 'token' });
     expect(sessionsService.createSession).toHaveBeenCalled();
@@ -414,7 +436,9 @@ describe('AuthService.changePassword', () => {
 
     expect(result).toEqual(expect.objectContaining({ status: 'ok' }));
     expect(prisma.user.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ password: 'new-hash' }) }),
+      expect.objectContaining({
+        data: expect.objectContaining({ password: 'new-hash' }),
+      }),
     );
     // Other sessions revoked, current one spared.
     expect(prisma.userSession.updateMany).toHaveBeenCalledWith(
@@ -426,7 +450,9 @@ describe('AuthService.changePassword', () => {
   });
 
   it('requires a code first when 2FA is on, without touching the password', async () => {
-    prisma.user.findUnique.mockResolvedValue(makeUser({ twoFactorEnabled: true }));
+    prisma.user.findUnique.mockResolvedValue(
+      makeUser({ twoFactorEnabled: true }),
+    );
 
     const result = await service.changePassword('user-1', 'session-1', dto);
 
@@ -438,7 +464,9 @@ describe('AuthService.changePassword', () => {
   });
 
   it('changes the password when 2FA is on and a valid code is supplied', async () => {
-    prisma.user.findUnique.mockResolvedValue(makeUser({ twoFactorEnabled: true }));
+    prisma.user.findUnique.mockResolvedValue(
+      makeUser({ twoFactorEnabled: true }),
+    );
 
     const result = await service.changePassword('user-1', 'session-1', {
       ...dto,
@@ -446,7 +474,10 @@ describe('AuthService.changePassword', () => {
     });
 
     expect(emailVerification.verifyOtp).toHaveBeenCalledWith(
-      expect.objectContaining({ purpose: PASSWORD_CHANGE_PURPOSE, code: '123456' }),
+      expect.objectContaining({
+        purpose: PASSWORD_CHANGE_PURPOSE,
+        code: '123456',
+      }),
     );
     expect(result).toEqual(expect.objectContaining({ status: 'ok' }));
     expect(prisma.user.update).toHaveBeenCalled();

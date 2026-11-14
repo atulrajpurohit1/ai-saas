@@ -141,14 +141,21 @@ export function previewDiscoveryCreditCost(): number {
 }
 
 /**
- * Credits every new account starts with, so a customer can try Prospect Search
- * before buying a pack: one preview search or one playbook, not a full search.
+ * Credits granted with the AegisLead Trial plan, so a trial customer can try
+ * Prospect Search: one preview search or one playbook, not a full search.
+ *
+ * These used to be handed to every new signup, which meant anyone who
+ * registered got them whether or not they ever became a customer. They are now
+ * part of the Trial plan and are granted when that plan is comped -- see
+ * SubscriptionProvisioningService.provision.
+ *
  * Spendable only once the tenant owns Lead Gen, since credits are gated on it.
+ * The Trial plan grants all three services, so a trial tenant can spend them.
  */
-const DEFAULT_SIGNUP_CREDIT_GRANT = 50;
+const DEFAULT_TRIAL_CREDIT_GRANT = 50;
 
-export function signupCreditGrant(): number {
-  return creditCostFromEnv('SIGNUP_CREDIT_GRANT', DEFAULT_SIGNUP_CREDIT_GRANT);
+export function trialCreditGrant(): number {
+  return creditCostFromEnv('TRIAL_CREDIT_GRANT', DEFAULT_TRIAL_CREDIT_GRANT);
 }
 
 /**

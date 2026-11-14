@@ -200,8 +200,15 @@ describe('EntitlementsService', () => {
         compExpiresAt?: Date | null;
         aiEnabled?: boolean;
       } | null,
+      modules: string[] = ['LEAD_GEN'],
     ) => {
       prisma.tenantSubscription.findUnique.mockResolvedValue(row);
+      // AI requires a plan like everything else, so these fixtures own a
+      // module by default -- otherwise every case below would answer false for
+      // the wrong reason and stop testing the flag at all.
+      prisma.tenantModule.findMany.mockResolvedValue(
+        modules.map((module) => ({ module })),
+      );
       return service.isAiEnabled(`tenant-${Math.random()}`);
     };
 
@@ -244,20 +251,37 @@ describe('EntitlementsService', () => {
       await expect(service.isAiEnabled('')).resolves.toBe(false);
     });
 
+    // A plan is required to use the product, and AI is part of the product.
+    // The flag being on does not matter: it says which plan withholds AI, not
+    // whether there is a plan to withhold it from.
+    it('is false with no plan, even with AI on', async () => {
+      await expect(
+        withAi({ status: 'ACTIVE', source: 'STRIPE', aiEnabled: true }, []),
+      ).resolves.toBe(false);
+    });
+
     it('caches per tenant and re-reads after invalidate', async () => {
       prisma.tenantSubscription.findUnique.mockResolvedValue({
         status: 'ACTIVE',
         source: 'STRIPE',
         aiEnabled: true,
       });
+      prisma.tenantModule.findMany.mockResolvedValue([{ module: 'LEAD_GEN' }]);
 
+      // Two reads per cold call: one for the plan check, one for the AI flag.
+      // Both caches are keyed by tenant and both are cleared by invalidate(),
+      // so what matters is that a warm call adds none and invalidate() makes
+      // the next one cold again.
       await service.isAiEnabled('tenant-ai-cache');
+      const cold = prisma.tenantSubscription.findUnique.mock.calls.length;
       await service.isAiEnabled('tenant-ai-cache');
-      expect(prisma.tenantSubscription.findUnique).toHaveBeenCalledTimes(1);
+      expect(prisma.tenantSubscription.findUnique).toHaveBeenCalledTimes(cold);
 
       service.invalidate('tenant-ai-cache');
       await service.isAiEnabled('tenant-ai-cache');
-      expect(prisma.tenantSubscription.findUnique).toHaveBeenCalledTimes(2);
+      expect(prisma.tenantSubscription.findUnique).toHaveBeenCalledTimes(
+        cold * 2,
+      );
     });
   });
 

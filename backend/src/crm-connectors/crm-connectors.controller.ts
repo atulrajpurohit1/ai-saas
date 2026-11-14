@@ -14,6 +14,7 @@ import {
 } from '../auth/decorators/permissions.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
@@ -27,21 +28,21 @@ export class CrmConnectorsController {
   constructor(private readonly crmConnectorsService: CrmConnectorsService) {}
 
   @Get('status')
-  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard)
   @RequireAnyPermission('integrations.view', 'crm.view')
   getStatus(@GetUser() user: ActiveUser) {
     return this.crmConnectorsService.getStatus(user);
   }
 
   @Get('providers')
-  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard)
   @RequireAnyPermission('integrations.view', 'crm.view')
   listProviders() {
     return this.crmConnectorsService.listProviders();
   }
 
   @Post(':provider/connect')
-  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard)
   @RequireAnyPermission('integrations.manage', 'crm.manage')
   connectWithCredentials(
     @GetUser() user: ActiveUser,
@@ -52,7 +53,7 @@ export class CrmConnectorsController {
   }
 
   @Get(':provider/connect-url')
-  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard)
   @RequireAnyPermission('integrations.manage', 'crm.manage')
   getConnectUrl(@GetUser() user: ActiveUser, @Param('provider') provider: string) {
     return this.crmConnectorsService.getConnectUrl(user, provider);
@@ -81,7 +82,7 @@ export class CrmConnectorsController {
   // bought nothing. The leads controller was gated from the start; this was
   // the side door into the same table.
   @Post(':provider/import-contacts')
-  @UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
+  @UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard, ModuleGuard)
   @RequireModule('LEAD_GEN')
   @RequireAnyPermission('integrations.manage', 'crm.manage', 'leads.import')
   importContacts(@GetUser() user: ActiveUser, @Param('provider') provider: string) {
@@ -89,7 +90,7 @@ export class CrmConnectorsController {
   }
 
   @Post(':provider/disconnect')
-  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard)
   @RequirePermission('integrations.manage')
   disconnect(@GetUser() user: ActiveUser, @Param('provider') provider: string) {
     return this.crmConnectorsService.disconnect(user, provider);
@@ -97,7 +98,7 @@ export class CrmConnectorsController {
 
   // Same table as import-contacts, one record at a time; same gate.
   @Post(':provider/contacts')
-  @UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
+  @UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard, ModuleGuard)
   @RequireModule('LEAD_GEN')
   @RequireAnyPermission('integrations.manage', 'crm.manage', 'leads.import')
   syncContact(

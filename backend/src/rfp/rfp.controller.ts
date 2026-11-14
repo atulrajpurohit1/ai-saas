@@ -22,6 +22,7 @@ import { UpdatePerformanceReviewDto } from './dto/update-performance-review.dto'
 import { GenerateRfpDto } from '../ai/dto/generate-rfp.dto';
 import { GenerateRfpProposalDto } from './dto/generate-rfp-proposal.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
@@ -30,7 +31,7 @@ import { GetUser } from '../auth/decorators/get-user.decorator';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 
 @Controller('rfp')
-@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard, ModuleGuard)
 @RequirePermission('rfp.view')
 @RequireModule('LEAD_GEN')
 export class RfpController {

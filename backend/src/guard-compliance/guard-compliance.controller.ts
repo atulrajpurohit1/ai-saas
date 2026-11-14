@@ -18,6 +18,7 @@ import { diskStorage } from 'multer';
 import { randomBytes } from 'crypto';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
@@ -62,7 +63,7 @@ function complianceFileFilter(
 }
 
 @Controller('guard-compliance')
-@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard, ModuleGuard)
 @RequirePermission('guards.view')
 @RequireModule('GUARD_TOUR')
 export class GuardComplianceController {

@@ -77,6 +77,24 @@ export class PublicApiKeyGuard implements CanActivate {
     tenantId: string,
     requiredPermission: string | undefined,
   ) {
+    // A plan is required to use the product at all, and that includes the API.
+    // Checked before the per-service check below and regardless of which scope
+    // was asked for, because the core scopes (clients, sites) resolve to no
+    // service and would otherwise return early -- handing a tenant that has
+    // bought nothing a working clients/sites API, which is exactly the hole
+    // PlanGuard closes on the web app.
+    if (!(await this.entitlements.hasAnyPlan(tenantId))) {
+      await this.logDeniedRequest(request, 403);
+      throw new ForbiddenException({
+        statusCode: 403,
+        error: 'Forbidden',
+        upgradeRequired: true,
+        planRequired: true,
+        message:
+          'Your account does not have an active plan. Choose a plan to start using AegisLead.',
+      });
+    }
+
     if (!requiredPermission) return;
 
     const service = serviceForPublicApiPermission(requiredPermission);

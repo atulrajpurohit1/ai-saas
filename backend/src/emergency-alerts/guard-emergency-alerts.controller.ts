@@ -8,6 +8,7 @@ import {
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { EmergencyAlertsService } from './emergency-alerts.service';
@@ -17,7 +18,7 @@ import { EmergencyAlertsService } from './emergency-alerts.service';
 // participate in), with guard identity and tenant always taken from the
 // JWT - never from the request body.
 @Controller('guard')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, RolesGuard)
 @Roles('guard')
 export class GuardEmergencyAlertsController {
   constructor(

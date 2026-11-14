@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, UseGuards, Query } from '@nestjs/common';
 import { ShiftsService } from './shifts.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
@@ -13,7 +14,7 @@ import { UpdateShiftDto } from './dto/update-shift.dto';
 import { Param, Put, Delete } from '@nestjs/common';
 
 @Controller('v2/shifts')
-@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard, ModuleGuard)
 @RequirePermission('shifts.view')
 @RequireModule('FINANCE')
 export class ShiftsController {

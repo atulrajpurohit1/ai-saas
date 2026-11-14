@@ -21,7 +21,7 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCollapsed }: SidebarProps) {
   const pathname = usePathname();
-  const { user, logout, canAny } = useAuth();
+  const { user, logout, canAny, hasPlan } = useAuth();
   const navRef = useRef<HTMLElement | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
@@ -42,11 +42,21 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
     onToggleCollapsed?.();
   };
 
-  const visibleDashboardLink = canAny(DASHBOARD_LINK.permissions) ? DASHBOARD_LINK : null;
+  // With no plan the API refuses everything except the plan page and the
+  // self-service account screens, so the nav is cut down to exactly what still
+  // works. Showing the rest would be a menu of 403s, and hiding the plan link
+  // with it would strand the account with no way to buy one.
+  const navUsable = (link: NavLink) =>
+    hasPlan || link.href === '/settings/plan' || link.permissions.length === 0;
+
+  const visibleDashboardLink =
+    canAny(DASHBOARD_LINK.permissions) && navUsable(DASHBOARD_LINK)
+      ? DASHBOARD_LINK
+      : null;
   const visibleNavGroups = NAV_GROUPS
     // A link with no permissions is self-service (e.g. account Security): show
     // it to every signed-in user. canAny([]) is false, so it needs this guard.
-    .map((group) => ({ ...group, links: group.links.filter((link) => link.permissions.length === 0 || canAny(link.permissions)) }))
+    .map((group) => ({ ...group, links: group.links.filter((link) => (link.permissions.length === 0 || canAny(link.permissions)) && navUsable(link)) }))
     .filter((group) => group.links.length > 0);
   const links = [
     ...(visibleDashboardLink ? [visibleDashboardLink] : []),

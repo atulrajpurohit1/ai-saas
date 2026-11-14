@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
@@ -31,7 +32,7 @@ import { Response as ExpressResponse } from 'express';
  * client keeps whatever the tenant bought) are unaffected.
  */
 @Controller('client-portal')
-@UseGuards(JwtAuthGuard, ModuleGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, ModuleGuard)
 export class ClientPortalController {
   constructor(
     private prisma: PrismaService,

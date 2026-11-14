@@ -442,12 +442,21 @@ export class CreditsService {
    * `stripeSessionId` carries the unique constraint that makes this safe
    * against Stripe's at-least-once delivery: a replayed webhook hits the index
    * and is dropped rather than granting the pack a second time.
+   *
+   * `idempotencyKey` does the same job for grants that have no Stripe session
+   * behind them, such as the Trial plan's credits. It is stored in `jobId`,
+   * which carries the @@unique([tenantId, jobId, type]) constraint, so a
+   * second grant under the same key is refused by the database rather than by
+   * a check-then-write that two concurrent calls could both pass. Every other
+   * reader of `jobId` filters on type RESERVATION, so a PURCHASE row using it
+   * is invisible to them.
    */
   async grant(params: {
     tenantId: string;
     amount: number;
     description: string;
     stripeSessionId?: string;
+    idempotencyKey?: string;
     userId?: string;
     type?: CreditEntryType;
   }): Promise<{ balance: number; granted: boolean }> {
@@ -456,6 +465,7 @@ export class CreditsService {
       amount,
       description,
       stripeSessionId,
+      idempotencyKey,
       userId,
       type = CreditEntryType.PURCHASE,
     } = params;
@@ -491,6 +501,7 @@ export class CreditsService {
             description,
             userId: userId ?? null,
             stripeSessionId: stripeSessionId ?? null,
+            jobId: idempotencyKey ?? null,
           },
         });
 
@@ -500,10 +511,12 @@ export class CreditsService {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === UNIQUE_VIOLATION &&
-        stripeSessionId
+        (stripeSessionId || idempotencyKey)
       ) {
         this.logger.log(
-          `Credits for Stripe session ${stripeSessionId} were already granted; ignoring the replay.`,
+          stripeSessionId
+            ? `Credits for Stripe session ${stripeSessionId} were already granted; ignoring the replay.`
+            : `Credits for ${tenantId} under key "${idempotencyKey}" were already granted; ignoring the replay.`,
         );
         const current = await this.prisma.tenantCreditBalance.findUnique({
           where: { tenantId },

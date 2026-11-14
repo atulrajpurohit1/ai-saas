@@ -1,13 +1,14 @@
 import { Controller, Get, UseGuards, Req } from '@nestjs/common';
 import { AuditService } from './audit.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { Request } from 'express';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 
 @Controller('audit')
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard)
 @RequirePermission('audit.view')
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}

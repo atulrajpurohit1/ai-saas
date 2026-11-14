@@ -1,5 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
-import { CreditEntryType, CreditReservationStatus } from '@prisma/client';
+import {
+  CreditEntryType,
+  CreditReservationStatus,
+  Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreditsService } from './credits.service';
 import { InsufficientCreditsException } from './insufficient-credits.exception';
@@ -278,6 +282,64 @@ describe('CreditsService', () => {
       await expect(
         service.grant({ tenantId, amount: 0, description: 'nothing' }),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    /**
+     * Grants with no Stripe session behind them -- the Trial plan's credits --
+     * get their once-only guarantee from the same place the Stripe ones do: a
+     * unique index, not a read-then-write.
+     *
+     * The key is stored in `jobId`, which carries
+     * @@unique([tenantId, jobId, type]). Every other reader of `jobId` filters
+     * on type RESERVATION, so a PURCHASE row using it is invisible to them.
+     */
+    it('records a non-Stripe grant against its idempotency key', async () => {
+      await service.grant({
+        tenantId,
+        amount: 50,
+        description: 'Trial plan credits',
+        idempotencyKey: 'trial-plan-credits',
+      });
+
+      expect(tx.creditLedgerEntry.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ jobId: 'trial-plan-credits' }),
+        }),
+      );
+    });
+
+    it('reports a replayed keyed grant as not granted, without throwing', async () => {
+      tx.creditLedgerEntry.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('duplicate', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+      prisma.tenantCreditBalance.findUnique.mockResolvedValue({ balance: 50 });
+
+      await expect(
+        service.grant({
+          tenantId,
+          amount: 50,
+          description: 'Trial plan credits',
+          idempotencyKey: 'trial-plan-credits',
+        }),
+      ).resolves.toEqual({ balance: 50, granted: false });
+    });
+
+    // Without a key (or a session) there is nothing to make the grant safe to
+    // replay, so a unique violation is a real error and must surface.
+    it('rethrows a unique violation when no key was supplied', async () => {
+      tx.creditLedgerEntry.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('duplicate', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+
+      await expect(
+        service.grant({ tenantId, amount: 50, description: 'Manual' }),
+      ).rejects.toBeInstanceOf(Prisma.PrismaClientKnownRequestError);
     });
   });
 

@@ -16,6 +16,18 @@ export interface Entitlements {
    * absent as enabled so a working customer is never blanked (see `aiEnabled`).
    */
   aiEnabled?: boolean;
+  /**
+   * Whether this account has any plan at all.
+   *
+   * A plan is required to use the product: with none, the API refuses every
+   * screen except the plan page, so the app shows "choose a plan" rather than
+   * nav that only leads to 403s.
+   *
+   * Optional because an older backend does not send it. Absent is treated as
+   * HAVING a plan (see `hasPlan`), so a working customer on a stale session is
+   * never blanked -- the API is the real gate either way.
+   */
+  hasPlan?: boolean;
   trialEndsAt?: string | null;
   currentPeriodEnd?: string | null;
   cancelAtPeriodEnd?: boolean;
@@ -124,9 +136,27 @@ export function serviceForPermission(
   return PERMISSION_PREFIX_TO_SERVICE[prefix] ?? null;
 }
 
+/**
+ * Whether this account has any plan at all. A plan is required to use the
+ * product, so `false` means every screen but the plan page is refused.
+ *
+ * Absent (older backend, or a session issued before `hasPlan` shipped) reads
+ * as TRUE, matching how `aiEnabled` treats an absent flag: the API is the real
+ * gate, and guessing "no plan" from a stale payload would blank a paying
+ * customer's app over a missing field.
+ */
+export function hasPlan(entitlements?: Entitlements | null): boolean {
+  return entitlements?.hasPlan !== false;
+}
+
 export function activeModules(
   entitlements?: Entitlements | null,
 ): Set<ServiceModuleKey> {
+  // An account with no plan owns nothing. Checked before the fallback below,
+  // which would otherwise read "no active modules" as "stale payload" and hand
+  // a no-plan tenant the whole nav.
+  if (entitlements?.hasPlan === false) return new Set();
+
   // No entitlement payload: a session from before this shipped, or an older
   // backend. Assume everything rather than blanking a working customer's nav.
   if (!entitlements?.modules?.length) return new Set(SERVICE_MODULE_KEYS);
@@ -154,6 +184,54 @@ export function hasModule(
  */
 export function aiEnabled(entitlements?: Entitlements | null): boolean {
   return entitlements?.aiEnabled !== false;
+}
+
+/**
+ * Which service a top-level route belongs to, for the one-time module welcome.
+ *
+ * An explicit route list rather than a reuse of serviceForPermission, because
+ * routes and permission prefixes do not line up: /sales-calls is the `calls`
+ * module, /patrol is `patrols`, and /settings spans everything. Routes that
+ * are core, shared or unlisted answer null and show no welcome.
+ *
+ * Longest-prefix wins, so /invoice-disputes is not swallowed by /invoices.
+ */
+const ROUTE_SERVICE: Record<string, ServiceModuleKey> = {
+  '/leads': 'LEAD_GEN',
+  '/deals': 'LEAD_GEN',
+  '/proposals': 'LEAD_GEN',
+  '/prospect-search': 'LEAD_GEN',
+  '/rfp': 'LEAD_GEN',
+  '/vendors': 'LEAD_GEN',
+  '/sales-calls': 'LEAD_GEN',
+  '/sales-accelerator': 'LEAD_GEN',
+
+  '/guards': 'GUARD_TOUR',
+  '/patrol': 'GUARD_TOUR',
+  '/incidents': 'GUARD_TOUR',
+  '/reports': 'GUARD_TOUR',
+  '/emergency-alerts': 'GUARD_TOUR',
+
+  '/shifts': 'FINANCE',
+  '/timesheets': 'FINANCE',
+  '/invoices': 'FINANCE',
+  '/invoice-disputes': 'FINANCE',
+  '/finance': 'FINANCE',
+  '/rate-cards': 'FINANCE',
+};
+
+export function serviceForPath(
+  pathname: string | null | undefined,
+): ServiceModuleKey | null {
+  if (!pathname) return null;
+
+  const match = Object.keys(ROUTE_SERVICE)
+    .filter(
+      (route) => pathname === route || pathname.startsWith(`${route}/`),
+    )
+    .sort((a, b) => b.length - a.length)[0];
+
+  return match ? ROUTE_SERVICE[match] : null;
 }
 
 /**

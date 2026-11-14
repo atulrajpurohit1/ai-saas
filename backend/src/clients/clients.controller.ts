@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ClientsService } from './clients.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import {
   RequireAnyPermission,
@@ -21,7 +22,7 @@ import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 
 @Controller('clients')
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard)
 export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 

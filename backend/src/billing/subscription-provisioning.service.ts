@@ -8,6 +8,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
 import { AuditService } from '../audit/audit.service';
 import { isCompActive } from './comp.util';
+import { TRIAL_PLAN_KEY } from './comp-plan.constants';
+import { trialCreditGrant } from './credit-packs.constants';
+import { CreditsService } from './credits.service';
+
+/**
+ * Ledger idempotency key for the Trial plan's credit grant. One per tenant,
+ * ever -- see grantTrialCreditsIfDue.
+ */
+const TRIAL_CREDIT_KEY = 'trial-plan-credits';
 
 export interface ProvisionInput {
   tenantId: string;
@@ -68,6 +77,7 @@ export class SubscriptionProvisioningService {
     private readonly prisma: PrismaService,
     private readonly entitlements: EntitlementsService,
     private readonly audit: AuditService,
+    private readonly credits: CreditsService,
   ) {}
 
   /**
@@ -161,7 +171,11 @@ export class SubscriptionProvisioningService {
       const toCreate = [...desired].filter((module) => !seen.has(module));
       if (toCreate.length) {
         await tx.tenantModule.createMany({
-          data: toCreate.map((module) => ({ tenantId, module, isActive: true })),
+          data: toCreate.map((module) => ({
+            tenantId,
+            module,
+            isActive: true,
+          })),
         });
       }
     });
@@ -169,6 +183,8 @@ export class SubscriptionProvisioningService {
     // The service caches per tenant; without this the customer would wait up
     // to 30s after paying before their new services appeared.
     this.entitlements.invalidate(tenantId);
+
+    await this.grantTrialCreditsIfDue(tenantId, source, compPlan);
 
     await this.audit
       .log({
@@ -205,6 +221,58 @@ export class SubscriptionProvisioningService {
     return this.entitlements.summaryForTenant(tenantId);
   }
 
+  /**
+   * Hands a tenant its Trial plan credits, once.
+   *
+   * Credits ride with the Trial plan rather than with signing up. Registering
+   * used to grant them to everyone who filled in the form, customer or not;
+   * now the only way to receive them is to be put on the Trial plan, which
+   * only the platform owner can do.
+   *
+   * ONCE is enforced by the database, not by a read: TRIAL_CREDIT_KEY lands in
+   * the ledger's `jobId`, which is unique per (tenant, jobId, type), so a
+   * re-grant -- an extended trial, a replayed pending-comp job, an owner
+   * clicking twice -- is refused by the index rather than by a check two
+   * concurrent calls could both pass. grant() reports `granted: false` for
+   * that case instead of throwing.
+   *
+   * A tenant moved OFF the Trial plan and back on does not get a second grant.
+   * That is deliberate: the credits are a one-time trial allowance, and
+   * cycling the plan must not mint more.
+   *
+   * Never fails the provisioning. Entitlements are what the customer paid for
+   * (or was promised); credits are a bonus on top, and a credit write that
+   * fails must not leave a tenant without the plan they were just granted.
+   */
+  private async grantTrialCreditsIfDue(
+    tenantId: string,
+    source: SubscriptionSource,
+    compPlan: string | null,
+  ) {
+    if (source !== 'COMP' || compPlan !== TRIAL_PLAN_KEY) return;
+
+    const amount = trialCreditGrant();
+    if (amount <= 0) return;
+
+    try {
+      const { granted } = await this.credits.grant({
+        tenantId,
+        amount,
+        description: 'Trial plan credits',
+        idempotencyKey: TRIAL_CREDIT_KEY,
+      });
+
+      if (granted) {
+        this.logger.log(`Granted ${amount} Trial plan credits to ${tenantId}.`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Trial credits for ${tenantId} failed: ${(error as Error).message}. ` +
+          `The Trial plan itself was provisioned; grant the credits by hand if they are still wanted.`,
+      );
+    }
+  }
+
   /** Marks a subscription cancelled, leaving module rows intact for history. */
   async cancel(tenantId: string, reason?: string) {
     await this.prisma.tenantSubscription.updateMany({
@@ -223,7 +291,9 @@ export class SubscriptionProvisioningService {
       })
       .catch(() => undefined);
 
-    this.logger.log(`Cancelled subscription for ${tenantId}${reason ? ` (${reason})` : ''}`);
+    this.logger.log(
+      `Cancelled subscription for ${tenantId}${reason ? ` (${reason})` : ''}`,
+    );
   }
 
   async setStatus(
@@ -300,7 +370,9 @@ export class SubscriptionProvisioningService {
     const match = await this.prisma.tenantSubscription.findFirst({
       where: {
         OR: [
-          ...(subscriptionId ? [{ providerSubscriptionId: subscriptionId }] : []),
+          ...(subscriptionId
+            ? [{ providerSubscriptionId: subscriptionId }]
+            : []),
           ...(customerId ? [{ providerCustomerId: customerId }] : []),
         ],
       },

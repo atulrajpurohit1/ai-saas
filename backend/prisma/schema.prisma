@@ -240,6 +240,19 @@ model User {
   // When true, a sign-in requires an emailed 6-digit code as a second step,
   // and so do password/recovery-email/2FA changes.
   twoFactorEnabled            Boolean              @default(false) @map("two_factor_enabled")
+  /// Which services this user has already been shown the one-time welcome for.
+  ///
+  /// Per USER, not per tenant: the welcome explains the product to a person,
+  /// so a colleague added next month still gets their own, and someone who has
+  /// seen it does not get it again on a second device. That is the whole
+  /// reason it lives here instead of in browser storage, where it was first
+  /// built -- localStorage made "show it once" mean "once per browser".
+  ///
+  /// Append-only in practice, and empty for every existing user, which is
+  /// correct: they are shown each welcome once more and then never again.
+  /// Typed as the service enum rather than free text so a typo cannot
+  /// silently suppress a welcome forever.
+  moduleWelcomesSeen          ServiceModule[]      @map("module_welcomes_seen")
   createdAt                   DateTime             @default(now())
   updatedAt                   DateTime             @updatedAt
   tenant                      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)

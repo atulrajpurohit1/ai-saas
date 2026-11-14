@@ -2,6 +2,7 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { AiUsageService } from './ai-usage.service';
@@ -19,7 +20,7 @@ const MAX_WINDOW_DAYS = 365;
  * `billing.manage` rather than a view permission -- this exposes our own cost
  * and margin, which is not customer-facing data.
  */
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard)
 @Controller('ai/usage')
 export class AiUsageController {
   constructor(private readonly aiUsage: AiUsageService) {}

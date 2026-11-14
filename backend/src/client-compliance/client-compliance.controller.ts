@@ -23,6 +23,7 @@ import {
   RequirePermission,
 } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import {
@@ -69,7 +70,7 @@ function insuranceFileFilter(
 // the same view/manage split the audit recommends and that ClientsController
 // itself already uses.
 @Controller('client-compliance')
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard)
 export class ClientComplianceController {
   constructor(
     private readonly clientComplianceService: ClientComplianceService,

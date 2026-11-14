@@ -11,6 +11,7 @@ import {
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
@@ -35,7 +36,7 @@ import { SyncOfflineActionsDto } from './dto/sync-offline-actions.dto';
  * lapsed plan as a broken login rather than a locked feature.
  */
 @Controller('guard')
-@UseGuards(JwtAuthGuard, RolesGuard, ModuleGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, RolesGuard, ModuleGuard)
 @Roles('guard')
 export class GuardPortalController {
   constructor(private readonly guardPortalService: GuardPortalService) {}

@@ -17,6 +17,7 @@ import { randomBytes } from 'crypto';
 import { Response } from 'express';
 import { PatrolsService } from './patrols.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -64,7 +65,7 @@ function patrolEvidenceFileFilter(
 }
 
 @Controller('guard')
-@UseGuards(JwtAuthGuard, RolesGuard, ModuleGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, RolesGuard, ModuleGuard)
 @Roles('guard')
 @RequireModule('GUARD_TOUR')
 export class GuardPatrolsController {

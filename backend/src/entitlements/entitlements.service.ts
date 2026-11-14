@@ -23,7 +23,11 @@ import {
 
 /** Statuses that still grant access. PAST_DUE keeps working -- dunning is a
  *  billing conversation, not a reason to strand a paying customer mid-shift. */
-const ACTIVE_STATUSES: SubscriptionStatus[] = ['ACTIVE', 'TRIALING', 'PAST_DUE'];
+const ACTIVE_STATUSES: SubscriptionStatus[] = [
+  'ACTIVE',
+  'TRIALING',
+  'PAST_DUE',
+];
 
 const CACHE_TTL_MS = 30_000;
 
@@ -56,6 +60,13 @@ export class EntitlementsService {
    */
   async isAiEnabled(tenantId: string): Promise<boolean> {
     if (!tenantId) return false;
+
+    // AI rides on having a plan, like every other feature. Today every AI
+    // endpoint also sits behind PlanGuard, so this is belt-and-braces -- but
+    // this method is the single gate the AI metering service consults, and a
+    // future AI call site added outside a guarded controller would otherwise
+    // be free. Checked before the cache read because hasAnyPlan has its own.
+    if (!(await this.hasAnyPlan(tenantId))) return false;
 
     const cached = this.aiCache.get(tenantId);
     if (cached && cached.expiresAt > Date.now()) return cached.enabled;
@@ -167,6 +178,24 @@ export class EntitlementsService {
     return (await this.modulesForTenant(tenantId)).has(module);
   }
 
+  /**
+   * Whether this tenant has ANY active plan -- the gate behind "a plan is
+   * required to use the product at all".
+   *
+   * Deliberately defined as "owns at least one service module" rather than
+   * "has a subscription row", because a row is not a plan: signup creates one
+   * with status ACTIVE and zero modules so the account can reach the plan page,
+   * and a lapsed comp keeps its ACTIVE status too. Both must read as "no plan".
+   *
+   * Built on modulesForTenant, so it inherits every fail-closed rule already
+   * written there (no row, non-active status, expired comp) and shares the same
+   * 30s cache -- this adds no extra query on a request that also checks a
+   * module, which is the common case.
+   */
+  async hasAnyPlan(tenantId: string): Promise<boolean> {
+    return (await this.modulesForTenant(tenantId)).size > 0;
+  }
+
   async hasAnyModule(tenantId: string, modules: ServiceModule[]) {
     if (!modules.length) return true;
     const granted = await this.modulesForTenant(tenantId);
@@ -178,7 +207,11 @@ export class EntitlementsService {
    * allow. Used to keep the session payload honest, so the frontend never
    * renders nav for a service the tenant has not bought.
    */
-  async filterPermissionKeys(tenantId: string, keys: string[], permissionModuleByKey: Map<string, string>) {
+  async filterPermissionKeys(
+    tenantId: string,
+    keys: string[],
+    permissionModuleByKey: Map<string, string>,
+  ) {
     const granted = await this.modulesForTenant(tenantId);
 
     return keys.filter((key) => {
@@ -205,19 +238,33 @@ export class EntitlementsService {
 
     return {
       status: subscription?.status ?? 'ACTIVE',
+      // Whether this account has any plan at all. The frontend uses it to show
+      // the "choose a plan" state instead of a navigable-but-empty app: with
+      // no plan, every screen except the plan page is refused by PlanGuard, so
+      // rendering the nav would be a menu of dead ends.
+      //
+      // Sent explicitly rather than left to the client to derive from
+      // `modules`, so an older client that does not know this field keeps
+      // working and a newer one does not have to re-implement the rule.
+      hasPlan: granted.size > 0,
       // Whether AI (Gemini) features are available. The frontend hides or
       // disables AI actions when this is false (the Trial plan), and shows an
       // "upgrade to unlock AI" prompt rather than a credit top-up.
-      aiEnabled: this.computeAiEnabled(
-        subscription
-          ? {
-              status: subscription.status,
-              source: subscription.source,
-              compExpiresAt: subscription.compExpiresAt,
-              aiEnabled: subscription.aiEnabled,
-            }
-          : null,
-      ),
+      // `granted.size > 0 &&` for the same reason as isAiEnabled: no plan, no
+      // AI. Without it the plan page would advertise AI as available to an
+      // account that cannot reach a single AI feature.
+      aiEnabled:
+        granted.size > 0 &&
+        this.computeAiEnabled(
+          subscription
+            ? {
+                status: subscription.status,
+                source: subscription.source,
+                compExpiresAt: subscription.compExpiresAt,
+                aiEnabled: subscription.aiEnabled,
+              }
+            : null,
+        ),
       // The plan page keys off these to show "Complimentary access" instead of
       // a price and an upgrade button. A comped tenant has no Stripe customer
       // behind them, so prompting them to manage a subscription would dead-end.

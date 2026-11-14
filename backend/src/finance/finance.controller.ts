@@ -3,6 +3,7 @@ import { Response } from 'express';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
@@ -10,7 +11,7 @@ import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { FinanceInvoiceFilters, FinanceService } from './finance.service';
 
 @Controller('finance')
-@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard, ModuleGuard)
 @RequirePermission('finance.view')
 @RequireModule('FINANCE')
 export class FinanceController {

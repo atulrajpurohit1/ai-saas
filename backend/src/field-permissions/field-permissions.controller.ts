@@ -10,13 +10,14 @@ import {
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { UpdateFieldPermissionsDto } from './dto/update-field-permissions.dto';
 import { FieldPermissionsService } from './field-permissions.service';
 
 @Controller('field-permissions')
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard)
 export class FieldPermissionsController {
   constructor(
     private readonly fieldPermissionsService: FieldPermissionsService,

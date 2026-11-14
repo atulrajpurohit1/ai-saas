@@ -30,7 +30,7 @@ describe('PublicApiKeyGuard entitlements', () => {
     touch: jest.Mock;
     logRequest: jest.Mock;
   };
-  let entitlements: { hasModule: jest.Mock };
+  let entitlements: { hasModule: jest.Mock; hasAnyPlan: jest.Mock };
   let rateLimit: { check: jest.Mock };
   let requiredPermission: string | undefined;
 
@@ -55,7 +55,12 @@ describe('PublicApiKeyGuard entitlements', () => {
       touch: jest.fn().mockResolvedValue(undefined),
       logRequest: jest.fn().mockResolvedValue(undefined),
     };
-    entitlements = { hasModule: jest.fn().mockResolvedValue(false) };
+    entitlements = {
+      hasModule: jest.fn().mockResolvedValue(false),
+      // Default to "has a plan" so each test below exercises the per-service
+      // check it is actually about. The no-plan case is its own test.
+      hasAnyPlan: jest.fn().mockResolvedValue(true),
+    };
     rateLimit = { check: jest.fn() };
 
     const reflector = {
@@ -110,12 +115,47 @@ describe('PublicApiKeyGuard entitlements', () => {
   });
 
   // Core records are read by all three services, so gating them on any one of
-  // them would lock out the other two.
-  it('allows a core scope with no modules at all', async () => {
+  // them would lock out the other two. A tenant on any plan therefore reaches
+  // them whichever service it bought.
+  it('allows a core scope whichever service the plan includes', async () => {
     requiredPermission = 'clients.read';
 
     await expect(guard.canActivate(context())).resolves.toBe(true);
     expect(entitlements.hasModule).not.toHaveBeenCalled();
+  });
+
+  /**
+   * A plan is required to use the product, and the API is part of the product.
+   *
+   * This is the case the core-scope rule above would otherwise hide:
+   * `clients.read` resolves to no service and returns early, so without this
+   * check an account that had bought nothing could still run a working
+   * clients/sites API off a key minted under the CORE `integrations` module.
+   */
+  it('refuses every scope when the tenant has no plan', async () => {
+    requiredPermission = 'clients.read';
+    entitlements.hasAnyPlan.mockResolvedValue(false);
+
+    await expect(guard.canActivate(context())).rejects.toMatchObject({
+      response: { planRequired: true, upgradeRequired: true },
+    });
+    expect(apiKeys.logRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ statusCode: 403 }),
+    );
+  });
+
+  // The no-plan refusal must land before the rate limit and the key touch, for
+  // the same reason the per-service one does: a refused call must not consume
+  // budget or look like a served one.
+  it('refuses a no-plan request before the rate limit and the key touch', async () => {
+    requiredPermission = 'guards.read';
+    entitlements.hasAnyPlan.mockResolvedValue(false);
+
+    await expect(guard.canActivate(context())).rejects.toThrow(
+      ForbiddenException,
+    );
+    expect(rateLimit.check).not.toHaveBeenCalled();
+    expect(apiKeys.touch).not.toHaveBeenCalled();
   });
 
   // Order matters: an unentitled request must not consume rate-limit budget or

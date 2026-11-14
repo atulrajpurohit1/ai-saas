@@ -2,6 +2,7 @@ import { Body, Controller, Get, Post, Put, Query, UseGuards } from '@nestjs/comm
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
@@ -20,7 +21,7 @@ import { CREDIT_PACKS, CreditPackKey } from './credit-packs.constants';
  * billing.manage throughout: this authorises charges to a saved card, so
  * reading it is as sensitive as changing it.
  */
-@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard, ModuleGuard)
 @RequireModule('LEAD_GEN')
 @Controller('billing/credits/auto-recharge')
 export class CreditAutoRechargeController {

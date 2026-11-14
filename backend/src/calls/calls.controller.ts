@@ -22,6 +22,7 @@ import { CallsService } from './calls.service';
 import { LogCallDto } from './dto/log-call.dto';
 import { UpdateCallDto } from './dto/update-call.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
@@ -62,7 +63,7 @@ function recordingFileFilter(
   callback(null, true);
 }
 
-@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard, ModuleGuard)
 @Controller('calls')
 @RequireModule('LEAD_GEN')
 export class CallsController {

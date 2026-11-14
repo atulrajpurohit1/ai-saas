@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 import { VENDOR_UPLOAD_DIR } from '../common/file-storage.util';
 import { persistUpload, removeStoredFile } from '../common/object-storage.util';
 
@@ -22,6 +23,7 @@ export class VendorPortalService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
+    private entitlements: EntitlementsService,
   ) {}
 
   private async findByTokenOrThrow(token: string) {
@@ -31,6 +33,19 @@ export class VendorPortalService {
     });
 
     if (!rfpVendor) {
+      throw new NotFoundException('This invitation link is invalid.');
+    }
+
+    // The inviting tenant must still hold a plan. This portal is reached with
+    // a token instead of a login, so PlanGuard -- which reads the tenant off
+    // the request -- cannot cover it; the check belongs here, at the one place
+    // every vendor route resolves its tenant.
+    //
+    // Reads as "invalid link" rather than an upgrade prompt on purpose: the
+    // reader is the customer's VENDOR, not the customer. They cannot buy a
+    // plan for somebody else, and telling an outside party about the tenant's
+    // billing state would leak it.
+    if (!(await this.entitlements.hasAnyPlan(rfpVendor.tenantId))) {
       throw new NotFoundException('This invitation link is invalid.');
     }
 

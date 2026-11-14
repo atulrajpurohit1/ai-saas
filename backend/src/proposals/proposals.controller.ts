@@ -15,6 +15,7 @@ import { ProposalsService } from './proposals.service';
 import { CreateProposalDto } from './dto/create-proposal.dto';
 import { UpdateProposalDto } from './dto/update-proposal.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
@@ -23,7 +24,7 @@ import { Request, Response } from 'express';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { findUnresolvedPlaceholders } from './proposal-content.util';
 
-@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard, ModuleGuard)
 @Controller('proposals')
 @RequireModule('LEAD_GEN')
 export class ProposalsController {

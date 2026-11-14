@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuditService } from '../audit/audit.service';
+import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RolesService } from './roles.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
@@ -9,6 +10,7 @@ import { ActiveUser } from '../auth/interfaces/active-user.interface';
 
 describe('RolesService', () => {
   let service: RolesService;
+  let emailService: { sendTeamMemberWelcomeEmail: jest.Mock };
   let prisma: {
     permission: { findMany: jest.Mock; upsert: jest.Mock };
     role: {
@@ -19,6 +21,7 @@ describe('RolesService', () => {
       update: jest.Mock;
     };
     rolePermission: { deleteMany: jest.Mock; createMany: jest.Mock };
+    $queryRaw: jest.Mock;
     user: { findUnique: jest.Mock; findFirst: jest.Mock; update: jest.Mock };
     tenant: { findUnique: jest.Mock };
     userRoleAssignment: {
@@ -56,13 +59,16 @@ describe('RolesService', () => {
         deleteMany: jest.fn().mockResolvedValue({}),
         createMany: jest.fn().mockResolvedValue({}),
       },
+      $queryRaw: jest.fn().mockResolvedValue([{ module_welcomes_seen: [] }]),
       user: {
         findUnique: jest.fn(),
         findFirst: jest.fn(),
         update: jest.fn().mockResolvedValue({}),
       },
       // No owner by default: tests that care about owner protection set it.
-      tenant: { findUnique: jest.fn().mockResolvedValue({ ownerUserId: null }) },
+      tenant: {
+        findUnique: jest.fn().mockResolvedValue({ ownerUserId: null }),
+      },
       userRoleAssignment: {
         findMany: jest.fn(),
         create: jest.fn(),
@@ -70,6 +76,10 @@ describe('RolesService', () => {
         update: jest.fn().mockResolvedValue({}),
       },
       $transaction: jest.fn(),
+    };
+
+    emailService = {
+      sendTeamMemberWelcomeEmail: jest.fn().mockResolvedValue({ sent: true }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -91,6 +101,7 @@ describe('RolesService', () => {
             }),
           },
         },
+        { provide: EmailService, useValue: emailService },
       ],
     }).compile();
 
@@ -112,7 +123,11 @@ describe('RolesService', () => {
       },
     ]);
     prisma.role.upsert.mockImplementation(({ create, update }) =>
-      Promise.resolve({ id: 'tenant-1:role:branch-admin', ...update, ...create }),
+      Promise.resolve({
+        id: 'tenant-1:role:branch-admin',
+        ...update,
+        ...create,
+      }),
     );
 
     await service.ensureTenantSystemRoles('tenant-1');
@@ -122,8 +137,8 @@ describe('RolesService', () => {
     expect(prisma.role.upsert).toHaveBeenCalled();
     expect(prisma.rolePermission.createMany).toHaveBeenCalled();
     const createManyCalls = prisma.rolePermission.createMany.mock.calls;
-    const syncedForBranchAdmin = createManyCalls.some((call) =>
-      call[0].data.length > 2,
+    const syncedForBranchAdmin = createManyCalls.some(
+      (call) => call[0].data.length > 2,
     );
     expect(syncedForBranchAdmin).toBe(true);
   });
@@ -207,7 +222,9 @@ describe('RolesService', () => {
     };
 
     beforeEach(() => {
-      jest.spyOn(service, 'ensureTenantSystemRoles').mockResolvedValue(undefined);
+      jest
+        .spyOn(service, 'ensureTenantSystemRoles')
+        .mockResolvedValue(undefined);
       prisma.role.findFirst = jest.fn().mockResolvedValue(supervisorRole);
       prisma.user.findUnique.mockResolvedValue(null);
       prisma.$transaction = jest.fn(async (fn: (tx: unknown) => unknown) =>
@@ -232,15 +249,17 @@ describe('RolesService', () => {
       prisma.$transaction = jest.fn(async (fn: (tx: unknown) => unknown) =>
         fn({
           user: {
-            create: jest.fn().mockImplementation((args: { data: Record<string, unknown> }) => {
-              written = args.data;
-              return {
-                id: 'user-new',
-                email: written.email,
-                name: written.name,
-                branchId: null,
-              };
-            }),
+            create: jest
+              .fn()
+              .mockImplementation((args: { data: Record<string, unknown> }) => {
+                written = args.data;
+                return {
+                  id: 'user-new',
+                  email: written.email,
+                  name: written.name,
+                  branchId: null,
+                };
+              }),
           },
           userRoleAssignment: {
             create: jest.fn().mockResolvedValue({ id: 'assignment-new' }),
@@ -265,6 +284,48 @@ describe('RolesService', () => {
       expect(result).not.toHaveProperty('password');
       expect(result.email).toBe('new.person@tenant.test');
       expect(result.role).toBe('Supervisor');
+    });
+
+    it('emails the new member that their account exists', async () => {
+      await service.createTenantUser(owner, dto);
+
+      expect(emailService.sendTeamMemberWelcomeEmail).toHaveBeenCalledWith(
+        'tenant-1',
+        expect.objectContaining({
+          email: 'new.person@tenant.test',
+          roleName: 'Supervisor',
+        }),
+      );
+    });
+
+    /**
+     * The password must never leave by email.
+     *
+     * The admin chose it and hands it over themselves; an emailed credential
+     * sits in an inbox forever. This is the same reason the response does not
+     * echo it back, and it is worth a test of its own because the invite email
+     * is exactly where someone would later be tempted to "help" by including
+     * it.
+     */
+    it('never puts the password in the welcome email', async () => {
+      await service.createTenantUser(owner, dto);
+
+      const [, params] =
+        emailService.sendTeamMemberWelcomeEmail.mock.calls[0] ?? [];
+      expect(JSON.stringify(params ?? {})).not.toContain(dto.password);
+    });
+
+    // The user row is already committed by this point, so a mail failure must
+    // not surface as an error on a request that succeeded -- the admin would
+    // retry and hit "that email is already in use".
+    it('still succeeds when the welcome email fails', async () => {
+      emailService.sendTeamMemberWelcomeEmail.mockRejectedValue(
+        new Error('smtp down'),
+      );
+
+      await expect(service.createTenantUser(owner, dto)).resolves.toMatchObject(
+        { email: 'new.person@tenant.test' },
+      );
     });
 
     it('refuses an email that already belongs to an account', async () => {
@@ -341,7 +402,9 @@ describe('RolesService', () => {
     } as ActiveUser;
 
     beforeEach(() => {
-      jest.spyOn(service, 'ensureTenantSystemRoles').mockResolvedValue(undefined);
+      jest
+        .spyOn(service, 'ensureTenantSystemRoles')
+        .mockResolvedValue(undefined);
       prisma.tenant.findUnique.mockResolvedValue({ ownerUserId: 'owner-1' });
     });
 
@@ -378,8 +441,9 @@ describe('RolesService', () => {
       });
       prisma.userRoleAssignment.findFirst.mockResolvedValue(null);
       prisma.userRoleAssignment.create.mockResolvedValue({ id: 'a-1' });
-      (prisma as unknown as { user: { update: jest.Mock } }).user.update =
-        jest.fn().mockResolvedValue({});
+      (prisma as unknown as { user: { update: jest.Mock } }).user.update = jest
+        .fn()
+        .mockResolvedValue({});
 
       await expect(
         service.assignRole(actor, { user_id: 'owner-1', role_id: 'role-sa' }),
@@ -394,9 +458,81 @@ describe('RolesService', () => {
         role: { name: 'Super Admin' },
       });
 
+      await expect(service.revokeAssignment(actor, 'assign-1')).rejects.toThrow(
+        /owner’s Super Admin role cannot be removed/i,
+      );
+    });
+  });
+
+  /**
+   * The one-time module welcome, held per user so "once" survives a new
+   * browser or a second device. It used to live in localStorage, which made
+   * "once" mean "once per browser".
+   */
+  describe('markModuleWelcomeSeen', () => {
+    const caller = {
+      sub: 'user-1',
+      tenantId: 'tenant-1',
+      role: 'admin',
+    } as ActiveUser;
+
+    it('returns the stored list the database reports back', async () => {
+      prisma.$queryRaw.mockResolvedValue([
+        { module_welcomes_seen: ['LEAD_GEN'] },
+      ]);
+
       await expect(
-        service.revokeAssignment(actor, 'assign-1'),
-      ).rejects.toThrow(/owner’s Super Admin role cannot be removed/i);
+        service.markModuleWelcomeSeen(caller, 'LEAD_GEN'),
+      ).resolves.toEqual({ moduleWelcomesSeen: ['LEAD_GEN'] });
+    });
+
+    /**
+     * Appending happens in one SQL statement whose new value is computed from
+     * the stored one, not by reading the array into JS and writing it back.
+     * Two tabs marking two different services would clobber each other under
+     * read-then-write; here the second statement sees the first one's result.
+     */
+    it('appends in a single statement rather than read-then-write', async () => {
+      await service.markModuleWelcomeSeen(caller, 'GUARD_TOUR');
+
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    // Marking the same service twice must not duplicate the entry, so the
+    // statement guards with ANY(...) before appending.
+    it('guards against appending a service already present', async () => {
+      await service.markModuleWelcomeSeen(caller, 'FINANCE');
+
+      // A tagged template hands the literal chunks in as the first argument.
+      const [query] = prisma.$queryRaw.mock.calls[0] as [string[]];
+      expect(query.join('')).toMatch(/ANY\("module_welcomes_seen"\)/);
+      expect(query.join('')).toMatch(/array_append/);
+    });
+
+    // Scoped to the caller's own row. There is no parameter that could point
+    // this at another user.
+    it('writes only to the calling user by id', async () => {
+      await service.markModuleWelcomeSeen(caller, 'LEAD_GEN');
+
+      const [query, ...values] = prisma.$queryRaw.mock.calls[0] as [
+        string[],
+        ...unknown[],
+      ];
+      expect(query.join('')).toMatch(/WHERE "id" =/);
+      // The id arrives as a bound parameter, not interpolated into the SQL.
+      expect(values).toContain('user-1');
+    });
+
+    // A row that does not come back (deleted mid-request) must answer with an
+    // empty list rather than undefined, which the client would spread.
+    it('answers with an empty list when no row comes back', async () => {
+      prisma.$queryRaw.mockResolvedValue([]);
+
+      await expect(
+        service.markModuleWelcomeSeen(caller, 'LEAD_GEN'),
+      ).resolves.toEqual({ moduleWelcomesSeen: [] });
     });
   });
 });

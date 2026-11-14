@@ -11,6 +11,7 @@ import {
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
@@ -20,7 +21,7 @@ import { RejectTimesheetDto } from './dto/reject-timesheet.dto';
 import { TimesheetsService } from './timesheets.service';
 
 @Controller('timesheets')
-@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard, ModuleGuard)
 @RequirePermission('timesheets.view')
 @RequireModule('FINANCE')
 export class TimesheetsController {

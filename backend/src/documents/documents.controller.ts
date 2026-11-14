@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { Request } from 'express';
@@ -18,7 +19,7 @@ import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CreateDocumentDto } from './dto/create-document.dto';
 
 @Controller('documents')
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard)
 @RequirePermission('documents.manage')
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}

@@ -12,6 +12,7 @@ import { Response } from 'express';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
@@ -20,7 +21,7 @@ import { GenerateInvoiceDto } from './dto/generate-invoice.dto';
 import { InvoicesService } from './invoices.service';
 
 @Controller('invoices')
-@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard, ModuleGuard)
 @RequirePermission('invoices.view')
 @RequireModule('FINANCE')
 export class InvoicesController {

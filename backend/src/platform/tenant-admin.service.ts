@@ -9,6 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { RolesService } from '../roles/roles.service';
 import { EmailService } from '../email/email.service';
+import { fireAndForget } from '../common/fire-and-forget.util';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { DeleteTenantDto } from './dto/delete-tenant.dto';
 import { SuspendTenantDto } from './dto/suspend-tenant.dto';
@@ -125,12 +126,17 @@ export class TenantAdminService {
     // Same internal "new signup" alert as the self-service path. A super-admin
     // created tenant is already email-verified, so this is the signup event for
     // it. Fire-and-forget: a notification failure must not fail tenant creation.
-    void this.email.sendNewSignupNotification({
-      companyName: created.tenant.name,
-      ownerName: created.owner.name,
-      ownerEmail: email,
-      source: 'super admin',
-    });
+    fireAndForget(
+      () =>
+        this.email.sendNewSignupNotification({
+          companyName: created.tenant.name,
+          ownerName: created.owner.name,
+          ownerEmail: email,
+          source: 'super admin',
+        }),
+      this.logger,
+      `Signup alert for ${created.tenant.name}`,
+    );
 
     return {
       tenantId: created.tenant.id,

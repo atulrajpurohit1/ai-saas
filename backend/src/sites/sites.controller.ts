@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { SitesService } from './sites.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import {
   RequireAnyPermission,
@@ -21,7 +22,7 @@ import { CreateSiteDto } from './dto/create-site.dto';
 import { UpdateSiteDto } from './dto/update-site.dto';
 
 @Controller('sites')
-@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard)
 export class SitesController {
   constructor(private readonly sitesService: SitesService) {}
 

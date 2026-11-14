@@ -14,6 +14,7 @@ import {
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
@@ -31,7 +32,7 @@ import { ProspectSearchService } from './prospect-search.service';
 import { SavedProspectSearchService } from './saved-prospect-search.service';
 
 @Controller('prospect-search')
-@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard, ModuleGuard)
 @RequireModule('LEAD_GEN')
 export class ProspectSearchController {
   constructor(

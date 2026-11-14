@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
 import { AuditService } from '../audit/audit.service';
+import { CreditsService } from './credits.service';
 import { SubscriptionProvisioningService } from './subscription-provisioning.service';
 
 describe('SubscriptionProvisioningService', () => {
@@ -20,6 +21,7 @@ describe('SubscriptionProvisioningService', () => {
   };
   let entitlements: { invalidate: jest.Mock; summaryForTenant: jest.Mock };
   let audit: { log: jest.Mock };
+  let credits: { grant: jest.Mock };
 
   beforeEach(async () => {
     tx = {
@@ -31,7 +33,9 @@ describe('SubscriptionProvisioningService', () => {
       },
     };
     prisma = {
-      $transaction: jest.fn(async (fn: (client: typeof tx) => unknown) => fn(tx)),
+      $transaction: jest.fn(async (fn: (client: typeof tx) => unknown) =>
+        fn(tx),
+      ),
       tenantSubscription: {
         updateMany: jest.fn().mockResolvedValue({}),
         findFirst: jest.fn().mockResolvedValue(null),
@@ -42,6 +46,9 @@ describe('SubscriptionProvisioningService', () => {
       summaryForTenant: jest.fn().mockResolvedValue({ status: 'ACTIVE' }),
     };
     audit = { log: jest.fn().mockResolvedValue({}) };
+    credits = {
+      grant: jest.fn().mockResolvedValue({ balance: 50, granted: true }),
+    };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -49,6 +56,7 @@ describe('SubscriptionProvisioningService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: EntitlementsService, useValue: entitlements },
         { provide: AuditService, useValue: audit },
+        { provide: CreditsService, useValue: credits },
       ],
     }).compile();
 
@@ -145,10 +153,8 @@ describe('SubscriptionProvisioningService', () => {
       status: 'ACTIVE',
     });
 
-    const update = tx.tenantSubscription.upsert.mock.calls[0][0].update as Record<
-      string,
-      unknown
-    >;
+    const update = tx.tenantSubscription.upsert.mock.calls[0][0]
+      .update as Record<string, unknown>;
     expect(update).not.toHaveProperty('providerCustomerId');
     expect(update).not.toHaveProperty('providerSubscriptionId');
   });
@@ -232,16 +238,17 @@ describe('SubscriptionProvisioningService', () => {
         providerSubscriptionId: 'sub_1',
       });
 
-      expect(tx.tenantSubscription.upsert.mock.calls[0][0].update.aiEnabled).toBe(
-        true,
-      );
+      expect(
+        tx.tenantSubscription.upsert.mock.calls[0][0].update.aiEnabled,
+      ).toBe(true);
     });
 
     // Purchased prospect-search tokens live in a separate balance. Provisioning
-    // (including a Trial -> paid upgrade) must never touch the credit ledger,
-    // so a tenant's tokens survive a plan change untouched. This pins that the
-    // provisioning path references no credit table at all.
-    it('never touches the credit balance or ledger', async () => {
+    // must never write the credit tables directly -- the one grant it does make
+    // (Trial credits, below) goes through CreditsService, which owns keeping
+    // the balance and the ledger in step. This pins that the provisioning path
+    // references no credit table at all.
+    it('never touches the credit balance or ledger directly', async () => {
       await service.provision({
         tenantId: 't1',
         modules: ['LEAD_GEN'],
@@ -253,6 +260,75 @@ describe('SubscriptionProvisioningService', () => {
       expect(prisma).not.toHaveProperty('tenantCreditBalance');
       expect(tx).not.toHaveProperty('creditLedgerEntry');
       expect(tx).not.toHaveProperty('tenantCreditBalance');
+    });
+  });
+
+  /**
+   * Credits ride with the Trial plan, not with signing up.
+   *
+   * Registering used to grant 50 credits to anyone who filled in the form.
+   * They now arrive only here, so the only way to receive them is to be put on
+   * the Trial plan -- which only the platform owner can do.
+   */
+  describe('Trial plan credits', () => {
+    const provisionTrial = (overrides = {}) =>
+      service.provision({
+        tenantId: 't1',
+        modules: ['LEAD_GEN', 'GUARD_TOUR', 'FINANCE'],
+        status: 'ACTIVE',
+        source: 'COMP',
+        compPlan: 'TRIAL',
+        aiEnabled: false,
+        ...overrides,
+      });
+
+    it('grants the credits when the Trial plan is comped', async () => {
+      await provisionTrial();
+
+      expect(credits.grant).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: 't1', amount: 50 }),
+      );
+    });
+
+    // The database, not a read-then-write, is what makes this once-only: the
+    // key lands in the ledger's `jobId`, which is unique per (tenant, jobId,
+    // type). Without a key here, an extended trial or a replayed pending-comp
+    // job would mint another 50 credits every time.
+    it('grants under a fixed idempotency key so a re-grant cannot stack', async () => {
+      await provisionTrial();
+
+      expect(credits.grant).toHaveBeenCalledWith(
+        expect.objectContaining({ idempotencyKey: 'trial-plan-credits' }),
+      );
+    });
+
+    it('grants nothing on a paid Stripe provisioning', async () => {
+      await service.provision({
+        tenantId: 't1',
+        modules: ['LEAD_GEN'],
+        status: 'ACTIVE',
+        source: 'STRIPE',
+      });
+
+      expect(credits.grant).not.toHaveBeenCalled();
+    });
+
+    // A comp of a real package is a gift of the product, not of credits. Only
+    // the Trial plan carries them.
+    it('grants nothing when a non-Trial plan is comped', async () => {
+      await provisionTrial({ compPlan: 'COMPLETE', aiEnabled: true });
+
+      expect(credits.grant).not.toHaveBeenCalled();
+    });
+
+    // Entitlements are the thing the customer was promised; credits are a
+    // bonus on top. A failed credit write must not cost them the plan.
+    it('still provisions the plan when the credit grant fails', async () => {
+      credits.grant.mockRejectedValue(new Error('ledger unavailable'));
+
+      await expect(provisionTrial()).resolves.toEqual({ status: 'ACTIVE' });
+      expect(tx.tenantSubscription.upsert).toHaveBeenCalled();
+      expect(entitlements.invalidate).toHaveBeenCalledWith('t1');
     });
   });
 

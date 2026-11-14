@@ -9,6 +9,7 @@ import {
   ServiceModuleKey,
   activeModules,
   aiEnabled as aiEnabledForEntitlements,
+  hasPlan as hasPlanForEntitlements,
   serviceForPermission,
 } from '@/lib/entitlements';
 
@@ -22,6 +23,14 @@ export interface User {
   branchId?: string | null;
   isSuperAdmin?: boolean;
   permissions?: string[];
+  /**
+   * Services whose one-time welcome this user has already been shown.
+   *
+   * Server-held, per user, so "once" survives a new browser, a cleared cache
+   * and a second device. Absent on an older session payload, which reads as
+   * "none seen" -- showing a welcome once more is the harmless direction.
+   */
+  moduleWelcomesSeen?: ServiceModuleKey[];
   entitlements?: Entitlements | null;
   roles?: {
     assignmentId: string;
@@ -39,9 +48,18 @@ interface AuthContextType {
   can: (permission: string | string[]) => boolean;
   canAny: (permissions: string[]) => boolean;
   hasModule: (module: ServiceModuleKey) => boolean;
+  /**
+   * Whether the account has any plan. False means the API refuses every screen
+   * but the plan page, so the UI shows "choose a plan" instead of the app.
+   */
+  hasPlan: boolean;
   /** Whether AI (Gemini) features are on this tenant's plan (false on Trial). */
   aiEnabled: boolean;
   entitlements: Entitlements | null;
+  /** Whether this user has already been shown a service's one-time welcome. */
+  welcomeSeen: (module: ServiceModuleKey) => boolean;
+  /** Records that they have now seen it. Optimistic; persists server-side. */
+  markWelcomeSeen: (module: ServiceModuleKey) => void;
   loading: boolean;
 }
 
@@ -55,6 +73,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const normalizeUser = (value: User): User => ({
     ...value,
     permissions: Array.isArray(value.permissions) ? value.permissions : [],
+    moduleWelcomesSeen: Array.isArray(value.moduleWelcomesSeen)
+      ? value.moduleWelcomesSeen
+      : [],
     entitlements: value.entitlements ?? null,
     roles: Array.isArray(value.roles) ? value.roles : [],
   });
@@ -72,6 +93,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     if (nextUser.role === 'client') return '/client/dashboard';
+
+    // No plan: every staff destination below is refused by PlanGuard, so go
+    // straight to the one page that works and is the only thing they can act
+    // on. Deliberately after the portal branch -- a client or guard cannot buy
+    // a plan for the tenant they belong to, so routing them to the admin plan
+    // page would be a dead end. They stay on their portal, where the API
+    // explains the refusal.
+    if (!hasPlanForEntitlements(nextUser.entitlements)) return '/settings/plan';
     if (nextUser.role === 'finance' && modules.has('FINANCE')) return '/finance';
     // A supervisor's job is the live patrol board, so start them there rather
     // than on the sales-shaped dashboard.
@@ -220,6 +249,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasModule = (module: ServiceModuleKey) =>
     activeModules(user?.entitlements).has(module);
 
+  const welcomeSeen = (module: ServiceModuleKey) =>
+    (user?.moduleWelcomesSeen ?? []).includes(module);
+
+  /**
+   * Marks a service's welcome as seen.
+   *
+   * Updates local state first so the dialog closes instantly and cannot
+   * reopen on the next render while the request is in flight, then persists.
+   * A failed write is swallowed deliberately: the worst case is the welcome
+   * appearing once more on the next visit, which is not worth a toast on a
+   * screen the user has just dismissed.
+   *
+   * The server, not this, owns the dedupe -- it appends only if absent -- so a
+   * double-fire costs nothing.
+   */
+  const markWelcomeSeen = (module: ServiceModuleKey) => {
+    setUser((current) => {
+      if (!current) return current;
+      const seen = current.moduleWelcomesSeen ?? [];
+      if (seen.includes(module)) return current;
+      const next = { ...current, moduleWelcomesSeen: [...seen, module] };
+      // Keep the cached copy in step: a reload reads this before /users/me
+      // answers, and a stale copy would flash the welcome again.
+      try {
+        localStorage.setItem('user', JSON.stringify(next));
+      } catch {
+        // Storage unavailable; the server copy is still authoritative.
+      }
+      return next;
+    });
+
+    void api
+      .post('users/me/module-welcome', { module })
+      .catch(() => undefined);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -229,8 +294,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         can,
         canAny,
         hasModule,
+        hasPlan: hasPlanForEntitlements(user?.entitlements),
         aiEnabled: aiEnabledForEntitlements(user?.entitlements),
         entitlements: user?.entitlements ?? null,
+        welcomeSeen,
+        markWelcomeSeen,
         loading,
       }}
     >

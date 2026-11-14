@@ -7,10 +7,12 @@ import { useAuth, type User } from '@/context/AuthContext';
 import { getBranding } from '@/lib/branding';
 import BrandMark from '@/components/BrandMark';
 import { BRAND_NAME } from '@/lib/brand';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Menu, Search, LogOut, ChevronDown, Loader2 } from 'lucide-react';
 import ModuleLockedState from '@/components/ModuleLockedState';
-import { ServiceModuleKey } from '@/lib/entitlements';
+import PlanRequiredState from '@/components/PlanRequiredState';
+import ModuleWelcomeDialog from '@/components/ModuleWelcomeDialog';
+import { ServiceModuleKey, serviceForPath } from '@/lib/entitlements';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -98,8 +100,9 @@ function UserMenu() {
 const SIDEBAR_COLLAPSED_KEY = 'ai-saas-sidebar-collapsed';
 
 export default function DashboardLayout({ children, allowedRoles, requiredPermissions, requiredModule }: DashboardLayoutProps) {
-  const { user, loading, can, hasModule } = useAuth();
+  const { user, loading, can, hasModule, hasPlan } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -137,11 +140,38 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
         // Roles without branding.view just keep the tenant-name fallback below.
       });
   }, []);
+  // No plan at all: the API refuses every screen below, so the whole app is
+  // replaced with the "choose a plan" state rather than rendering nav that
+  // only leads to 403s.
+  //
+  // The plan page itself is the one exception -- it is where they go to fix
+  // this, and it is exempt from PlanGuard on the server for the same reason.
+  // Matched as a prefix so the Stripe return URLs (/settings/plan?status=...)
+  // land somewhere useful rather than bouncing back into the locked state.
+  const onPlanPage = Boolean(pathname?.startsWith('/settings/plan'));
+  const planRequired = Boolean(user && !hasPlan && !onPlanPage);
+
   const moduleLocked = Boolean(user && requiredModule && !hasModule(requiredModule));
+
+  // The one-time welcome for whichever service this route belongs to.
+  //
+  // Gated on the tenant actually owning it and on the screen being usable:
+  // congratulating someone on their "first step" into Guard Tour while they
+  // are looking at a locked screen or a plan prompt would be worse than
+  // staying quiet. The dialog itself handles the show-once bookkeeping.
+  const routeService = serviceForPath(pathname);
+  const welcomeModule =
+    user && !planRequired && !moduleLocked && routeService && hasModule(routeService)
+      ? routeService
+      : null;
   const permissionsBlocked = Boolean(user && requiredPermissions && !can(requiredPermissions));
+  // `!planRequired` for the same reason as `!moduleLocked`: with no plan there
+  // is nowhere useful to redirect to -- every fallbackPath() target is locked
+  // too -- so explain it in place instead of bouncing between locked screens.
   const isBlocked = Boolean(
     user &&
       !moduleLocked &&
+      !planRequired &&
       ((allowedRoles && !allowedRoles.includes(user.role)) || permissionsBlocked),
   );
 
@@ -272,7 +302,9 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
 
         <main className="min-w-0 px-3 py-4 pb-24 sm:px-6 sm:py-7 sm:pb-16 lg:px-8 lg:py-8">
           <div className="mx-auto w-full max-w-7xl">
-            {moduleLocked && requiredModule ? (
+            {planRequired ? (
+              <PlanRequiredState />
+            ) : moduleLocked && requiredModule ? (
               <ModuleLockedState module={requiredModule} />
             ) : (
               children
@@ -282,6 +314,7 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
       </div>
 
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      <ModuleWelcomeDialog module={welcomeModule} />
     </div>
   );
 }

@@ -2,15 +2,18 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { ServiceModule, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { AuditService } from '../audit/audit.service';
 import { BCRYPT_PASSWORD_ROUNDS } from '../auth/password-policy';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
+import { EmailService } from '../email/email.service';
+import { fireAndForget } from '../common/fire-and-forget.util';
 import { serviceForPermissionModule } from '../entitlements/entitlements.constants';
 import { AssignUserRoleDto } from './dto/assign-user-role.dto';
 import { CreateRoleDto } from './dto/create-role.dto';
@@ -27,6 +30,7 @@ import {
 
 @Injectable()
 export class RolesService {
+  private readonly logger = new Logger(RolesService.name);
   private permissionsReady = false;
   private readonly tenantSystemRolesReady = new Set<string>();
 
@@ -34,6 +38,7 @@ export class RolesService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly entitlements: EntitlementsService,
+    private readonly emailService: EmailService,
   ) {}
 
   /**
@@ -415,8 +420,42 @@ export class RolesService {
           branch: assignment.branch,
         })),
       permissions: permissionKeys,
+      // Which service welcomes this user has already been shown. Travels with
+      // the session rather than on its own endpoint: the dialog has to decide
+      // whether to open on first paint, and a second round-trip would either
+      // flash the popup or delay it until after the screen had settled.
+      moduleWelcomesSeen: user.moduleWelcomesSeen,
       entitlements: await this.entitlements.summaryForTenant(user.tenantId),
     };
+  }
+
+  /**
+   * Records that this user has been shown a service's one-time welcome.
+   *
+   * Idempotent, and concurrency-safe without a transaction: the update is a
+   * single statement whose new value is computed from the stored one, so two
+   * tabs marking two different services cannot clobber each other the way a
+   * read-then-write of the whole array would. Marking the same service twice
+   * leaves the array unchanged rather than duplicating the entry.
+   *
+   * Scoped to the caller's own row by id -- there is no path to mark a welcome
+   * seen for anyone else.
+   */
+  async markModuleWelcomeSeen(user: ActiveUser, module: ServiceModule) {
+    const updated = await this.prisma.$queryRaw<
+      { module_welcomes_seen: ServiceModule[] }[]
+    >`
+      UPDATE "User"
+         SET "module_welcomes_seen" =
+               CASE WHEN ${module}::"ServiceModule" = ANY("module_welcomes_seen")
+                    THEN "module_welcomes_seen"
+                    ELSE array_append("module_welcomes_seen", ${module}::"ServiceModule")
+               END
+       WHERE "id" = ${user.sub}
+   RETURNING "module_welcomes_seen"
+    `;
+
+    return { moduleWelcomesSeen: updated[0]?.module_welcomes_seen ?? [] };
   }
 
   async listPermissions() {
@@ -752,6 +791,30 @@ export class RolesService {
         `${branchId ? ` for branch ${branchId}` : ''}`,
     });
 
+    // Tell them their account exists. Fire-and-forget: the user is already
+    // created and committed, so a mail failure must not surface as an error on
+    // a request that succeeded -- the admin would retry and hit "email already
+    // in use". The email carries no password, for the same reason the response
+    // below does not.
+    // The inviting admin's name is not on the JWT, so it is read here. Falls
+    // back to a nameless "An administrator has..." rather than failing the
+    // email, and the lookup itself cannot fail the request.
+    const invitedBy = await this.prisma.user
+      .findUnique({ where: { id: user.sub }, select: { name: true } })
+      .catch(() => null);
+
+    fireAndForget(
+      () =>
+        this.emailService.sendTeamMemberWelcomeEmail(user.tenantId, {
+          email: created.member.email,
+          name: created.member.name,
+          roleName: role.name,
+          invitedByName: invitedBy?.name ?? null,
+        }),
+      this.logger,
+      `Welcome email to ${created.member.email}`,
+    );
+
     // The password is never echoed back, not even to the admin who just chose
     // it: they already have it, and a response carrying it would end up in
     // logs and browser history for no gain.
@@ -919,7 +982,10 @@ export class RolesService {
       );
     }
 
-    if (assignment.userId === user.sub && assignment.role.name === 'Super Admin') {
+    if (
+      assignment.userId === user.sub &&
+      assignment.role.name === 'Super Admin'
+    ) {
       throw new ForbiddenException(
         'You cannot remove your own Super Admin role. Ask another Super Admin to change your role.',
       );

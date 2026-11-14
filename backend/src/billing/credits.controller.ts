@@ -6,6 +6,7 @@ import {
 } from '../auth/decorators/permissions.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
@@ -31,7 +32,7 @@ import { StripeService } from './stripe.service';
  * spend -- which would otherwise be a completed Stripe payment we had to refund
  * by hand.
  */
-@UseGuards(JwtAuthGuard, PermissionGuard, ModuleGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard, ModuleGuard)
 @RequireModule('LEAD_GEN')
 @Controller('billing/credits')
 export class CreditsController {

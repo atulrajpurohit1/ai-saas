@@ -2,6 +2,7 @@ import { Controller, ForbiddenException, Get, UseGuards } from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PlanGuard } from '../auth/guards/plan.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -13,7 +14,7 @@ import { PatrolsService } from './patrols.service';
 // (not the permission system, which clients don't participate in), with
 // clientId/tenantId always taken from the JWT.
 @Controller('client/patrols')
-@UseGuards(JwtAuthGuard, RolesGuard, ModuleGuard)
+@UseGuards(JwtAuthGuard, PlanGuard, RolesGuard, ModuleGuard)
 @Roles('client')
 @RequireModule('GUARD_TOUR')
 export class ClientPatrolsController {
