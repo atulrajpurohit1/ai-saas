@@ -1,10 +1,12 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { fireAndForget } from '../common/fire-and-forget.util';
 import { EmailService } from '../email/email.service';
 import {
   EmailVerificationService,
@@ -22,6 +24,8 @@ import { SecurityCodeDto } from './dto/security-code.dto';
 
 @Injectable()
 export class AccountSecurityService {
+  private readonly logger = new Logger(AccountSecurityService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
@@ -122,13 +126,18 @@ export class AccountSecurityService {
     const recipients = new Set<string>([user.email, pendingEmail]);
     if (previousRecovery) recipients.add(previousRecovery);
     for (const recipient of recipients) {
-      void this.emailService.sendSecurityAlertEmail(recipient, {
-        name: user.name,
-        event: previousRecovery
-          ? 'Your recovery email was changed'
-          : 'A recovery email was added',
-        detail: `Recovery email: ${maskEmail(pendingEmail)}`,
-      });
+      fireAndForget(
+        () =>
+          this.emailService.sendSecurityAlertEmail(recipient, {
+            name: user.name,
+            event: previousRecovery
+              ? 'Your recovery email was changed'
+              : 'A recovery email was added',
+            detail: `Recovery email: ${maskEmail(pendingEmail)}`,
+          }),
+        this.logger,
+        `Security alert to ${recipient}`,
+      );
     }
 
     return { status: 'ok' as const, recoveryEmail: maskEmail(pendingEmail) };
@@ -151,10 +160,15 @@ export class AccountSecurityService {
     });
 
     for (const recipient of new Set<string>([user.email, previousRecovery])) {
-      void this.emailService.sendSecurityAlertEmail(recipient, {
-        name: user.name,
-        event: 'Your recovery email was removed',
-      });
+      fireAndForget(
+        () =>
+          this.emailService.sendSecurityAlertEmail(recipient, {
+            name: user.name,
+            event: 'Your recovery email was removed',
+          }),
+        this.logger,
+        `Security alert to ${recipient}`,
+      );
     }
 
     return { status: 'ok' as const };
@@ -207,10 +221,15 @@ export class AccountSecurityService {
     // Notify the primary and (if verified) recovery email. The 2FA flag isn't
     // part of securityNotifyTargets, so the pre-update `user` is fine here.
     for (const recipient of securityNotifyTargets(user)) {
-      void this.emailService.sendSecurityAlertEmail(recipient, {
-        name: user.name,
-        event: 'Two-step verification was turned on',
-      });
+      fireAndForget(
+        () =>
+          this.emailService.sendSecurityAlertEmail(recipient, {
+            name: user.name,
+            event: 'Two-step verification was turned on',
+          }),
+        this.logger,
+        `Security alert to ${recipient}`,
+      );
     }
 
     return { status: 'ok' as const, twoFactorEnabled: true };
@@ -233,10 +252,15 @@ export class AccountSecurityService {
     });
 
     for (const recipient of securityNotifyTargets(user)) {
-      void this.emailService.sendSecurityAlertEmail(recipient, {
-        name: user.name,
-        event: 'Two-step verification was turned off',
-      });
+      fireAndForget(
+        () =>
+          this.emailService.sendSecurityAlertEmail(recipient, {
+            name: user.name,
+            event: 'Two-step verification was turned off',
+          }),
+        this.logger,
+        `Security alert to ${recipient}`,
+      );
     }
 
     return { status: 'ok' as const, twoFactorEnabled: false };

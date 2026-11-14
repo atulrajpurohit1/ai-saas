@@ -36,6 +36,19 @@ function escapeHtml(value: string): string {
 }
 
 /**
+ * A tenant colour that is safe to drop into a style attribute.
+ *
+ * Branding colours are customer-supplied, so they reach here as arbitrary
+ * text. Anything that is not a plain hex literal falls back rather than being
+ * interpolated, which keeps a crafted value from closing the attribute and
+ * injecting markup into an email we send on that tenant's behalf.
+ */
+function safeHexColor(value: string | null | undefined, fallback: string) {
+  const candidate = (value || '').trim();
+  return /^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(candidate) ? candidate : fallback;
+}
+
+/**
  * DD-MM-YYYY HH:mm, the date format the product uses everywhere, for shift
  * times a guard reads in an email. Rendered in the server's timezone, which
  * is the timezone the shift was scheduled in.
@@ -433,9 +446,7 @@ export class EmailService {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unknown mail error';
-      this.logger.error(
-        `Daily report email to ${input.to} failed: ${message}`,
-      );
+      this.logger.error(`Daily report email to ${input.to} failed: ${message}`);
       return { sent: false, error: message };
     }
   }
@@ -1025,6 +1036,195 @@ Total monthly shortfall against list price: ${params.monthlyShortfall}`;
       messageId: info.messageId,
       previewUrl: this.previewUrlFor(info),
     };
+  }
+
+  /**
+   * The customer's welcome email, sent once their email is verified and the
+   * account is real.
+   *
+   * Sent as AegisLead rather than with tenant branding: at this moment the
+   * tenant has no branding worth using (nobody has configured it yet), and the
+   * sender genuinely IS us welcoming them, not their company speaking to its
+   * own staff.
+   *
+   * Best-effort by contract, like sendNewSignupNotification: it catches its own
+   * errors and returns a result rather than throwing, because a welcome email
+   * that fails must never cost someone the signup they just completed. Callers
+   * fire it without awaiting.
+   */
+  async sendWelcomeEmail(params: {
+    email: string;
+    name?: string | null;
+    companyName?: string | null;
+  }): Promise<{ sent: boolean; error?: string }> {
+    const greetingName = params.name?.trim().split(' ')[0] || 'there';
+    const companyName = params.companyName?.trim() || 'your team';
+
+    const base = (process.env.FRONTEND_URL || '').trim().replace(/\/+$/, '');
+    const planUrl = base ? `${base}/settings/plan` : null;
+
+    // Says to pick a plan because that is now literally the next step: a new
+    // account has no plan, and every screen except the plan page is refused
+    // until it does. Promising them a tour of the app instead would send them
+    // into a locked one.
+    const bodyHtml = `
+      <p style="margin:0 0 16px; font-size:15px; line-height:24px; color:#1f2937;">Hi ${escapeHtml(greetingName)},</p>
+      <p style="margin:0 0 20px; font-size:15px; line-height:24px; color:#1f2937;">
+        Welcome to ${PLATFORM_NAME}, and thank you for signing ${escapeHtml(companyName)} up. Your account is verified and ready.
+      </p>
+      <p style="margin:0 0 20px; font-size:15px; line-height:24px; color:#1f2937;">
+        ${PLATFORM_NAME} brings lead generation, guard tours and back-office operations into one place, so your team stops
+        stitching together spreadsheets and starts seeing the whole picture.
+      </p>
+      <p style="margin:0 0 12px; font-size:15px; line-height:24px; color:#1f2937; font-weight:600;">Your next step</p>
+      <p style="margin:0 0 20px; font-size:15px; line-height:24px; color:#1f2937;">
+        Choose the services you need and they unlock straight away. You can start with one and add the others later.
+      </p>
+      ${
+        planUrl
+          ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
+        <tr>
+          <td style="border-radius:10px; background:${PLATFORM_BRAND_COLOR};">
+            <a href="${planUrl}" style="display:inline-block; padding:12px 24px; font-size:15px; font-weight:600; color:#ffffff; text-decoration:none;">Choose your plan</a>
+          </td>
+        </tr>
+      </table>`
+          : ''
+      }
+      <p style="margin:0; font-size:14px; line-height:22px; color:#64748b;">
+        Got a question, or want us to walk you through it? Just reply to this email and a real person will get back to you.
+      </p>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        ...this.senderFor(PLATFORM_NAME),
+        to: params.email,
+        subject: `Welcome to ${PLATFORM_NAME}, ${greetingName}`,
+        text:
+          `Hi ${greetingName},\n\n` +
+          `Welcome to ${PLATFORM_NAME}, and thank you for signing ${companyName} up. Your account is verified and ready.\n\n` +
+          `${PLATFORM_NAME} brings lead generation, guard tours and back-office operations into one place.\n\n` +
+          `Your next step: choose the services you need and they unlock straight away. ` +
+          `You can start with one and add the others later.\n` +
+          (planUrl ? `\nChoose your plan: ${planUrl}\n` : '') +
+          `\nGot a question, or want us to walk you through it? Just reply to this email and a real person will get back to you.`,
+        html: this.platformEmailShell({
+          title: `Welcome to ${PLATFORM_NAME}`,
+          preheader: `Your account is ready, ${greetingName}. Here's how to get started.`,
+          bodyHtml,
+        }),
+      });
+      return { sent: true };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown mail error';
+      this.logger.error(`Welcome email to ${params.email} failed: ${message}`);
+      return { sent: false, error: message };
+    }
+  }
+
+  /**
+   * Tells someone an admin has just created an account for them.
+   *
+   * Branded with the TENANT's logo and colours, unlike the welcome email: here
+   * the sender really is their own company adding them to its workspace, and a
+   * mail arriving as "AegisLead" would read like a cold signup to someone who
+   * never asked for one.
+   *
+   * Deliberately carries NO password. The admin chose it and hands it over
+   * themselves; putting it in an email would leave the credential sitting in an
+   * inbox forever, and the response does not even echo it back to the admin for
+   * the same reason.
+   *
+   * Best-effort: a failed notification must not undo a user who was already
+   * created, so this returns a result instead of throwing.
+   */
+  async sendTeamMemberWelcomeEmail(
+    tenantId: string,
+    params: {
+      email: string;
+      name?: string | null;
+      roleName: string;
+      invitedByName?: string | null;
+    },
+  ): Promise<{ sent: boolean; error?: string }> {
+    const branding = await this.brandingService
+      .brandingSnapshot(tenantId)
+      .catch(() => null);
+    const companyName = branding?.company_name || PLATFORM_NAME;
+    const greetingName = params.name?.trim().split(' ')[0] || 'there';
+    const invitedBy = params.invitedByName?.trim();
+
+    const base = (process.env.FRONTEND_URL || '').trim().replace(/\/+$/, '');
+    const loginUrl = base ? `${base}/login` : null;
+
+    const bodyHtml = `
+      <p style="margin:0 0 16px; font-size:15px; line-height:24px; color:#1f2937;">Hi ${escapeHtml(greetingName)},</p>
+      <p style="margin:0 0 20px; font-size:15px; line-height:24px; color:#1f2937;">
+        ${invitedBy ? `${escapeHtml(invitedBy)} has` : 'An administrator has'} created an account for you on
+        ${escapeHtml(companyName)}'s ${PLATFORM_NAME} workspace, with the role
+        <strong>${escapeHtml(params.roleName)}</strong>.
+      </p>
+      <p style="margin:0 0 20px; font-size:15px; line-height:24px; color:#1f2937;">
+        Sign in with this email address (<strong>${escapeHtml(params.email)}</strong>). ${
+          invitedBy
+            ? `${escapeHtml(invitedBy)} will give you`
+            : 'Your administrator will give you'
+        } your password separately &mdash; for your security it is never sent by email.
+      </p>
+      ${
+        loginUrl
+          ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
+        <tr>
+          <td style="border-radius:10px; background:${safeHexColor(branding?.primary_color, PLATFORM_BRAND_COLOR)};">
+            <a href="${loginUrl}" style="display:inline-block; padding:12px 24px; font-size:15px; font-weight:600; color:#ffffff; text-decoration:none;">Sign in</a>
+          </td>
+        </tr>
+      </table>`
+          : ''
+      }
+      <p style="margin:0; font-size:14px; line-height:22px; color:#64748b;">
+        Change your password once you are in, under Settings &rsaquo; Security. If you were not expecting this, let
+        ${invitedBy ? escapeHtml(invitedBy) : 'your administrator'} know.
+      </p>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        ...this.senderFor(companyName, branding?.support_email),
+        to: params.email,
+        subject: `You've been added to ${companyName} on ${PLATFORM_NAME}`,
+        text:
+          `Hi ${greetingName},\n\n` +
+          `${invitedBy || 'An administrator'} has created an account for you on ${companyName}'s ${PLATFORM_NAME} workspace, ` +
+          `with the role ${params.roleName}.\n\n` +
+          `Sign in with this email address (${params.email}). ` +
+          `${invitedBy || 'Your administrator'} will give you your password separately - for your security it is never sent by email.\n` +
+          (loginUrl ? `\nSign in: ${loginUrl}\n` : '') +
+          `\nChange your password once you are in, under Settings > Security. ` +
+          `If you were not expecting this, let ${invitedBy || 'your administrator'} know.`,
+        html: branding
+          ? this.brandingService.emailShell(
+              branding,
+              `Welcome to ${companyName}`,
+              bodyHtml,
+            )
+          : this.platformEmailShell({
+              title: `Welcome to ${companyName}`,
+              preheader: `Your ${companyName} account is ready.`,
+              bodyHtml,
+            }),
+      });
+      return { sent: true };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown mail error';
+      this.logger.error(
+        `Team member welcome to ${params.email} failed: ${message}`,
+      );
+      return { sent: false, error: message };
+    }
   }
 
   /**
