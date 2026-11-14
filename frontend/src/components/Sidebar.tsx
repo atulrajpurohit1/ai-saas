@@ -6,6 +6,11 @@ import { useAuth } from '@/context/AuthContext';
 import { getBranding } from '@/lib/branding';
 import { cn } from '@/lib/utils';
 import { DASHBOARD_LINK, NAV_GROUPS, type NavLink } from '@/lib/nav-links';
+import {
+  isRouteAllowedWithoutPlan,
+  planUpgradeHref,
+  serviceForLink,
+} from '@/lib/entitlements';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import BrandMark from '@/components/BrandMark';
 import { BRAND_NAME } from '@/lib/brand';
@@ -42,21 +47,23 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
     onToggleCollapsed?.();
   };
 
-  // With no plan the API refuses everything except the plan page and the
-  // self-service account screens, so the nav is cut down to exactly what still
-  // works. Showing the rest would be a menu of 403s, and hiding the plan link
-  // with it would strand the account with no way to buy one.
-  const navUsable = (link: NavLink) =>
-    hasPlan || link.href === '/settings/plan' || link.permissions.length === 0;
+  // An account with no plan still sees the WHOLE product in the nav. Nothing
+  // is hidden: someone deciding whether to buy should be able to see what they
+  // would be buying, and a sidebar with two entries in it tells them nothing.
+  //
+  // The entries stay clickable and simply lead to the plan page instead of the
+  // screen they name (see `linkHref`), so the answer is always "here is how to
+  // unlock this" rather than a dead link or a 403.
+  const isLocked = (link: NavLink) =>
+    !hasPlan && !isRouteAllowedWithoutPlan(link.href);
 
-  const visibleDashboardLink =
-    canAny(DASHBOARD_LINK.permissions) && navUsable(DASHBOARD_LINK)
-      ? DASHBOARD_LINK
-      : null;
+  const visibleDashboardLink = canAny(DASHBOARD_LINK.permissions)
+    ? DASHBOARD_LINK
+    : null;
   const visibleNavGroups = NAV_GROUPS
     // A link with no permissions is self-service (e.g. account Security): show
     // it to every signed-in user. canAny([]) is false, so it needs this guard.
-    .map((group) => ({ ...group, links: group.links.filter((link) => (link.permissions.length === 0 || canAny(link.permissions)) && navUsable(link)) }))
+    .map((group) => ({ ...group, links: group.links.filter((link) => link.permissions.length === 0 || canAny(link.permissions)) }))
     .filter((group) => group.links.length > 0);
   const links = [
     ...(visibleDashboardLink ? [visibleDashboardLink] : []),
@@ -100,11 +107,20 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
   const renderLink = (link: NavLink) => {
     const isActive = link.href === activeHref;
     const Icon = link.icon;
+    // A locked entry keeps its own label and icon but points at the plan page,
+    // carrying what was asked for so the dialog there can name it.
+    const locked = isLocked(link);
+    const href = locked
+      ? planUpgradeHref({
+          feature: link.label,
+          service: serviceForLink(link),
+        })
+      : link.href;
 
     const linkEl = (
       <Link
         key={link.href}
-        href={link.href}
+        href={href}
         onClick={() => {
           saveScrollPosition();
           onClose?.();

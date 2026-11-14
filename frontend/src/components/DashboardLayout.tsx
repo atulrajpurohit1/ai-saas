@@ -10,9 +10,14 @@ import { BRAND_NAME } from '@/lib/brand';
 import { usePathname, useRouter } from 'next/navigation';
 import { Menu, Search, LogOut, ChevronDown, Loader2 } from 'lucide-react';
 import ModuleLockedState from '@/components/ModuleLockedState';
-import PlanRequiredState from '@/components/PlanRequiredState';
+import PlanRequiredDialog from '@/components/PlanRequiredDialog';
 import ModuleWelcomeDialog from '@/components/ModuleWelcomeDialog';
-import { ServiceModuleKey, serviceForPath } from '@/lib/entitlements';
+import {
+  ServiceModuleKey,
+  isRouteAllowedWithoutPlan,
+  planUpgradeHref,
+  serviceForPath,
+} from '@/lib/entitlements';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -140,16 +145,21 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
         // Roles without branding.view just keep the tenant-name fallback below.
       });
   }, []);
-  // No plan at all: the API refuses every screen below, so the whole app is
-  // replaced with the "choose a plan" state rather than rendering nav that
-  // only leads to 403s.
+  // No plan at all: the API refuses every screen below, so instead of
+  // rendering one that can only 403, send them to the plan page with the
+  // prompt that explains why they landed there.
   //
-  // The plan page itself is the one exception -- it is where they go to fix
-  // this, and it is exempt from PlanGuard on the server for the same reason.
-  // Matched as a prefix so the Stripe return URLs (/settings/plan?status=...)
-  // land somewhere useful rather than bouncing back into the locked state.
-  const onPlanPage = Boolean(pathname?.startsWith('/settings/plan'));
-  const planRequired = Boolean(user && !hasPlan && !onPlanPage);
+  // The nav already routes locked entries straight to the plan page, so this
+  // covers the other ways in: a bookmark, a pasted link, a redirect from a
+  // page they could reach before their comp lapsed.
+  //
+  // The exempt routes (plan, billing, account security) are the ones left
+  // without PlanGuard on the server, for the same reason -- they are where
+  // this gets fixed. Matched as prefixes so the Stripe return URLs
+  // (/settings/plan?status=...) land somewhere useful rather than bouncing.
+  const planRequired = Boolean(
+    user && !hasPlan && !isRouteAllowedWithoutPlan(pathname),
+  );
 
   const moduleLocked = Boolean(user && requiredModule && !hasModule(requiredModule));
 
@@ -199,6 +209,15 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
     }
   }, [isBlocked, loading, router, user]);
 
+  // Reached a gated screen without a plan. replace(), not push(), so Back does
+  // not walk straight into the same redirect.
+  useEffect(() => {
+    if (loading || !planRequired) return;
+    router.replace(
+      planUpgradeHref({ service: serviceForPath(pathname) }),
+    );
+  }, [loading, pathname, planRequired, router]);
+
   if (loading) {
     return (
       <div
@@ -214,7 +233,9 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
     );
   }
 
-  if (!user || isBlocked) return null;
+  // `planRequired` renders nothing while the redirect above runs: the screen
+  // underneath would only fill with failed requests on its way out.
+  if (!user || isBlocked || planRequired) return null;
 
   const firstName = user.name?.split(' ')[0] || user.email;
   const headerSubtitle =
@@ -302,9 +323,7 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
 
         <main className="min-w-0 px-3 py-4 pb-24 sm:px-6 sm:py-7 sm:pb-16 lg:px-8 lg:py-8">
           <div className="mx-auto w-full max-w-7xl">
-            {planRequired ? (
-              <PlanRequiredState />
-            ) : moduleLocked && requiredModule ? (
+            {moduleLocked && requiredModule ? (
               <ModuleLockedState module={requiredModule} />
             ) : (
               children
@@ -315,6 +334,7 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
 
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <ModuleWelcomeDialog module={welcomeModule} />
+      <PlanRequiredDialog />
     </div>
   );
 }

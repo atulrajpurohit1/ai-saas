@@ -10,6 +10,7 @@ import { ActiveUser } from '../auth/interfaces/active-user.interface';
 
 describe('RolesService', () => {
   let service: RolesService;
+  let entitlements: { modulesForTenant: jest.Mock; summaryForTenant: jest.Mock };
   let emailService: { sendTeamMemberWelcomeEmail: jest.Mock };
   let prisma: {
     permission: { findMany: jest.Mock; upsert: jest.Mock };
@@ -82,25 +83,23 @@ describe('RolesService', () => {
       sendTeamMemberWelcomeEmail: jest.fn().mockResolvedValue({ sent: true }),
     };
 
+    // Fully entitled tenant by default: most tests assert RBAC behaviour, so
+    // entitlement must not filter anything out from under them. Individual
+    // tests override modulesForTenant to exercise the filtering itself.
+    entitlements = {
+      modulesForTenant: jest.fn().mockResolvedValue(new Set(SERVICE_MODULES)),
+      summaryForTenant: jest.fn().mockResolvedValue({
+        status: 'ACTIVE',
+        modules: SERVICE_MODULES.map((key) => ({ key, active: true })),
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RolesService,
         { provide: PrismaService, useValue: prisma },
         { provide: AuditService, useValue: { log: jest.fn() } },
-        {
-          // Fully entitled tenant: these tests assert RBAC behaviour, so
-          // entitlement must not filter anything out from under them.
-          provide: EntitlementsService,
-          useValue: {
-            modulesForTenant: jest
-              .fn()
-              .mockResolvedValue(new Set(SERVICE_MODULES)),
-            summaryForTenant: jest.fn().mockResolvedValue({
-              status: 'ACTIVE',
-              modules: SERVICE_MODULES.map((key) => ({ key, active: true })),
-            }),
-          },
-        },
+        { provide: EntitlementsService, useValue: entitlements },
         { provide: EmailService, useValue: emailService },
       ],
     }).compile();
@@ -469,6 +468,43 @@ describe('RolesService', () => {
    * browser or a second device. It used to live in localStorage, which made
    * "once" mean "once per browser".
    */
+  describe('filterByEntitlement', () => {
+    const keys = ['dashboard.view', 'leads.view', 'guards.view', 'finance.view'];
+
+    // Reach the private helper directly: getUserAccessProfile wraps it in a
+    // large prisma-heavy read, and the behaviour under test is entirely in
+    // this one method.
+    const filter = (tenantId: string) =>
+      (service as unknown as {
+        filterByEntitlement(tenantId: string, keys: string[]): Promise<string[]>;
+      }).filterByEntitlement(tenantId, keys);
+
+    it('keeps the full permission list for a tenant with no plan', async () => {
+      // No plan: the nav shows the whole product and every locked entry routes
+      // to the plan page, so the session must advertise all of it. Filtering
+      // here would leave a prospective customer with a near-empty sidebar.
+      (entitlements.modulesForTenant as jest.Mock).mockResolvedValueOnce(
+        new Set(),
+      );
+
+      await expect(filter('tenant-1')).resolves.toEqual(keys);
+    });
+
+    it('drops keys for services a plan-holding tenant did not buy', async () => {
+      // One service owned: now a missing item is a true statement about what
+      // they bought, so the Guard and Finance keys come out.
+      (entitlements.modulesForTenant as jest.Mock).mockResolvedValueOnce(
+        new Set(['LEAD_GEN']),
+      );
+
+      const result = await filter('tenant-1');
+      expect(result).toContain('dashboard.view');
+      expect(result).toContain('leads.view');
+      expect(result).not.toContain('guards.view');
+      expect(result).not.toContain('finance.view');
+    });
+  });
+
   describe('markModuleWelcomeSeen', () => {
     const caller = {
       sub: 'user-1',

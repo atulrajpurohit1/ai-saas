@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/context/AuthContext';
 import { DASHBOARD_LINK, NAV_GROUPS, type NavLink } from '@/lib/nav-links';
 import { QUICK_ACTIONS } from '@/lib/quick-actions';
+import { isRouteAllowedWithoutPlan, planUpgradeHref } from '@/lib/entitlements';
 import { useRecentPages } from '@/hooks/useRecentPages';
 import { cn } from '@/lib/utils';
 
@@ -50,7 +51,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
  */
 export default function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const router = useRouter();
-  const { canAny } = useAuth();
+  const { canAny, hasPlan } = useAuth();
   const { recent, record } = useRecentPages();
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -111,6 +112,16 @@ export default function CommandPalette({ open, onOpenChange }: CommandPalettePro
 
   const go = (item: PaletteItem) => {
     onOpenChange(false);
+
+    // Same rule as the sidebar: with no plan the palette still lists the whole
+    // product, and picking something leads to the plan page with a prompt that
+    // names it. Routed here rather than left to DashboardLayout so the prompt
+    // can say "Invoices" instead of falling back to a generic one.
+    if (!hasPlan && !isRouteAllowedWithoutPlan(item.href)) {
+      router.push(planUpgradeHref({ feature: item.label }));
+      return;
+    }
+
     // Only nav destinations (not ?new= action routes) are worth "recent"-ing.
     if (!item.href.includes('?')) record(item.href, item.label);
     router.push(item.href);

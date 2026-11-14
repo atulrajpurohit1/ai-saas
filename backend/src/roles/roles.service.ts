@@ -51,6 +51,21 @@ export class RolesService {
    */
   private async filterByEntitlement(tenantId: string, keys: string[]) {
     const granted = await this.entitlements.modulesForTenant(tenantId);
+
+    // A tenant with NO plan keeps its full permission list.
+    //
+    // Nothing is reachable for them either way -- PlanGuard refuses every
+    // tenant-facing route -- so the list is presentation only, and the app
+    // deliberately shows someone who has not bought yet the COMPLETE nav:
+    // each locked item takes them to the plan page rather than disappearing.
+    // Filtering here would leave a prospective customer looking at a sidebar
+    // with two entries in it, unable to see what the product even does.
+    //
+    // Not the same as owning none of ONE service: a tenant with a plan still
+    // gets the filter below, because for them a missing item is a true answer
+    // about what they bought.
+    if (granted.size === 0) return keys;
+
     const moduleByKey = new Map(
       PERMISSIONS.map((permission) => [permission.key, permission.module]),
     );

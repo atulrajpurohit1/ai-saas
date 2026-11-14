@@ -149,6 +149,61 @@ export function hasPlan(entitlements?: Entitlements | null): boolean {
   return entitlements?.hasPlan !== false;
 }
 
+/**
+ * The routes that still work with no plan at all.
+ *
+ * Mirrors the controllers deliberately left without PlanGuard on the API:
+ * `billing` (the plan and billing screens, where they go to fix this),
+ * `account-security` and the session/auth endpoints. Everything else answers
+ * 403 for a tenant that has bought nothing.
+ *
+ * Kept as prefixes so query strings and sub-paths come along -- the Stripe
+ * return URLs land on `/settings/plan?status=...` and must not bounce.
+ *
+ * Note `/settings/credits` is NOT here: credits.controller does carry
+ * PlanGuard, so that screen is gated like the rest.
+ */
+const PLAN_EXEMPT_PREFIXES = [
+  '/settings/plan',
+  '/settings/billing',
+  '/settings/security',
+];
+
+export function isRouteAllowedWithoutPlan(
+  pathname: string | null | undefined,
+): boolean {
+  if (!pathname) return false;
+  return PLAN_EXEMPT_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
+/** Query flag that tells the plan page to open the "choose a plan" dialog. */
+export const PLAN_UPGRADE_PARAM = 'upgrade';
+
+/**
+ * Where a locked screen sends someone who has no plan.
+ *
+ * The nav keeps showing every feature to an account that has bought nothing --
+ * hiding the product from a prospective customer helps nobody -- so each
+ * locked entry simply POINTS here instead of at the screen it names. Swapping
+ * the href rather than cancelling the click in JS keeps middle-click,
+ * open-in-new-tab and prefetch all behaving honestly.
+ *
+ * `feature` and `service` are carried so the dialog can name what they were
+ * reaching for ("Leads is part of AegisLead Generation") rather than showing
+ * the same anonymous upsell every time.
+ */
+export function planUpgradeHref(options?: {
+  feature?: string;
+  service?: ServiceModuleKey | null;
+}): string {
+  const params = new URLSearchParams({ [PLAN_UPGRADE_PARAM]: '1' });
+  if (options?.feature) params.set('feature', options.feature);
+  if (options?.service) params.set('service', options.service);
+  return `/settings/plan?${params.toString()}`;
+}
+
 export function activeModules(
   entitlements?: Entitlements | null,
 ): Set<ServiceModuleKey> {
