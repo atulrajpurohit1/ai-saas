@@ -78,7 +78,7 @@ function UserMenu() {
         />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-40 mt-2 w-56 origin-top-right animate-in fade-in-0 zoom-in-95 rounded-lg border border-border bg-card p-1.5 shadow-md">
+        <div className="absolute right-0 top-full z-40 mt-2 w-56 origin-top-right animate-in fade-in-0 zoom-in-95 slide-in-from-top-1 rounded-lg border border-border bg-card p-1.5 shadow-lg">
           <div className="border-b border-border px-2.5 py-2">
             <p className="truncate text-sm font-semibold text-foreground">{user?.name}</p>
             <p className="truncate text-xs text-muted-foreground">{user?.email}</p>

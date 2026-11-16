@@ -467,6 +467,10 @@ export default function LoginPage() {
 
   const inputClass =
     'w-full rounded-[var(--radius)] border border-border bg-card py-3 pl-11 pr-4 text-sm text-foreground outline-none transition hover:border-primary/30 focus:border-primary/40 focus:ring-2 focus:ring-ring/50';
+  // One treatment for every primary submit on this page (Sign In, the OTP and
+  // reset steps), so they all share the same hover lift and press feedback.
+  const primaryButtonClass =
+    'flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--radius)] bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 hover:shadow-md active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70 motion-reduce:active:scale-100';
   const iconClass =
     'pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground';
 
@@ -515,9 +519,9 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={forgotSubmitting}
-                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--radius)] bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+                className={primaryButtonClass}
               >
-                {forgotSubmitting && <Loader2 className="animate-spin" size={18} />}
+                {forgotSubmitting && <Loader2 className="animate-spin motion-reduce:animate-none" size={18} />}
                 Send OTP
               </button>
             </form>
@@ -562,9 +566,9 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={forgotSubmitting || forgotOtp.length !== 6}
-                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--radius)] bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+                className={primaryButtonClass}
               >
-                {forgotSubmitting && <Loader2 className="animate-spin" size={18} />}
+                {forgotSubmitting && <Loader2 className="animate-spin motion-reduce:animate-none" size={18} />}
                 Verify OTP
               </button>
             </form>
@@ -577,7 +581,7 @@ export default function LoginPage() {
                 disabled={forgotSubmitting || forgotResendCooldown > 0}
                 className="font-semibold text-primary transition hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline"
               >
-                {forgotResendCooldown > 0 ? `Resend code in ${forgotResendCooldown}s` : 'Resend OTP'}
+                {forgotResendCooldown > 0 ? `Resend code in ${forgotResendCooldown}s` : 'Resend code'}
               </button>
             </div>
 
@@ -642,9 +646,9 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={forgotSubmitting}
-                className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--radius)] bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+                className={`mt-2 ${primaryButtonClass}`}
               >
-                {forgotSubmitting && <Loader2 className="animate-spin" size={18} />}
+                {forgotSubmitting && <Loader2 className="animate-spin motion-reduce:animate-none" size={18} />}
                 Reset Password
               </button>
             </form>
@@ -678,9 +682,9 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={twoFactorVerifying || twoFactorOtp.length !== 6}
-                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--radius)] bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+                className={primaryButtonClass}
               >
-                {twoFactorVerifying && <Loader2 className="animate-spin" size={18} />}
+                {twoFactorVerifying && <Loader2 className="animate-spin motion-reduce:animate-none" size={18} />}
                 Verify &amp; sign in
               </button>
             </form>
@@ -693,7 +697,7 @@ export default function LoginPage() {
                 disabled={twoFactorVerifying || twoFactorResendCooldown > 0}
                 className="font-semibold text-primary transition hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline"
               >
-                {twoFactorResendCooldown > 0 ? `Resend code in ${twoFactorResendCooldown}s` : 'Resend Code'}
+                {twoFactorResendCooldown > 0 ? `Resend code in ${twoFactorResendCooldown}s` : 'Resend code'}
               </button>
             </div>
 
@@ -737,9 +741,9 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={verifying || otp.length !== 6}
-                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--radius)] bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+                className={primaryButtonClass}
               >
-                {verifying && <Loader2 className="animate-spin" size={18} />}
+                {verifying && <Loader2 className="animate-spin motion-reduce:animate-none" size={18} />}
                 Verify Email
               </button>
             </form>
@@ -756,7 +760,7 @@ export default function LoginPage() {
                   ? 'Sending…'
                   : resendCooldown > 0
                     ? `Resend code in ${resendCooldown}s`
-                    : 'Resend Code'}
+                    : 'Resend code'}
               </button>
             </div>
 
@@ -893,7 +897,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-[var(--radius)] bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm transition hover:bg-primary/90 hover:shadow-md active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70 motion-reduce:active:scale-100"
+              className={`mt-2 ${primaryButtonClass}`}
             >
               {loading && <Loader2 className="animate-spin motion-reduce:animate-none" size={18} />}
               {isRegister ? 'Create Account' : 'Sign In'}

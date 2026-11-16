@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 export default function SearchField({
   value,
   onChange,
-  placeholder = 'Search...',
+  placeholder = 'Search…',
   label = 'Search',
   className,
 }: {

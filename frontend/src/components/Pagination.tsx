@@ -47,7 +47,7 @@ export default function Pagination({ page, pageCount, onPageChange, summary, cla
         className,
       )}
     >
-      <p className="text-xs text-muted-foreground" aria-live="polite">
+      <p className="text-xs tabular-nums text-muted-foreground" aria-live="polite">
         {summary ?? (
           <>
             Page <span className="font-semibold text-foreground">{page}</span> of {pageCount}

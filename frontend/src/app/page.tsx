@@ -6,7 +6,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
 import { DashboardSummary, getDashboardSummary, getRecentActivity } from '@/lib/dashboard';
 import { DEAL_STAGE_COLORS } from '@/lib/deals';
-import { formatEnumLabel, formatDate as fmtDate } from '@/lib/format';
+import { formatEnumLabel, formatDate as fmtDate, formatDateTime } from '@/lib/format';
 import TrendAreaChart from '@/components/charts/TrendAreaChart';
 import CategoryBarChart from '@/components/charts/CategoryBarChart';
 import StatDelta from '@/components/charts/StatDelta';
@@ -240,11 +240,17 @@ export default function DashboardPage() {
       {/* KPI cards */}
       {loading ? (
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {/* Mirrors the real card's layout (icon + delta row, label, value,
+              caption) so nothing shifts when the data lands. */}
           {[1, 2, 3].map((i) => (
-            <div key={i} className="rounded-2xl border border-border bg-card p-5">
-              <Skeleton className="mb-3 h-9 w-9 rounded-lg" />
-              <Skeleton className="mb-2 h-3 w-20" />
-              <Skeleton className="h-7 w-14" />
+            <div key={i} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <Skeleton className="h-9 w-9 rounded-lg" />
+                <Skeleton className="h-4 w-12 rounded-full" />
+              </div>
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="mt-2 h-8 w-16" />
+              <Skeleton className="mt-2 h-2.5 w-24" />
             </div>
           ))}
         </div>
@@ -354,7 +360,7 @@ export default function DashboardPage() {
                     key={range}
                     type="button"
                     onClick={() => setTrendRange(range)}
-                    className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+                    className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
                       trendRange === range ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
@@ -433,7 +439,7 @@ export default function DashboardPage() {
                   </div>
                   <span
                     className="shrink-0 text-xs text-muted-foreground"
-                    title={activity.timestamp ? new Date(activity.timestamp).toLocaleString() : undefined}
+                    title={activity.timestamp ? formatDateTime(activity.timestamp) : undefined}
                   >
                     {formatRelativeTime(activity.timestamp)}
                   </span>

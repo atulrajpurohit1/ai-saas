@@ -171,7 +171,7 @@ export default function CommandPalette({ open, onOpenChange }: CommandPalettePro
                 go(flatItems[activeIndex]);
               }
             }}
-            placeholder="Search pages and actions..."
+            placeholder="Search pages and actions…"
             aria-label="Search pages and actions"
             className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
           />

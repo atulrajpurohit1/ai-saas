@@ -292,17 +292,33 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
             </span>
           </div>
         </div>
-        <button
-          onClick={logout}
-          title={collapsed ? 'Logout' : undefined}
-          className={cn(
-            'flex w-full items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium text-error transition-colors hover:bg-error-wash active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100',
-            collapsed && 'lg:justify-center',
-          )}
-        >
-          <LogOut size={18} />
-          <span className={cn(collapsed && 'lg:hidden')}>Logout</span>
-        </button>
+        {(() => {
+          const logoutButton = (
+            <button
+              onClick={logout}
+              className={cn(
+                'flex w-full items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium text-error transition-colors hover:bg-error-wash active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100',
+                collapsed && 'lg:justify-center',
+              )}
+            >
+              <LogOut size={18} />
+              <span className={cn(collapsed && 'lg:hidden')}>Logout</span>
+            </button>
+          );
+          // Same styled tooltip as the collapsed nav links, instead of the
+          // browser's slow native title. Guarded to the lg rail so it never
+          // doubles up with the visible label in the mobile drawer.
+          return collapsed ? (
+            <Tooltip>
+              <TooltipTrigger asChild>{logoutButton}</TooltipTrigger>
+              <TooltipContent side="right" className="hidden lg:block">
+                Logout
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            logoutButton
+          );
+        })()}
       </div>
     </aside>
   );
