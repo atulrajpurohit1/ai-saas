@@ -71,6 +71,7 @@ import {
   Trash2,
   UserPlus,
   Users,
+  X,
 } from 'lucide-react';
 
 const DISCOVERY_PROVIDER = 'blackpearl_prospecting';
@@ -132,6 +133,7 @@ export default function ProspectSearchPage() {
 
   // --- Primary discovery search state ---
   const [objective, setObjective] = useState('');
+  const objectiveRef = useRef<HTMLTextAreaElement | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterKey | null>(null);
   const [companyNamesText, setCompanyNamesText] = useState('');
   const [locationsText, setLocationsText] = useState('');
@@ -1153,15 +1155,40 @@ export default function ProspectSearchPage() {
         <label htmlFor="prospect-search-objective" className="sr-only">
           Describe who you&apos;re looking for
         </label>
-        <textarea
-          id="prospect-search-objective"
-          rows={2}
-          value={objective}
-          onChange={(event) => setObjective(event.target.value)}
-          disabled={loading}
-          placeholder={"Describe what you're looking for... e.g. \"Marketing agencies in India\""}
-          className="w-full resize-none rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-foreground outline-none transition placeholder:text-slate-500 focus:border-indigo-400 disabled:opacity-60"
-        />
+        <div className="relative">
+          <textarea
+            id="prospect-search-objective"
+            ref={objectiveRef}
+            rows={2}
+            value={objective}
+            onChange={(event) => setObjective(event.target.value)}
+            disabled={loading}
+            placeholder={"Describe what you're looking for... e.g. \"Marketing agencies in India\""}
+            // pr-10 keeps the text from running underneath the clear button.
+            className="w-full resize-none rounded-xl border border-white/10 bg-slate-950/60 py-3 pl-4 pr-10 text-sm text-foreground outline-none transition placeholder:text-slate-500 focus:border-indigo-400 disabled:opacity-60"
+          />
+          {/* Only rendered when there is something to clear: a permanently
+              visible X on an empty box is a control that does nothing. The
+              session restores a previous query for up to 12 hours, so landing
+              on a filled box you did not just type is the common case this
+              exists for. */}
+          {objective && !loading && (
+            <button
+              type="button"
+              onClick={() => {
+                setObjective('');
+                // Focus back to the box -- clearing is almost always the first
+                // half of "clear and type something else".
+                objectiveRef.current?.focus();
+              }}
+              aria-label="Clear search query"
+              title="Clear"
+              className="absolute right-2 top-2 rounded-full p-1 text-slate-400 transition hover:bg-white/10 hover:text-foreground"
+            >
+              <X size={14} aria-hidden="true" />
+            </button>
+          )}
+        </div>
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
