@@ -500,6 +500,10 @@ export default function LoginPage() {
                   <Mail className={iconClass} size={17} />
                   <input
                     type="email"
+                    autoComplete="email"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    spellCheck={false}
                     className={inputClass}
                     placeholder="name@company.com"
                     value={forgotEmail}
@@ -824,7 +828,7 @@ export default function LoginPage() {
                 <label className="text-eyebrow">Full Name</label>
                 <div className="relative">
                   <User className={iconClass} size={17} />
-                  <input type="text" className={inputClass} placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} required />
+                  <input type="text" autoComplete="name" className={inputClass} placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} required />
                 </div>
               </div>
             )}
@@ -834,7 +838,7 @@ export default function LoginPage() {
                 <label className="text-eyebrow">Company Name</label>
                 <div className="relative">
                   <Building2 className={iconClass} size={17} />
-                  <input type="text" className={inputClass} placeholder="Acme Security" value={tenantName} onChange={(e) => setTenantName(e.target.value)} required />
+                  <input type="text" autoComplete="organization" className={inputClass} placeholder="Acme Security" value={tenantName} onChange={(e) => setTenantName(e.target.value)} required />
                 </div>
               </div>
             )}
@@ -843,7 +847,7 @@ export default function LoginPage() {
               <label className="text-eyebrow">Email Address</label>
               <div className="relative">
                 <Mail className={iconClass} size={17} />
-                <input type="email" className={inputClass} placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <input type="email" autoComplete="email" inputMode="email" autoCapitalize="none" spellCheck={false} className={inputClass} placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
             </div>
 

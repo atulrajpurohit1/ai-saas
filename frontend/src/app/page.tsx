@@ -12,6 +12,7 @@ import CategoryBarChart from '@/components/charts/CategoryBarChart';
 import StatDelta from '@/components/charts/StatDelta';
 import GettingStartedCard from '@/components/GettingStartedCard';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Users,
   Briefcase,
@@ -437,12 +438,20 @@ export default function DashboardPage() {
                     <p className="truncate text-sm font-medium text-foreground group-hover:text-primary">{activity.title}</p>
                     <p className="truncate text-xs text-muted-foreground">{activity.subject}</p>
                   </div>
-                  <span
-                    className="shrink-0 text-xs text-muted-foreground"
-                    title={activity.timestamp ? formatDateTime(activity.timestamp) : undefined}
-                  >
-                    {formatRelativeTime(activity.timestamp)}
-                  </span>
+                  {activity.timestamp ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="shrink-0 cursor-default text-xs text-muted-foreground">
+                          {formatRelativeTime(activity.timestamp)}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">{formatDateTime(activity.timestamp)}</TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {formatRelativeTime(activity.timestamp)}
+                    </span>
+                  )}
                   <ChevronRight
                     size={15}
                     className="shrink-0 -translate-x-1 text-muted-foreground opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100 motion-reduce:transition-none motion-reduce:translate-x-0"

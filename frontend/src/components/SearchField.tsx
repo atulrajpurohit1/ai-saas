@@ -35,6 +35,9 @@ export default function SearchField({
         <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" size={16} />
         <Input
           type="text"
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}

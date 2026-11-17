@@ -33,12 +33,13 @@ export default function Breadcrumbs({ items, className }: BreadcrumbsProps) {
               {item.href && !isLast ? (
                 <Link
                   href={item.href}
+                  title={item.label}
                   className="max-w-[12rem] truncate rounded-sm font-medium underline-offset-2 outline-none transition-colors hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 motion-reduce:transition-none"
                 >
                   {item.label}
                 </Link>
               ) : (
-                <span className={cn('max-w-[12rem] truncate', isLast && 'font-semibold text-foreground')} aria-current={isLast ? 'page' : undefined}>
+                <span title={item.label} className={cn('max-w-[12rem] truncate', isLast && 'font-semibold text-foreground')} aria-current={isLast ? 'page' : undefined}>
                   {item.label}
                 </span>
               )}

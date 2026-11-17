@@ -101,7 +101,7 @@ export default function Pagination({ page, pageCount, onPageChange, summary, cla
                 onClick={() => onPageChange(item)}
                 aria-label={`Page ${item}`}
                 aria-current={item === page ? 'page' : undefined}
-                className={cn('text-xs font-semibold', item === page && 'shadow-sm ring-1 ring-inset ring-primary/30')}
+                className={cn('text-xs font-semibold tabular-nums', item === page && 'shadow-sm ring-1 ring-inset ring-primary/30')}
               >
                 {item}
               </Button>

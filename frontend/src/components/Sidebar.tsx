@@ -282,11 +282,28 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
 
       <div className="mt-auto border-t border-border p-3">
         <div className={cn('mb-1 flex items-center gap-3 rounded-lg px-2 py-2', collapsed && 'lg:justify-center')}>
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary ring-1 ring-inset ring-primary/15">
-            {user?.name?.charAt(0) || 'U'}
-          </div>
+          {/* On the collapsed rail the name and role are hidden, so the avatar
+              is all that is left - a hover tooltip (same styled one as the nav
+              links) is the only way to confirm who is signed in. */}
+          {collapsed ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary ring-1 ring-inset ring-primary/15">
+                  {user?.name?.charAt(0) || 'U'}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="hidden lg:block">
+                {user?.name}
+                {user?.role ? ` · ${user.role}` : ''}
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary ring-1 ring-inset ring-primary/15">
+              {user?.name?.charAt(0) || 'U'}
+            </div>
+          )}
           <div className={cn('min-w-0 flex-1', collapsed && 'lg:hidden')}>
-            <p className="truncate text-sm font-semibold text-foreground">{user?.name}</p>
+            <p className="truncate text-sm font-semibold text-foreground" title={user?.name || undefined}>{user?.name}</p>
             <span className="inline-block rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               {user?.role}
             </span>
