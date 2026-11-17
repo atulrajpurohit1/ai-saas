@@ -45,6 +45,7 @@ import {
 } from '@/lib/prospect-search';
 import {
   clearInFlightDiscoveryJob,
+  clearProspectSearchSession,
   type InFlightDiscoveryJob,
   loadProspectSearchSession,
   saveCompletedDiscovery,
@@ -202,6 +203,16 @@ export default function ProspectSearchPage() {
     setSelectedIds(new Set());
     setBulkImportResults({});
   }, [result]);
+
+  // Dismiss the current results and forget the saved copy, so they do not come
+  // back on refresh (a completed search is restored for up to 12 hours). The
+  // selection/page/bulk state clears itself via the effect above once result
+  // becomes null. The query box and RECENT history are left alone -- the box
+  // has its own clear control, and history is how you get a search back.
+  const handleClearResults = useCallback(() => {
+    setResult(null);
+    clearProspectSearchSession();
+  }, []);
 
   const sortedProspects = useMemo(() => {
     const prospects = result?.prospects ?? [];
@@ -1373,6 +1384,16 @@ export default function ProspectSearchPage() {
               >
                 <Download size={13} />
                 Export CSV
+              </button>
+
+              <button
+                type="button"
+                onClick={handleClearResults}
+                title="Clear these results from the page"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-slate-400 transition hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-300"
+              >
+                <X size={13} />
+                Clear
               </button>
 
               <div className="ml-auto flex items-center gap-1.5 text-xs">
