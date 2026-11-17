@@ -44,6 +44,20 @@ const ALLOWED_WITHOUT_PLAN: Record<string, string> = {
   '/billing/billing.controller.ts': 'buying a plan',
   '/billing/stripe-webhook.controller.ts': 'unauthenticated Stripe callback',
 
+  // RingCentral's inbound call-event webhook. Unauthenticated by necessity --
+  // RingCentral cannot present a JWT and signs nothing -- so the unguessable
+  // per-tenant secret in the URL path is the authentication. It serves no
+  // tenant data: it only accepts events, and reads nothing back out.
+  //
+  // Not plan-gated on purpose. A lapsed tenant's subscription would otherwise
+  // start returning non-200s, and RingCentral suspends a subscription
+  // PERMANENTLY after repeated failures -- so a tenant who let a plan lapse
+  // for a week would silently lose call capture even after paying again.
+  // The writes it performs are gated instead: connecting RingCentral at all
+  // requires a plan and the LEAD_GEN module, via ringcentral.controller.ts.
+  '/ringcentral/ringcentral-webhook.controller.ts':
+    'unauthenticated RingCentral callback',
+
   // Account security: password change, MFA, and listing/revoking your own
   // sessions. Kept open deliberately -- a customer must be able to revoke a
   // stolen session or rotate a leaked password whether or not they are paying.

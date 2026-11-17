@@ -46,6 +46,7 @@ import { IntegrationsModule } from './integrations/integrations.module';
 import { CrmConnectorsModule } from './crm-connectors/crm-connectors.module';
 import { CallTranscriptionModule } from './call-transcription/call-transcription.module';
 import { CallsModule } from './calls/calls.module';
+import { RingCentralModule } from './ringcentral/ringcentral.module';
 import { ApiDocsModule } from './api-docs/api-docs.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { BrandingModule } from './branding/branding.module';
@@ -86,6 +87,7 @@ import { AccountSecurityModule } from './account-security/account-security.modul
     CrmConnectorsModule,
     CallTranscriptionModule,
     CallsModule,
+    RingCentralModule,
     ApiDocsModule,
     SessionsModule,
     BrandingModule,

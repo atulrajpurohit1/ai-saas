@@ -158,6 +158,7 @@ model Tenant {
   webhooks                Webhook[]
   apiRequestLogs          ApiRequestLog[]
   crmConnections          CrmConnection[]
+  telephonyConnections    TelephonyConnection[]
   userSessions            UserSession[]
   branding                TenantBranding?
   customDomains           CustomDomain[]
@@ -1582,6 +1583,55 @@ model CrmConnection {
   @@map("CrmConnection")
 }
 
+/// A tenant's connection to a phone system (today: RingCentral).
+///
+/// Deliberately NOT folded into CrmConnection. That model is shaped around the
+/// OAuth redirect dance -- access token plus a rotating refresh token with an
+/// expiry. RingCentral's multi-tenant pattern is a JWT credential the customer
+/// generates themselves and which does not expire: there is no refresh token
+/// and no redirect, and the stored secret is re-presented to mint a short-lived
+/// access token on demand. Sharing a table would mean half its columns lying.
+model TelephonyConnection {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  /// 'ringcentral' today. Kept open so a second provider does not need a
+  /// migration, matching how CrmConnection.provider works.
+  provider String @default("ringcentral")
+  status   String @default("connected")
+
+  /// The tenant's JWT credential, AES-256-GCM encrypted at rest with the same
+  /// scheme CrmConnection uses. NEVER returned to a client.
+  credential String @map("credential")
+
+  /// RingCentral account id, resolved once at connect time so webhook payloads
+  /// (which carry accountId, not our tenant id) can be routed back to a tenant.
+  externalAccountId   String? @map("external_account_id")
+  externalAccountName String? @map("external_account_name")
+
+  /// The active webhook subscription. RingCentral subscriptions expire, so the
+  /// expiry is tracked and a scheduler renews ahead of it.
+  subscriptionId        String?   @map("subscription_id")
+  subscriptionExpiresAt DateTime? @map("subscription_expires_at")
+
+  /// Shared secret echoed in our webhook URL path so a forged POST to the
+  /// endpoint cannot impersonate this tenant. RingCentral signs nothing.
+  webhookSecret String @map("webhook_secret")
+
+  scopes     String[]  @default([])
+  lastSyncAt DateTime? @map("last_sync_at")
+  lastError  String?   @map("last_error")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, provider], map: "TelephonyConnection_tenant_provider_key")
+  @@unique([provider, externalAccountId], map: "TelephonyConnection_provider_account_key")
+  @@index([tenantId])
+  @@index([subscriptionExpiresAt])
+  @@map("TelephonyConnection")
+}
+
 model UserSession {
   id               String    @id @default(uuid())
   tenantId         String    @map("tenant_id")
@@ -2135,10 +2185,25 @@ model CallRecord {
   recordingDurationSec    Int?      @map("recording_duration_sec")
   recordedAt              DateTime? @map("recorded_at")
 
+  /// Set when the row came from a phone system rather than a rep pressing
+  /// "log call". 'ringcentral' today; null means manually logged, which is why
+  /// durationSec and outcome on those rows stay self-reported.
+  source String? @map("source")
+
+  /// RingCentral's telephonySessionId. The idempotency key for webhook
+  /// ingestion: the same session is delivered more than once (retries, and one
+  /// event per party), so the unique index below makes a replay a no-op.
+  externalSessionId String? @map("external_session_id")
+
+  /// RingCentral's recording id, kept so a recording is downloaded at most
+  /// once even if the call-log row is re-read.
+  externalRecordingId String? @map("external_recording_id")
+
   createdBy      String?   @map("created_by")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
+  @@unique([tenantId, externalSessionId], map: "CallRecord_tenant_external_session_key")
   @@index([tenantId])
   @@index([tenantId, leadId])
   @@index([tenantId, dealId])
