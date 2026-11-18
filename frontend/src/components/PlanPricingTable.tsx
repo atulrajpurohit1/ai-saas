@@ -4,11 +4,25 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import type { GuardBand, PackageKey, PlanPricing } from '@/lib/billing';
 
+/**
+ * GENERATION is still listed: a package that is no longer sold by band can
+ * still be the plan a tenant is on, and an older backend may still send it as
+ * a column. It is not expected in this table any more -- Lead Gen is sold as
+ * flat tiers above it, by LeadGenPlans.
+ *
+ * Guard and Operations say what they ADD, not "everything in the one before
+ * it". The packages are not a ladder: PACKAGE_MODULES gives Guard only
+ * GUARD_TOUR and Operations only FINANCE, so a Guard customer told they had
+ * "everything in Lead Gen" would click Prospect Search and hit a locked
+ * screen. Only Complete may claim the others, because only Complete actually
+ * grants all three modules.
+ */
 const PACKAGE_TAGLINES: Record<PackageKey, string> = {
   GENERATION: 'Find the opportunity. Know the buyer. Execute the sale.',
-  GUARD: 'Manage field operations, guard tours and accountability.',
-  OPERATIONS: 'Scheduling, workforce management, finance and profitability.',
-  COMPLETE: 'One platform. From opportunity to operation to revenue.',
+  GUARD: 'Adds field operations: patrols, checkpoint evidence, incidents and guard accountability.',
+  OPERATIONS:
+    'Adds the back office: scheduling, workforce management, invoicing and profitability.',
+  COMPLETE: 'Everything in Lead Gen, Guard and Operations, on one account.',
 };
 
 const SALES_EMAIL = 'sales@aegislead.com';
@@ -41,16 +55,17 @@ export default function PlanPricingTable({
     pricing.bands.findIndex((entry) => entry.key === band);
   const minimumRank = rank(pricing.minimumBand);
 
-  // Generation on its own is charged at the base band whatever the headcount.
-  const chargedBand = (packageKey: PackageKey) =>
-    packageKey === 'GENERATION' ? pricing.generationOnlyBand : selectedBand;
+  // Lead Gen is not priced by guards and is sold above this chart, so it is
+  // never a column here -- filtered rather than assumed, because an older
+  // backend still sends it.
+  const packages = pricing.packages.filter((pkg) => pkg.key !== 'GENERATION');
 
   const renderAction = (pkg: PlanPricing['packages'][number]) => {
-    const band = chargedBand(pkg.key);
+    const band = selectedBand;
     const amount = pkg.monthly[band];
     const isCurrent =
       pricing.current?.packageKey === pkg.key &&
-      (pkg.key === 'GENERATION' || pricing.current.band === band);
+      pricing.current.band === band;
     const sellable =
       pricing.configured && amount !== null && pkg.sellableBands.includes(band);
 
@@ -98,7 +113,7 @@ export default function PlanPricingTable({
               <th className="w-36 p-4 text-left align-bottom text-sm font-semibold text-primary">
                 Guards
               </th>
-              {pricing.packages.map((pkg) => (
+              {packages.map((pkg) => (
                 <th
                   key={pkg.key}
                   className={cn(
@@ -155,7 +170,7 @@ export default function PlanPricingTable({
                       {bandLabel(band.key)}
                     </label>
                   </td>
-                  {pricing.packages.map((pkg) => {
+                  {packages.map((pkg) => {
                     const amount = pkg.monthly[band.key];
                     return (
                       <td
@@ -183,7 +198,7 @@ export default function PlanPricingTable({
               <td className="p-4 text-xs text-muted-foreground">
                 For {bandLabel(selectedBand)} guards
               </td>
-              {pricing.packages.map((pkg) => (
+              {packages.map((pkg) => (
                 <td
                   key={pkg.key}
                   className={cn('p-4', pkg.key === 'COMPLETE' && 'bg-primary/5')}
@@ -205,13 +220,9 @@ export default function PlanPricingTable({
           {bandLabel(pricing.minimumBand)}.
         </p>
         <p>
-          AegisLead Generation on its own is{' '}
-          {money(
-            pricing.packages.find((pkg) => pkg.key === 'GENERATION')?.monthly[
-              pricing.generationOnlyBand
-            ] ?? 0,
-          )}
-          /mo at any guard count.
+          AegisLead Complete includes Lead Gen. The monthly credits are part of
+          the Lead Gen plans above; on Complete, credits are bought separately
+          from the credits page.
         </p>
       </div>
     </div>

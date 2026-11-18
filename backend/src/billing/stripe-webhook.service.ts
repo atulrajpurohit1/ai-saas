@@ -4,6 +4,11 @@ import { ServiceModule, SubscriptionStatus } from '@prisma/client';
 import { moduleForPriceId } from './billing.config';
 import { creditPackForPriceId } from './credit-packs.constants';
 import { PACKAGE_MODULES, planForLookupKey } from './pricing.constants';
+import {
+  LeadGenTier,
+  leadGenCreditsKey,
+  leadGenTierForLookupKey,
+} from './lead-gen-tiers.constants';
 import { CreditsService } from './credits.service';
 import { StripeService } from './stripe.service';
 import { SubscriptionProvisioningService } from './subscription-provisioning.service';
@@ -59,6 +64,12 @@ export class StripeWebhookService {
           event.data.object as Stripe.Invoice,
           event.id,
         );
+
+      // A paid Lead Gen invoice is what hands over that month's credit
+      // allocation. Subscription state is handled by the subscription events;
+      // this one is only about the credits.
+      case 'invoice.paid':
+        return this.onInvoicePaid(event.data.object as Stripe.Invoice);
 
       // A refunded or disputed credit purchase must take the credits back,
       // otherwise a customer can buy, spend, refund and keep the usage.
@@ -192,6 +203,17 @@ export class StripeWebhookService {
       return { handled: false, reason: 'partial-refund' };
     }
 
+    // An invoice charge is a subscription payment, not a pack purchase: if it
+    // paid for a Lead Gen month, that month's allocation goes back.
+    const invoiceId = invoiceIdOf(charge);
+    if (invoiceId) {
+      return this.reverseLeadGenCredits(
+        invoiceId,
+        customerIdOf(charge.customer),
+        'Lead Gen plan refunded; the credits it included were reversed.',
+      );
+    }
+
     return this.reverseCreditsForPaymentIntent(
       paymentIntentId,
       'Credit pack refunded; credits reversed.',
@@ -208,6 +230,31 @@ export class StripeWebhookService {
       typeof dispute.payment_intent === 'string'
         ? dispute.payment_intent
         : dispute.payment_intent?.id;
+
+    // A dispute names the charge but not the invoice behind it, so the charge
+    // is read back to find out whether this was a subscription payment.
+    const chargeId =
+      typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id;
+
+    if (chargeId) {
+      try {
+        const charge = await this.stripe.retrieveCharge(chargeId);
+        const invoiceId = invoiceIdOf(charge);
+        if (invoiceId) {
+          return this.reverseLeadGenCredits(
+            invoiceId,
+            customerIdOf(charge.customer),
+            'Lead Gen plan payment disputed; the credits it included were reversed.',
+          );
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Could not read charge ${chargeId} behind dispute ${dispute.id}: ${
+            (error as Error).message
+          }`,
+        );
+      }
+    }
 
     if (!paymentIntentId) {
       return { handled: false, reason: 'no-payment-intent' };
@@ -330,6 +377,173 @@ export class StripeWebhookService {
     return { handled: true, tenantId };
   }
 
+  /**
+   * Hands a new Lead Gen subscriber the credits their starting plan includes.
+   *
+   * ONCE PER PURCHASE, not monthly. The credits are what the Starter/Pro/Elite
+   * surcharge buys at the door; they never expire, so there is nothing to
+   * refill. Only the plan recurs -- a renewal invoice grants nothing, and a
+   * customer who no longer needs credits moves to the base plan.
+   *
+   * Credits are paid out when the invoice is PAID rather than when the
+   * subscription is created, so an unpaid or failed first invoice hands over
+   * nothing.
+   *
+   * Three guards, each protecting a different way to get credits for nothing:
+   *
+   *  - Only a `subscription_create` invoice counts. `subscription_cycle` is a
+   *    renewal, which includes no credits, and `subscription_update` is a
+   *    mid-cycle proration -- paying out on either would let a customer mint
+   *    credits by waiting, or by switching tier back and forth.
+   *  - Nothing is granted for an invoice that collected no money, which is
+   *    what a trial's $0 invoice looks like. A trial is a trial; the Trial
+   *    plan has its own, smaller grant.
+   *  - The grant is keyed on the invoice id, so Stripe's retries -- it
+   *    redelivers freely and out of order -- cannot pay the same purchase
+   *    twice. The database index enforces it, not a read.
+   */
+  private async onInvoicePaid(invoice: Stripe.Invoice) {
+    const customerId =
+      typeof invoice.customer === 'string'
+        ? invoice.customer
+        : invoice.customer?.id;
+
+    const tenantId =
+      invoice.metadata?.tenantId ??
+      (await this.provisioning.tenantForProviderIds({ customerId }));
+
+    if (!tenantId) return { handled: false, reason: 'unknown-tenant' };
+
+    // The invoice id is what makes the grant idempotent. Without one there is
+    // nothing to key on, and granting anyway would hand out credits again on
+    // every redelivery.
+    if (!invoice.id) {
+      this.logger.warn(
+        `A paid invoice for tenant ${tenantId} carries no id; no credits granted.`,
+      );
+      return { handled: false, tenantId, reason: 'no-invoice-id' };
+    }
+
+    const reason = invoice.billing_reason;
+    if (reason !== 'subscription_create') {
+      return { handled: false, tenantId, reason: `billing-reason:${reason}` };
+    }
+
+    const tier = await this.leadGenTierForInvoice(invoice);
+    if (!tier) {
+      return { handled: false, tenantId, reason: 'not-a-lead-gen-plan' };
+    }
+
+    if ((invoice.amount_paid ?? 0) <= 0) {
+      this.logger.log(
+        `Invoice ${invoice.id} for tenant ${tenantId} collected nothing (likely a trial); ` +
+          `withholding the ${tier.includedCredits} ${tier.name} credits until a paid invoice.`,
+      );
+      return { handled: false, tenantId, reason: 'unpaid-invoice' };
+    }
+
+    try {
+      const result = await this.credits.grant({
+        tenantId,
+        amount: tier.includedCredits,
+        description: `${tier.name} plan: ${tier.includedCredits.toLocaleString(
+          'en-US',
+        )} credits included with the plan.`,
+        // Doubles as the idempotency key and as the handle a refund reverses
+        // the grant by -- see reverseLeadGenCredits.
+        stripeSessionId: leadGenCreditsKey(invoice.id),
+      });
+
+      this.logger.log(
+        result.granted
+          ? `Granted ${tier.includedCredits} ${tier.name} credits to ${tenantId} for invoice ${invoice.id}; balance is now ${result.balance}.`
+          : `Allocation for invoice ${invoice.id} was already applied to ${tenantId}; balance unchanged at ${result.balance}.`,
+      );
+
+      return { handled: true, tenantId, credits: tier.includedCredits };
+    } catch (error) {
+      // Never throw: a 500 makes Stripe retry the whole event, and the
+      // subscription itself is provisioned by a different handler that has
+      // already succeeded. Loud log, hand grant if it comes to that.
+      this.logger.error(
+        `Could not grant ${tier.includedCredits} ${tier.name} credits to ${tenantId} for ` +
+          `invoice ${invoice.id}: ${(error as Error).message}`,
+      );
+      return { handled: false, tenantId, reason: 'grant-failed' };
+    }
+  }
+
+  /**
+   * Which Lead Gen tier an invoice is for, read from the price's lookup_key.
+   *
+   * The invoice's own lines are preferred, because they are what was actually
+   * billed. Stripe has moved the price around on line items between API
+   * versions, so when it is not where the SDK types expect, the subscription
+   * is read back instead -- for the two billing reasons this is called for,
+   * the subscription is still on the tier the invoice charged.
+   */
+  private async leadGenTierForInvoice(
+    invoice: Stripe.Invoice,
+  ): Promise<LeadGenTier | null> {
+    const lines = invoice.lines?.data ?? [];
+    for (const line of lines) {
+      const lookupKey = lookupKeyOfLine(line);
+      const tier = leadGenTierForLookupKey(lookupKey);
+      if (tier) return tier;
+    }
+
+    const subscriptionId = subscriptionIdOf(invoice);
+    if (!subscriptionId) return null;
+
+    try {
+      const subscription =
+        await this.stripe.retrieveSubscription(subscriptionId);
+      for (const item of subscription.items.data) {
+        const tier = leadGenTierForLookupKey(item.price?.lookup_key);
+        if (tier) return tier;
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Could not read subscription ${subscriptionId} for invoice ${invoice.id}: ${
+          (error as Error).message
+        }`,
+      );
+    }
+
+    return null;
+  }
+
+  /**
+   * Takes back the credits a plan included, when the invoice that paid for
+   * them is refunded or charged back.
+   *
+   * Without this, the subscription equivalent of buy-spend-refund works: buy
+   * Pro, take 13,000 credits, dispute the charge, keep the credits. The pack
+   * path has had this since launch; credits bundled with a plan are the same
+   * money and need the same treatment.
+   */
+  private async reverseLeadGenCredits(
+    invoiceId: string,
+    customerId: string | undefined,
+    reason: string,
+  ) {
+    const tenantId = await this.provisioning.tenantForProviderIds({
+      customerId,
+    });
+    if (!tenantId) return { handled: false, reason: 'unknown-tenant' };
+
+    const result = await this.credits.reversePurchase({
+      tenantId,
+      stripeSessionId: leadGenCreditsKey(invoiceId),
+      reason,
+    });
+
+    if (!result) {
+      return { handled: false, tenantId, reason: 'nothing-to-reverse' };
+    }
+    return { handled: true, tenantId, reversed: result.reversed };
+  }
+
   /** Applies a Stripe subscription's full state to the tenant. */
   private async applySubscription(
     tenantId: string,
@@ -428,6 +642,13 @@ export class StripeWebhookService {
       const plan = planForLookupKey(item.price?.lookup_key);
       if (plan) return PACKAGE_MODULES[plan.packageKey];
 
+      // Lead Gen tiers are flat-priced and carry their own keys. What they
+      // unlock is the same LEAD_GEN module whichever tier was bought; the
+      // tier only decides how many credits arrive each month.
+      if (leadGenTierForLookupKey(item.price?.lookup_key)) {
+        return PACKAGE_MODULES.GENERATION;
+      }
+
       // Per-service prices sold before band pricing still map through their
       // STRIPE_PRICE_* env vars, so an older subscription keeps its access.
       const legacy = item.price?.id ? moduleForPriceId(item.price.id) : null;
@@ -474,6 +695,59 @@ export class StripeWebhookService {
 
 function toDate(seconds?: number | null) {
   return seconds ? new Date(seconds * 1000) : null;
+}
+
+function customerIdOf(customer: Stripe.Charge['customer']): string | undefined {
+  if (!customer) return undefined;
+  return typeof customer === 'string' ? customer : customer.id;
+}
+
+/**
+ * The invoice a charge paid, if any. Absent on a one-off payment, which is
+ * exactly how a credit pack purchase is told apart from a subscription one.
+ */
+function invoiceIdOf(charge: Stripe.Charge): string | null {
+  const invoice = (charge as unknown as { invoice?: string | { id: string } })
+    .invoice;
+  if (!invoice) return null;
+  return typeof invoice === 'string' ? invoice : invoice.id;
+}
+
+/**
+ * `subscription` sits at the invoice's top level in older API versions and
+ * under `parent.subscription_details` in newer ones. Read whichever the
+ * account's version actually sends.
+ */
+function subscriptionIdOf(invoice: Stripe.Invoice): string | null {
+  const loose = invoice as unknown as {
+    subscription?: string | { id: string } | null;
+    parent?: {
+      subscription_details?: { subscription?: string | { id: string } | null };
+    } | null;
+  };
+
+  const direct = loose.subscription;
+  if (direct) return typeof direct === 'string' ? direct : direct.id;
+
+  const nested = loose.parent?.subscription_details?.subscription;
+  if (nested) return typeof nested === 'string' ? nested : nested.id;
+
+  return null;
+}
+
+/**
+ * The lookup_key of the price on an invoice line.
+ *
+ * 2025 API versions replaced the expanded `price` object with `pricing`, which
+ * carries the price ID but not its lookup_key -- so on those versions this
+ * finds nothing and the caller falls back to reading the subscription.
+ */
+function lookupKeyOfLine(line: Stripe.InvoiceLineItem): string | null {
+  const loose = line as unknown as {
+    price?: { lookup_key?: string | null } | null;
+  };
+
+  return loose.price?.lookup_key ?? null;
 }
 
 /**

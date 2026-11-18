@@ -5,6 +5,11 @@ import { StripeWebhookService } from './stripe-webhook.service';
 import { SubscriptionProvisioningService } from './subscription-provisioning.service';
 import { CreditsService } from './credits.service';
 import { PendingCompService } from './pending-comp.service';
+import {
+  LEAD_GEN_TIERS,
+  leadGenCreditsKey,
+  leadGenTierLookupKey,
+} from './lead-gen-tiers.constants';
 
 const PRICE_LEAD_GEN = 'price_lead_gen_monthly';
 const PRICE_GUARD_TOUR = 'price_guard_tour_monthly';
@@ -56,6 +61,7 @@ describe('StripeWebhookService', () => {
     retrieveSubscription: jest.Mock;
     priceIdsForCheckoutSession: jest.Mock;
     checkoutSessionForPaymentIntent: jest.Mock;
+    retrieveCharge: jest.Mock;
   };
   let credits: { grant: jest.Mock; reversePurchase: jest.Mock };
   let pendingComps: { activate: jest.Mock };
@@ -76,6 +82,7 @@ describe('StripeWebhookService', () => {
       retrieveSubscription: jest.fn(),
       priceIdsForCheckoutSession: jest.fn().mockResolvedValue([]),
       checkoutSessionForPaymentIntent: jest.fn().mockResolvedValue(null),
+      retrieveCharge: jest.fn().mockResolvedValue({ invoice: null }),
     };
     credits = {
       grant: jest.fn().mockResolvedValue({ balance: 250, granted: true }),
@@ -567,6 +574,208 @@ describe('StripeWebhookService', () => {
 
   // Stripe retries on any non-2xx and eventually disables an endpoint that
   // keeps failing, so an event we do not care about must not throw.
+  describe('credits included with a Lead Gen plan', () => {
+    const PRO_KEY = leadGenTierLookupKey('PRO');
+
+    const invoice = (overrides: Record<string, unknown> = {}) =>
+      ({
+        id: 'in_1',
+        customer: 'cus_123',
+        billing_reason: 'subscription_create',
+        amount_paid: 54_800,
+        lines: { data: [{ price: { lookup_key: PRO_KEY } }] },
+        ...overrides,
+      }) as unknown as Stripe.Invoice;
+
+    it('provisions Lead Gen from a tier price', async () => {
+      stripe.retrieveSubscription.mockResolvedValue(
+        subscription({ lookupKeys: [PRO_KEY] }),
+      );
+
+      await service.handle(
+        event('checkout.session.completed', {
+          id: 'cs_1',
+          subscription: 'sub_123',
+          metadata: { tenantId: 'tenant-1' },
+        }),
+      );
+
+      expect(provisioning.provision).toHaveBeenCalledWith(
+        expect.objectContaining({ modules: ['LEAD_GEN'] }),
+      );
+    });
+
+    it('grants the credits when the plan is first paid for', async () => {
+      await service.handle(event('invoice.paid', invoice()));
+
+      expect(credits.grant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant-1',
+          amount: LEAD_GEN_TIERS.PRO.includedCredits,
+          stripeSessionId: leadGenCreditsKey('in_1'),
+        }),
+      );
+    });
+
+    // The credits are bought once, at the door, and never expire. Paying out
+    // again every month would make them a monthly allowance, which is exactly
+    // what they are not -- and a customer who wants more tops up instead.
+    it('grants nothing on a renewal', async () => {
+      const result = await service.handle(
+        event('invoice.paid', invoice({ billing_reason: 'subscription_cycle' })),
+      );
+
+      expect(credits.grant).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ handled: false });
+    });
+
+    // A mid-cycle plan change invoices a proration. Paying out on one would
+    // let a customer mint credits by switching plans back and forth.
+    it('grants nothing for a mid-cycle proration', async () => {
+      const result = await service.handle(
+        event(
+          'invoice.paid',
+          invoice({ billing_reason: 'subscription_update' }),
+        ),
+      );
+
+      expect(credits.grant).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ handled: false });
+    });
+
+    // A trial's invoice is paid, for $0. Credits are what the money buys.
+    it('grants nothing for an invoice that collected no money', async () => {
+      await service.handle(event('invoice.paid', invoice({ amount_paid: 0 })));
+
+      expect(credits.grant).not.toHaveBeenCalled();
+    });
+
+    it('grants nothing for a plan that is not Lead Gen', async () => {
+      stripe.retrieveSubscription.mockResolvedValue(
+        subscription({ lookupKeys: ['aegislead_guard_1_25_99usd_monthly'] }),
+      );
+
+      await service.handle(
+        event(
+          'invoice.paid',
+          invoice({
+            lines: {
+              data: [
+                { price: { lookup_key: 'aegislead_guard_1_25_99usd_monthly' } },
+              ],
+            },
+            subscription: 'sub_123',
+          }),
+        ),
+      );
+
+      expect(credits.grant).not.toHaveBeenCalled();
+    });
+
+    // Newer API versions drop the expanded price from invoice lines, leaving
+    // the subscription as the only place the tier can be read from.
+    it('falls back to the subscription when the line carries no lookup key', async () => {
+      stripe.retrieveSubscription.mockResolvedValue(
+        subscription({ lookupKeys: [PRO_KEY] }),
+      );
+
+      await service.handle(
+        event(
+          'invoice.paid',
+          invoice({
+            lines: {
+              data: [{ pricing: { price_details: { price: 'price_x' } } }],
+            },
+            subscription: 'sub_123',
+          }),
+        ),
+      );
+
+      expect(credits.grant).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: LEAD_GEN_TIERS.PRO.includedCredits }),
+      );
+    });
+
+    it('reads the subscription id from the newer parent shape', async () => {
+      stripe.retrieveSubscription.mockResolvedValue(
+        subscription({ lookupKeys: [PRO_KEY] }),
+      );
+
+      await service.handle(
+        event(
+          'invoice.paid',
+          invoice({
+            lines: { data: [{}] },
+            parent: { subscription_details: { subscription: 'sub_123' } },
+          }),
+        ),
+      );
+
+      expect(stripe.retrieveSubscription).toHaveBeenCalledWith('sub_123');
+      expect(credits.grant).toHaveBeenCalled();
+    });
+
+    // Stripe redelivers webhooks freely; the grant is keyed on the invoice.
+    it('reports the replay rather than granting twice', async () => {
+      credits.grant.mockResolvedValue({ balance: 13_000, granted: false });
+
+      const result = await service.handle(event('invoice.paid', invoice()));
+
+      expect(result).toMatchObject({ handled: true, tenantId: 'tenant-1' });
+      expect(credits.grant).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not fail the event when the grant throws', async () => {
+      credits.grant.mockRejectedValue(new Error('db down'));
+
+      const result = await service.handle(event('invoice.paid', invoice()));
+
+      expect(result).toMatchObject({ handled: false, reason: 'grant-failed' });
+    });
+
+    it('takes the allocation back when the invoice is refunded', async () => {
+      await service.handle(
+        event('charge.refunded', {
+          id: 'ch_1',
+          payment_intent: 'pi_1',
+          customer: 'cus_123',
+          invoice: 'in_1',
+          amount: 54_800,
+          amount_refunded: 54_800,
+        }),
+      );
+
+      expect(credits.reversePurchase).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant-1',
+          stripeSessionId: leadGenCreditsKey('in_1'),
+        }),
+      );
+    });
+
+    it('takes the allocation back on a chargeback', async () => {
+      stripe.retrieveCharge.mockResolvedValue({
+        id: 'ch_1',
+        invoice: 'in_1',
+        customer: 'cus_123',
+      });
+
+      await service.handle(
+        event('charge.dispute.created', {
+          id: 'dp_1',
+          charge: 'ch_1',
+          payment_intent: 'pi_1',
+        }),
+      );
+
+      expect(credits.reversePurchase).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stripeSessionId: leadGenCreditsKey('in_1'),
+        }),
+      );
+    });
+  });
+
   it('ignores unhandled event types without throwing', async () => {
     await expect(
       service.handle(event('customer.created', { id: 'cus_9' })),

@@ -24,6 +24,7 @@ import { EntitlementsService } from '../entitlements/entitlements.service';
 import {
   GENERATION_ONLY_BAND,
   GUARD_BANDS,
+  GUARD_BAND_PACKAGE_KEYS,
   GuardBand,
   MONTHLY_PRICES,
   PACKAGE_KEYS,
@@ -36,6 +37,13 @@ import {
   packageForModules,
   planForLookupKey,
 } from './pricing.constants';
+import {
+  LEAD_GEN_BASE_PRICE,
+  LEAD_GEN_TIERS,
+  LEAD_GEN_TIER_KEYS,
+  LeadGenTierKey,
+  leadGenTierForLookupKey,
+} from './lead-gen-tiers.constants';
 import { PrismaService } from '../prisma/prisma.service';
 import { TRIAL_PLAN_KEY, compPlanOf } from './comp-plan.constants';
 import { isCompActive } from './comp.util';
@@ -84,24 +92,57 @@ export class BillingController {
   @Get('plan')
   @RequireAnyPermission('billing.view', 'roles.view', 'users.view')
   async plan(@GetUser() user: ActiveUser) {
-    const [plans, billableGuards, current] = await Promise.all([
-      this.sellablePlansOrNone(),
-      this.metering.billableGuardCount(user.tenantId),
-      this.currentPlan(user.tenantId),
-    ]);
+    const [plans, leadGen, billableGuards, current, hasHadLeadGen] =
+      await Promise.all([
+        this.sellablePlansOrNone(),
+        this.sellableLeadGenOrNone(),
+        this.metering.billableGuardCount(user.tenantId),
+        this.currentPlan(user.tenantId),
+        this.hasHeldLeadGen(user.tenantId),
+      ]);
+    const leadGenTiers = leadGen.tiers;
 
     return {
       configured:
         isCheckoutConfigured() &&
-        Object.values(plans).some((bands) => bands.length > 0),
+        (Object.values(plans).some((bands) => bands.length > 0) ||
+          leadGenTiers.length > 0),
       bands: GUARD_BANDS,
-      packages: PACKAGE_KEYS.map((key) => ({
+      // Only the packages actually priced by guards. Lead Gen is sold as the
+      // flat tiers below and is no longer a column of this table.
+      packages: GUARD_BAND_PACKAGE_KEYS.map((key) => ({
         key,
         name: PACKAGE_LABELS[key],
         modules: PACKAGE_MODULES[key],
         monthly: MONTHLY_PRICES[key],
         sellableBands: plans[key] ?? [],
       })),
+      leadGen: {
+        name: PACKAGE_LABELS.GENERATION,
+        modules: PACKAGE_MODULES.GENERATION,
+        basePrice: LEAD_GEN_BASE_PRICE,
+        tiers: LEAD_GEN_TIER_KEYS.map((key) => LEAD_GEN_TIERS[key]),
+        sellableTiers: leadGenTiers,
+        currentTier: current?.leadGenTier ?? null,
+        /**
+         * Whether the base plan -- the platform fee with no credits -- may be
+         * bought. A tenant that has never held Lead Gen cannot: a starting
+         * plan is the only way in, so nobody lands on the product with an
+         * empty balance. Enforced again on the checkout route; this flag only
+         * decides what the page offers.
+         */
+        baseSellable: leadGen.base && hasHadLeadGen,
+        /** Why the base plan is not on offer, for the page to explain. */
+        baseRequiresPlan: !hasHadLeadGen,
+        /**
+         * Already running Lead Gen on the base plan -- the flat $299 with no
+         * credits, which is also where every pre-tier Generation customer
+         * sits. The page says so rather than showing three starting plans
+         * none of which they appear to be on.
+         */
+        onBasePlan:
+          current?.packageKey === 'GENERATION' && !current.leadGenTier,
+      },
       generationOnlyBand: GENERATION_ONLY_BAND,
       billableGuards,
       minimumBand: bandForGuardCount(billableGuards),
@@ -141,6 +182,22 @@ export class BillingController {
     @GetUser() user: ActiveUser,
     @Body() dto: CreateCheckoutSessionDto,
   ) {
+    // The base Lead Gen plan carries no credits, so it is only for a tenant
+    // that already has some history with the product. A first-time buyer must
+    // take a starting plan: otherwise they would arrive on Lead Gen with an
+    // empty balance, unable to run a single search until they bought credits
+    // separately -- a product that does nothing on the day it is paid for.
+    if (
+      dto.package === 'GENERATION' &&
+      !dto.tier &&
+      !(await this.hasHeldLeadGen(user.tenantId))
+    ) {
+      throw new BadRequestException(
+        'Choose a Lead Gen plan: Starter, Pro or Elite. Each one includes ' +
+          'credits to start with, and they do not expire.',
+      );
+    }
+
     const band = await this.billableBandFor(
       user.tenantId,
       dto.package,
@@ -151,6 +208,7 @@ export class BillingController {
       tenantId: user.tenantId,
       packageKey: dto.package,
       band,
+      tier: dto.tier,
       email: user.email,
     });
   }
@@ -210,6 +268,45 @@ export class BillingController {
     }
   }
 
+  /** Lead Gen plans that can be bought online, or none if Stripe is down. */
+  private async sellableLeadGenOrNone(): Promise<{
+    tiers: LeadGenTierKey[];
+    base: boolean;
+  }> {
+    try {
+      const [tiers, base] = await Promise.all([
+        this.stripe.sellableLeadGenTiers(),
+        this.stripe.leadGenBaseSellable(),
+      ]);
+      return { tiers, base };
+    } catch (error) {
+      this.logger.warn(
+        `Could not read Lead Gen prices from Stripe: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return { tiers: [], base: false };
+    }
+  }
+
+  /**
+   * Has this tenant ever held Lead Gen?
+   *
+   * Module rows are deactivated rather than deleted when a plan ends (see
+   * SubscriptionProvisioningService.provision), so the row's existence is a
+   * permanent record that Lead Gen was once provisioned here -- which is
+   * exactly the question the base plan turns on. A tenant that has never had
+   * it must buy a starting plan, credits included; one that has can pay the
+   * platform fee alone and top up credits when it suits them.
+   */
+  private async hasHeldLeadGen(tenantId: string): Promise<boolean> {
+    const row = await this.prisma.tenantModule.findFirst({
+      where: { tenantId, module: 'LEAD_GEN' },
+      select: { id: true },
+    });
+    return row !== null;
+  }
+
   /**
    * The package and band the tenant is currently on.
    *
@@ -221,12 +318,27 @@ export class BillingController {
    * package they already had, inviting a customer to pay for what they were
    * already using. So fall back to the modules actually granted.
    */
-  private async currentPlan(tenantId: string) {
+  private async currentPlan(tenantId: string): Promise<{
+    packageKey: PackageKey;
+    band: GuardBand;
+    leadGenTier?: LeadGenTierKey;
+  } | null> {
     if (isCheckoutConfigured()) {
       try {
-        const fromStripe = planForLookupKey(
-          await this.stripe.currentPlanLookupKey(tenantId),
-        );
+        const lookupKey = await this.stripe.currentPlanLookupKey(tenantId);
+
+        // A Lead Gen tier is still the Generation package -- same module, same
+        // flat base price -- so it reports as GENERATION with the tier named.
+        const tier = leadGenTierForLookupKey(lookupKey);
+        if (tier) {
+          return {
+            packageKey: 'GENERATION',
+            band: GENERATION_ONLY_BAND,
+            leadGenTier: tier.key,
+          };
+        }
+
+        const fromStripe = planForLookupKey(lookupKey);
         if (fromStripe) return fromStripe;
       } catch {
         // Fall through to the entitlement-derived plan below.

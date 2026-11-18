@@ -18,13 +18,18 @@ import {
 } from '@/lib/entitlements';
 import { cn } from '@/lib/utils';
 import {
+  getCreditPacks,
   getPlanPricing,
+  startCreditCheckout,
   startPlanCheckout,
+  type CreditPackAvailability,
   type GuardBand,
+  type LeadGenTierKey,
   type PackageKey,
   type PlanPricing,
 } from '@/lib/billing';
 import PlanPricingTable from '@/components/PlanPricingTable';
+import LeadGenPlans from '@/components/LeadGenPlans';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
   BrainCircuit,
@@ -95,6 +100,12 @@ function PlanContent() {
   const [pricingError, setPricingError] = useState(false);
   const [selectedBand, setSelectedBand] = useState<GuardBand | null>(null);
   const [pending, setPending] = useState<PackageKey | null>(null);
+  // 'BASE' is the Lead Gen plan with no credits, which is not a tier.
+  const [pendingTier, setPendingTier] = useState<LeadGenTierKey | 'BASE' | null>(
+    null,
+  );
+  const [packs, setPacks] = useState<CreditPackAvailability | null>(null);
+  const [pendingPack, setPendingPack] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [changed, setChanged] = useState(false);
 
@@ -118,17 +129,29 @@ function PlanContent() {
 
   useEffect(() => {
     void loadPricing();
+    // Credit packs are what the Lead Gen cards sell to a customer who already
+    // has Lead Gen. A failure here is not worth an error on a pricing page:
+    // the cards simply offer no top-up until it loads.
+    void getCreditPacks()
+      .then(setPacks)
+      .catch(() => setPacks(null));
   }, []);
 
-  const choose = async (packageKey: PackageKey) => {
-    if (!pricing || !selectedBand) return;
+  /**
+   * Sends the customer to Stripe, or switches their existing subscription.
+   * Shared by the guard-band chart and the Lead Gen plans: a Lead Gen tier is
+   * still the Generation package, it is simply priced by tier rather than by
+   * the band, which the server ignores for it.
+   */
+  const startCheckout = async (
+    packageKey: PackageKey,
+    band: GuardBand,
+    tier?: LeadGenTierKey,
+  ) => {
     setError('');
     setChanged(false);
-    setPending(packageKey);
     try {
-      const band =
-        packageKey === 'GENERATION' ? pricing.generationOnlyBand : selectedBand;
-      const result = await startPlanCheckout(packageKey, band);
+      const result = await startPlanCheckout(packageKey, band, tier);
       if (result.url) {
         window.location.href = result.url;
         return;
@@ -141,12 +164,68 @@ function PlanContent() {
       setError('Stripe did not return a checkout link. Please try again.');
     } catch (err) {
       setError(getApiErrorMessage(err, 'Unable to start checkout.'));
+    }
+  };
+
+  const choose = async (packageKey: PackageKey) => {
+    if (!pricing || !selectedBand) return;
+    setPending(packageKey);
+    try {
+      const band =
+        packageKey === 'GENERATION' ? pricing.generationOnlyBand : selectedBand;
+      await startCheckout(packageKey, band);
     } finally {
       setPending(null);
     }
   };
 
+  /** A starting plan, or -- for null -- the base plan with no credits. */
+  const chooseLeadGen = async (tier: LeadGenTierKey | null) => {
+    if (!pricing) return;
+    setPendingTier(tier ?? 'BASE');
+    try {
+      await startCheckout(
+        'GENERATION',
+        pricing.generationOnlyBand,
+        tier ?? undefined,
+      );
+    } finally {
+      setPendingTier(null);
+    }
+  };
+
+  /** Top-up credits for an account that already has Lead Gen. */
+  const buyCredits = async (pack: LeadGenTierKey) => {
+    setError('');
+    setChanged(false);
+    setPendingPack(pack);
+    try {
+      const { url } = await startCreditCheckout(pack);
+      if (url) {
+        window.location.href = url;
+        return;
+      }
+      setError('Stripe did not return a checkout link. Please try again.');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Unable to start checkout.'));
+    } finally {
+      setPendingPack(null);
+    }
+  };
+
   const modules = useMemo(() => moduleSummary(entitlements), [entitlements]);
+
+  /**
+   * Whether this account already has Lead Gen -- on a plan of its own, or
+   * inside Complete. Read from the entitlements rather than from the plan
+   * they are billed on, because that is what actually decides whether the
+   * product is usable today, and it is what makes offering them a Lead Gen
+   * plan pointless.
+   */
+  const holdsLeadGen = useMemo(
+    () => modules.some((module) => module.key === 'LEAD_GEN' && module.active),
+    [modules],
+  );
 
   /**
    * The cards for "what this account has" -- the plan they are on, and nothing
@@ -403,6 +482,46 @@ function PlanContent() {
         <h2 className="text-lg font-semibold text-foreground">
           Plans and pricing
         </h2>
+
+        {/*
+          Lead Gen sits above the chart, not in it. It is the one package not
+          priced by guard count -- a sales tool costs the same to run whether
+          the customer guards four sites or four hundred -- and each plan
+          includes its monthly credits, which no chart cell can express.
+        */}
+        {pricing?.leadGen && (
+          <div className="mb-10 mt-4">
+            <h3 className="text-base font-semibold text-foreground">
+              {pricing.leadGen.name}
+            </h3>
+            <p className="mb-6 text-sm text-muted-foreground">
+              {holdsLeadGen
+                ? 'Your plan already includes Lead Gen. Top up credits whenever you need them — they never expire.'
+                : 'Flat monthly pricing, not priced by guard count. Every starting plan includes credits that never expire.'}
+            </p>
+            <LeadGenPlans
+              leadGen={pricing.leadGen}
+              configured={pricing.configured}
+              holdsLeadGen={holdsLeadGen}
+              packs={packs}
+              switchesFrom={
+                pricing.current && pricing.current.packageKey !== 'GENERATION'
+                  ? (pricing.packages.find(
+                      (pkg) => pkg.key === pricing.current?.packageKey,
+                    )?.name ?? null)
+                  : null
+              }
+              onChoose={(tier) => void chooseLeadGen(tier)}
+              onBuyCredits={(pack) => void buyCredits(pack)}
+              pending={pendingTier}
+              pendingPack={pendingPack}
+            />
+          </div>
+        )}
+
+        <h3 className="text-base font-semibold text-foreground">
+          Field operations plans
+        </h3>
         <p className="mb-4 text-sm text-muted-foreground">
           Priced by the number of guards on your account. Choose the row your
           guard count falls in, then a plan.

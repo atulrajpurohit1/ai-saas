@@ -4,6 +4,11 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StripeService } from './stripe.service';
+import {
+  LEAD_GEN_BASE_PRICE,
+  LEAD_GEN_TIERS,
+  leadGenTierLookupKey,
+} from './lead-gen-tiers.constants';
 
 /**
  * Credit pack checkout must refuse to sell a pack whose Stripe price does not
@@ -237,6 +242,127 @@ describe('StripeService plan checkout', () => {
   it('refuses the custom band', async () => {
     await expect(buyGuard('500+')).rejects.toBeInstanceOf(BadRequestException);
     expect(sessions.create).not.toHaveBeenCalled();
+  });
+
+  describe('Lead Gen plans', () => {
+    const PRO_KEY = leadGenTierLookupKey('PRO');
+    const BASE_KEY = 'aegislead_generation_1_25_299usd_monthly';
+
+    const tierPrice = (overrides: Record<string, unknown> = {}) => ({
+      id: 'price_leadgen_pro',
+      lookup_key: PRO_KEY,
+      active: true,
+      type: 'recurring',
+      currency: 'usd',
+      unit_amount: LEAD_GEN_TIERS.PRO.price * 100,
+      recurring: { interval: 'month', interval_count: 1 },
+      ...overrides,
+    });
+
+    const basePrice = (overrides: Record<string, unknown> = {}) => ({
+      id: 'price_leadgen_base',
+      lookup_key: BASE_KEY,
+      active: true,
+      type: 'recurring',
+      currency: 'usd',
+      unit_amount: LEAD_GEN_BASE_PRICE * 100,
+      recurring: { interval: 'month', interval_count: 1 },
+      ...overrides,
+    });
+
+    const buyLeadGen = (tier?: 'STARTER' | 'PRO' | 'ELITE') =>
+      service.createPlanCheckoutSession({
+        tenantId: 'tenant-1',
+        packageKey: 'GENERATION',
+        band: '1-25',
+        tier,
+      });
+
+    beforeEach(() => {
+      prices.list.mockImplementation(
+        ({ lookup_keys }: { lookup_keys: string[] }) =>
+          Promise.resolve({
+            data: [
+              ...(lookup_keys.includes(PRO_KEY) ? [tierPrice()] : []),
+              ...(lookup_keys.includes(BASE_KEY) ? [basePrice()] : []),
+            ],
+          }),
+      );
+    });
+
+    it('sells the tier price', async () => {
+      await expect(buyLeadGen('PRO')).resolves.toEqual({
+        url: 'https://checkout.test/plan',
+        changed: false,
+      });
+      expect(sessions.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mode: 'subscription',
+          line_items: [{ price: 'price_leadgen_pro', quantity: 1 }],
+          metadata: expect.objectContaining({
+            package: 'GENERATION',
+            leadGenTier: 'PRO',
+            includedCredits: String(LEAD_GEN_TIERS.PRO.includedCredits),
+          }) as unknown as Record<string, string>,
+        }),
+      );
+    });
+
+    // No tier means the base plan: the platform fee alone, no credits. It is
+    // the same $299 price Generation was always sold at, so there is no
+    // second product to keep in step. Who may buy it is the controller's
+    // business, not this layer's.
+    it('sells the base plan when no tier is named', async () => {
+      await expect(buyLeadGen()).resolves.toEqual({
+        url: 'https://checkout.test/plan',
+        changed: false,
+      });
+      expect(sessions.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          line_items: [{ price: 'price_leadgen_base', quantity: 1 }],
+        }),
+      );
+    });
+
+    // The band a Lead Gen buyer sends is irrelevant -- the price is flat --
+    // and honouring it would charge them one of the old banded amounts.
+    it('ignores the guard band on a base plan purchase', async () => {
+      await service.createPlanCheckoutSession({
+        tenantId: 'tenant-1',
+        packageKey: 'GENERATION',
+        band: '251-500',
+      });
+
+      expect(sessions.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          line_items: [{ price: 'price_leadgen_base', quantity: 1 }],
+        }),
+      );
+    });
+
+    it('refuses a tier price that no longer matches the published price', async () => {
+      prices.list.mockResolvedValue({
+        data: [tierPrice({ unit_amount: 29_900 })],
+      });
+
+      await expect(buyLeadGen('PRO')).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
+      expect(sessions.create).not.toHaveBeenCalled();
+    });
+
+    it('reports only the tiers Stripe can actually sell', async () => {
+      await expect(service.sellableLeadGenTiers()).resolves.toEqual(['PRO']);
+    });
+
+    it('reports the base plan as sellable when its price is live', async () => {
+      await expect(service.leadGenBaseSellable()).resolves.toBe(true);
+    });
+
+    it('reports the base plan as unsellable when the price is missing', async () => {
+      prices.list.mockResolvedValue({ data: [] });
+      await expect(service.leadGenBaseSellable()).resolves.toBe(false);
+    });
   });
 
   // A second checkout would create a second subscription and bill twice.

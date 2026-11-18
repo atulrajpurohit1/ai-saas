@@ -40,11 +40,55 @@ export interface PlanPackage {
   sellableBands: GuardBand[];
 }
 
+export type LeadGenTierKey = 'STARTER' | 'PRO' | 'ELITE';
+
+/**
+ * One Lead Gen starting plan. Lead Gen is not priced by guard count: it is a
+ * flat monthly price made of the platform fee plus credits that are handed
+ * over ONCE, when the plan starts. They never expire, so there is nothing to
+ * refill -- only the plan recurs.
+ */
+export interface LeadGenTier {
+  key: LeadGenTierKey;
+  name: string;
+  tagline: string;
+  /** Credits included once, at purchase. */
+  includedCredits: number;
+  /** The part of `price` that buys those credits. */
+  creditsPrice: number;
+  /** Monthly list price: base + credits. */
+  price: number;
+  popular: boolean;
+}
+
+export interface LeadGenPlans {
+  name: string;
+  modules: string[];
+  /** The platform fee: the monthly price with no credits in it. */
+  basePrice: number;
+  tiers: LeadGenTier[];
+  /** Starting plans that can be bought online right now. */
+  sellableTiers: LeadGenTierKey[];
+  currentTier: LeadGenTierKey | null;
+  /** Whether this account may buy the base plan (no credits). */
+  baseSellable: boolean;
+  /** The base plan is closed to them because they have never had Lead Gen. */
+  baseRequiresPlan: boolean;
+  /** Already on Lead Gen at the base price, with no credits included. */
+  onBasePlan: boolean;
+}
+
 export interface PlanPricing {
   /** Whether any plan can be bought online at all. */
   configured: boolean;
   bands: { key: GuardBand; min: number; max: number | null }[];
+  /** Only the packages priced by guards; Lead Gen is in `leadGen`. */
   packages: PlanPackage[];
+  /**
+   * The Lead Gen plans. Optional: an older backend does not send them, and the
+   * page falls back to showing the chart alone rather than rendering nothing.
+   */
+  leadGen?: LeadGenPlans;
   /** Generation on its own is always charged at this band. */
   generationOnlyBand: GuardBand;
   /** Every guard on the account. Guards are billed for the full month. */
@@ -61,17 +105,19 @@ export async function getPlanPricing(): Promise<PlanPricing> {
 }
 
 /**
- * Starts checkout for a package at a guard band. An account that already has
+ * Starts checkout for a package at a guard band, or -- for GENERATION, which
+ * is not priced by guards -- for a Lead Gen tier. An account that already has
  * a subscription is switched onto the new plan instead, in which case there is
  * no checkout link and `changed` is true.
  */
 export async function startPlanCheckout(
   packageKey: PackageKey,
   band: GuardBand,
+  tier?: LeadGenTierKey,
 ): Promise<{ url: string | null; changed: boolean }> {
   const res = await api.post<{ url: string | null; changed: boolean }>(
     'billing/checkout/session',
-    { package: packageKey, band },
+    { package: packageKey, band, ...(tier ? { tier } : {}) },
   );
   return res.data;
 }

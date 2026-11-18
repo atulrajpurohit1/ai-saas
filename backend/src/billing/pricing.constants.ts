@@ -146,6 +146,25 @@ export function isCustomQuote(band: GuardBand) {
 
 export const PACKAGE_KEYS = Object.keys(PACKAGE_LABELS) as PackageKey[];
 
+/**
+ * The packages that are actually sold by guard band -- i.e. the rows and
+ * columns of the published price chart.
+ *
+ * GENERATION is deliberately absent. Lead Gen is no longer priced by guards at
+ * all: it is sold as the three tiers in lead-gen-tiers.constants.ts, each a
+ * flat monthly price with a credit allocation included, and it is shown above
+ * the chart rather than inside it. Its rows stay in MONTHLY_PRICES because
+ * subscriptions sold under the old band prices still resolve through
+ * planForLookupKey -- removing them would leave an existing Generation
+ * customer's price unrecognised, and the webhook refuses to provision a
+ * subscription whose prices it cannot read.
+ */
+export const GUARD_BAND_PACKAGE_KEYS: PackageKey[] = [
+  'GUARD',
+  'OPERATIONS',
+  'COMPLETE',
+];
+
 /** Position of a band in the table, lowest first. */
 export function bandRank(band: GuardBand): number {
   return GUARD_BANDS.findIndex((entry) => entry.key === band);

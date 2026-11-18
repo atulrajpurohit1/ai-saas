@@ -14,7 +14,9 @@ import {
   trialDays,
 } from './billing.config';
 import {
+  GENERATION_ONLY_BAND,
   GUARD_BANDS,
+  GUARD_BAND_PACKAGE_KEYS,
   GuardBand,
   PACKAGE_KEYS,
   PACKAGE_LABELS,
@@ -31,6 +33,14 @@ import {
   creditPackPriceEnvKey,
   creditPackPriceId,
 } from './credit-packs.constants';
+import {
+  LEAD_GEN_TIERS,
+  LEAD_GEN_TIER_KEYS,
+  LeadGenTier,
+  LeadGenTierKey,
+  allLeadGenTierLookupKeys,
+  leadGenTierLookupKey,
+} from './lead-gen-tiers.constants';
 
 /**
  * Thin wrapper over the Stripe SDK.
@@ -109,7 +119,9 @@ export class StripeService {
       return this.planPriceCache.prices;
     }
 
-    const keys = allPlanLookupKeys();
+    // Lead Gen tier prices live in the same cache: they are found the same
+    // way (by lookup_key) and the plan page needs both in one load.
+    const keys = [...allPlanLookupKeys(), ...allLeadGenTierLookupKeys()];
     const prices = new Map<string, Stripe.Price>();
     // Stripe accepts at most 10 lookup keys per list call.
     for (let index = 0; index < keys.length; index += 10) {
@@ -127,7 +139,12 @@ export class StripeService {
     return prices;
   }
 
-  /** Which package/band cells have a live, correctly priced Stripe price. */
+  /**
+   * Which package/band cells have a live, correctly priced Stripe price.
+   *
+   * GENERATION always comes back empty: Lead Gen is not sold by band any more.
+   * Its tiers are reported by sellableLeadGenTiers() instead.
+   */
   async sellablePlans(): Promise<Record<PackageKey, GuardBand[]>> {
     const result = Object.fromEntries(
       PACKAGE_KEYS.map((packageKey) => [packageKey, [] as GuardBand[]]),
@@ -135,7 +152,7 @@ export class StripeService {
     if (!isCheckoutConfigured()) return result;
 
     const prices = await this.planPrices();
-    for (const packageKey of PACKAGE_KEYS) {
+    for (const packageKey of GUARD_BAND_PACKAGE_KEYS) {
       for (const { key: band } of GUARD_BANDS) {
         const lookupKey = planLookupKey(packageKey, band);
         const price = lookupKey ? prices.get(lookupKey) : undefined;
@@ -145,6 +162,38 @@ export class StripeService {
       }
     }
     return result;
+  }
+
+  /**
+   * Whether the Lead Gen base plan -- the platform fee with no credits -- can
+   * be sold. It is the Generation base-band price, which is already in Stripe
+   * from before the tiers existed.
+   */
+  async leadGenBaseSellable(): Promise<boolean> {
+    if (!isCheckoutConfigured()) return false;
+
+    const lookupKey = planLookupKey('GENERATION', GENERATION_ONLY_BAND);
+    const price = lookupKey
+      ? (await this.planPrices()).get(lookupKey)
+      : undefined;
+
+    return (
+      !!price &&
+      this.priceMatchesPlan(price, 'GENERATION', GENERATION_ONLY_BAND)
+    );
+  }
+
+  /** Which Lead Gen starting plans have a live, correctly priced price. */
+  async sellableLeadGenTiers(): Promise<LeadGenTierKey[]> {
+    if (!isCheckoutConfigured()) return [];
+
+    const prices = await this.planPrices();
+    return LEAD_GEN_TIER_KEYS.filter((key) => {
+      const price = prices.get(leadGenTierLookupKey(key));
+      return (
+        !!price && this.priceMatchesLeadGenTier(price, LEAD_GEN_TIERS[key])
+      );
+    });
   }
 
   /**
@@ -161,38 +210,24 @@ export class StripeService {
     tenantId: string;
     packageKey: PackageKey;
     band: GuardBand;
+    /** Required for GENERATION, which is sold as tiers rather than by band. */
+    tier?: LeadGenTierKey;
     email?: string;
   }): Promise<{ url: string | null; changed: boolean }> {
-    const { tenantId, packageKey, band, email } = params;
+    const { tenantId, packageKey, band, tier, email } = params;
 
-    if (isCustomQuote(band)) {
-      throw new BadRequestException(
-        'Plans for more than 500 guards are quoted individually. Please contact sales.',
-      );
-    }
-
-    const lookupKey = planLookupKey(packageKey, band);
-    const price = lookupKey
-      ? (await this.planPrices()).get(lookupKey)
-      : undefined;
-
-    if (!price || !this.priceMatchesPlan(price, packageKey, band)) {
-      this.logger.error(
-        `No sellable Stripe price for ${packageKey} at ${band}: expected lookup_key ` +
-          `${lookupKey ?? 'none'} at $${monthlyPrice(packageKey, band)}/month. ` +
-          'Run scripts/create-live-stripe-prices.ts.',
-      );
-      throw new ServiceUnavailableException(
-        `${PACKAGE_LABELS[packageKey]} can't be bought online right now. Please contact sales.`,
-      );
-    }
-
-    const metadata = {
-      tenantId,
-      package: packageKey,
-      band,
-      modules: PACKAGE_MODULES[packageKey].join(','),
-    };
+    // Lead Gen with a tier is a starting plan (credits included). Lead Gen
+    // with no tier is the base plan, which is the Generation base-band price
+    // -- the same $299 price the old flat plan was always sold at. Who is
+    // allowed to buy the base plan is decided by the caller.
+    const { price, metadata } =
+      packageKey === 'GENERATION' && tier
+        ? await this.leadGenTierPrice(tenantId, tier)
+        : await this.bandPlanPrice(
+            tenantId,
+            packageKey,
+            packageKey === 'GENERATION' ? GENERATION_ONLY_BAND : band,
+          );
 
     const existing = await this.liveSubscriptionFor(tenantId);
     if (existing) {
@@ -234,6 +269,83 @@ export class StripeService {
     });
 
     return { url: session.url, changed: false };
+  }
+
+  /**
+   * The Stripe price for a guard-band package, with the metadata that rides
+   * along on the session and subscription.
+   */
+  private async bandPlanPrice(
+    tenantId: string,
+    packageKey: PackageKey,
+    band: GuardBand,
+  ) {
+    if (isCustomQuote(band)) {
+      throw new BadRequestException(
+        'Plans for more than 500 guards are quoted individually. Please contact sales.',
+      );
+    }
+
+    const lookupKey = planLookupKey(packageKey, band);
+    const price = lookupKey
+      ? (await this.planPrices()).get(lookupKey)
+      : undefined;
+
+    if (!price || !this.priceMatchesPlan(price, packageKey, band)) {
+      this.logger.error(
+        `No sellable Stripe price for ${packageKey} at ${band}: expected lookup_key ` +
+          `${lookupKey ?? 'none'} at $${monthlyPrice(packageKey, band)}/month. ` +
+          'Run scripts/create-live-stripe-prices.ts.',
+      );
+      throw new ServiceUnavailableException(
+        `${PACKAGE_LABELS[packageKey]} can't be bought online right now. Please contact sales.`,
+      );
+    }
+
+    return {
+      price,
+      metadata: {
+        tenantId,
+        package: packageKey,
+        band,
+        modules: PACKAGE_MODULES[packageKey].join(','),
+      },
+    };
+  }
+
+  /**
+   * The Stripe price for a Lead Gen starting plan.
+   *
+   * The credit count is recorded in metadata for the Dashboard's benefit only
+   * -- the webhook reads it back out of the price's lookup_key when it grants
+   * the credits, never from here.
+   */
+  private async leadGenTierPrice(tenantId: string, tier: LeadGenTierKey) {
+    const tierDef = LEAD_GEN_TIERS[tier];
+    const lookupKey = leadGenTierLookupKey(tier);
+    const price = (await this.planPrices()).get(lookupKey);
+
+    if (!price || !this.priceMatchesLeadGenTier(price, tierDef)) {
+      this.logger.error(
+        `No sellable Stripe price for Lead Gen ${tier}: expected lookup_key ` +
+          `${lookupKey} at $${tierDef.price}/month. ` +
+          'Run scripts/create-live-stripe-prices.ts.',
+      );
+      throw new ServiceUnavailableException(
+        `The ${tierDef.name} plan can't be bought online right now. Please contact sales.`,
+      );
+    }
+
+    return {
+      price,
+      metadata: {
+        tenantId,
+        package: 'GENERATION',
+        leadGenTier: tier,
+        includedCredits: String(tierDef.includedCredits),
+        modules: PACKAGE_MODULES.GENERATION.join(','),
+      },
+    };
   }
 
   /**
@@ -284,6 +396,23 @@ export class StripeService {
       price.recurring?.interval === 'month' &&
       price.recurring?.interval_count === 1 &&
       price.unit_amount === amount * 100
+    );
+  }
+
+  /**
+   * A Lead Gen price is only sellable if Stripe agrees with our own list
+   * price. The amount is in the lookup_key, so a mismatch means someone edited
+   * the price in the Dashboard -- in which case we refuse rather than sell a
+   * tier at a price the app will then describe wrongly.
+   */
+  private priceMatchesLeadGenTier(price: Stripe.Price, tier: LeadGenTier) {
+    return (
+      price.active &&
+      price.currency === 'usd' &&
+      price.type === 'recurring' &&
+      price.recurring?.interval === 'month' &&
+      price.recurring?.interval_count === 1 &&
+      price.unit_amount === tier.price * 100
     );
   }
 
@@ -615,5 +744,10 @@ export class StripeService {
 
   async retrieveSubscription(subscriptionId: string) {
     return this.stripe().subscriptions.retrieve(subscriptionId);
+  }
+
+  /** A charge, for finding the invoice a disputed payment belongs to. */
+  async retrieveCharge(chargeId: string) {
+    return this.stripe().charges.retrieve(chargeId);
   }
 }

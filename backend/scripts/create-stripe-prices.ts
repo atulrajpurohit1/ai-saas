@@ -11,11 +11,18 @@ import * as dotenv from 'dotenv';
 import { CREDIT_PACKS, CREDIT_PACK_KEYS } from '../src/billing/credit-packs.constants';
 import {
   GUARD_BANDS,
+  GUARD_BAND_PACKAGE_KEYS,
   MONTHLY_PRICES,
-  PACKAGE_KEYS,
   PACKAGE_LABELS,
   planLookupKey,
 } from '../src/billing/pricing.constants';
+import {
+  LEAD_GEN_BASE_PRICE,
+  LEAD_GEN_PACKAGE_LABEL,
+  LEAD_GEN_TIERS,
+  LEAD_GEN_TIER_KEYS,
+  leadGenTierLookupKey,
+} from '../src/billing/lead-gen-tiers.constants';
 
 dotenv.config();
 
@@ -75,9 +82,12 @@ async function findOrCreatePrice(params: {
   // Plans: one product per package, one monthly price per guard band. Checkout
   // finds these by lookup_key (planLookupKey), so there are no env lines to
   // set. 500+ has no price -- it is quoted by sales.
+  //
+  // Lead Gen is absent: it is no longer sold by guard band, and its tier
+  // prices are created below.
   console.log('\n--- Plans (monthly, by active guards) ---');
   const products = await stripe.products.list({ active: true, limit: 100 });
-  for (const packageKey of PACKAGE_KEYS) {
+  for (const packageKey of GUARD_BAND_PACKAGE_KEYS) {
     let product = products.data.find(
       (candidate) => candidate.metadata?.aegisleadPackage === packageKey,
     );
@@ -110,6 +120,46 @@ async function findOrCreatePrice(params: {
       });
       console.log(`  ${PACKAGE_LABELS[packageKey]} ${band}: $${amount}/mo -> ${price.id} (created)`);
     }
+  }
+
+  // Lead Gen: flat-priced tiers, each including a monthly credit allocation.
+  // Found by lookup_key (leadGenTierLookupKey), so there are no env lines.
+  console.log('\n--- Lead Gen plans (monthly, credits included) ---');
+  let leadGenProduct = products.data.find(
+    (candidate) => candidate.metadata?.aegisleadPackage === 'GENERATION_TIERS',
+  );
+  if (!leadGenProduct) {
+    leadGenProduct = await stripe.products.create({
+      name: LEAD_GEN_PACKAGE_LABEL,
+      metadata: { aegisleadPackage: 'GENERATION_TIERS' },
+    });
+  }
+
+  for (const tierKey of LEAD_GEN_TIER_KEYS) {
+    const tier = LEAD_GEN_TIERS[tierKey];
+    const lookupKey = leadGenTierLookupKey(tierKey);
+
+    const found = await stripe.prices.list({ lookup_keys: [lookupKey], limit: 1 });
+    if (found.data[0]) {
+      console.log(`  Lead Gen ${tier.name}: $${tier.price}/mo incl. ${tier.includedCredits} credits -> ${found.data[0].id} (existing)`);
+      continue;
+    }
+
+    const price = await stripe.prices.create({
+      product: leadGenProduct.id,
+      unit_amount: tier.price * 100,
+      currency: 'usd',
+      recurring: { interval: 'month' },
+      lookup_key: lookupKey,
+      nickname: `${tier.name} - ${tier.includedCredits} credits/mo`,
+      metadata: {
+        leadGenTier: tierKey,
+        includedCredits: String(tier.includedCredits),
+        basePrice: String(LEAD_GEN_BASE_PRICE),
+        creditsPrice: String(tier.creditsPrice),
+      },
+    });
+    console.log(`  Lead Gen ${tier.name}: $${tier.price}/mo incl. ${tier.includedCredits} credits -> ${price.id} (created)`);
   }
 
   console.log('\n--- env lines ---');
