@@ -168,13 +168,22 @@ export class BandDriftService {
     tenantId: string,
     tenantName: string,
   ): Promise<BandDriftRow | null> {
-    const current = planForLookupKey(
-      await this.stripe.currentPlanLookupKey(tenantId),
-    );
+    // Only the guard-banded line can drift. A subscription may also carry a
+    // Lead Gen line, which is flat-priced and has no band -- comparing a
+    // guard count against it would report every Lead Gen customer with staff
+    // as underpaying, which is both wrong and the kind of wrong that emails
+    // the client about it.
+    const keys = await this.stripe.currentPlanLookupKeys(tenantId);
+    const current =
+      keys
+        .map((key) => planForLookupKey(key))
+        .find((plan) => plan !== null && plan.packageKey !== 'GENERATION') ??
+      null;
 
-    // No live subscription, or a price whose lookup_key is not in the table
-    // (a hand-built or legacy price). Either way there is no band to compare,
-    // and guessing one would be worse than reporting nothing.
+    // No live subscription, nothing banded on it, or a price whose lookup_key
+    // is not in the table (a hand-built or legacy price). Either way there is
+    // no band to compare, and guessing one would be worse than reporting
+    // nothing.
     if (!current) return null;
 
     const drift = await this.metering.bandDrift(tenantId, current.band);

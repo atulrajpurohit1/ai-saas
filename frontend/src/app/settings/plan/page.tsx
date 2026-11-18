@@ -504,7 +504,7 @@ function PlanContent() {
               configured={pricing.configured}
               holdsLeadGen={holdsLeadGen}
               packs={packs}
-              switchesFrom={
+              alongside={
                 pricing.current && pricing.current.packageKey !== 'GENERATION'
                   ? (pricing.packages.find(
                       (pkg) => pkg.key === pricing.current?.packageKey,

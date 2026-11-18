@@ -155,12 +155,37 @@ export function leadGenTierForLookupKey(
 }
 
 /**
- * Ledger idempotency key for the credits a plan purchase includes.
- *
- * Keyed on the invoice that started the subscription, so Stripe's retries
- * cannot pay the same purchase twice, and a later purchase -- a tenant who
- * cancelled and came back -- is a different invoice and so a fresh grant.
+ * The handle a plan's credit grant is recorded under, so a refund of that
+ * invoice can take the credits back.
  */
 export function leadGenCreditsKey(invoiceId: string): string {
   return `leadgen-credits:${invoiceId}`;
+}
+
+/**
+ * What makes a plan's credits a ONE-TIME grant: one payout per subscription
+ * per tier, enforced by the ledger's unique index rather than by a read.
+ *
+ * Keyed on the subscription and not the invoice, because the invoice says
+ * nothing useful about whether these credits are owed. A renewal invoice
+ * carries the same tier line as the purchase did, and a customer adding Lead
+ * Gen to an existing plan gets a mid-cycle proration rather than a new
+ * subscription -- so filtering on the invoice's billing reason either pays
+ * out every month or never pays out the add-on at all.
+ *
+ * What this key allows and refuses:
+ *  - First payment for a tier: granted.
+ *  - Every renewal after it: refused, which is what "credits do not refill"
+ *    means.
+ *  - Starter upgraded to Pro: granted, because Pro's credits were never paid
+ *    for on this subscription.
+ *  - Pro to Starter and back to Pro: refused, so switching cannot mint.
+ *  - Cancelled, then subscribed again later: granted, because that is a new
+ *    subscription and a new purchase.
+ */
+export function leadGenPurchaseKey(
+  subscriptionId: string,
+  tier: LeadGenTierKey,
+): string {
+  return `leadgen:${subscriptionId}:${tier.toLowerCase()}`;
 }

@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   billingReturnUrls,
   isCheckoutConfigured,
+  moduleForPriceId,
   stripeSecretKey,
   stripeWebhookSecret,
   trialDays,
@@ -25,6 +26,7 @@ import {
   allPlanLookupKeys,
   isCustomQuote,
   monthlyPrice,
+  planForLookupKey,
   planLookupKey,
 } from './pricing.constants';
 import {
@@ -39,6 +41,7 @@ import {
   LeadGenTier,
   LeadGenTierKey,
   allLeadGenTierLookupKeys,
+  leadGenTierForLookupKey,
   leadGenTierLookupKey,
 } from './lead-gen-tiers.constants';
 
@@ -231,14 +234,8 @@ export class StripeService {
 
     const existing = await this.liveSubscriptionFor(tenantId);
     if (existing) {
-      const [first, ...rest] = existing.items.data;
       await this.stripe().subscriptions.update(existing.id, {
-        items: [
-          { id: first.id, price: price.id, quantity: 1 },
-          // Older subscriptions carried one item per service; a package is a
-          // single price, so the rest go.
-          ...rest.map((item) => ({ id: item.id, deleted: true })),
-        ],
+        items: this.itemsAfterBuying(existing, price.id, packageKey),
         proration_behavior: 'create_prorations',
         metadata,
       });
@@ -269,6 +266,93 @@ export class StripeService {
     });
 
     return { url: session.url, changed: false };
+  }
+
+  /**
+   * What a tenant's subscription items should be after buying `priceId`.
+   *
+   * Lead Gen is an ADD-ON. A company that patrols sites also prospects for
+   * new ones, and until now buying one cancelled the other: the subscription
+   * carried a single item, so every purchase replaced whatever was there.
+   * That was a billing limitation wearing the costume of a product decision.
+   *
+   * So a purchase only ever replaces its OWN kind of line:
+   *
+   *  - Buying Lead Gen replaces an existing Lead Gen line and leaves the
+   *    guard-banded package alone.
+   *  - Buying a guard-banded package replaces that line and leaves Lead Gen
+   *    running -- unless the package is Complete, which already includes Lead
+   *    Gen, in which case the add-on is dropped rather than billed twice.
+   *
+   * Items Stripe is not told about are left untouched, which is what keeps
+   * the other line alive. Unrecognised items are still removed: they are
+   * pre-package leftovers, and the webhook cannot resolve what they grant.
+   */
+  private itemsAfterBuying(
+    subscription: Stripe.Subscription,
+    priceId: string,
+    packageKey: PackageKey,
+  ): Stripe.SubscriptionUpdateParams.Item[] {
+    const buyingLeadGen = packageKey === 'GENERATION';
+    // Complete includes Lead Gen, so a separate Lead Gen line under it is the
+    // customer paying twice for one product.
+    const supersedesLeadGen =
+      !buyingLeadGen && PACKAGE_MODULES[packageKey].includes('LEAD_GEN');
+
+    const data = subscription.items.data;
+    const kinds = new Map(data.map((item) => [item.id, this.itemKind(item)]));
+    const wanted = buyingLeadGen ? 'leadgen' : 'band';
+
+    // Replace the line this purchase is for. With nothing of that kind on the
+    // subscription, an unrecognised line is used instead -- a pre-package
+    // price being swapped for a current one, which is how every purchase
+    // behaved before Lead Gen could stand beside another package.
+    const target =
+      data.find((item) => kinds.get(item.id) === wanted) ??
+      data.find((item) => kinds.get(item.id) === 'unknown');
+
+    const items: Stripe.SubscriptionUpdateParams.Item[] = [];
+
+    for (const item of data) {
+      if (item.id === target?.id) {
+        items.push({ id: item.id, price: priceId, quantity: 1 });
+        continue;
+      }
+
+      const kind = kinds.get(item.id);
+      if (
+        kind === wanted ||
+        kind === 'unknown' ||
+        (supersedesLeadGen && kind === 'leadgen')
+      ) {
+        items.push({ id: item.id, deleted: true });
+      }
+      // Anything else is the other kind of line, and stays as it is.
+    }
+
+    if (!target) items.push({ price: priceId, quantity: 1 });
+    return items;
+  }
+
+  /**
+   * Which kind of line an item is. Prices sold before the packages existed
+   * are classified by the module their env var maps them to, so a legacy Lead
+   * Gen line survives a package purchase the same way a current one does.
+   */
+  private itemKind(
+    item: Stripe.SubscriptionItem,
+  ): 'leadgen' | 'band' | 'unknown' {
+    const lookupKey = item.price?.lookup_key;
+
+    if (leadGenTierForLookupKey(lookupKey)) return 'leadgen';
+
+    const plan = planForLookupKey(lookupKey);
+    // The Lead Gen base plan is sold under the Generation base-band price.
+    if (plan) return plan.packageKey === 'GENERATION' ? 'leadgen' : 'band';
+
+    const legacy = item.price?.id ? moduleForPriceId(item.price.id) : null;
+    if (legacy === 'LEAD_GEN') return 'leadgen';
+    return legacy ? 'band' : 'unknown';
   }
 
   /**
@@ -376,10 +460,19 @@ export class StripeService {
     return previous !== null;
   }
 
-  /** The lookup_key of the price the tenant's live subscription is on. */
-  async currentPlanLookupKey(tenantId: string): Promise<string | null> {
+  /**
+   * The lookup_keys of every price the tenant's live subscription is billed
+   * on -- plural, because Lead Gen can sit alongside another package, so
+   * reading item[0] would report whichever line Stripe happened to list first
+   * and call that their plan.
+   */
+  async currentPlanLookupKeys(tenantId: string): Promise<string[]> {
     const subscription = await this.liveSubscriptionFor(tenantId);
-    return subscription?.items.data[0]?.price?.lookup_key ?? null;
+    return (
+      subscription?.items.data
+        .map((item) => item.price?.lookup_key)
+        .filter((key): key is string => Boolean(key)) ?? []
+    );
   }
 
   private priceMatchesPlan(

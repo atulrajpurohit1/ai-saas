@@ -121,6 +121,42 @@ export function packageForModules(
 }
 
 /**
+ * The package a tenant is on, with Lead Gen understood as an ADD-ON.
+ *
+ * Lead Gen can sit alongside any other package: buying it adds a line to the
+ * subscription rather than replacing one, because a company that patrols sites
+ * and prospects for new ones needs both, and making them choose was never a
+ * product decision -- it was a limitation of billing one price per tenant.
+ *
+ * So a tenant holding Guard Tour plus Lead Gen is on GUARD with an add-on, not
+ * on a nameless custom arrangement. packageForModules answers the narrower
+ * question -- which package is exactly this module set -- and still reports
+ * null for that combination, which is why anything naming a tenant's plan
+ * should ask this instead.
+ *
+ * Complete already includes Lead Gen, so it comes back as an exact match with
+ * no add-on; there is nothing to add.
+ */
+export function resolvePackageForModules(modules: ServiceModule[]): {
+  packageKey: PackageKey | null;
+  /** Lead Gen held on top of a package that does not include it. */
+  leadGenAddOn: boolean;
+} {
+  const exact = packageForModules(modules);
+  if (exact) return { packageKey: exact, leadGenAddOn: false };
+
+  if (!modules.includes('LEAD_GEN')) {
+    return { packageKey: null, leadGenAddOn: false };
+  }
+
+  const withoutLeadGen = modules.filter((module) => module !== 'LEAD_GEN');
+  const base = packageForModules(withoutLeadGen);
+  return base
+    ? { packageKey: base, leadGenAddOn: true }
+    : { packageKey: null, leadGenAddOn: false };
+}
+
+/**
  * The band a tenant is billed at. Generation-only is pinned to the base band;
  * everything else follows the billable guard count.
  */

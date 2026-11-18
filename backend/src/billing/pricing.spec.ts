@@ -16,6 +16,7 @@ import {
   packageForModules,
   planForLookupKey,
   planLookupKey,
+  resolvePackageForModules,
 } from './pricing.constants';
 
 describe('pricing', () => {
@@ -69,6 +70,53 @@ describe('pricing', () => {
     it('returns null for a combination outside the price table', () => {
       expect(packageForModules(['LEAD_GEN', 'GUARD_TOUR'])).toBeNull();
       expect(packageForModules([])).toBeNull();
+    });
+  });
+
+  /**
+   * Lead Gen can be bought alongside another package, so the combinations
+   * that used to be "no package at all" are now a package with an add-on.
+   * Anything that NAMES a tenant's plan has to resolve it this way, or a
+   * Guard customer who adds Lead Gen is reported as being on nothing.
+   */
+  describe('packages with Lead Gen as an add-on', () => {
+    it.each([
+      [['GUARD_TOUR', 'LEAD_GEN'], 'GUARD'],
+      [['FINANCE', 'LEAD_GEN'], 'OPERATIONS'],
+    ])('resolves %s to %s with the add-on flagged', (modules, expected) => {
+      expect(resolvePackageForModules(modules as never)).toEqual({
+        packageKey: expected,
+        leadGenAddOn: true,
+      });
+    });
+
+    it('reports an exact package with no add-on', () => {
+      expect(resolvePackageForModules(['GUARD_TOUR'])).toEqual({
+        packageKey: 'GUARD',
+        leadGenAddOn: false,
+      });
+      expect(resolvePackageForModules(['LEAD_GEN'])).toEqual({
+        packageKey: 'GENERATION',
+        leadGenAddOn: false,
+      });
+    });
+
+    // Complete already contains Lead Gen, so there is nothing added to it.
+    it('never flags an add-on on Complete', () => {
+      expect(
+        resolvePackageForModules(['LEAD_GEN', 'GUARD_TOUR', 'FINANCE']),
+      ).toEqual({ packageKey: 'COMPLETE', leadGenAddOn: false });
+    });
+
+    it('still reports nothing for a combination with no package in it', () => {
+      expect(resolvePackageForModules(['GUARD_TOUR', 'FINANCE'])).toEqual({
+        packageKey: null,
+        leadGenAddOn: false,
+      });
+      expect(resolvePackageForModules([])).toEqual({
+        packageKey: null,
+        leadGenAddOn: false,
+      });
     });
   });
 
@@ -326,9 +374,28 @@ describe('GuardMeteringService', () => {
     );
   });
 
-  it('treats a combination outside the four packages as custom', async () => {
+  // Lead Gen is an add-on now, so this is Guard with Lead Gen beside it --
+  // priced from the Guard band, not quoted by hand. The Lead Gen line is
+  // charged separately and is not in monthlyPrice, hence the flag.
+  it('prices Guard plus Lead Gen from the Guard band', async () => {
     entitlements.modulesForTenant.mockResolvedValue(
       new Set(['LEAD_GEN', 'GUARD_TOUR']),
+    );
+
+    const profile = await service.billingProfile('tenant-1');
+
+    expect(profile).toEqual(
+      expect.objectContaining({
+        packageKey: 'GUARD',
+        leadGenAddOn: true,
+        customQuote: false,
+      }),
+    );
+  });
+
+  it('treats a combination with no package in it as custom', async () => {
+    entitlements.modulesForTenant.mockResolvedValue(
+      new Set(['GUARD_TOUR', 'FINANCE']),
     );
 
     const profile = await service.billingProfile('tenant-1');

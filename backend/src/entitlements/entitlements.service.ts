@@ -18,7 +18,7 @@ import {
 } from '../billing/comp-plan.constants';
 import {
   PACKAGE_LABELS,
-  packageForModules,
+  resolvePackageForModules,
 } from '../billing/pricing.constants';
 
 /** Statuses that still grant access. PAST_DUE keeps working -- dunning is a
@@ -330,10 +330,17 @@ export class EntitlementsService {
       if (plan) return { key: plan, name: COMP_PLAN_LABELS[plan] };
     }
 
-    const packageKey = packageForModules([...granted]);
-    return packageKey
-      ? { key: packageKey, name: PACKAGE_LABELS[packageKey] }
-      : null;
+    // Lead Gen can be held on top of another package, so a tenant with Guard
+    // Tour and Lead Gen is "AegisLead Guard + Lead Gen" rather than nameless.
+    const { packageKey, leadGenAddOn } = resolvePackageForModules([...granted]);
+    if (!packageKey) return null;
+
+    return {
+      key: packageKey,
+      name: leadGenAddOn
+        ? `${PACKAGE_LABELS[packageKey]} + Lead Gen`
+        : PACKAGE_LABELS[packageKey],
+    };
   }
 
   private pendingPlan(

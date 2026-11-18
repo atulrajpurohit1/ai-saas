@@ -6,7 +6,10 @@ import {
   COMP_PLAN_LABELS,
   compPlanOf,
 } from '../billing/comp-plan.constants';
-import { PACKAGE_LABELS, packageForModules } from '../billing/pricing.constants';
+import {
+  PACKAGE_LABELS,
+  resolvePackageForModules,
+} from '../billing/pricing.constants';
 
 /** How far back the usage figures on the overview look, in days. */
 const USAGE_WINDOW_DAYS = 30;
@@ -235,10 +238,16 @@ export class PlatformMonitoringService {
                 return granted ? COMP_PLAN_LABELS[granted] : null;
               })()
             : (() => {
-                const packageKey = packageForModules(
+                // Lead Gen can sit on top of another package, so the tenant
+                // list names it as an add-on rather than showing nothing for
+                // a combination that is perfectly ordinary.
+                const { packageKey, leadGenAddOn } = resolvePackageForModules(
                   (tenant.modules ?? []).map((row) => row.module),
                 );
-                return packageKey ? PACKAGE_LABELS[packageKey] : null;
+                if (!packageKey) return null;
+                return leadGenAddOn
+                  ? `${PACKAGE_LABELS[packageKey]} + Lead Gen`
+                  : PACKAGE_LABELS[packageKey];
               })(),
         aiEnabled: sub?.aiEnabled ?? false,
         compExpiresAt: liveComp ? sub.compExpiresAt : null,

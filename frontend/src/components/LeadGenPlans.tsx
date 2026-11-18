@@ -27,11 +27,11 @@ interface Props {
   packs: CreditPackAvailability | null;
   /**
    * The plan this account is on, when it is NOT a Lead Gen one -- e.g.
-   * "AegisLead Guard". A tenant has a single subscription, so buying Lead Gen
-   * moves them off that plan rather than adding to it, and the cards have to
-   * say so.
+   * "AegisLead Guard". Lead Gen is bought as an add-on beside it, so the
+   * cards say "Add" rather than "Get started", and promise that the existing
+   * plan keeps running.
    */
-  switchesFrom: string | null;
+  alongside: string | null;
   /** Tier key, or null for the base plan with no credits. */
   onChoose: (tier: LeadGenTierKey | null) => void;
   onBuyCredits: (pack: LeadGenTierKey) => void;
@@ -66,7 +66,7 @@ export default function LeadGenPlans({
   configured,
   holdsLeadGen,
   packs,
-  switchesFrom,
+  alongside,
   onChoose,
   onBuyCredits,
   pending,
@@ -208,9 +208,11 @@ export default function LeadGenPlans({
                     {pending === tier.key
                       ? 'Redirecting…'
                       : `${
-                          leadGen.onBasePlan || switchesFrom
+                          leadGen.onBasePlan
                             ? 'Switch'
-                            : 'Get started'
+                            : alongside
+                              ? 'Add'
+                              : 'Get started'
                         } · ${money(tier.price)}/mo`}
                   </button>
                 )}
@@ -267,16 +269,15 @@ export default function LeadGenPlans({
       )}
 
       {/*
-        One subscription per tenant: moving to Lead Gen does not sit alongside
-        another package, it replaces it. Saying that here is the difference
-        between a customer switching deliberately and a customer losing their
-        patrols on a Monday morning.
+        Lead Gen is billed as a second line on the same subscription, so the
+        existing plan keeps running. Worth saying plainly: until recently
+        buying this replaced whatever you were on, and a customer who
+        remembers that will not risk their patrols to find out.
       */}
-      {!holdsLeadGen && switchesFrom && (
-        <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-foreground">
-          You are on {switchesFrom}. Moving to a Lead Gen plan replaces it
-          rather than adding to it — {switchesFrom} would end. AegisLead
-          Complete is the plan that includes Lead Gen alongside the rest.
+      {!holdsLeadGen && alongside && (
+        <p className="mt-3 rounded-lg border border-border bg-muted/40 p-3 text-xs text-foreground">
+          This is added alongside {alongside}, on the same subscription —{' '}
+          {alongside} keeps running and is billed as it is now.
         </p>
       )}
 

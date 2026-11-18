@@ -7,6 +7,7 @@ import { PACKAGE_MODULES, planForLookupKey } from './pricing.constants';
 import {
   LeadGenTier,
   leadGenCreditsKey,
+  leadGenPurchaseKey,
   leadGenTierForLookupKey,
 } from './lead-gen-tiers.constants';
 import { CreditsService } from './credits.service';
@@ -389,18 +390,20 @@ export class StripeWebhookService {
    * subscription is created, so an unpaid or failed first invoice hands over
    * nothing.
    *
-   * Three guards, each protecting a different way to get credits for nothing:
+   * "Once" is enforced by the ledger key, not by the invoice's billing
+   * reason. Reading the reason cannot work: a renewal carries the same tier
+   * line as the purchase did, and a customer ADDING Lead Gen to a plan they
+   * already pay for gets a mid-cycle proration -- so trusting the reason
+   * either pays out every month or never pays out an add-on. See
+   * leadGenPurchaseKey for exactly which purchases it allows.
    *
-   *  - Only a `subscription_create` invoice counts. `subscription_cycle` is a
-   *    renewal, which includes no credits, and `subscription_update` is a
-   *    mid-cycle proration -- paying out on either would let a customer mint
-   *    credits by waiting, or by switching tier back and forth.
+   * Two guards beyond that key:
+   *
+   *  - Subscription invoices only. A manually issued invoice is not a plan
+   *    purchase, whatever lines someone put on it.
    *  - Nothing is granted for an invoice that collected no money, which is
    *    what a trial's $0 invoice looks like. A trial is a trial; the Trial
    *    plan has its own, smaller grant.
-   *  - The grant is keyed on the invoice id, so Stripe's retries -- it
-   *    redelivers freely and out of order -- cannot pay the same purchase
-   *    twice. The database index enforces it, not a read.
    */
   private async onInvoicePaid(invoice: Stripe.Invoice) {
     const customerId =
@@ -424,9 +427,20 @@ export class StripeWebhookService {
       return { handled: false, tenantId, reason: 'no-invoice-id' };
     }
 
+    // Only subscription invoices. A one-off or manually issued invoice is
+    // not somebody buying a plan.
     const reason = invoice.billing_reason;
-    if (reason !== 'subscription_create') {
+    if (
+      reason !== 'subscription_create' &&
+      reason !== 'subscription_cycle' &&
+      reason !== 'subscription_update'
+    ) {
       return { handled: false, tenantId, reason: `billing-reason:${reason}` };
+    }
+
+    const subscriptionId = subscriptionIdOf(invoice);
+    if (!subscriptionId) {
+      return { handled: false, tenantId, reason: 'no-subscription' };
     }
 
     const tier = await this.leadGenTierForInvoice(invoice);
@@ -449,8 +463,11 @@ export class StripeWebhookService {
         description: `${tier.name} plan: ${tier.includedCredits.toLocaleString(
           'en-US',
         )} credits included with the plan.`,
-        // Doubles as the idempotency key and as the handle a refund reverses
-        // the grant by -- see reverseLeadGenCredits.
+        // Two keys, two jobs. The subscription-and-tier key is what makes
+        // these credits a one-time grant: a renewal reaches here with the
+        // same tier and is refused by the index. The invoice key is the
+        // handle a refund reverses the grant by -- see reverseLeadGenCredits.
+        idempotencyKey: leadGenPurchaseKey(subscriptionId, tier.key),
         stripeSessionId: leadGenCreditsKey(invoice.id),
       });
 

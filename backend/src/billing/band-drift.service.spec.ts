@@ -1,5 +1,6 @@
 import { BandDriftService } from './band-drift.service';
 import { planLookupKey } from './pricing.constants';
+import { leadGenTierLookupKey } from './lead-gen-tiers.constants';
 
 /**
  * Guard bands are priced by headcount, and checkout enforces that at purchase
@@ -14,7 +15,7 @@ describe('BandDriftService', () => {
   let service: BandDriftService;
   let prisma: { tenantSubscription: { findMany: jest.Mock } };
   let metering: { bandDrift: jest.Mock };
-  let stripe: { currentPlanLookupKey: jest.Mock };
+  let stripe: { currentPlanLookupKeys: jest.Mock };
   let email: { sendBandDriftDigestEmail: jest.Mock };
   let config: { get: jest.Mock };
 
@@ -23,7 +24,7 @@ describe('BandDriftService', () => {
       tenantSubscription: { findMany: jest.fn().mockResolvedValue([]) },
     };
     metering = { bandDrift: jest.fn() };
-    stripe = { currentPlanLookupKey: jest.fn() };
+    stripe = { currentPlanLookupKeys: jest.fn().mockResolvedValue([]) };
     email = { sendBandDriftDigestEmail: jest.fn().mockResolvedValue({}) };
     config = {
       get: jest.fn((key: string) =>
@@ -58,9 +59,9 @@ describe('BandDriftService', () => {
 
   it('reports a tenant that has outgrown its band, and prices the gap', async () => {
     withTenant();
-    stripe.currentPlanLookupKey.mockResolvedValue(
+    stripe.currentPlanLookupKeys.mockResolvedValue([
       planLookupKey('GUARD', '1-25'),
-    );
+    ]);
     metering.bandDrift.mockResolvedValue({
       drifted: true,
       from: '1-25',
@@ -86,9 +87,9 @@ describe('BandDriftService', () => {
 
   it('reports nothing when the band is still correct', async () => {
     withTenant();
-    stripe.currentPlanLookupKey.mockResolvedValue(
+    stripe.currentPlanLookupKeys.mockResolvedValue([
       planLookupKey('GUARD', '26-50'),
-    );
+    ]);
     metering.bandDrift.mockResolvedValue({
       drifted: false,
       from: '26-50',
@@ -107,9 +108,9 @@ describe('BandDriftService', () => {
   // read-only.
   it('only ever reads from Stripe', async () => {
     withTenant();
-    stripe.currentPlanLookupKey.mockResolvedValue(
+    stripe.currentPlanLookupKeys.mockResolvedValue([
       planLookupKey('COMPLETE', '1-25'),
-    );
+    ]);
     metering.bandDrift.mockResolvedValue({
       drifted: true,
       from: '1-25',
@@ -119,7 +120,7 @@ describe('BandDriftService', () => {
 
     await service.sweep();
 
-    expect(Object.keys(stripe)).toEqual(['currentPlanLookupKey']);
+    expect(Object.keys(stripe)).toEqual(['currentPlanLookupKeys']);
   });
 
   it('sends one digest for several drifted tenants, not one each', async () => {
@@ -127,9 +128,9 @@ describe('BandDriftService', () => {
       { tenantId: 'tenant-1', tenant: { name: 'Acme' } },
       { tenantId: 'tenant-2', tenant: { name: 'Globex' } },
     ]);
-    stripe.currentPlanLookupKey.mockResolvedValue(
+    stripe.currentPlanLookupKeys.mockResolvedValue([
       planLookupKey('GUARD', '1-25'),
-    );
+    ]);
     metering.bandDrift.mockResolvedValue({
       drifted: true,
       from: '1-25',
@@ -152,9 +153,9 @@ describe('BandDriftService', () => {
   it('logs the drift but sends nothing when no recipient is configured', async () => {
     build(undefined);
     withTenant();
-    stripe.currentPlanLookupKey.mockResolvedValue(
+    stripe.currentPlanLookupKeys.mockResolvedValue([
       planLookupKey('GUARD', '1-25'),
-    );
+    ]);
     metering.bandDrift.mockResolvedValue({
       drifted: true,
       from: '1-25',
@@ -174,9 +175,9 @@ describe('BandDriftService', () => {
   // to the pricing rule has to come past this test.
   it('never reports a Generation-only tenant', async () => {
     withTenant();
-    stripe.currentPlanLookupKey.mockResolvedValue(
+    stripe.currentPlanLookupKeys.mockResolvedValue([
       planLookupKey('GENERATION', '1-25'),
-    );
+    ]);
     metering.bandDrift.mockResolvedValue({
       drifted: false,
       from: '1-25',
@@ -186,9 +187,45 @@ describe('BandDriftService', () => {
     expect((await service.sweep()).drifted).toEqual([]);
   });
 
+  /**
+   * Lead Gen is flat-priced and rides alongside a banded package. Reading the
+   * wrong line would compare a guard count against a price that has no band,
+   * and report every Lead Gen customer with staff as underpaying.
+   */
+  it('measures the banded line, not a Lead Gen one beside it', async () => {
+    withTenant();
+    stripe.currentPlanLookupKeys.mockResolvedValue([
+      leadGenTierLookupKey('PRO'),
+      planLookupKey('GUARD', '1-25'),
+    ]);
+    metering.bandDrift.mockResolvedValue({
+      drifted: true,
+      from: '1-25',
+      to: '26-50',
+      billableGuards: 40,
+    });
+
+    const outcome = await service.sweep();
+
+    expect(metering.bandDrift).toHaveBeenCalledWith('tenant-1', '1-25');
+    expect(outcome.drifted[0]).toMatchObject({ packageKey: 'GUARD' });
+  });
+
+  it('skips a tenant on Lead Gen alone, which has no band to outgrow', async () => {
+    withTenant();
+    stripe.currentPlanLookupKeys.mockResolvedValue([
+      leadGenTierLookupKey('STARTER'),
+    ]);
+
+    const outcome = await service.sweep();
+
+    expect(outcome.drifted).toEqual([]);
+    expect(metering.bandDrift).not.toHaveBeenCalled();
+  });
+
   it('skips a tenant whose Stripe price is not in the published table', async () => {
     withTenant();
-    stripe.currentPlanLookupKey.mockResolvedValue('legacy_handmade_price');
+    stripe.currentPlanLookupKeys.mockResolvedValue(['legacy_handmade_price']);
 
     const outcome = await service.sweep();
 
@@ -201,9 +238,9 @@ describe('BandDriftService', () => {
       { tenantId: 'tenant-1', tenant: { name: 'Acme' } },
       { tenantId: 'tenant-2', tenant: { name: 'Globex' } },
     ]);
-    stripe.currentPlanLookupKey
+    stripe.currentPlanLookupKeys
       .mockRejectedValueOnce(new Error('Stripe is down'))
-      .mockResolvedValue(planLookupKey('GUARD', '1-25'));
+      .mockResolvedValue([planLookupKey('GUARD', '1-25')]);
     metering.bandDrift.mockResolvedValue({
       drifted: true,
       from: '1-25',
@@ -229,9 +266,9 @@ describe('BandDriftService', () => {
 
   it('keeps the finding when the digest fails to send', async () => {
     withTenant();
-    stripe.currentPlanLookupKey.mockResolvedValue(
+    stripe.currentPlanLookupKeys.mockResolvedValue([
       planLookupKey('GUARD', '1-25'),
-    );
+    ]);
     metering.bandDrift.mockResolvedValue({
       drifted: true,
       from: '1-25',

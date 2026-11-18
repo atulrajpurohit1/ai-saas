@@ -388,6 +388,146 @@ describe('StripeService plan checkout', () => {
     );
   });
 
+  /**
+   * Lead Gen is an add-on. Buying it used to replace whatever the tenant was
+   * already paying for, so a Guard customer who wanted to prospect lost their
+   * patrols -- a billing limitation masquerading as a product rule.
+   */
+  describe('Lead Gen alongside another package', () => {
+    const PRO_KEY = leadGenTierLookupKey('PRO');
+    const GUARD_1_25 = 'aegislead_guard_1_25_99usd_monthly';
+    const COMPLETE_1_25 = 'aegislead_complete_1_25_499usd_monthly';
+
+    const live = (items: { id: string; lookup_key?: string }[]) => {
+      subscriptionRecord = { providerSubscriptionId: 'sub_live' };
+      subscriptions.retrieve.mockResolvedValue({
+        id: 'sub_live',
+        status: 'active',
+        items: {
+          data: items.map(({ id, lookup_key }) => ({
+            id,
+            price: { id: `price_${id}`, lookup_key },
+          })),
+        },
+      });
+    };
+
+    beforeEach(() => {
+      prices.list.mockImplementation(
+        ({ lookup_keys }: { lookup_keys: string[] }) =>
+          Promise.resolve({
+            data: [
+              ...(lookup_keys.includes(PRO_KEY)
+                ? [
+                    {
+                      id: 'price_leadgen_pro',
+                      lookup_key: PRO_KEY,
+                      active: true,
+                      type: 'recurring',
+                      currency: 'usd',
+                      unit_amount: LEAD_GEN_TIERS.PRO.price * 100,
+                      recurring: { interval: 'month', interval_count: 1 },
+                    },
+                  ]
+                : []),
+              ...(lookup_keys.includes(GUARD_26_50) ? [planPrice()] : []),
+              ...(lookup_keys.includes(COMPLETE_1_25)
+                ? [
+                    planPrice({
+                      id: 'price_complete_1_25',
+                      lookup_key: COMPLETE_1_25,
+                      unit_amount: 49_900,
+                    }),
+                  ]
+                : []),
+            ],
+          }),
+      );
+    });
+
+    // Complete contains Lead Gen. Leaving the add-on in place would bill the
+    // customer twice for one product.
+    it('drops the Lead Gen line when moving to Complete', async () => {
+      live([
+        { id: 'si_guard', lookup_key: GUARD_1_25 },
+        { id: 'si_leadgen', lookup_key: PRO_KEY },
+      ]);
+
+      await service.createPlanCheckoutSession({
+        tenantId: 'tenant-1',
+        packageKey: 'COMPLETE',
+        band: '1-25',
+      });
+
+      expect(subscriptions.update).toHaveBeenCalledWith(
+        'sub_live',
+        expect.objectContaining({
+          items: [
+            { id: 'si_guard', price: 'price_complete_1_25', quantity: 1 },
+            { id: 'si_leadgen', deleted: true },
+          ],
+        }),
+      );
+    });
+
+    it('adds Lead Gen without touching the Guard line', async () => {
+      live([{ id: 'si_guard', lookup_key: GUARD_1_25 }]);
+
+      await service.createPlanCheckoutSession({
+        tenantId: 'tenant-1',
+        packageKey: 'GENERATION',
+        band: '1-25',
+        tier: 'PRO',
+      });
+
+      expect(subscriptions.update).toHaveBeenCalledWith(
+        'sub_live',
+        expect.objectContaining({
+          items: [{ price: 'price_leadgen_pro', quantity: 1 }],
+        }),
+      );
+    });
+
+    it('keeps the Lead Gen line when the guard-banded package changes', async () => {
+      live([
+        { id: 'si_guard', lookup_key: GUARD_1_25 },
+        { id: 'si_leadgen', lookup_key: PRO_KEY },
+      ]);
+
+      await buyGuard();
+
+      expect(subscriptions.update).toHaveBeenCalledWith(
+        'sub_live',
+        expect.objectContaining({
+          items: [{ id: 'si_guard', price: 'price_guard_26_50', quantity: 1 }],
+        }),
+      );
+    });
+
+    it('replaces one Lead Gen plan with another rather than stacking them', async () => {
+      live([
+        { id: 'si_guard', lookup_key: GUARD_1_25 },
+        { id: 'si_leadgen', lookup_key: leadGenTierLookupKey('STARTER') },
+      ]);
+
+      await service.createPlanCheckoutSession({
+        tenantId: 'tenant-1',
+        packageKey: 'GENERATION',
+        band: '1-25',
+        tier: 'PRO',
+      });
+
+      expect(subscriptions.update).toHaveBeenCalledWith(
+        'sub_live',
+        expect.objectContaining({
+          items: [
+            { id: 'si_leadgen', price: 'price_leadgen_pro', quantity: 1 },
+          ],
+        }),
+      );
+    });
+  });
+
   it('starts a fresh checkout when the old subscription was cancelled', async () => {
     subscriptionRecord = { providerSubscriptionId: 'sub_old' };
     subscriptions.retrieve.mockResolvedValue({

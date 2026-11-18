@@ -34,7 +34,7 @@ import {
   bandForGuardCount,
   bandRank,
   billableBand,
-  packageForModules,
+  resolvePackageForModules,
   planForLookupKey,
 } from './pricing.constants';
 import {
@@ -140,8 +140,7 @@ export class BillingController {
          * sits. The page says so rather than showing three starting plans
          * none of which they appear to be on.
          */
-        onBasePlan:
-          current?.packageKey === 'GENERATION' && !current.leadGenTier,
+        onBasePlan: current?.onBasePlan ?? false,
       },
       generationOnlyBand: GENERATION_ONLY_BAND,
       billableGuards,
@@ -182,20 +181,32 @@ export class BillingController {
     @GetUser() user: ActiveUser,
     @Body() dto: CreateCheckoutSessionDto,
   ) {
-    // The base Lead Gen plan carries no credits, so it is only for a tenant
-    // that already has some history with the product. A first-time buyer must
-    // take a starting plan: otherwise they would arrive on Lead Gen with an
-    // empty balance, unable to run a single search until they bought credits
-    // separately -- a product that does nothing on the day it is paid for.
-    if (
-      dto.package === 'GENERATION' &&
-      !dto.tier &&
-      !(await this.hasHeldLeadGen(user.tenantId))
-    ) {
-      throw new BadRequestException(
-        'Choose a Lead Gen plan: Starter, Pro or Elite. Each one includes ' +
-          'credits to start with, and they do not expire.',
-      );
+    if (dto.package === 'GENERATION') {
+      // Lead Gen rides alongside Guard or Operations, but Complete already
+      // contains it. Selling it to a Complete customer would add a second
+      // charge for a product they are already paying for.
+      const modules = [
+        ...(await this.entitlements.modulesForTenant(user.tenantId)),
+      ];
+      if (resolvePackageForModules(modules).packageKey === 'COMPLETE') {
+        throw new BadRequestException(
+          `${PACKAGE_LABELS.COMPLETE} already includes Lead Gen. Buy credits ` +
+            'instead of a second plan.',
+        );
+      }
+
+      // The base Lead Gen plan carries no credits, so it is only for a tenant
+      // that already has some history with the product. A first-time buyer
+      // must take a starting plan: otherwise they would arrive on Lead Gen
+      // with an empty balance, unable to run a single search until they
+      // bought credits separately -- a product that does nothing on the day
+      // it is paid for.
+      if (!dto.tier && !(await this.hasHeldLeadGen(user.tenantId))) {
+        throw new BadRequestException(
+          'Choose a Lead Gen plan: Starter, Pro or Elite. Each one includes ' +
+            'credits to start with, and they do not expire.',
+        );
+      }
     }
 
     const band = await this.billableBandFor(
@@ -322,24 +333,44 @@ export class BillingController {
     packageKey: PackageKey;
     band: GuardBand;
     leadGenTier?: LeadGenTierKey;
+    /** Lead Gen at the platform fee, with no credits included. */
+    onBasePlan?: boolean;
   } | null> {
     if (isCheckoutConfigured()) {
       try {
-        const lookupKey = await this.stripe.currentPlanLookupKey(tenantId);
+        // A subscription can carry two lines: a guard-banded package and a
+        // Lead Gen one. They are read separately rather than "the first item
+        // wins", which would report a Guard customer's Lead Gen add-on as
+        // their whole plan.
+        const keys = await this.stripe.currentPlanLookupKeys(tenantId);
 
-        // A Lead Gen tier is still the Generation package -- same module, same
-        // flat base price -- so it reports as GENERATION with the tier named.
-        const tier = leadGenTierForLookupKey(lookupKey);
-        if (tier) {
+        let banded: { packageKey: PackageKey; band: GuardBand } | null = null;
+        let leadGenTier: LeadGenTierKey | undefined;
+        let onBasePlan = false;
+
+        for (const key of keys) {
+          const tier = leadGenTierForLookupKey(key);
+          if (tier) {
+            leadGenTier = tier.key;
+            continue;
+          }
+
+          const plan = planForLookupKey(key);
+          if (!plan) continue;
+          // Lead Gen's base plan is sold under the Generation base band.
+          if (plan.packageKey === 'GENERATION') onBasePlan = true;
+          else banded = plan;
+        }
+
+        if (banded) return { ...banded, leadGenTier, onBasePlan };
+        if (leadGenTier || onBasePlan) {
           return {
             packageKey: 'GENERATION',
             band: GENERATION_ONLY_BAND,
-            leadGenTier: tier.key,
+            leadGenTier,
+            onBasePlan: onBasePlan && !leadGenTier,
           };
         }
-
-        const fromStripe = planForLookupKey(lookupKey);
-        if (fromStripe) return fromStripe;
       } catch {
         // Fall through to the entitlement-derived plan below.
       }
@@ -367,11 +398,21 @@ export class BillingController {
       }
     }
 
+    // Lead Gen is an add-on, so a tenant holding Guard Tour and Lead Gen is
+    // on Guard -- not on nothing, which is what asking for an exact package
+    // match used to report for that combination.
     const modules = [...(await this.entitlements.modulesForTenant(tenantId))];
-    const packageKey = packageForModules(modules);
+    const { packageKey, leadGenAddOn } = resolvePackageForModules(modules);
     if (!packageKey) return null;
 
     const billableGuards = await this.metering.billableGuardCount(tenantId);
-    return { packageKey, band: billableBand(packageKey, billableGuards) };
+    return {
+      packageKey,
+      band: billableBand(packageKey, billableGuards),
+      // Without Stripe there is no way to tell which Lead Gen plan they are
+      // on, only that they have one. Reported as the base plan, since that is
+      // the one that promises nothing about credits.
+      onBasePlan: leadGenAddOn || packageKey === 'GENERATION',
+    };
   }
 }

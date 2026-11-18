@@ -140,6 +140,39 @@ describe('BillingController plan checkout', () => {
     );
   });
 
+  // Complete already contains Lead Gen; a second line for it is a second
+  // charge for one product.
+  it('refuses a Lead Gen plan to a Complete customer', async () => {
+    entitlements.modulesForTenant.mockResolvedValue(
+      new Set(['LEAD_GEN', 'GUARD_TOUR', 'FINANCE']),
+    );
+
+    await expect(
+      controller.createCheckoutSession(user, {
+        package: 'GENERATION',
+        band: '1-25',
+        tier: 'PRO',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(stripe.createPlanCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  // Guard plus Lead Gen is a package with an add-on, not a forbidden
+  // combination: the whole point of the add-on is that both can run at once.
+  it('sells Lead Gen to a Guard customer', async () => {
+    entitlements.modulesForTenant.mockResolvedValue(new Set(['GUARD_TOUR']));
+
+    await controller.createCheckoutSession(user, {
+      package: 'GENERATION',
+      band: '1-25',
+      tier: 'PRO',
+    });
+
+    expect(stripe.createPlanCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({ packageKey: 'GENERATION', tier: 'PRO' }),
+    );
+  });
+
   it('sells the base plan to a tenant that has held Lead Gen', async () => {
     hasHeldLeadGen = true;
 

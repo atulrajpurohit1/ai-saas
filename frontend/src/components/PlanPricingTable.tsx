@@ -220,9 +220,10 @@ export default function PlanPricingTable({
           {bandLabel(pricing.minimumBand)}.
         </p>
         <p>
-          AegisLead Complete includes Lead Gen. The monthly credits are part of
-          the Lead Gen plans above; on Complete, credits are bought separately
-          from the credits page.
+          Lead Gen can be added to Guard or Operations and is billed alongside
+          it — buying it does not end the plan you are on. AegisLead Complete
+          already includes Lead Gen, so it needs no add-on; on Complete,
+          credits are bought from the credits page.
         </p>
       </div>
     </div>

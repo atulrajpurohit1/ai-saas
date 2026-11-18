@@ -8,6 +8,7 @@ import { PendingCompService } from './pending-comp.service';
 import {
   LEAD_GEN_TIERS,
   leadGenCreditsKey,
+  leadGenPurchaseKey,
   leadGenTierLookupKey,
 } from './lead-gen-tiers.constants';
 
@@ -581,6 +582,7 @@ describe('StripeWebhookService', () => {
       ({
         id: 'in_1',
         customer: 'cus_123',
+        subscription: 'sub_123',
         billing_reason: 'subscription_create',
         amount_paid: 54_800,
         lines: { data: [{ price: { lookup_key: PRO_KEY } }] },
@@ -605,6 +607,40 @@ describe('StripeWebhookService', () => {
       );
     });
 
+    // The add-on shape: two lines on one subscription. The module set is the
+    // union of what each line sells, so neither cancels the other.
+    it('provisions Guard and Lead Gen from a subscription carrying both', async () => {
+      stripe.retrieveSubscription.mockResolvedValue(
+        subscription({
+          lookupKeys: ['aegislead_guard_26_50_149usd_monthly', PRO_KEY],
+        }),
+      );
+
+      await service.handle(
+        event('customer.subscription.updated', {
+          id: 'sub_123',
+          customer: 'cus_123',
+          status: 'active',
+          metadata: { tenantId: 'tenant-1' },
+          items: {
+            data: [
+              { price: { lookup_key: 'aegislead_guard_26_50_149usd_monthly' } },
+              { price: { lookup_key: PRO_KEY } },
+            ],
+          },
+        }),
+      );
+
+      expect(provisioning.provision).toHaveBeenCalledWith(
+        expect.objectContaining({
+          modules: expect.arrayContaining([
+            'GUARD_TOUR',
+            'LEAD_GEN',
+          ]) as string[],
+        }),
+      );
+    });
+
     it('grants the credits when the plan is first paid for', async () => {
       await service.handle(event('invoice.paid', invoice()));
 
@@ -612,31 +648,85 @@ describe('StripeWebhookService', () => {
         expect.objectContaining({
           tenantId: 'tenant-1',
           amount: LEAD_GEN_TIERS.PRO.includedCredits,
+          // The subscription-and-tier key is what makes it a one-time grant.
+          idempotencyKey: leadGenPurchaseKey('sub_123', 'PRO'),
           stripeSessionId: leadGenCreditsKey('in_1'),
         }),
       );
     });
 
-    // The credits are bought once, at the door, and never expire. Paying out
-    // again every month would make them a monthly allowance, which is exactly
-    // what they are not -- and a customer who wants more tops up instead.
-    it('grants nothing on a renewal', async () => {
-      const result = await service.handle(
-        event('invoice.paid', invoice({ billing_reason: 'subscription_cycle' })),
+    /**
+     * A customer who already pays for Guard and adds Lead Gen mid-cycle is
+     * invoiced a proration, not a new subscription. They have bought the
+     * plan and are owed its credits -- filtering this out was the bug that
+     * would have charged add-on customers $548 for nothing.
+     */
+    it('grants the credits on a mid-cycle add-on', async () => {
+      await service.handle(
+        event(
+          'invoice.paid',
+          invoice({
+            billing_reason: 'subscription_update',
+            amount_paid: 18_000,
+          }),
+        ),
       );
 
-      expect(credits.grant).not.toHaveBeenCalled();
-      expect(result).toMatchObject({ handled: false });
+      expect(credits.grant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: LEAD_GEN_TIERS.PRO.includedCredits,
+          idempotencyKey: leadGenPurchaseKey('sub_123', 'PRO'),
+        }),
+      );
     });
 
-    // A mid-cycle plan change invoices a proration. Paying out on one would
-    // let a customer mint credits by switching plans back and forth.
-    it('grants nothing for a mid-cycle proration', async () => {
+    /**
+     * The credits are bought once and never expire, so a renewal owes
+     * nothing. That is enforced by the key rather than by the billing
+     * reason: a renewal asks under the key the purchase already used, and
+     * the ledger's unique index refuses it.
+     */
+    it('asks under the same key on a renewal, which the ledger refuses', async () => {
+      credits.grant.mockResolvedValue({ balance: 13_000, granted: false });
+
       const result = await service.handle(
         event(
           'invoice.paid',
-          invoice({ billing_reason: 'subscription_update' }),
+          invoice({ billing_reason: 'subscription_cycle' }),
         ),
+      );
+
+      expect(credits.grant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idempotencyKey: leadGenPurchaseKey('sub_123', 'PRO'),
+        }),
+      );
+      expect(result).toMatchObject({ handled: true });
+    });
+
+    // Switching tier is a different purchase, so it carries a different key.
+    it('keys an upgrade to a different tier separately', async () => {
+      const STARTER_KEY = leadGenTierLookupKey('STARTER');
+      await service.handle(
+        event(
+          'invoice.paid',
+          invoice({
+            lines: { data: [{ price: { lookup_key: STARTER_KEY } }] },
+          }),
+        ),
+      );
+
+      expect(credits.grant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: LEAD_GEN_TIERS.STARTER.includedCredits,
+          idempotencyKey: leadGenPurchaseKey('sub_123', 'STARTER'),
+        }),
+      );
+    });
+
+    it('grants nothing for an invoice that is not a subscription', async () => {
+      const result = await service.handle(
+        event('invoice.paid', invoice({ billing_reason: 'manual' })),
       );
 
       expect(credits.grant).not.toHaveBeenCalled();

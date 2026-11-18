@@ -7,7 +7,7 @@ import {
   billableBand,
   isCustomQuote,
   monthlyPrice,
-  packageForModules,
+  resolvePackageForModules,
 } from './pricing.constants';
 
 /**
@@ -77,7 +77,10 @@ export class GuardMeteringService {
    */
   async billingProfile(tenantId: string) {
     const modules = [...(await this.entitlements.modulesForTenant(tenantId))];
-    const packageKey = packageForModules(modules);
+    // Lead Gen rides alongside a package rather than forming one, so it is
+    // resolved as an add-on. Without this, Guard plus Lead Gen -- an ordinary
+    // combination now -- was priced as "Custom, ask sales".
+    const { packageKey, leadGenAddOn } = resolvePackageForModules(modules);
 
     const [billableGuards, totalGuards] = await Promise.all([
       this.billableGuardCount(tenantId),
@@ -85,8 +88,8 @@ export class GuardMeteringService {
     ]);
 
     if (!packageKey) {
-      // A combination outside the four packages, e.g. Generation + Guard but
-      // not Operations. Priced by arrangement rather than from the table.
+      // A combination outside the packages, e.g. Guard plus Operations but
+      // not Complete. Priced by arrangement rather than from the table.
       return {
         packageKey: null,
         packageName: 'Custom',
@@ -94,6 +97,7 @@ export class GuardMeteringService {
         billableGuards,
         totalGuards,
         monthlyPrice: null,
+        leadGenAddOn: false,
         customQuote: true,
       };
     }
@@ -106,7 +110,12 @@ export class GuardMeteringService {
       band,
       billableGuards,
       totalGuards,
+      // The banded package's price only. A Lead Gen add-on is charged on its
+      // own line and its amount depends on which plan was bought, which this
+      // service cannot see -- it reads entitlements, not Stripe. Flagged so
+      // nothing presents this figure as the whole bill.
       monthlyPrice: price,
+      leadGenAddOn,
       customQuote: isCustomQuote(band),
     };
   }
