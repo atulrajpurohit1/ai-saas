@@ -16,6 +16,24 @@ import type { NextConfig } from "next";
 const isContainerBuild = process.env.DOCKER_BUILD === "1";
 
 const nextConfig: NextConfig = {
+  // /signup has never been a route: the register form lives on the login page
+  // and opens with ?register=1. People and outside links still guess the
+  // conventional URL and land on a 404, so alias it. Next passes the incoming
+  // query string through and merges it with the one below, so
+  // /signup?next=/settings/plan still lands on pricing after sign-up.
+  //
+  // Deliberately not permanent: a 308 is cached by the browser more or less
+  // forever, which would break a real /signup page if one is ever added.
+  async redirects() {
+    return [
+      {
+        source: "/signup",
+        destination: "/login?register=1",
+        permanent: false,
+      },
+    ];
+  },
+
   ...(isContainerBuild
     ? {
         // Emits .next/standalone: a self-contained server.js plus only the
