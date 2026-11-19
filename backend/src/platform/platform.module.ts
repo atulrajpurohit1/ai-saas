@@ -6,6 +6,7 @@ import { PlatformAuthModule } from '../platform-auth/platform-auth.module';
 import { EmailModule } from '../email/email.module';
 import { PlatformMonitoringController } from './platform-monitoring.controller';
 import { PlatformMonitoringService } from './platform-monitoring.service';
+import { PlatformAnalyticsService } from './platform-analytics.service';
 import { TenantAdminController } from './tenant-admin.controller';
 import { TenantAdminService } from './tenant-admin.service';
 
@@ -23,6 +24,6 @@ import { TenantAdminService } from './tenant-admin.service';
 @Module({
   imports: [PrismaModule, AiModule, RolesModule, PlatformAuthModule, EmailModule],
   controllers: [PlatformMonitoringController, TenantAdminController],
-  providers: [PlatformMonitoringService, TenantAdminService],
+  providers: [PlatformMonitoringService, PlatformAnalyticsService, TenantAdminService],
 })
 export class PlatformModule {}

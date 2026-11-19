@@ -2,6 +2,7 @@
 
 import { formatDate as fmtDate } from '@/lib/format';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
 import { usePlatformAuth } from '@/context/PlatformAuthContext';
@@ -30,7 +31,9 @@ import {
 } from '@/lib/platform';
 import {
   AlertTriangle,
+  ArrowRight,
   Ban,
+  BarChart3,
   Building2,
   Coins,
   Gift,
@@ -395,6 +398,24 @@ Reason (optional):`,
         description={`Signed in as ${admin?.email}. Monitor every tenant, manage accounts, and grant the AegisLead Trial plan.`}
         icon={ShieldCheck}
       />
+
+      <Link
+        href="/super-admin/analytics"
+        className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 transition hover:border-primary/40"
+      >
+        <span className="flex items-center gap-2.5">
+          <BarChart3 className="h-5 w-5 text-primary" />
+          <span>
+            <span className="block text-sm font-semibold text-foreground">
+              Analytics
+            </span>
+            <span className="block text-xs text-muted-foreground">
+              Monthly record of growth, credit sales, AI tokens and cost
+            </span>
+          </span>
+        </span>
+        <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+      </Link>
 
       {error && (
         <div className="mb-4 flex items-start gap-2 rounded-lg border border-error/30 bg-error-wash p-3 text-sm text-error">

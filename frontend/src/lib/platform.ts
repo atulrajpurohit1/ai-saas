@@ -192,6 +192,97 @@ export async function getRecharges(limit = 50): Promise<RechargeAttempt[]> {
   return res.data;
 }
 
+// --- Monthly analytics --------------------------------------------------
+
+/** How a tenant came by credits. See CREDIT_CHANNEL_LABELS. */
+export type CreditChannel = 'pack' | 'recharge' | 'plan' | 'granted';
+
+export const CREDIT_CHANNEL_LABELS: Record<CreditChannel, string> = {
+  pack: 'Credit packs',
+  recharge: 'Auto top-ups',
+  plan: 'Included with plan',
+  granted: 'Granted (not sold)',
+};
+
+export interface AnalyticsMonth {
+  /** `YYYY-MM`, in UTC. */
+  month: string;
+  newTenants: number;
+  newUsers: number;
+  /** Proxy for plans bought -- see `approximations.moduleActivations`. */
+  moduleActivations: number;
+  creditPurchases: number;
+  creditsPurchased: number;
+  creditsByChannel: Record<CreditChannel, number>;
+  purchasesByChannel: Record<CreditChannel, number>;
+  creditRevenueUsd: number;
+  /** Sold purchases that matched no pack size, so are missing from revenue. */
+  unpricedPurchases: number;
+  creditsConsumed: number;
+  searchesSettled: number;
+  upstreamCostUsd: number;
+  aiCalls: number;
+  aiFailedCalls: number;
+  aiInputTokens: number;
+  aiOutputTokens: number;
+  aiTotalTokens: number;
+  aiCostUsd: number;
+  rechargeSucceeded: number;
+  rechargeFailed: number;
+  rechargeRevenueUsd: number;
+}
+
+export interface AnalyticsSnapshot {
+  tenants: number;
+  users: number;
+  suspendedTenants: number;
+  planMix: { paying: number; trial: number; comped: number; none: number };
+  creditsOutstanding: number;
+  creditsPurchasedLifetime: number;
+  creditsConsumedLifetime: number;
+  aiCallsLifetime: number;
+  aiTokensLifetime: number;
+  aiCostUsdLifetime: number;
+}
+
+export interface PlatformAnalytics {
+  generatedAt: string;
+  months: number;
+  timezone: string;
+  series: AnalyticsMonth[];
+  snapshot: AnalyticsSnapshot;
+  breakdowns: {
+    aiByFeature: {
+      feature: string;
+      calls: number;
+      failed: number;
+      tokens: number;
+      cost: number;
+    }[];
+    aiByModel: {
+      model: string;
+      calls: number;
+      tokens: number;
+      cost: number;
+    }[];
+    topTenants: {
+      tenantId: string;
+      name: string;
+      credits: number;
+      purchases: number;
+    }[];
+  };
+  /** Plain-language caveats the screen shows, so the numbers aren't overread. */
+  approximations: { moduleActivations: string; creditRevenueUsd: string };
+}
+
+export async function getAnalytics(months = 12): Promise<PlatformAnalytics> {
+  const res = await platformApi.get<PlatformAnalytics>('platform/analytics', {
+    params: { months },
+  });
+  return res.data;
+}
+
 // --- Tenant lifecycle ----------------------------------------------------
 
 export interface CreateTenantInput {

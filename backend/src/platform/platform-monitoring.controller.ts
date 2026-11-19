@@ -1,6 +1,7 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { PlatformAdminGuard } from '../platform-auth/guards/platform-admin.guard';
 import { PlatformMonitoringService } from './platform-monitoring.service';
+import { PlatformAnalyticsService } from './platform-analytics.service';
 
 /**
  * Cross-tenant monitoring for the platform owner: plans, credit balances, AI
@@ -11,11 +12,27 @@ import { PlatformMonitoringService } from './platform-monitoring.service';
 @UseGuards(PlatformAdminGuard)
 @Controller('platform')
 export class PlatformMonitoringController {
-  constructor(private readonly monitoring: PlatformMonitoringService) {}
+  constructor(
+    private readonly monitoring: PlatformMonitoringService,
+    private readonly analytics: PlatformAnalyticsService,
+  ) {}
 
   @Get('overview')
   overview() {
     return this.monitoring.overview();
+  }
+
+  /**
+   * Monthly history for the analytics screen. `months` is clamped by the
+   * service, so a hand-typed `?months=9999` returns the maximum window rather
+   * than a scan of the whole table.
+   */
+  @Get('analytics')
+  monthlyAnalytics(@Query('months') months?: string) {
+    const parsed = Number(months);
+    return this.analytics.monthly(
+      Number.isInteger(parsed) && parsed > 0 ? parsed : undefined,
+    );
   }
 
   @Get('tenants')
