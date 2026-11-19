@@ -16,6 +16,8 @@ import {
   CREDIT_PACK_KEYS,
   CreditPackKey,
 } from './credit-packs.constants';
+import { EmailService } from '../email/email.service';
+import { fireAndForget } from '../common/fire-and-forget.util';
 
 /**
  * Consecutive declines before auto-recharge pauses itself.
@@ -60,6 +62,7 @@ export class CreditAutoRechargeService {
     private readonly prisma: PrismaService,
     private readonly credits: CreditsService,
     private readonly stripe: StripeService,
+    private readonly email: EmailService,
   ) {}
 
   /** Current settings for a tenant, or null when never configured. */
@@ -384,6 +387,26 @@ export class CreditAutoRechargeService {
     this.logger.log(
       `Auto-recharged tenant ${config.tenantId}: ${pack.credits} credits for ${pack.price} (balance was ${balance}, now ${granted.balance}).`,
     );
+
+    // Same internal alert the Checkout path sends, to the same inbox: an
+    // automatic top-up is still money changing hands for credits. Gated on
+    // granted.granted so a replayed sweep that granted nothing (the grant is
+    // keyed on the PaymentIntent id) does not mail a duplicate.
+    if (granted.granted) {
+      fireAndForget(
+        () =>
+          this.email.sendCreditPurchaseNotification({
+            tenantId: config.tenantId,
+            packLabel: pack.label,
+            credits: pack.credits,
+            amount: pack.price,
+            balance: granted.balance,
+            source: 'auto-recharge',
+          }),
+        this.logger,
+        `Auto-recharge purchase alert for tenant ${config.tenantId}`,
+      );
+    }
 
     return { status: 'recharged', creditsGranted: pack.credits };
   }

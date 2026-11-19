@@ -1244,9 +1244,7 @@ Total monthly shortfall against list price: ${params.monthlyShortfall}`;
     ownerEmail: string;
     source: 'self-service signup' | 'super admin';
   }): Promise<{ sent: boolean; error?: string }> {
-    const recipient = (
-      process.env.SIGNUP_ALERT_EMAIL || 'atul@hybridmonks.com'
-    ).trim();
+    const recipient = this.internalAlertRecipient();
 
     const companyName = params.companyName?.trim() || '(no company name)';
     const ownerName = params.ownerName?.trim() || '(not provided)';
@@ -1299,6 +1297,142 @@ Created via: ${params.source}`;
         error instanceof Error ? error.message : 'Unknown mail error';
       this.logger.error(
         `New-signup notification to ${recipient} failed: ${message}`,
+      );
+      return { sent: false, error: message };
+    }
+  }
+
+  /**
+   * The internal inbox for platform heads-up mail -- the signup notification
+   * above and the credit-purchase notification below. Deliberately one
+   * address and one resolver: the client asked for credit purchases to land
+   * wherever signups land, so reading the env var in two places would let
+   * them drift apart the next time that inbox changes.
+   */
+  private internalAlertRecipient(): string {
+    return (process.env.SIGNUP_ALERT_EMAIL || 'atul@hybridmonks.com').trim();
+  }
+
+  /**
+   * Internal heads-up that a tenant has just bought Prospect Search credits.
+   *
+   * Goes to the same inbox as sendNewSignupNotification (see
+   * internalAlertRecipient), because signup says an account exists and this
+   * says it started paying -- the client wants both in one place. Never goes
+   * to the customer: Stripe already sends them a receipt, so this is
+   * deliberately unbranded and uses the platform shell.
+   *
+   * Fires for both ways credits are bought -- a pack bought by hand through
+   * Checkout, and an automatic top-up charged to a saved card. It does NOT
+   * fire for the credits bundled with a Lead Gen plan, which arrive with a
+   * subscription rather than a credit purchase.
+   *
+   * Best-effort by contract, exactly like sendNewSignupNotification: it
+   * catches its own errors and returns a result rather than throwing, because
+   * a notification failure must never undo or fail a purchase the customer
+   * has already paid for. Callers fire it without awaiting.
+   */
+  async sendCreditPurchaseNotification(params: {
+    tenantId: string;
+    packLabel: string;
+    credits: number;
+    /** Amount charged, in whole US dollars -- pack prices here are USD. */
+    amount?: number | null;
+    /** Credit balance after the grant landed. */
+    balance?: number | null;
+    source: 'self-service purchase' | 'auto-recharge';
+  }): Promise<{ sent: boolean; error?: string }> {
+    const recipient = this.internalAlertRecipient();
+
+    // Who bought is a convenience for whoever reads this, not something the
+    // purchase depends on, so a failed lookup degrades to the tenant id
+    // rather than dropping the notification.
+    let companyName = params.tenantId;
+    let ownerEmail = '(not found)';
+    try {
+      const tenant = await this.prisma.tenant.findUnique({
+        where: { id: params.tenantId },
+        select: { name: true, ownerUserId: true },
+      });
+      if (tenant?.name?.trim()) companyName = tenant.name.trim();
+      if (tenant?.ownerUserId) {
+        const owner = await this.prisma.user.findUnique({
+          where: { id: tenant.ownerUserId },
+          select: { email: true },
+        });
+        if (owner?.email?.trim()) ownerEmail = owner.email.trim();
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Could not read tenant ${params.tenantId} for the credit-purchase notification: ${
+          error instanceof Error ? error.message : 'unknown error'
+        }`,
+      );
+    }
+
+    const credits = params.credits.toLocaleString('en-US');
+    const amount =
+      typeof params.amount === 'number' && Number.isFinite(params.amount)
+        ? `$${params.amount.toLocaleString('en-US')}`
+        : '(not recorded)';
+    const balance =
+      typeof params.balance === 'number' && Number.isFinite(params.balance)
+        ? params.balance.toLocaleString('en-US')
+        : '(not recorded)';
+
+    const subject = `Credit purchase: ${companyName} bought ${credits} credits`;
+    const text = `${companyName} has just bought Prospect Search credits.
+
+Company name: ${companyName}
+Owner email: ${ownerEmail}
+Pack: ${params.packLabel}
+Credits added: ${credits}
+Amount charged: ${amount}
+Balance after purchase: ${balance}
+
+Purchased via: ${params.source}`;
+
+    const row = (label: string, value: string) => `
+      <tr>
+        <td style="padding:10px 16px; font-size:13px; color:#64748b; border-bottom:1px solid #e2e8f0; white-space:nowrap;">${label}</td>
+        <td style="padding:10px 16px; font-size:15px; color:#0f172a; font-weight:600; border-bottom:1px solid #e2e8f0;">${escapeHtml(value)}</td>
+      </tr>`;
+
+    const bodyHtml = `
+      <p style="margin:0 0 20px; font-size:15px; line-height:24px; color:#1f2937;">
+        ${escapeHtml(companyName)} has just bought Prospect Search credits.
+      </p>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; margin:0 0 20px;">
+        ${row('Company name', companyName)}
+        ${row('Owner email', ownerEmail)}
+        ${row('Pack', params.packLabel)}
+        ${row('Credits added', credits)}
+        ${row('Amount charged', amount)}
+        ${row('Balance after purchase', balance)}
+      </table>
+      <p style="margin:0; font-size:13px; line-height:20px; color:#94a3b8;">
+        Purchased via ${escapeHtml(params.source)}.
+      </p>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        ...this.senderFor(PLATFORM_NAME),
+        to: recipient,
+        subject,
+        text,
+        html: this.platformEmailShell({
+          title: 'Credit purchase',
+          preheader: `${companyName} bought ${credits} Prospect Search credits.`,
+          bodyHtml,
+        }),
+      });
+      return { sent: true };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown mail error';
+      this.logger.error(
+        `Credit-purchase notification to ${recipient} failed: ${message}`,
       );
       return { sent: false, error: message };
     }

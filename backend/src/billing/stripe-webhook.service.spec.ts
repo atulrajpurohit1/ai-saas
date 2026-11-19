@@ -5,6 +5,7 @@ import { StripeWebhookService } from './stripe-webhook.service';
 import { SubscriptionProvisioningService } from './subscription-provisioning.service';
 import { CreditsService } from './credits.service';
 import { PendingCompService } from './pending-comp.service';
+import { EmailService } from '../email/email.service';
 import {
   LEAD_GEN_TIERS,
   leadGenCreditsKey,
@@ -66,6 +67,7 @@ describe('StripeWebhookService', () => {
   };
   let credits: { grant: jest.Mock; reversePurchase: jest.Mock };
   let pendingComps: { activate: jest.Mock };
+  let email: { sendCreditPurchaseNotification: jest.Mock };
 
   beforeEach(async () => {
     process.env.STRIPE_PRICE_LEAD_GEN_MONTHLY = PRICE_LEAD_GEN;
@@ -93,6 +95,11 @@ describe('StripeWebhookService', () => {
     };
     // No queued comp by default, which is the ordinary case for every tenant.
     pendingComps = { activate: jest.fn().mockResolvedValue(null) };
+    email = {
+      sendCreditPurchaseNotification: jest
+        .fn()
+        .mockResolvedValue({ sent: true }),
+    };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -101,6 +108,7 @@ describe('StripeWebhookService', () => {
         { provide: SubscriptionProvisioningService, useValue: provisioning },
         { provide: CreditsService, useValue: credits },
         { provide: PendingCompService, useValue: pendingComps },
+        { provide: EmailService, useValue: email },
       ],
     }).compile();
 
@@ -472,6 +480,50 @@ describe('StripeWebhookService', () => {
       expect(credits.grant).not.toHaveBeenCalled();
       expect(result).toEqual({ handled: false, reason: 'missing-tenant' });
     });
+
+    // The client wants purchases in the same inbox as new signups.
+    it('notifies the team that credits were bought', async () => {
+      stripe.priceIdsForCheckoutSession.mockResolvedValue([PRICE_CREDITS_PRO]);
+
+      await service.handle(event('checkout.session.completed', packSession()));
+
+      expect(email.sendCreditPurchaseNotification).toHaveBeenCalledWith({
+        tenantId: 'tenant-1',
+        packLabel: 'Pro Pack',
+        credits: 13000,
+        amount: 249,
+        balance: 250,
+        source: 'self-service purchase',
+      });
+    });
+
+    // Stripe redelivers events. The grant is idempotent on the session id, so
+    // a replay grants nothing -- and must not mail a second time either.
+    it('does not notify again when a replayed event grants nothing', async () => {
+      stripe.priceIdsForCheckoutSession.mockResolvedValue([PRICE_CREDITS_PRO]);
+      credits.grant.mockResolvedValue({ balance: 13250, granted: false });
+
+      await service.handle(event('checkout.session.completed', packSession()));
+
+      expect(email.sendCreditPurchaseNotification).not.toHaveBeenCalled();
+    });
+
+    it('still handles the purchase when the notification fails', async () => {
+      stripe.priceIdsForCheckoutSession.mockResolvedValue([PRICE_CREDITS_PRO]);
+      email.sendCreditPurchaseNotification.mockRejectedValue(
+        new Error('SMTP down'),
+      );
+
+      const result = await service.handle(
+        event('checkout.session.completed', packSession()),
+      );
+
+      expect(result).toEqual({
+        handled: true,
+        tenantId: 'tenant-1',
+        credits: 13000,
+      });
+    });
   });
 
   describe('refunds and disputes', () => {
@@ -653,6 +705,18 @@ describe('StripeWebhookService', () => {
           stripeSessionId: leadGenCreditsKey('in_1'),
         }),
       );
+    });
+
+    /**
+     * Credits bundled with a plan are not a credit purchase. The internal
+     * alert is specifically about someone BUYING credits -- a pack, or an
+     * automatic top-up -- so subscribing to Lead Gen must not trigger it,
+     * even though credits land as a result.
+     */
+    it('does not send the credit-purchase alert for a plan grant', async () => {
+      await service.handle(event('invoice.paid', invoice()));
+
+      expect(email.sendCreditPurchaseNotification).not.toHaveBeenCalled();
     });
 
     /**

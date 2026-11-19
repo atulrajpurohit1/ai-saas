@@ -14,6 +14,8 @@ import { CreditsService } from './credits.service';
 import { StripeService } from './stripe.service';
 import { SubscriptionProvisioningService } from './subscription-provisioning.service';
 import { PendingCompService } from './pending-comp.service';
+import { EmailService } from '../email/email.service';
+import { fireAndForget } from '../common/fire-and-forget.util';
 
 /**
  * Translates Stripe events into entitlement changes.
@@ -37,6 +39,7 @@ export class StripeWebhookService {
     private readonly provisioning: SubscriptionProvisioningService,
     private readonly credits: CreditsService,
     private readonly pendingComps: PendingCompService,
+    private readonly email: EmailService,
   ) {}
 
   async handle(event: Stripe.Event) {
@@ -175,6 +178,28 @@ export class StripeWebhookService {
         ? `Granted ${pack.credits} credits to tenant ${tenantId} from ${session.id}; balance is now ${result.balance}.`
         : `Credit pack ${session.id} was already applied for tenant ${tenantId}; balance unchanged at ${result.balance}.`,
     );
+
+    // Internal heads-up, to the same inbox as the new-signup alert. Gated on
+    // result.granted, which is the grant's idempotency answer: Stripe retries
+    // deliveries, and a redelivered event that granted nothing must not mail
+    // the team a second time about one purchase. Fire-and-forget -- a webhook
+    // that throws makes Stripe retry forever, and the customer has already
+    // paid, so a failed notification must not fail the handler.
+    if (result.granted) {
+      fireAndForget(
+        () =>
+          this.email.sendCreditPurchaseNotification({
+            tenantId,
+            packLabel: pack.label,
+            credits: pack.credits,
+            amount: pack.price,
+            balance: result.balance,
+            source: 'self-service purchase',
+          }),
+        this.logger,
+        `Credit purchase alert for tenant ${tenantId}`,
+      );
+    }
 
     return { handled: true, tenantId, credits: pack.credits };
   }

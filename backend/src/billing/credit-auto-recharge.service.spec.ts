@@ -7,6 +7,7 @@ import { CreditAutoRechargeService } from './credit-auto-recharge.service';
 import { CreditsService } from './credits.service';
 import { StripeService } from './stripe.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 import { CREDIT_PACKS } from './credit-packs.constants';
 
 const PRO = CREDIT_PACKS.PRO;
@@ -96,13 +97,21 @@ function build(options: {
     paymentMethodFromSetupSession: jest.fn(),
   } as unknown as StripeService;
 
+  const sendCreditPurchaseNotification = jest
+    .fn()
+    .mockResolvedValue({ sent: true });
+  const email = {
+    sendCreditPurchaseNotification,
+  } as unknown as EmailService;
+
   return {
-    service: new CreditAutoRechargeService(prisma, credits, stripe),
+    service: new CreditAutoRechargeService(prisma, credits, stripe, email),
     prisma,
     charge,
     grant,
     updateConfig,
     createAttempt,
+    sendCreditPurchaseNotification,
   };
 }
 
@@ -279,6 +288,44 @@ describe('CreditAutoRechargeService charging', () => {
     await service.rechargeIfDue('t1');
     expect(grant.mock.calls[0][0].stripeSessionId).toBe('pi_123');
     expect(grant.mock.calls[0][0].amount).toBe(PRO.credits);
+  });
+
+  // An automatic top-up is still money paid for credits, so it reaches the
+  // same internal inbox as a pack bought through Checkout.
+  it('notifies the team about an automatic top-up', async () => {
+    const { service, sendCreditPurchaseNotification } = build();
+    await service.rechargeIfDue('t1');
+
+    expect(sendCreditPurchaseNotification).toHaveBeenCalledWith({
+      tenantId: 't1',
+      packLabel: PRO.label,
+      credits: PRO.credits,
+      amount: PRO.price,
+      balance: 13100,
+      source: 'auto-recharge',
+    });
+  });
+
+  it('does not notify when a declined charge grants nothing', async () => {
+    const { service, sendCreditPurchaseNotification } = build({
+      chargeImpl: jest.fn().mockRejectedValue(new Error('card_declined')),
+    });
+
+    await service.rechargeIfDue('t1');
+    expect(sendCreditPurchaseNotification).not.toHaveBeenCalled();
+  });
+
+  // The grant is keyed on the PaymentIntent id, so a concurrent sweep or a
+  // retry grants nothing the second time -- and must not mail a duplicate.
+  it('does not notify twice when the grant was already applied', async () => {
+    const { service, sendCreditPurchaseNotification } = build({
+      grantImpl: jest
+        .fn()
+        .mockResolvedValue({ balance: 13100, granted: false }),
+    });
+
+    await service.rechargeIfDue('t1');
+    expect(sendCreditPurchaseNotification).not.toHaveBeenCalled();
   });
 
   it('treats a non-succeeded intent as a failure rather than a top-up', async () => {

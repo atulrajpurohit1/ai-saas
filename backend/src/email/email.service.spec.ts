@@ -558,4 +558,113 @@ describe('EmailService', () => {
       ).rejects.toThrow(/Sender is not valid/);
     });
   });
+
+  describe('credit-purchase notification', () => {
+    const originalAlertEmail = process.env.SIGNUP_ALERT_EMAIL;
+
+    const buildWithTenant = async (
+      tenant: { name: string; ownerUserId: string | null } | null,
+      owner: { email: string } | null = null,
+    ) => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          EmailService,
+          {
+            provide: PrismaService,
+            useValue: {
+              tenant: { findUnique: jest.fn().mockResolvedValue(tenant) },
+              user: { findUnique: jest.fn().mockResolvedValue(owner) },
+            },
+          },
+          {
+            provide: BrandingService,
+            useValue: {
+              brandingSnapshot: jest.fn(),
+              emailShell: jest.fn(),
+            },
+          },
+        ],
+      }).compile();
+
+      const svc = module.get<EmailService>(EmailService);
+      const sendMail = jest
+        .fn<Promise<{ messageId: string }>, [Record<string, string>]>()
+        .mockResolvedValue({ messageId: 'test-id' });
+      (
+        svc as unknown as { transporter: { sendMail: typeof sendMail } }
+      ).transporter = { sendMail };
+      return { service: svc, sendMail };
+    };
+
+    afterEach(() => {
+      if (originalAlertEmail === undefined) {
+        delete process.env.SIGNUP_ALERT_EMAIL;
+      } else {
+        process.env.SIGNUP_ALERT_EMAIL = originalAlertEmail;
+      }
+    });
+
+    // The whole point of the feature: one inbox for signups and purchases.
+    it('goes to SIGNUP_ALERT_EMAIL, the same inbox as the signup alert', async () => {
+      process.env.SIGNUP_ALERT_EMAIL = 'sales@aegislead.co';
+      const { service, sendMail } = await buildWithTenant(
+        { name: 'Acme Security', ownerUserId: 'user-1' },
+        { email: 'owner@acme.test' },
+      );
+
+      const result = await service.sendCreditPurchaseNotification({
+        tenantId: 'tenant-1',
+        packLabel: 'Pro Pack',
+        credits: 13000,
+        amount: 249,
+        balance: 13250,
+        source: 'self-service purchase',
+      });
+
+      expect(result).toEqual({ sent: true });
+      const mail = sendMail.mock.calls[0][0];
+      expect(mail.to).toBe('sales@aegislead.co');
+      expect(mail.subject).toContain('Acme Security');
+      expect(mail.subject).toContain('13,000');
+      expect(mail.text).toContain('owner@acme.test');
+      expect(mail.text).toContain('Pro Pack');
+      expect(mail.text).toContain('$249');
+    });
+
+    // A missing tenant row must not lose the alert -- somebody paid.
+    it('still sends when the tenant lookup finds nothing', async () => {
+      const { service, sendMail } = await buildWithTenant(null);
+
+      const result = await service.sendCreditPurchaseNotification({
+        tenantId: 'tenant-1',
+        packLabel: 'Starter Pack',
+        credits: 3000,
+        amount: 149,
+        balance: 3000,
+        source: 'auto-recharge',
+      });
+
+      expect(result).toEqual({ sent: true });
+      expect(sendMail.mock.calls[0][0].text).toContain('tenant-1');
+    });
+
+    // Best-effort by contract: callers fire this without awaiting, so a
+    // transport failure has to come back as a result, never as a throw.
+    it('returns a failure result rather than throwing when the send fails', async () => {
+      const { service, sendMail } = await buildWithTenant({
+        name: 'Acme Security',
+        ownerUserId: null,
+      });
+      sendMail.mockRejectedValue(new Error('SMTP down'));
+
+      await expect(
+        service.sendCreditPurchaseNotification({
+          tenantId: 'tenant-1',
+          packLabel: 'Pro Pack',
+          credits: 13000,
+          source: 'self-service purchase',
+        }),
+      ).resolves.toEqual({ sent: false, error: 'SMTP down' });
+    });
+  });
 });
