@@ -74,21 +74,11 @@ export default function CrmConnectDialog({
     onOpenChange(next);
   };
 
-  /**
-   * A tenant can always connect an api_key provider. OAuth providers need
-   * credentials registered on our side first, so hide the ones that have
-   * none rather than showing a dead "Not configured" card.
-   */
-  const connectable = useMemo(
-    () => providers.filter((provider) => provider.auth_kind === 'api_key' || provider.configured),
-    [providers],
-  );
-
   const visible = useMemo(() => {
     const term = query.trim().toLowerCase();
-    if (!term) return connectable;
-    return connectable.filter((provider) => provider.label.toLowerCase().includes(term));
-  }, [connectable, query]);
+    if (!term) return providers;
+    return providers.filter((provider) => provider.label.toLowerCase().includes(term));
+  }, [providers, query]);
 
   /**
    * Both kinds get a second step: api_key providers collect credentials,
@@ -186,18 +176,27 @@ export default function CrmConnectDialog({
               </p>
             ) : (
               <div className="grid max-h-72 gap-2 overflow-y-auto sm:grid-cols-2">
-                {visible.map((provider) => (
-                  <button
-                    key={provider.key}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => choose(provider)}
-                    className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 text-left text-sm font-semibold text-white transition hover:border-indigo-400/40 hover:bg-indigo-400/10 disabled:opacity-60"
-                  >
-                    <Plug className="shrink-0 text-indigo-300" size={16} />
-                    <span className="truncate">{provider.label}</span>
-                  </button>
-                ))}
+                {visible.map((provider) => {
+                  const needsSetup = provider.auth_kind === 'oauth' && !provider.configured;
+
+                  return (
+                    <button
+                      key={provider.key}
+                      type="button"
+                      disabled={busy}
+                      onClick={() => choose(provider)}
+                      className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 text-left text-sm font-semibold text-white transition hover:border-indigo-400/40 hover:bg-indigo-400/10 disabled:opacity-60"
+                    >
+                      <Plug className="shrink-0 text-indigo-300" size={16} />
+                      <span className="min-w-0 flex-1 truncate">{provider.label}</span>
+                      {needsSetup && (
+                        <span className="shrink-0 rounded-full bg-amber-400/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-amber-300">
+                          Setup required
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
 
@@ -243,12 +242,18 @@ export default function CrmConnectDialog({
               </div>
             )}
 
-            {selected.auth_kind === 'oauth' && (
-              <p className="text-sm text-slate-400">
-                We&rsquo;ll send you to {selected.label} to sign in and approve
-                access, then bring you straight back here.
-              </p>
-            )}
+            {selected.auth_kind === 'oauth' &&
+              (selected.configured ? (
+                <p className="text-sm text-slate-400">
+                  We&rsquo;ll send you to {selected.label} to sign in and approve
+                  access, then bring you straight back here.
+                </p>
+              ) : (
+                <div className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2.5 text-sm text-amber-100">
+                  {selected.label} is supported, but its secure OAuth app settings still need
+                  to be added by an administrator before it can be connected.
+                </div>
+              ))}
 
             {selected.credential_fields.map((field) => (
               <div key={field.key}>
@@ -295,7 +300,11 @@ export default function CrmConnectDialog({
               </Button>
               <Button
                 type="button"
-                disabled={busy || missingField}
+                disabled={
+                  busy ||
+                  missingField ||
+                  (selected.auth_kind === 'oauth' && !selected.configured)
+                }
                 onClick={selected.auth_kind === 'oauth' ? startOauth : submitCredentials}
               >
                 {busy ? <Loader2 className="animate-spin" size={15} /> : <Plug size={15} />}
