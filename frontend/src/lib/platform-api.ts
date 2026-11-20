@@ -30,26 +30,55 @@ export const PLATFORM_TOKEN_KEY = 'platform_token';
 export const PLATFORM_REFRESH_TOKEN_KEY = 'platform_refresh_token';
 export const PLATFORM_LOGIN_PATH = '/super-admin/login';
 
+/**
+ * Platform credentials intentionally live in sessionStorage, not localStorage.
+ * Closing the tab therefore drops the browser copy of the highest-privilege
+ * session. This is not an XSS defence (only an HttpOnly cookie can be that),
+ * but it materially reduces persistence after a shared-machine or unattended
+ * browser incident.
+ */
+const platformStorage = () => {
+  if (typeof window === 'undefined') return null;
+
+  // Remove credentials written by older builds so an upgrade does not leave a
+  // second, persistent copy behind after moving the active session to the
+  // tab-scoped store.
+  localStorage.removeItem(PLATFORM_TOKEN_KEY);
+  localStorage.removeItem(PLATFORM_REFRESH_TOKEN_KEY);
+  return sessionStorage;
+};
+
 const platformApi = axios.create({
   baseURL: getBaseUrl(),
   timeout: 25000,
 });
 
-export function storePlatformSession(accessToken: string, refreshToken?: string) {
-  localStorage.setItem(PLATFORM_TOKEN_KEY, accessToken);
+export function storePlatformSession(
+  accessToken: string,
+  refreshToken?: string,
+) {
+  const storage = platformStorage();
+  if (!storage) return;
+  storage.setItem(PLATFORM_TOKEN_KEY, accessToken);
   if (refreshToken) {
-    localStorage.setItem(PLATFORM_REFRESH_TOKEN_KEY, refreshToken);
+    storage.setItem(PLATFORM_REFRESH_TOKEN_KEY, refreshToken);
   }
 }
 
 export function clearPlatformSession() {
-  localStorage.removeItem(PLATFORM_TOKEN_KEY);
-  localStorage.removeItem(PLATFORM_REFRESH_TOKEN_KEY);
+  const storage = platformStorage();
+  storage?.removeItem(PLATFORM_TOKEN_KEY);
+  storage?.removeItem(PLATFORM_REFRESH_TOKEN_KEY);
+  // Keep this explicit for callers running during a partial rollout.
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(PLATFORM_TOKEN_KEY);
+    localStorage.removeItem(PLATFORM_REFRESH_TOKEN_KEY);
+  }
 }
 
 platformApi.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
-    const token = localStorage.getItem(PLATFORM_TOKEN_KEY);
+    const token = platformStorage()?.getItem(PLATFORM_TOKEN_KEY);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -66,7 +95,7 @@ const refreshAccessToken = (): Promise<string | null> => {
   if (!refreshPromise) {
     refreshPromise = (async () => {
       try {
-        const stored = localStorage.getItem(PLATFORM_REFRESH_TOKEN_KEY);
+        const stored = platformStorage()?.getItem(PLATFORM_REFRESH_TOKEN_KEY);
         if (!stored) return null;
 
         const response = await axios.post(
@@ -99,7 +128,9 @@ platformApi.interceptors.response.use(
     }
 
     const originalRequest = error.config;
-    const isRefreshCall = originalRequest?.url?.includes('platform-auth/refresh');
+    const isRefreshCall = originalRequest?.url?.includes(
+      'platform-auth/refresh',
+    );
 
     const bail = () => {
       clearPlatformSession();

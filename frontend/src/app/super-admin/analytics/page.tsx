@@ -27,14 +27,17 @@ import {
 } from './charts';
 import {
   AlertTriangle,
-  ArrowLeft,
   ArrowDownRight,
   ArrowUpRight,
+  BarChart3,
   Building2,
+  Clock3,
   Coins,
   Download,
   Info,
+  LayoutDashboard,
   Loader2,
+  LockKeyhole,
   LogOut,
   Minus,
   RefreshCw,
@@ -73,8 +76,18 @@ interface CardSpec {
  * thirty tiles is not a comparison.
  */
 const COMPARISON_CARDS: CardSpec[] = [
-  { key: 'tenants', label: 'New accounts', value: (r) => r.newTenants, polarity: 'up-good' },
-  { key: 'users', label: 'New users', value: (r) => r.newUsers, polarity: 'up-good' },
+  {
+    key: 'tenants',
+    label: 'New accounts',
+    value: (r) => r.newTenants,
+    polarity: 'up-good',
+  },
+  {
+    key: 'users',
+    label: 'New users',
+    value: (r) => r.newUsers,
+    polarity: 'up-good',
+  },
   {
     key: 'modules',
     label: 'Modules activated',
@@ -229,26 +242,102 @@ const RECORD_COLUMNS: {
 }[] = [
   { key: 'newTenants', label: 'New accounts', value: (r) => r.newTenants },
   { key: 'newUsers', label: 'New users', value: (r) => r.newUsers },
-  { key: 'moduleActivations', label: 'Modules activated', value: (r) => r.moduleActivations },
-  { key: 'creditPurchases', label: 'Credit purchases', value: (r) => r.creditPurchases },
-  { key: 'creditsPurchased', label: 'Credits purchased', value: (r) => r.creditsPurchased },
-  { key: 'packs', label: 'Credits · packs', value: (r) => r.creditsByChannel.pack },
-  { key: 'recharge', label: 'Credits · top-ups', value: (r) => r.creditsByChannel.recharge },
-  { key: 'plan', label: 'Credits · with plan', value: (r) => r.creditsByChannel.plan },
-  { key: 'granted', label: 'Credits · granted', value: (r) => r.creditsByChannel.granted },
-  { key: 'creditRevenueUsd', label: 'Credit revenue', value: (r) => r.creditRevenueUsd, money: true },
-  { key: 'rechargeRevenueUsd', label: 'Top-up revenue', value: (r) => r.rechargeRevenueUsd, money: true },
-  { key: 'creditsConsumed', label: 'Credits consumed', value: (r) => r.creditsConsumed },
-  { key: 'searchesSettled', label: 'Searches run', value: (r) => r.searchesSettled },
-  { key: 'upstreamCostUsd', label: 'Search cost', value: (r) => r.upstreamCostUsd, money: true },
+  {
+    key: 'moduleActivations',
+    label: 'Modules activated',
+    value: (r) => r.moduleActivations,
+  },
+  {
+    key: 'creditPurchases',
+    label: 'Credit purchases',
+    value: (r) => r.creditPurchases,
+  },
+  {
+    key: 'creditsPurchased',
+    label: 'Credits purchased',
+    value: (r) => r.creditsPurchased,
+  },
+  {
+    key: 'packs',
+    label: 'Credits · packs',
+    value: (r) => r.creditsByChannel.pack,
+  },
+  {
+    key: 'recharge',
+    label: 'Credits · top-ups',
+    value: (r) => r.creditsByChannel.recharge,
+  },
+  {
+    key: 'plan',
+    label: 'Credits · with plan',
+    value: (r) => r.creditsByChannel.plan,
+  },
+  {
+    key: 'granted',
+    label: 'Credits · granted',
+    value: (r) => r.creditsByChannel.granted,
+  },
+  {
+    key: 'creditRevenueUsd',
+    label: 'Credit revenue',
+    value: (r) => r.creditRevenueUsd,
+    money: true,
+  },
+  {
+    key: 'rechargeRevenueUsd',
+    label: 'Top-up revenue',
+    value: (r) => r.rechargeRevenueUsd,
+    money: true,
+  },
+  {
+    key: 'creditsConsumed',
+    label: 'Credits consumed',
+    value: (r) => r.creditsConsumed,
+  },
+  {
+    key: 'searchesSettled',
+    label: 'Searches run',
+    value: (r) => r.searchesSettled,
+  },
+  {
+    key: 'upstreamCostUsd',
+    label: 'Search cost',
+    value: (r) => r.upstreamCostUsd,
+    money: true,
+  },
   { key: 'aiCalls', label: 'AI calls', value: (r) => r.aiCalls },
   { key: 'aiFailedCalls', label: 'AI failures', value: (r) => r.aiFailedCalls },
-  { key: 'aiInputTokens', label: 'Input tokens', value: (r) => r.aiInputTokens },
-  { key: 'aiOutputTokens', label: 'Output tokens', value: (r) => r.aiOutputTokens },
-  { key: 'aiTotalTokens', label: 'Total tokens', value: (r) => r.aiTotalTokens },
-  { key: 'aiCostUsd', label: 'AI cost', value: (r) => r.aiCostUsd, money: true },
-  { key: 'rechargeSucceeded', label: 'Top-ups OK', value: (r) => r.rechargeSucceeded },
-  { key: 'rechargeFailed', label: 'Top-ups failed', value: (r) => r.rechargeFailed },
+  {
+    key: 'aiInputTokens',
+    label: 'Input tokens',
+    value: (r) => r.aiInputTokens,
+  },
+  {
+    key: 'aiOutputTokens',
+    label: 'Output tokens',
+    value: (r) => r.aiOutputTokens,
+  },
+  {
+    key: 'aiTotalTokens',
+    label: 'Total tokens',
+    value: (r) => r.aiTotalTokens,
+  },
+  {
+    key: 'aiCostUsd',
+    label: 'AI cost',
+    value: (r) => r.aiCostUsd,
+    money: true,
+  },
+  {
+    key: 'rechargeSucceeded',
+    label: 'Top-ups OK',
+    value: (r) => r.rechargeSucceeded,
+  },
+  {
+    key: 'rechargeFailed',
+    label: 'Top-ups failed',
+    value: (r) => r.rechargeFailed,
+  },
 ];
 
 /**
@@ -273,7 +362,9 @@ function recordCsv(data: PlatformAnalytics): string {
       cells
         // Quote defensively: a column label could gain a comma later, and an
         // unquoted one would silently shift every following column.
-        .map((cell) => (/[",\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell))
+        .map((cell) =>
+          /[",\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell,
+        )
         .join(','),
     )
     .join('\n');
@@ -298,22 +389,19 @@ function AnalyticsContent() {
   const [error, setError] = useState('');
   const [showTable, setShowTable] = useState(false);
 
-  const load = useCallback(
-    async (months: Range, isRefresh = false) => {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
-      setError('');
-      try {
-        setData(await getAnalytics(months));
-      } catch (err) {
-        setError(getApiErrorMessage(err, 'Could not load analytics.'));
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [],
-  );
+  const load = useCallback(async (months: Range, isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setError('');
+    try {
+      setData(await getAnalytics(months));
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Could not load analytics.'));
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
     void load(range);
@@ -353,16 +441,36 @@ function AnalyticsContent() {
 
   const growthSeries: Series[] = useMemo(
     () => [
-      { key: 'tenants', label: 'New accounts', color: 0, values: series.map((r) => r.newTenants) },
-      { key: 'users', label: 'New users', color: 1, values: series.map((r) => r.newUsers) },
+      {
+        key: 'tenants',
+        label: 'New accounts',
+        color: 0,
+        values: series.map((r) => r.newTenants),
+      },
+      {
+        key: 'users',
+        label: 'New users',
+        color: 1,
+        values: series.map((r) => r.newUsers),
+      },
     ],
     [series],
   );
 
   const creditFlowSeries: Series[] = useMemo(
     () => [
-      { key: 'bought', label: 'Purchased', color: 0, values: series.map((r) => r.creditsPurchased) },
-      { key: 'used', label: 'Consumed', color: 1, values: series.map((r) => r.creditsConsumed) },
+      {
+        key: 'bought',
+        label: 'Purchased',
+        color: 0,
+        values: series.map((r) => r.creditsPurchased),
+      },
+      {
+        key: 'used',
+        label: 'Consumed',
+        color: 1,
+        values: series.map((r) => r.creditsConsumed),
+      },
     ],
     [series],
   );
@@ -379,8 +487,18 @@ function AnalyticsContent() {
 
   const tokenSeries: Series[] = useMemo(
     () => [
-      { key: 'in', label: 'Input tokens', color: 0, values: series.map((r) => r.aiInputTokens) },
-      { key: 'out', label: 'Output tokens', color: 1, values: series.map((r) => r.aiOutputTokens) },
+      {
+        key: 'in',
+        label: 'Input tokens',
+        color: 0,
+        values: series.map((r) => r.aiInputTokens),
+      },
+      {
+        key: 'out',
+        label: 'Output tokens',
+        color: 1,
+        values: series.map((r) => r.aiOutputTokens),
+      },
     ],
     [series],
   );
@@ -414,8 +532,18 @@ function AnalyticsContent() {
 
   const rechargeSeries: Series[] = useMemo(
     () => [
-      { key: 'ok', label: 'Succeeded', color: 2, values: series.map((r) => r.rechargeSucceeded) },
-      { key: 'failed', label: 'Failed', color: 1, values: series.map((r) => r.rechargeFailed) },
+      {
+        key: 'ok',
+        label: 'Succeeded',
+        color: 2,
+        values: series.map((r) => r.rechargeSucceeded),
+      },
+      {
+        key: 'failed',
+        label: 'Failed',
+        color: 1,
+        values: series.map((r) => r.rechargeFailed),
+      },
     ],
     [series],
   );
@@ -467,7 +595,9 @@ function AnalyticsContent() {
           disabled={refreshing}
           className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition hover:text-foreground disabled:opacity-60"
         >
-          <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
+          <RefreshCw
+            className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')}
+          />
           Refresh
         </button>
 
@@ -533,8 +663,16 @@ function AnalyticsContent() {
         >
           <SegmentedBar
             segments={[
-              { label: 'Paying', value: data.snapshot.planMix.paying, color: 0 },
-              { label: 'Comped', value: data.snapshot.planMix.comped, color: 1 },
+              {
+                label: 'Paying',
+                value: data.snapshot.planMix.paying,
+                color: 0,
+              },
+              {
+                label: 'Comped',
+                value: data.snapshot.planMix.comped,
+                color: 1,
+              },
               { label: 'Trial', value: data.snapshot.planMix.trial, color: 3 },
               { label: 'No plan', value: data.snapshot.planMix.none, color: 2 },
             ]}
@@ -544,10 +682,12 @@ function AnalyticsContent() {
 
       {/* --- Month over month --- */}
       <h2 className="mb-1 text-sm font-semibold text-foreground">
-        {monthLong(current.month)} vs {previous ? monthLong(previous.month) : 'previous month'}
+        {monthLong(current.month)} vs{' '}
+        {previous ? monthLong(previous.month) : 'previous month'}
       </h2>
       <p className="mb-3 text-xs text-muted-foreground">
-        The current month is still in progress, so it is compared against a full one.
+        The current month is still in progress, so it is compared against a full
+        one.
       </p>
       <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
         {COMPARISON_CARDS.map((card) => (
@@ -654,7 +794,10 @@ function AnalyticsContent() {
 
       {/* --- Rankings over the window --- */}
       <div className="mb-6 grid gap-4 xl:grid-cols-3">
-        <ChartCard title="AI cost by feature" note={`Across the last ${data.months} months.`}>
+        <ChartCard
+          title="AI cost by feature"
+          note={`Across the last ${data.months} months.`}
+        >
           <RankedBars
             rows={data.breakdowns.aiByFeature.slice(0, 10).map((row) => ({
               label: row.feature
@@ -681,7 +824,10 @@ function AnalyticsContent() {
           />
         </ChartCard>
 
-        <ChartCard title="Top accounts by credits bought" note="Sold credits only.">
+        <ChartCard
+          title="Top accounts by credits bought"
+          note="Sold credits only."
+        >
           <RankedBars
             rows={data.breakdowns.topTenants.slice(0, 10).map((row) => ({
               label: row.name,
@@ -702,15 +848,32 @@ function AnalyticsContent() {
             Totals over the last {data.months} months
           </h3>
           <dl className="space-y-2 text-sm">
-            <Row label="Credits purchased" value={windowTotals.creditsPurchased.toLocaleString()} />
-            <Row label="Credit revenue (list price)" value={usd(windowTotals.creditRevenueUsd)} />
-            <Row label="Top-up revenue (actual)" value={usd(windowTotals.rechargeRevenueUsd)} />
-            <Row label="AI tokens used" value={windowTotals.tokens.toLocaleString()} />
+            <Row
+              label="Credits purchased"
+              value={windowTotals.creditsPurchased.toLocaleString()}
+            />
+            <Row
+              label="Credit revenue (list price)"
+              value={usd(windowTotals.creditRevenueUsd)}
+            />
+            <Row
+              label="Top-up revenue (actual)"
+              value={usd(windowTotals.rechargeRevenueUsd)}
+            />
+            <Row
+              label="AI tokens used"
+              value={windowTotals.tokens.toLocaleString()}
+            />
             <Row label="AI cost" value={usd(windowTotals.aiCostUsd)} />
-            <Row label="Search cost (upstream)" value={usd(windowTotals.upstreamCostUsd)} />
+            <Row
+              label="Search cost (upstream)"
+              value={usd(windowTotals.upstreamCostUsd)}
+            />
             <Row
               label="Gross margin on credits"
-              value={usd(windowTotals.creditRevenueUsd - windowTotals.upstreamCostUsd)}
+              value={usd(
+                windowTotals.creditRevenueUsd - windowTotals.upstreamCostUsd,
+              )}
               hint="list revenue less what the searches cost us"
             />
           </dl>
@@ -723,29 +886,31 @@ function AnalyticsContent() {
           </h3>
           <ul className="space-y-2.5 text-xs leading-relaxed text-muted-foreground">
             <li>
-              <strong className="text-foreground">Modules activated</strong> is the
-              closest available stand-in for plans sold. {data.approximations.moduleActivations}
+              <strong className="text-foreground">Modules activated</strong> is
+              the closest available stand-in for plans sold.{' '}
+              {data.approximations.moduleActivations}
             </li>
             <li>
-              <strong className="text-foreground">Credit revenue</strong> is list
-              price. {data.approximations.creditRevenueUsd}
+              <strong className="text-foreground">Credit revenue</strong> is
+              list price. {data.approximations.creditRevenueUsd}
             </li>
             {windowTotals.unpriced > 0 && (
               <li className="text-error">
                 <strong>{windowTotals.unpriced}</strong> sold purchase
-                {windowTotals.unpriced === 1 ? '' : 's'} in this window matched no
-                pack size, so {windowTotals.unpriced === 1 ? 'it is' : 'they are'} missing
+                {windowTotals.unpriced === 1 ? '' : 's'} in this window matched
+                no pack size, so{' '}
+                {windowTotals.unpriced === 1 ? 'it is' : 'they are'} missing
                 from credit revenue. Usually seeded or hand-written ledger rows.
               </li>
             )}
             <li>
-              Months are <strong className="text-foreground">UTC</strong> calendar
-              months, and the newest one is still in progress.
+              Months are <strong className="text-foreground">UTC</strong>{' '}
+              calendar months, and the newest one is still in progress.
             </li>
             <li>
               Accounts and users count only{' '}
-              <strong className="text-foreground">verified</strong> signups, so an
-              abandoned registration never appears as a customer.
+              <strong className="text-foreground">verified</strong> signups, so
+              an abandoned registration never appears as a customer.
             </li>
           </ul>
         </div>
@@ -755,9 +920,12 @@ function AnalyticsContent() {
       <div className="rounded-xl border border-border bg-card">
         <div className="flex items-center justify-between gap-3 border-b border-border p-4">
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Monthly record</h3>
+            <h3 className="text-sm font-semibold text-foreground">
+              Monthly record
+            </h3>
             <p className="text-xs text-muted-foreground">
-              Every figure above, month by month. Also the accessible view of the charts.
+              Every figure above, month by month. Also the accessible view of
+              the charts.
             </p>
           </div>
           <button
@@ -790,7 +958,10 @@ function AnalyticsContent() {
               </thead>
               <tbody>
                 {RECORD_COLUMNS.map((column) => (
-                  <tr key={column.key} className="border-b border-border/60 last:border-0">
+                  <tr
+                    key={column.key}
+                    className="border-b border-border/60 last:border-0"
+                  >
                     <td className="sticky left-0 z-10 bg-card px-4 py-2 text-muted-foreground">
                       {column.label}
                     </td>
@@ -801,7 +972,9 @@ function AnalyticsContent() {
                           key={row.month}
                           className={cn(
                             'whitespace-nowrap px-3 py-2 text-right tabular-nums',
-                            value === 0 ? 'text-muted-foreground/50' : 'text-foreground',
+                            value === 0
+                              ? 'text-muted-foreground/50'
+                              : 'text-foreground',
                           )}
                         >
                           {column.money ? usd(value) : value.toLocaleString()}
@@ -832,9 +1005,13 @@ function Row({
     <div className="flex items-baseline justify-between gap-3 border-b border-border/60 pb-2 last:border-0 last:pb-0">
       <dt className="text-muted-foreground">
         {label}
-        {hint && <span className="block text-xs text-muted-foreground/70">{hint}</span>}
+        {hint && (
+          <span className="block text-xs text-muted-foreground/70">{hint}</span>
+        )}
       </dt>
-      <dd className="shrink-0 font-semibold tabular-nums text-foreground">{value}</dd>
+      <dd className="shrink-0 font-semibold tabular-nums text-foreground">
+        {value}
+      </dd>
     </div>
   );
 }
@@ -854,16 +1031,22 @@ function SnapshotCard({
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="flex items-center gap-2 text-muted-foreground">
         <Icon size={16} />
-        <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
+        <span className="text-xs font-medium uppercase tracking-wide">
+          {label}
+        </span>
       </div>
-      <div className="mt-2 text-2xl font-bold tabular-nums text-foreground">{value}</div>
-      {hint && <div className="mt-0.5 text-xs text-muted-foreground">{hint}</div>}
+      <div className="mt-2 text-2xl font-bold tabular-nums text-foreground">
+        {value}
+      </div>
+      {hint && (
+        <div className="mt-0.5 text-xs text-muted-foreground">{hint}</div>
+      )}
     </div>
   );
 }
 
 export default function PlatformAnalyticsPage() {
-  const { admin, loading, logout } = usePlatformAuth();
+  const { admin, loading, idleMinutesRemaining, logout } = usePlatformAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -883,44 +1066,78 @@ export default function PlatformAnalyticsPage() {
 
   return (
     <div className="min-h-dvh bg-background">
-      <header className="sticky top-0 z-30 border-b border-border bg-card/90 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-            <span className="text-sm font-semibold text-foreground">
-              AegisLead · Platform Admin
+      <header className="sticky top-0 z-30 border-b border-border bg-card/95 shadow-sm backdrop-blur">
+        <div className="mx-auto flex min-h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+              <ShieldCheck className="h-5 w-5" />
             </span>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-bold tracking-tight text-foreground">
+                AegisLead
+              </div>
+              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Platform control
+              </div>
+            </div>
+            <nav
+              className="ml-3 hidden items-center gap-1 border-l border-border pl-4 md:flex"
+              aria-label="Platform navigation"
+            >
+              <Link
+                href="/super-admin"
+                className="inline-flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              >
+                <LayoutDashboard className="h-3.5 w-3.5" /> Overview
+              </Link>
+              <span className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary/10 px-3 text-xs font-semibold text-primary">
+                <BarChart3 className="h-3.5 w-3.5" /> Analytics
+              </span>
+            </nav>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden text-xs text-muted-foreground sm:inline">
-              {admin.email}
+          <div className="flex items-center gap-2">
+            <span
+              title="Session locks after 15 minutes without activity"
+              className="hidden h-9 items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 text-xs font-semibold text-emerald-700 lg:inline-flex"
+            >
+              <LockKeyhole className="h-3.5 w-3.5" /> Secure session
+              <span className="flex items-center gap-1 font-medium text-emerald-700/75">
+                <Clock3 className="h-3 w-3" /> {idleMinutesRemaining}m
+              </span>
             </span>
+            <div className="hidden items-center gap-2.5 px-2 sm:flex">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-xs font-bold text-background">
+                {(admin.name || admin.email).slice(0, 1).toUpperCase()}
+              </span>
+              <div className="max-w-44 leading-tight">
+                <div className="truncate text-xs font-semibold text-foreground">
+                  {admin.name || 'Platform operator'}
+                </div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {admin.email}
+                </div>
+              </div>
+            </div>
             <button
               type="button"
               onClick={async () => {
                 await logout();
                 router.replace('/super-admin/login');
               }}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+              className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
             >
               <LogOut className="h-3.5 w-3.5" />
-              Logout
+              <span className="hidden sm:inline">Sign out</span>
             </button>
           </div>
         </div>
       </header>
 
       <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-        <Link
-          href="/super-admin"
-          className="mb-4 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back to console
-        </Link>
         <h1 className="text-xl font-bold text-foreground">Analytics</h1>
         <p className="mb-6 mt-1 text-sm text-muted-foreground">
-          Growth, credit sales, AI consumption and cost — recorded month by month.
+          Growth, credit sales, AI consumption and cost — recorded month by
+          month.
         </p>
         <AnalyticsContent />
       </main>

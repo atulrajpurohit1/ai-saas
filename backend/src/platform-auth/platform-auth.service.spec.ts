@@ -1,4 +1,4 @@
-import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -208,14 +208,30 @@ describe('PlatformAuthService', () => {
       expect((data.lockedUntil as Date).getTime()).toBeGreaterThan(Date.now());
     });
 
-    it('refuses while locked out, even with the right password', async () => {
+    it('refuses while locked out, even with the right password, without revealing the lock', async () => {
       prisma.platformAdmin.findUnique.mockResolvedValue(
         await adminRow({ lockedUntil: new Date(Date.now() + 60_000) }),
       );
 
       await expect(
         service.login('ops@example.com', PASSWORD),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('answers a locked account the same way as an unknown account', async () => {
+      prisma.platformAdmin.findUnique.mockResolvedValue(
+        await adminRow({ lockedUntil: new Date(Date.now() + 60_000) }),
+      );
+      const locked = await service
+        .login('ops@example.com', PASSWORD)
+        .catch((e: Error) => e);
+
+      prisma.platformAdmin.findUnique.mockResolvedValue(null);
+      const unknown = await service
+        .login('nobody@example.com', PASSWORD)
+        .catch((e: Error) => e);
+
+      expect((locked as Error).message).toBe((unknown as Error).message);
     });
 
     it('clears the lockout once it has expired', async () => {

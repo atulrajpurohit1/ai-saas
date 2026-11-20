@@ -70,6 +70,16 @@ async function bootstrap() {
       'Strict-Transport-Security',
       'max-age=31536000; includeSubDomains',
     );
+
+    // Cross-tenant platform responses contain sensitive operational and
+    // billing data. They must never be retained by a browser cache, proxy, or
+    // shared CDN, including authentication responses that carry tokens.
+    const path = _req.originalUrl.split('?')[0];
+    if (/^\/api\/(?:platform(?:\/|$)|platform-auth(?:\/|$))/.test(path)) {
+      res.setHeader('Cache-Control', 'no-store, max-age=0');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
     next();
   });
 
@@ -112,8 +122,7 @@ async function bootstrap() {
   // production and can be re-enabled explicitly if a production preview URL is
   // ever needed -- but it is no longer on by default where it matters.
   const allowVercelPreviews =
-    process.env.ALLOW_VERCEL_PREVIEW_ORIGINS === 'true' ||
-    isDevelopmentLike();
+    process.env.ALLOW_VERCEL_PREVIEW_ORIGINS === 'true' || isDevelopmentLike();
 
   const isAllowedOrigin = (origin?: string) => {
     // No Origin header: a non-browser caller (curl, server-to-server, health

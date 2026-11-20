@@ -6,6 +6,7 @@ import { PlatformAuthController } from './platform-auth.controller';
 import { PlatformAuthService } from './platform-auth.service';
 import { JwtPlatformStrategy } from './strategies/jwt-platform.strategy';
 import { JwtPlatformRefreshStrategy } from './strategies/jwt-platform-refresh.strategy';
+import { PlatformAuthRateLimitService } from './platform-auth-rate-limit.service';
 
 /**
  * Authentication for the platform console, kept entirely separate from
@@ -21,6 +22,7 @@ import { JwtPlatformRefreshStrategy } from './strategies/jwt-platform-refresh.st
   controllers: [PlatformAuthController],
   providers: [
     PlatformAuthService,
+    PlatformAuthRateLimitService,
     JwtPlatformStrategy,
     JwtPlatformRefreshStrategy,
   ],

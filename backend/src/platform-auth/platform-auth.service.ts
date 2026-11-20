@@ -1,9 +1,4 @@
-import {
-  ForbiddenException,
-  Injectable,
-  Logger,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -43,6 +38,7 @@ export class PlatformAuthService {
     email: string,
     password: string,
     ip?: string,
+    userAgent?: string,
   ): Promise<PlatformTokens> {
     const normalized = email.trim().toLowerCase();
     const admin = await this.prisma.platformAdmin.findUnique({
@@ -52,26 +48,19 @@ export class PlatformAuthService {
     const invalid = () =>
       new UnauthorizedException('Invalid platform credentials.');
 
-    if (!admin) {
-      // Still spend the time a bcrypt compare would have taken. Returning
-      // immediately makes "unknown address" measurably faster than "wrong
-      // password", which is the same oracle by a side channel.
-      await bcrypt.compare(password, DUMMY_HASH);
-      throw invalid();
-    }
+    // Always perform exactly one bcrypt comparison before deciding. Unknown,
+    // disabled and locked accounts therefore share both the same response and
+    // roughly the same timing as a wrong password; none of those states is an
+    // account-discovery oracle.
+    const matches = await bcrypt.compare(
+      password,
+      admin?.password ?? DUMMY_HASH,
+    );
+    const locked = Boolean(
+      admin?.lockedUntil && admin.lockedUntil > new Date(),
+    );
 
-    if (admin.lockedUntil && admin.lockedUntil > new Date()) {
-      throw new ForbiddenException(
-        'Too many failed attempts. Try again later.',
-      );
-    }
-
-    if (!admin.isActive) {
-      throw invalid();
-    }
-
-    const matches = await bcrypt.compare(password, admin.password);
-    if (!matches) {
+    if (admin && admin.isActive && !locked && !matches) {
       const attempts = admin.failedAttempts + 1;
       const locked = attempts >= PLATFORM_MAX_FAILED_ATTEMPTS;
       await this.prisma.platformAdmin.update({
@@ -85,6 +74,14 @@ export class PlatformAuthService {
       });
       this.logger.warn(
         `Failed platform login for ${normalized} from ${ip ?? 'unknown ip'} (attempt ${attempts})`,
+      );
+      throw invalid();
+    }
+
+    if (!admin || !admin.isActive || locked || !matches) {
+      this.logger.warn(
+        `Rejected platform login for ${normalized} from ${ip ?? 'unknown ip'} ` +
+          `(${userAgent?.slice(0, 160) || 'unknown user agent'})`,
       );
       throw invalid();
     }

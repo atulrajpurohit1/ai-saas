@@ -21,9 +21,12 @@ export interface PlatformAdmin {
 interface PlatformAuthContextType {
   admin: PlatformAdmin | null;
   loading: boolean;
+  idleMinutesRemaining: number;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
+
+const PLATFORM_IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 
 const PlatformAuthContext = createContext<PlatformAuthContextType | undefined>(
   undefined,
@@ -45,6 +48,7 @@ export function PlatformAuthProvider({
 }) {
   const [admin, setAdmin] = useState<PlatformAdmin | null>(null);
   const [loading, setLoading] = useState(true);
+  const [idleMinutesRemaining, setIdleMinutesRemaining] = useState(15);
 
   const loadMe = useCallback(async () => {
     try {
@@ -91,8 +95,58 @@ export function PlatformAuthProvider({
     setAdmin(null);
   }, []);
 
+  useEffect(() => {
+    if (!admin) {
+      setIdleMinutesRemaining(15);
+      return;
+    }
+
+    let lastActivity = Date.now();
+    let locking = false;
+
+    const recordActivity = () => {
+      lastActivity = Date.now();
+      setIdleMinutesRemaining(15);
+    };
+
+    const checkIdle = () => {
+      const remaining = PLATFORM_IDLE_TIMEOUT_MS - (Date.now() - lastActivity);
+      setIdleMinutesRemaining(Math.max(0, Math.ceil(remaining / 60_000)));
+
+      if (remaining > 0 || locking) return;
+      locking = true;
+      // Hide privileged data immediately, then revoke the server-side refresh
+      // token. logout() clears the browser tokens even if that request fails.
+      setAdmin(null);
+      void logout();
+    };
+
+    const activityEvents: (keyof WindowEventMap)[] = [
+      'keydown',
+      'pointerdown',
+      'scroll',
+      'touchstart',
+    ];
+    activityEvents.forEach((event) =>
+      window.addEventListener(event, recordActivity, { passive: true }),
+    );
+    window.addEventListener('focus', recordActivity);
+    const interval = window.setInterval(checkIdle, 15_000);
+    checkIdle();
+
+    return () => {
+      activityEvents.forEach((event) =>
+        window.removeEventListener(event, recordActivity),
+      );
+      window.removeEventListener('focus', recordActivity);
+      window.clearInterval(interval);
+    };
+  }, [admin, logout]);
+
   return (
-    <PlatformAuthContext.Provider value={{ admin, loading, login, logout }}>
+    <PlatformAuthContext.Provider
+      value={{ admin, loading, idleMinutesRemaining, login, logout }}
+    >
       {children}
     </PlatformAuthContext.Provider>
   );

@@ -15,7 +15,54 @@ import type { NextConfig } from "next";
 // Vercel's build byte-for-byte what it was before any of this work.
 const isContainerBuild = process.env.DOCKER_BUILD === "1";
 
+const apiOrigin = (() => {
+  const configured = process.env.NEXT_PUBLIC_API_URL;
+  if (!configured || configured.startsWith("/")) return "";
+  try {
+    return new URL(configured).origin;
+  } catch {
+    return "";
+  }
+})();
+
+// The platform console is a small, self-contained surface, so it can carry a
+// tighter CSP than the customer app (which uses maps and remote media). Next's
+// runtime currently needs inline bootstrap/style support; every other source is
+// restricted to this origin and the explicitly configured API origin.
+const platformCsp = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "font-src 'self'",
+  `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ""}`,
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
+
 const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      {
+        source: "/super-admin/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: platformCsp },
+          { key: "Cache-Control", value: "no-store, max-age=0" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          {
+            key: "Permissions-Policy",
+            value:
+              "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+          },
+        ],
+      },
+    ];
+  },
+
   // /signup has never been a route: the register form lives on the login page
   // and opens with ?register=1. People and outside links still guess the
   // conventional URL and land on a 404, so alias it. Next passes the incoming

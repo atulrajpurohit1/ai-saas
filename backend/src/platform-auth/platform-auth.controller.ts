@@ -5,8 +5,10 @@ import {
   HttpCode,
   Ip,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { PlatformAuthService } from './platform-auth.service';
 import { PlatformLoginDto } from './dto/platform-login.dto';
@@ -15,6 +17,7 @@ import { GetPlatformAdmin } from './decorators/get-platform-admin.decorator';
 import { ActivePlatformAdmin } from './interfaces/active-platform-admin.interface';
 import { GetPlatformRefresh } from './decorators/get-platform-refresh.decorator';
 import { PlatformRefreshPayload } from './strategies/jwt-platform-refresh.strategy';
+import { PlatformAuthRateLimitService } from './platform-auth-rate-limit.service';
 
 /**
  * Sign-in for the platform console, on its own route prefix and its own
@@ -28,12 +31,26 @@ import { PlatformRefreshPayload } from './strategies/jwt-platform-refresh.strate
  */
 @Controller('platform-auth')
 export class PlatformAuthController {
-  constructor(private readonly auth: PlatformAuthService) {}
+  constructor(
+    private readonly auth: PlatformAuthService,
+    private readonly rateLimit: PlatformAuthRateLimitService,
+  ) {}
 
   @Post('login')
   @HttpCode(200)
-  login(@Body() dto: PlatformLoginDto, @Ip() ip: string) {
-    return this.auth.login(dto.email, dto.password, ip);
+  login(@Body() dto: PlatformLoginDto, @Ip() ip: string, @Req() req: Request) {
+    const forwarded = req.headers['x-forwarded-for'];
+    const clientIp =
+      (Array.isArray(forwarded) ? forwarded[0] : forwarded)
+        ?.split(',')[0]
+        ?.trim() || ip;
+    this.rateLimit.consumeLogin(clientIp, dto.email);
+    return this.auth.login(
+      dto.email,
+      dto.password,
+      clientIp,
+      req.headers['user-agent'],
+    );
   }
 
   @Post('refresh')
