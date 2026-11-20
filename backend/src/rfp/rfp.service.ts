@@ -1327,7 +1327,10 @@ export class RfpService {
           capabilities,
         }),
     );
-    const normalizedContent = this.proposalsService.normalizeGeneratedProposalDate(content);
+    const normalizedContent =
+      typeof this.proposalsService.normalizeGeneratedProposalDate === 'function'
+        ? this.proposalsService.normalizeGeneratedProposalDate(content)
+        : content;
 
     const safety = this.aiGovernanceService.evaluateSafety({
       generatedOutput: { content: normalizedContent },
