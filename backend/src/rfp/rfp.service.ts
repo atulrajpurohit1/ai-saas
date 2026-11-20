@@ -1327,9 +1327,10 @@ export class RfpService {
           capabilities,
         }),
     );
+    const normalizedContent = this.proposalsService.normalizeGeneratedProposalDate(content);
 
     const safety = this.aiGovernanceService.evaluateSafety({
-      generatedOutput: { content },
+      generatedOutput: { content: normalizedContent },
       inputSource: {
         tenantId,
         rfpId: id,
@@ -1344,14 +1345,14 @@ export class RfpService {
       tenantId,
       {
         title: `Proposal - ${rfp.title}`,
-        content,
+        content: normalizedContent,
         status: 'draft',
         clientId: dto.clientId?.trim() || undefined,
       },
       userId,
     );
 
-    const unresolvedPlaceholders = findUnresolvedPlaceholders(content);
+    const unresolvedPlaceholders = findUnresolvedPlaceholders(normalizedContent);
 
     await this.auditService.log({
       tenantId,

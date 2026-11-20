@@ -391,10 +391,11 @@ export class ProposalsService {
       companyName: branding.company_name,
       representativeName: author?.name || branding.company_name,
     };
+    const proposalDate = formatDateDDMMYYYY(new Date());
 
     const content = await this.aiMetering.run(
       { tenantId, userId, feature: AiFeature.LEAD_GENERATION },
-      () => this.aiService.generateForLead(lead, pricing, issuer),
+      () => this.aiService.generateForLead(lead, pricing, issuer, proposalDate),
     );
 
     // Deterministic safety net: whatever the model (or the offline fallback)
@@ -405,6 +406,7 @@ export class ProposalsService {
       representativeName: issuer.representativeName,
       representativeTitle: 'Authorized Representative',
       clientCompany: lead.company,
+      proposalDate,
     });
 
     return this.create(
@@ -417,6 +419,17 @@ export class ProposalsService {
         clientId,
       },
       userId,
+    );
+  }
+
+  /** Replace only an explicitly labelled proposal date in AI-generated text. */
+  normalizeGeneratedProposalDate(content: string, date: Date | string = new Date()): string {
+    if (!content) return content;
+
+    const proposalDate = typeof date === 'string' ? date : formatDateDDMMYYYY(date);
+    return content.replace(
+      /(^|\n)(\s*(?:\*\*|#+\s*)?(?:proposal\s+)?date\s*\**\s*:\s*)([^\n]*)/gi,
+      `$1$2${proposalDate}`,
     );
   }
 
@@ -434,6 +447,7 @@ export class ProposalsService {
       representativeName: string;
       representativeTitle: string;
       clientCompany?: string | null;
+      proposalDate: string;
     },
   ): string {
     if (!content) return content;
@@ -451,9 +465,16 @@ export class ProposalsService {
       [/\[\s*Representative Name\s*\]/gi, ctx.representativeName],
       [/\[\s*Your Title\s*\]/gi, ctx.representativeTitle],
       [/\[\s*Title\s*\]/gi, ctx.representativeTitle],
-      [/\[\s*Date\s*\]/gi, formatDateDDMMYYYY(new Date())],
-      [/\[\s*Today'?s Date\s*\]/gi, formatDateDDMMYYYY(new Date())],
+      [/\[\s*Date\s*\]/gi, ctx.proposalDate],
+      [/\[\s*Today'?s Date\s*\]/gi, ctx.proposalDate],
     ];
+
+    // Keep AI-generated proposal dates current without changing dates that
+    // describe contract terms, deadlines, or other business context.
+    const withCurrentProposalDate = this.normalizeGeneratedProposalDate(
+      content,
+      ctx.proposalDate,
+    );
 
     if (ctx.clientCompany) {
       replacements.push(
@@ -465,7 +486,7 @@ export class ProposalsService {
 
     return replacements.reduce(
       (text, [pattern, value]) => text.replace(pattern, value),
-      content,
+      withCurrentProposalDate,
     );
   }
 

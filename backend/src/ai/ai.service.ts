@@ -1808,11 +1808,13 @@ _This draft was generated without AI (AI was unavailable). Every bracketed field
     lead: Lead & { notes?: any[]; deals?: any[] },
     pricing?: LeadProposalPricing | null,
     issuer?: { companyName: string; representativeName: string } | null,
+    proposalDate?: string,
   ): Promise<string> {
     const context = `
       Lead Name: ${lead.name}
       Company: ${lead.company}
       Current Status: ${lead.status}
+      Proposal date: ${proposalDate || "today's date"}
       Notes: ${lead.notes?.map((n) => n.content).join('; ') || 'No notes available'}
       Related Deals: ${lead.deals?.map((d) => d.name).join(', ') || 'No specific deals'}
     `;
@@ -1846,6 +1848,8 @@ ${issuerPrompt}${this.leadPricingPrompt(pricing)}
       6. Value Proposition
 
       Format the output in clean Markdown. Start with a Title: # Security Services Proposal - ${lead.company}
+      Include a clearly labelled Proposal Date using exactly ${proposalDate || "today's date"}.
+      Do not use example, historical, or guessed dates.
     `;
 
     return this.generateText(

@@ -1633,6 +1633,8 @@ export class SalesAcceleratorService {
       content = this.ruleProposal(deal.lead.company, discovery, assessment);
     }
 
+    content = this.proposalsService.normalizeGeneratedProposalDate(content);
+
     const generation = await this.aiMonitoringService.logGeneration({
       tenantId,
       createdBy: userId,
