@@ -112,7 +112,11 @@ export class LeadsController {
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
     const user = req.user as unknown as ActiveUser;
-    return this.leadsService.processPdfLead(file.buffer, user.tenantId);
+    return this.leadsService.processPdfLead(
+      file.buffer,
+      user.tenantId,
+      user.sub,
+    );
   }
 
   @Post('analyze-pdf')
@@ -173,6 +177,17 @@ export class LeadsController {
       user.tenantId,
       user.sub,
     );
+  }
+
+  @Post(':id/sync-crm/:provider')
+  @RequirePermission('leads.update')
+  syncToCrm(
+    @Param('id') id: string,
+    @Param('provider') provider: string,
+    @Req() req: Request,
+  ) {
+    const user = req.user as unknown as ActiveUser;
+    return this.leadsService.syncToCrm(id, provider, user.tenantId, user.sub);
   }
 
   @Delete(':id')

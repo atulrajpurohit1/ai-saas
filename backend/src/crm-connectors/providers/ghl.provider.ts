@@ -12,8 +12,10 @@ import {
 const AUTH_URL = 'https://marketplace.gohighlevel.com/v2/oauth/chooselocation';
 const TOKEN_URL = 'https://services.leadconnectorhq.com/oauth/token';
 const CONTACTS_URL = 'https://services.leadconnectorhq.com/contacts/';
-const UPSERT_CONTACT_URL = 'https://services.leadconnectorhq.com/contacts/upsert';
-const API_VERSION = '2021-07-28';
+const UPSERT_CONTACT_URL =
+  'https://services.leadconnectorhq.com/contacts/upsert';
+const CONTACT_API_VERSION = 'v3';
+const LEGACY_API_VERSION = '2021-07-28';
 const SCOPES = ['contacts.readonly', 'contacts.write'];
 
 @Injectable()
@@ -28,12 +30,17 @@ export class GhlProvider implements CrmProviderAdapter {
   ];
 
   isConfigured() {
-    return Boolean(this.clientId() && this.clientSecret() && this.redirectUri());
+    return Boolean(
+      this.clientId() && this.clientSecret() && this.redirectUri(),
+    );
   }
 
   buildAuthUrl(state: string) {
     if (!this.isConfigured()) {
-      throw new CrmApiError(400, 'GHL OAuth environment variables are not configured');
+      throw new CrmApiError(
+        400,
+        'GHL OAuth environment variables are not configured',
+      );
     }
     const params = new URLSearchParams({
       response_type: 'code',
@@ -109,12 +116,15 @@ export class GhlProvider implements CrmProviderAdapter {
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        Version: API_VERSION,
+        Version: LEGACY_API_VERSION,
       },
     });
 
     if (!response.ok) {
-      throw await this.toApiError(response, `GHL contact import failed: ${response.status}`);
+      throw await this.toApiError(
+        response,
+        `GHL contact import failed: ${response.status}`,
+      );
     }
 
     const payload = (await response.json()) as {
@@ -148,21 +158,21 @@ export class GhlProvider implements CrmProviderAdapter {
     const body: Record<string, unknown> = {
       locationId,
       email: contact.email,
+      phone: contact.phone || undefined,
       name: contact.name || undefined,
       companyName: contact.companyName || undefined,
       website: contact.website || undefined,
       city: contact.city || undefined,
       state: contact.state || undefined,
       country: contact.country || undefined,
-      source: 'AegisLead Prospect Search',
-      tags: ['aegislead-prospect-search'],
+      source: contact.source || 'AegisLead',
     };
 
     const response = await fetch(UPSERT_CONTACT_URL, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        Version: API_VERSION,
+        Version: CONTACT_API_VERSION,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
@@ -179,6 +189,10 @@ export class GhlProvider implements CrmProviderAdapter {
 
     if (!payload.contact?.id) {
       throw new CrmApiError(502, 'GHL did not return a contact id');
+    }
+
+    if (contact.tags?.length) {
+      await this.addTags(accessToken, payload.contact.id, contact.tags);
     }
 
     const noteBody = this.buildNote(contact);
@@ -205,7 +219,7 @@ export class GhlProvider implements CrmProviderAdapter {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          Version: API_VERSION,
+          Version: LEGACY_API_VERSION,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ body }),
@@ -216,6 +230,29 @@ export class GhlProvider implements CrmProviderAdapter {
       // The contact was already created/updated successfully - a failed note
       // attachment shouldn't fail the whole sync, just skip it silently.
       return;
+    }
+  }
+
+  private async addTags(
+    accessToken: string,
+    contactId: string,
+    tags: string[],
+  ) {
+    const response = await fetch(
+      `https://services.leadconnectorhq.com/contacts/${contactId}/tags`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Version: LEGACY_API_VERSION,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tags: [...new Set(tags)] }),
+      },
+    );
+
+    if (!response.ok) {
+      throw await this.toApiError(response, 'GHL contact tag sync failed');
     }
   }
 

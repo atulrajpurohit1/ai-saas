@@ -37,5 +37,6 @@ const PROVIDER_CLASSES = [
       inject: [...PROVIDER_CLASSES],
     },
   ],
+  exports: [CrmConnectorsService],
 })
 export class CrmConnectorsModule {}

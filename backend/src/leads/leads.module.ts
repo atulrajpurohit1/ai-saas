@@ -5,9 +5,10 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { AiModule } from '../ai/ai.module';
 import { CrmImportService } from './import/crm-import.service';
 import { BillingModule } from '../billing/billing.module';
+import { CrmConnectorsModule } from '../crm-connectors/crm-connectors.module';
 
 @Module({
-  imports: [PrismaModule, AiModule, BillingModule],
+  imports: [PrismaModule, AiModule, BillingModule, CrmConnectorsModule],
   controllers: [LeadsController],
   providers: [LeadsService, CrmImportService],
   exports: [LeadsService, CrmImportService],

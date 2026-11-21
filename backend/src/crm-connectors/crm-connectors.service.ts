@@ -10,7 +10,7 @@ import {
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { CrmConnection } from '@prisma/client';
+import { CrmConnection, Lead } from '@prisma/client';
 import {
   createCipheriv,
   createDecipheriv,
@@ -40,7 +40,9 @@ export class CrmConnectorsService {
     private readonly auditService: AuditService,
     @Inject(CRM_PROVIDERS) providers: CrmProviderAdapter[],
   ) {
-    this.providers = new Map(providers.map((provider) => [provider.key, provider]));
+    this.providers = new Map(
+      providers.map((provider) => [provider.key, provider]),
+    );
   }
 
   async getStatus(user: ActiveUser) {
@@ -93,13 +95,19 @@ export class CrmConnectorsService {
   ) {
     const provider = this.requireProvider(providerKey);
 
-    if ((provider.authKind || 'oauth') !== 'api_key' || !provider.verifyCredentials) {
+    if (
+      (provider.authKind || 'oauth') !== 'api_key' ||
+      !provider.verifyCredentials
+    ) {
       throw new BadRequestException(
         `${provider.label} connects with OAuth - start the connect flow instead`,
       );
     }
 
-    let verified: { token: string; meta: { portalId: string | null; externalAccountName: string | null } };
+    let verified: {
+      token: string;
+      meta: { portalId: string | null; externalAccountName: string | null };
+    };
     try {
       verified = await provider.verifyCredentials(dto.credentials || {});
     } catch (err) {
@@ -180,7 +188,9 @@ export class CrmConnectorsService {
       );
     }
     if (!code) {
-      throw new BadRequestException(`Missing ${provider.label} authorization code`);
+      throw new BadRequestException(
+        `Missing ${provider.label} authorization code`,
+      );
     }
     const parsedState = this.verifyState(state);
 
@@ -274,8 +284,10 @@ export class CrmConnectorsService {
     const provider = this.requireProvider(providerKey);
     const connection = await this.activeConnection(provider, user.tenantId);
 
-    const contacts = await this.callProvider(provider, connection, (accessToken) =>
-      provider.fetchContacts(accessToken, connection.portalId),
+    const contacts = await this.callProvider(
+      provider,
+      connection,
+      (accessToken) => provider.fetchContacts(accessToken, connection.portalId),
     );
 
     let created = 0;
@@ -342,7 +354,13 @@ export class CrmConnectorsService {
       details: `Imported ${provider.label} contacts: ${created} created, ${updated} updated`,
     });
 
-    return { provider: provider.key, total: contacts.length, created, updated, skipped };
+    return {
+      provider: provider.key,
+      total: contacts.length,
+      created,
+      updated,
+      skipped,
+    };
   }
 
   async importProspectContact(
@@ -364,8 +382,11 @@ export class CrmConnectorsService {
 
     const contact = this.toContactInput(dto);
     const connection = await this.activeConnection(provider, user.tenantId);
-    const result = await this.callProvider(provider, connection, (accessToken) =>
-      provider.upsertContact!(accessToken, connection.portalId, contact),
+    const result = await this.callProvider(
+      provider,
+      connection,
+      (accessToken) =>
+        provider.upsertContact!(accessToken, connection.portalId, contact),
     );
 
     await this.prisma.crmConnection.update({
@@ -383,6 +404,180 @@ export class CrmConnectorsService {
     });
 
     return result;
+  }
+
+  async syncLead(
+    tenantId: string,
+    userId: string | undefined,
+    providerKey: string,
+    leadId: string,
+  ) {
+    const lead = await this.prisma.lead.findFirst({
+      where: { id: leadId, tenantId },
+    });
+    if (!lead) {
+      throw new NotFoundException('Lead not found');
+    }
+
+    return this.syncLeadRecord(lead, tenantId, userId, providerKey);
+  }
+
+  /**
+   * Best-effort automatic delivery for the connected GHL location. A CRM
+   * outage must never roll back a lead that was already saved locally; the
+   * connection records the failure and the lead page provides a retry action.
+   */
+  async autoSyncLeadToGhl(
+    lead: Pick<Lead, 'id' | 'name' | 'email' | 'phone' | 'company'>,
+    tenantId: string,
+    userId?: string,
+  ) {
+    if (!lead.email) return { synced: false, reason: 'missing_email' as const };
+
+    const connection = await this.prisma.crmConnection.findUnique({
+      where: { tenantId_provider: { tenantId, provider: 'ghl' } },
+    });
+    if (
+      !connection ||
+      connection.status !== 'connected' ||
+      !connection.accessToken
+    ) {
+      return { synced: false, reason: 'not_connected' as const };
+    }
+
+    try {
+      const result = await this.syncLeadRecord(
+        lead,
+        tenantId,
+        userId,
+        'ghl',
+        connection,
+      );
+      return { synced: true, result };
+    } catch (error) {
+      this.logger.warn(
+        `Automatic GHL sync failed for lead ${lead.id}: ${error instanceof Error ? error.message : 'unknown error'}`,
+      );
+      return { synced: false, reason: 'provider_error' as const };
+    }
+  }
+
+  async autoSyncProspectsToGhl(
+    prospects: Array<{
+      id: string;
+      companyName?: string;
+      companyDomain?: string;
+      companyLocation?: string;
+      contact: {
+        fullName?: string;
+        email?: string;
+        jobTitle?: string;
+        profileUrl?: string;
+      };
+      qualificationReason?: string;
+      signals: Array<{ label: string; snippet?: string }>;
+    }>,
+    tenantId: string,
+    userId?: string,
+  ) {
+    const eligible = prospects.filter((prospect) =>
+      prospect.contact.email?.trim(),
+    );
+    if (eligible.length === 0) {
+      return {
+        connected: false,
+        synced: 0,
+        failed: 0,
+        skipped: prospects.length,
+      };
+    }
+
+    const provider = this.requireProvider('ghl');
+    const connection = await this.prisma.crmConnection.findUnique({
+      where: { tenantId_provider: { tenantId, provider: 'ghl' } },
+    });
+    if (
+      !connection ||
+      connection.status !== 'connected' ||
+      !connection.accessToken
+    ) {
+      return {
+        connected: false,
+        synced: 0,
+        failed: 0,
+        skipped: prospects.length,
+      };
+    }
+
+    let synced = 0;
+    let failed = 0;
+    for (const prospect of eligible) {
+      const noteLines = [
+        prospect.qualificationReason
+          ? `Why this prospect matched: ${prospect.qualificationReason}`
+          : null,
+        ...prospect.signals.map((signal) =>
+          signal.snippet ? `${signal.label}: ${signal.snippet}` : signal.label,
+        ),
+      ].filter((line): line is string => Boolean(line));
+
+      try {
+        await this.callProvider(provider, connection, (accessToken) =>
+          provider.upsertContact!(accessToken, connection.portalId, {
+            name: prospect.contact.fullName || prospect.companyName,
+            email: prospect.contact.email!.trim(),
+            companyName: prospect.companyName,
+            website: prospect.companyDomain
+              ? prospect.companyDomain.includes('://')
+                ? prospect.companyDomain
+                : `https://${prospect.companyDomain}`
+              : undefined,
+            jobTitle: prospect.contact.jobTitle,
+            linkedinUrl: prospect.contact.profileUrl,
+            note: noteLines.length ? noteLines.join('\n') : null,
+            source: 'AegisLead Prospect Search',
+            tags: ['aegislead-lead', 'aegislead-prospect-search'],
+          }),
+        );
+        synced += 1;
+      } catch (error) {
+        failed += 1;
+        this.logger.warn(
+          `Automatic GHL sync failed for prospect ${prospect.id}: ${error instanceof Error ? error.message : 'unknown error'}`,
+        );
+        const status =
+          error instanceof HttpException ? error.getStatus() : null;
+        if (status === 401 || status === 403 || status === 429) {
+          failed += eligible.length - synced - failed;
+          break;
+        }
+      }
+    }
+
+    if (synced > 0) {
+      await this.prisma.crmConnection.update({
+        where: { id: connection.id },
+        data: {
+          lastSyncAt: new Date(),
+          ...(failed === 0 ? { lastError: null } : {}),
+        },
+      });
+      await this.auditService.log({
+        tenantId,
+        userId,
+        action: 'CRM_PROSPECTS_AUTO_SYNCED',
+        entityType: 'CrmConnection',
+        entityId: connection.id,
+        details: `Automatically synced ${synced} Prospect Search contact(s) to GoHighLevel${failed ? `; ${failed} failed` : ''}`,
+      });
+    }
+
+    return {
+      connected: true,
+      synced,
+      failed,
+      skipped: prospects.length - eligible.length,
+    };
   }
 
   callbackResultUrl(providerKey: string, success: boolean) {
@@ -412,6 +607,64 @@ export class CrmConnectorsService {
       jobTitle: dto.contactTitle,
       linkedinUrl: dto.contactProfileUrl,
       note: noteLines.length > 0 ? noteLines.join('\n') : null,
+      source: 'AegisLead Prospect Search',
+      tags: ['aegislead-lead', 'aegislead-prospect-search'],
+    };
+  }
+
+  private async syncLeadRecord(
+    lead: Pick<Lead, 'id' | 'name' | 'email' | 'phone' | 'company'>,
+    tenantId: string,
+    userId: string | undefined,
+    providerKey: string,
+    existingConnection?: CrmConnection,
+  ) {
+    const provider = this.requireProvider(providerKey);
+    if (!provider.upsertContact) {
+      throw new BadRequestException(
+        `${provider.label} does not support syncing contacts yet`,
+      );
+    }
+    if (!lead.email) {
+      throw new BadRequestException(
+        'An email address is required to sync this lead (needed to avoid creating duplicates).',
+      );
+    }
+
+    const connection =
+      existingConnection || (await this.activeConnection(provider, tenantId));
+    const result = await this.callProvider(
+      provider,
+      connection,
+      (accessToken) =>
+        provider.upsertContact!(accessToken, connection.portalId, {
+          name: lead.name,
+          email: lead.email!,
+          phone: lead.phone,
+          companyName: lead.company,
+          source: 'AegisLead Lead',
+          tags: ['aegislead-lead'],
+        }),
+    );
+
+    await this.prisma.crmConnection.update({
+      where: { id: connection.id },
+      data: { lastSyncAt: new Date(), lastError: null },
+    });
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'CRM_LEAD_SYNCED',
+      entityType: 'Lead',
+      entityId: lead.id,
+      details: `Synced lead "${lead.name}" to ${provider.label} (${result.created ? 'created' : 'updated'})`,
+    });
+
+    return {
+      provider: provider.key,
+      ...result,
+      tags: provider.key === 'ghl' ? ['aegislead-lead'] : [],
     };
   }
 
@@ -423,12 +676,19 @@ export class CrmConnectorsService {
     return provider;
   }
 
-  private async activeConnection(provider: CrmProviderAdapter, tenantId: string) {
+  private async activeConnection(
+    provider: CrmProviderAdapter,
+    tenantId: string,
+  ) {
     const connection = await this.prisma.crmConnection.findUnique({
       where: { tenantId_provider: { tenantId, provider: provider.key } },
     });
 
-    if (!connection || connection.status === 'disconnected' || !connection.accessToken) {
+    if (
+      !connection ||
+      connection.status === 'disconnected' ||
+      !connection.accessToken
+    ) {
       throw new BadRequestException(`${provider.label} is not connected`);
     }
 
@@ -453,9 +713,15 @@ export class CrmConnectorsService {
     } catch (err) {
       if (!(err instanceof CrmApiError)) throw err;
 
-      if (err.status === 401 && connection.refreshToken && this.usesOAuth(provider)) {
+      if (
+        err.status === 401 &&
+        connection.refreshToken &&
+        this.usesOAuth(provider)
+      ) {
         try {
-          const refreshed = await provider.refreshToken(this.decrypt(connection.refreshToken));
+          const refreshed = await provider.refreshToken(
+            this.decrypt(connection.refreshToken),
+          );
           await this.persistRefreshedToken(connection, provider, refreshed);
           return await fn(refreshed.access_token);
         } catch {
@@ -499,15 +765,22 @@ export class CrmConnectorsService {
       );
     }
     if (err.status === 429) {
-      return new HttpException(`${provider.label} rate limit reached. Please try again shortly.`, 429);
+      return new HttpException(
+        `${provider.label} rate limit reached. Please try again shortly.`,
+        429,
+      );
     }
     if (err.status >= 500) {
       await this.recordSyncError(connection.id, err.message);
-      return new ServiceUnavailableException(`${provider.label} is temporarily unavailable. Please try again.`);
+      return new ServiceUnavailableException(
+        `${provider.label} is temporarily unavailable. Please try again.`,
+      );
     }
 
     await this.recordSyncError(connection.id, err.message);
-    return new BadRequestException(`${provider.label} rejected this request: ${err.message}`);
+    return new BadRequestException(
+      `${provider.label} rejected this request: ${err.message}`,
+    );
   }
 
   private async persistRefreshedToken(
@@ -515,22 +788,35 @@ export class CrmConnectorsService {
     provider: CrmProviderAdapter,
     refreshed: CrmTokenResponse,
   ) {
+    const accessToken = this.encrypt(refreshed.access_token);
+    const refreshToken = refreshed.refresh_token
+      ? this.encrypt(refreshed.refresh_token)
+      : connection.refreshToken;
+    const tokenExpiresAt = refreshed.expires_in
+      ? new Date(Date.now() + Number(refreshed.expires_in) * 1000)
+      : connection.tokenExpiresAt;
+
     await this.prisma.crmConnection.update({
       where: { id: connection.id },
       data: {
-        accessToken: this.encrypt(refreshed.access_token),
-        refreshToken: refreshed.refresh_token
-          ? this.encrypt(refreshed.refresh_token)
-          : connection.refreshToken,
-        tokenExpiresAt: refreshed.expires_in
-          ? new Date(Date.now() + Number(refreshed.expires_in) * 1000)
-          : connection.tokenExpiresAt,
+        accessToken,
+        refreshToken,
+        tokenExpiresAt,
         scopes: this.scopeList(provider, refreshed.scope),
       },
     });
+
+    // Batch syncs reuse this object. Keep it current so one proactive refresh
+    // does not try to reuse the now-rotated refresh token for every contact.
+    connection.accessToken = accessToken;
+    connection.refreshToken = refreshToken;
+    connection.tokenExpiresAt = tokenExpiresAt;
   }
 
-  private async validAccessToken(provider: CrmProviderAdapter, connection: CrmConnection) {
+  private async validAccessToken(
+    provider: CrmProviderAdapter,
+    connection: CrmConnection,
+  ) {
     // API keys have no expiry and no refresh endpoint - the stored secret is
     // the credential, so use it as-is.
     if (!this.usesOAuth(provider)) {
@@ -550,11 +836,15 @@ export class CrmConnectorsService {
         connection.id,
         `${provider.label} connection expired. Please reconnect.`,
       );
-      throw new UnauthorizedException(`${provider.label} connection expired. Please reconnect.`);
+      throw new UnauthorizedException(
+        `${provider.label} connection expired. Please reconnect.`,
+      );
     }
 
     try {
-      const refreshed = await provider.refreshToken(this.decrypt(connection.refreshToken));
+      const refreshed = await provider.refreshToken(
+        this.decrypt(connection.refreshToken),
+      );
       await this.persistRefreshedToken(connection, provider, refreshed);
       return refreshed.access_token;
     } catch {
@@ -562,7 +852,9 @@ export class CrmConnectorsService {
         connection.id,
         `${provider.label} connection expired. Please reconnect.`,
       );
-      throw new UnauthorizedException(`${provider.label} connection expired. Please reconnect.`);
+      throw new UnauthorizedException(
+        `${provider.label} connection expired. Please reconnect.`,
+      );
     }
   }
 
@@ -584,7 +876,10 @@ export class CrmConnectorsService {
     return (provider.authKind || 'oauth') === 'oauth';
   }
 
-  private serializeStatus(provider: CrmProviderAdapter, connection?: CrmConnection) {
+  private serializeStatus(
+    provider: CrmProviderAdapter,
+    connection?: CrmConnection,
+  ) {
     return {
       label: provider.label,
       auth_kind: provider.authKind || 'oauth',
@@ -620,23 +915,32 @@ export class CrmConnectorsService {
   }
 
   private frontendUrl() {
-    return (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '');
+    return (process.env.FRONTEND_URL || 'http://localhost:3000').replace(
+      /\/+$/,
+      '',
+    );
   }
 
   private signState(payload: Record<string, unknown>) {
     const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
-    const sig = createHmac('sha256', this.secret()).update(body).digest('base64url');
+    const sig = createHmac('sha256', this.secret())
+      .update(body)
+      .digest('base64url');
     return `${body}.${sig}`;
   }
 
   private verifyState(state?: string) {
     if (!state) throw new BadRequestException('Missing OAuth state');
     const [body, sig] = state.split('.');
-    const expected = createHmac('sha256', this.secret()).update(body).digest('base64url');
+    const expected = createHmac('sha256', this.secret())
+      .update(body)
+      .digest('base64url');
     if (!body || !sig || sig !== expected) {
       throw new BadRequestException('Invalid OAuth state');
     }
-    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as {
+    const payload = JSON.parse(
+      Buffer.from(body, 'base64url').toString('utf8'),
+    ) as {
       tenantId: string;
       userId: string;
       createdAt: number;
@@ -650,7 +954,10 @@ export class CrmConnectorsService {
   private encrypt(value: string) {
     const iv = randomBytes(12);
     const cipher = createCipheriv('aes-256-gcm', this.encryptionKey(), iv);
-    const encrypted = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+    const encrypted = Buffer.concat([
+      cipher.update(value, 'utf8'),
+      cipher.final(),
+    ]);
     const tag = cipher.getAuthTag();
     return `${iv.toString('base64url')}.${tag.toString('base64url')}.${encrypted.toString('base64url')}`;
   }

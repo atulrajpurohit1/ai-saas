@@ -268,3 +268,13 @@ export async function syncProspectToCrm(provider: string, contact: SyncContactPa
   );
   return res.data;
 }
+
+export async function syncLeadToCrm(leadId: string, provider: string) {
+  const res = await api.post<{
+    provider: string;
+    externalId: string;
+    created: boolean;
+    tags: string[];
+  }>(`leads/${leadId}/sync-crm/${provider}`);
+  return res.data;
+}

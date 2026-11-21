@@ -10,6 +10,7 @@ import { Readable } from 'stream';
 import { AiService } from '../ai/ai.service';
 import { AiMeteringService } from '../billing/ai-metering.service';
 import { AiFeature } from '@prisma/client';
+import { CrmConnectorsService } from '../crm-connectors/crm-connectors.service';
 
 @Injectable()
 export class LeadsService {
@@ -18,6 +19,7 @@ export class LeadsService {
     private aiService: AiService,
     private auditService: AuditService,
     private aiMetering: AiMeteringService,
+    private crmConnectorsService: CrmConnectorsService,
   ) {}
 
   async create(
@@ -40,6 +42,8 @@ export class LeadsService {
       entityId: lead.id,
       details: `Created lead for ${lead.company}`,
     });
+
+    await this.crmConnectorsService.autoSyncLeadToGhl(lead, tenantId, userId);
 
     return lead;
   }
@@ -120,6 +124,8 @@ export class LeadsService {
       entityType: 'LEAD',
       entityId: id,
     });
+
+    await this.crmConnectorsService.autoSyncLeadToGhl(lead, tenantId, userId);
 
     return lead;
   }
@@ -228,7 +234,7 @@ export class LeadsService {
     });
   }
 
-  async processPdfLead(buffer: Buffer, tenantId: string) {
+  async processPdfLead(buffer: Buffer, tenantId: string, userId?: string) {
     const pdfParse = require('pdf-parse');
     const data = await pdfParse(buffer);
     const extractedText = data.text;
@@ -238,15 +244,20 @@ export class LeadsService {
       () => this.aiService.extractLeadFromText(extractedText),
     );
 
-    return this.prisma.lead.create({
-      data: {
+    return this.create(
+      {
         name: leadInfo.name,
         company: leadInfo.company,
-        email: leadInfo.email || null,
+        email: leadInfo.email || undefined,
         status: 'new',
-        tenantId,
       },
-    });
+      tenantId,
+      userId,
+    );
+  }
+
+  syncToCrm(id: string, provider: string, tenantId: string, userId?: string) {
+    return this.crmConnectorsService.syncLead(tenantId, userId, provider, id);
   }
 
   async analyzePdf(buffer: Buffer, tenantId: string) {

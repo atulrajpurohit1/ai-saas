@@ -17,12 +17,14 @@ import { ProspectSearchRateLimitService } from './prospect-search-rate-limit.ser
 import { ProspectSearchService } from './prospect-search.service';
 import { UpstreamBudgetService } from './upstream-budget.service';
 import { SavedProspectSearchService } from './saved-prospect-search.service';
+import { CrmConnectorsModule } from '../crm-connectors/crm-connectors.module';
 
 @Module({
   imports: [
     ConfigModule,
     AiModule,
     AuditModule,
+    CrmConnectorsModule,
     LeadsModule,
     NotesModule,
     PrismaModule,

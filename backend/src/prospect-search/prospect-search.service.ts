@@ -1,6 +1,7 @@
 import {
   Injectable,
   Logger,
+  Optional,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { AiService, ProspectCompanyInsight } from '../ai/ai.service';
@@ -29,6 +30,7 @@ import { ProspectDiscoveryCacheService } from './prospect-discovery-cache.servic
 import { ProspectDiscoveryJobService } from './prospect-discovery-job.service';
 import { ProspectSearchCacheService } from './prospect-search-cache.service';
 import { ProspectSearchHistoryService } from './prospect-search-history.service';
+import { CrmConnectorsService } from '../crm-connectors/crm-connectors.service';
 import {
   ImportProspectResult,
   ProspectDiscoveryJobStatusResult,
@@ -63,6 +65,7 @@ export class ProspectSearchService {
     private readonly creditsService: CreditsService,
     private readonly upstreamBudget: UpstreamBudgetService,
     private readonly entitlements: EntitlementsService,
+    @Optional() private readonly crmConnectors?: CrmConnectorsService,
   ) {}
 
   /**
@@ -350,6 +353,7 @@ export class ProspectSearchService {
         user,
         cached,
       );
+      await this.autoSyncDiscoveryProspects(cached, user);
       return { status: 'completed', query: objective, result: cached };
     }
 
@@ -491,6 +495,7 @@ export class ProspectSearchService {
         user,
         result,
       );
+      await this.autoSyncDiscoveryProspects(result, user);
 
       // Flat price: the search ran and produced an answer, so it costs what a
       // search costs. Finding nobody is still a real, fully-billed job
@@ -568,6 +573,27 @@ export class ProspectSearchService {
         `Failed to record prospect discovery history: ${
           error instanceof Error ? error.message : String(error)
         }`,
+      );
+    }
+  }
+
+  private async autoSyncDiscoveryProspects(
+    result: ProspectDiscoveryResult,
+    user: ActiveUser,
+  ) {
+    if (!this.crmConnectors) return;
+
+    try {
+      await this.crmConnectors.autoSyncProspectsToGhl(
+        result.prospects,
+        user.tenantId,
+        user.sub,
+      );
+    } catch (error) {
+      // Search completion is authoritative. CRM delivery is best-effort and
+      // individual contacts can still be retried from the result cards.
+      this.logger.warn(
+        `Could not automatically sync Prospect Search results to GHL: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

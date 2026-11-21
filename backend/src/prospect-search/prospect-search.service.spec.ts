@@ -24,6 +24,7 @@ import { ProspectDiscoveryJobService } from './prospect-discovery-job.service';
 import { ProspectSearchCacheService } from './prospect-search-cache.service';
 import { ProspectSearchHistoryService } from './prospect-search-history.service';
 import { ProspectSearchService } from './prospect-search.service';
+import { CrmConnectorsService } from '../crm-connectors/crm-connectors.service';
 
 describe('ProspectSearchService', () => {
   let service: ProspectSearchService;
@@ -62,6 +63,7 @@ describe('ProspectSearchService', () => {
     getBalanceUsd: jest.Mock;
   };
   let entitlements: { isAiEnabled: jest.Mock };
+  let crmConnectors: { autoSyncProspectsToGhl: jest.Mock };
 
   const tenantId = 'tenant-1';
   const user: ActiveUser = { sub: 'user-1', tenantId, role: 'admin' };
@@ -184,6 +186,14 @@ describe('ProspectSearchService', () => {
     entitlements = {
       isAiEnabled: jest.fn().mockResolvedValue(true),
     };
+    crmConnectors = {
+      autoSyncProspectsToGhl: jest.fn().mockResolvedValue({
+        connected: true,
+        synced: 1,
+        failed: 0,
+        skipped: 0,
+      }),
+    };
 
     service = new ProspectSearchService(
       aiService as unknown as AiService,
@@ -199,6 +209,7 @@ describe('ProspectSearchService', () => {
       creditsService as unknown as CreditsService,
       upstreamBudget as unknown as UpstreamBudgetService,
       entitlements as unknown as EntitlementsService,
+      crmConnectors as unknown as CrmConnectorsService,
     );
   });
 
@@ -796,6 +807,11 @@ describe('ProspectSearchService', () => {
           provider: 'blackpearl_prospecting',
           resultCount: 1,
         }),
+      );
+      expect(crmConnectors.autoSyncProspectsToGhl).toHaveBeenCalledWith(
+        prospects,
+        tenantId,
+        user.sub,
       );
     });
 

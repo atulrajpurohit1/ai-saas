@@ -34,6 +34,7 @@ export interface CrmContactInput {
   firstName?: string | null;
   lastName?: string | null;
   email: string;
+  phone?: string | null;
   companyName?: string | null;
   website?: string | null;
   city?: string | null;
@@ -42,6 +43,10 @@ export interface CrmContactInput {
   jobTitle?: string | null;
   linkedinUrl?: string | null;
   note?: string | null;
+  /** CRM-visible origin for this contact. */
+  source?: string | null;
+  /** Additive tags; providers must not remove the contact's existing tags. */
+  tags?: string[];
 }
 
 export interface CrmContactUpsertResult {

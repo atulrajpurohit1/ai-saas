@@ -2,6 +2,7 @@
 
 import { formatDate as fmtDate } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -12,10 +13,15 @@ import ErrorState from '@/components/ErrorState';
 import StatusBadge from '@/components/StatusBadge';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import api from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/api-error';
+import { getCrmConnectorStatus, syncLeadToCrm } from '@/lib/integrations';
+import { Button } from '@/components/ui/button';
 import {
   ArrowLeft,
   Building2,
   CalendarDays,
+  CloudUpload,
+  Loader2,
   Mail,
   User,
 } from 'lucide-react';
@@ -36,6 +42,9 @@ export default function LeadDetailsPage() {
   const [lead, setLead] = useState<LeadDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [ghlConnected, setGhlConnected] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [synced, setSynced] = useState(false);
 
   useEffect(() => {
     const fetchLead = async () => {
@@ -43,8 +52,12 @@ export default function LeadDetailsPage() {
       setError('');
 
       try {
-        const response = await api.get(`leads/${leadId}`);
+        const [response, crmStatus] = await Promise.all([
+          api.get(`leads/${leadId}`),
+          getCrmConnectorStatus().catch(() => null),
+        ]);
         setLead(response.data);
+        setGhlConnected(Boolean(crmStatus?.ghl?.connected));
       } catch (err) {
         console.error('Failed to load lead', err);
         setError('Could not load this lead.');
@@ -55,6 +68,20 @@ export default function LeadDetailsPage() {
 
     if (leadId) fetchLead();
   }, [leadId]);
+
+  const handleGhlSync = async () => {
+    if (!lead) return;
+    setSyncing(true);
+    try {
+      await syncLeadToCrm(lead.id, 'ghl');
+      setSynced(true);
+      toast.success('Lead synced to GoHighLevel with the aegislead-lead tag.');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Could not sync this lead to GoHighLevel.'));
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const formatDate = (value?: string) =>
     value
@@ -101,7 +128,25 @@ export default function LeadDetailsPage() {
                 </p>
               </div>
 
-              <StatusBadge label={lead.status} tone="success" className="w-fit px-4 py-2 text-xs" />
+              <div className="flex flex-wrap items-center gap-3">
+                {ghlConnected && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleGhlSync}
+                    disabled={syncing || !lead.email}
+                    title={
+                      lead.email
+                        ? 'Manually sync or retry this lead in GoHighLevel'
+                        : 'Add an email address before syncing to GoHighLevel'
+                    }
+                  >
+                    {syncing ? <Loader2 size={16} className="animate-spin" /> : <CloudUpload size={16} />}
+                    {syncing ? 'Syncing...' : synced ? 'Synced to GHL' : 'Sync to GHL'}
+                  </Button>
+                )}
+                <StatusBadge label={lead.status} tone="success" className="w-fit px-4 py-2 text-xs" />
+              </div>
             </div>
 
             <div className="mt-8 grid gap-4 md:grid-cols-3">
