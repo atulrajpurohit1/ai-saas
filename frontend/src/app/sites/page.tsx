@@ -370,15 +370,15 @@ export default function SitesPage() {
                             title={canManageSites ? undefined : 'You need site management permission to change this setting'}
                             disabled={!canManageSites || autoAssigningSiteId !== null}
                             onClick={() => handleAutoAssignmentToggle(site)}
-                            className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                            className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full border-2 shadow-inner transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
                               site.autoAssignGuards
-                                ? 'border-primary bg-primary'
-                                : 'border-input bg-background'
+                                ? 'border-primary bg-primary hover:bg-primary-hover'
+                                : 'border-slate-500 bg-slate-300 hover:bg-slate-400'
                             }`}
                           >
                             <span
-                              className={`block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-                                site.autoAssignGuards ? 'translate-x-6' : 'translate-x-1'
+                              className={`block h-6 w-6 rounded-full bg-white shadow-md ring-1 ring-slate-400 transition-transform duration-200 ${
+                                site.autoAssignGuards ? 'translate-x-7' : 'translate-x-1'
                               }`}
                             />
                           </button>
