@@ -7,11 +7,10 @@ import DashboardLayout from '@/components/DashboardLayout';
 import PageHeader from '@/components/PageHeader';
 import LoadingState from '@/components/LoadingState';
 import EmptyState from '@/components/EmptyState';
-import BranchSelect, { BranchBadge } from '@/components/BranchSelect';
+import BranchSelect from '@/components/BranchSelect';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import SearchField from '@/components/SearchField';
 import api from '@/lib/api';
 import { branchParams, BranchSummary } from '@/lib/branches';
@@ -211,13 +210,13 @@ export default function SitesPage() {
       />
 
       <div className="overflow-hidden rounded-[var(--radius-lg)] border border-border bg-card shadow-sm">
-        <div className="border-b border-border p-4">
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_240px]">
+        <div className="border-b border-border p-4 sm:p-5">
+          <div className="grid items-end gap-4 md:grid-cols-[minmax(0,420px)_minmax(220px,300px)] md:justify-between">
             <SearchField
               value={searchQuery}
               onChange={setSearchQuery}
               placeholder="Search sites..."
-              className="w-full sm:max-w-sm"
+              className="w-full"
             />
             <BranchSelect value={selectedBranchId} onChange={setSelectedBranchId} label="Filter Branch" />
           </div>
@@ -245,142 +244,163 @@ export default function SitesPage() {
         ) : filteredSites.length === 0 ? (
           <EmptyState icon={Search} title="No matching sites" description="Try a different search term." />
         ) : (
-          <div className="overflow-x-auto">
-            <Table className="responsive-table">
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Site</TableHead>
-                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Location</TableHead>
-                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Client</TableHead>
-                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Set up</TableHead>
-                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Auto assignment</TableHead>
-                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Branch</TableHead>
-                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Created</TableHead>
-                  <TableHead className="px-6 py-3" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSites.map((site) => (
-                  <TableRow key={site.id}>
-                    <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Site">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/8 text-primary">
-                          <MapPin size={16} />
+          <div className="divide-y divide-border">
+            {filteredSites.map((site) => {
+              const checkpointCount = site.counts?.checkpoints ?? 0;
+              const routeCount = site.counts?.routes ?? 0;
+              const shiftCount = site.counts?.shifts ?? 0;
+              const isUpdatingAutoAssignment = autoAssigningSiteId === site.id;
+
+              return (
+                <article
+                  key={site.id}
+                  aria-labelledby={`site-${site.id}-name`}
+                  className="p-4 transition-colors hover:bg-muted/30 sm:p-5"
+                >
+                  <div className="grid gap-5 lg:grid-cols-2 lg:items-start 2xl:grid-cols-[minmax(260px,1.35fr)_minmax(300px,1fr)_minmax(240px,.8fr)_auto] 2xl:items-center">
+                    <div className="min-w-0">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <MapPin size={18} aria-hidden="true" />
                         </div>
-                        <span className="font-semibold text-foreground">{site.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell
-                      className="px-6 py-3.5 text-sm text-muted-foreground whitespace-normal md:max-w-xs md:truncate"
-                      data-label="Location"
-                    >
-                      {site.address}
-                    </TableCell>
-                    <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Client">
-                      {site.client ? (
-                        <span className="inline-flex w-fit items-center rounded-full bg-success-wash px-2.5 py-0.5 text-xs font-semibold text-success">
-                          {site.client.companyName || site.client.name}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">Unlinked</span>
-                      )}
-                    </TableCell>
-                    {/* The site's own checkpoints, routes and shifts, each a
-                        link to that page already filtered to this site. */}
-                    <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Set up">
-                      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
-                        <Link
-                          href={`/patrol/checkpoints?site_id=${encodeURIComponent(site.id)}`}
-                          className="font-medium text-foreground hover:text-primary hover:underline"
-                        >
-                          Checkpoints ({site.counts?.checkpoints ?? 0})
-                        </Link>
-                        <span className="text-muted-foreground" aria-hidden="true">
-                          &middot;
-                        </span>
-                        <Link
-                          href={`/patrol/routes?site_id=${encodeURIComponent(site.id)}`}
-                          className="font-medium text-foreground hover:text-primary hover:underline"
-                        >
-                          Routes ({site.counts?.routes ?? 0})
-                        </Link>
-                        <span className="text-muted-foreground" aria-hidden="true">
-                          &middot;
-                        </span>
-                        <Link
-                          href={`/shifts?site_id=${encodeURIComponent(site.id)}`}
-                          className="font-medium text-foreground hover:text-primary hover:underline"
-                        >
-                          Shifts ({site.counts?.shifts ?? 0})
-                        </Link>
-                      </div>
-                      {site.patrolReady === false && (
-                        <Link
-                          href={`/patrol/routes?site_id=${encodeURIComponent(site.id)}`}
-                          className="mt-1.5 inline-flex w-fit items-center gap-1.5 rounded-full bg-warning-wash px-2.5 py-0.5 text-xs font-semibold text-warning hover:brightness-95"
-                        >
-                          <AlertTriangle size={12} aria-hidden="true" />
-                          {(site.counts?.routes ?? 0) === 0
-                            ? 'Not ready for patrols - add a route'
-                            : 'A route has no checkpoints'}
-                        </Link>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Auto assignment">
-                      <div className="flex min-w-[180px] items-center gap-3">
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={site.autoAssignGuards}
-                          aria-label={`${site.autoAssignGuards ? 'Turn off' : 'Turn on'} automatic guard assignment for ${site.name}`}
-                          disabled={!canManageSites || autoAssigningSiteId !== null}
-                          onClick={() => handleAutoAssignmentToggle(site)}
-                          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
-                            site.autoAssignGuards
-                              ? 'border-primary bg-primary'
-                              : 'border-input bg-muted'
-                          }`}
-                        >
-                          <span
-                            className={`block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
-                              site.autoAssignGuards ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                          />
-                        </button>
-                        <div aria-live="polite">
-                          <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                            {autoAssigningSiteId === site.id && (
-                              <Loader2 size={14} className="animate-spin text-primary" aria-hidden="true" />
-                            )}
-                            {site.autoAssignGuards ? 'On' : 'Off'}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {site.autoAssignGuards ? 'Fills open shift slots' : 'Manual rostering'}
+                        <div className="min-w-0">
+                          <h2 id={`site-${site.id}-name`} className="break-words text-base font-semibold text-foreground">
+                            {site.name}
+                          </h2>
+                          <p className="mt-1 break-words text-sm leading-5 text-muted-foreground">
+                            {site.address}
                           </p>
                         </div>
                       </div>
-                    </TableCell>
-                    <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Branch">
-                      <BranchBadge branch={site.branch} />
-                    </TableCell>
-                    <TableCell className="px-6 py-3.5 text-sm text-muted-foreground whitespace-normal" data-label="Created">
-                      {fmtDate(site.createdAt)}
-                    </TableCell>
-                    <TableCell className="px-6 py-3.5 text-right whitespace-normal" data-label="Actions">
+
+                      <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                        <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 text-muted-foreground">
+                          <span className="shrink-0">Client</span>
+                          <span className="min-w-0 break-words font-medium text-foreground">
+                            {site.client ? site.client.companyName || site.client.name : 'Unlinked'}
+                          </span>
+                        </span>
+                        <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 text-muted-foreground">
+                          <span className="shrink-0">Branch</span>
+                          <span className="min-w-0 break-words font-medium text-foreground">
+                            {site.branch?.name || 'Unassigned'}
+                          </span>
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 text-muted-foreground">
+                          <span>Created</span>
+                          <span className="font-medium text-foreground">{fmtDate(site.createdAt)}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="mb-2 text-sm font-semibold text-foreground">Site setup</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        <Link
+                          href={`/patrol/checkpoints?site_id=${encodeURIComponent(site.id)}`}
+                          aria-label={`View ${checkpointCount} checkpoints for ${site.name}`}
+                          className="min-w-0 rounded-lg border border-border bg-background px-2 py-2.5 text-center transition hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <span className="block text-lg font-bold leading-none text-foreground">{checkpointCount}</span>
+                          <span className="mt-1 block truncate text-sm text-muted-foreground">Checkpoints</span>
+                        </Link>
+                        <Link
+                          href={`/patrol/routes?site_id=${encodeURIComponent(site.id)}`}
+                          aria-label={`View ${routeCount} patrol routes for ${site.name}`}
+                          className="min-w-0 rounded-lg border border-border bg-background px-2 py-2.5 text-center transition hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <span className="block text-lg font-bold leading-none text-foreground">{routeCount}</span>
+                          <span className="mt-1 block truncate text-sm text-muted-foreground">Routes</span>
+                        </Link>
+                        <Link
+                          href={`/shifts?site_id=${encodeURIComponent(site.id)}`}
+                          aria-label={`View ${shiftCount} shifts for ${site.name}`}
+                          className="min-w-0 rounded-lg border border-border bg-background px-2 py-2.5 text-center transition hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <span className="block text-lg font-bold leading-none text-foreground">{shiftCount}</span>
+                          <span className="mt-1 block truncate text-sm text-muted-foreground">Shifts</span>
+                        </Link>
+                      </div>
+
+                      {site.patrolReady === false && (
+                        <Link
+                          href={`/patrol/routes?site_id=${encodeURIComponent(site.id)}`}
+                          className="mt-2 flex max-w-full items-start gap-2 rounded-lg border border-warning/20 bg-warning-wash px-3 py-2 text-sm font-medium leading-5 text-warning transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+                          <span>
+                            {routeCount === 0
+                              ? 'Patrol setup needed: add a route'
+                              : 'Patrol setup needed: a route has no checkpoints'}
+                          </span>
+                        </Link>
+                      )}
+                    </div>
+
+                    <div className="rounded-lg border border-border bg-muted/35 p-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="min-w-0" aria-live="polite">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-foreground">Auto assignment</p>
+                            <span
+                              className={`text-sm font-semibold ${
+                                site.autoAssignGuards ? 'text-success' : 'text-muted-foreground'
+                              }`}
+                            >
+                              {site.autoAssignGuards ? 'On' : 'Off'}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-sm leading-5 text-muted-foreground">
+                            {isUpdatingAutoAssignment
+                              ? 'Updating assignment settings...'
+                              : site.autoAssignGuards
+                                ? 'Eligible guards fill open shift slots automatically.'
+                                : 'Guards are assigned manually.'}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          {isUpdatingAutoAssignment && (
+                            <Loader2 size={16} className="animate-spin text-primary" aria-hidden="true" />
+                          )}
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={site.autoAssignGuards}
+                            aria-label={`${site.autoAssignGuards ? 'Turn off' : 'Turn on'} automatic guard assignment for ${site.name}`}
+                            title={canManageSites ? undefined : 'You need site management permission to change this setting'}
+                            disabled={!canManageSites || autoAssigningSiteId !== null}
+                            onClick={() => handleAutoAssignmentToggle(site)}
+                            className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                              site.autoAssignGuards
+                                ? 'border-primary bg-primary'
+                                : 'border-input bg-background'
+                            }`}
+                          >
+                            <span
+                              className={`block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                                site.autoAssignGuards ? 'translate-x-6' : 'translate-x-1'
+                              }`}
+                            />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex lg:justify-end 2xl:justify-self-end">
                       <Button
                         variant="outline"
-                        size="sm"
                         onClick={() => handleEdit(site)}
                         disabled={!canManageSites}
+                        className="w-full lg:w-auto"
                       >
-                        <Edit2 size={14} />
-                        Edit
+                        <Edit2 size={16} />
+                        Edit site
                       </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </div>
