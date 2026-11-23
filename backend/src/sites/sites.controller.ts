@@ -20,6 +20,7 @@ import { GetUser } from '../auth/decorators/get-user.decorator';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CreateSiteDto } from './dto/create-site.dto';
 import { UpdateSiteDto } from './dto/update-site.dto';
+import { SetAutoAssignmentDto } from './dto/set-auto-assignment.dto';
 
 @Controller('sites')
 @UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard)
@@ -46,5 +47,15 @@ export class SitesController {
     @Body() updateSiteDto: UpdateSiteDto,
   ) {
     return this.sitesService.update(user, id, updateSiteDto);
+  }
+
+  @Put(':id/auto-assignment')
+  @RequirePermission('sites.manage')
+  setAutoAssignment(
+    @GetUser() user: ActiveUser,
+    @Param('id') id: string,
+    @Body() dto: SetAutoAssignmentDto,
+  ) {
+    return this.sitesService.setAutoAssignment(user, id, dto.enabled);
   }
 }

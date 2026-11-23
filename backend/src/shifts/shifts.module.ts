@@ -10,5 +10,6 @@ import { EmailModule } from '../email/email.module';
   imports: [PrismaModule, AiInsightsModule, EmailModule],
   controllers: [ShiftsController, ShiftRecommendationsController],
   providers: [ShiftsService],
+  exports: [ShiftsService],
 })
 export class ShiftsModule {}

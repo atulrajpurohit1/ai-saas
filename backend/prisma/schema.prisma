@@ -785,6 +785,10 @@ model Site {
   name                String
   address             String
   instructions        String?
+  // When enabled, open slots on upcoming shifts at this site are filled from
+  // the existing guard recommendation ranking. It is deliberately off by
+  // default so existing tenants keep their current manual rostering workflow.
+  autoAssignGuards    Boolean                 @default(false) @map("auto_assign_guards")
   tenantId            String
   tenant              Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branchId            String?                 @map("branch_id")

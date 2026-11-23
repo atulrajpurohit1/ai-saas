@@ -30,6 +30,26 @@ type AttendanceEventSummary = {
   guardId?: string;
 };
 
+type AssignmentOptions = {
+  automatic?: boolean;
+  recommendation?: GuardRecommendation | null;
+};
+
+export type AutoAssignmentResult = {
+  shiftId: string;
+  requestedSlots: number;
+  assignedCount: number;
+  remainingSlots: number;
+  assignments: Array<{ guardId: string; guardName: string }>;
+};
+
+export type SiteAutoAssignmentResult = {
+  shiftsProcessed: number;
+  guardsAssigned: number;
+  shiftsStillOpen: number;
+  shifts: AutoAssignmentResult[];
+};
+
 @Injectable()
 export class ShiftsService {
   private readonly logger = new Logger(ShiftsService.name);
@@ -117,6 +137,43 @@ export class ShiftsService {
     };
   }
 
+  private datesOverlap(
+    firstStart: Date,
+    firstEnd: Date,
+    secondStart: Date,
+    secondEnd: Date,
+  ) {
+    return firstStart < secondEnd && firstEnd > secondStart;
+  }
+
+  private isUnavailableForShift(
+    availability: {
+      status: string;
+      startDate?: Date | null;
+      endDate?: Date | null;
+    } | null,
+    shift: { startTime: Date; endTime: Date },
+  ) {
+    if (!availability || availability.status !== 'unavailable') {
+      return false;
+    }
+
+    if (!availability.startDate && !availability.endDate) {
+      return true;
+    }
+
+    const unavailableStart = availability.startDate ?? new Date(0);
+    const unavailableEnd =
+      availability.endDate ?? new Date('9999-12-31T23:59:59.999Z');
+
+    return this.datesOverlap(
+      unavailableStart,
+      unavailableEnd,
+      shift.startTime,
+      shift.endTime,
+    );
+  }
+
   async create(user: ActiveUser, dto: CreateShiftDto) {
     const branchId = resolveWriteBranchId(user, dto.branch_id);
     // 1. Verify site exists and belongs to the same tenant
@@ -164,7 +221,11 @@ export class ShiftsService {
       shift,
     });
 
-    return shift;
+    const autoAssignment = site.autoAssignGuards
+      ? await this.autoAssignShift(user, shift.id)
+      : null;
+
+    return { ...shift, autoAssignment };
   }
 
   async findAll(user: ActiveUser, requestedBranchId?: string | null) {
@@ -263,7 +324,12 @@ export class ShiftsService {
     return recommendations;
   }
 
-  async assign(user: ActiveUser, shiftId: string, guardId: string) {
+  async assign(
+    user: ActiveUser,
+    shiftId: string,
+    guardId: string,
+    options: AssignmentOptions = {},
+  ) {
     // 1. Validate shift exists and belongs to tenant
     const shift = await this.prisma.shift.findFirst({
       where: { id: shiftId, tenantId: user.tenantId, ...branchWhere(user) },
@@ -284,6 +350,9 @@ export class ShiftsService {
     if (guard.deactivatedAt) {
       throw new BadRequestException('Guard has been deactivated');
     }
+    if (options.automatic && !guard.passwordHash) {
+      throw new BadRequestException('Guard does not have portal access');
+    }
     if (shift.branchId && guard.branchId && shift.branchId !== guard.branchId) {
       throw new ForbiddenException(
         'Guard and shift must belong to the same branch',
@@ -295,7 +364,7 @@ export class ShiftsService {
       where: { guardId },
     });
 
-    if (availability && availability.status === 'unavailable') {
+    if (this.isUnavailableForShift(availability, shift)) {
       await this.auditService.log({
         tenantId: user.tenantId,
         userId: user.sub,
@@ -321,22 +390,48 @@ export class ShiftsService {
       );
     }
 
-    let selectedRecommendation: GuardRecommendation | null = null;
-    try {
-      const recommendations = await this.recommendationService.recommendGuards(
-        user.tenantId,
-        shiftId,
-        false,
-      );
-      selectedRecommendation =
-        recommendations.find(
-          (recommendation) => recommendation.guard_id === guardId,
-        ) ?? null;
-    } catch (error) {
-      console.warn(
-        'Failed to evaluate guard recommendation during assignment:',
-        error instanceof Error ? error.message : error,
-      );
+    if (options.automatic) {
+      const overlappingAssignment = await this.prisma.assignment.findFirst({
+        where: {
+          guardId,
+          shiftId: { not: shiftId },
+          shift: {
+            tenantId: user.tenantId,
+            status: { not: 'cancelled' },
+            startTime: { lt: shift.endTime },
+            endTime: { gt: shift.startTime },
+          },
+        },
+        select: { id: true },
+      });
+
+      if (overlappingAssignment) {
+        throw new BadRequestException(
+          'Guard is already assigned to an overlapping shift',
+        );
+      }
+    }
+
+    let selectedRecommendation: GuardRecommendation | null =
+      options.recommendation ?? null;
+    if (!('recommendation' in options)) {
+      try {
+        const recommendations =
+          await this.recommendationService.recommendGuards(
+            user.tenantId,
+            shiftId,
+            false,
+          );
+        selectedRecommendation =
+          recommendations.find(
+            (recommendation) => recommendation.guard_id === guardId,
+          ) ?? null;
+      } catch (error) {
+        console.warn(
+          'Failed to evaluate guard recommendation during assignment:',
+          error instanceof Error ? error.message : error,
+        );
+      }
     }
 
     // 5. Create assignment and recompute the staffing status in a transaction.
@@ -378,6 +473,17 @@ export class ShiftsService {
       details: `Guard "${guard.name}" assigned to shift "${shiftId}" (${result.assignedCount} of ${shift.requiredGuards} guards)`,
     });
 
+    if (options.automatic) {
+      await this.auditService.log({
+        tenantId: user.tenantId,
+        userId: user.sub,
+        action: 'GUARD_AUTO_ASSIGNED',
+        entityType: 'Shift',
+        entityId: shiftId,
+        details: `Guard "${guard.name}" automatically assigned to shift "${shiftId}" at "${shift.site.name}"`,
+      });
+    }
+
     await this.webhooksService.triggerEvent(user.tenantId, 'shift.assigned', {
       shift_id: shiftId,
       guard_id: guardId,
@@ -399,6 +505,163 @@ export class ShiftsService {
     await this.notifyGuardOfShiftChange(user, 'assigned', shift, guard);
 
     return result.assignment;
+  }
+
+  /**
+   * Fills the remaining slots on one upcoming shift using the existing,
+   * deterministic recommendation ranking. AI-written explanations are not
+   * requested, so automatic rostering never spends credits or depends on an
+   * external model. Candidate-level failures are skipped so one stale guard
+   * record cannot prevent the rest of the shift from being staffed.
+   */
+  async autoAssignShift(
+    user: ActiveUser,
+    shiftId: string,
+  ): Promise<AutoAssignmentResult> {
+    const shift = await this.prisma.shift.findFirst({
+      where: { id: shiftId, tenantId: user.tenantId, ...branchWhere(user) },
+      include: {
+        assignments: { select: { guardId: true } },
+        site: {
+          select: { id: true, name: true, autoAssignGuards: true },
+        },
+      },
+    });
+
+    if (!shift) {
+      throw new NotFoundException('Shift not found');
+    }
+
+    const requestedSlots = Math.max(
+      0,
+      shift.requiredGuards - shift.assignments.length,
+    );
+    const result: AutoAssignmentResult = {
+      shiftId,
+      requestedSlots,
+      assignedCount: 0,
+      remainingSlots: requestedSlots,
+      assignments: [],
+    };
+
+    if (
+      !shift.site.autoAssignGuards ||
+      requestedSlots === 0 ||
+      shift.status !== 'open' ||
+      shift.endTime <= new Date()
+    ) {
+      return result;
+    }
+
+    let recommendations: GuardRecommendation[];
+    try {
+      recommendations = await this.recommendationService.recommendGuards(
+        user.tenantId,
+        shiftId,
+        false,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Automatic assignment could not rank guards for shift ${shiftId}: ${message}`,
+      );
+      await this.auditService.log({
+        tenantId: user.tenantId,
+        userId: user.sub,
+        action: 'GUARD_AUTO_ASSIGNMENT_FAILED',
+        entityType: 'Shift',
+        entityId: shiftId,
+        details: `Could not rank guards for automatic assignment: ${message}`,
+      });
+      return result;
+    }
+
+    const alreadyAssigned = new Set(
+      shift.assignments.map((assignment) => assignment.guardId),
+    );
+
+    for (const recommendation of recommendations) {
+      if (result.assignedCount >= requestedSlots) break;
+      if (alreadyAssigned.has(recommendation.guard_id)) continue;
+
+      try {
+        await this.assign(user, shiftId, recommendation.guard_id, {
+          automatic: true,
+          recommendation,
+        });
+        alreadyAssigned.add(recommendation.guard_id);
+        result.assignments.push({
+          guardId: recommendation.guard_id,
+          guardName: recommendation.guard_name,
+        });
+        result.assignedCount += 1;
+        result.remainingSlots -= 1;
+      } catch (error) {
+        this.logger.warn(
+          `Skipped guard ${recommendation.guard_id} during automatic assignment for shift ${shiftId}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
+    await this.auditService.log({
+      tenantId: user.tenantId,
+      userId: user.sub,
+      action: 'SHIFT_AUTO_ASSIGNMENT_COMPLETED',
+      entityType: 'Shift',
+      entityId: shiftId,
+      details: `${result.assignedCount} guard${result.assignedCount === 1 ? '' : 's'} automatically assigned; ${result.remainingSlots} slot${result.remainingSlots === 1 ? '' : 's'} still open`,
+    });
+
+    return result;
+  }
+
+  async autoAssignUpcomingShiftsForSite(
+    user: ActiveUser,
+    siteId: string,
+  ): Promise<SiteAutoAssignmentResult> {
+    const site = await this.prisma.site.findFirst({
+      where: {
+        id: siteId,
+        tenantId: user.tenantId,
+        autoAssignGuards: true,
+        ...branchWhere(user),
+      },
+      select: { id: true },
+    });
+
+    if (!site) {
+      throw new NotFoundException('Site not found or auto assignment is off');
+    }
+
+    const shifts = await this.prisma.shift.findMany({
+      where: {
+        siteId,
+        tenantId: user.tenantId,
+        status: 'open',
+        endTime: { gt: new Date() },
+        ...branchWhere(user),
+      },
+      select: { id: true },
+      orderBy: { startTime: 'asc' },
+    });
+
+    const results: AutoAssignmentResult[] = [];
+    for (const shift of shifts) {
+      results.push(await this.autoAssignShift(user, shift.id));
+    }
+
+    return {
+      shiftsProcessed: results.length,
+      guardsAssigned: results.reduce(
+        (total, current) => total + current.assignedCount,
+        0,
+      ),
+      shiftsStillOpen: results.filter((current) => current.remainingSlots > 0)
+        .length,
+      shifts: results,
+    };
   }
 
   /**
@@ -464,11 +727,7 @@ export class ShiftsService {
       await tx.shift.update({
         where: { id: shiftId },
         data: {
-          status: staffingStatus(
-            shift.status,
-            remaining,
-            shift.requiredGuards,
-          ),
+          status: staffingStatus(shift.status, remaining, shift.requiredGuards),
         },
       });
     });
@@ -594,7 +853,9 @@ export class ShiftsService {
           requiredGuards,
         ),
       },
-      include: { site: { select: { name: true } } },
+      include: {
+        site: { select: { name: true, autoAssignGuards: true } },
+      },
     });
 
     const changes: string[] = [];
@@ -650,7 +911,11 @@ export class ShiftsService {
       }
     }
 
-    return updated;
+    const autoAssignment = updated.site.autoAssignGuards
+      ? await this.autoAssignShift(user, shiftId)
+      : null;
+
+    return { ...updated, autoAssignment };
   }
 
   /**

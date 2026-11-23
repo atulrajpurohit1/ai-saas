@@ -13,12 +13,14 @@ import {
 } from '../branches/branch-scope';
 import { CreateSiteDto } from './dto/create-site.dto';
 import { UpdateSiteDto } from './dto/update-site.dto';
+import { ShiftsService } from '../shifts/shifts.service';
 
 @Injectable()
 export class SitesService {
   constructor(
     private prisma: PrismaService,
     private auditService: AuditService,
+    private shiftsService: ShiftsService,
   ) {}
 
   private async resolveClientId(
@@ -183,5 +185,46 @@ export class SitesService {
     });
 
     return updatedSite;
+  }
+
+  async setAutoAssignment(user: ActiveUser, id: string, enabled: boolean) {
+    const site = await this.prisma.site.findFirst({
+      where: { id, tenantId: user.tenantId, ...branchWhere(user) },
+      select: { id: true, name: true, autoAssignGuards: true },
+    });
+
+    if (!site) {
+      throw new NotFoundException('Site not found');
+    }
+
+    const updatedSite = await this.prisma.site.update({
+      where: { id },
+      data: { autoAssignGuards: enabled },
+      include: {
+        branch: {
+          select: { id: true, name: true, location: true, status: true },
+        },
+        client: {
+          select: { id: true, name: true, companyName: true },
+        },
+      },
+    });
+
+    await this.auditService.log({
+      tenantId: user.tenantId,
+      userId: user.sub,
+      action: enabled
+        ? 'SITE_AUTO_ASSIGNMENT_ENABLED'
+        : 'SITE_AUTO_ASSIGNMENT_DISABLED',
+      entityType: 'Site',
+      entityId: site.id,
+      details: `Automatic guard assignment ${enabled ? 'enabled' : 'disabled'} for site "${site.name}"`,
+    });
+
+    const autoAssignment = enabled
+      ? await this.shiftsService.autoAssignUpcomingShiftsForSite(user, site.id)
+      : null;
+
+    return { ...updatedSite, autoAssignment };
   }
 }

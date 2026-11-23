@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ApiKeyContext } from '../api-keys/api-keys.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { staffingStatus } from '../shifts/shift-staffing';
+import { ShiftsService } from '../shifts/shifts.service';
 
 const INCIDENT_SEVERITIES = ['low', 'medium', 'high', 'critical'];
 
@@ -18,6 +19,7 @@ export class PublicApiService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly webhooksService: WebhooksService,
+    private readonly shiftsService: ShiftsService,
   ) {}
 
   async listClients(
@@ -215,7 +217,12 @@ export class PublicApiService {
     const siteId = this.requiredString(body.site_id ?? body.siteId, 'site_id');
     const site = await this.prisma.site.findFirst({
       where: { id: siteId, tenantId: apiKey.tenantId },
-      select: { id: true, name: true, branchId: true },
+      select: {
+        id: true,
+        name: true,
+        branchId: true,
+        autoAssignGuards: true,
+      },
     });
     if (!site) throw new NotFoundException('Site not found');
     const requiredGuards = Number(
@@ -263,7 +270,20 @@ export class PublicApiService {
     await this.webhooksService.triggerEvent(apiKey.tenantId, 'shift.created', {
       shift,
     });
-    return shift;
+
+    const autoAssignment = site.autoAssignGuards
+      ? await this.shiftsService.autoAssignShift(
+          {
+            sub: apiKey.id,
+            tenantId: apiKey.tenantId,
+            role: 'api_key',
+            isSuperAdmin: true,
+          },
+          shift.id,
+        )
+      : null;
+
+    return { ...shift, autoAssignment };
   }
 
   async assignShift(apiKey: ApiKeyContext, shiftId: string, body: any) {

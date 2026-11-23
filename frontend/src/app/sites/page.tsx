@@ -16,7 +16,9 @@ import SearchField from '@/components/SearchField';
 import api from '@/lib/api';
 import { branchParams, BranchSummary } from '@/lib/branches';
 import { useNewIntent } from '@/hooks/useNewIntent';
-import { Plus, Search, MapPin, Edit2, AlertTriangle } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { toast } from 'sonner';
+import { Plus, Search, MapPin, Edit2, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface Site {
   id: string;
@@ -32,6 +34,7 @@ interface Site {
     companyName: string | null;
   } | null;
   createdAt: string;
+  autoAssignGuards: boolean;
   counts?: {
     checkpoints: number;
     routes: number;
@@ -48,6 +51,8 @@ interface Client {
 }
 
 export default function SitesPage() {
+  const { can } = useAuth();
+  const canManageSites = can('sites.manage');
   const [sites, setSites] = useState<Site[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +60,7 @@ export default function SitesPage() {
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [autoAssigningSiteId, setAutoAssigningSiteId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ name: '', address: '', instructions: '', client_id: '', branch_id: '' });
 
   const fetchSites = async () => {
@@ -127,6 +133,61 @@ export default function SitesPage() {
     setShowModal(true);
   };
 
+  const handleAutoAssignmentToggle = async (site: Site) => {
+    if (!canManageSites || autoAssigningSiteId) return;
+
+    const enabled = !site.autoAssignGuards;
+    setAutoAssigningSiteId(site.id);
+
+    try {
+      const response = await api.put(`sites/${site.id}/auto-assignment`, { enabled });
+      const updated = response.data as Site & {
+        autoAssignment?: {
+          guardsAssigned: number;
+          shiftsStillOpen: number;
+        } | null;
+      };
+
+      setSites((current) =>
+        current.map((item) =>
+          item.id === site.id
+            ? {
+                ...item,
+                ...updated,
+                counts: item.counts,
+                patrolReady: item.patrolReady,
+              }
+            : item,
+        ),
+      );
+
+      if (!enabled) {
+        toast.success(`Automatic guard assignment is off for ${site.name}.`, {
+          description: 'Existing assignments are unchanged.',
+        });
+        return;
+      }
+
+      const assigned = updated.autoAssignment?.guardsAssigned ?? 0;
+      const stillOpen = updated.autoAssignment?.shiftsStillOpen ?? 0;
+      toast.success(
+        assigned > 0
+          ? `${assigned} guard${assigned === 1 ? '' : 's'} assigned automatically for ${site.name}.`
+          : `Automatic guard assignment is on for ${site.name}.`,
+        stillOpen > 0
+          ? { description: `${stillOpen} upcoming shift${stillOpen === 1 ? '' : 's'} still need coverage.` }
+          : undefined,
+      );
+    } catch (error) {
+      const message =
+        (error as { response?: { data?: { message?: string } } }).response?.data?.message ||
+        'Could not update automatic guard assignment.';
+      toast.error(message);
+    } finally {
+      setAutoAssigningSiteId(null);
+    }
+  };
+
   const filteredSites = sites.filter(
     (site) => !searchQuery || site.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
@@ -192,6 +253,7 @@ export default function SitesPage() {
                   <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Location</TableHead>
                   <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Client</TableHead>
                   <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Set up</TableHead>
+                  <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Auto assignment</TableHead>
                   <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Branch</TableHead>
                   <TableHead className="px-6 py-3 text-xs uppercase tracking-wider text-muted-foreground">Created</TableHead>
                   <TableHead className="px-6 py-3" />
@@ -264,6 +326,40 @@ export default function SitesPage() {
                         </Link>
                       )}
                     </TableCell>
+                    <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Auto assignment">
+                      <div className="flex min-w-[180px] items-center gap-3">
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={site.autoAssignGuards}
+                          aria-label={`${site.autoAssignGuards ? 'Turn off' : 'Turn on'} automatic guard assignment for ${site.name}`}
+                          disabled={!canManageSites || autoAssigningSiteId !== null}
+                          onClick={() => handleAutoAssignmentToggle(site)}
+                          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                            site.autoAssignGuards
+                              ? 'border-primary bg-primary'
+                              : 'border-input bg-muted'
+                          }`}
+                        >
+                          <span
+                            className={`block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                              site.autoAssignGuards ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                        <div aria-live="polite">
+                          <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                            {autoAssigningSiteId === site.id && (
+                              <Loader2 size={14} className="animate-spin text-primary" aria-hidden="true" />
+                            )}
+                            {site.autoAssignGuards ? 'On' : 'Off'}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {site.autoAssignGuards ? 'Fills open shift slots' : 'Manual rostering'}
+                          </p>
+                        </div>
+                      </div>
+                    </TableCell>
                     <TableCell className="px-6 py-3.5 whitespace-normal" data-label="Branch">
                       <BranchBadge branch={site.branch} />
                     </TableCell>
@@ -271,7 +367,12 @@ export default function SitesPage() {
                       {fmtDate(site.createdAt)}
                     </TableCell>
                     <TableCell className="px-6 py-3.5 text-right whitespace-normal" data-label="Actions">
-                      <Button variant="outline" size="sm" onClick={() => handleEdit(site)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(site)}
+                        disabled={!canManageSites}
+                      >
                         <Edit2 size={14} />
                         Edit
                       </Button>

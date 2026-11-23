@@ -20,6 +20,7 @@ describe('ShiftsService smart guard recommendations', () => {
       findFirst: jest.Mock;
       findMany: jest.Mock;
       findUnique: jest.Mock;
+      create: jest.Mock;
       update?: jest.Mock;
     };
     guard: {
@@ -30,8 +31,9 @@ describe('ShiftsService smart guard recommendations', () => {
     availability: {
       findUnique: jest.Mock;
     };
-    assignment?: {
+    assignment: {
       create: jest.Mock;
+      findFirst: jest.Mock;
     };
     site?: { findFirst: jest.Mock };
     attendanceEvent?: { count: jest.Mock };
@@ -72,6 +74,7 @@ describe('ShiftsService smart guard recommendations', () => {
         findFirst: jest.fn().mockResolvedValue(targetShift),
         findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn(),
+        create: jest.fn(),
       },
       guard: {
         findFirst: jest.fn(),
@@ -80,6 +83,10 @@ describe('ShiftsService smart guard recommendations', () => {
       },
       availability: {
         findUnique: jest.fn(),
+      },
+      assignment: {
+        create: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue(null),
       },
       site: { findFirst: jest.fn() },
       attendanceEvent: { count: jest.fn().mockResolvedValue(0) },
@@ -285,6 +292,181 @@ describe('ShiftsService smart guard recommendations', () => {
     );
   });
 
+  describe('site guard auto assignment', () => {
+    const futureShift = {
+      ...targetShift,
+      startTime: new Date('2027-06-20T08:00:00.000Z'),
+      endTime: new Date('2027-06-20T16:00:00.000Z'),
+      requiredGuards: 2,
+      assignments: [],
+      site: {
+        id: siteId,
+        name: 'Site A',
+        address: '1 Main Street',
+        autoAssignGuards: true,
+      },
+    };
+
+    it('fills every open slot from the ranked guard list', async () => {
+      prisma.shift.findFirst.mockResolvedValue(futureShift);
+      jest
+        .spyOn(recommendationService, 'recommendGuards')
+        .mockResolvedValue([
+          recommendation('guard-one', 'Guard One', 90),
+          recommendation('guard-two', 'Guard Two', 80),
+          recommendation('guard-three', 'Guard Three', 70),
+        ]);
+      const assign = jest
+        .spyOn(service, 'assign')
+        .mockResolvedValue({ id: 'assignment' } as any);
+
+      const result = await service.autoAssignShift(activeUser, shiftId);
+
+      expect(assign).toHaveBeenCalledTimes(2);
+      expect(assign).toHaveBeenNthCalledWith(
+        1,
+        activeUser,
+        shiftId,
+        'guard-one',
+        expect.objectContaining({ automatic: true }),
+      );
+      expect(assign).toHaveBeenNthCalledWith(
+        2,
+        activeUser,
+        shiftId,
+        'guard-two',
+        expect.objectContaining({ automatic: true }),
+      );
+      expect(result).toEqual(
+        expect.objectContaining({
+          requestedSlots: 2,
+          assignedCount: 2,
+          remainingSlots: 0,
+        }),
+      );
+    });
+
+    it('skips a rejected candidate and continues with the next guard', async () => {
+      prisma.shift.findFirst.mockResolvedValue({
+        ...futureShift,
+        requiredGuards: 1,
+      });
+      jest
+        .spyOn(recommendationService, 'recommendGuards')
+        .mockResolvedValue([
+          recommendation('guard-busy', 'Busy Guard', 90),
+          recommendation('guard-free', 'Free Guard', 80),
+        ]);
+      const assign = jest
+        .spyOn(service, 'assign')
+        .mockRejectedValueOnce(new Error('overlapping shift'))
+        .mockResolvedValueOnce({ id: 'assignment' } as any);
+
+      const result = await service.autoAssignShift(activeUser, shiftId);
+
+      expect(assign).toHaveBeenCalledTimes(2);
+      expect(result.assignments).toEqual([
+        { guardId: 'guard-free', guardName: 'Free Guard' },
+      ]);
+      expect(result.remainingSlots).toBe(0);
+    });
+
+    it('does nothing when the site toggle is off', async () => {
+      prisma.shift.findFirst.mockResolvedValue({
+        ...futureShift,
+        site: { ...futureShift.site, autoAssignGuards: false },
+      });
+      const recommend = jest.spyOn(recommendationService, 'recommendGuards');
+
+      const result = await service.autoAssignShift(activeUser, shiftId);
+
+      expect(recommend).not.toHaveBeenCalled();
+      expect(result.assignedCount).toBe(0);
+      expect(result.remainingSlots).toBe(2);
+    });
+
+    it('requires portal access for an automatic assignment', async () => {
+      prisma.shift.findFirst.mockResolvedValue({
+        ...futureShift,
+        requiredGuards: 1,
+      });
+      prisma.guard.findFirst.mockResolvedValue({
+        id: 'guard-no-login',
+        tenantId,
+        name: 'No Login',
+        deactivatedAt: null,
+        passwordHash: null,
+      });
+
+      await expect(
+        service.assign(activeUser, shiftId, 'guard-no-login', {
+          automatic: true,
+          recommendation: recommendation('guard-no-login', 'No Login', 90),
+        }),
+      ).rejects.toThrow('does not have portal access');
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects an overlapping shift during automatic assignment', async () => {
+      prisma.shift.findFirst.mockResolvedValue({
+        ...futureShift,
+        requiredGuards: 1,
+      });
+      prisma.guard.findFirst.mockResolvedValue({
+        id: 'guard-busy',
+        tenantId,
+        name: 'Busy Guard',
+        deactivatedAt: null,
+        passwordHash: 'hash',
+      });
+      prisma.availability.findUnique.mockResolvedValue(null);
+      prisma.assignment.findFirst.mockResolvedValue({ id: 'overlap' });
+
+      await expect(
+        service.assign(activeUser, shiftId, 'guard-busy', {
+          automatic: true,
+          recommendation: recommendation('guard-busy', 'Busy Guard', 90),
+        }),
+      ).rejects.toThrow('overlapping shift');
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('runs automatic assignment after creating a shift at an enabled site', async () => {
+      prisma.site!.findFirst.mockResolvedValue({
+        id: siteId,
+        name: 'Site A',
+        branchId: null,
+        autoAssignGuards: true,
+      });
+      prisma.shift.create.mockResolvedValue({
+        id: shiftId,
+        siteId,
+        startTime: futureShift.startTime,
+        endTime: futureShift.endTime,
+        requiredGuards: 1,
+        site: { name: 'Site A' },
+      });
+      const autoAssign = jest
+        .spyOn(service, 'autoAssignShift')
+        .mockResolvedValue({
+          shiftId,
+          requestedSlots: 1,
+          assignedCount: 1,
+          remainingSlots: 0,
+          assignments: [{ guardId: 'guard-one', guardName: 'Guard One' }],
+        });
+
+      await service.create(activeUser, {
+        siteId,
+        startTime: futureShift.startTime.toISOString(),
+        endTime: futureShift.endTime.toISOString(),
+        requiredGuards: 1,
+      });
+
+      expect(autoAssign).toHaveBeenCalledWith(activeUser, shiftId);
+    });
+  });
+
   /**
    * Multi-guard staffing. A shift takes up to `requiredGuards` distinct
    * guards; the shift only reads `assigned` once every slot is filled, and
@@ -312,8 +494,7 @@ describe('ShiftsService smart guard recommendations', () => {
         shift: { update: jest.fn().mockResolvedValue({}) },
       };
       prisma.$transaction.mockImplementation(
-        async (callback: (tx: MockShiftTx) => Promise<unknown>) =>
-          callback(tx),
+        async (callback: (tx: MockShiftTx) => Promise<unknown>) => callback(tx),
       );
       return tx;
     };
@@ -539,13 +720,19 @@ describe('ShiftsService smart guard recommendations', () => {
     };
 
     it('flags a guard who is overdue and has not checked in', async () => {
-      const [shift] = await listWith(new Date(Date.now() - 60 * 60 * 1000), false);
+      const [shift] = await listWith(
+        new Date(Date.now() - 60 * 60 * 1000),
+        false,
+      );
 
       expect(shift.assignments[0].noShow).toBe(true);
     });
 
     it('does not flag a guard who is only a few minutes late', async () => {
-      const [shift] = await listWith(new Date(Date.now() - 5 * 60 * 1000), false);
+      const [shift] = await listWith(
+        new Date(Date.now() - 5 * 60 * 1000),
+        false,
+      );
 
       expect(shift.assignments[0].noShow).toBe(false);
     });
@@ -553,13 +740,19 @@ describe('ShiftsService smart guard recommendations', () => {
     // The whole reason it is derived: a late guard who finally arrives must
     // stop being a no-show with no job to clear a stored flag.
     it('clears once the late guard checks in', async () => {
-      const [shift] = await listWith(new Date(Date.now() - 60 * 60 * 1000), true);
+      const [shift] = await listWith(
+        new Date(Date.now() - 60 * 60 * 1000),
+        true,
+      );
 
       expect(shift.assignments[0].noShow).toBe(false);
     });
 
     it('does not flag a shift that has not started', async () => {
-      const [shift] = await listWith(new Date(Date.now() + 60 * 60 * 1000), false);
+      const [shift] = await listWith(
+        new Date(Date.now() + 60 * 60 * 1000),
+        false,
+      );
 
       expect(shift.assignments[0].noShow).toBe(false);
     });
@@ -673,9 +866,11 @@ describe('ShiftsService smart guard recommendations', () => {
     };
 
     beforeEach(() => {
-      prisma.shift.update = jest
-        .fn()
-        .mockResolvedValue({ id: shiftId, status: 'assigned' });
+      prisma.shift.update = jest.fn().mockResolvedValue({
+        id: shiftId,
+        status: 'assigned',
+        site: { name: 'Site A', autoAssignGuards: false },
+      });
       (prisma as unknown as { shift: { delete: jest.Mock } }).shift.delete =
         jest.fn().mockResolvedValue({ id: shiftId });
     });
@@ -796,6 +991,25 @@ describe('ShiftsService smart guard recommendations', () => {
       );
     });
   });
+
+  function recommendation(guardId: string, guardName: string, score: number) {
+    return {
+      guard_id: guardId,
+      guard_name: guardName,
+      score,
+      reasons: ['Available for this shift (+30).'],
+      warnings: [],
+      explanation: `${guardName} is available.`,
+      metrics: {
+        attendance_rate: 100,
+        site_shifts: 0,
+        late_check_ins: 0,
+        missed_shifts: 0,
+        incidents: 0,
+        upcoming_workload: 0,
+      },
+    };
+  }
 
   function guard(id: string, name: string) {
     return {

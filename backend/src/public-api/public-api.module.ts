@@ -8,9 +8,16 @@ import { PublicApiKeyGuard } from './public-api-key.guard';
 import { PublicApiLoggingInterceptor } from './public-api-logging.interceptor';
 import { PublicApiRateLimitService } from './public-api-rate-limit.service';
 import { PublicApiService } from './public-api.service';
+import { ShiftsModule } from '../shifts/shifts.module';
 
 @Module({
-  imports: [PrismaModule, AuditModule, ApiKeysModule, WebhooksModule],
+  imports: [
+    PrismaModule,
+    AuditModule,
+    ApiKeysModule,
+    WebhooksModule,
+    ShiftsModule,
+  ],
   controllers: [PublicApiController],
   providers: [
     PublicApiService,
