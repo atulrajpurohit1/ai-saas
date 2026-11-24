@@ -1,6 +1,7 @@
 'use client';
 
 import React, { Suspense, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import CommandPalette from '@/components/CommandPalette';
 import { useAuth, type User } from '@/context/AuthContext';
@@ -8,7 +9,7 @@ import { getBranding } from '@/lib/branding';
 import BrandMark from '@/components/BrandMark';
 import { BRAND_NAME } from '@/lib/brand';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, Search, LogOut, ChevronDown, Loader2 } from 'lucide-react';
+import { Menu, Search, LogOut, ChevronDown, Loader2, ShieldCheck } from 'lucide-react';
 import ModuleLockedState from '@/components/ModuleLockedState';
 import PlanRequiredDialog from '@/components/PlanRequiredDialog';
 import ModuleWelcomeDialog from '@/components/ModuleWelcomeDialog';
@@ -88,6 +89,14 @@ function UserMenu() {
               </span>
             )}
           </div>
+          <Link
+            href="/settings/security"
+            onClick={() => setOpen(false)}
+            className="mt-1 flex items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            <ShieldCheck size={15} aria-hidden="true" />
+            Account security
+          </Link>
           <button
             type="button"
             onClick={logout}

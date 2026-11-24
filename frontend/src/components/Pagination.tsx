@@ -43,7 +43,7 @@ export default function Pagination({ page, pageCount, onPageChange, summary, cla
     <nav
       aria-label="Pagination"
       className={cn(
-        'flex flex-col-reverse items-center justify-between gap-3 border-t border-border px-4 py-3 sm:flex-row',
+        'flex flex-col-reverse items-center justify-between gap-3 border-t border-border px-2 py-3 sm:flex-row sm:px-4',
         className,
       )}
     >
@@ -54,7 +54,7 @@ export default function Pagination({ page, pageCount, onPageChange, summary, cla
           </>
         )}
       </p>
-      <div className="flex items-center gap-2">
+      <div className="flex max-w-full items-center gap-1 sm:gap-2">
         {/* Jump to the first page - reaches the start in one click when the
             numbered jumps are hidden (narrow screens) or far away. */}
         {pageCount > 2 && (

@@ -10,7 +10,7 @@ const TONE_CLASSES: Record<StatusTone, string> = {
   error: 'bg-error-wash text-error ring-error/20',
   info: 'bg-info-wash text-info ring-info/20',
   primary: 'bg-primary/8 text-primary ring-primary/20',
-  neutral: 'bg-muted text-muted-foreground ring-border',
+  neutral: 'bg-muted text-foreground ring-border',
 };
 
 // Shared mapping from the string statuses used across the app to a tone, so

@@ -242,7 +242,7 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
         {visibleNavGroups.map((group) => (
           <div key={group.label} className="mb-2">
             <p className={cn(
-              'px-3 pb-1.5 pt-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70',
+              'px-3 pb-1.5 pt-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground',
               collapsed && 'lg:hidden',
             )}>
               {group.label}

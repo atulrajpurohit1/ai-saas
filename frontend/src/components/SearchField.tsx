@@ -47,14 +47,14 @@ export default function SearchField({
               onChange('');
             }
           }}
-          className={cn('h-10 pl-10', value && 'pr-10')}
+          className={cn('h-10 pl-10', value && 'pr-12')}
         />
         {value && (
           <button
             type="button"
             onClick={() => onChange('')}
             aria-label="Clear search"
-            className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-muted-foreground outline-none transition hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100"
+            className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-muted-foreground outline-none transition hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100"
           >
             <X size={14} aria-hidden="true" />
           </button>
