@@ -24,6 +24,8 @@ import { CreditAutoRechargeController } from './credit-auto-recharge.controller'
 import { AiMeteringService } from './ai-metering.service';
 import { EmailModule } from '../email/email.module';
 import { PlatformAuthModule } from '../platform-auth/platform-auth.module';
+import { SaleCampaignController } from './sale-campaign.controller';
+import { SaleCampaignService } from './sale-campaign.service';
 
 @Global()
 @Module({
@@ -37,10 +39,12 @@ import { PlatformAuthModule } from '../platform-auth/platform-auth.module';
     CreditsController,
     CreditAutoRechargeController,
     StripeWebhookController,
+    SaleCampaignController,
   ],
   providers: [
     BillingService,
     StripeService,
+    SaleCampaignService,
     StripeWebhookService,
     SubscriptionProvisioningService,
     PendingCompService,

@@ -278,6 +278,23 @@ describe('CreditsService', () => {
       );
     });
 
+    it('keeps gifted sale credits out of the purchased total', async () => {
+      await service.grant({
+        tenantId,
+        amount: 1000,
+        description: 'Black Friday bonus',
+        type: CreditEntryType.ADJUSTMENT,
+        idempotencyKey: 'sale-bonus:sale-1',
+      });
+
+      expect(tx.tenantCreditBalance.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ lifetimePurchased: 0 }),
+          update: { balance: { increment: 1000 } },
+        }),
+      );
+    });
+
     it('rejects a zero grant', async () => {
       await expect(
         service.grant({ tenantId, amount: 0, description: 'nothing' }),
@@ -411,6 +428,24 @@ describe('CreditsService', () => {
             stripeSessionId: 'refund:cs_1',
           }),
         }),
+      );
+    });
+
+    it('reverses gifted credits without reducing the purchased total', async () => {
+      prisma.creditLedgerEntry.findUnique.mockResolvedValue({
+        ...purchase,
+        type: CreditEntryType.ADJUSTMENT,
+      });
+      tx.tenantCreditBalance.update.mockResolvedValue({ balance: 0 });
+
+      await service.reversePurchase({
+        tenantId,
+        stripeSessionId: 'sale-bonus-invoice:in_1',
+        reason: 'Sale payment refunded',
+      });
+
+      expect(tx.tenantCreditBalance.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { balance: { decrement: 1000 } } }),
       );
     });
 

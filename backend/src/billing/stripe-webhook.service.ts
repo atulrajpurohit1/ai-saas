@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import Stripe from 'stripe';
-import { ServiceModule, SubscriptionStatus } from '@prisma/client';
+import {
+  CreditEntryType,
+  ServiceModule,
+  SubscriptionStatus,
+} from '@prisma/client';
 import { moduleForPriceId } from './billing.config';
 import { creditPackForPriceId } from './credit-packs.constants';
 import { PACKAGE_MODULES, planForLookupKey } from './pricing.constants';
@@ -16,6 +20,7 @@ import { SubscriptionProvisioningService } from './subscription-provisioning.ser
 import { PendingCompService } from './pending-comp.service';
 import { EmailService } from '../email/email.service';
 import { fireAndForget } from '../common/fire-and-forget.util';
+import { PrismaService } from '../prisma/prisma.service';
 
 /**
  * Translates Stripe events into entitlement changes.
@@ -40,6 +45,7 @@ export class StripeWebhookService {
     private readonly credits: CreditsService,
     private readonly pendingComps: PendingCompService,
     private readonly email: EmailService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async handle(event: Stripe.Event) {
@@ -121,9 +127,29 @@ export class StripeWebhookService {
     // A completed checkout is the tenant deliberately paying. If they were on a
     // complimentary plan (e.g. a Trial comp), that choice ends it: see the
     // `fromCheckout` handling in applySubscription.
-    return this.applySubscription(tenantId, subscription, eventId, {
-      fromCheckout: true,
-    });
+    const applied = await this.applySubscription(
+      tenantId,
+      subscription,
+      eventId,
+      {
+        fromCheckout: true,
+      },
+    );
+    if (applied.handled && session.metadata?.saleOfferId) {
+      await this.prisma.saleCheckoutOffer.updateMany({
+        where: {
+          id: session.metadata.saleOfferId,
+          tenantId,
+          stripeSessionId: session.id,
+          OR: [
+            { providerSubscriptionId: null },
+            { providerSubscriptionId: subscriptionId },
+          ],
+        },
+        data: { providerSubscriptionId: subscriptionId },
+      });
+    }
+    return applied;
   }
 
   /**
@@ -389,7 +415,9 @@ export class StripeWebhookService {
         ? invoice.customer
         : invoice.customer?.id;
 
-    const tenantId = await this.provisioning.tenantForProviderIds({ customerId });
+    const tenantId = await this.provisioning.tenantForProviderIds({
+      customerId,
+    });
     if (!tenantId) return { handled: false, reason: 'unknown-tenant' };
 
     if (await this.skipIfComped(tenantId, eventId, 'payment.failed')) {
@@ -399,7 +427,11 @@ export class StripeWebhookService {
     // PAST_DUE deliberately keeps access. Dunning is a billing conversation,
     // not a reason to strand a customer mid-shift; Stripe retries the payment
     // and only a real cancellation revokes the services.
-    await this.provisioning.setStatus(tenantId, 'PAST_DUE', `stripe:${eventId}`);
+    await this.provisioning.setStatus(
+      tenantId,
+      'PAST_DUE',
+      `stripe:${eventId}`,
+    );
     return { handled: true, tenantId };
   }
 
@@ -468,9 +500,16 @@ export class StripeWebhookService {
       return { handled: false, tenantId, reason: 'no-subscription' };
     }
 
+    const saleCredits =
+      reason === 'subscription_create'
+        ? await this.grantSaleBonus(invoice, tenantId, subscriptionId)
+        : 0;
+
     const tier = await this.leadGenTierForInvoice(invoice);
     if (!tier) {
-      return { handled: false, tenantId, reason: 'not-a-lead-gen-plan' };
+      return saleCredits > 0
+        ? { handled: true, tenantId, credits: saleCredits }
+        : { handled: false, tenantId, reason: 'not-a-lead-gen-plan' };
     }
 
     if ((invoice.amount_paid ?? 0) <= 0) {
@@ -478,7 +517,9 @@ export class StripeWebhookService {
         `Invoice ${invoice.id} for tenant ${tenantId} collected nothing (likely a trial); ` +
           `withholding the ${tier.includedCredits} ${tier.name} credits until a paid invoice.`,
       );
-      return { handled: false, tenantId, reason: 'unpaid-invoice' };
+      return saleCredits > 0
+        ? { handled: true, tenantId, credits: saleCredits }
+        : { handled: false, tenantId, reason: 'unpaid-invoice' };
     }
 
     try {
@@ -502,7 +543,11 @@ export class StripeWebhookService {
           : `Allocation for invoice ${invoice.id} was already applied to ${tenantId}; balance unchanged at ${result.balance}.`,
       );
 
-      return { handled: true, tenantId, credits: tier.includedCredits };
+      return {
+        handled: true,
+        tenantId,
+        credits: tier.includedCredits + saleCredits,
+      };
     } catch (error) {
       // Never throw: a 500 makes Stripe retry the whole event, and the
       // subscription itself is provisioned by a different handler that has
@@ -513,6 +558,101 @@ export class StripeWebhookService {
       );
       return { handled: false, tenantId, reason: 'grant-failed' };
     }
+  }
+
+  /** Grant the checkout's immutable bonus once per tenant and campaign. */
+  private async grantSaleBonus(
+    invoice: Stripe.Invoice,
+    tenantId: string,
+    subscriptionId: string,
+  ): Promise<number> {
+    // Stripe snapshots subscription metadata on modern invoices. Read that
+    // first so a later plan change cannot erase the offer before this webhook
+    // arrives. Older invoices fall back to the bound checkout/subscription.
+    const snapshotId =
+      invoice.parent?.subscription_details?.metadata?.saleOfferId;
+    if (invoice.parent?.subscription_details?.metadata && !snapshotId) return 0;
+    let subscription: Stripe.Subscription | null = null;
+    let offer = snapshotId
+      ? await this.prisma.saleCheckoutOffer.findUnique({
+          where: { id: snapshotId },
+        })
+      : await this.prisma.saleCheckoutOffer.findFirst({
+          where: { tenantId, providerSubscriptionId: subscriptionId },
+        });
+    if (!offer && !snapshotId) {
+      // Invoice and checkout webhooks can arrive in either order. The offer
+      // exists before the customer receives the checkout URL, but may not yet
+      // have its subscription id bound when invoice.paid arrives.
+      subscription = await this.stripe.retrieveSubscription(subscriptionId);
+      const offerId = subscription?.metadata?.saleOfferId;
+      if (offerId) {
+        offer = await this.prisma.saleCheckoutOffer.findUnique({
+          where: { id: offerId },
+        });
+      }
+    }
+    if (
+      !offer ||
+      offer.bonusCredits <= 0 ||
+      offer.tenantId !== tenantId ||
+      (offer.providerSubscriptionId &&
+        offer.providerSubscriptionId !== subscriptionId)
+    )
+      return 0;
+
+    const billedKeys = (invoice.lines?.data ?? [])
+      .map((line) => lookupKeyOfLine(line))
+      .filter((key): key is string => !!key);
+    if (billedKeys.length === 0 && !subscription) {
+      subscription = await this.stripe.retrieveSubscription(subscriptionId);
+    }
+    const keys =
+      billedKeys.length > 0
+        ? billedKeys
+        : (subscription?.items.data ?? [])
+            .map((item) => item.price?.lookup_key)
+            .filter((key): key is string => !!key);
+    const matchesPlan = keys.some((key) =>
+      offer.packageKey === 'GENERATION'
+        ? !!leadGenTierForLookupKey(key) ||
+          planForLookupKey(key)?.packageKey === 'GENERATION'
+        : planForLookupKey(key)?.packageKey === offer.packageKey,
+    );
+    if (!matchesPlan) {
+      this.logger.warn(
+        `Sale offer ${offer.id} did not match the plan billed on invoice ${invoice.id}; no bonus granted.`,
+      );
+      return 0;
+    }
+
+    const claimed = await this.prisma.saleCheckoutOffer.updateMany({
+      where: {
+        id: offer.id,
+        tenantId,
+        OR: [
+          { providerSubscriptionId: null },
+          { providerSubscriptionId: subscriptionId },
+        ],
+      },
+      data: { providerSubscriptionId: subscriptionId },
+    });
+    if (claimed.count !== 1) return 0;
+
+    const result = await this.credits.grant({
+      tenantId,
+      amount: offer.bonusCredits,
+      description: `${offer.campaignName}: ${offer.bonusCredits.toLocaleString('en-US')} bonus credits for a new subscription.`,
+      type: CreditEntryType.ADJUSTMENT,
+      idempotencyKey: `sale-bonus:${offer.campaignId}`,
+      stripeSessionId: `sale-bonus-invoice:${invoice.id}`,
+    });
+    this.logger.log(
+      result.granted
+        ? `Granted ${offer.bonusCredits} sale credits to ${tenantId} for invoice ${invoice.id}.`
+        : `Sale bonus for ${tenantId} and campaign ${offer.campaignId} was already granted.`,
+    );
+    return result.granted ? offer.bonusCredits : 0;
   }
 
   /**
@@ -574,16 +714,26 @@ export class StripeWebhookService {
     });
     if (!tenantId) return { handled: false, reason: 'unknown-tenant' };
 
+    const saleBonus = await this.credits.reversePurchase({
+      tenantId,
+      stripeSessionId: `sale-bonus-invoice:${invoiceId}`,
+      reason:
+        'Sale bonus reversed after the subscription payment was refunded or disputed.',
+    });
     const result = await this.credits.reversePurchase({
       tenantId,
       stripeSessionId: leadGenCreditsKey(invoiceId),
       reason,
     });
 
-    if (!result) {
+    if (!result && !saleBonus) {
       return { handled: false, tenantId, reason: 'nothing-to-reverse' };
     }
-    return { handled: true, tenantId, reversed: result.reversed };
+    return {
+      handled: true,
+      tenantId,
+      reversed: (result?.reversed ?? 0) + (saleBonus?.reversed ?? 0),
+    };
   }
 
   /** Applies a Stripe subscription's full state to the tenant. */

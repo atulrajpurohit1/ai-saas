@@ -6,6 +6,7 @@ import { SubscriptionProvisioningService } from './subscription-provisioning.ser
 import { CreditsService } from './credits.service';
 import { PendingCompService } from './pending-comp.service';
 import { EmailService } from '../email/email.service';
+import { PrismaService } from '../prisma/prisma.service';
 import {
   LEAD_GEN_TIERS,
   leadGenCreditsKey,
@@ -68,6 +69,13 @@ describe('StripeWebhookService', () => {
   let credits: { grant: jest.Mock; reversePurchase: jest.Mock };
   let pendingComps: { activate: jest.Mock };
   let email: { sendCreditPurchaseNotification: jest.Mock };
+  let prisma: {
+    saleCheckoutOffer: {
+      findFirst: jest.Mock;
+      findUnique: jest.Mock;
+      updateMany: jest.Mock;
+    };
+  };
 
   beforeEach(async () => {
     process.env.STRIPE_PRICE_LEAD_GEN_MONTHLY = PRICE_LEAD_GEN;
@@ -91,7 +99,20 @@ describe('StripeWebhookService', () => {
       grant: jest.fn().mockResolvedValue({ balance: 250, granted: true }),
       reversePurchase: jest
         .fn()
-        .mockResolvedValue({ reversed: 1000, balance: -200 }),
+        .mockImplementation(({ stripeSessionId }) =>
+          Promise.resolve(
+            stripeSessionId.startsWith('sale-bonus-invoice:')
+              ? null
+              : { reversed: 1000, balance: -200 },
+          ),
+        ),
+    };
+    prisma = {
+      saleCheckoutOffer: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        findUnique: jest.fn().mockResolvedValue(null),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
     };
     // No queued comp by default, which is the ordinary case for every tenant.
     pendingComps = { activate: jest.fn().mockResolvedValue(null) };
@@ -109,6 +130,7 @@ describe('StripeWebhookService', () => {
         { provide: CreditsService, useValue: credits },
         { provide: PendingCompService, useValue: pendingComps },
         { provide: EmailService, useValue: email },
+        { provide: PrismaService, useValue: prisma },
       ],
     }).compile();
 
@@ -122,6 +144,26 @@ describe('StripeWebhookService', () => {
   });
 
   describe('checkout.session.completed', () => {
+    it('binds a sale offer to the subscription bought in that checkout', async () => {
+      stripe.retrieveSubscription.mockResolvedValue(
+        subscription({ lookupKeys: ['aegislead_guard_26_50_149usd_monthly'] }),
+      );
+      await service.handle(
+        event('checkout.session.completed', {
+          id: 'cs_sale_1',
+          subscription: 'sub_123',
+          metadata: { tenantId: 'tenant-1', saleOfferId: 'offer-1' },
+        }),
+      );
+      expect(prisma.saleCheckoutOffer.updateMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          id: 'offer-1',
+          tenantId: 'tenant-1',
+          stripeSessionId: 'cs_sale_1',
+        }),
+        data: { providerSubscriptionId: 'sub_123' },
+      });
+    });
     it('provisions the services actually billed', async () => {
       stripe.retrieveSubscription.mockResolvedValue(
         subscription({ priceIds: [PRICE_LEAD_GEN] }),
@@ -164,7 +206,11 @@ describe('StripeWebhookService', () => {
 
       expect(provisioning.provision).toHaveBeenCalledWith(
         expect.objectContaining({
-          modules: expect.arrayContaining(['LEAD_GEN', 'GUARD_TOUR', 'FINANCE']),
+          modules: expect.arrayContaining([
+            'LEAD_GEN',
+            'GUARD_TOUR',
+            'FINANCE',
+          ]),
         }),
       );
     });
@@ -399,9 +445,7 @@ describe('StripeWebhookService', () => {
     });
 
     it('grants the credits the purchased price actually sells', async () => {
-      stripe.priceIdsForCheckoutSession.mockResolvedValue([
-        PRICE_CREDITS_PRO,
-      ]);
+      stripe.priceIdsForCheckoutSession.mockResolvedValue([PRICE_CREDITS_PRO]);
 
       const result = await service.handle(
         event('checkout.session.completed', packSession()),
@@ -427,9 +471,7 @@ describe('StripeWebhookService', () => {
     // Session metadata is editable in the Stripe Dashboard, so trusting it
     // would let an edited session mint arbitrary credits.
     it('ignores a credit figure in metadata that the price does not back', async () => {
-      stripe.priceIdsForCheckoutSession.mockResolvedValue([
-        PRICE_CREDITS_PRO,
-      ]);
+      stripe.priceIdsForCheckoutSession.mockResolvedValue([PRICE_CREDITS_PRO]);
 
       await service.handle(
         event(
@@ -703,6 +745,176 @@ describe('StripeWebhookService', () => {
           // The subscription-and-tier key is what makes it a one-time grant.
           idempotencyKey: leadGenPurchaseKey('sub_123', 'PRO'),
           stripeSessionId: leadGenCreditsKey('in_1'),
+        }),
+      );
+    });
+
+    it('grants the saved bonus even when a 100% discount makes the first paid invoice $0', async () => {
+      const GUARD_KEY = 'aegislead_guard_26_50_149usd_monthly';
+      stripe.retrieveSubscription.mockResolvedValue(
+        subscription({
+          lookupKeys: [GUARD_KEY],
+          metadata: { tenantId: 'tenant-1', saleOfferId: 'offer-1' },
+        }),
+      );
+      prisma.saleCheckoutOffer.findUnique.mockResolvedValue({
+        id: 'offer-1',
+        tenantId: 'tenant-1',
+        campaignId: 'sale-1',
+        campaignName: 'Black Friday',
+        packageKey: 'GUARD',
+        bonusCredits: 1000,
+        providerSubscriptionId: null,
+      });
+
+      const result = await service.handle(
+        event(
+          'invoice.paid',
+          invoice({
+            amount_paid: 0,
+            lines: { data: [{ price: { lookup_key: GUARD_KEY } }] },
+          }),
+        ),
+      );
+
+      expect(result).toMatchObject({ handled: true, credits: 1000 });
+      expect(credits.grant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant-1',
+          amount: 1000,
+          type: 'ADJUSTMENT',
+          idempotencyKey: 'sale-bonus:sale-1',
+          stripeSessionId: 'sale-bonus-invoice:in_1',
+        }),
+      );
+    });
+
+    it('uses the invoice offer snapshot when the subscription metadata changed', async () => {
+      const GUARD_KEY = 'aegislead_guard_26_50_149usd_monthly';
+      prisma.saleCheckoutOffer.findUnique.mockResolvedValue({
+        id: 'offer-1',
+        tenantId: 'tenant-1',
+        campaignId: 'sale-1',
+        campaignName: 'Black Friday',
+        packageKey: 'GUARD',
+        bonusCredits: 1000,
+        providerSubscriptionId: null,
+      });
+
+      await service.handle(
+        event(
+          'invoice.paid',
+          invoice({
+            parent: {
+              subscription_details: {
+                subscription: 'sub_123',
+                metadata: { saleOfferId: 'offer-1' },
+              },
+            },
+            lines: { data: [{ price: { lookup_key: GUARD_KEY } }] },
+          }),
+        ),
+      );
+
+      expect(credits.grant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idempotencyKey: 'sale-bonus:sale-1',
+          amount: 1000,
+        }),
+      );
+      expect(prisma.saleCheckoutOffer.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('does not grant a sale bonus for a different billed plan', async () => {
+      const GUARD_KEY = 'aegislead_guard_26_50_149usd_monthly';
+      stripe.retrieveSubscription.mockResolvedValue(
+        subscription({
+          lookupKeys: [GUARD_KEY],
+          metadata: { tenantId: 'tenant-1', saleOfferId: 'offer-1' },
+        }),
+      );
+      prisma.saleCheckoutOffer.findUnique.mockResolvedValue({
+        id: 'offer-1',
+        tenantId: 'tenant-1',
+        campaignId: 'sale-1',
+        campaignName: 'Black Friday',
+        packageKey: 'COMPLETE',
+        bonusCredits: 1000,
+        providerSubscriptionId: null,
+      });
+
+      await service.handle(
+        event(
+          'invoice.paid',
+          invoice({
+            lines: { data: [{ price: { lookup_key: GUARD_KEY } }] },
+          }),
+        ),
+      );
+
+      expect(credits.grant).not.toHaveBeenCalled();
+    });
+
+    it('never grants sale credits on a renewal invoice', async () => {
+      const GUARD_KEY = 'aegislead_guard_26_50_149usd_monthly';
+      stripe.retrieveSubscription.mockResolvedValue(
+        subscription({
+          lookupKeys: [GUARD_KEY],
+          metadata: { tenantId: 'tenant-1', saleOfferId: 'offer-1' },
+        }),
+      );
+      prisma.saleCheckoutOffer.findUnique.mockResolvedValue({
+        id: 'offer-1',
+        tenantId: 'tenant-1',
+        campaignId: 'sale-1',
+        campaignName: 'Black Friday',
+        packageKey: 'GUARD',
+        bonusCredits: 1000,
+        providerSubscriptionId: null,
+      });
+
+      await service.handle(
+        event(
+          'invoice.paid',
+          invoice({
+            billing_reason: 'subscription_cycle',
+            lines: { data: [{ price: { lookup_key: GUARD_KEY } }] },
+          }),
+        ),
+      );
+
+      expect(credits.grant).not.toHaveBeenCalled();
+    });
+
+    it('reverses a sale bonus when the first subscription payment is refunded', async () => {
+      credits.reversePurchase.mockImplementation(({ stripeSessionId }) =>
+        Promise.resolve(
+          stripeSessionId === 'sale-bonus-invoice:in_1'
+            ? { reversed: 1000, balance: 0 }
+            : null,
+        ),
+      );
+
+      const result = await service.handle(
+        event('charge.refunded', {
+          id: 'ch_sale',
+          payment_intent: 'pi_sale',
+          customer: 'cus_123',
+          invoice: 'in_1',
+          amount: 14900,
+          amount_refunded: 14900,
+        }),
+      );
+
+      expect(result).toEqual({
+        handled: true,
+        tenantId: 'tenant-1',
+        reversed: 1000,
+      });
+      expect(credits.reversePurchase).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stripeSessionId: 'sale-bonus-invoice:in_1',
+          tenantId: 'tenant-1',
         }),
       );
     });

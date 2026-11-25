@@ -476,6 +476,8 @@ export class CreditsService {
       );
     }
 
+    const purchased = type === CreditEntryType.PURCHASE && amount > 0;
+
     try {
       return await this.prisma.$transaction(async (tx) => {
         const balance = await tx.tenantCreditBalance.upsert({
@@ -483,11 +485,11 @@ export class CreditsService {
           create: {
             tenantId,
             balance: amount,
-            lifetimePurchased: amount > 0 ? amount : 0,
+            lifetimePurchased: purchased ? amount : 0,
           },
           update: {
             balance: { increment: amount },
-            ...(amount > 0 ? { lifetimePurchased: { increment: amount } } : {}),
+            ...(purchased ? { lifetimePurchased: { increment: amount } } : {}),
           },
           select: { balance: true },
         });
@@ -575,7 +577,9 @@ export class CreditsService {
             balance: { decrement: purchase.amount },
             // Undo the lifetime purchase figure too, so the billing screen does
             // not keep crediting them for a purchase that was given back.
-            lifetimePurchased: { decrement: purchase.amount },
+            ...(purchase.type === CreditEntryType.PURCHASE
+              ? { lifetimePurchased: { decrement: purchase.amount } }
+              : {}),
           },
           select: { balance: true },
         });

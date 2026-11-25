@@ -101,8 +101,67 @@ export class BillingController {
         this.hasHeldLeadGen(user.tenantId),
       ]);
     const leadGenTiers = leadGen.tiers;
+    const now = new Date();
+    const activeSales = await this.prisma.saleCampaign.findMany({
+      where: { enabled: true, startsAt: { lte: now }, endsAt: { gt: now } },
+      orderBy: [
+        { percentOff: 'desc' },
+        { bonusCredits: 'desc' },
+        { createdAt: 'asc' },
+      ],
+      select: {
+        id: true,
+        name: true,
+        percentOff: true,
+        bonusCredits: true,
+        packageKeys: true,
+        endsAt: true,
+      },
+    });
+    const previousSubscription = activeSales.some(
+      (sale) => sale.bonusCredits > 0,
+    )
+      ? await this.prisma.tenantSubscription.findUnique({
+          where: { tenantId: user.tenantId },
+          select: { providerSubscriptionId: true },
+        })
+      : null;
+    const firstPaidSubscription = !previousSubscription?.providerSubscriptionId;
+    const sales = Object.fromEntries(
+      PACKAGE_KEYS.map((key) => {
+        const sellable =
+          key === 'GENERATION'
+            ? leadGenTiers.length > 0 || leadGen.base
+            : plans[key].length > 0;
+        const match = sellable
+          ? activeSales.find(
+              (sale) =>
+                sale.packageKeys.includes(key) &&
+                (sale.percentOff > 0 || firstPaidSubscription),
+            )
+          : null;
+        return [
+          key,
+          match
+            ? {
+                ...match,
+                bonusCredits: firstPaidSubscription ? match.bonusCredits : 0,
+              }
+            : null,
+        ];
+      }),
+    );
+    const saleEligible =
+      isCheckoutConfigured() && Object.values(sales).some(Boolean)
+        ? await this.stripe
+            .hasLiveSubscription(user.tenantId)
+            .then((live) => !live)
+            .catch(() => false)
+        : false;
 
     return {
+      sales,
+      saleEligible,
       configured:
         isCheckoutConfigured() &&
         (Object.values(plans).some((bands) => bands.length > 0) ||
@@ -386,7 +445,13 @@ export class BillingController {
     // thing to show someone on a trial.
     const comped = await this.prisma.tenantSubscription.findUnique({
       where: { tenantId },
-      select: { source: true, status: true, compExpiresAt: true, compPlan: true, aiEnabled: true },
+      select: {
+        source: true,
+        status: true,
+        compExpiresAt: true,
+        compPlan: true,
+        aiEnabled: true,
+      },
     });
 
     if (comped && isCompActive(comped)) {

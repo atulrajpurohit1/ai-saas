@@ -19,7 +19,8 @@ import type { GuardBand, PackageKey, PlanPricing } from '@/lib/billing';
  */
 const PACKAGE_TAGLINES: Record<PackageKey, string> = {
   GENERATION: 'Find the opportunity. Know the buyer. Execute the sale.',
-  GUARD: 'Adds field operations: patrols, checkpoint evidence, incidents and guard accountability.',
+  GUARD:
+    'Adds field operations: patrols, checkpoint evidence, incidents and guard accountability.',
   OPERATIONS:
     'Adds the back office: scheduling, workforce management, invoicing and profitability.',
   COMPLETE: 'Everything in Lead Gen, Guard and Operations, on one account.',
@@ -30,6 +31,8 @@ const SALES_EMAIL = 'sales@aegislead.com';
 const bandLabel = (band: GuardBand) => band.replace('-', '–');
 
 const money = (amount: number) => `$${amount.toLocaleString('en-US')}`;
+const saleMoney = (amount: number, percent: number) =>
+  `$${(amount * (1 - percent / 100)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 interface Props {
   pricing: PlanPricing;
@@ -63,9 +66,9 @@ export default function PlanPricingTable({
   const renderAction = (pkg: PlanPricing['packages'][number]) => {
     const band = selectedBand;
     const amount = pkg.monthly[band];
+    const sale = pricing.saleEligible ? pricing.sales?.[pkg.key] : null;
     const isCurrent =
-      pricing.current?.packageKey === pkg.key &&
-      pricing.current.band === band;
+      pricing.current?.packageKey === pkg.key && pricing.current.band === band;
     const sellable =
       pricing.configured && amount !== null && pkg.sellableBands.includes(band);
 
@@ -99,7 +102,11 @@ export default function PlanPricingTable({
       >
         {pending === pkg.key
           ? 'Redirecting…'
-          : `${pricing.current ? 'Switch' : 'Get started'} · ${money(amount)}/mo`}
+          : sale && sale.percentOff > 0
+            ? `Get started · ${saleMoney(amount, sale.percentOff)} first invoice`
+            : sale?.bonusCredits
+              ? `Get started · ${money(amount)}/mo + ${sale.bonusCredits.toLocaleString()} credits`
+              : `${pricing.current ? 'Switch' : 'Get started'} · ${money(amount)}/mo`}
       </button>
     );
   };
@@ -172,20 +179,40 @@ export default function PlanPricingTable({
                   </td>
                   {packages.map((pkg) => {
                     const amount = pkg.monthly[band.key];
+                    const sale =
+                      pricing.saleEligible &&
+                      pkg.sellableBands.includes(band.key)
+                        ? pricing.sales?.[pkg.key]
+                        : null;
                     return (
                       <td
                         key={pkg.key}
                         className={cn(
                           'px-4 py-3 text-center text-foreground',
-                          pkg.key === 'COMPLETE' && 'bg-primary/5 font-semibold',
+                          pkg.key === 'COMPLETE' &&
+                            'bg-primary/5 font-semibold',
                         )}
                       >
                         {amount === null ? (
                           <span className="font-medium">Custom</span>
                         ) : (
                           <>
-                            <span className="font-semibold">{money(amount)}</span>
+                            <span className="font-semibold">
+                              {money(amount)}
+                            </span>
                             <span className="text-muted-foreground">/mo</span>
+                            {sale && sale.percentOff > 0 && (
+                              <div className="mt-1 text-xs font-semibold text-emerald-700">
+                                {saleMoney(amount, sale.percentOff)} first
+                                invoice · {sale.name}
+                              </div>
+                            )}
+                            {sale && sale.bonusCredits > 0 && (
+                              <div className="mt-1 text-xs font-semibold text-emerald-700">
+                                +{sale.bonusCredits.toLocaleString()} bonus
+                                credits · {sale.name}
+                              </div>
+                            )}
                           </>
                         )}
                       </td>
@@ -201,7 +228,10 @@ export default function PlanPricingTable({
               {packages.map((pkg) => (
                 <td
                   key={pkg.key}
-                  className={cn('p-4', pkg.key === 'COMPLETE' && 'bg-primary/5')}
+                  className={cn(
+                    'p-4',
+                    pkg.key === 'COMPLETE' && 'bg-primary/5',
+                  )}
                 >
                   {renderAction(pkg)}
                 </td>
@@ -222,8 +252,8 @@ export default function PlanPricingTable({
         <p>
           Lead Gen can be added to Guard or Operations and is billed alongside
           it — buying it does not end the plan you are on. AegisLead Complete
-          already includes Lead Gen, so it needs no add-on; on Complete,
-          credits are bought from the credits page.
+          already includes Lead Gen, so it needs no add-on; on Complete, credits
+          are bought from the credits page.
         </p>
       </div>
     </div>

@@ -5,6 +5,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import Stripe from 'stripe';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   billingReturnUrls,
@@ -62,6 +63,16 @@ export class StripeService {
 
   get configured() {
     return isCheckoutConfigured();
+  }
+
+  /** A sale is a one-invoice coupon; recurring list prices stay intact. */
+  async createSaleCoupon(name: string, percentOff: number): Promise<string> {
+    const coupon = await this.stripe().coupons.create({
+      name: name.trim(),
+      percent_off: percentOff,
+      duration: 'once',
+    });
+    return coupon.id;
   }
 
   private stripe(): Stripe {
@@ -242,28 +253,79 @@ export class StripeService {
       return { url: null, changed: true };
     }
 
+    const now = new Date();
+    const sale = await this.prisma.saleCampaign.findFirst({
+      where: {
+        enabled: true,
+        startsAt: { lte: now },
+        endsAt: { gt: now },
+        packageKeys: { has: packageKey },
+      },
+      orderBy: [
+        { percentOff: 'desc' },
+        { bonusCredits: 'desc' },
+        { createdAt: 'asc' },
+      ],
+    });
+    const previousSubscription = sale?.bonusCredits
+      ? await this.prisma.tenantSubscription.findUnique({
+          where: { tenantId },
+          select: { providerSubscriptionId: true },
+        })
+      : null;
+    const firstPaidSubscription = !previousSubscription?.providerSubscriptionId;
+    const applicableSale =
+      sale && (sale.percentOff > 0 || firstPaidSubscription) ? sale : null;
+
     const urls = billingReturnUrls();
-    const trial = (await this.hasSubscribedBefore(tenantId))
-      ? null
-      : trialDays();
+    // The first discounted invoice is charged immediately. A free trial would
+    // defer that invoice until after the festival and make the offer unclear.
+    const trial =
+      applicableSale || (await this.hasSubscribedBefore(tenantId))
+        ? null
+        : trialDays();
     const customer = await this.customerIdFor(tenantId, email);
+    const offerId =
+      applicableSale?.bonusCredits && firstPaidSubscription
+        ? randomUUID()
+        : null;
+    const checkoutMetadata = offerId
+      ? { ...metadata, saleOfferId: offerId }
+      : metadata;
 
     const session = await this.stripe().checkout.sessions.create({
       mode: 'subscription',
       customer,
       line_items: [{ price: price.id, quantity: 1 }],
+      ...(applicableSale?.stripeCouponId
+        ? { discounts: [{ coupon: applicableSale.stripeCouponId }] }
+        : {}),
       success_url: urls.success,
       cancel_url: urls.cancel,
       // Carried through to the subscription so every later webhook -- renewal,
       // payment failure, cancellation -- can identify the tenant without a
       // customer lookup. Services are still resolved from the price, never
       // from this.
-      metadata,
+      metadata: checkoutMetadata,
       subscription_data: {
-        metadata,
+        metadata: checkoutMetadata,
         ...(trial ? { trial_period_days: trial } : {}),
       },
     });
+
+    if (applicableSale && offerId) {
+      await this.prisma.saleCheckoutOffer.create({
+        data: {
+          id: offerId,
+          tenantId,
+          campaignId: applicableSale.id,
+          campaignName: applicableSale.name,
+          packageKey,
+          bonusCredits: applicableSale.bonusCredits,
+          stripeSessionId: session.id,
+        },
+      });
+    }
 
     return { url: session.url, changed: false };
   }
@@ -473,6 +535,10 @@ export class StripeService {
         .map((item) => item.price?.lookup_key)
         .filter((key): key is string => Boolean(key)) ?? []
     );
+  }
+
+  async hasLiveSubscription(tenantId: string): Promise<boolean> {
+    return (await this.liveSubscriptionFor(tenantId)) !== null;
   }
 
   private priceMatchesPlan(

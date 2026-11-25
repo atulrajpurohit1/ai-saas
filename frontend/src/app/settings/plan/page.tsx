@@ -101,9 +101,9 @@ function PlanContent() {
   const [selectedBand, setSelectedBand] = useState<GuardBand | null>(null);
   const [pending, setPending] = useState<PackageKey | null>(null);
   // 'BASE' is the Lead Gen plan with no credits, which is not a tier.
-  const [pendingTier, setPendingTier] = useState<LeadGenTierKey | 'BASE' | null>(
-    null,
-  );
+  const [pendingTier, setPendingTier] = useState<
+    LeadGenTierKey | 'BASE' | null
+  >(null);
   const [packs, setPacks] = useState<CreditPackAvailability | null>(null);
   const [pendingPack, setPendingPack] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -457,7 +457,9 @@ function PlanContent() {
                     <Check
                       className={cn(
                         'mt-0.5 h-4 w-4 shrink-0',
-                        card.active ? 'text-primary' : 'text-muted-foreground/50',
+                        card.active
+                          ? 'text-primary'
+                          : 'text-muted-foreground/50',
                       )}
                     />
                     {highlight}
@@ -482,6 +484,17 @@ function PlanContent() {
         <h2 className="text-lg font-semibold text-foreground">
           Plans and pricing
         </h2>
+        {pricing?.saleEligible &&
+          pricing.sales &&
+          Object.values(pricing.sales).some(Boolean) && (
+            <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-800">
+              <strong>Limited-time sale</strong> — eligible new plan
+              subscriptions get the displayed discount on their first invoice.
+              Bonus credits, where offered, are for first-time paid subscribers.
+              Regular monthly pricing applies after that. The sale replaces the
+              free trial when one is available.
+            </div>
+          )}
 
         {/*
           Lead Gen sits above the chart, not in it. It is the one package not
@@ -501,6 +514,7 @@ function PlanContent() {
             </p>
             <LeadGenPlans
               leadGen={pricing.leadGen}
+              sale={pricing.saleEligible ? pricing.sales?.GENERATION : null}
               configured={pricing.configured}
               holdsLeadGen={holdsLeadGen}
               packs={packs}
@@ -553,7 +567,10 @@ function PlanContent() {
 
       <p className="mt-6 text-sm text-muted-foreground">
         Want to see how much of this account is in use?{' '}
-        <Link href="/settings/billing" className="font-medium text-primary hover:underline">
+        <Link
+          href="/settings/billing"
+          className="font-medium text-primary hover:underline"
+        >
           View usage
         </Link>
         .

@@ -1093,6 +1093,12 @@ export default function PlatformAnalyticsPage() {
               <span className="inline-flex h-9 items-center gap-2 rounded-lg bg-primary/10 px-3 text-xs font-semibold text-primary">
                 <BarChart3 className="h-3.5 w-3.5" /> Analytics
               </span>
+              <Link
+                href="/super-admin/sales"
+                className="inline-flex h-9 items-center rounded-lg px-3 text-xs font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              >
+                Sales
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-2">

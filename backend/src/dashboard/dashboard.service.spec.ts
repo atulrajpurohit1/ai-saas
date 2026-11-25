@@ -175,6 +175,15 @@ describe('DashboardService', () => {
   describe('no-shows today', () => {
     const hoursAgo = (n: number) => new Date(Date.now() - n * 60 * 60 * 1000);
 
+    // Keep "two hours ago" on the same calendar day in every time zone.
+    // Close to midnight it otherwise falls outside today's roster query.
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-11-26T12:00:00.000Z'));
+    });
+
+    afterEach(() => jest.useRealTimers());
+
     it('counts each assigned guard who never checked in', async () => {
       prisma.shift.findMany.mockResolvedValue([
         {

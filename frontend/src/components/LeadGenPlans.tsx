@@ -16,6 +16,7 @@ const count = (amount: number) => amount.toLocaleString('en-US');
 
 interface Props {
   leadGen: LeadGenPlansData;
+  sale?: { name: string; percentOff: number; bonusCredits: number } | null;
   /** False when nothing at all can be bought online yet. */
   configured: boolean;
   /**
@@ -63,6 +64,7 @@ interface Props {
  */
 export default function LeadGenPlans({
   leadGen,
+  sale,
   configured,
   holdsLeadGen,
   packs,
@@ -99,7 +101,8 @@ export default function LeadGenPlans({
             ? (pack?.credits ?? tier.includedCredits)
             : tier.includedCredits;
           const searchCost = packs?.costs?.discoverySearch ?? 0;
-          const searches = searchCost > 0 ? Math.floor(credits / searchCost) : null;
+          const searches =
+            searchCost > 0 ? Math.floor(credits / searchCost) : null;
 
           return (
             <div
@@ -154,6 +157,26 @@ export default function LeadGenPlans({
                           tier.creditsPrice,
                         )} credits`}
                   </p>
+                  {!holdsLeadGen &&
+                    configured &&
+                    leadGen.sellableTiers.includes(tier.key) &&
+                    sale &&
+                    sale.percentOff > 0 && (
+                      <p className="mt-2 text-sm font-semibold text-emerald-700">
+                        ${(tier.price * (1 - sale.percentOff / 100)).toFixed(2)}{' '}
+                        first invoice · {sale.name}
+                      </p>
+                    )}
+                  {!holdsLeadGen &&
+                    configured &&
+                    leadGen.sellableTiers.includes(tier.key) &&
+                    sale &&
+                    sale.bonusCredits > 0 && (
+                      <p className="mt-1 text-sm font-semibold text-emerald-700">
+                        +{count(sale.bonusCredits)} bonus credits with your
+                        first plan invoice
+                      </p>
+                    )}
                 </>
               )}
 
@@ -290,10 +313,10 @@ export default function LeadGenPlans({
           </p>
         ) : (
           <p>
-            Lead Gen is the same price whatever your guard count — it is a
-            sales tool, not a field operations one. The credits in a starting
-            plan are added to your balance once, when the plan begins, and stay
-            there until you spend them; renewals pay for the plan, not for more
+            Lead Gen is the same price whatever your guard count — it is a sales
+            tool, not a field operations one. The credits in a starting plan are
+            added to your balance once, when the plan begins, and stay there
+            until you spend them; renewals pay for the plan, not for more
             credits.
           </p>
         )}

@@ -55,6 +55,7 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
+  Tag,
   Trash2,
   Users,
   X,
@@ -579,6 +580,12 @@ function SuperAdminContent() {
           >
             <BarChart3 className="h-3.5 w-3.5" />
             Analytics
+          </Link>
+          <Link
+            href="/super-admin/sales"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-border px-3 text-xs font-semibold text-foreground transition hover:bg-muted"
+          >
+            <Tag className="h-3.5 w-3.5" /> Sales & offers
           </Link>
         </div>
       </div>
@@ -1760,6 +1767,12 @@ export default function SuperAdminPage() {
                 className="inline-flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
               >
                 <BarChart3 className="h-3.5 w-3.5" /> Analytics
+              </Link>
+              <Link
+                href="/super-admin/sales"
+                className="inline-flex h-9 items-center gap-2 rounded-lg px-3 text-xs font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              >
+                <Tag className="h-3.5 w-3.5" /> Sales
               </Link>
             </nav>
           </div>

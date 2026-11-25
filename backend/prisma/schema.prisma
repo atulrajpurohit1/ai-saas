@@ -181,6 +181,7 @@ model Tenant {
   clientInsurancePolicies ClientInsurancePolicy[]
   rfpRequirementAnalyses  RfpRequirementAnalysis[]
   subscription            TenantSubscription?
+  saleCheckoutOffers     SaleCheckoutOffer[]
   modules                 TenantModule[]
   creditBalance           TenantCreditBalance?
   creditLedger            CreditLedgerEntry[]
@@ -2486,4 +2487,41 @@ model PlatformAdmin {
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
   @@map("PlatformAdmin")
+}
+
+/// A platform-wide first-invoice discount and/or credit bonus for a new plan
+/// subscription. The original plan price remains the recurring Stripe price.
+model SaleCampaign {
+  id             String   @id @default(uuid())
+  name           String
+  percentOff     Int      @map("percent_off")
+  bonusCredits   Int      @default(0) @map("bonus_credits")
+  packageKeys    String[] @map("package_keys")
+  startsAt       DateTime @map("starts_at")
+  endsAt         DateTime @map("ends_at")
+  enabled        Boolean  @default(true)
+  stripeCouponId String?  @map("stripe_coupon_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([enabled, startsAt, endsAt])
+  @@map("SaleCampaign")
+}
+
+/// Immutable offer snapshot for a new subscription checkout. The campaign may
+/// later be edited or deleted without changing credits promised at checkout.
+model SaleCheckoutOffer {
+  id                     String   @id @default(uuid())
+  tenantId               String   @map("tenant_id")
+  tenant                 Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campaignId             String   @map("campaign_id")
+  campaignName           String   @map("campaign_name")
+  packageKey             String   @map("package_key")
+  bonusCredits           Int      @map("bonus_credits")
+  stripeSessionId        String   @unique @map("stripe_session_id")
+  providerSubscriptionId String?  @unique @map("provider_subscription_id")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, campaignId])
+  @@map("SaleCheckoutOffer")
 }

@@ -79,6 +79,18 @@ export interface LeadGenPlans {
 }
 
 export interface PlanPricing {
+  /** Automatic first-invoice offers for new subscriptions. */
+  sales?: Record<
+    PackageKey,
+    {
+      id: string;
+      name: string;
+      percentOff: number;
+      bonusCredits: number;
+      endsAt: string;
+    } | null
+  >;
+  saleEligible?: boolean;
   /** Whether any plan can be bought online at all. */
   configured: boolean;
   bands: { key: GuardBand; min: number; max: number | null }[];
@@ -198,7 +210,9 @@ export async function getCreditPacks(): Promise<CreditPackAvailability> {
   return res.data;
 }
 
-export async function getCreditLedger(limit = 50): Promise<CreditLedgerEntry[]> {
+export async function getCreditLedger(
+  limit = 50,
+): Promise<CreditLedgerEntry[]> {
   const res = await api.get<CreditLedgerEntry[]>('billing/credits/ledger', {
     params: { limit },
   });
@@ -223,9 +237,7 @@ export interface AutoRechargePack {
   price: number;
 }
 
-export type AutoRechargePauseReason =
-  | 'PAYMENT_FAILED'
-  | 'MONTHLY_CAP_REACHED';
+export type AutoRechargePauseReason = 'PAYMENT_FAILED' | 'MONTHLY_CAP_REACHED';
 
 export type AutoRechargeAttemptStatus = 'SUCCEEDED' | 'FAILED' | 'SKIPPED';
 

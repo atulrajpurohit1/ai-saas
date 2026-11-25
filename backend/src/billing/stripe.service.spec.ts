@@ -132,6 +132,15 @@ describe('StripeService plan checkout', () => {
   let subscriptionRecord: { providerSubscriptionId: string | null } | null;
   /** A TenantModule row means this tenant has been provisioned before. */
   let hasPriorModules: boolean;
+  let activeSale: {
+    id?: string;
+    name?: string;
+    percentOff?: number;
+    bonusCredits?: number;
+    stripeCouponId: string | null;
+  } | null;
+  let saleLookup: jest.Mock;
+  let offerCreate: jest.Mock;
   let prices: { list: jest.Mock };
   let sessions: { create: jest.Mock };
   let subscriptions: { retrieve: jest.Mock; update: jest.Mock };
@@ -151,6 +160,11 @@ describe('StripeService plan checkout', () => {
     process.env.STRIPE_SECRET_KEY = 'sk_test_plan';
     subscriptionRecord = null;
     hasPriorModules = false;
+    activeSale = null;
+    saleLookup = jest
+      .fn()
+      .mockImplementation(() => Promise.resolve(activeSale));
+    offerCreate = jest.fn().mockResolvedValue({});
 
     const prisma = {
       tenantSubscription: {
@@ -171,6 +185,10 @@ describe('StripeService plan checkout', () => {
             Promise.resolve(hasPriorModules ? { id: 'module-row' } : null),
           ),
       },
+      saleCampaign: {
+        findFirst: saleLookup,
+      },
+      saleCheckoutOffer: { create: offerCreate },
     };
     service = new StripeService(prisma as unknown as PrismaService);
 
@@ -217,6 +235,98 @@ describe('StripeService plan checkout', () => {
         line_items: [{ price: 'price_guard_26_50', quantity: 1 }],
       }),
     );
+  });
+
+  it('applies an active sale to the first invoice and skips the free trial', async () => {
+    process.env.STRIPE_TRIAL_DAYS = '14';
+    activeSale = { percentOff: 25, stripeCouponId: 'coupon_black_friday' };
+
+    await buyGuard();
+
+    const [session] = sessions.create.mock.calls[0] as [
+      {
+        discounts: { coupon: string }[];
+        subscription_data: Record<string, unknown>;
+      },
+    ];
+    expect(session.discounts).toEqual([{ coupon: 'coupon_black_friday' }]);
+    expect(session.subscription_data).not.toHaveProperty('trial_period_days');
+    expect(saleLookup).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          enabled: true,
+          packageKeys: { has: 'GUARD' },
+        }),
+        orderBy: [
+          { percentOff: 'desc' },
+          { bonusCredits: 'desc' },
+          { createdAt: 'asc' },
+        ],
+      }),
+    );
+  });
+
+  it('records a credits-only offer at checkout without creating a discount', async () => {
+    process.env.STRIPE_TRIAL_DAYS = '14';
+    activeSale = {
+      id: 'sale-1',
+      name: 'Black Friday',
+      percentOff: 0,
+      bonusCredits: 1000,
+      stripeCouponId: null,
+    };
+
+    await buyGuard();
+
+    const [session] = sessions.create.mock.calls[0] as [
+      {
+        discounts?: unknown;
+        metadata: { saleOfferId: string };
+        subscription_data: {
+          metadata: { saleOfferId: string };
+          trial_period_days?: number;
+        };
+      },
+    ];
+    expect(session.discounts).toBeUndefined();
+    expect(session.subscription_data.trial_period_days).toBeUndefined();
+    expect(session.subscription_data.metadata.saleOfferId).toBe(
+      session.metadata.saleOfferId,
+    );
+    expect(offerCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        id: session.metadata.saleOfferId,
+        campaignId: 'sale-1',
+        tenantId: 'tenant-1',
+        packageKey: 'GUARD',
+        bonusCredits: 1000,
+        stripeSessionId: 'cs_plan',
+      }),
+    });
+  });
+
+  it('does not gift sale credits to a returning paid subscriber', async () => {
+    subscriptionRecord = { providerSubscriptionId: 'sub_cancelled' };
+    subscriptions.retrieve.mockResolvedValue({ status: 'canceled' });
+    activeSale = {
+      id: 'sale-1',
+      name: 'Black Friday',
+      percentOff: 25,
+      bonusCredits: 1000,
+      stripeCouponId: 'coupon_sale',
+    };
+
+    await buyGuard();
+
+    expect(sessions.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        discounts: [{ coupon: 'coupon_sale' }],
+        metadata: expect.not.objectContaining({
+          saleOfferId: expect.any(String),
+        }),
+      }),
+    );
+    expect(offerCreate).not.toHaveBeenCalled();
   });
 
   it('refuses a price whose amount no longer matches the table', async () => {
@@ -373,10 +483,12 @@ describe('StripeService plan checkout', () => {
       status: 'active',
       items: { data: [{ id: 'si_lead' }, { id: 'si_finance' }] },
     });
+    activeSale = { stripeCouponId: 'coupon_black_friday' };
 
     await expect(buyGuard()).resolves.toEqual({ url: null, changed: true });
 
     expect(sessions.create).not.toHaveBeenCalled();
+    expect(saleLookup).not.toHaveBeenCalled();
     expect(subscriptions.update).toHaveBeenCalledWith(
       'sub_live',
       expect.objectContaining({
