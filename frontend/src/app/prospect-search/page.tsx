@@ -157,6 +157,7 @@ export default function ProspectSearchPage() {
     full: number;
     preview: number;
   } | null>(null);
+  const [canBuyCredits, setCanBuyCredits] = useState(false);
   const [result, setResult] = useState<ProspectDiscoveryResult | null>(null);
   /**
    * A search that outlived the window the page watches it for. It is still
@@ -640,6 +641,7 @@ export default function ProspectSearchPage() {
             ? { full, preview: packs.costs.discoveryPreview ?? full }
             : null,
         );
+        setCanBuyCredits(packs.canBuyCredits === true);
       })
       .catch(() => {
         if (!cancelled) setSearchCosts(null);
@@ -1296,10 +1298,10 @@ export default function ProspectSearchPage() {
           <AlertTriangle size={18} aria-hidden="true" className="text-amber-600" />
           <span className="flex-1">{creditsShortfall}</span>
           <Link
-            href={hasModule('LEAD_GEN') ? '/settings/credits' : '/settings/plan'}
+            href={hasModule('LEAD_GEN') || canBuyCredits ? '/settings/credits' : '/settings/plan'}
             className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
           >
-            {hasModule('LEAD_GEN') ? 'Buy credits' : 'Choose a Lead Gen plan'}
+            {hasModule('LEAD_GEN') || canBuyCredits ? 'Buy credits' : 'Choose a Lead Gen plan'}
           </Link>
         </div>
       )}

@@ -249,8 +249,8 @@ export default function LeadGenPlans({
       </div>
 
       {/*
-        The plan-only option is available to first-time buyers. Credits can
-        then be purchased separately while Lead Gen is active.
+        The plan-only option is available to first-time buyers. Their first
+        paid credits can then be purchased while Lead Gen is active.
       */}
       {showBaseRow && (
         <div className="mt-4 flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -264,7 +264,7 @@ export default function LeadGenPlans({
               )}
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Choose the plan without bundled credits. Buy credits separately while Lead Gen is active; unused credits remain usable for Prospect Search after the plan ends.
+              Choose the plan without bundled credits. Buy your first credits while Lead Gen is active; later top-ups and Prospect Search remain available after it ends.
             </p>
           </div>
 

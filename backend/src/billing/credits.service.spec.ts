@@ -68,6 +68,25 @@ describe('CreditsService', () => {
     service = new CreditsService(prisma as unknown as PrismaService);
   });
 
+  describe('hasPaidCreditPurchase', () => {
+    it('excludes trial grants and a fully refunded first purchase', async () => {
+      expect(await service.hasPaidCreditPurchase(tenantId)).toBe(false);
+      expect(prisma.creditLedgerEntry.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ stripeSessionId: { not: null } }) }),
+      );
+
+      prisma.creditLedgerEntry.findMany
+        .mockResolvedValueOnce([{ stripeSessionId: 'leadgen-credits:invoice-1' }])
+        .mockResolvedValueOnce([{ stripeSessionId: 'refund:leadgen-credits:invoice-1' }]);
+      expect(await service.hasPaidCreditPurchase(tenantId)).toBe(false);
+
+      prisma.creditLedgerEntry.findMany
+        .mockResolvedValueOnce([{ stripeSessionId: 'cs_paid' }])
+        .mockResolvedValueOnce([]);
+      expect(await service.hasPaidCreditPurchase(tenantId)).toBe(true);
+    });
+  });
+
   describe('reserve', () => {
     it('decrements the balance and writes a pending reservation row', async () => {
       const result = await service.reserve({

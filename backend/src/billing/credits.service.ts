@@ -45,6 +45,34 @@ export class CreditsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  /** A paid plan allocation or pack purchase, excluding trial grants/refunds. */
+  async hasPaidCreditPurchase(tenantId: string): Promise<boolean> {
+    const purchases = await this.prisma.creditLedgerEntry.findMany({
+      where: {
+        tenantId,
+        type: CreditEntryType.PURCHASE,
+        amount: { gt: 0 },
+        stripeSessionId: { not: null },
+      },
+      select: { stripeSessionId: true },
+    });
+    if (purchases.length === 0) return false;
+
+    const refunded = await this.prisma.creditLedgerEntry.findMany({
+      where: {
+        tenantId,
+        stripeSessionId: {
+          in: purchases.map((row) => `refund:${row.stripeSessionId}`),
+        },
+      },
+      select: { stripeSessionId: true },
+    });
+    const refundIds = new Set(refunded.map((row) => row.stripeSessionId));
+    return purchases.some(
+      (row) => !refundIds.has(`refund:${row.stripeSessionId}`),
+    );
+  }
+
   async getBalance(tenantId: string): Promise<CreditBalanceSummary> {
     const [row, pending] = await Promise.all([
       this.prisma.tenantCreditBalance.findUnique({ where: { tenantId } }),

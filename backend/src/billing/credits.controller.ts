@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { CreditEntryType } from '@prisma/client';
 import {
   RequireAnyPermission,
@@ -25,9 +25,10 @@ import { CreditsService } from './credits.service';
 import { GrantCreditsDto } from './dto/grant-credits.dto';
 import { PurchaseCreditsDto } from './dto/purchase-credits.dto';
 import { StripeService } from './stripe.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 
 /** Balance and prices remain visible when a plan ends so existing credits can
- * still fund Prospect Search. Buying more credits requires active Lead Gen. */
+ * still fund Prospect Search. The first paid credits require active Lead Gen. */
 @UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard, ModuleGuard)
 @Controller('billing/credits')
 export class CreditsController {
@@ -35,6 +36,7 @@ export class CreditsController {
     private readonly credits: CreditsService,
     private readonly stripe: StripeService,
     private readonly audit: AuditService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   /**
@@ -57,9 +59,10 @@ export class CreditsController {
   @Get('packs')
   @AllowWithoutPlan()
   @RequireAnyPermission('billing.view', 'prospect_search.view', 'users.view')
-  getPacks() {
+  async getPacks(@GetUser() user: ActiveUser) {
     return {
       configured: isCheckoutConfigured(),
+      canBuyCredits: await this.canBuyCredits(user.tenantId),
       packs: sellableCreditPacks(),
       // Shown to the customer so the cost of a search is never a surprise.
       // Both are now flat per search. `perProspect` is retained, always null,
@@ -91,14 +94,26 @@ export class CreditsController {
 
   /** Starts a Stripe one-off checkout for a credit pack. */
   @Post('checkout/session')
-  @RequireModule('LEAD_GEN')
+  @AllowWithoutPlan()
   @RequirePermission('billing.manage')
-  purchase(@GetUser() user: ActiveUser, @Body() dto: PurchaseCreditsDto) {
+  async purchase(@GetUser() user: ActiveUser, @Body() dto: PurchaseCreditsDto) {
+    if (!(await this.canBuyCredits(user.tenantId))) {
+      throw new BadRequestException(
+        'Your first paid credits require an active Lead Gen plan. Choose a plan before buying credits.',
+      );
+    }
     return this.stripe.createCreditPackCheckoutSession({
       tenantId: user.tenantId,
       pack: dto.pack,
       email: user.email,
     });
+  }
+
+  private async canBuyCredits(tenantId: string): Promise<boolean> {
+    return (
+      (await this.entitlements.hasAnyModule(tenantId, ['LEAD_GEN'])) ||
+      (await this.credits.hasPaidCreditPurchase(tenantId))
+    );
   }
 
   /**

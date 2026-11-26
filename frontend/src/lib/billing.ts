@@ -158,6 +158,8 @@ export interface CreditPack {
 
 export interface CreditPackAvailability {
   configured: boolean;
+  /** First purchase needs active Lead Gen; later packs can be bought without it. */
+  canBuyCredits?: boolean;
   packs: CreditPack[];
   /**
    * What each kind of search costs, as a flat price per search. Both are set

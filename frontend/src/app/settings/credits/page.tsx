@@ -36,7 +36,7 @@ function formatDate(value: string) {
 
 function CreditsContent() {
   const { hasModule } = useAuth();
-  const canBuyCredits = hasModule('LEAD_GEN');
+  const hasLeadGenPlan = hasModule('LEAD_GEN');
   const searchParams = useSearchParams();
   const checkoutState = searchParams.get('checkout');
   // Saving a card for auto-recharge returns here with its own marker, so a
@@ -47,6 +47,7 @@ function CreditsContent() {
 
   const [balance, setBalance] = useState<CreditBalance | null>(null);
   const [packs, setPacks] = useState<CreditPackAvailability | null>(null);
+  const canBuyCredits = hasLeadGenPlan || packs?.canBuyCredits === true;
   const [ledger, setLedger] = useState<CreditLedgerEntry[]>([]);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -208,9 +209,9 @@ function CreditsContent() {
 
       <h2 className="mb-3 text-lg font-semibold text-foreground">Buy credits</h2>
 
-      {!canBuyCredits && (
+      {packs && !canBuyCredits && (
         <div className="mb-6 rounded-xl border border-border bg-card p-4 text-sm text-foreground">
-          <p>Choose a Lead Gen plan before buying credits. Any credits already in your balance can still be used for Prospect Search.</p>
+          <p>Your first paid credits require an active Lead Gen plan. Choose a plan, then buy credits. Any credits already in your balance can still be used for Prospect Search.</p>
           <Link href="/settings/plan" className="mt-3 inline-flex rounded-lg bg-primary px-4 py-2 font-semibold text-primary-foreground">
             Choose a Lead Gen plan
           </Link>
@@ -283,7 +284,7 @@ function CreditsContent() {
         </div>
       )}
 
-      {canBuyCredits && <div className="mt-10">
+      {hasLeadGenPlan && <div className="mt-10">
         <AutoRechargeCard
           cardSetupState={cardSetupState}
           cardSetupSessionId={cardSetupSessionId}
