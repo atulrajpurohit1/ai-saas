@@ -25,13 +25,9 @@ describe('BillingController plan checkout', () => {
   let entitlements: { modulesForTenant: jest.Mock };
   let prisma: {
     tenantSubscription: { findUnique: jest.Mock };
-    tenantModule: { findFirst: jest.Mock };
   };
-  /** Whether this tenant has ever been provisioned Lead Gen. */
-  let hasHeldLeadGen: boolean;
 
   beforeEach(() => {
-    hasHeldLeadGen = true;
     stripe = {
       createPlanCheckoutSession: jest
         .fn()
@@ -47,13 +43,6 @@ describe('BillingController plan checkout', () => {
     // state that gets there.
     prisma = {
       tenantSubscription: { findUnique: jest.fn().mockResolvedValue(null) },
-      tenantModule: {
-        findFirst: jest
-          .fn()
-          .mockImplementation(() =>
-            Promise.resolve(hasHeldLeadGen ? { id: 'module-row' } : null),
-          ),
-      },
     };
 
     controller = new BillingController(
@@ -98,8 +87,6 @@ describe('BillingController plan checkout', () => {
 
   // Generation on its own is a flat price whatever the headcount.
   it('always charges Generation at the base band', async () => {
-    hasHeldLeadGen = true;
-
     await controller.createCheckoutSession(user, {
       package: 'GENERATION',
       band: '251-500',
@@ -110,26 +97,17 @@ describe('BillingController plan checkout', () => {
     expect(metering.billableGuardCount).not.toHaveBeenCalled();
   });
 
-  /**
-   * The base Lead Gen plan has no credits in it. Selling it to someone who
-   * has never had Lead Gen would hand them a prospecting product with an
-   * empty balance -- nothing they could actually run on the day they paid.
-   */
-  it('refuses the base Lead Gen plan to a tenant that never had it', async () => {
-    hasHeldLeadGen = false;
-
-    await expect(
-      controller.createCheckoutSession(user, {
-        package: 'GENERATION',
-        band: '1-25',
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(stripe.createPlanCheckoutSession).not.toHaveBeenCalled();
+  it('sells the base Lead Gen plan without credits to a first-time buyer', async () => {
+    await controller.createCheckoutSession(user, {
+      package: 'GENERATION',
+      band: '1-25',
+    });
+    expect(stripe.createPlanCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({ packageKey: 'GENERATION', tier: undefined }),
+    );
   });
 
   it('sells a starting plan to a tenant that never had Lead Gen', async () => {
-    hasHeldLeadGen = false;
-
     await controller.createCheckoutSession(user, {
       package: 'GENERATION',
       band: '1-25',
@@ -174,8 +152,6 @@ describe('BillingController plan checkout', () => {
   });
 
   it('sells the base plan to a tenant that has held Lead Gen', async () => {
-    hasHeldLeadGen = true;
-
     await controller.createCheckoutSession(user, {
       package: 'GENERATION',
       band: '1-25',

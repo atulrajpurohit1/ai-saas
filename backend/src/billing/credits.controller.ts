@@ -10,6 +10,7 @@ import { PlanGuard } from '../auth/guards/plan.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
+import { AllowWithoutPlan } from '../auth/decorators/allow-without-plan.decorator';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { AuditService } from '../audit/audit.service';
 import { isCheckoutConfigured } from './billing.config';
@@ -25,15 +26,9 @@ import { GrantCreditsDto } from './dto/grant-credits.dto';
 import { PurchaseCreditsDto } from './dto/purchase-credits.dto';
 import { StripeService } from './stripe.service';
 
-/**
- * Credits only ever pay for Prospect Search, which is part of AegisLead
- * Generation. Gating the whole controller on LEAD_GEN means a tenant without
- * that service cannot buy credits they would then be refused permission to
- * spend -- which would otherwise be a completed Stripe payment we had to refund
- * by hand.
- */
+/** Balance and prices remain visible when a plan ends so existing credits can
+ * still fund Prospect Search. Buying more credits requires active Lead Gen. */
 @UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard, ModuleGuard)
-@RequireModule('LEAD_GEN')
 @Controller('billing/credits')
 export class CreditsController {
   constructor(
@@ -47,6 +42,7 @@ export class CreditsController {
    * a search needs to see what it will cost them before they run it.
    */
   @Get()
+  @AllowWithoutPlan()
   @RequireAnyPermission(
     'billing.view',
     'prospect_search.view',
@@ -59,6 +55,7 @@ export class CreditsController {
 
   /** Packs on sale, and what each unit of work costs. */
   @Get('packs')
+  @AllowWithoutPlan()
   @RequireAnyPermission('billing.view', 'prospect_search.view', 'users.view')
   getPacks() {
     return {
@@ -82,6 +79,7 @@ export class CreditsController {
   }
 
   @Get('ledger')
+  @AllowWithoutPlan()
   @RequireAnyPermission('billing.view', 'users.view')
   getLedger(@GetUser() user: ActiveUser, @Query('limit') limit?: string) {
     const parsed = Number.parseInt(limit ?? '', 10);
@@ -93,6 +91,7 @@ export class CreditsController {
 
   /** Starts a Stripe one-off checkout for a credit pack. */
   @Post('checkout/session')
+  @RequireModule('LEAD_GEN')
   @RequirePermission('billing.manage')
   purchase(@GetUser() user: ActiveUser, @Body() dto: PurchaseCreditsDto) {
     return this.stripe.createCreditPackCheckoutSession({
@@ -107,6 +106,7 @@ export class CreditsController {
    * equivalent value without a Stripe payment behind it.
    */
   @Post('grant')
+  @RequireModule('LEAD_GEN')
   @RequirePermission('billing.manage')
   async grant(@GetUser() user: ActiveUser, @Body() dto: GrantCreditsDto) {
     const result = await this.credits.grant({

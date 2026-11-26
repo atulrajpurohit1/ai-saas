@@ -4,6 +4,8 @@ import { formatDateTime as fmtDateTime } from '@/lib/format';
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
+import { useAuth } from '@/context/AuthContext';
+import Link from 'next/link';
 import PageHeader from '@/components/PageHeader';
 import AutoRechargeCard from '@/components/billing/AutoRechargeCard';
 import { cn } from '@/lib/utils';
@@ -33,6 +35,8 @@ function formatDate(value: string) {
 }
 
 function CreditsContent() {
+  const { hasModule } = useAuth();
+  const canBuyCredits = hasModule('LEAD_GEN');
   const searchParams = useSearchParams();
   const checkoutState = searchParams.get('checkout');
   // Saving a card for auto-recharge returns here with its own marker, so a
@@ -96,10 +100,7 @@ function CreditsContent() {
   };
 
   return (
-    // Credits only pay for Prospect Search, so a tenant without AegisLead
-    // Generation sees the upgrade prompt rather than a buy button for something
-    // they could not spend. The backend enforces the same rule.
-    <DashboardLayout requiredModule="LEAD_GEN" requiredPermissions="billing.view">
+    <DashboardLayout requiredPermissions="billing.view">
       {/*
         The cost of each action is read from the API, never written into this
         copy. It is configurable server-side, and this page previously claimed
@@ -207,6 +208,15 @@ function CreditsContent() {
 
       <h2 className="mb-3 text-lg font-semibold text-foreground">Buy credits</h2>
 
+      {!canBuyCredits && (
+        <div className="mb-6 rounded-xl border border-border bg-card p-4 text-sm text-foreground">
+          <p>Choose a Lead Gen plan before buying credits. Any credits already in your balance can still be used for Prospect Search.</p>
+          <Link href="/settings/plan" className="mt-3 inline-flex rounded-lg bg-primary px-4 py-2 font-semibold text-primary-foreground">
+            Choose a Lead Gen plan
+          </Link>
+        </div>
+      )}
+
       {packs && !packs.configured && (
         <div className="mb-6 rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
           Self-serve credit purchase is not switched on for this account yet.
@@ -220,7 +230,7 @@ function CreditsContent() {
         </div>
       )}
 
-      {packs?.configured && packs.packs.length > 0 && (
+      {canBuyCredits && packs?.configured && packs.packs.length > 0 && (
         <div className="grid gap-4 md:grid-cols-3">
           {packs.packs.map((pack) => {
             // Per-credit price is meaningless at these sizes ($0.02 for both of
@@ -273,13 +283,13 @@ function CreditsContent() {
         </div>
       )}
 
-      <div className="mt-10">
+      {canBuyCredits && <div className="mt-10">
         <AutoRechargeCard
           cardSetupState={cardSetupState}
           cardSetupSessionId={cardSetupSessionId}
           onChanged={() => void load()}
         />
-      </div>
+      </div>}
 
       <h2 className="mb-3 mt-10 text-lg font-semibold text-foreground">
         Recent activity

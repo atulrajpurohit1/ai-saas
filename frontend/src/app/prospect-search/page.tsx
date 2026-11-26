@@ -127,7 +127,7 @@ function parseList(value: string): string[] | undefined {
 }
 
 export default function ProspectSearchPage() {
-  const { can, user } = useAuth();
+  const { can, user, hasModule, hasPlan } = useAuth();
   // Stored searches are scoped to the account that ran them, so a shared
   // browser never restores one user's prospects for another.
   const userId = user?.id ?? null;
@@ -920,7 +920,7 @@ export default function ProspectSearchPage() {
     : null;
 
   return (
-    <DashboardLayout requiredModule="LEAD_GEN" requiredPermissions="prospect_search.view">
+    <DashboardLayout requiredPermissions="prospect_search.view">
       <div className="mb-6 sm:mb-8">
         <h2 className="flex items-center gap-3 text-2xl font-bold sm:text-3xl">
           <Radar className="text-primary" size={30} aria-hidden="true" />
@@ -1255,6 +1255,9 @@ export default function ProspectSearchPage() {
                   </Link>
                 </>
               )}
+              {!hasPlan && (
+                <> {' '}&middot; Company insights cost 5 credits each</>
+              )}
             </span>
           </div>
 
@@ -1293,10 +1296,10 @@ export default function ProspectSearchPage() {
           <AlertTriangle size={18} aria-hidden="true" className="text-amber-600" />
           <span className="flex-1">{creditsShortfall}</span>
           <Link
-            href="/settings/credits"
+            href={hasModule('LEAD_GEN') ? '/settings/credits' : '/settings/plan'}
             className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
           >
-            Buy credits
+            {hasModule('LEAD_GEN') ? 'Buy credits' : 'Choose a Lead Gen plan'}
           </Link>
         </div>
       )}

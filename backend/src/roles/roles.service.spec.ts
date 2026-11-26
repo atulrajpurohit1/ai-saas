@@ -469,7 +469,7 @@ describe('RolesService', () => {
    * "once" mean "once per browser".
    */
   describe('filterByEntitlement', () => {
-    const keys = ['dashboard.view', 'leads.view', 'guards.view', 'finance.view'];
+    const keys = ['dashboard.view', 'leads.view', 'guards.view', 'finance.view', 'prospect_search.view'];
 
     // Reach the private helper directly: getUserAccessProfile wraps it in a
     // large prisma-heavy read, and the behaviour under test is entirely in
@@ -502,6 +502,17 @@ describe('RolesService', () => {
       expect(result).toContain('leads.view');
       expect(result).not.toContain('guards.view');
       expect(result).not.toContain('finance.view');
+      expect(result).toContain('prospect_search.view');
+    });
+
+    it('keeps Prospect Search visible for a tenant on a different plan', async () => {
+      (entitlements.modulesForTenant as jest.Mock).mockResolvedValueOnce(
+        new Set(['GUARD_TOUR']),
+      );
+
+      const result = await filter('tenant-1');
+      expect(result).toContain('prospect_search.view');
+      expect(result).not.toContain('leads.view');
     });
   });
 

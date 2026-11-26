@@ -72,7 +72,7 @@ export interface LeadGenPlans {
   currentTier: LeadGenTierKey | null;
   /** Whether this account may buy the base plan (no credits). */
   baseSellable: boolean;
-  /** The base plan is closed to them because they have never had Lead Gen. */
+    /** Legacy availability hint; the base plan is now open to first-time buyers. */
   baseRequiresPlan: boolean;
   /** Already on Lead Gen at the base price, with no credits included. */
   onBasePlan: boolean;

@@ -92,13 +92,12 @@ export class BillingController {
   @Get('plan')
   @RequireAnyPermission('billing.view', 'roles.view', 'users.view')
   async plan(@GetUser() user: ActiveUser) {
-    const [plans, leadGen, billableGuards, current, hasHadLeadGen] =
+    const [plans, leadGen, billableGuards, current] =
       await Promise.all([
         this.sellablePlansOrNone(),
         this.sellableLeadGenOrNone(),
         this.metering.billableGuardCount(user.tenantId),
         this.currentPlan(user.tenantId),
-        this.hasHeldLeadGen(user.tenantId),
       ]);
     const leadGenTiers = leadGen.tiers;
     const now = new Date();
@@ -165,7 +164,8 @@ export class BillingController {
       configured:
         isCheckoutConfigured() &&
         (Object.values(plans).some((bands) => bands.length > 0) ||
-          leadGenTiers.length > 0),
+          leadGenTiers.length > 0 ||
+          leadGen.base),
       bands: GUARD_BANDS,
       // Only the packages actually priced by guards. Lead Gen is sold as the
       // flat tiers below and is no longer a column of this table.
@@ -183,16 +183,9 @@ export class BillingController {
         tiers: LEAD_GEN_TIER_KEYS.map((key) => LEAD_GEN_TIERS[key]),
         sellableTiers: leadGenTiers,
         currentTier: current?.leadGenTier ?? null,
-        /**
-         * Whether the base plan -- the platform fee with no credits -- may be
-         * bought. A tenant that has never held Lead Gen cannot: a starting
-         * plan is the only way in, so nobody lands on the product with an
-         * empty balance. Enforced again on the checkout route; this flag only
-         * decides what the page offers.
-         */
-        baseSellable: leadGen.base && hasHadLeadGen,
-        /** Why the base plan is not on offer, for the page to explain. */
-        baseRequiresPlan: !hasHadLeadGen,
+        /** The plan-only option is available on a first purchase too. */
+        baseSellable: leadGen.base,
+        baseRequiresPlan: false,
         /**
          * Already running Lead Gen on the base plan -- the flat $299 with no
          * credits, which is also where every pre-tier Generation customer
@@ -251,19 +244,6 @@ export class BillingController {
         throw new BadRequestException(
           `${PACKAGE_LABELS.COMPLETE} already includes Lead Gen. Buy credits ` +
             'instead of a second plan.',
-        );
-      }
-
-      // The base Lead Gen plan carries no credits, so it is only for a tenant
-      // that already has some history with the product. A first-time buyer
-      // must take a starting plan: otherwise they would arrive on Lead Gen
-      // with an empty balance, unable to run a single search until they
-      // bought credits separately -- a product that does nothing on the day
-      // it is paid for.
-      if (!dto.tier && !(await this.hasHeldLeadGen(user.tenantId))) {
-        throw new BadRequestException(
-          'Choose a Lead Gen plan: Starter, Pro or Elite. Each one includes ' +
-            'credits to start with, and they do not expire.',
         );
       }
     }
@@ -357,24 +337,6 @@ export class BillingController {
       );
       return { tiers: [], base: false };
     }
-  }
-
-  /**
-   * Has this tenant ever held Lead Gen?
-   *
-   * Module rows are deactivated rather than deleted when a plan ends (see
-   * SubscriptionProvisioningService.provision), so the row's existence is a
-   * permanent record that Lead Gen was once provisioned here -- which is
-   * exactly the question the base plan turns on. A tenant that has never had
-   * it must buy a starting plan, credits included; one that has can pay the
-   * platform fee alone and top up credits when it suits them.
-   */
-  private async hasHeldLeadGen(tenantId: string): Promise<boolean> {
-    const row = await this.prisma.tenantModule.findFirst({
-      where: { tenantId, module: 'LEAD_GEN' },
-      select: { id: true },
-    });
-    return row !== null;
   }
 
   /**

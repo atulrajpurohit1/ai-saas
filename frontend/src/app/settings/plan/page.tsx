@@ -510,7 +510,7 @@ function PlanContent() {
             <p className="mb-6 text-sm text-muted-foreground">
               {holdsLeadGen
                 ? 'Your plan already includes Lead Gen. Top up credits whenever you need them — they never expire.'
-                : 'Flat monthly pricing, not priced by guard count. Every starting plan includes credits that never expire.'}
+                : 'Flat monthly pricing, not priced by guard count. Choose a plan with credits or the plan-only option below; credits never expire.'}
             </p>
             <LeadGenPlans
               leadGen={pricing.leadGen}

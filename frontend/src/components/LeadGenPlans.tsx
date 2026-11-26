@@ -49,9 +49,8 @@ interface Props {
  *
  * The cards do one of two jobs, depending on who is looking:
  *
- *  - A customer who does NOT have Lead Gen sees three plans to start on. The
- *    credits are included once, at the door, so they can run a search on the
- *    day they pay.
+ *  - A customer who does NOT have Lead Gen sees three bundled plans and a
+ *    plan-only option. Bundled credits are added once, when the plan begins.
  *  - A customer who already HAS Lead Gen -- on its own or as part of Complete
  *    -- has nothing to start, so the same three cards sell the same credit
  *    amounts as top-up packs at the credits price. Offering them a plan they
@@ -82,10 +81,8 @@ export default function LeadGenPlans({
       ? (packs.packs.find((pack) => pack.key === key) ?? null)
       : null;
 
-  // The base plan is a Lead Gen plan, so it is only worth offering to someone
-  // whose plan IS Lead Gen. A Complete customer holds Lead Gen too, but for
-  // them "switch to Generation only" is a downgrade out of two other
-  // products, and that belongs in the chart below, not in a quiet row here.
+  // Complete already includes Lead Gen; a separate base plan is offered only
+  // to new buyers or customers on a Generation plan.
   const onLeadGenPlan = leadGen.currentTier !== null || leadGen.onBasePlan;
   const showBaseRow = !holdsLeadGen || onLeadGenPlan;
 
@@ -252,11 +249,8 @@ export default function LeadGenPlans({
       </div>
 
       {/*
-        The plan with no credits in it. Deliberately a quiet row rather than a
-        fourth card: it is not a way IN to Lead Gen -- a first-time customer
-        has to start with credits or the product does nothing on day one --
-        it is where a customer who already has credits goes to stop paying for
-        more of them.
+        The plan-only option is available to first-time buyers. Credits can
+        then be purchased separately while Lead Gen is active.
       */}
       {showBaseRow && (
         <div className="mt-4 flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -270,9 +264,7 @@ export default function LeadGenPlans({
               )}
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {leadGen.baseRequiresPlan
-                ? 'Available once you are on Lead Gen. Your first plan has to include credits, or there is nothing to search with on day one.'
-                : 'The platform fee on its own. Keep the credits you already have and top up only when you need to.'}
+              Choose the plan without bundled credits. Buy credits separately while Lead Gen is active; unused credits remain usable for Prospect Search after the plan ends.
             </p>
           </div>
 
@@ -285,7 +277,7 @@ export default function LeadGenPlans({
             >
               {pending === 'BASE'
                 ? 'Redirecting…'
-                : `Switch · ${money(leadGen.basePrice)}/mo`}
+                : `${onLeadGenPlan ? 'Switch' : 'Choose plan only'} · ${money(leadGen.basePrice)}/mo`}
             </button>
           )}
         </div>

@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PlanGuard } from '../auth/guards/plan.guard';
 import { ModuleGuard } from '../auth/guards/module.guard';
 import { RequireModule } from '../auth/decorators/module.decorator';
+import { AllowWithoutPlan } from '../auth/decorators/allow-without-plan.decorator';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { ActiveUser } from '../auth/interfaces/active-user.interface';
 import { CompanyInsightDto } from './dto/company-insight.dto';
@@ -33,7 +34,9 @@ import { SavedProspectSearchService } from './saved-prospect-search.service';
 
 @Controller('prospect-search')
 @UseGuards(JwtAuthGuard, PlanGuard, PermissionGuard, ModuleGuard)
-@RequireModule('LEAD_GEN')
+// Searches spend credits, so an account can use its remaining balance after
+// its plan ends. Other Lead Gen controllers keep their plan/module gates.
+@AllowWithoutPlan()
 export class ProspectSearchController {
   constructor(
     private readonly prospectSearchService: ProspectSearchService,
@@ -108,6 +111,7 @@ export class ProspectSearchController {
 
   @Post('import')
   @UseGuards(ProspectSearchRateLimitGuard, ModuleGuard)
+  @RequireModule('LEAD_GEN')
   @RequirePermission(
     'prospect_search.view',
     'prospect_search.search',

@@ -149,8 +149,8 @@ export function previewDiscoveryCreditCost(): number {
  * part of the Trial plan and are granted when that plan is comped -- see
  * SubscriptionProvisioningService.provision.
  *
- * Spendable only once the tenant owns Lead Gen, since credits are gated on it.
- * The Trial plan grants all three services, so a trial tenant can spend them.
+ * Spendable on Prospect Search even after the tenant's plan ends. The Trial
+ * plan grants all three services, so a trial tenant can spend them as well.
  */
 const DEFAULT_TRIAL_CREDIT_GRANT = 50;
 

@@ -3,8 +3,15 @@ import { ProspectSearchHistoryService } from './prospect-search-history.service'
 import { ProspectSearchController } from './prospect-search.controller';
 import { ProspectSearchService } from './prospect-search.service';
 import { SavedProspectSearchService } from './saved-prospect-search.service';
+import { ALLOW_WITHOUT_PLAN_KEY } from '../auth/decorators/allow-without-plan.decorator';
+import { SERVICE_MODULES_KEY } from '../auth/decorators/module.decorator';
 
 describe('ProspectSearchController', () => {
+  it('allows credit-funded searches without a plan but keeps lead import gated', () => {
+    expect(Reflect.getMetadata(ALLOW_WITHOUT_PLAN_KEY, ProspectSearchController)).toBe(true);
+    expect(Reflect.getMetadata(SERVICE_MODULES_KEY, ProspectSearchController)).toBeUndefined();
+    expect(Reflect.getMetadata(SERVICE_MODULES_KEY, ProspectSearchController.prototype.importCompany)).toEqual(['LEAD_GEN']);
+  });
   let controller: ProspectSearchController;
   let service: {
     search: jest.Mock;

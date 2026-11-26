@@ -23,9 +23,8 @@ function relative(file: string) {
  * noticed -- the same shape as ALTERNATIVE_ENTRY_ROUTES in
  * entitlements-coverage.spec.ts.
  *
- * The rule for being on it: the route must be needed to SIGN IN, to SEE that a
- * plan is required, or to BUY one -- or it must not be tenant-scoped at all.
- * No route here may serve tenant business data.
+ * The usual rule: sign in, view pricing or buy a plan. The credit-metered
+ * Prospect Search controller keeps PlanGuard wired with an explicit exemption.
  */
 const ALLOWED_WITHOUT_PLAN: Record<string, string> = {
   // Sign in, sign out, register, verify email, refresh, reset password.

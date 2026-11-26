@@ -7,6 +7,8 @@ import {
 import { AiService, ProspectCompanyInsight } from '../ai/ai.service';
 import { AuditService } from '../audit/audit.service';
 import { AiNotOnPlanException } from '../billing/ai-not-on-plan.exception';
+import { aiCreditCost } from '../billing/ai-credit-costs.constants';
+import { AiFeature } from '@prisma/client';
 import { CreditsService } from '../billing/credits.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
 import { UpstreamBudgetService } from './upstream-budget.service';
@@ -655,10 +657,22 @@ export class ProspectSearchService {
     // together with the metering service, these are the only two AI chokepoints.
     // The prospect search itself (the credit-metered data lookup) is unaffected;
     // only this enrichment is withheld.
-    if (!(await this.entitlements.isAiEnabled(user.tenantId))) {
+    const hasPlan = await this.entitlements.hasAnyPlan(user.tenantId);
+    if (hasPlan && !(await this.entitlements.isAiEnabled(user.tenantId))) {
       throw new AiNotOnPlanException(
         'AI company insights are not included in your plan. Upgrade to a paid plan to use them.',
       );
+    }
+    // With no plan, charge the existing AI rate. This keeps the insight in
+    // Prospect Search usable without making its AI provider free to call.
+    const insightCost = hasPlan ? 0 : aiCreditCost(AiFeature.PROSPECT_COMPANY_INSIGHT);
+    if (insightCost > 0) {
+      await this.creditsService.spend({
+        tenantId: user.tenantId,
+        userId: user.sub,
+        amount: insightCost,
+        description: 'Prospect company insight without an active plan.',
+      });
     }
 
     const aiStartedAt = Date.now();
@@ -677,7 +691,23 @@ export class ProspectSearchService {
           dto.prompt,
         );
       }
+      await this.auditService.log({
+        tenantId: user.tenantId,
+        userId: user.sub,
+        action: 'AI_INSIGHT_GENERATED',
+        entityType: 'PROSPECT_SEARCH',
+        entityId: dto.company.id,
+        details: `Generated ${source} insight for "${dto.company.name}"`,
+      });
     } catch (error) {
+      if (insightCost > 0) {
+        await this.creditsService.refundSpend({
+          tenantId: user.tenantId,
+          userId: user.sub,
+          amount: insightCost,
+          description: 'Prospect company insight failed.',
+        });
+      }
       // Log the real cause (which may name internal config like GEMINI_API_KEY
       // or the AI provider) server-side only - never forward it to the client.
       this.logger.error(
@@ -694,15 +724,6 @@ export class ProspectSearchService {
         Date.now() - aiStartedAt
       }`,
     );
-
-    await this.auditService.log({
-      tenantId: user.tenantId,
-      userId: user.sub,
-      action: 'AI_INSIGHT_GENERATED',
-      entityType: 'PROSPECT_SEARCH',
-      entityId: dto.company.id,
-      details: `Generated ${source} insight for "${dto.company.name}"`,
-    });
 
     return insight;
   }

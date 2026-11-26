@@ -11,13 +11,11 @@
  *
  *  - A STARTING PLAN (Starter, Pro, Elite). The price is the flat platform fee
  *    plus a credit allocation, and the credits are handed over ONCE, when the
- *    plan is bought. This is the only way in: a tenant that has never held
- *    Lead Gen must buy one of these, so nobody starts with an empty balance
- *    and a product they cannot use.
+ *    plan is bought. A first-time buyer can also choose the base plan below
+ *    and buy credits separately once Lead Gen is active.
  *  - The BASE plan, at the platform fee alone and with no credits. Open only
- *    to a tenant that has held Lead Gen before, for whom the starting credits
- *    are a question already settled. More credits are bought from the credits
- *    page whenever they are wanted.
+ *    to first-time buyers too. Credits are bought from the credits page while
+ *    Lead Gen is active.
  *
  * Credits DO NOT expire and DO NOT reset. The balance is a ledger that only
  * moves when somebody spends it, so an allocation sits there until it is used.

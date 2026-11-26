@@ -56,13 +56,15 @@ describe('ProspectSearchService', () => {
     reserve: jest.Mock;
     findReservation: jest.Mock;
     settle: jest.Mock;
+    spend: jest.Mock;
+    refundSpend: jest.Mock;
   };
   let upstreamBudget: {
     assertCanSpend: jest.Mock;
     invalidate: jest.Mock;
     getBalanceUsd: jest.Mock;
   };
-  let entitlements: { isAiEnabled: jest.Mock };
+  let entitlements: { isAiEnabled: jest.Mock; hasAnyPlan: jest.Mock };
   let crmConnectors: { autoSyncProspectsToGhl: jest.Mock };
 
   const tenantId = 'tenant-1';
@@ -164,6 +166,8 @@ describe('ProspectSearchService', () => {
         .fn()
         .mockResolvedValue({ id: 'reservation-1', amount: -200 }),
       settle: jest.fn().mockResolvedValue({ released: 0, consumed: 1 }),
+      spend: jest.fn().mockResolvedValue({ balance: 995, spent: 5 }),
+      refundSpend: jest.fn().mockResolvedValue({ balance: 1000 }),
     };
 
     // The job record the server-side collector works from. Claiming a
@@ -185,6 +189,7 @@ describe('ProspectSearchService', () => {
     // AI on by default, so existing tests exercise the normal insight path.
     entitlements = {
       isAiEnabled: jest.fn().mockResolvedValue(true),
+      hasAnyPlan: jest.fn().mockResolvedValue(true),
     };
     crmConnectors = {
       autoSyncProspectsToGhl: jest.fn().mockResolvedValue({
@@ -417,6 +422,38 @@ describe('ProspectSearchService', () => {
       expect(aiService.generateProspectCompanyInsight).toHaveBeenCalledWith(
         prospectDto,
         'Find security companies in Texas',
+      );
+    });
+
+    it('charges credits for a company insight when there is no active plan', async () => {
+      entitlements.hasAnyPlan.mockResolvedValue(false);
+      blackPearlInsightProvider.getPlaybook.mockResolvedValue(insight);
+
+      await service.getCompanyInsight(
+        { company: prospectDto, prompt: 'Find prospects' },
+        user,
+      );
+
+      expect(creditsService.spend).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId, userId: user.sub, amount: 5 }),
+      );
+      expect(entitlements.isAiEnabled).not.toHaveBeenCalled();
+      expect(creditsService.refundSpend).not.toHaveBeenCalled();
+    });
+
+    it('returns charged insight credits when the provider fails', async () => {
+      entitlements.hasAnyPlan.mockResolvedValue(false);
+      blackPearlInsightProvider.getPlaybook.mockRejectedValue(new Error('upstream failure'));
+
+      await expect(
+        service.getCompanyInsight(
+          { company: prospectDto, prompt: 'Find prospects' },
+          user,
+        ),
+      ).rejects.toThrow();
+
+      expect(creditsService.refundSpend).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId, userId: user.sub, amount: 5 }),
       );
     });
 

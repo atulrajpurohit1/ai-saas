@@ -10,15 +10,16 @@ import { ActiveUser } from '../interfaces/active-user.interface';
 import { EntitlementsService } from '../../entitlements/entitlements.service';
 
 /**
- * Refuses every request from a tenant with no active plan.
+ * Refuses plan-gated requests from a tenant with no active plan.
  *
- * This is the "a plan is required to use the product" rule. ModuleGuard answers
+ * This is the default "a plan is required to use the product" rule. ModuleGuard answers
  * a narrower question -- "did they buy THIS service?" -- and by design waves
  * through the CORE modules (clients, sites, documents, notes, activities,
  * branches, integrations, users, roles, dashboard, audit), because those are
  * shared by all three services. The effect was that an account which had
  * bought nothing still got a usable CRM: clients, sites, documents, team
- * members, API keys and webhooks. This guard closes that.
+ * members, API keys and webhooks. This guard closes that. Prospect Search is an
+ * explicit exception because every search spends credits.
  *
  * Runs AFTER JwtAuthGuard (so `request.user` is populated) and BEFORE the
  * permission/module guards, so a no-plan tenant gets one clear "buy a plan"

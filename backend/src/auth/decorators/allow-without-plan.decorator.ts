@@ -7,10 +7,10 @@ export const ALLOW_WITHOUT_PLAN_KEY = 'allow_without_plan';
  * request from a tenant with no active plan.
  *
  * The exemption list is deliberately tiny and must stay that way: it exists
- * only so a tenant with no plan can still SIGN IN, SEE that it needs a plan,
- * and BUY one. Anything beyond that is a product feature and must be paid for.
+ * so a tenant with no plan can still sign in, see pricing and buy a plan.
+ * Prospect Search is also exempt because its work is charged to the credit
+ * ledger; read-only credit balance routes support that exception.
  *
- * Adding this to a route that serves tenant business data gives that data away
- * for free, so each use carries a comment saying why it is not a feature.
+ * Each use must have its own authorization and billing gate.
  */
 export const AllowWithoutPlan = () => SetMetadata(ALLOW_WITHOUT_PLAN_KEY, true);

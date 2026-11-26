@@ -164,6 +164,22 @@ describe('entitlement coverage', () => {
     // documents; deliberately broadened so a finance-only user still sees the
     // advisory on the invoice screen.
     "/client-compliance/client-compliance.controller.ts :: @Get('summary')",
+    // Prospect Search spends credits rather than requiring an active plan.
+    // Importing a result into Leads remains gated on LEAD_GEN on that route.
+    '/billing/credits.controller.ts :: @Get()',
+    "/billing/credits.controller.ts :: @Get('packs')",
+    "/prospect-search/prospect-search.controller.ts :: @Post('search')",
+    "/prospect-search/prospect-search.controller.ts :: @Get('search/:jobId')",
+    "/prospect-search/prospect-search.controller.ts :: @Post('discover')",
+    "/prospect-search/prospect-search.controller.ts :: @Post('discover/:jobId')",
+    "/prospect-search/prospect-search.controller.ts :: @Post('view')",
+    "/prospect-search/prospect-search.controller.ts :: @Post('insights')",
+    "/prospect-search/prospect-search.controller.ts :: @Get('history')",
+    "/prospect-search/prospect-search.controller.ts :: @Get('history/:id')",
+    "/prospect-search/prospect-search.controller.ts :: @Get('saved-searches')",
+    "/prospect-search/prospect-search.controller.ts :: @Post('saved-searches')",
+    "/prospect-search/prospect-search.controller.ts :: @Patch('saved-searches/:id')",
+    "/prospect-search/prospect-search.controller.ts :: @Delete('saved-searches/:id')",
   ]);
 
   it('gates every route that touches a sellable module', () => {

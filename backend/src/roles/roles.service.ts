@@ -71,6 +71,8 @@ export class RolesService {
     );
 
     return keys.filter((key) => {
+      // Prospect Search uses paid credits even without an active Lead Gen plan.
+      if (key.startsWith('prospect_search.')) return true;
       const service = serviceForPermissionModule(moduleByKey.get(key) ?? '');
       return service === null || granted.has(service);
     });

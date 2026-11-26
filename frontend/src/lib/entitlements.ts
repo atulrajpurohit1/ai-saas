@@ -133,6 +133,9 @@ export function serviceForPermission(
   permission: string,
 ): ServiceModuleKey | null {
   const prefix = permission.split('.')[0];
+  // Prospect Search spends credits and remains available after a plan ends.
+  // Its role permission is still required; it simply has no module gate.
+  if (prefix === 'prospect_search') return null;
   return PERMISSION_PREFIX_TO_SERVICE[prefix] ?? null;
 }
 
@@ -160,13 +163,15 @@ export function hasPlan(entitlements?: Entitlements | null): boolean {
  * Kept as prefixes so query strings and sub-paths come along -- the Stripe
  * return URLs land on `/settings/plan?status=...` and must not bounce.
  *
- * Note `/settings/credits` is NOT here: credits.controller does carry
- * PlanGuard, so that screen is gated like the rest.
+ * Prospect Search and the credit balance stay available when a plan ends.
+ * A remaining paid balance can still fund searches; checkout remains gated.
  */
 const PLAN_EXEMPT_PREFIXES = [
   '/settings/plan',
   '/settings/billing',
   '/settings/security',
+  '/settings/credits',
+  '/prospect-search',
 ];
 
 export function isRouteAllowedWithoutPlan(
