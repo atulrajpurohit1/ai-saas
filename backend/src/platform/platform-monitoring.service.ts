@@ -46,6 +46,7 @@ export class PlatformMonitoringService {
           where: { users: { some: { emailVerified: true } } },
         }),
         this.prisma.tenantSubscription.findMany({
+          where: { tenant: { users: { some: { emailVerified: true } } } },
           select: {
             status: true,
             source: true,

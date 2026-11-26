@@ -1,7 +1,13 @@
 'use client';
 
 import { formatDate as fmtDate } from '@/lib/format';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
@@ -66,6 +72,14 @@ type Tab = 'trials' | 'tenants' | 'ai' | 'recharges';
 type TenantStatusFilter = 'all' | 'active' | 'suspended';
 type TenantPlanFilter = 'all' | 'STRIPE' | 'TRIAL' | 'COMP' | 'NONE';
 type TenantSort = 'name' | 'users' | 'credits' | 'ai' | 'joined';
+type RechargeStatusFilter = 'all' | RechargeAttempt['status'];
+
+const RECHARGE_FILTERS: { key: RechargeStatusFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'FAILED', label: 'Failed' },
+  { key: 'SUCCEEDED', label: 'Succeeded' },
+  { key: 'SKIPPED', label: 'Skipped' },
+];
 
 const EXPIRY_CHOICES = [
   { key: '7', label: '7 days' },
@@ -202,6 +216,16 @@ function SuperAdminContent() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState('');
+  const [aiError, setAiError] = useState('');
+  const [rechargeError, setRechargeError] = useState('');
+  const [rechargeStatus, setRechargeStatus] =
+    useState<RechargeStatusFilter>('all');
+  const [giftJump, setGiftJump] = useState<{
+    kind: 'plan' | 'credits';
+    tenantId: string;
+  } | null>(null);
+  const planGiftRef = useRef<HTMLFormElement>(null);
+  const creditGiftRef = useRef<HTMLFormElement>(null);
 
   // Grant form state.
   const [formTenantId, setFormTenantId] = useState('');
@@ -251,14 +275,26 @@ function SuperAdminContent() {
         getOverview(),
         listComps(),
         getTenants(),
-        getAiUsage().catch(() => null),
-        getRecharges().catch(() => [] as RechargeAttempt[]),
+        getAiUsage()
+          .then((data) => ({ data, error: '' }))
+          .catch((err) => ({
+            data: null,
+            error: getApiErrorMessage(err, 'AI usage is unavailable.'),
+          })),
+        getRecharges()
+          .then((data) => ({ data, error: '' }))
+          .catch((err) => ({
+            data: [] as RechargeAttempt[],
+            error: getApiErrorMessage(err, 'Recharge history is unavailable.'),
+          })),
       ]);
       setOverview(overviewR);
       setComps(compsR);
       setTenants(tenantsR);
-      setAiUsage(aiR);
-      setRecharges(rechargesR);
+      setAiUsage(aiR.data);
+      setAiError(aiR.error);
+      setRecharges(rechargesR.data);
+      setRechargeError(rechargesR.error);
       setLastUpdated(new Date());
     } catch (err) {
       setError(getApiErrorMessage(err, 'Unable to load platform data.'));
@@ -271,6 +307,14 @@ function SuperAdminContent() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (tab !== 'trials' || !giftJump) return;
+    const form =
+      giftJump.kind === 'plan' ? planGiftRef.current : creditGiftRef.current;
+    form?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    form?.querySelector('select')?.focus({ preventScroll: true });
+  }, [tab, giftJump]);
+
   const activeComps = useMemo(() => comps.filter((c) => c.active), [comps]);
   // Grants waiting on a paid plan to run out. Listed apart from the active
   // ones, because "has free access" and "will have free access" are different
@@ -279,6 +323,22 @@ function SuperAdminContent() {
     () => comps.filter((c) => c.scheduled && !c.active),
     [comps],
   );
+  const suspendedCount = tenants.filter((tenant) => !tenant.isActive).length;
+  const failedRechargeCount = recharges.filter(
+    (attempt) => attempt.status === 'FAILED',
+  ).length;
+  const filteredRecharges = recharges.filter(
+    (attempt) => rechargeStatus === 'all' || attempt.status === rechargeStatus,
+  );
+  const reviewCount =
+    suspendedCount + scheduledComps.length + failedRechargeCount;
+
+  const openGift = (tenant: PlatformTenant, kind: 'plan' | 'credits') => {
+    if (kind === 'plan') setFormTenantId(tenant.tenantId);
+    else setCreditTenantId(tenant.tenantId);
+    setGiftJump({ kind, tenantId: tenant.tenantId });
+    setTab('trials');
+  };
 
   const filteredTenants = useMemo(() => {
     const query = tenantQuery.trim().toLowerCase();
@@ -593,12 +653,25 @@ function SuperAdminContent() {
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
         <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
-            <CheckCircle2 className="h-4 w-4" />
+          <span
+            className={cn(
+              'flex h-9 w-9 items-center justify-center rounded-lg',
+              error || aiError || rechargeError
+                ? 'bg-amber-500/10 text-amber-600'
+                : 'bg-emerald-500/10 text-emerald-600',
+            )}
+          >
+            {error || aiError || rechargeError ? (
+              <AlertTriangle className="h-4 w-4" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4" />
+            )}
           </span>
           <div>
             <div className="text-sm font-semibold text-foreground">
-              Platform data is live
+              {error || aiError || rechargeError
+                ? 'Some data is unavailable'
+                : 'Platform data is live'}
             </div>
             <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
               <span>
@@ -640,14 +713,25 @@ function SuperAdminContent() {
       </div>
 
       {error && (
-        <div className="mb-4 flex items-start gap-2 rounded-lg border border-error/30 bg-error-wash p-3 text-sm text-error">
+        <div
+          className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-error/30 bg-error-wash p-3 text-sm text-error"
+          role="alert"
+        >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          {error}
+          <span className="flex-1">{error}</span>
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            disabled={refreshing}
+            className="rounded-lg border border-error/30 px-3 py-1.5 text-xs font-semibold hover:bg-error/10 disabled:opacity-60"
+          >
+            Retry
+          </button>
         </div>
       )}
 
       {overview && (
-        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
           <StatCard icon={Building2} label="Tenants" value={overview.tenants} />
           <StatCard
             icon={ShieldCheck}
@@ -656,8 +740,17 @@ function SuperAdminContent() {
           />
           <StatCard
             icon={Gift}
-            label="On Trial"
-            value={overview.subscriptions.trial}
+            label="Free plans"
+            value={
+              overview.subscriptions.trial + overview.subscriptions.compedPaid
+            }
+            hint={`${overview.subscriptions.trial} trial · ${overview.subscriptions.compedPaid} comped`}
+          />
+          <StatCard
+            icon={Ban}
+            label="Suspended"
+            value={suspendedCount}
+            hint="Accounts with access paused"
           />
           <StatCard
             icon={Coins}
@@ -671,6 +764,67 @@ function SuperAdminContent() {
             value={usd(overview.ai.costUsd)}
             hint={`${overview.ai.calls.toLocaleString()} calls`}
           />
+        </div>
+      )}
+
+      {!error && lastUpdated && (
+        <div className="mb-6 rounded-xl border border-border bg-card p-4 shadow-sm">
+          <div className="mb-3 flex items-center gap-2">
+            {reviewCount > 0 || rechargeError ? (
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            )}
+            <h2 className="text-sm font-semibold text-foreground">
+              {reviewCount > 0 || rechargeError
+                ? 'Review queue'
+                : 'Nothing needs review'}
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              {reviewCount > 0 || rechargeError
+                ? 'Recent items worth a look'
+                : 'No suspended accounts, queued gifts or failed recent top-ups'}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {suspendedCount > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTenantStatus('suspended');
+                  setTab('tenants');
+                }}
+                className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground transition hover:border-primary/40 hover:bg-primary/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+              >
+                {suspendedCount} suspended account
+                {suspendedCount === 1 ? '' : 's'}
+              </button>
+            )}
+            {scheduledComps.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setTab('trials')}
+                className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground transition hover:border-primary/40 hover:bg-primary/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+              >
+                {scheduledComps.length} queued plan gift
+                {scheduledComps.length === 1 ? '' : 's'}
+              </button>
+            )}
+            {(failedRechargeCount > 0 || rechargeError) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setRechargeStatus('FAILED');
+                  setTab('recharges');
+                }}
+                className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground transition hover:border-primary/40 hover:bg-primary/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+              >
+                {rechargeError
+                  ? 'Recharge data unavailable'
+                  : `${failedRechargeCount} failed top-up${failedRechargeCount === 1 ? '' : 's'}`}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -710,6 +864,7 @@ function SuperAdminContent() {
         <div className="grid gap-6 lg:grid-cols-[minmax(0,360px)_1fr]">
           {/* Grant form */}
           <form
+            ref={planGiftRef}
             onSubmit={submitGrant}
             className="h-fit rounded-xl border border-border bg-card p-5 lg:col-start-1 lg:row-start-1"
           >
@@ -821,6 +976,7 @@ function SuperAdminContent() {
           </form>
 
           <form
+            ref={creditGiftRef}
             onSubmit={submitCreditGrant}
             className="rounded-xl border border-border bg-card p-5 lg:col-start-1 lg:row-start-2"
           >
@@ -1304,7 +1460,7 @@ function SuperAdminContent() {
           </div>
 
           <div className="max-h-[640px] overflow-auto rounded-xl border border-border bg-card shadow-sm">
-            <table className="w-full min-w-[980px] text-sm">
+            <table className="w-full min-w-[1160px] text-sm">
               <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
                   <th className="px-4 py-3 font-medium">
@@ -1423,6 +1579,22 @@ function SuperAdminContent() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => openGift(t, 'plan')}
+                          className="flex items-center gap-1 rounded-lg border border-primary/25 px-2 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                          aria-label={`Gift a plan to ${t.name}`}
+                        >
+                          <Gift className="h-3.5 w-3.5" /> Plan
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openGift(t, 'credits')}
+                          className="flex items-center gap-1 rounded-lg border border-primary/25 px-2 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                          aria-label={`Gift credits to ${t.name}`}
+                        >
+                          <Coins className="h-3.5 w-3.5" /> Credits
+                        </button>
                         <button
                           type="button"
                           onClick={() => {
@@ -1750,70 +1922,175 @@ function SuperAdminContent() {
         </div>
       )}
 
+      {tab === 'ai' && !aiUsage && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-600" />
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">
+                AI usage could not be loaded
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {aiError || 'Try refreshing the dashboard.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => void refresh()}
+                disabled={refreshing}
+                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted disabled:opacity-60"
+              >
+                <RefreshCw
+                  className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')}
+                />{' '}
+                Retry loading
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {tab === 'recharges' && (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
-          <table className="w-full min-w-[720px] text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="px-4 py-3 font-medium">Tenant</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Pack</th>
-                <th className="px-4 py-3 font-medium">Charged</th>
-                <th className="px-4 py-3 font-medium">Credits</th>
-                <th className="px-4 py-3 font-medium">When</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {recharges.map((r) => (
-                <tr key={r.id}>
-                  <td className="px-4 py-3 font-medium text-foreground">
-                    {r.tenantName ?? r.tenantId}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={cn(
-                        'text-xs font-semibold',
-                        r.status === 'SUCCEEDED'
-                          ? 'text-emerald-600'
-                          : r.status === 'FAILED'
-                            ? 'text-error'
-                            : 'text-muted-foreground',
-                      )}
-                    >
-                      {r.status}
-                    </span>
-                    {r.failureReason && (
-                      <div className="text-xs text-muted-foreground">
-                        {r.failureReason}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {r.packKey}
-                  </td>
-                  <td className="px-4 py-3 text-foreground">
-                    {r.amountCharged === null ? '—' : usd(r.amountCharged)}
-                  </td>
-                  <td className="px-4 py-3 text-foreground">
-                    {r.creditsGranted ?? '—'}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {formatDate(r.createdAt)}
-                  </td>
-                </tr>
-              ))}
-              {recharges.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-8 text-center text-muted-foreground"
+        <div className="space-y-4">
+          {rechargeError ? (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-600" />
+                <div>
+                  <h2 className="text-sm font-semibold text-foreground">
+                    Recharge history could not be loaded
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {rechargeError}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void refresh()}
+                    disabled={refreshing}
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted disabled:opacity-60"
                   >
-                    No recharge attempts yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                    <RefreshCw
+                      className={cn(
+                        'h-3.5 w-3.5',
+                        refreshing && 'animate-spin',
+                      )}
+                    />{' '}
+                    Retry loading
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-semibold text-foreground">
+                    Recharge attempts
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    Showing the {recharges.length} most recent attempts
+                  </p>
+                </div>
+                <div
+                  className="flex flex-wrap gap-1 rounded-lg border border-border bg-muted/40 p-1"
+                  aria-label="Filter recharge attempts"
+                >
+                  {RECHARGE_FILTERS.map((filter) => {
+                    const count =
+                      filter.key === 'all'
+                        ? recharges.length
+                        : recharges.filter(
+                            (attempt) => attempt.status === filter.key,
+                          ).length;
+                    return (
+                      <button
+                        key={filter.key}
+                        type="button"
+                        aria-pressed={rechargeStatus === filter.key}
+                        onClick={() => setRechargeStatus(filter.key)}
+                        className={cn(
+                          'rounded-md px-2.5 py-1.5 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary',
+                          rechargeStatus === filter.key
+                            ? 'bg-card text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        {filter.label}{' '}
+                        <span className="tabular-nums">{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="overflow-x-auto rounded-xl border border-border bg-card">
+                <table className="w-full min-w-[720px] text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                      <th className="px-4 py-3 font-medium">Tenant</th>
+                      <th className="px-4 py-3 font-medium">Status</th>
+                      <th className="px-4 py-3 font-medium">Pack</th>
+                      <th className="px-4 py-3 font-medium">Charged</th>
+                      <th className="px-4 py-3 font-medium">Credits</th>
+                      <th className="px-4 py-3 font-medium">When</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filteredRecharges.map((r) => (
+                      <tr key={r.id}>
+                        <td className="px-4 py-3 font-medium text-foreground">
+                          {r.tenantName ?? r.tenantId}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={cn(
+                              'text-xs font-semibold',
+                              r.status === 'SUCCEEDED'
+                                ? 'text-emerald-600'
+                                : r.status === 'FAILED'
+                                  ? 'text-error'
+                                  : 'text-muted-foreground',
+                            )}
+                          >
+                            {r.status}
+                          </span>
+                          {r.failureReason && (
+                            <div className="text-xs text-muted-foreground">
+                              {r.failureReason}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {r.packKey}
+                        </td>
+                        <td className="px-4 py-3 text-foreground">
+                          {r.amountCharged === null
+                            ? '—'
+                            : usd(r.amountCharged)}
+                        </td>
+                        <td className="px-4 py-3 text-foreground">
+                          {r.creditsGranted ?? '—'}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {formatDate(r.createdAt)}
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredRecharges.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-4 py-8 text-center text-muted-foreground"
+                        >
+                          {recharges.length === 0
+                            ? 'No recharge attempts yet.'
+                            : `No ${rechargeStatus.toLowerCase()} attempts in this recent history.`}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
       )}
     </>

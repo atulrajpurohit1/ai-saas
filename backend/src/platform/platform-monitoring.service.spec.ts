@@ -55,6 +55,15 @@ const future = new Date(Date.now() + 30 * 86_400_000);
 const past = new Date(Date.now() - 86_400_000);
 
 describe('PlatformMonitoringService.overview', () => {
+  it('uses verified tenants for both the account total and plan counts', async () => {
+    const { service, prisma } = build({});
+    await service.overview();
+    expect(prisma.tenantSubscription.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { tenant: { users: { some: { emailVerified: true } } } },
+      }),
+    );
+  });
   it('counts paying, trial and comped-paid tenants separately', async () => {
     const { service } = build({
       tenantCount: 5,
