@@ -1,8 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { isCompActive } from '../billing/comp.util';
-import { CREDIT_PACKS, CREDIT_PACK_KEYS } from '../billing/credit-packs.constants';
+import {
+  CREDIT_PACKS,
+  CREDIT_PACK_KEYS,
+} from '../billing/credit-packs.constants';
+import { StripeService } from '../billing/stripe.service';
+import { resolvePackageForModules } from '../billing/pricing.constants';
 
 /** Default and maximum history, in months. */
 const DEFAULT_MONTHS = 12;
@@ -35,11 +40,16 @@ export interface MonthlyRow {
   newTenants: number;
   newUsers: number;
   /**
-   * Modules a tenant held for the FIRST time this month. The closest available
-   * proxy for "plans bought" -- see the note on `approximations` in the
-   * response, and the service doc below.
+   * Modules a tenant held for the first time this month. This is a feature
+   * adoption metric, not a count of paid plan purchases.
    */
   moduleActivations: number;
+
+  // --- Paid subscription invoices from Stripe ---
+  planRevenueUsd: number;
+  planPayments: number;
+  newPlanPayments: number;
+  renewalPayments: number;
 
   // --- Credits sold ---
   creditPurchases: number;
@@ -87,9 +97,10 @@ interface BucketRow {
 /**
  * Monthly platform analytics for the owner's console.
  *
- * Every figure is aggregated in Postgres with `date_trunc`, not fetched and
+ * Usage figures are aggregated in Postgres with `date_trunc`, not fetched and
  * bucketed in Node: AiUsageEvent gets a row per AI call, so pulling a year of
  * them across to count tokens would get slower every month this page exists.
+ * Paid plan invoices come from Stripe and are cached briefly.
  * Buckets are formatted with `to_char` server-side so no timezone conversion
  * happens on the way out -- the columns are `timestamp` holding UTC, and the
  * months are therefore UTC months.
@@ -118,7 +129,37 @@ interface BucketRow {
  */
 @Injectable()
 export class PlatformAnalyticsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(PlatformAnalyticsService.name);
+  private invoiceCache: {
+    since: string;
+    at: number;
+    invoices: Awaited<ReturnType<StripeService['paidPlanInvoices']>>;
+  } | null = null;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly stripe: StripeService,
+  ) {}
+
+  private async planInvoices(since: Date) {
+    const key = since.toISOString();
+    if (
+      this.invoiceCache?.since === key &&
+      Date.now() - this.invoiceCache.at < 5 * 60_000
+    ) {
+      return this.invoiceCache.invoices;
+    }
+    try {
+      const invoices = await this.stripe.paidPlanInvoices(since);
+      this.invoiceCache = { since: key, at: Date.now(), invoices };
+      return invoices;
+    } catch (error) {
+      this.logger.warn(
+        `Could not load paid plan invoices: ${(error as Error).message}`,
+      );
+      return null;
+    }
+  }
 
   /**
    * Credits -> list price, built from the pack table rather than hardcoded, so
@@ -138,7 +179,10 @@ export class PlatformAnalyticsService {
 
   async monthly(requestedMonths?: number) {
     const months = Math.min(
-      Math.max(Math.trunc(requestedMonths ?? DEFAULT_MONTHS) || DEFAULT_MONTHS, 1),
+      Math.max(
+        Math.trunc(requestedMonths ?? DEFAULT_MONTHS) || DEFAULT_MONTHS,
+        1,
+      ),
       MAX_MONTHS,
     );
 
@@ -160,6 +204,7 @@ export class PlatformAnalyticsService {
       rechargeRows,
       snapshot,
       breakdowns,
+      planInvoices,
     ] = await Promise.all([
       this.newTenantsByMonth(since),
       this.newUsersByMonth(since),
@@ -170,6 +215,7 @@ export class PlatformAnalyticsService {
       this.rechargesByMonth(since),
       this.snapshot(),
       this.breakdowns(since),
+      this.planInvoices(since),
     ]);
 
     const series = this.emptySeries(months, now);
@@ -237,6 +283,16 @@ export class PlatformAnalyticsService {
       target.rechargeRevenueUsd = row.revenue;
     }
 
+    for (const invoice of planInvoices ?? []) {
+      const month = invoice.paidAt.toISOString().slice(0, 7);
+      const target = byMonth.get(month);
+      if (!target) continue;
+      target.planRevenueUsd += invoice.amountUsd;
+      target.planPayments += 1;
+      if (invoice.reason === 'subscription_create') target.newPlanPayments += 1;
+      if (invoice.reason === 'subscription_cycle') target.renewalPayments += 1;
+    }
+
     return {
       generatedAt: new Date().toISOString(),
       months,
@@ -244,6 +300,7 @@ export class PlatformAnalyticsService {
       series,
       snapshot,
       breakdowns,
+      planRevenueAvailable: planInvoices !== null,
       approximations: {
         moduleActivations:
           'Counts modules a tenant held for the first time. Nothing records a ' +
@@ -252,7 +309,7 @@ export class PlatformAnalyticsService {
           'had is not counted.',
         creditRevenueUsd:
           'List price, derived from the pack sizes. Stripe is the source of ' +
-          'truth for what was actually charged. Auto top-up revenue is exact.',
+          'truth for what was actually charged. Credits bundled with plans overlap plan invoice revenue; do not add these totals. Auto top-up revenue is exact.',
       },
     };
   }
@@ -290,6 +347,10 @@ export class PlatformAnalyticsService {
         rechargeSucceeded: 0,
         rechargeFailed: 0,
         rechargeRevenueUsd: 0,
+        planRevenueUsd: 0,
+        planPayments: 0,
+        newPlanPayments: 0,
+        renewalPayments: 0,
       });
     }
     return rows;
@@ -357,6 +418,7 @@ export class PlatformAnalyticsService {
     >(Prisma.sql`
       SELECT to_char(date_trunc('month', "created_at"), 'YYYY-MM') AS bucket,
              CASE
+               WHEN "type"::text = 'ADJUSTMENT' THEN 'granted'
                WHEN "stripe_session_id" LIKE 'cs_%' THEN 'pack'
                WHEN "stripe_session_id" LIKE 'pi_%' THEN 'recharge'
                WHEN "stripe_session_id" LIKE 'leadgen-credits:%' THEN 'plan'
@@ -366,7 +428,7 @@ export class PlatformAnalyticsService {
              COUNT(*)::int AS purchases,
              COALESCE(SUM("amount"), 0)::int AS credits
       FROM "CreditLedgerEntry"
-      WHERE "type"::text = 'PURCHASE'
+      WHERE "type"::text IN ('PURCHASE', 'ADJUSTMENT')
         AND "amount" > 0
         AND "created_at" >= ${since}
       GROUP BY 1, 2, 3
@@ -476,6 +538,14 @@ export class PlatformAnalyticsService {
             aiEnabled: true,
             compExpiresAt: true,
             providerSubscriptionId: true,
+            tenant: {
+              select: {
+                modules: {
+                  where: { isActive: true },
+                  select: { module: true },
+                },
+              },
+            },
           },
         }),
         this.prisma.aiUsageEvent.aggregate({
@@ -490,6 +560,14 @@ export class PlatformAnalyticsService {
     let trial = 0;
     let comped = 0;
     let none = 0;
+    const payingByPackage = {
+      GENERATION: 0,
+      GUARD: 0,
+      OPERATIONS: 0,
+      COMPLETE: 0,
+      OTHER: 0,
+    };
+    let leadGenAddOns = 0;
     for (const sub of subscriptions) {
       const liveComp =
         sub.source === 'COMP' &&
@@ -502,9 +580,14 @@ export class PlatformAnalyticsService {
         sub.source === 'STRIPE' &&
         sub.status !== 'CANCELED' &&
         sub.providerSubscriptionId
-      )
+      ) {
         paying += 1;
-      else if (liveComp && sub.aiEnabled) comped += 1;
+        const resolved = resolvePackageForModules(
+          (sub.tenant?.modules ?? []).map((row) => row.module),
+        );
+        payingByPackage[resolved.packageKey ?? 'OTHER'] += 1;
+        if (resolved.leadGenAddOn) leadGenAddOns += 1;
+      } else if (liveComp && sub.aiEnabled) comped += 1;
       else if (liveComp && !sub.aiEnabled) trial += 1;
       else none += 1;
     }
@@ -514,6 +597,8 @@ export class PlatformAnalyticsService {
       users,
       suspendedTenants: suspended,
       planMix: { paying, trial, comped, none },
+      payingByPackage,
+      leadGenAddOns,
       creditsOutstanding: credits._sum.balance ?? 0,
       creditsPurchasedLifetime: credits._sum.lifetimePurchased ?? 0,
       creditsConsumedLifetime: credits._sum.lifetimeConsumed ?? 0,

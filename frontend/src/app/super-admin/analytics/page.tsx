@@ -33,7 +33,9 @@ import {
   Building2,
   Clock3,
   Coins,
+  CreditCard,
   Download,
+  Gift,
   Info,
   LayoutDashboard,
   Loader2,
@@ -93,7 +95,21 @@ const COMPARISON_CARDS: CardSpec[] = [
     label: 'Modules activated',
     value: (r) => r.moduleActivations,
     polarity: 'up-good',
-    hint: 'Proxy for plans sold',
+    hint: 'first activation',
+  },
+  {
+    key: 'planRevenue',
+    label: 'Plan revenue',
+    value: (r) => r.planRevenueUsd,
+    format: (v) => usd(v, 0),
+    polarity: 'up-good',
+    hint: 'paid Stripe invoices',
+  },
+  {
+    key: 'planPayments',
+    label: 'Plan payments',
+    value: (r) => r.planPayments,
+    polarity: 'up-good',
   },
   {
     key: 'creditsBought',
@@ -248,6 +264,23 @@ const RECORD_COLUMNS: {
     value: (r) => r.moduleActivations,
   },
   {
+    key: 'planRevenueUsd',
+    label: 'Plan revenue',
+    value: (r) => r.planRevenueUsd,
+    money: true,
+  },
+  { key: 'planPayments', label: 'Plan payments', value: (r) => r.planPayments },
+  {
+    key: 'newPlanPayments',
+    label: 'New subscription payments',
+    value: (r) => r.newPlanPayments,
+  },
+  {
+    key: 'renewalPayments',
+    label: 'Renewal payments',
+    value: (r) => r.renewalPayments,
+  },
+  {
     key: 'creditPurchases',
     label: 'Credit purchases',
     value: (r) => r.creditPurchases,
@@ -349,10 +382,20 @@ const RECORD_COLUMNS: {
  * "$1,234.00" cell is text to a spreadsheet and will not sum.
  */
 function recordCsv(data: PlatformAnalytics): string {
-  const header = ['Month', ...RECORD_COLUMNS.map((c) => c.label)];
+  const columns = RECORD_COLUMNS.filter(
+    (c) =>
+      data.planRevenueAvailable ||
+      ![
+        'planRevenueUsd',
+        'planPayments',
+        'newPlanPayments',
+        'renewalPayments',
+      ].includes(c.key),
+  );
+  const header = ['Month', ...columns.map((c) => c.label)];
   const rows = data.series.map((row) => [
     row.month,
-    ...RECORD_COLUMNS.map((c) => {
+    ...columns.map((c) => {
       const value = c.value(row);
       return c.money ? value.toFixed(2) : String(value);
     }),
@@ -419,6 +462,8 @@ function AnalyticsContent() {
   const windowTotals = useMemo(() => {
     return series.reduce(
       (acc, row) => ({
+        planRevenueUsd: acc.planRevenueUsd + row.planRevenueUsd,
+        planPayments: acc.planPayments + row.planPayments,
         creditsPurchased: acc.creditsPurchased + row.creditsPurchased,
         creditRevenueUsd: acc.creditRevenueUsd + row.creditRevenueUsd,
         rechargeRevenueUsd: acc.rechargeRevenueUsd + row.rechargeRevenueUsd,
@@ -428,6 +473,8 @@ function AnalyticsContent() {
         unpriced: acc.unpriced + row.unpricedPurchases,
       }),
       {
+        planRevenueUsd: 0,
+        planPayments: 0,
         creditsPurchased: 0,
         creditRevenueUsd: 0,
         rechargeRevenueUsd: 0,
@@ -525,6 +572,32 @@ function AnalyticsContent() {
         color: 2,
         values: series.map((r) => r.aiCostUsd),
         money: true,
+      },
+    ],
+    [series],
+  );
+
+  const planSeries: Series[] = useMemo(
+    () => [
+      {
+        key: 'new',
+        label: 'New subscriptions',
+        color: 0,
+        values: series.map((r) => r.newPlanPayments),
+      },
+      {
+        key: 'renewals',
+        label: 'Renewals',
+        color: 1,
+        values: series.map((r) => r.renewalPayments),
+      },
+      {
+        key: 'changes',
+        label: 'Plan changes',
+        color: 2,
+        values: series.map(
+          (r) => r.planPayments - r.newPlanPayments - r.renewalPayments,
+        ),
       },
     ],
     [series],
@@ -656,28 +729,99 @@ function AnalyticsContent() {
         />
       </div>
 
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <SnapshotCard
+          icon={CreditCard}
+          label="Plan revenue (selected period)"
+          value={
+            data.planRevenueAvailable
+              ? usd(windowTotals.planRevenueUsd)
+              : 'Unavailable'
+          }
+          hint={
+            data.planRevenueAvailable
+              ? `${windowTotals.planPayments.toLocaleString()} paid invoices`
+              : 'Stripe invoice data could not be loaded'
+          }
+        />
+        <SnapshotCard
+          icon={Building2}
+          label="Paying plans"
+          value={data.snapshot.planMix.paying.toLocaleString()}
+          hint="current subscribers"
+        />
+        <SnapshotCard
+          icon={Gift}
+          label="Free plans"
+          value={(
+            data.snapshot.planMix.comped + data.snapshot.planMix.trial
+          ).toLocaleString()}
+          hint={`${data.snapshot.planMix.comped} comped · ${data.snapshot.planMix.trial} trial`}
+        />
+        <SnapshotCard
+          icon={Users}
+          label="Without a plan"
+          value={data.snapshot.planMix.none.toLocaleString()}
+          hint="verified accounts"
+        />
+      </div>
+
       <div className="mb-8">
-        <ChartCard
-          title="Plan mix"
-          note="Current state across every verified account, not a monthly figure."
-        >
-          <SegmentedBar
-            segments={[
-              {
-                label: 'Paying',
-                value: data.snapshot.planMix.paying,
-                color: 0,
-              },
-              {
-                label: 'Comped',
-                value: data.snapshot.planMix.comped,
-                color: 1,
-              },
-              { label: 'Trial', value: data.snapshot.planMix.trial, color: 3 },
-              { label: 'No plan', value: data.snapshot.planMix.none, color: 2 },
-            ]}
-          />
-        </ChartCard>
+        <div className="grid gap-4 xl:grid-cols-2">
+          <ChartCard
+            title="Plan mix"
+            note="Current state across every verified account, not a monthly figure."
+          >
+            <SegmentedBar
+              segments={[
+                {
+                  label: 'Paying',
+                  value: data.snapshot.planMix.paying,
+                  color: 0,
+                },
+                {
+                  label: 'Comped',
+                  value: data.snapshot.planMix.comped,
+                  color: 1,
+                },
+                {
+                  label: 'Trial',
+                  value: data.snapshot.planMix.trial,
+                  color: 3,
+                },
+                {
+                  label: 'No plan',
+                  value: data.snapshot.planMix.none,
+                  color: 2,
+                },
+              ]}
+            />
+          </ChartCard>
+          <ChartCard
+            title="Paying customers by plan"
+            note={`${data.snapshot.leadGenAddOns} also have Lead Gen as an add-on.`}
+          >
+            <RankedBars
+              rows={Object.entries(data.snapshot.payingByPackage)
+                .filter(([, value]) => value > 0)
+                .map(([key, value]) => ({
+                  label:
+                    key === 'GENERATION'
+                      ? 'Generation'
+                      : key === 'GUARD'
+                        ? 'Guard'
+                        : key === 'OPERATIONS'
+                          ? 'Operations'
+                          : key === 'COMPLETE'
+                            ? 'Complete'
+                            : 'Other',
+                  value,
+                }))}
+              format={(v) => v.toLocaleString()}
+              emptyLabel="No paying plans yet."
+            />
+          </ChartCard>
+        </div>
       </div>
 
       {/* --- Month over month --- */}
@@ -690,7 +834,11 @@ function AnalyticsContent() {
         one.
       </p>
       <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-        {COMPARISON_CARDS.map((card) => (
+        {COMPARISON_CARDS.filter(
+          (card) =>
+            data.planRevenueAvailable ||
+            !['planRevenue', 'planPayments'].includes(card.key),
+        ).map((card) => (
           <ComparisonCard
             key={card.key}
             label={card.label}
@@ -708,6 +856,35 @@ function AnalyticsContent() {
         Last {data.months} months
       </h2>
       <div className="mb-6 grid gap-4 xl:grid-cols-2">
+        {data.planRevenueAvailable && (
+          <ChartCard
+            title="Plan revenue"
+            note="Gross USD collected on paid subscription invoices, including renewals and plan changes."
+          >
+            <MonthlyBarChart
+              labels={labels}
+              series={[
+                {
+                  key: 'plans',
+                  label: 'Plan revenue',
+                  color: 0,
+                  values: series.map((r) => r.planRevenueUsd),
+                  money: true,
+                },
+              ]}
+              format={(v) => usd(v)}
+            />
+          </ChartCard>
+        )}
+        {data.planRevenueAvailable && (
+          <ChartCard
+            title="Plan payments"
+            note="Paid invoices by subscription event. A plan change can generate more than one invoice."
+          >
+            <MonthlyBarChart labels={labels} series={planSeries} stacked />
+            <Legend series={planSeries} />
+          </ChartCard>
+        )}
         <ChartCard title="Growth: accounts and users">
           <MonthlyBarChart labels={labels} series={growthSeries} />
           <Legend series={growthSeries} />
@@ -848,6 +1025,18 @@ function AnalyticsContent() {
             Totals over the last {data.months} months
           </h3>
           <dl className="space-y-2 text-sm">
+            {data.planRevenueAvailable && (
+              <Row
+                label="Plan revenue (actual paid invoices)"
+                value={usd(windowTotals.planRevenueUsd)}
+              />
+            )}
+            {data.planRevenueAvailable && (
+              <Row
+                label="Plan payments"
+                value={windowTotals.planPayments.toLocaleString()}
+              />
+            )}
             <Row
               label="Credits purchased"
               value={windowTotals.creditsPurchased.toLocaleString()}
@@ -886,8 +1075,20 @@ function AnalyticsContent() {
           </h3>
           <ul className="space-y-2.5 text-xs leading-relaxed text-muted-foreground">
             <li>
-              <strong className="text-foreground">Modules activated</strong> is
-              the closest available stand-in for plans sold.{' '}
+              <strong className="text-foreground">Plan revenue</strong> is gross
+              USD collected on paid Stripe subscription invoices in the selected
+              period. It includes renewals and plan changes. Refunds and tax are
+              not separated.
+            </li>
+            {!data.planRevenueAvailable && (
+              <li>
+                Stripe invoice data could not be loaded, so plan revenue and
+                payment counts are unavailable.
+              </li>
+            )}
+            <li>
+              <strong className="text-foreground">Modules activated</strong>{' '}
+              counts first access to each module.{' '}
               {data.approximations.moduleActivations}
             </li>
             <li>
@@ -957,7 +1158,16 @@ function AnalyticsContent() {
                 </tr>
               </thead>
               <tbody>
-                {RECORD_COLUMNS.map((column) => (
+                {RECORD_COLUMNS.filter(
+                  (column) =>
+                    data.planRevenueAvailable ||
+                    ![
+                      'planRevenueUsd',
+                      'planPayments',
+                      'newPlanPayments',
+                      'renewalPayments',
+                    ].includes(column.key),
+                ).map((column) => (
                   <tr
                     key={column.key}
                     className="border-b border-border/60 last:border-0"
@@ -1142,7 +1352,7 @@ export default function PlatformAnalyticsPage() {
       <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
         <h1 className="text-xl font-bold text-foreground">Analytics</h1>
         <p className="mb-6 mt-1 text-sm text-muted-foreground">
-          Growth, credit sales, AI consumption and cost — recorded month by
+          Growth, plan payments, credit sales, AI consumption and cost — recorded month by
           month.
         </p>
         <AnalyticsContent />

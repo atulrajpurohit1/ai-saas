@@ -24,6 +24,7 @@ import {
   getRecharges,
   getTenants,
   grantComp,
+  grantFreeCredits,
   listComps,
   reactivateTenant,
   revokeComp,
@@ -212,6 +213,12 @@ function SuperAdminContent() {
   const [formError, setFormError] = useState('');
   const [formNotice, setFormNotice] = useState('');
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [creditTenantId, setCreditTenantId] = useState('');
+  const [creditAmount, setCreditAmount] = useState(1000);
+  const [creditReason, setCreditReason] = useState('');
+  const [grantingCredits, setGrantingCredits] = useState(false);
+  const [creditError, setCreditError] = useState('');
+  const [creditNotice, setCreditNotice] = useState('');
 
   // Tenant management state.
   const [showCreate, setShowCreate] = useState(false);
@@ -382,6 +389,48 @@ function SuperAdminContent() {
       setFormError(getApiErrorMessage(err, 'Could not grant access.'));
     } finally {
       setGranting(false);
+    }
+  };
+
+  const submitCreditGrant = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setCreditError('');
+    setCreditNotice('');
+    if (!creditTenantId) {
+      setCreditError('Choose a tenant.');
+      return;
+    }
+    if (
+      !Number.isInteger(creditAmount) ||
+      creditAmount < 1 ||
+      creditAmount > 100_000
+    ) {
+      setCreditError('Enter 1 to 100,000 whole credits.');
+      return;
+    }
+    if (creditReason.trim().length < 3) {
+      setCreditError('Give a reason of at least 3 characters.');
+      return;
+    }
+    setGrantingCredits(true);
+    try {
+      const result = await grantFreeCredits({
+        tenantId: creditTenantId,
+        amount: creditAmount,
+        reason: creditReason.trim(),
+      });
+      const name =
+        tenants.find((t) => t.tenantId === creditTenantId)?.name ??
+        creditTenantId;
+      setCreditNotice(
+        `${creditAmount.toLocaleString()} credits granted to ${name}. Balance: ${result.balance.toLocaleString()}.`,
+      );
+      setCreditReason('');
+      await load();
+    } catch (err) {
+      setCreditError(getApiErrorMessage(err, 'Could not grant credits.'));
+    } finally {
+      setGrantingCredits(false);
     }
   };
 
@@ -662,14 +711,14 @@ function SuperAdminContent() {
           {/* Grant form */}
           <form
             onSubmit={submitGrant}
-            className="h-fit rounded-xl border border-border bg-card p-5"
+            className="h-fit rounded-xl border border-border bg-card p-5 lg:col-start-1 lg:row-start-1"
           >
             <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Gift size={16} className="text-primary" /> Grant free access
             </h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              The Trial plan unlocks every feature except AI. Tokens are not
-              included — the tenant buys their own for prospect search.
+              The Trial plan unlocks every feature except AI. Credits can be
+              granted separately below.
             </p>
 
             {formNotice && (
@@ -771,8 +820,77 @@ function SuperAdminContent() {
             </button>
           </form>
 
+          <form
+            onSubmit={submitCreditGrant}
+            className="rounded-xl border border-border bg-card p-5 lg:col-start-1 lg:row-start-2"
+          >
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Coins size={16} className="text-primary" /> Grant free AI credits
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Add credits for AI work and prospect searches. This does not
+              change the tenant&apos;s plan or AI access.
+            </p>
+            {creditNotice && (
+              <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs text-emerald-600">
+                {creditNotice}
+              </div>
+            )}
+            {creditError && (
+              <div className="mt-3 rounded-lg border border-error/30 bg-error-wash p-2.5 text-xs text-error">
+                {creditError}
+              </div>
+            )}
+            <label className="mt-4 block text-xs font-medium text-muted-foreground">
+              Tenant
+              <select
+                value={creditTenantId}
+                onChange={(e) => setCreditTenantId(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+              >
+                <option value="">Select a tenant…</option>
+                {tenants.map((tenant) => (
+                  <option key={tenant.tenantId} value={tenant.tenantId}>
+                    {tenant.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="mt-3 block text-xs font-medium text-muted-foreground">
+              Credits
+              <input
+                type="number"
+                min={1}
+                max={100000}
+                step={1}
+                value={creditAmount}
+                onChange={(e) => setCreditAmount(Number(e.target.value))}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+              />
+            </label>
+            <label className="mt-3 block text-xs font-medium text-muted-foreground">
+              Reason
+              <input
+                type="text"
+                maxLength={500}
+                value={creditReason}
+                onChange={(e) => setCreditReason(e.target.value)}
+                placeholder="e.g. Pilot customer credit gift"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={grantingCredits}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+            >
+              {grantingCredits && <Loader2 className="h-4 w-4 animate-spin" />}
+              Grant credits
+            </button>
+          </form>
+
           {/* Active comps list */}
-          <div className="rounded-xl border border-border bg-card">
+          <div className="self-start rounded-xl border border-border bg-card lg:col-start-2 lg:row-span-2 lg:row-start-1">
             <div className="border-b border-border px-5 py-3 text-sm font-semibold text-foreground">
               Active free plans ({activeComps.length})
             </div>
@@ -840,7 +958,7 @@ function SuperAdminContent() {
             has an empty state above it.
           */}
           {scheduledComps.length > 0 && (
-            <div className="rounded-xl border border-border bg-card">
+            <div className="rounded-xl border border-border bg-card lg:col-span-2">
               <div className="border-b border-border px-5 py-3">
                 <div className="text-sm font-semibold text-foreground">
                   Starting later ({scheduledComps.length})

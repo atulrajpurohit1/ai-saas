@@ -1,5 +1,6 @@
 import { PlatformAnalyticsService } from './platform-analytics.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { StripeService } from '../billing/stripe.service';
 
 /**
  * The service issues several raw queries in one Promise.all, so the mock
@@ -19,20 +20,34 @@ type RawFixtures = {
   topTenants?: unknown[];
 };
 
-function build(fixtures: RawFixtures = {}) {
+function build(
+  fixtures: RawFixtures = {},
+  invoices: Awaited<ReturnType<StripeService['paidPlanInvoices']>> = [],
+) {
   const queryRaw = jest.fn((sql: { strings?: string[]; text?: string }) => {
-    const text = (sql.text ?? sql.strings?.join(' ') ?? '').replace(/\s+/g, ' ');
+    const text = (sql.text ?? sql.strings?.join(' ') ?? '').replace(
+      /\s+/g,
+      ' ',
+    );
 
-    if (text.includes('FROM "Tenant" t')) return Promise.resolve(fixtures.tenants ?? []);
-    if (text.includes('FROM "User" u')) return Promise.resolve(fixtures.users ?? []);
-    if (text.includes('FROM "TenantModule"')) return Promise.resolve(fixtures.modules ?? []);
+    if (text.includes('FROM "Tenant" t'))
+      return Promise.resolve(fixtures.tenants ?? []);
+    if (text.includes('FROM "User" u'))
+      return Promise.resolve(fixtures.users ?? []);
+    if (text.includes('FROM "TenantModule"'))
+      return Promise.resolve(fixtures.modules ?? []);
     if (text.includes('FROM "CreditLedgerEntry" l'))
       return Promise.resolve(fixtures.topTenants ?? []);
-    if (text.includes("'PURCHASE'")) return Promise.resolve(fixtures.credits ?? []);
-    if (text.includes("'RESERVATION'")) return Promise.resolve(fixtures.consumption ?? []);
-    if (text.includes('"feature"::text')) return Promise.resolve(fixtures.aiByFeature ?? []);
-    if (text.includes('"model" AS model')) return Promise.resolve(fixtures.aiByModel ?? []);
-    if (text.includes('FROM "AiUsageEvent"')) return Promise.resolve(fixtures.ai ?? []);
+    if (text.includes("'PURCHASE'"))
+      return Promise.resolve(fixtures.credits ?? []);
+    if (text.includes("'RESERVATION'"))
+      return Promise.resolve(fixtures.consumption ?? []);
+    if (text.includes('"feature"::text'))
+      return Promise.resolve(fixtures.aiByFeature ?? []);
+    if (text.includes('"model" AS model'))
+      return Promise.resolve(fixtures.aiByModel ?? []);
+    if (text.includes('FROM "AiUsageEvent"'))
+      return Promise.resolve(fixtures.ai ?? []);
     if (text.includes('FROM "CreditAutoRechargeAttempt"'))
       return Promise.resolve(fixtures.recharges ?? []);
 
@@ -52,7 +67,15 @@ function build(fixtures: RawFixtures = {}) {
     },
   } as unknown as PrismaService;
 
-  return { service: new PlatformAnalyticsService(prisma), prisma, queryRaw };
+  const stripe = {
+    paidPlanInvoices: jest.fn().mockResolvedValue(invoices),
+  } as unknown as StripeService;
+  return {
+    service: new PlatformAnalyticsService(prisma, stripe),
+    prisma,
+    queryRaw,
+    stripe,
+  };
 }
 
 /** The `YYYY-MM` key for `back` months before now, in UTC. */
@@ -65,6 +88,29 @@ function monthKey(back: number): string {
 }
 
 describe('PlatformAnalyticsService', () => {
+  it('groups paid plan invoices by payment month and event type', async () => {
+    const paidAt = new Date(`${monthKey(0)}-10T12:00:00.000Z`);
+    const { service } = build({}, [
+      { id: 'in_new', paidAt, amountUsd: 548, reason: 'subscription_create' },
+      { id: 'in_renew', paidAt, amountUsd: 299, reason: 'subscription_cycle' },
+      { id: 'in_change', paidAt, amountUsd: 50, reason: 'subscription_update' },
+    ]);
+    const result = await service.monthly(1);
+
+    expect(result.planRevenueAvailable).toBe(true);
+    expect(result.series[0]).toMatchObject({
+      planRevenueUsd: 897,
+      planPayments: 3,
+      newPlanPayments: 1,
+      renewalPayments: 1,
+    });
+  });
+
+  it('marks plan revenue unavailable when Stripe cannot be read', async () => {
+    const { service } = build({}, null);
+    const result = await service.monthly(1);
+    expect(result.planRevenueAvailable).toBe(false);
+  });
   describe('the month window', () => {
     it('returns one zero-filled row per month, oldest first', async () => {
       const { service } = build();
@@ -114,8 +160,20 @@ describe('PlatformAnalyticsService', () => {
     it('prices each pack size separately rather than an average', async () => {
       const { service } = build({
         credits: [
-          { bucket: monthKey(0), channel: 'pack', packSize: 3000, purchases: 1, credits: 3000 },
-          { bucket: monthKey(0), channel: 'pack', packSize: 23000, purchases: 1, credits: 23000 },
+          {
+            bucket: monthKey(0),
+            channel: 'pack',
+            packSize: 3000,
+            purchases: 1,
+            credits: 3000,
+          },
+          {
+            bucket: monthKey(0),
+            channel: 'pack',
+            packSize: 23000,
+            purchases: 1,
+            credits: 23000,
+          },
         ],
       });
       const row = (await service.monthly(1)).series[0];
@@ -129,17 +187,31 @@ describe('PlatformAnalyticsService', () => {
     it('multiplies by the number of purchases at that size', async () => {
       const { service } = build({
         credits: [
-          { bucket: monthKey(0), channel: 'pack', packSize: 13000, purchases: 3, credits: 39000 },
+          {
+            bucket: monthKey(0),
+            channel: 'pack',
+            packSize: 13000,
+            purchases: 3,
+            credits: 39000,
+          },
         ],
       });
-      expect((await service.monthly(1)).series[0].creditRevenueUsd).toBe(3 * 249);
+      expect((await service.monthly(1)).series[0].creditRevenueUsd).toBe(
+        3 * 249,
+      );
     });
 
     // Granted credits were never sold. Pricing them would invent revenue.
     it('excludes granted credits from revenue but still counts them', async () => {
       const { service } = build({
         credits: [
-          { bucket: monthKey(0), channel: 'granted', packSize: 3000, purchases: 1, credits: 3000 },
+          {
+            bucket: monthKey(0),
+            channel: 'granted',
+            packSize: 3000,
+            purchases: 1,
+            credits: 3000,
+          },
         ],
       });
       const row = (await service.monthly(1)).series[0];
@@ -160,7 +232,13 @@ describe('PlatformAnalyticsService', () => {
     it('counts a sold purchase it cannot price instead of silently dropping it', async () => {
       const { service } = build({
         credits: [
-          { bucket: monthKey(0), channel: 'pack', packSize: 250, purchases: 2, credits: 500 },
+          {
+            bucket: monthKey(0),
+            channel: 'pack',
+            packSize: 250,
+            purchases: 2,
+            credits: 500,
+          },
         ],
       });
       const row = (await service.monthly(1)).series[0];
@@ -173,10 +251,34 @@ describe('PlatformAnalyticsService', () => {
     it('splits credits across the channel they arrived by', async () => {
       const { service } = build({
         credits: [
-          { bucket: monthKey(0), channel: 'pack', packSize: 3000, purchases: 1, credits: 3000 },
-          { bucket: monthKey(0), channel: 'recharge', packSize: 3000, purchases: 2, credits: 6000 },
-          { bucket: monthKey(0), channel: 'plan', packSize: 13000, purchases: 1, credits: 13000 },
-          { bucket: monthKey(0), channel: 'granted', packSize: 50, purchases: 4, credits: 200 },
+          {
+            bucket: monthKey(0),
+            channel: 'pack',
+            packSize: 3000,
+            purchases: 1,
+            credits: 3000,
+          },
+          {
+            bucket: monthKey(0),
+            channel: 'recharge',
+            packSize: 3000,
+            purchases: 2,
+            credits: 6000,
+          },
+          {
+            bucket: monthKey(0),
+            channel: 'plan',
+            packSize: 13000,
+            purchases: 1,
+            credits: 13000,
+          },
+          {
+            bucket: monthKey(0),
+            channel: 'granted',
+            packSize: 50,
+            purchases: 4,
+            credits: 200,
+          },
         ],
       });
       const row = (await service.monthly(1)).series[0];
@@ -219,7 +321,9 @@ describe('PlatformAnalyticsService', () => {
             cost: 0.42,
           },
         ],
-        recharges: [{ bucket: lastMonth, succeeded: 2, failed: 1, revenue: 498 }],
+        recharges: [
+          { bucket: lastMonth, succeeded: 2, failed: 1, revenue: 498 },
+        ],
       });
 
       const [previous, current] = (await service.monthly(2)).series;
@@ -252,6 +356,35 @@ describe('PlatformAnalyticsService', () => {
   });
 
   describe('the snapshot', () => {
+    it('shows which packages paying tenants hold, including Lead Gen add-ons', async () => {
+      const { service, prisma } = build();
+      (prisma.tenantSubscription.findMany as jest.Mock).mockResolvedValue([
+        {
+          source: 'STRIPE',
+          status: 'ACTIVE',
+          providerSubscriptionId: 'sub_guard',
+          tenant: {
+            modules: [{ module: 'GUARD_TOUR' }, { module: 'LEAD_GEN' }],
+          },
+        },
+        {
+          source: 'STRIPE',
+          status: 'ACTIVE',
+          providerSubscriptionId: 'sub_complete',
+          tenant: {
+            modules: [
+              { module: 'GUARD_TOUR' },
+              { module: 'LEAD_GEN' },
+              { module: 'FINANCE' },
+            ],
+          },
+        },
+      ]);
+
+      const { snapshot } = await service.monthly(1);
+      expect(snapshot.payingByPackage).toMatchObject({ GUARD: 1, COMPLETE: 1 });
+      expect(snapshot.leadGenAddOns).toBe(1);
+    });
     /**
      * The plan mix is counted from subscriptions, the account total from
      * tenants -- so both must apply the same verified-user filter. Without it
@@ -343,7 +476,13 @@ describe('PlatformAnalyticsService', () => {
   it('produces a response that serializes', async () => {
     const { service } = build({
       credits: [
-        { bucket: monthKey(0), channel: 'pack', packSize: 3000, purchases: 1, credits: 3000 },
+        {
+          bucket: monthKey(0),
+          channel: 'pack',
+          packSize: 3000,
+          purchases: 1,
+          credits: 3000,
+        },
       ],
     });
     const result = await service.monthly(3);

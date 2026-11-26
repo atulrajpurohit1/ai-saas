@@ -62,6 +62,7 @@ import { SaleCampaignService } from './sale-campaign.service';
   ],
   exports: [
     BillingService,
+    StripeService,
     SubscriptionProvisioningService,
     PendingCompService,
     GuardMeteringService,

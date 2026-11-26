@@ -98,6 +98,15 @@ export async function revokeComp(input: {
   return res.data;
 }
 
+export async function grantFreeCredits(input: {
+  tenantId: string;
+  amount: number;
+  reason: string;
+}): Promise<{ balance: number; granted: boolean }> {
+  const res = await platformApi.post('platform/comps/credits/grant', input);
+  return res.data;
+}
+
 // --- Monitoring ----------------------------------------------------------
 
 export interface PlatformOverview {
@@ -162,7 +171,12 @@ export interface AiFeatureCost {
 export interface AiUsageBreakdown {
   windowDays: number;
   byFeature: AiFeatureCost[];
-  topTenants: { tenantId: string | null; name: string; costUsd: number; calls: number }[];
+  topTenants: {
+    tenantId: string | null;
+    name: string;
+    costUsd: number;
+    calls: number;
+  }[];
 }
 
 export async function getAiUsage(days?: number): Promise<AiUsageBreakdown> {
@@ -209,8 +223,12 @@ export interface AnalyticsMonth {
   month: string;
   newTenants: number;
   newUsers: number;
-  /** Proxy for plans bought -- see `approximations.moduleActivations`. */
+  /** First module activations, not subscription purchases. */
   moduleActivations: number;
+  planRevenueUsd: number;
+  planPayments: number;
+  newPlanPayments: number;
+  renewalPayments: number;
   creditPurchases: number;
   creditsPurchased: number;
   creditsByChannel: Record<CreditChannel, number>;
@@ -237,6 +255,14 @@ export interface AnalyticsSnapshot {
   users: number;
   suspendedTenants: number;
   planMix: { paying: number; trial: number; comped: number; none: number };
+  payingByPackage: {
+    GENERATION: number;
+    GUARD: number;
+    OPERATIONS: number;
+    COMPLETE: number;
+    OTHER: number;
+  };
+  leadGenAddOns: number;
   creditsOutstanding: number;
   creditsPurchasedLifetime: number;
   creditsConsumedLifetime: number;
@@ -251,6 +277,7 @@ export interface PlatformAnalytics {
   timezone: string;
   series: AnalyticsMonth[];
   snapshot: AnalyticsSnapshot;
+  planRevenueAvailable: boolean;
   breakdowns: {
     aiByFeature: {
       feature: string;
@@ -348,10 +375,9 @@ export async function deleteTenant(input: {
   tenantId: string;
   confirmName: string;
 }): Promise<{ tenantId: string; deleted: boolean; name: string }> {
-  const res = await platformApi.delete(
-    `platform/tenants/${input.tenantId}`,
-    { data: { confirmName: input.confirmName } },
-  );
+  const res = await platformApi.delete(`platform/tenants/${input.tenantId}`, {
+    data: { confirmName: input.confirmName },
+  });
   return res.data;
 }
 

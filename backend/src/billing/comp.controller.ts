@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -11,6 +12,9 @@ import { GetPlatformAdmin } from '../platform-auth/decorators/get-platform-admin
 import { PlatformAdminGuard } from '../platform-auth/guards/platform-admin.guard';
 import { ActivePlatformAdmin } from '../platform-auth/interfaces/active-platform-admin.interface';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreditEntryType } from '@prisma/client';
+import { CreditsService } from './credits.service';
+import { GrantPlatformCreditsDto } from './dto/grant-platform-credits.dto';
 import { GrantCompDto } from './dto/grant-comp.dto';
 import { RevokeCompDto } from './dto/revoke-comp.dto';
 import {
@@ -34,9 +38,8 @@ import { isCompActive } from './comp.util';
  * tenant-scoped PermissionGuard -- a tenant admin holds `billing.manage` for
  * their own account and must never be able to comp it.
  *
- * Comps grant plan access only. Credits are a separate balance with its own
- * purchase path, and nothing here touches it: a comped tenant still buys
- * their own credits to run searches.
+ * Plan access and free credits are independent grants. A credit grant never
+ * changes the tenant's paid or complimentary plan.
  */
 @UseGuards(PlatformAdminGuard)
 @Controller('platform/comps')
@@ -47,7 +50,34 @@ export class CompController {
     private readonly prisma: PrismaService,
     private readonly provisioning: SubscriptionProvisioningService,
     private readonly pendingComps: PendingCompService,
+    private readonly credits: CreditsService,
   ) {}
+
+  @Post('credits/grant')
+  async grantCredits(
+    @Body() dto: GrantPlatformCreditsDto,
+    @GetPlatformAdmin() admin: ActivePlatformAdmin,
+  ) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: dto.tenantId },
+      select: { id: true },
+    });
+    if (!tenant) throw new NotFoundException('Tenant not found.');
+    if (dto.reason.trim().length < 3) {
+      throw new BadRequestException('Give a reason of at least 3 characters.');
+    }
+
+    const result = await this.credits.grant({
+      tenantId: tenant.id,
+      amount: dto.amount,
+      description: `Free credit grant by platform admin ${admin.adminId}: ${dto.reason.trim()}`,
+      type: CreditEntryType.ADJUSTMENT,
+    });
+    this.logger.log(
+      `Platform admin ${admin.adminId} granted ${dto.amount} credits to ${tenant.id}; balance ${result.balance}.`,
+    );
+    return result;
+  }
 
   /** Every tenant currently on complimentary access, newest first. */
   @Get()
@@ -82,7 +112,9 @@ export class CompController {
     return rows.map((row) => {
       const granted = compPlanOf(row);
       const queued = row.pendingCompPlan
-        ? (isCompPlanKey(row.pendingCompPlan) ? row.pendingCompPlan : null)
+        ? isCompPlanKey(row.pendingCompPlan)
+          ? row.pendingCompPlan
+          : null
         : null;
 
       if (queued) {

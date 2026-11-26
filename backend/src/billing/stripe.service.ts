@@ -65,6 +65,70 @@ export class StripeService {
     return isCheckoutConfigured();
   }
 
+  /** Paid subscription invoices are the source of truth for plan revenue. */
+  async paidPlanInvoices(since: Date): Promise<Array<{
+    id: string;
+    paidAt: Date;
+    amountUsd: number;
+    reason: string;
+  }> | null> {
+    if (!stripeSecretKey()) return null;
+
+    const subscriptions = await this.prisma.tenantSubscription.findMany({
+      where: { tenant: { users: { some: { emailVerified: true } } } },
+      select: { providerCustomerId: true },
+    });
+    const customerIds = new Set(
+      subscriptions
+        .map((row) => row.providerCustomerId)
+        .filter((id): id is string => !!id),
+    );
+    if (customerIds.size === 0) return [];
+
+    const invoices: Array<{
+      id: string;
+      paidAt: Date;
+      amountUsd: number;
+      reason: string;
+    }> = [];
+    const pages = this.stripe().invoices.list({
+      // An invoice can be created before the window and paid in its first
+      // month. Include a small creation lookback, then bucket by paid_at.
+      created: { gte: Math.floor((since.getTime() - 90 * 24 * 60 * 60 * 1000) / 1000) },
+      status: 'paid',
+      limit: 100,
+    });
+    for await (const invoice of pages) {
+      const customerId =
+        typeof invoice.customer === 'string'
+          ? invoice.customer
+          : invoice.customer?.id;
+      if (!customerId || !customerIds.has(customerId)) continue;
+      const reason = invoice.billing_reason;
+      if (
+        reason !== 'subscription_create' &&
+        reason !== 'subscription_cycle' &&
+        reason !== 'subscription_update'
+      )
+        continue;
+      const paidAt = invoice.status_transitions?.paid_at ?? invoice.created;
+      if (
+        !paidAt ||
+        paidAt * 1000 < since.getTime() ||
+        invoice.currency !== 'usd' ||
+        (invoice.amount_paid ?? 0) <= 0
+      )
+        continue;
+      invoices.push({
+        id: invoice.id,
+        paidAt: new Date(paidAt * 1000),
+        amountUsd: (invoice.amount_paid ?? 0) / 100,
+        reason,
+      });
+    }
+    return invoices;
+  }
+
   /** A sale is a one-invoice coupon; recurring list prices stay intact. */
   async createSaleCoupon(name: string, percentOff: number): Promise<string> {
     const coupon = await this.stripe().coupons.create({
