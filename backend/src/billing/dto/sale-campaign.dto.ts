@@ -1,5 +1,4 @@
 import {
-  ArrayNotEmpty,
   ArrayUnique,
   IsArray,
   IsBoolean,
@@ -32,7 +31,6 @@ export class SaleCampaignDto {
   bonusCredits: number;
 
   @IsArray()
-  @ArrayNotEmpty()
   @ArrayUnique()
   @IsIn([...PACKAGE_KEYS, NO_PLAN_SALE_KEY], { each: true })
   packageKeys: (PackageKey | typeof NO_PLAN_SALE_KEY)[];

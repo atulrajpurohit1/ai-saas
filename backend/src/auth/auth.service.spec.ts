@@ -185,7 +185,12 @@ describe('AuthService.verifyEmail', () => {
 
     expect(prisma.saleCampaign.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ packageKeys: { has: 'NO_PLAN' } }),
+        where: expect.objectContaining({
+          OR: [
+            { packageKeys: { isEmpty: true } },
+            { packageKeys: { has: 'NO_PLAN' } },
+          ],
+        }),
         orderBy: [{ bonusCredits: 'desc' }, { createdAt: 'asc' }],
       }),
     );

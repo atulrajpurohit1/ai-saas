@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StripeService } from './stripe.service';
 import { SaleCampaignService } from './sale-campaign.service';
 import { SaleCampaignDto } from './dto/sale-campaign.dto';
+import { validate } from 'class-validator';
 
 describe('SaleCampaignService', () => {
   const tomorrow = () => new Date(Date.now() + 86400000).toISOString();
@@ -88,7 +89,26 @@ describe('SaleCampaignService', () => {
     });
   });
 
-  it('creates a no-plan signup sale without a Stripe coupon', async () => {
+  it('accepts an empty plan selection and creates a no-plan signup sale', async () => {
+    const dto = Object.assign(new SaleCampaignDto(), {
+      ...input(),
+      packageKeys: [],
+      percentOff: 0,
+      bonusCredits: 50,
+    });
+    expect(await validate(dto)).toEqual([]);
+    await service.create(dto);
+    expect(stripe.createSaleCoupon).not.toHaveBeenCalled();
+    expect(prisma.saleCampaign.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        packageKeys: [],
+        bonusCredits: 50,
+        stripeCouponId: null,
+      }),
+    });
+  });
+
+  it('still accepts a no-plan sale saved with the old sentinel', async () => {
     await service.create({
       ...input(),
       packageKeys: ['NO_PLAN'],
@@ -106,6 +126,21 @@ describe('SaleCampaignService', () => {
   });
 
   it('rejects discounts and paid-plan targets in a no-plan signup sale', async () => {
+    await expect(
+      service.create({
+        ...input(),
+        packageKeys: [],
+        bonusCredits: 50,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.create({
+        ...input(),
+        packageKeys: [],
+        percentOff: 0,
+        bonusCredits: 0,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
       service.create({
         ...input(),

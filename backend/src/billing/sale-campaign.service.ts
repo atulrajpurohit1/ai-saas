@@ -127,14 +127,19 @@ export class SaleCampaignService {
   }
 
   private validateBenefits(dto: SaleCampaignDto) {
-    if (dto.packageKeys.includes(NO_PLAN_SALE_KEY)) {
+    if (
+      dto.packageKeys.length === 0 ||
+      dto.packageKeys.includes(NO_PLAN_SALE_KEY)
+    ) {
       if (
-        dto.packageKeys.length !== 1 ||
+        (dto.packageKeys.length !== 0 &&
+          (dto.packageKeys.length !== 1 ||
+            dto.packageKeys[0] !== NO_PLAN_SALE_KEY)) ||
         dto.percentOff !== 0 ||
         dto.bonusCredits <= 0
       ) {
         throw new BadRequestException(
-          'A no-plan signup sale must grant credits only and cannot target paid plans.',
+          'A sale with no selected plan must grant credits only.',
         );
       }
     }

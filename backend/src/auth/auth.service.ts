@@ -278,7 +278,12 @@ export class AuthService {
         enabled: true,
         startsAt: { lte: now },
         endsAt: { gt: now },
-        packageKeys: { has: NO_PLAN_SALE_KEY },
+        // Empty targets are the current no-plan format. Keep reading the
+        // sentinel used by no-plan sales created before this change.
+        OR: [
+          { packageKeys: { isEmpty: true } },
+          { packageKeys: { has: NO_PLAN_SALE_KEY } },
+        ],
       },
       orderBy: [{ bonusCredits: 'desc' }, { createdAt: 'asc' }],
       select: { name: true, bonusCredits: true },
