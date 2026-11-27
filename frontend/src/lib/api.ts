@@ -140,19 +140,11 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Preview pages can load without a plan. Their initial data requests may
-    // still be denied by PlanGuard, but that must never navigate away from the
-    // page. The page action prompt handles the upgrade choice on click.
+    // An upgrade response can come from a page's background request, including
+    // one that finishes after navigation to another page. Never turn it into
+    // a global page redirect. The caller owns its error state and the shared
+    // dashboard layout presents the plan prompt for gated actions.
     if (error.response?.status === 403 && error.response?.data?.upgradeRequired) {
-      if (error.response.data.planRequired) return Promise.reject(error);
-
-      // A tenant with a plan reached a service it does not own.
-      const modules: string[] = error.response.data.modules || [];
-      const portal = getPortalForPath(window.location.pathname);
-      if (portal === 'admin' && !window.location.pathname.startsWith('/settings/plan')) {
-        const query = modules.length ? `?module=${encodeURIComponent(modules[0])}` : '';
-        window.location.href = `/settings/plan${query}`;
-      }
       return Promise.reject(error);
     }
 
