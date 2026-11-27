@@ -19,9 +19,8 @@ export interface Entitlements {
   /**
    * Whether this account has any plan at all.
    *
-   * A plan is required to use the product: with none, the API refuses every
-   * screen except the plan page, so the app shows "choose a plan" rather than
-   * nav that only leads to 403s.
+   * A plan is required for gated feature actions. Browsing pages and
+   * credit-funded Prospect Search remain available without one.
    *
    * Optional because an older backend does not send it. Absent is treated as
    * HAVING a plan (see `hasPlan`), so a working customer on a stale session is
@@ -140,8 +139,8 @@ export function serviceForPermission(
 }
 
 /**
- * Whether this account has any plan at all. A plan is required to use the
- * product, so `false` means every screen but the plan page is refused.
+ * Whether this account has any plan at all. A false value gates feature
+ * actions while keeping page previews and Prospect Search available.
  *
  * Absent (older backend, or a session issued before `hasPlan` shipped) reads
  * as TRUE, matching how `aiEnabled` treats an absent flag: the API is the real
@@ -153,12 +152,12 @@ export function hasPlan(entitlements?: Entitlements | null): boolean {
 }
 
 /**
- * The routes that still work with no plan at all.
+ * The routes whose actions are available without a plan.
  *
  * Mirrors the controllers deliberately left without PlanGuard on the API:
  * `billing` (the plan and billing screens, where they go to fix this),
- * `account-security` and the session/auth endpoints. Everything else answers
- * 403 for a tenant that has bought nothing.
+ * `account-security` and the session/auth endpoints. Other page navigation is
+ * allowed as a preview, but their data and write APIs remain plan gated.
  *
  * Kept as prefixes so query strings and sub-paths come along -- the Stripe
  * return URLs land on `/settings/plan?status=...` and must not bounce.

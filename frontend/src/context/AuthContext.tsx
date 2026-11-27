@@ -48,10 +48,7 @@ interface AuthContextType {
   can: (permission: string | string[]) => boolean;
   canAny: (permissions: string[]) => boolean;
   hasModule: (module: ServiceModuleKey) => boolean;
-  /**
-   * Whether the account has any plan. False means the API refuses every screen
-   * but the plan page, so the UI shows "choose a plan" instead of the app.
-   */
+  /** Whether the account has an active plan for gated feature actions. */
   hasPlan: boolean;
   /** Whether AI (Gemini) features are on this tenant's plan (false on Trial). */
   aiEnabled: boolean;
@@ -94,13 +91,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (nextUser.role === 'client') return '/client/dashboard';
 
-    // No plan: every staff destination below is refused by PlanGuard, so go
-    // straight to the one page that works and is the only thing they can act
-    // on. Deliberately after the portal branch -- a client or guard cannot buy
-    // a plan for the tenant they belong to, so routing them to the admin plan
-    // page would be a dead end. They stay on their portal, where the API
-    // explains the refusal.
-    if (!hasPlanForEntitlements(nextUser.entitlements)) return '/settings/plan';
+    // Prospect Search spends credits and remains available without a plan.
+    // Keep the portal branch above: client users do not use this staff route.
+    if (!hasPlanForEntitlements(nextUser.entitlements)) {
+      return permissions.has('prospect_search.view')
+        ? '/prospect-search'
+        : '/settings/plan';
+    }
     if (nextUser.role === 'finance' && modules.has('FINANCE')) return '/finance';
     // A supervisor's job is the live patrol board, so start them there rather
     // than on the sales-shaped dashboard.
@@ -219,11 +216,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
-  // A Super Admin holds every permission, but entitlement is a TENANT fact and
-  // no role overrides it: at a Lead-Gen-only tenant they must not see Guard
-  // Tour nav. ModuleGuard enforces the same rule on the API, which would
-  // otherwise 403 every link rendered here.
+  // Roles still control navigation. A tenant without a plan can preview pages;
+  // the API and the page action prompt continue to gate use of those features.
   const entitledTo = (permission: string) => {
+    // A plan-free tenant may preview pages. Prospect Search is also a
+    // credit-funded exception on the API, so its permission must stay usable.
+    if (!hasPlanForEntitlements(user?.entitlements)) return true;
     const service = serviceForPermission(permission);
     return service === null || activeModules(user?.entitlements).has(service);
   };

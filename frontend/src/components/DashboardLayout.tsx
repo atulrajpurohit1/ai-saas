@@ -11,14 +11,15 @@ import { BRAND_NAME } from '@/lib/brand';
 import { usePathname, useRouter } from 'next/navigation';
 import { Menu, Search, LogOut, ChevronDown, Loader2, ShieldCheck } from 'lucide-react';
 import ModuleLockedState from '@/components/ModuleLockedState';
+import PlanActionDialog from '@/components/PlanActionDialog';
 import PlanRequiredDialog from '@/components/PlanRequiredDialog';
 import ModuleWelcomeDialog from '@/components/ModuleWelcomeDialog';
 import {
   ServiceModuleKey,
   isRouteAllowedWithoutPlan,
-  planUpgradeHref,
   serviceForPath,
 } from '@/lib/entitlements';
+import { DASHBOARD_LINK, NAV_GROUPS } from '@/lib/nav-links';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -120,6 +121,7 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [planAction, setPlanAction] = useState<{ feature: string; service: ServiceModuleKey | null } | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   // Mirrors the (⌘K | Ctrl+K) binding in CommandPalette. Resolved after mount
@@ -154,23 +156,13 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
         // Roles without branding.view just keep the tenant-name fallback below.
       });
   }, []);
-  // No plan at all: the API refuses every screen below, so instead of
-  // rendering one that can only 403, send them to the plan page with the
-  // prompt that explains why they landed there.
-  //
-  // The nav already routes locked entries straight to the plan page, so this
-  // covers the other ways in: a bookmark, a pasted link, a redirect from a
-  // page they could reach before their comp lapsed.
-  //
-  // The exempt routes (plan, billing, account security) are the ones left
-  // without PlanGuard on the server, for the same reason -- they are where
-  // this gets fixed. Matched as prefixes so the Stripe return URLs
-  // (/settings/plan?status=...) land somewhere useful rather than bouncing.
-  const planRequired = Boolean(
+  // Preview pages remain navigable without a plan. Their actions are caught
+  // below; Prospect Search and the account/billing screens remain usable.
+  const planPreview = Boolean(
     user && !hasPlan && !isRouteAllowedWithoutPlan(pathname),
   );
 
-  const moduleLocked = Boolean(user && requiredModule && !hasModule(requiredModule));
+  const moduleLocked = Boolean(user && hasPlan && requiredModule && !hasModule(requiredModule));
 
   // The one-time welcome for whichever service this route belongs to.
   //
@@ -180,19 +172,44 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
   // staying quiet. The dialog itself handles the show-once bookkeeping.
   const routeService = serviceForPath(pathname);
   const welcomeModule =
-    user && !planRequired && !moduleLocked && routeService && hasModule(routeService)
+    user && !planPreview && !moduleLocked && routeService && hasModule(routeService)
       ? routeService
       : null;
   const permissionsBlocked = Boolean(user && requiredPermissions && !can(requiredPermissions));
-  // `!planRequired` for the same reason as `!moduleLocked`: with no plan there
-  // is nowhere useful to redirect to -- every fallbackPath() target is locked
-  // too -- so explain it in place instead of bouncing between locked screens.
   const isBlocked = Boolean(
     user &&
       !moduleLocked &&
-      !planRequired &&
       ((allowedRoles && !allowedRoles.includes(user.role)) || permissionsBlocked),
   );
+
+  const showPlanAction = (label: string) => {
+    const page = [DASHBOARD_LINK, ...NAV_GROUPS.flatMap((group) => group.links)]
+      .filter((link) => pathname === link.href || pathname.startsWith(`${link.href}/`))
+      .sort((a, b) => b.href.length - a.href.length)[0]?.label ?? 'this page';
+    setPlanAction({ feature: `${label} in ${page}`, service: routeService });
+  };
+
+  const onPreviewClick = (event: React.MouseEvent<HTMLElement>) => {
+    if (!planPreview || !(event.target instanceof Element)) return;
+    const control = event.target.closest('button, a, [role="button"]');
+    if (!control || !event.currentTarget.contains(control)) return;
+    if (control instanceof HTMLAnchorElement) {
+      const destination = new URL(control.href, window.location.href);
+      const navPaths = [DASHBOARD_LINK.href, ...NAV_GROUPS.flatMap((group) => group.links.map((link) => link.href))];
+      if (destination.origin === window.location.origin && navPaths.includes(destination.pathname) && !destination.search) return;
+      if (destination.origin === window.location.origin && isRouteAllowedWithoutPlan(destination.pathname)) return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    showPlanAction(control.getAttribute('aria-label') || control.textContent?.trim() || 'This feature');
+  };
+
+  const onPreviewSubmit = (event: React.FormEvent<HTMLElement>) => {
+    if (!planPreview) return;
+    event.preventDefault();
+    event.stopPropagation();
+    showPlanAction('This action');
+  };
 
   const fallbackPath = () => {
     const permissions = new Set(user?.permissions || []);
@@ -218,15 +235,6 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
     }
   }, [isBlocked, loading, router, user]);
 
-  // Reached a gated screen without a plan. replace(), not push(), so Back does
-  // not walk straight into the same redirect.
-  useEffect(() => {
-    if (loading || !planRequired) return;
-    router.replace(
-      planUpgradeHref({ service: serviceForPath(pathname) }),
-    );
-  }, [loading, pathname, planRequired, router]);
-
   if (loading) {
     return (
       <div
@@ -242,9 +250,7 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
     );
   }
 
-  // `planRequired` renders nothing while the redirect above runs: the screen
-  // underneath would only fill with failed requests on its way out.
-  if (!user || isBlocked || planRequired) return null;
+  if (!user || isBlocked) return null;
 
   const firstName = user.name?.split(' ')[0] || user.email;
   const headerSubtitle =
@@ -330,8 +336,14 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
           </div>
         </header>
 
-        <main className="min-w-0 px-3 py-4 pb-24 sm:px-6 sm:py-7 sm:pb-16 lg:px-8 lg:py-8">
+        <main onClickCapture={onPreviewClick} onSubmitCapture={onPreviewSubmit} className="min-w-0 px-3 py-4 pb-24 sm:px-6 sm:py-7 sm:pb-16 lg:px-8 lg:py-8">
           <div className="mx-auto w-full max-w-7xl">
+            {planPreview && (
+              <div role="status" className="mb-6 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground">
+                You can explore this page. An active plan is needed to load its data and use its features.{' '}
+                <Link href="/settings/plan" className="font-semibold text-primary underline underline-offset-2">View plans</Link>
+              </div>
+            )}
             {moduleLocked && requiredModule ? (
               <ModuleLockedState module={requiredModule} />
             ) : (
@@ -341,8 +353,13 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
         </main>
       </div>
 
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        onPlanAction={(feature, href) => setPlanAction({ feature, service: serviceForPath(href) })}
+      />
       <ModuleWelcomeDialog module={welcomeModule} />
+      <PlanActionDialog action={planAction} onClose={() => setPlanAction(null)} />
       {/* useSearchParams suspends on statically prerendered pages. */}
       <Suspense fallback={null}>
         <PlanRequiredDialog />

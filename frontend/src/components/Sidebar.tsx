@@ -6,11 +6,6 @@ import { useAuth } from '@/context/AuthContext';
 import { getBranding } from '@/lib/branding';
 import { cn } from '@/lib/utils';
 import { DASHBOARD_LINK, NAV_GROUPS, type NavLink } from '@/lib/nav-links';
-import {
-  isRouteAllowedWithoutPlan,
-  planUpgradeHref,
-  serviceForLink,
-} from '@/lib/entitlements';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import BrandMark from '@/components/BrandMark';
 import { BRAND_NAME } from '@/lib/brand';
@@ -26,7 +21,7 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen = false, onClose, collapsed = false, onToggleCollapsed }: SidebarProps) {
   const pathname = usePathname();
-  const { user, logout, canAny, hasPlan } = useAuth();
+  const { user, logout, canAny } = useAuth();
   const navRef = useRef<HTMLElement | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
@@ -46,16 +41,6 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
   const toggleCollapsed = () => {
     onToggleCollapsed?.();
   };
-
-  // An account with no plan still sees the WHOLE product in the nav. Nothing
-  // is hidden: someone deciding whether to buy should be able to see what they
-  // would be buying, and a sidebar with two entries in it tells them nothing.
-  //
-  // The entries stay clickable and simply lead to the plan page instead of the
-  // screen they name (see `linkHref`), so the answer is always "here is how to
-  // unlock this" rather than a dead link or a 403.
-  const isLocked = (link: NavLink) =>
-    !hasPlan && !isRouteAllowedWithoutPlan(link.href);
 
   const visibleDashboardLink = canAny(DASHBOARD_LINK.permissions)
     ? DASHBOARD_LINK
@@ -107,20 +92,10 @@ export default function Sidebar({ isOpen = false, onClose, collapsed = false, on
   const renderLink = (link: NavLink) => {
     const isActive = link.href === activeHref;
     const Icon = link.icon;
-    // A locked entry keeps its own label and icon but points at the plan page,
-    // carrying what was asked for so the dialog there can name it.
-    const locked = isLocked(link);
-    const href = locked
-      ? planUpgradeHref({
-          feature: link.label,
-          service: serviceForLink(link),
-        })
-      : link.href;
-
     const linkEl = (
       <Link
         key={link.href}
-        href={href}
+        href={link.href}
         onClick={() => {
           saveScrollPosition();
           onClose?.();

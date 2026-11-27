@@ -140,10 +140,13 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // ModuleGuard denies a service the tenant never bought. That is an upsell,
-    // not an auth failure, so it must not trigger a refresh or a logout --
-    // send them somewhere they can actually buy it instead.
+    // Preview pages can load without a plan. Their initial data requests may
+    // still be denied by PlanGuard, but that must never navigate away from the
+    // page. The page action prompt handles the upgrade choice on click.
     if (error.response?.status === 403 && error.response?.data?.upgradeRequired) {
+      if (error.response.data.planRequired) return Promise.reject(error);
+
+      // A tenant with a plan reached a service it does not own.
       const modules: string[] = error.response.data.modules || [];
       const portal = getPortalForPath(window.location.pathname);
       if (portal === 'admin' && !window.location.pathname.startsWith('/settings/plan')) {
