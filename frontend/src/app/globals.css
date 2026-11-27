@@ -48,6 +48,13 @@
   --shadow-lg: 0 12px 32px rgba(17, 24, 39, 0.10);
 }
 
+/* Several older page alerts use pale rose text on a pale rose wash. Keep the
+   wash but give those alert messages an ink color that stays readable. */
+.bg-rose-500\/10.text-rose-300,
+.bg-rose-500\/10 .text-rose-300 {
+  color: #991b1b;
+}
+
 /*
  * Registers the tokens above as real Tailwind v4 utilities (bg-card,
  * text-muted-foreground, border-border, bg-primary/8, text-error, etc.),

@@ -3,6 +3,7 @@
 import { formatDateTime as fmtDateTime } from '@/lib/format';
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import ErrorState from '@/components/ErrorState';
 import DateField from '@/components/DateField';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -327,8 +328,8 @@ export default function IntegrationsPage() {
       </div>
 
       {error && (
-        <div className="mb-6 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-300">
-          {error}
+        <div className="mb-6">
+          <ErrorState message={error} />
         </div>
       )}
 

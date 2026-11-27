@@ -338,12 +338,6 @@ export default function DashboardLayout({ children, allowedRoles, requiredPermis
 
         <main onClickCapture={onPreviewClick} onSubmitCapture={onPreviewSubmit} className="min-w-0 px-3 py-4 pb-24 sm:px-6 sm:py-7 sm:pb-16 lg:px-8 lg:py-8">
           <div className="mx-auto w-full max-w-7xl">
-            {planPreview && (
-              <div role="status" className="mb-6 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground">
-                You can explore this page. An active plan is needed to load its data and use its features.{' '}
-                <Link href="/settings/plan" className="font-semibold text-primary underline underline-offset-2">View plans</Link>
-              </div>
-            )}
             {moduleLocked && requiredModule ? (
               <ModuleLockedState module={requiredModule} />
             ) : (
