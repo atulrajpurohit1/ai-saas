@@ -1,12 +1,15 @@
 import platformApi from '@/lib/platform-api';
 import type { PackageKey } from '@/lib/billing';
 
+export const NO_PLAN_SALE_KEY = 'NO_PLAN' as const;
+export type SaleTarget = PackageKey | typeof NO_PLAN_SALE_KEY;
+
 export interface SaleCampaign {
   id: string;
   name: string;
   percentOff: number;
   bonusCredits: number;
-  packageKeys: PackageKey[];
+  packageKeys: SaleTarget[];
   startsAt: string;
   endsAt: string;
   enabled: boolean;

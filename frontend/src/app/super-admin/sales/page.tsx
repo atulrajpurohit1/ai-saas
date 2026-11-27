@@ -20,6 +20,7 @@ import {
   listSales,
   setSaleEnabled,
   updateSale,
+  NO_PLAN_SALE_KEY,
   type SaleCampaign,
   type SaleInput,
 } from '@/lib/sales';
@@ -37,7 +38,7 @@ function localInputDate(date: Date): string {
     .slice(0, 16);
 }
 
-function blankForm() {
+function blankForm(): SaleInput {
   const now = new Date();
   return {
     name: '',
@@ -107,8 +108,20 @@ export default function SalesPage() {
     event.preventDefault();
     setError('');
     setNotice('');
+    const signupSale = form.packageKeys.includes(NO_PLAN_SALE_KEY);
     if (form.packageKeys.length === 0) {
-      setError('Choose at least one plan.');
+      setError('Choose at least one eligible plan.');
+      return;
+    }
+    if (
+      signupSale &&
+      (form.packageKeys.length !== 1 ||
+        form.percentOff !== 0 ||
+        form.bonusCredits <= 0)
+    ) {
+      setError(
+        'A no-plan signup sale needs bonus credits and cannot include a discount or paid plans.',
+      );
       return;
     }
     if (form.percentOff === 0 && form.bonusCredits === 0) {
@@ -212,10 +225,10 @@ export default function SalesPage() {
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <h1 className="text-2xl font-bold">Festival sales</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Schedule a first-invoice discount, bonus credits, or both for new plan
-          subscriptions. Regular monthly pricing applies afterward. Existing
-          subscriptions and credit packs are unaffected. If offers overlap on
-          one plan, the highest discount wins; bonus credits break a tie.
+          Offer credits to new accounts without a plan, or schedule a
+          first-invoice discount and bonus credits for new paid subscriptions.
+          Signup credits are granted once when the owner verifies their email.
+          If signup offers overlap, the highest credit bonus applies.
         </p>
         {error && (
           <div
@@ -255,27 +268,84 @@ export default function SalesPage() {
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
             </label>
+            <fieldset className="mt-4">
+              <legend className="text-sm font-medium">
+                Who gets this sale?
+              </legend>
+              <div className="mt-2 grid gap-2">
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                  <input
+                    type="radio"
+                    name="sale-audience"
+                    className="mt-0.5 accent-[var(--primary)]"
+                    checked={form.packageKeys.includes(NO_PLAN_SALE_KEY)}
+                    onChange={() =>
+                      setForm({
+                        ...form,
+                        packageKeys: [NO_PLAN_SALE_KEY],
+                        percentOff: 0,
+                      })
+                    }
+                  />
+                  <span>
+                    <span className="block font-medium">
+                      New accounts without a plan
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      Grant credits after email verification. No purchase
+                      needed.
+                    </span>
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                  <input
+                    type="radio"
+                    name="sale-audience"
+                    className="mt-0.5 accent-[var(--primary)]"
+                    checked={!form.packageKeys.includes(NO_PLAN_SALE_KEY)}
+                    onChange={() =>
+                      setForm({
+                        ...form,
+                        packageKeys: PACKAGES.map((pkg) => pkg.key),
+                      })
+                    }
+                  />
+                  <span>
+                    <span className="block font-medium">
+                      First paid plan purchase
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      Apply the offer after the first invoice is paid.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </fieldset>
+            {!form.packageKeys.includes(NO_PLAN_SALE_KEY) && (
+              <label className="mt-4 block text-sm font-medium">
+                Discount on first invoice (%)
+                <input
+                  required
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  className={fieldClass}
+                  value={form.percentOff}
+                  onChange={(e) =>
+                    setForm({ ...form, percentOff: Number(e.target.value) })
+                  }
+                />
+              </label>
+            )}
             <label className="mt-4 block text-sm font-medium">
-              Discount on first invoice (%)
+              {form.packageKeys.includes(NO_PLAN_SALE_KEY)
+                ? 'Signup bonus credits'
+                : 'Bonus credits for new subscribers'}
               <input
                 required
                 type="number"
-                min={0}
-                max={100}
-                step={1}
-                className={fieldClass}
-                value={form.percentOff}
-                onChange={(e) =>
-                  setForm({ ...form, percentOff: Number(e.target.value) })
-                }
-              />
-            </label>
-            <label className="mt-4 block text-sm font-medium">
-              Bonus credits for new subscribers
-              <input
-                required
-                type="number"
-                min={0}
+                min={form.packageKeys.includes(NO_PLAN_SALE_KEY) ? 1 : 0}
                 max={1000000}
                 step={1}
                 className={fieldClass}
@@ -285,36 +355,41 @@ export default function SalesPage() {
                 }
               />
               <span className="mt-1 block text-xs text-muted-foreground">
-                Granted once to first-time paid subscribers after their first
-                invoice is paid. Set the discount to 0 for a credits-only offer.
+                {form.packageKeys.includes(NO_PLAN_SALE_KEY)
+                  ? 'Granted once to a new account without a plan when its owner verifies their email during the sale. Existing verified accounts are not credited.'
+                  : 'Granted once to first-time paid subscribers after their first invoice is paid. Set the discount to 0 for a credits-only offer.'}
               </span>
             </label>
-            <fieldset className="mt-4">
-              <legend className="text-sm font-medium">Eligible plans</legend>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {PACKAGES.map((pkg) => (
-                  <label
-                    key={pkg.key}
-                    className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      className="accent-[var(--primary)]"
-                      checked={form.packageKeys.includes(pkg.key)}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          packageKeys: e.target.checked
-                            ? [...form.packageKeys, pkg.key]
-                            : form.packageKeys.filter((key) => key !== pkg.key),
-                        })
-                      }
-                    />
-                    {pkg.label}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
+            {!form.packageKeys.includes(NO_PLAN_SALE_KEY) && (
+              <fieldset className="mt-4">
+                <legend className="text-sm font-medium">Eligible plans</legend>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {PACKAGES.map((pkg) => (
+                    <label
+                      key={pkg.key}
+                      className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        className="accent-[var(--primary)]"
+                        checked={form.packageKeys.includes(pkg.key)}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            packageKeys: e.target.checked
+                              ? [...form.packageKeys, pkg.key]
+                              : form.packageKeys.filter(
+                                  (key) => key !== pkg.key,
+                                ),
+                          })
+                        }
+                      />
+                      {pkg.label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            )}
             <label className="mt-4 block text-sm font-medium">
               Starts at
               <input
@@ -408,7 +483,9 @@ export default function SalesPage() {
                             <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
                               {sale.percentOff > 0
                                 ? `${sale.percentOff}% off`
-                                : 'No discount'}
+                                : sale.packageKeys.includes(NO_PLAN_SALE_KEY)
+                                  ? 'No plan required'
+                                  : 'No discount'}
                             </span>
                             {sale.bonusCredits > 0 && (
                               <span className="ml-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-700">
@@ -418,9 +495,10 @@ export default function SalesPage() {
                           </div>
                           <div className="mt-1 text-xs text-muted-foreground">
                             {sale.packageKeys
-                              .map(
-                                (key) =>
-                                  PACKAGES.find((p) => p.key === key)?.label,
+                              .map((key) =>
+                                key === NO_PLAN_SALE_KEY
+                                  ? 'New verified signups'
+                                  : PACKAGES.find((p) => p.key === key)?.label,
                               )
                               .join(', ')}
                           </div>

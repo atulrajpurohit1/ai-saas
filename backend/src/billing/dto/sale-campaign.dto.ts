@@ -13,6 +13,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { PACKAGE_KEYS, PackageKey } from '../pricing.constants';
+import { NO_PLAN_SALE_KEY } from '../sale-campaign.constants';
 
 export class SaleCampaignDto {
   @IsString()
@@ -33,8 +34,8 @@ export class SaleCampaignDto {
   @IsArray()
   @ArrayNotEmpty()
   @ArrayUnique()
-  @IsIn(PACKAGE_KEYS, { each: true })
-  packageKeys: PackageKey[];
+  @IsIn([...PACKAGE_KEYS, NO_PLAN_SALE_KEY], { each: true })
+  packageKeys: (PackageKey | typeof NO_PLAN_SALE_KEY)[];
 
   @IsDateString()
   startsAt: string;

@@ -88,6 +88,42 @@ describe('SaleCampaignService', () => {
     });
   });
 
+  it('creates a no-plan signup sale without a Stripe coupon', async () => {
+    await service.create({
+      ...input(),
+      packageKeys: ['NO_PLAN'],
+      percentOff: 0,
+      bonusCredits: 50,
+    });
+    expect(stripe.createSaleCoupon).not.toHaveBeenCalled();
+    expect(prisma.saleCampaign.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        packageKeys: ['NO_PLAN'],
+        bonusCredits: 50,
+        stripeCouponId: null,
+      }),
+    });
+  });
+
+  it('rejects discounts and paid-plan targets in a no-plan signup sale', async () => {
+    await expect(
+      service.create({
+        ...input(),
+        packageKeys: ['NO_PLAN'],
+        bonusCredits: 50,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.create({
+        ...input(),
+        packageKeys: ['NO_PLAN', 'GUARD'],
+        percentOff: 0,
+        bonusCredits: 50,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(stripe.createSaleCoupon).not.toHaveBeenCalled();
+  });
+
   it('rejects a sale with no benefit', async () => {
     await expect(
       service.create({ ...input(), percentOff: 0, bonusCredits: 0 }),

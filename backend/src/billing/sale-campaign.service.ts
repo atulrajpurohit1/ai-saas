@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { StripeService } from './stripe.service';
 import { SaleCampaignDto } from './dto/sale-campaign.dto';
+import { NO_PLAN_SALE_KEY } from './sale-campaign.constants';
 
 @Injectable()
 export class SaleCampaignService {
@@ -126,6 +127,17 @@ export class SaleCampaignService {
   }
 
   private validateBenefits(dto: SaleCampaignDto) {
+    if (dto.packageKeys.includes(NO_PLAN_SALE_KEY)) {
+      if (
+        dto.packageKeys.length !== 1 ||
+        dto.percentOff !== 0 ||
+        dto.bonusCredits <= 0
+      ) {
+        throw new BadRequestException(
+          'A no-plan signup sale must grant credits only and cannot target paid plans.',
+        );
+      }
+    }
     if (dto.percentOff === 0 && dto.bonusCredits === 0) {
       throw new BadRequestException(
         'Add a discount or bonus credits to the sale.',

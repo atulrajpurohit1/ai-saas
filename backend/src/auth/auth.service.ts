@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { fireAndForget } from '../common/fire-and-forget.util';
-import { Prisma } from '@prisma/client';
+import { CreditEntryType, Prisma } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -33,6 +33,8 @@ import { VerifyOtpDto } from '../email-verification/dto/verify-otp.dto';
 import { ResendOtpDto } from '../email-verification/dto/resend-otp.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { EmailService } from '../email/email.service';
+import { CreditsService } from '../billing/credits.service';
+import { NO_PLAN_SALE_KEY } from '../billing/sale-campaign.constants';
 import {
   codeTargetEmail,
   securityNotifyTargets,
@@ -53,6 +55,7 @@ export class AuthService {
     private sessionsService: SessionsService,
     private emailVerification: EmailVerificationService,
     private emailService: EmailService,
+    private creditsService: CreditsService,
   ) {}
 
   private mapUserRole(role: string): AdminPortalRole {
@@ -126,10 +129,9 @@ export class AuthService {
           },
         });
 
-        // No credits here, deliberately. Signing up grants nothing: credits
-        // come with the Trial plan (SubscriptionProvisioningService.provision)
-        // or are bought as a pack, so an account that never becomes a customer
-        // never receives any.
+        // Registration alone grants nothing. A live no-plan sale may grant
+        // credits after the owner verifies their email; otherwise credits
+        // come with a plan or a purchased pack.
         //
         // No TenantCreditBalance row is created either. CreditsService.grant
         // upserts it, getBalance reads a missing row as 0, and reserve()
@@ -266,6 +268,37 @@ export class AuthService {
       accountId: user.id,
       code: dto.code,
     });
+
+    // Signup promotions are earned at email verification, not on a paid
+    // invoice. A fixed ledger key allows a safe retry if verification fails
+    // after the grant, and limits every tenant to one signup promotion.
+    const now = new Date();
+    const sale = await this.prisma.saleCampaign.findFirst({
+      where: {
+        enabled: true,
+        startsAt: { lte: now },
+        endsAt: { gt: now },
+        packageKeys: { has: NO_PLAN_SALE_KEY },
+      },
+      orderBy: [{ bonusCredits: 'desc' }, { createdAt: 'asc' }],
+      select: { name: true, bonusCredits: true },
+    });
+    if (sale) {
+      const activeModule = await this.prisma.tenantModule.findFirst({
+        where: { tenantId: user.tenantId, isActive: true },
+        select: { id: true },
+      });
+      if (!activeModule) {
+        await this.creditsService.grant({
+          tenantId: user.tenantId,
+          amount: sale.bonusCredits,
+          description: `Signup sale: ${sale.name}`,
+          idempotencyKey: 'signup-sale',
+          userId: user.id,
+          type: CreditEntryType.ADJUSTMENT,
+        });
+      }
+    }
 
     await this.prisma.user.update({
       where: { id: user.id },

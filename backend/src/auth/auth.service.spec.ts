@@ -12,6 +12,8 @@ import {
 } from '../email-verification/email-verification.service';
 import { EmailService } from '../email/email.service';
 import { AuthService } from './auth.service';
+import { CreditsService } from '../billing/credits.service';
+import { CreditEntryType } from '@prisma/client';
 
 // bcrypt's native exports are non-configurable, so jest.spyOn can't wrap them;
 // auto-mock the module and set compare/hash per test instead.
@@ -38,7 +40,10 @@ describe('AuthService.verifyEmail', () => {
   let service: AuthService;
   let prisma: {
     user: { findUnique: jest.Mock; update: jest.Mock };
+    saleCampaign: { findFirst: jest.Mock };
+    tenantModule: { findFirst: jest.Mock };
   };
+  let creditsService: { grant: jest.Mock };
   let emailVerification: { verifyOtp: jest.Mock };
   let sessionsService: {
     generateSessionId: jest.Mock;
@@ -51,6 +56,11 @@ describe('AuthService.verifyEmail', () => {
         findUnique: jest.fn(),
         update: jest.fn().mockResolvedValue({}),
       },
+      saleCampaign: { findFirst: jest.fn().mockResolvedValue(null) },
+      tenantModule: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+    creditsService = {
+      grant: jest.fn().mockResolvedValue({ balance: 50, granted: true }),
     };
     emailVerification = { verifyOtp: jest.fn().mockResolvedValue(true) };
     sessionsService = {
@@ -77,6 +87,7 @@ describe('AuthService.verifyEmail', () => {
       sessionsService as unknown as SessionsService,
       emailVerification as unknown as EmailVerificationService,
       emailServiceStub(),
+      creditsService as unknown as CreditsService,
     );
   });
 
@@ -155,6 +166,84 @@ describe('AuthService.verifyEmail', () => {
     });
     expect(sessionsService.createSession).toHaveBeenCalled();
   });
+
+  it('grants a live no-plan signup sale before completing verification', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'pending@example.com',
+      name: 'Owner',
+      tenantId: 'tenant-1',
+      tenant: { name: 'New Co' },
+      emailVerified: false,
+    });
+    prisma.saleCampaign.findFirst.mockResolvedValue({
+      name: 'Black Friday',
+      bonusCredits: 50,
+    });
+
+    await service.verifyEmail({ email: 'pending@example.com', code: '123456' });
+
+    expect(prisma.saleCampaign.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ packageKeys: { has: 'NO_PLAN' } }),
+        orderBy: [{ bonusCredits: 'desc' }, { createdAt: 'asc' }],
+      }),
+    );
+    expect(creditsService.grant).toHaveBeenCalledWith({
+      tenantId: 'tenant-1',
+      amount: 50,
+      description: 'Signup sale: Black Friday',
+      idempotencyKey: 'signup-sale',
+      userId: 'user-1',
+      type: CreditEntryType.ADJUSTMENT,
+    });
+    expect(creditsService.grant.mock.invocationCallOrder[0]).toBeLessThan(
+      prisma.user.update.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('does not grant a signup sale to a tenant that already has a plan', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'pending@example.com',
+      name: 'Owner',
+      tenantId: 'tenant-1',
+      tenant: { name: 'New Co' },
+      emailVerified: false,
+    });
+    prisma.saleCampaign.findFirst.mockResolvedValue({
+      name: 'Black Friday',
+      bonusCredits: 50,
+    });
+    prisma.tenantModule.findFirst.mockResolvedValue({ id: 'module-1' });
+
+    await service.verifyEmail({ email: 'pending@example.com', code: '123456' });
+    expect(creditsService.grant).not.toHaveBeenCalled();
+  });
+
+  it('leaves signup pending if the promotional credit grant fails', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'pending@example.com',
+      name: 'Owner',
+      tenantId: 'tenant-1',
+      tenant: { name: 'New Co' },
+      emailVerified: false,
+    });
+    prisma.saleCampaign.findFirst.mockResolvedValue({
+      name: 'Black Friday',
+      bonusCredits: 50,
+    });
+    creditsService.grant.mockRejectedValue(
+      new Error('credit ledger unavailable'),
+    );
+
+    await expect(
+      service.verifyEmail({ email: 'pending@example.com', code: '123456' }),
+    ).rejects.toThrow('credit ledger unavailable');
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(sessionsService.createSession).not.toHaveBeenCalled();
+  });
 });
 
 describe('AuthService.register credits', () => {
@@ -214,16 +303,17 @@ describe('AuthService.register credits', () => {
       {} as SessionsService,
       emailVerification as unknown as EmailVerificationService,
       emailServiceStub(),
+      {} as CreditsService,
     );
   });
 
   /**
-   * Signing up grants no credits.
+   * Registration alone grants no credits.
    *
    * It used to grant 50, which meant every registration -- including the ones
-   * that never became customers, and anyone who signed up repeatedly -- was
-   * handed free prospect-search budget. Credits now ride with the Trial plan
-   * (SubscriptionProvisioningService) or are bought as a pack.
+   * that never verified their email, and anyone who signed up repeatedly --
+   * was handed free prospect-search budget. A no-plan sale now grants at
+   * verification; plans and purchased packs are the other sources.
    */
   it('grants no credits and writes no balance row', async () => {
     await service.register(dto);
@@ -307,6 +397,7 @@ describe('AuthService two-step verification at login', () => {
       sessionsService as unknown as SessionsService,
       emailVerification as unknown as EmailVerificationService,
       emailServiceStub(),
+      {} as CreditsService,
     );
     (bcrypt.compare as jest.Mock).mockResolvedValue(true);
   });
@@ -407,6 +498,7 @@ describe('AuthService.changePassword', () => {
       {} as SessionsService,
       emailVerification as unknown as EmailVerificationService,
       emailService,
+      {} as CreditsService,
     );
     // current password matches, new password differs from the old hash.
     (bcrypt.compare as jest.Mock).mockImplementation((plain: string) =>
