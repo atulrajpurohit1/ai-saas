@@ -43,15 +43,6 @@ interface Guard {
   };
 }
 
-interface ApiError {
-  response?: {
-    status?: number;
-    data?: {
-      message?: string;
-    };
-  };
-}
-
 const fieldInputClass =
   'min-h-24 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60';
 
@@ -88,16 +79,7 @@ export default function GuardsPage() {
       setGuards(res.data);
     } catch (err: unknown) {
       console.error('Fetch Guards Error:', err);
-      const status = (err as ApiError).response?.status;
-      if (status === 401) {
-        setError('Session expired. Please log in again.');
-      } else if (status === 403) {
-        setError('You do not have permission to view guards.');
-      } else if (status === 500) {
-        setError('Server error: the database may be temporarily unavailable. Please try again later.');
-      } else {
-        setError('Failed to load guards. Please check your connection and try again.');
-      }
+      setError(getApiErrorMessage(err, 'Could not load guards.'));
     } finally {
       setLoading(false);
     }

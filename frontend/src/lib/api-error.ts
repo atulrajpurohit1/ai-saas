@@ -13,6 +13,9 @@ const TECHNICAL_MESSAGE_PATTERNS: RegExp[] = [
   /^Cannot (GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\b/i,
   // The generic 500 body Nest emits when nothing friendlier was thrown.
   /^Internal server error$/i,
+  // Default Nest guard messages do not explain the actual permission issue.
+  /^Forbidden( resource)?$/i,
+  /^Unauthorized$/i,
   // Node network/DNS error codes that occasionally leak into a message.
   /\b(ECONNREFUSED|ENOTFOUND|ETIMEDOUT|ECONNRESET|EAI_AGAIN|ERR_[A-Z_]+)\b/,
   // A stack frame that leaked into the message text.

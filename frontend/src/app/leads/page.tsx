@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import api from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/api-error';
 import { cn } from '@/lib/utils';
 import { sanitizePhoneIntl, validateEmail } from '@/lib/validation';
 import { useNewIntent } from '@/hooks/useNewIntent';
@@ -132,7 +133,7 @@ export default function LeadsPage() {
       setLeads(res.data);
     } catch (err) {
       console.error(err);
-      setLoadError("Couldn't load leads. Check your connection and try again.");
+      setLoadError(getApiErrorMessage(err, "Couldn't load leads."));
     } finally {
       setLoading(false);
     }

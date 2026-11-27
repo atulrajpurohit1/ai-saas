@@ -8,6 +8,7 @@ import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import api from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/api-error';
 import { cn } from '@/lib/utils';
 import { formatEnumLabel, formatDateTime as fmtDateTime } from '@/lib/format';
 import { Clock, ScrollText } from 'lucide-react';
@@ -34,7 +35,7 @@ export default function AuditLogsPage() {
       setError('');
     } catch (err) {
       console.error(err);
-      setError('Could not load activity logs. Please refresh or log in again.');
+      setError(getApiErrorMessage(err, 'Could not load activity logs.'));
     } finally {
       setLoading(false);
     }

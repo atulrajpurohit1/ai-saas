@@ -104,7 +104,7 @@ export default function ProposalsPage() {
       return nextClients;
     } catch (err) {
       console.error('Failed to fetch clients', err);
-      toast.error('Could not load clients. Please refresh or log in again.');
+      toast.error(getApiErrorMessage(err, 'Could not load clients.'));
       setClients([]);
       return [];
     } finally {

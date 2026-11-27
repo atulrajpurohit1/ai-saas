@@ -5,6 +5,7 @@ import Link from 'next/link';
 import DashboardLayout from '@/components/DashboardLayout';
 import { useAuth } from '@/context/AuthContext';
 import { DashboardSummary, getDashboardSummary, getRecentActivity } from '@/lib/dashboard';
+import { getApiErrorMessage } from '@/lib/api-error';
 import { DEAL_STAGE_COLORS } from '@/lib/deals';
 import { formatEnumLabel, formatDate as fmtDate, formatDateTime } from '@/lib/format';
 import TrendAreaChart from '@/components/charts/TrendAreaChart';
@@ -157,13 +158,15 @@ export default function DashboardPage() {
         }
 
         if (summaryRes.status === 'rejected') {
-          setError('Dashboard analytics could not be loaded. Check that the backend API is running.');
+          setError(getApiErrorMessage(summaryRes.reason, 'Dashboard analytics could not be loaded.'));
+        } else if (activityRes.status === 'rejected') {
+          setError(getApiErrorMessage(activityRes.reason, 'Recent activity could not be loaded.'));
         } else {
           setError('');
         }
       } catch (err) {
         console.error('Failed to fetch dashboard', err);
-        setError('Dashboard stats could not be loaded. Check that the backend API is running.');
+        setError(getApiErrorMessage(err, 'Dashboard stats could not be loaded.'));
       } finally {
         setLoading(false);
       }
